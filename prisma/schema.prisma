@@ -1,0 +1,1683 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserStatus {
+  active
+  locked
+  disabled
+  soft_deleted
+
+  @@map("user_status")
+}
+
+enum RoleName {
+  student
+  tutor
+  admin
+
+  @@map("role_name")
+}
+
+enum SessionStatus {
+  active
+  revoked
+  expired
+
+  @@map("session_status")
+}
+
+enum LoginAttemptResult {
+  success
+  failed
+  locked
+  service_unavailable
+
+  @@map("login_attempt_result")
+}
+
+enum OnboardingStatus {
+  not_started
+  completed
+  skipped
+
+  @@map("onboarding_status")
+}
+
+enum UniversityType {
+  ptn
+  private
+  other
+
+  @@map("university_type")
+}
+
+enum ContentStatus {
+  draft
+  scheduled
+  published
+  archived
+
+  @@map("content_status")
+}
+
+enum ModuleAssetType {
+  text
+  video
+  example
+  attachment
+
+  @@map("module_asset_type")
+}
+
+enum ProgressStatus {
+  locked
+  not_started
+  in_progress
+  completed
+
+  @@map("progress_status")
+}
+
+enum QuestionType {
+  single_choice
+  multiple_choice
+  free_text
+
+  @@map("question_type")
+}
+
+enum DifficultyLevel {
+  easy
+  medium
+  hard
+  adaptive
+
+  @@map("difficulty_level")
+}
+
+enum TryoutPackageType {
+  tryout
+  diagnostic
+
+  @@map("tryout_package_type")
+}
+
+enum MissionTaskType {
+  daily_mission
+  smart_drill
+
+  @@map("mission_task_type")
+}
+
+enum AttemptStatus {
+  in_progress
+  submitted
+  auto_submitted
+  expired
+  abandoned
+  scored
+
+  @@map("attempt_status")
+}
+
+enum AnswerSource {
+  server
+  client
+  client_offline_buffer
+
+  @@map("answer_source")
+}
+
+enum SyncStatus {
+  pending
+  synced
+  failed
+  discarded
+
+  @@map("sync_status")
+}
+
+enum MissionStatus {
+  assigned
+  in_progress
+  verifying
+  completed
+  failed
+  expired
+
+  @@map("mission_status")
+}
+
+enum BadgeStatus {
+  earned
+  revoked
+
+  @@map("badge_status")
+}
+
+enum StreakFreezeStatus {
+  available
+  consumed
+  expired
+
+  @@map("streak_freeze_status")
+}
+
+enum AiConversationType {
+  vera_chat
+  weakness_analysis
+  ptn_strategy
+  smart_drill
+
+  @@map("ai_conversation_type")
+}
+
+enum AiMessageRole {
+  system
+  user
+  assistant
+  tool
+
+  @@map("ai_message_role")
+}
+
+enum AiRequestStatus {
+  pending
+  succeeded
+  failed
+  fallback
+
+  @@map("ai_request_status")
+}
+
+enum RecommendationStatus {
+  active
+  clicked
+  dismissed
+  completed
+  expired
+
+  @@map("recommendation_status")
+}
+
+enum AnnouncementPlacement {
+  landing_top
+  dashboard
+  sidebar
+  breaking
+
+  @@map("announcement_placement")
+}
+
+enum NotificationChannel {
+  in_app
+  email
+  push
+  sms
+
+  @@map("notification_channel")
+}
+
+enum NotificationStatus {
+  queued
+  delivered
+  failed
+  dropped
+  read
+
+  @@map("notification_status")
+}
+
+enum NotificationEventType {
+  daily_mission
+  tryout_graded
+  tutor_intervention
+  announcement
+  password_reset
+  purchase_receipt
+  inactivity
+  custom
+
+  @@map("notification_event_type")
+}
+
+enum AnalyticsEventType {
+  page_view
+  dashboard_view
+  recommendation_click
+  module_open
+  quiz_submit
+  tryout_submit
+  ai_interaction
+  notification_click
+  admin_action
+
+  @@map("analytics_event_type")
+}
+
+enum BillingStatus {
+  trial
+  active
+  expired
+  suspended
+  cancelled
+
+  @@map("billing_status")
+}
+
+enum RiskFlagStatus {
+  open
+  acknowledged
+  resolved
+  dismissed
+
+  @@map("risk_flag_status")
+}
+
+enum InterventionStatus {
+  drafted
+  queued
+  sent
+  read
+  failed
+
+  @@map("intervention_status")
+}
+
+// ─────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────
+
+/// Unified account table. Credential fields folded directly here to eliminate auth_identities table bloat.
+model User {
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String      @unique
+  fullName             String      @map("full_name") @db.VarChar(160)
+  passwordHash         String      @map("password_hash") @db.Text
+  passwordUpdatedAt    DateTime?   @map("password_updated_at") @db.Timestamptz
+  mustChangePassword   Boolean     @default(false) @map("must_change_password")
+  avatarUrl            String?     @map("avatar_url") @db.Text
+  phone                String?     @db.VarChar(40)
+  status               UserStatus  @default(active)
+  lastLoginAt          DateTime?   @map("last_login_at") @db.Timestamptz
+  failedLoginCount     Int         @default(0) @map("failed_login_count")
+  lockedUntil          DateTime?   @map("locked_until") @db.Timestamptz
+  softDeletedAt        DateTime?   @map("soft_deleted_at") @db.Timestamptz
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  authSessions              AuthSession[]
+  passwordResetTokens       PasswordResetToken[]
+  loginAttempts             LoginAttempt[]
+  roleAssignments           RoleAssignment[]           @relation("UserRoles")
+  assignedRolesBy           RoleAssignment[]           @relation("RolesAssignedBy")
+  studentProfile            StudentProfile?            @relation("StudentProfileAccount")
+  enrolledStudents          StudentProfile[]           @relation("EnrolledBy")
+  tutorProfile              TutorProfile?
+  createdModules            Module[]                   @relation("ModuleCreatedBy")
+  updatedModules            Module[]                   @relation("ModuleUpdatedBy")
+  moduleProgressions        ModuleProgress[]
+  createdQuestionBanks      QuestionBank[]             @relation("QuestionBankCreatedBy")
+  updatedQuestionBanks      QuestionBank[]             @relation("QuestionBankUpdatedBy")
+  createdQuestions          Question[]                 @relation("QuestionCreatedBy")
+  updatedQuestions          Question[]                 @relation("QuestionUpdatedBy")
+  quizAttempts              QuizAttempt[]
+  createdTryoutPackages     TryoutPackage[]            @relation("TryoutCreatedBy")
+  tryoutSessions            TryoutSession[]
+  offlineAnswerBuffers      OfflineAnswerBuffer[]
+  topicPerformances         StudentTopicPerformance[]
+  subtestPerformances       StudentSubtestPerformance[]
+  learningRecommendations   LearningRecommendation[]
+  analyticsEvents           AnalyticsEvent[]
+  missionAssignments        DailyMissionAssignment[]
+  streakFreezes             StreakFreeze[]
+  badges                    StudentBadge[]
+  aiConversations           AiConversation[]
+  aiRequests                AiRequest[]
+  aiUsageDaily              AiUsageDaily[]
+  weaknessAnalyses          WeaknessAnalysis[]
+  adaptivePracticeSessions  AdaptivePracticeSession[]
+  ptnStrategySessions       PtnStrategySession[]
+  uploadedAssets            Asset[]                    @relation("UploadedBy")
+  createdAnnouncements      Announcement[]             @relation("AnnouncementCreatedBy")
+  updatedAnnouncements      Announcement[]             @relation("AnnouncementUpdatedBy")
+  updatedLandingSections    LandingPageSection[]       @relation("LandingSectionUpdatedBy")
+  cohortMemberships         CohortStudent[]
+  assignedTutorCohorts      TutorCohortAssignment[]    @relation("TutorAssigned")
+  assignedCohortsBy         TutorCohortAssignment[]    @relation("CohortAssignedBy")
+  riskFlags                 RiskFlag[]
+  tutorInterventions        Intervention[]             @relation("TutorIntervention")
+  studentInterventions      Intervention[]             @relation("StudentIntervention")
+  notificationPreferences   NotificationPreference?
+  notificationsReceived     Notification[]
+  billingAccounts           BillingAccount[]           @relation("StudentBilling")
+  extendedBillingAccounts   BillingAccount[]           @relation("BillingExtendedBy")
+  updatedSystemConfigs      SystemConfig[]
+  auditLogs                 AuditLog[]
+
+  @@map("users")
+}
+
+model AuthSession {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  refreshTokenHash String        @map("refresh_token_hash") @db.Text
+  status           SessionStatus @default(active)
+  issuedAt         DateTime      @default(now()) @map("issued_at") @db.Timestamptz
+  expiresAt        DateTime      @map("expires_at") @db.Timestamptz
+  revokedAt        DateTime?     @map("revoked_at") @db.Timestamptz
+  lastSeenAt       DateTime?     @map("last_seen_at") @db.Timestamptz
+  ipAddress        String?       @map("ip_address") @db.Inet
+  userAgent        String?       @map("user_agent") @db.Text
+
+  user             User          @relation(fields: [userId], references: [id])
+
+  @@unique([refreshTokenHash])
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+/// Handles self-service resets and first-login credential overrides.
+model PasswordResetToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenHash   String    @unique @map("token_hash") @db.Text
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz
+  usedAt      DateTime? @map("used_at") @db.Timestamptz
+  ipAddress   String?   @map("ip_address") @db.Inet
+
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("password_reset_tokens")
+}
+
+model LoginAttempt {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String             @db.Text // Note: maps logically to citext compatibility
+  userId        String?            @map("user_id") @db.Uuid
+  result        LoginAttemptResult
+  failureReason String?            @map("failure_reason") @db.Text
+  attemptedAt   DateTime           @default(now()) @map("attempted_at") @db.Timestamptz
+  ipAddress     String?            @map("ip_address") @db.Inet
+  userAgent     String?            @map("user_agent") @db.Text
+
+  user          User?              @relation(fields: [userId], references: [id])
+
+  @@index([email])
+  @@index([userId])
+  @@index([attemptedAt])
+  @@map("login_attempts")
+}
+
+model RoleAssignment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  role             RoleName
+  assignedByUserId String?   @map("assigned_by_user_id") @db.Uuid
+  assignedAt       DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+
+  user             User      @relation("UserRoles", fields: [userId], references: [id])
+  assignedBy       User?     @relation("RolesAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([userId, role])
+  @@map("role_assignments")
+}
+
+// ─────────────────────────────────────────────
+// PROFILES
+// ─────────────────────────────────────────────
+
+model StudentProfile {
+  userId             String           @id @map("user_id") @db.Uuid
+  displayName        String?          @map("display_name") @db.VarChar(120)
+  onboardingStatus   OnboardingStatus @default(not_started) @map("onboarding_status")
+  targetExamEventId  String?          @map("target_exam_event_id") @db.Uuid
+  targetUniversityId String?          @map("target_university_id") @db.Uuid
+  targetMajorId      String?          @map("target_major_id") @db.Uuid
+  currentStreak      Int              @default(0) @map("current_streak")
+  longestStreak      Int              @default(0) @map("longest_streak")
+  lastStreakDate     DateTime?        @map("last_streak_date") @db.Date
+  dailyAiTokenLimit  Int              @default(10000) @map("daily_ai_token_limit")
+  timezone           String           @default("Asia/Jakarta") @db.VarChar(64)
+  enrolledByUserId   String?          @map("enrolled_by_user_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user               User             @relation("StudentProfileAccount", fields: [userId], references: [id])
+  targetExamEvent    ExamEvent?       @relation(fields: [targetExamEventId], references: [id])
+  targetUniversity   University?      @relation(fields: [targetUniversityId], references: [id])
+  targetMajor        Major?           @relation(fields: [targetMajorId], references: [id])
+  enrolledBy         User?            @relation("EnrolledBy", fields: [enrolledByUserId], references: [id])
+
+  @@map("student_profiles")
+}
+
+model TutorProfile {
+  userId    String   @id @map("user_id") @db.Uuid
+  headline  String?  @db.VarChar(160)
+  bio       String?  @db.Text
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("tutor_profiles")
+}
+
+// ─────────────────────────────────────────────
+// EXAM PROGRAMS & REFERENCES
+// ─────────────────────────────────────────────
+
+model ExamProgram {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String      @unique @db.VarChar(40)
+  name        String      @db.VarChar(160)
+  description String?     @db.Text
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  examEvents  ExamEvent[]
+
+  @@map("exam_programs")
+}
+
+model ExamEvent {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examProgramId String           @map("exam_program_id") @db.Uuid
+  name          String           @db.VarChar(160)
+  examDate      DateTime?        @map("exam_date") @db.Date
+  registrationUrl String?        @map("registration_url") @db.Text
+  isActive      Boolean          @default(true) @map("is_active")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  examProgram   ExamProgram      @relation(fields: [examProgramId], references: [id])
+  studentProfiles StudentProfile[]
+  admissionStats AdmissionStat[]
+  tryoutPackages TryoutPackage[]
+  cohorts        Cohort[]
+
+  @@index([examProgramId])
+  @@index([examDate])
+  @@map("exam_events")
+}
+
+model University {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String           @db.VarChar(200)
+  shortName       String?          @map("short_name") @db.VarChar(40)
+  type            UniversityType   @default(ptn)
+  city            String?          @db.VarChar(120)
+  province        String?          @db.VarChar(120)
+  officialUrl     String?          @map("official_url") @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  studentProfiles StudentProfile[]
+  majors          Major[]
+  ptnStrategySessions PtnStrategySession[]
+
+  @@index([name])
+  @@map("universities")
+}
+
+model Major {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  universityId String         @map("university_id") @db.Uuid
+  name         String         @db.VarChar(200)
+  faculty      String?        @db.VarChar(160)
+  degreeLevel  String?        @map("degree_level") @db.VarChar(40)
+  isActive     Boolean        @default(true) @map("is_active")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  university   University     @relation(fields: [universityId], references: [id])
+  studentProfiles StudentProfile[]
+  admissionStats AdmissionStat[]
+  ptnStrategySessions PtnStrategySession[]
+
+  @@unique([universityId, name])
+  @@map("majors")
+}
+
+model AdmissionStat {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  majorId     String    @map("major_id") @db.Uuid
+  examEventId String?   @map("exam_event_id") @db.Uuid
+  year        Int
+  passingGrade Decimal? @map("passing_grade") @db.Decimal(6, 2)
+  quota       Int?
+  applicants  Int?
+  accepted    Int?
+  sourceUrl   String?   @map("source_url") @db.Text
+  auditedAt   DateTime? @map("audited_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  major       Major     @relation(fields: [majorId], references: [id])
+  examEvent   ExamEvent? @relation(fields: [examEventId], references: [id])
+
+  @@unique([majorId, year])
+  @@index([examEventId])
+  @@map("admission_stats")
+}
+
+// ─────────────────────────────────────────────
+// TAXONOMY
+// ─────────────────────────────────────────────
+
+model Subtest {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String      @unique @db.VarChar(40)
+  name        String      @db.VarChar(160)
+  description String?     @db.Text
+  sortOrder   Int         @default(0) @map("sort_order")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  topics      Topic[]
+  questionBanks QuestionBank[]
+  tryoutSections TryoutSection[]
+  tryoutScoreBreakdowns TryoutScoreBreakdown[]
+  subtestPerformances StudentSubtestPerformance[]
+
+  @@map("subtests")
+}
+
+model Topic {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subtestId     String    @map("subtest_id") @db.Uuid
+  parentTopicId String?   @map("parent_topic_id") @db.Uuid
+  code          String    @db.VarChar(80)
+  name          String    @db.VarChar(200)
+  description   String?   @db.Text
+  sortOrder     Int       @default(0) @map("sort_order")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  subtest       Subtest   @relation(fields: [subtestId], references: [id])
+  parentTopic   Topic?    @relation("TopicHierarchy", fields: [parentTopicId], references: [id])
+  childTopics   Topic[]   @relation("TopicHierarchy")
+  modules       Module[]
+  questionBanks QuestionBank[]
+  questions     Question[]
+  tryoutScoreBreakdowns TryoutScoreBreakdown[]
+  topicPerformances StudentTopicPerformance[]
+  learningRecommendations LearningRecommendation[]
+  missionTemplates MissionTemplate[]
+  weaknessAnalysisTopics WeaknessAnalysisTopic[]
+  adaptivePracticeSessions AdaptivePracticeSession[]
+
+  @@unique([subtestId, code])
+  @@index([parentTopicId])
+  @@map("topics")
+}
+
+// ─────────────────────────────────────────────
+// LEARNING MODULES
+// ─────────────────────────────────────────────
+
+model Module {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  topicId          String        @map("topic_id") @db.Uuid
+  code             String        @unique @db.VarChar(80)
+  title            String        @db.VarChar(220)
+  summary          String?       @db.Text
+  sequenceNo       Int           @map("sequence_no")
+  estimatedMinutes Int?          @map("estimated_minutes")
+  status           ContentStatus @default(draft)
+  publishedAt      DateTime?     @map("published_at") @db.Timestamptz
+  createdByUserId  String?       @map("created_by_user_id") @db.Uuid
+  updatedByUserId  String?       @map("updated_by_user_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  topic            Topic         @relation(fields: [topicId], references: [id])
+  createdBy        User?         @relation("ModuleCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy        User?         @relation("ModuleUpdatedBy", fields: [updatedByUserId], references: [id])
+  assets           ModuleAsset[]
+  
+  // Explicit self many-to-many configurations
+  prerequisites    ModulePrerequisite[] @relation("DependentModules")
+  requiredBy       ModulePrerequisite[] @relation("PrerequisiteModules")
+  
+  progressions     ModuleProgress[]
+  quiz             ModuleQuiz?
+  learningRecommendations LearningRecommendation[]
+  weaknessAnalysisTopics WeaknessAnalysisTopic[]
+  interventions    Intervention[]
+
+  @@unique([topicId, sequenceNo])
+  @@index([status])
+  @@map("modules")
+}
+
+model ModuleAsset {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId        String          @map("module_id") @db.Uuid
+  assetType       ModuleAssetType @map("asset_type")
+  title           String?         @db.VarChar(220)
+  bodyText        String?         @map("body_text") @db.Text
+  mediaUrl        String?         @map("media_url") @db.Text
+  durationSeconds Int?            @map("duration_seconds")
+  sortOrder       Int             @default(0) @map("sort_order")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  module          Module          @relation(fields: [moduleId], references: [id])
+
+  @@map("module_assets")
+}
+
+model ModulePrerequisite {
+  moduleId               String @map("module_id") @db.Uuid
+  prerequisiteModuleId   String @map("prerequisite_module_id") @db.Uuid
+
+  module                 Module @relation("DependentModules", fields: [moduleId], references: [id])
+  prerequisiteModule     Module @relation("PrerequisiteModules", fields: [prerequisiteModuleId], references: [id])
+
+  @@id([moduleId, prerequisiteModuleId])
+  @@map("module_prerequisites")
+}
+
+model ModuleProgress {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String         @map("student_id") @db.Uuid
+  moduleId            String         @map("module_id") @db.Uuid
+  status              ProgressStatus @default(locked)
+  percentComplete     Decimal        @default(0) @map("percent_complete") @db.Decimal(5, 2)
+  videoPositionSeconds Int           @default(0) @map("video_position_seconds")
+  scrollPosition      Int            @default(0) @map("scroll_position")
+  unlockedAt          DateTime?      @map("unlocked_at") @db.Timestamptz
+  completedAt         DateTime?      @map("completed_at") @db.Timestamptz
+  lastOpenedAt        DateTime?      @map("last_opened_at") @db.Timestamptz
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student             User           @relation(fields: [studentId], references: [id])
+  module              Module         @relation(fields: [moduleId], references: [id])
+
+  @@unique([studentId, moduleId])
+  @@index([status])
+  @@map("module_progress")
+}
+
+// ─────────────────────────────────────────────
+// QUESTION BANKS
+// ─────────────────────────────────────────────
+
+model QuestionBank {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String        @db.VarChar(200)
+  description     String?       @db.Text
+  subtestId       String?       @map("subtest_id") @db.Uuid
+  topicId         String?       @map("topic_id") @db.Uuid
+  status          ContentStatus @default(draft)
+  createdByUserId String?       @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?       @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  subtest         Subtest?      @relation(fields: [subtestId], references: [id])
+  topic           Topic?        @relation(fields: [topicId], references: [id])
+  createdBy       User?         @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy       User?         @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id])
+  questions       Question[]
+  adaptivePracticeSessions AdaptivePracticeSession[]
+
+  @@map("question_banks")
+}
+
+model Question {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionBankId  String?         @map("question_bank_id") @db.Uuid
+  topicId         String          @map("topic_id") @db.Uuid
+  stem            String          @db.Text
+  questionType    QuestionType    @default(single_choice) @map("question_type")
+  difficulty      DifficultyLevel @default(medium)
+  explanation     String?         @db.Text
+  status          ContentStatus   @default(draft)
+  source          String?         @db.VarChar(120)
+  createdByUserId String?         @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?         @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  questionBank    QuestionBank?   @relation(fields: [questionBankId], references: [id])
+  topic           Topic           @relation(fields: [topicId], references: [id])
+  createdBy       User?           @relation("QuestionCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy       User?           @relation("QuestionUpdatedBy", fields: [updatedByUserId], references: [id])
+  options         QuestionOption[]
+  quizItems       QuizItem[]
+  tryoutItems     TryoutItem[]
+  quizAnswers     QuizAttemptAnswer[]
+  tryoutAnswers   TryoutAnswer[]
+  dailyMissionQuestion DailyMissionQuestion[]
+  adaptivePracticeAnswers AdaptivePracticeAnswer[]
+
+  @@index([topicId])
+  @@index([questionBankId])
+  @@index([status])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  label      String   @db.VarChar(8)
+  content    String   @db.Text
+  isCorrect  Boolean  @default(false) @map("is_correct")
+  sortOrder  Int      @default(0) @map("sort_order")
+
+  question   Question @relation(fields: [questionId], references: [id])
+  quizAnswers QuizAttemptAnswer[]
+  tryoutAnswers TryoutAnswer[]
+
+  @@unique([questionId, label])
+  @@map("question_options")
+}
+
+// ─────────────────────────────────────────────
+// MODULE QUIZZES
+// ─────────────────────────────────────────────
+
+model ModuleQuiz {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId     String        @unique @map("module_id") @db.Uuid
+  title        String        @db.VarChar(220)
+  passingScore Decimal?      @map("passing_score") @db.Decimal(5, 2)
+  status       ContentStatus @default(draft)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  module       Module        @relation(fields: [moduleId], references: [id])
+  items        QuizItem[]
+  attempts     QuizAttempt[]
+
+  @@map("module_quizzes")
+}
+
+model QuizItem {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId     String     @map("quiz_id") @db.Uuid
+  questionId String     @map("question_id") @db.Uuid
+  sortOrder  Int        @map("sort_order")
+  points     Decimal    @default(1) @db.Decimal(6, 2)
+
+  quiz       ModuleQuiz @relation(fields: [quizId], references: [id])
+  question   Question  @relation(fields: [questionId], references: [id])
+
+  @@unique([quizId, questionId])
+  @@unique([quizId, sortOrder])
+  @@map("quiz_items")
+}
+
+model QuizAttempt {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId       String        @map("quiz_id") @db.Uuid
+  studentId    String        @map("student_id") @db.Uuid
+  status       AttemptStatus @default(in_progress)
+  started_at   DateTime      @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt  DateTime?     @map("submitted_at") @db.Timestamptz
+  score        Decimal?      @db.Decimal(6, 2)
+  maxScore     Decimal?      @map("max_score") @db.Decimal(6, 2)
+  masteryDelta Decimal?      @map("mastery_delta") @db.Decimal(6, 2)
+  draftPayload Json?         @map("draft_payload") @db.JsonB
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  quiz         ModuleQuiz    @relation(fields: [quizId], references: [id])
+  student      User          @relation(fields: [studentId], references: [id])
+  answers      QuizAttemptAnswer[]
+
+  @@index([quizId])
+  @@index([studentId])
+  @@index([status])
+  @@map("quiz_attempts")
+}
+
+model QuizAttemptAnswer {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String          @map("attempt_id") @db.Uuid
+  questionId       String          @map("question_id") @db.Uuid
+  selectedOptionId String?         @map("selected_option_id") @db.Uuid
+  answerText       String?         @map("answer_text") @db.Text
+  isCorrect        Boolean?        @map("is_correct")
+  pointsAwarded    Decimal?        @map("points_awarded") @db.Decimal(6, 2)
+  answeredAt       DateTime        @default(now()) @map("answered_at") @db.Timestamptz
+
+  attempt          QuizAttempt     @relation(fields: [attemptId], references: [id])
+  question         Question       @relation(fields: [questionId], references: [id])
+  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([attemptId, questionId])
+  @@map("quiz_attempt_answers")
+}
+
+// ─────────────────────────────────────────────
+// TRYOUTS
+// ─────────────────────────────────────────────
+
+model TryoutPackage {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examEventId    String?           @map("exam_event_id") @db.Uuid
+  code           String            @unique @db.VarChar(80)
+  title          String            @db.VarChar(220)
+  description    String?           @db.Text
+  assessmentType TryoutPackageType @default(tryout) @map("assessment_type")
+  status         ContentStatus     @default(draft)
+  publishedAt    DateTime?         @map("published_at") @db.Timestamptz
+  createdByUserId String?          @map("created_by_user_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  examEvent      ExamEvent?        @relation(fields: [examEventId], references: [id])
+  createdBy      User?             @relation("TryoutCreatedBy", fields: [createdByUserId], references: [id])
+  sections       TryoutSection[]
+  sessions       TryoutSession[]
+
+  @@map("tryout_packages")
+}
+
+model TryoutSection {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId        String        @map("tryout_id") @db.Uuid
+  subtestId       String        @map("subtest_id") @db.Uuid
+  title           String        @db.VarChar(180)
+  sequenceNo      Int           @map("sequence_no")
+  durationSeconds Int           @map("duration_seconds")
+  questionCount   Int           @map("question_count")
+
+  tryout          TryoutPackage @relation(fields: [tryoutId], references: [id])
+  subtest         Subtest       @relation(fields: [subtestId], references: [id])
+  items           TryoutItem[]
+
+  @@unique([tryoutId, sequenceNo])
+  @@map("tryout_sections")
+}
+
+model TryoutItem {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutSectionId String        @map("tryout_section_id") @db.Uuid
+  questionId      String        @map("question_id") @db.Uuid
+  sortOrder       Int           @map("sort_order")
+  points          Decimal       @default(1) @db.Decimal(6, 2)
+
+  tryoutSection   TryoutSection @relation(fields: [tryoutSectionId], references: [id])
+  question        Question     @relation(fields: [questionId], references: [id])
+
+  @@unique([tryoutSectionId, questionId])
+  @@unique([tryoutSectionId, sortOrder])
+  @@map("tryout_items")
+}
+
+model TryoutSession {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId               String          @map("tryout_id") @db.Uuid
+  studentId              String          @map("student_id") @db.Uuid
+  status                 AttemptStatus   @default(in_progress)
+  serverStartedAt        DateTime        @map("server_started_at") @db.Timestamptz
+  serverDeadlineAt       DateTime        @map("server_deadline_at") @db.Timestamptz
+  submittedAt            DateTime?       @map("submitted_at") @db.Timestamptz
+  autoSubmittedAt        DateTime?       @map("auto_submitted_at") @db.Timestamptz
+  score                  Decimal?        @db.Decimal(7, 2)
+  percentileNational     Decimal?        @map("percentile_national") @db.Decimal(5, 2)
+  percentileCohort       Decimal?        @map("percentile_cohort") @db.Decimal(5, 2)
+  disconnectStartedAt    DateTime?       @map("disconnect_started_at") @db.Timestamptz
+  totalDisconnectSeconds Int             @default(0) @map("total_disconnect_seconds")
+  reconciledAt           DateTime?       @map("reconciled_at") @db.Timestamptz
+  offlineBufferClearedAt DateTime?       @map("offline_buffer_cleared_at") @db.Timestamptz
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tryout                 TryoutPackage   @relation(fields: [tryoutId], references: [id])
+  student                User            @relation(fields: [studentId], references: [id])
+  answers                TryoutAnswer[]
+  offlineAnswerBuffers   OfflineAnswerBuffer[]
+  scoreBreakdowns        TryoutScoreBreakdown[]
+  subtestPerformances    StudentSubtestPerformance[]
+
+  @@index([tryoutId])
+  @@index([studentId])
+  @@index([status])
+  @@index([serverDeadlineAt])
+  @@map("tryout_sessions")
+}
+
+model TryoutAnswer {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId        String          @map("session_id") @db.Uuid
+  questionId       String          @map("question_id") @db.Uuid
+  selectedOptionId String?         @map("selected_option_id") @db.Uuid
+  answerText       String?         @map("answer_text") @db.Text
+  isCorrect        Boolean?        @map("is_correct")
+  pointsAwarded    Decimal?        @map("points_awarded") @db.Decimal(6, 2)
+  source           AnswerSource    @default(client)
+  answeredAt       DateTime?       @map("answered_at") @db.Timestamptz
+  syncedAt         DateTime?       @map("synced_at") @db.Timestamptz
+
+  session          TryoutSession   @relation(fields: [sessionId], references: [id])
+  question         Question       @relation(fields: [questionId], references: [id])
+  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([sessionId, questionId])
+  @@map("tryout_answers")
+}
+
+model OfflineAnswerBuffer {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId  String     @map("session_id") @db.Uuid
+  studentId  String     @map("student_id") @db.Uuid
+  payload    Json       @db.JsonB
+  sizeBytes  Int        @map("size_bytes")
+  status     SyncStatus @default(pending)
+  capturedAt DateTime   @default(now()) @map("captured_at") @db.Timestamptz
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz
+  syncedAt   DateTime?  @map("synced_at") @db.Timestamptz
+
+  session    TryoutSession @relation(fields: [sessionId], references: [id])
+  student    User          @relation(fields: [studentId], references: [id])
+
+  @@index([sessionId])
+  @@index([studentId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("offline_answer_buffers")
+}
+
+model TryoutScoreBreakdown {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId       String   @map("session_id") @db.Uuid
+  subtestId       String   @map("subtest_id") @db.Uuid
+  topicId         String?  @map("topic_id") @db.Uuid
+  correctCount    Int      @default(0) @map("correct_count")
+  wrongCount      Int      @default(0) @map("wrong_count")
+  unansweredCount Int      @default(0) @map("unanswered_count")
+  rawScore        Decimal? @map("raw_score") @db.Decimal(7, 2)
+  scaledScore     Decimal? @map("scaled_score") @db.Decimal(7, 2)
+
+  session         TryoutSession @relation(fields: [sessionId], references: [id])
+  subtest         Subtest       @relation(fields: [subtestId], references: [id])
+  topic           Topic?        @relation(fields: [topicId], references: [id])
+
+  @@unique([sessionId, subtestId, topicId])
+  @@map("tryout_score_breakdowns")
+}
+
+// ─────────────────────────────────────────────
+// PERFORMANCE & RECOMMENDATIONS
+// ─────────────────────────────────────────────
+
+model StudentTopicPerformance {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  topicId        String    @map("topic_id") @db.Uuid
+  attemptsCount  Int       @default(0) @map("attempts_count")
+  correctCount   Int       @default(0) @map("correct_count")
+  totalCount     Int       @default(0) @map("total_count")
+  masteryScore   Decimal?  @map("mastery_score") @db.Decimal(6, 2)
+  latestScore    Decimal?  @map("latest_score") @db.Decimal(6, 2)
+  weaknessScore  Decimal?  @map("weakness_score") @db.Decimal(6, 2)
+  lastActivityAt DateTime? @map("last_activity_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  student        User      @relation(fields: [studentId], references: [id])
+  topic          Topic     @relation(fields: [topicId], references: [id])
+
+  @@unique([studentId, topicId])
+  @@index([weaknessScore])
+  @@map("student_topic_performance")
+}
+
+model StudentSubtestPerformance {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String         @map("student_id") @db.Uuid
+  subtestId           String         @map("subtest_id") @db.Uuid
+  latestScore         Decimal?       @map("latest_score") @db.Decimal(6, 2)
+  averageScore        Decimal?       @map("average_score") @db.Decimal(6, 2)
+  weakFlag            Boolean        @default(false) @map("weak_flag")
+  lastTryoutSessionId String?        @map("last_tryout_session_id") @db.Uuid
+  updatedAt           DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+
+  student             User           @relation(fields: [studentId], references: [id])
+  subtest             Subtest        @relation(fields: [subtestId], references: [id])
+  lastTryoutSession   TryoutSession? @relation(fields: [lastTryoutSessionId], references: [id])
+
+  @@unique([studentId, subtestId])
+  @@index([weakFlag])
+  @@map("student_subtest_performance")
+}
+
+model LearningRecommendation {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String                @map("student_id") @db.Uuid
+  topicId        String?               @map("topic_id") @db.Uuid
+  moduleId       String?               @map("module_id") @db.Uuid
+  source         String                @db.VarChar(80)
+  reason         String?               @db.Text
+  priority       Int                   @default(0)
+  status         RecommendationStatus  @default(active)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  clickedAt      DateTime?             @map("clicked_at") @db.Timestamptz
+  completedAt    DateTime?             @map("completed_at") @db.Timestamptz
+  expiresAt      DateTime?             @map("expires_at") @db.Timestamptz
+
+  student        User                  @relation(fields: [studentId], references: [id])
+  topic          Topic?                @relation(fields: [topicId], references: [id])
+  module         Module?               @relation(fields: [moduleId], references: [id])
+
+  @@index([studentId])
+  @@index([status])
+  @@index([priority])
+  @@map("learning_recommendations")
+}
+
+model AnalyticsEvent {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String?            @map("user_id") @db.Uuid
+  eventType      AnalyticsEventType @map("event_type")
+  entityType     String?            @map("entity_type") @db.VarChar(80)
+  entityId       String?            @map("entity_id") @db.Uuid
+  metadata       Json?              @db.JsonB
+  occurredAt     DateTime           @default(now()) @map("occurred_at") @db.Timestamptz
+
+  user           User?              @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([occurredAt])
+  @@map("analytics_events")
+}
+
+// ─────────────────────────────────────────────
+// DAILY MISSIONS & GAMIFICATION
+// ─────────────────────────────────────────────
+
+model MissionTemplate {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String          @db.VarChar(180)
+  description    String?         @db.Text
+  taskType       MissionTaskType @default(daily_mission) @map("task_type")
+  topicId        String?         @map("topic_id") @db.Uuid
+  questionCount  Int             @default(5) @map("question_count")
+  completionRule Json            @map("completion_rule") @db.JsonB
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  topic          Topic?          @relation(fields: [topicId], references: [id])
+  dailyMissions  DailyMission[]
+
+  @@map("mission_templates")
+}
+
+model DailyMission {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  missionTemplateId String       @map("mission_template_id") @db.Uuid
+  missionDate       DateTime     @map("mission_date") @db.Date
+  title             String       @db.VarChar(180)
+  description       String?      @db.Text
+  generatedAt       DateTime     @default(now()) @map("generated_at") @db.Timestamptz
+
+  missionTemplate   MissionTemplate @relation(fields: [missionTemplateId], references: [id])
+  questions         DailyMissionQuestion[]
+  assignments       DailyMissionAssignment[]
+
+  @@unique([missionTemplateId, missionDate])
+  @@index([missionDate])
+  @@map("daily_missions")
+}
+
+model DailyMissionQuestion {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dailyMissionId String       @map("daily_mission_id") @db.Uuid
+  questionId     String       @map("question_id") @db.Uuid
+  sortOrder      Int          @map("sort_order")
+
+  dailyMission   DailyMission @relation(fields: [dailyMissionId], references: [id])
+  question       Question    @relation(fields: [questionId], references: [id])
+
+  @@unique([dailyMissionId, questionId])
+  @@unique([dailyMissionId, sortOrder])
+  @@map("daily_mission_questions")
+}
+
+model DailyMissionAssignment {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dailyMissionId String        @map("daily_mission_id") @db.Uuid
+  studentId      String        @map("student_id") @db.Uuid
+  status         MissionStatus @default(assigned)
+  assignedAt     DateTime      @default(now()) @map("assigned_at") @db.Timestamptz
+  startedAt      DateTime?     @map("started_at") @db.Timestamptz
+  completedAt    DateTime?     @map("completed_at") @db.Timestamptz
+  verificationKey String?      @map("verification_key") @db.VarChar(160)
+
+  dailyMission   DailyMission  @relation(fields: [dailyMissionId], references: [id])
+  student        User          @relation(fields: [studentId], references: [id])
+
+  @@unique([dailyMissionId, studentId])
+  @@index([status])
+  @@map("daily_mission_assignments")
+}
+
+model StreakFreeze {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId   String             @map("student_id") @db.Uuid
+  status      StreakFreezeStatus @default(available)
+  source      String?            @db.VarChar(80)
+  earnedAt    DateTime           @default(now()) @map("earned_at") @db.Timestamptz
+  consumedAt  DateTime?          @map("consumed_at") @db.Timestamptz
+  expiresAt   DateTime?          @map("expires_at") @db.Timestamptz
+
+  student     User               @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+  @@index([status])
+  @@map("streak_freezes")
+}
+
+model Badge {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String         @unique @db.VarChar(80)
+  name         String         @db.VarChar(160)
+  description  String?        @db.Text
+  criteria     Json           @db.JsonB
+  iconUrl      String?        @map("icon_url") @db.Text
+  isActive     Boolean        @default(true) @map("is_active")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  studentBadges StudentBadge[]
+
+  @@map("badges")
+}
+
+model StudentBadge {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String      @map("student_id") @db.Uuid
+  badgeId          String      @map("badge_id") @db.Uuid
+  status           BadgeStatus @default(earned)
+  earnedAt         DateTime    @default(now()) @map("earned_at") @db.Timestamptz
+  sourceEntityType String?     @map("source_entity_type") @db.VarChar(80)
+  sourceEntityId   String?     @map("source_entity_id") @db.Uuid
+
+  student          User        @relation(fields: [studentId], references: [id])
+  badge            Badge       @relation(fields: [badgeId], references: [id])
+
+  @@unique([studentId, badgeId])
+  @@map("student_badges")
+}
+
+// ─────────────────────────────────────────────
+// VERA AI
+// ─────────────────────────────────────────────
+
+model AiConversation {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId         String             @map("student_id") @db.Uuid
+  conversationType  AiConversationType @map("conversation_type")
+  contextEntityType String?            @map("context_entity_type") @db.VarChar(80)
+  contextEntityId   String?            @map("context_entity_id") @db.Uuid
+  title             String?            @db.VarChar(220)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  expiresAt         DateTime?          @map("expires_at") @db.Timestamptz
+
+  student           User               @relation(fields: [studentId], references: [id])
+  messages          AiMessage[]
+  requests          AiRequest[]
+  weaknessAnalyses  WeaknessAnalysis[]
+  adaptivePractice  AdaptivePracticeSession[]
+  ptnStrategySessions PtnStrategySession[]
+
+  @@index([studentId])
+  @@index([conversationType])
+  @@index([expiresAt])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String         @map("conversation_id") @db.Uuid
+  role           AiMessageRole
+  contentMarkdown String        @map("content_markdown") @db.Text
+  tokenCount     Int            @default(0) @map("token_count")
+  metadata       Json?          @db.JsonB
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation   AiConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("ai_messages")
+}
+
+model AiRequest {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String             @map("student_id") @db.Uuid
+  conversationId  String?            @map("conversation_id") @db.Uuid
+  requestType     AiConversationType @map("request_type")
+  promptTemplate  String?            @map("prompt_template") @db.VarChar(120)
+  model           String?            @db.VarChar(120)
+  inputTokens     Int                @default(0) @map("input_tokens")
+  outputTokens    Int                @default(0) @map("output_tokens")
+  status          AiRequestStatus    @default(pending)
+  latencyMs       Int?               @map("latency_ms")
+  errorCode       String?            @map("error_code") @db.VarChar(80)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  student         User               @relation(fields: [studentId], references: [id])
+  conversation    AiConversation?    @relation(fields: [conversationId], references: [id])
+
+  @@index([studentId])
+  @@index([conversationId])
+  @@index([createdAt])
+  @@index([status])
+  @@map("ai_requests")
+}
+
+model AiUsageDaily {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String   @map("student_id") @db.Uuid
+  usageDate        DateTime @map("usage_date") @db.Date
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  requestCount     Int      @default(0) @map("request_count")
+  limitTokens      Int      @map("limit_tokens")
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  student          User     @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, usageDate])
+  @@map("ai_usage_daily")
+}
+
+model WeaknessAnalysis {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId         String          @map("student_id") @db.Uuid
+  conversationId    String?         @map("conversation_id") @db.Uuid
+  status            AiRequestStatus @default(pending)
+  summaryMarkdown   String?         @map("summary_markdown") @db.Text
+  tryoutSessionIds  Json?           @map("tryout_session_ids") @db.JsonB
+  fallbackUsed      Boolean         @default(false) @map("fallback_used")
+  generatedAt       DateTime        @default(now()) @map("generated_at") @db.Timestamptz
+
+  student           User            @relation(fields: [studentId], references: [id])
+  conversation      AiConversation? @relation(fields: [conversationId], references: [id])
+  topics            WeaknessAnalysisTopic[]
+
+  @@index([studentId])
+  @@index([generatedAt])
+  @@map("weakness_analyses")
+}
+
+model WeaknessAnalysisTopic {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  weaknessAnalysisId String    @map("weakness_analysis_id") @db.Uuid
+  topicId            String    @map("topic_id") @db.Uuid
+  moduleId           String?   @map("module_id") @db.Uuid
+  rank               Int
+  weaknessScore      Decimal?  @map("weakness_score") @db.Decimal(6, 2)
+  recommendationText String?   @map("recommendation_text") @db.Text
+
+  weaknessAnalysis   WeaknessAnalysis @relation(fields: [weaknessAnalysisId], references: [id])
+  topic              Topic            @relation(fields: [topicId], references: [id])
+  module             Module?          @relation(fields: [moduleId], references: [id])
+
+  @@unique([weaknessAnalysisId, topicId])
+  @@index([rank])
+  @@map("weakness_analysis_topics")
+}
+
+model AdaptivePracticeSession {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId               String          @map("student_id") @db.Uuid
+  topicId                 String          @map("topic_id") @db.Uuid
+  sourceConversationId    String?         @map("source_conversation_id") @db.Uuid
+  difficulty              DifficultyLevel @default(adaptive)
+  status                  AttemptStatus   @default(in_progress)
+  fallbackQuestionBankId  String?         @map("fallback_question_bank_id") @db.Uuid
+  aiGenerationDiscardedAt DateTime?       @map("ai_generation_discarded_at") @db.Timestamptz
+  startedAt               DateTime        @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt             DateTime?       @map("submitted_at") @db.Timestamptz
+  score                   Decimal?        @db.Decimal(6, 2)
+
+  student                 User            @relation(fields: [studentId], references: [id])
+  topic                   Topic           @relation(fields: [topicId], references: [id])
+  sourceConversation      AiConversation? @relation(fields: [sourceConversationId], references: [id])
+  fallbackQuestionBank    QuestionBank?   @relation(fields: [fallbackQuestionBankId], references: [id])
+  answers                 AdaptivePracticeAnswer[]
+
+  @@index([studentId])
+  @@index([topicId])
+  @@index([status])
+  @@map("adaptive_practice_sessions")
+}
+
+model AdaptivePracticeAnswer {
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adaptiveSessionId String                  @map("adaptive_session_id") @db.Uuid
+  questionId        String?                 @map("question_id") @db.Uuid
+  generatedItemRef  String?                 @map("generated_item_ref") @db.VarChar(80)
+  answerText        String?                 @map("answer_text") @db.Text
+  isCorrect         Boolean?                @map("is_correct")
+  answeredAt        DateTime                @default(now()) @map("answered_at") @db.Timestamptz
+
+  adaptiveSession   AdaptivePracticeSession @relation(fields: [adaptiveSessionId], references: [id])
+  question          Question?              @relation(fields: [questionId], references: [id])
+
+  @@map("adaptive_practice_answers")
+}
+
+model PtnStrategySession {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId          String          @map("student_id") @db.Uuid
+  universityId       String?         @map("university_id") @db.Uuid
+  majorId            String?         @map("major_id") @db.Uuid
+  conversationId     String?         @map("conversation_id") @db.Uuid
+  tryoutAverageScore Decimal?        @map("tryout_average_score") @db.Decimal(7, 2)
+  disclaimerShown    Boolean         @default(false) @map("disclaimer_shown")
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  student            User            @relation(fields: [studentId], references: [id])
+  university         University?     @relation(fields: [universityId], references: [id])
+  major              Major?          @relation(fields: [majorId], references: [id])
+  conversation       AiConversation? @relation(fields: [conversationId], references: [id])
+
+  @@map("ptn_strategy_sessions")
+}
+
+// ─────────────────────────────────────────────
+// CMS & ANNOUNCEMENTS (Unified Banners)
+// ─────────────────────────────────────────────
+
+model Asset {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploadedByUserId String?              @map("uploaded_by_user_id") @db.Uuid
+  url              String               @db.Text
+  mimeType         String               @map("mime_type") @db.VarChar(120)
+  sizeBytes        Int                  @map("size_bytes")
+  checksum         String?              @db.VarChar(128)
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  uploadedBy       User?                @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  announcements    Announcement[]
+  landingSections  LandingPageSection[]
+
+  @@index([checksum])
+  @@map("assets")
+}
+
+/// Unified system for banners and announcements to keep rendering pipelines clean.
+model Announcement {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String                @db.VarChar(180)
+  body            String                @db.Text
+  imageAssetId    String?               @map("image_asset_id") @db.Uuid
+  ctaLabel        String?               @map("cta_label") @db.VarChar(80)
+  ctaUrl          String?               @map("cta_url") @db.Text
+  placement       AnnouncementPlacement @default(dashboard)
+  status          ContentStatus         @default(draft)
+  startsAt        DateTime?             @map("starts_at") @db.Timestamptz
+  endsAt          DateTime?             @map("ends_at") @db.Timestamptz
+  createdByUserId String?               @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?               @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  imageAsset      Asset?                @relation(fields: [imageAssetId], references: [id])
+  createdBy       User?                 @relation("AnnouncementCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy       User?                 @relation("AnnouncementUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  @@map("announcements")
+}
+
+model LandingPageSection {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sectionKey      String        @unique @map("section_key") @db.VarChar(80)
+  title           String        @db.VarChar(180)
+  body            String?       @db.Text
+  ctaLabel        String?       @map("cta_label") @db.VarChar(80)
+  ctaUrl          String?       @map("cta_url") @db.Text
+  imageAssetId    String?       @map("image_asset_id") @db.Uuid
+  status          ContentStatus @default(draft)
+  sortOrder       Int           @default(0) @map("sort_order")
+  updatedByUserId String?       @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  imageAsset      Asset?        @relation(fields: [imageAssetId], references: [id])
+  updatedBy       User?         @relation("LandingSectionUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  @@map("landing_page_sections")
+}
+
+// ─────────────────────────────────────────────
+// COHORTS & TUTOR MONITORING
+// ─────────────────────────────────────────────
+
+model Cohort {
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examEventId          String?                 @map("exam_event_id") @db.Uuid
+  name                 String                  @db.VarChar(180)
+  startDate            DateTime?               @map("start_date") @db.Date
+  endDate              DateTime?               @map("end_date") @db.Date
+  isActive             Boolean                 @default(true) @map("is_active")
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  examEvent            ExamEvent?              @relation(fields: [examEventId], references: [id])
+  students             CohortStudent[]
+  tutorAssignments     TutorCohortAssignment[]
+  riskFlags            RiskFlag[]
+  interventions        Intervention[]
+
+  @@map("cohorts")
+}
+
+model CohortStudent {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cohortId  String    @map("cohort_id") @db.Uuid
+  studentId String    @map("student_id") @db.Uuid
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz
+  leftAt    DateTime? @map("left_at") @db.Timestamptz
+
+  cohort    Cohort    @relation(fields: [cohortId], references: [id])
+  student   User      @relation(fields: [studentId], references: [id])
+
+  @@index([cohortId, studentId])
+  @@index([studentId])
+  @@map("cohort_students")
+}
+
+model TutorCohortAssignment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tutorId          String    @map("tutor_id") @db.Uuid
+  cohortId         String    @map("cohort_id") @db.Uuid
+  assignedByUserId String?   @map("assigned_by_user_id") @db.Uuid
+  assignedAt       DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+
+  tutor            User      @relation("TutorAssigned", fields: [tutorId], references: [id])
+  cohort           Cohort    @relation(fields: [cohortId], references: [id])
+  assignedBy       User?     @relation("CohortAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([tutorId, cohortId])
+  @@map("tutor_cohort_assignments")
+}
+
+model RiskFlag {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String         @map("student_id") @db.Uuid
+  cohortId      String?        @map("cohort_id") @db.Uuid
+  flagType      String         @map("flag_type") @db.VarChar(80)
+  severity      Int            @default(1)
+  reason        String?        @db.Text
+  status        RiskFlagStatus @default(open)
+  detectedAt    DateTime       @default(now()) @map("detected_at") @db.Timestamptz
+  resolvedAt    DateTime?      @map("resolved_at") @db.Timestamptz
+
+  student       User           @relation(fields: [studentId], references: [id])
+  cohort        Cohort?        @relation(fields: [cohortId], references: [id])
+  interventions Intervention[]
+
+  @@index([studentId])
+  @@index([cohortId])
+  @@index([status])
+  @@index([severity])
+  @@map("risk_flags")
+}
+
+model Intervention {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tutorId              String             @map("tutor_id") @db.Uuid
+  studentId            String             @map("student_id") @db.Uuid
+  cohortId             String?            @map("cohort_id") @db.Uuid
+  riskFlagId           String?            @map("risk_flag_id") @db.Uuid
+  recommendedModuleId  String?            @map("recommended_module_id") @db.Uuid
+  message              String             @db.Text
+  status               InterventionStatus @default(drafted)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  sentAt               DateTime?          @map("sent_at") @db.Timestamptz
+  readAt               DateTime?          @map("read_at") @db.Timestamptz
+
+  tutor                User               @relation("TutorIntervention", fields: [tutorId], references: [id])
+  student              User               @relation("StudentIntervention", fields: [studentId], references: [id])
+  cohort               Cohort?            @relation(fields: [cohortId], references: [id])
+  riskFlag             RiskFlag?          @relation(fields: [riskFlagId], references: [id])
+  recommendedModule    Module?            @relation(fields: [recommendedModuleId], references: [id])
+
+  @@index([tutorId])
+  @@index([studentId])
+  @@index([status])
+  @@map("interventions")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model NotificationPreference {
+  userId                String   @id @map("user_id") @db.Uuid
+  inAppEnabled          Boolean  @default(true) @map("in_app_enabled")
+  emailEnabled          Boolean  @default(true) @map("email_enabled")
+  pushEnabled           Boolean  @default(false) @map("push_enabled")
+  smsEnabled            Boolean  @default(false) @map("sms_enabled")
+  marketingEmailEnabled Boolean  @default(true) @map("marketing_email_enabled")
+  smsAlertsEnabled      Boolean  @default(false) @map("sms_alerts_enabled")
+  updatedAt             DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  user                  User     @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientUserId  String                @map("recipient_user_id") @db.Uuid
+  eventType        NotificationEventType @map("event_type")
+  title            String                @db.VarChar(180)
+  body             String                @db.Text
+  deepLink         String?               @map("deep_link") @db.Text
+  priority         Int                   @default(0)
+  sourceEntityType String?               @map("source_entity_type") @db.VarChar(80)
+  sourceEntityId   String?               @map("source_entity_id") @db.Uuid
+  readAt           DateTime?             @map("read_at") @db.Timestamptz
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt        DateTime?             @map("expires_at") @db.Timestamptz
+
+  recipient        User                  @relation(fields: [recipientUserId], references: [id])
+  deliveries       NotificationDelivery[]
+
+  @@index([recipientUserId])
+  @@index([eventType])
+  @@index([readAt])
+  @@index([createdAt])
+  @@index([sourceEntityType, sourceEntityId])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId    String               @map("notification_id") @db.Uuid
+  channel           NotificationChannel
+  status            NotificationStatus   @default(queued)
+  providerMessageId String?              @map("provider_message_id") @db.VarChar(255)
+  queuedAt          DateTime             @default(now()) @map("queued_at") @db.Timestamptz
+  deliveredAt       DateTime?            @map("delivered_at") @db.Timestamptz
+  failedAt          DateTime?            @map("failed_at") @db.Timestamptz
+  retryCount        Int                  @default(0) @map("retry_count")
+  lastError         String?              @map("last_error") @db.Text
+
+  notification      Notification         @relation(fields: [notificationId], references: [id])
+
+  @@index([notificationId])
+  @@index([channel])
+  @@index([status])
+  @@map("notification_deliveries")
+}
+
+// ─────────────────────────────────────────────
+// BILLING & SYSTEM
+// ─────────────────────────────────────────────
+
+model BillingAccount {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId       String        @unique @map("student_id") @db.Uuid
+  status          BillingStatus @default(trial)
+  planCode        String?       @map("plan_code") @db.VarChar(80)
+  accessStartsAt  DateTime?     @map("access_starts_at") @db.Timestamptz
+  accessExpiresAt DateTime?     @map("access_expires_at") @db.Timestamptz
+  extendedByUserId String?      @map("extended_by_user_id") @db.Uuid
+  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+
+  student         User          @relation("StudentBilling", fields: [studentId], references: [id])
+  extendedBy      User?         @relation("BillingExtendedBy", fields: [extendedByUserId], references: [id])
+
+  @@map("billing_accounts")
+}
+
+model SystemConfig {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  configKey       String   @unique @map("config_key") @db.VarChar(120)
+  configValue     Json     @map("config_value") @db.JsonB
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  updatedBy       User?    @relation(fields: [updatedByUserId], references: [id])
+
+  @@map("system_configs")
+}
+
+model AuditLog {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId  String?   @map("actor_user_id") @db.Uuid
+  action       String    @db.VarChar(120)
+  targetType   String?   @map("target_type") @db.VarChar(80)
+  targetId     String?   @map("target_id") @db.Uuid
+  metadata     Json?     @db.JsonB
+  ipAddress    String?   @map("ip_address") @db.Inet
+  userAgent    String?   @map("user_agent") @db.Text
+  occurredAt   DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+
+  actor        User?     @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([occurredAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
