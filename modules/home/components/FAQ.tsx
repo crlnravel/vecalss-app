@@ -46,5 +46,5 @@ const faqItems: Item[] = [
 ];
 
 export const FAQ = () => {
-  return <AccordionList items={faqItems} className="w-full max-w-308.5" />;
+  return <AccordionList items={faqItems} className="w-full" />;
 };
