@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-space-grotesk",
   weight: ["300", "400", "500", "600", "700"],
 });
 
@@ -20,7 +20,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("h-full antialiased", spaceGrotesk.variable)}>
+    <html
+      lang="en"
+      className={cn(
+        "h-full antialiased",
+        spaceGrotesk.className,
+        spaceGrotesk.variable,
+      )}
+    >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
