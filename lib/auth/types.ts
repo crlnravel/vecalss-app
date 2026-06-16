@@ -1,0 +1,19 @@
+import type { OnboardingStatus, RoleName, UserStatus } from "@/generated/prisma/client";
+
+type AuthenticatedUser = {
+  email: string;
+  fullName: string;
+  id: string;
+  mustChangePassword: boolean;
+  onboardingStatus: OnboardingStatus | null;
+  roles: RoleName[];
+  status: UserStatus;
+};
+
+type SessionContext = {
+  expiresAt: Date;
+  sessionId: string;
+  user: AuthenticatedUser;
+};
+
+export type { AuthenticatedUser, SessionContext };

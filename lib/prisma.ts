@@ -5,6 +5,14 @@ import { PrismaClient } from "../generated/prisma/client";
 const connectionString = `${process.env.DATABASE_URL}`;
 
 const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+declare global {
+  var vecalssPrisma: PrismaClient | undefined;
+}
+
+const prisma = globalThis.vecalssPrisma ?? new PrismaClient({ adapter });
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.vecalssPrisma = prisma;
+}
 
 export { prisma };

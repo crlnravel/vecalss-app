@@ -1,5 +1,7 @@
 import Image from "next/image";
 
+import { getRegistrationFormUrl } from "@/lib/config";
+
 import { ContactForm } from "./components/contact-form";
 import { FAQ } from "./components/FAQ";
 import { MarketingHeader } from "./components/marketing-header";
@@ -13,6 +15,8 @@ import { TestimonialsCarousel } from "./components/testimonials-carousel";
 import { faqItems, programCards } from "./data";
 
 export default function HomePageModule() {
+  const registerUrl = getRegistrationFormUrl();
+
   return (
     <main className="overflow-x-hidden bg-white text-secondary-900">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-20 px-0 py-4 md:gap-[280px] md:py-3">
@@ -35,9 +39,14 @@ export default function HomePageModule() {
                 Master every topic through structured learning modules, realistic tryouts,
                 personalized analytics, and Vera AI—your 24/7 dedicated tutor.
               </p>
-              <ActionButtonLink className="w-full md:w-fit" href="#contact">
-                Register now
-              </ActionButtonLink>
+              <div className="flex flex-col gap-3 md:flex-row">
+                <ActionButtonLink className="w-full md:w-fit" href={registerUrl}>
+                  Register now
+                </ActionButtonLink>
+                <ActionButtonLink className="w-full md:w-fit" href="/login" variant="brandOutline">
+                  Login
+                </ActionButtonLink>
+              </div>
             </div>
 
             <Image
@@ -74,9 +83,14 @@ export default function HomePageModule() {
                 learning modules, intensive weekly tryouts, and 24/7 personalized guidance
                 from Vera AI!
               </p>
-              <ActionButtonLink className="w-full md:w-fit" href="#contact">
-                Save your spot now!
-              </ActionButtonLink>
+              <div className="flex flex-col gap-3 md:flex-row">
+                <ActionButtonLink className="w-full md:w-fit" href={registerUrl}>
+                  Save your spot now!
+                </ActionButtonLink>
+                <ActionButtonLink className="w-full md:w-fit" href="/login" variant="brandOutline">
+                  Student login
+                </ActionButtonLink>
+              </div>
             </div>
 
             <Image

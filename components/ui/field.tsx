@@ -61,4 +61,4 @@ function FieldTextarea({
   );
 }
 
-export { Field, FieldInput, FieldLabel, FieldTextarea };
+export { Field, FieldInput, FieldLabel, FieldTextarea, fieldControlClassName };

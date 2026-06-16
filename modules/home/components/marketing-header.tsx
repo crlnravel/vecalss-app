@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Menu } from "lucide-react";
 
+import { getRegistrationFormUrl } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { marketingNavItems } from "../data";
 import { ActionButtonLink, BrandLogo } from "./home-primitives";
@@ -10,6 +11,8 @@ type MarketingHeaderProps = {
 };
 
 function MarketingHeader({ currentPath }: MarketingHeaderProps) {
+  const registerUrl = getRegistrationFormUrl();
+
   return (
     <header className="flex items-center justify-between px-4 py-1 md:px-[100px] md:py-5">
       <div className="hidden md:block">
@@ -39,7 +42,10 @@ function MarketingHeader({ currentPath }: MarketingHeaderProps) {
             </Link>
           );
         })}
-        <ActionButtonLink href="/#contact" variant="brandOutline">
+        <ActionButtonLink href="/login" variant="brandOutline">
+          Login
+        </ActionButtonLink>
+        <ActionButtonLink href={registerUrl}>
           Register Now
         </ActionButtonLink>
       </nav>
@@ -62,7 +68,10 @@ function MarketingHeader({ currentPath }: MarketingHeaderProps) {
                 {item.label}
               </Link>
             ))}
-            <ActionButtonLink className="mt-2 w-full" href="/#contact">
+            <ActionButtonLink className="mt-2 w-full" href="/login" variant="brandOutline">
+              Login
+            </ActionButtonLink>
+            <ActionButtonLink className="w-full" href={registerUrl}>
               Register Now
             </ActionButtonLink>
           </nav>
