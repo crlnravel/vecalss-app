@@ -1,70 +1,23 @@
-import Link from "next/link";
 import Image from "next/image";
-import { Menu } from "lucide-react";
 
 import { ContactForm } from "./components/contact-form";
 import { FAQ } from "./components/FAQ";
+import { MarketingHeader } from "./components/marketing-header";
 import {
   ActionButtonLink,
-  BrandLogo,
   SectionHeading,
 } from "./components/home-primitives";
 import { HomeFooter } from "./components/home-footer";
 import { ProgramCard } from "./components/program-card";
 import { TestimonialsCarousel } from "./components/testimonials-carousel";
-import { navItems, programCards } from "./data";
+import { faqItems, programCards } from "./data";
 
 export default function HomePageModule() {
   return (
     <main className="overflow-x-hidden bg-white text-secondary-900">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-20 px-0 py-4 md:gap-[280px] md:py-3">
         <section id="about" className="flex flex-col gap-8 md:gap-[60px]">
-          <header className="flex items-center justify-between px-4 py-1 md:px-[100px] md:py-5">
-            <div className="hidden md:block">
-              <BrandLogo />
-            </div>
-
-            <div className="md:hidden">
-              <BrandLogo compact />
-            </div>
-
-            <nav className="hidden items-center gap-10 md:flex">
-              {navItems.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="text-[20px] leading-7 text-black transition-colors duration-200 hover:text-[#124c2b]"
-                >
-                  {item.label}
-                </Link>
-              ))}
-              <ActionButtonLink href="#contact" variant="brandOutline">
-                Register Now
-              </ActionButtonLink>
-            </nav>
-
-            <details className="relative md:hidden">
-              <summary className="list-none rounded-full border border-[#d9dfdb] p-2 text-[#191a23] [&::-webkit-details-marker]:hidden">
-                <Menu className="size-5" />
-              </summary>
-              <div className="absolute right-0 top-full z-20 mt-3 w-56 rounded-[24px] border border-[#191a23] bg-white p-4 shadow-[0px_5px_0px_0px_#191a23]">
-                <nav className="flex flex-col gap-3">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className="text-[18px] leading-7 text-black"
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                  <ActionButtonLink className="mt-2 w-full" href="#contact">
-                    Register Now
-                  </ActionButtonLink>
-                </nav>
-              </div>
-            </details>
-          </header>
+          <MarketingHeader currentPath="/" />
 
           <div className="flex flex-col gap-6 px-4 md:min-h-[768px] md:flex-row md:items-center md:justify-between md:px-[100px]">
             <div className="flex max-w-[531px] flex-col gap-5 md:gap-[35px]">
@@ -144,7 +97,12 @@ export default function HomePageModule() {
           />
           <div className="px-4 md:px-[100px]">
             <div className="mx-auto w-full max-w-[1234px]">
-              <FAQ />
+              <FAQ items={faqItems.slice(0, 6)} />
+            </div>
+            <div className="mt-8 flex justify-center">
+              <ActionButtonLink href="/faq" variant="brandOutline">
+                Explore the full FAQ
+              </ActionButtonLink>
             </div>
           </div>
         </section>
@@ -155,7 +113,7 @@ export default function HomePageModule() {
         >
           <SectionHeading
             label="Testimonials"
-            description="Hear from Our Satisfied Clients: Read Our Testimonials to Learn More about Our Digital Marketing Services"
+            description="A snapshot of what students value most when they need prep that feels structured, responsive, and less overwhelming."
           />
 
           <div id="testimonials" className="px-4 md:px-[100px]">
@@ -166,7 +124,7 @@ export default function HomePageModule() {
         <section id="contact" className="flex flex-col gap-12 md:gap-[48px]">
           <SectionHeading
             label="Contact Us"
-            description="Connect with Us: Let’s Discuss Your Digital Marketing Needs"
+            description="Tell us where you are in your university-prep journey, and we will help you choose the best way to start."
             tone="mint"
           />
 

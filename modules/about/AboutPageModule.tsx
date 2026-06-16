@@ -1,0 +1,276 @@
+import Image from "next/image";
+import {
+  BrainCircuit,
+  ChartColumnBig,
+  NotebookPen,
+  TimerReset,
+} from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { ActionButtonLink } from "@/modules/home/components/home-primitives";
+import { HomeFooter } from "@/modules/home/components/home-footer";
+import { MarketingHeader } from "@/modules/home/components/marketing-header";
+
+const proofPoints = [
+  {
+    value: "24/7",
+    label: "Vera AI study support",
+  },
+  {
+    value: "Weekly",
+    label: "tryout and review rhythm",
+  },
+  {
+    value: "Topic",
+    label: "level performance signals",
+  },
+];
+
+const principles = [
+  {
+    title: "Sequence before speed",
+    description:
+      "Students move through concepts, drills, timed work, and review in a deliberate order instead of chasing disconnected material.",
+    icon: NotebookPen,
+  },
+  {
+    title: "Support at the exact stuck point",
+    description:
+      "Vera AI keeps study sessions from stalling by helping students unpack concepts, question types, and next steps in the moment.",
+    icon: BrainCircuit,
+  },
+  {
+    title: "Signals over guesswork",
+    description:
+      "Analytics show whether the real bottleneck is accuracy, pacing, topic mastery, or consistency, so revision has a clear target.",
+    icon: ChartColumnBig,
+  },
+];
+
+const methodSteps = [
+  {
+    number: "01",
+    label: "Baseline",
+    title: "Map the starting point",
+    description:
+      "Students begin with their current level, target campus, and highest-friction subjects, giving the platform a useful first map.",
+  },
+  {
+    number: "02",
+    label: "Cadence",
+    title: "Build a weekly study rhythm",
+    description:
+      "Modules, drills, and tryouts are arranged around repeatable habits, not last-minute bursts that are hard to sustain.",
+  },
+  {
+    number: "03",
+    label: "Review",
+    title: "Read the performance pattern",
+    description:
+      "Topic-level analytics and timing data reveal where confidence is real and where a student is still relying on luck.",
+  },
+  {
+    number: "04",
+    label: "Adjust",
+    title: "Return to the right material",
+    description:
+      "Weak areas become the next learning path, with Vera AI available when a concept needs another explanation or a faster reset.",
+  },
+];
+
+export default function AboutPageModule() {
+  return (
+    <main className="overflow-x-hidden bg-[#fbfcf8] text-secondary-900">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-20 px-0 py-4 md:gap-28 md:py-3">
+        <section className="flex flex-col gap-8 md:gap-10">
+          <MarketingHeader currentPath="/about" />
+
+          <div className="px-4 md:px-[100px]">
+            <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.72fr)] md:items-center md:gap-14 md:py-[72px]">
+              <div>
+                <Badge size="card" variant="accent">
+                  About Vecalss
+                </Badge>
+
+                <h1 className="mt-7 max-w-[850px] text-[42px] leading-[1.03] font-medium text-secondary-900 md:text-[70px]">
+                  Vecalss makes university prep feel less scattered.
+                </h1>
+
+                <p className="mt-6 max-w-[670px] text-[18px] leading-7 text-secondary-900/78 md:text-[21px] md:leading-8">
+                  Students get a clean path from concepts to timed practice, with
+                  analytics and Vera AI support keeping each week focused on the
+                  work that actually moves the score.
+                </p>
+
+                <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+                  <ActionButtonLink href="/#contact">Talk with the team</ActionButtonLink>
+                  <ActionButtonLink href="/faq" variant="brandOutline">
+                    Explore the FAQ
+                  </ActionButtonLink>
+                </div>
+              </div>
+
+              <div className="relative overflow-hidden rounded-[8px] bg-primary-900 p-6 text-white shadow-[0_28px_80px_-54px_#191a23] md:p-8">
+                <div className="flex items-start justify-between gap-8">
+                  <div>
+                    <p className="text-[13px] font-medium tracking-[0.16em] text-accent-300 uppercase">
+                      Learning system
+                    </p>
+                    <h2 className="mt-4 max-w-[330px] text-[30px] leading-[1.08] font-medium md:text-[40px]">
+                      One route from preparation noise to focused progress.
+                    </h2>
+                  </div>
+
+                  <div className="relative hidden h-[118px] w-[118px] shrink-0 md:block">
+                    <Image
+                      alt="Vecalss learning support illustration"
+                      fill
+                      sizes="118px"
+                      src="/landing-assets/hero-rating.svg"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-9 divide-y divide-white/16 border-y border-white/16">
+                  {proofPoints.map((item) => (
+                    <div
+                      key={item.value}
+                      className="grid grid-cols-[96px_1fr] items-center gap-5 py-4"
+                    >
+                      <p className="text-[25px] leading-none font-medium text-accent-300 md:text-[31px]">
+                        {item.value}
+                      </p>
+                      <p className="text-[16px] leading-6 text-white/78">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8 flex items-center gap-4 border-t border-white/16 pt-6">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-[8px] bg-white/10">
+                    <TimerReset className="size-5" />
+                  </span>
+                  <p className="text-[16px] leading-6 text-white/78">
+                    Designed for students who need structure, honest feedback, and fast
+                    recovery when a study session gets stuck.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 md:px-[100px]">
+          <div className="grid gap-10 md:grid-cols-[0.36fr_0.64fr] md:items-start md:gap-14">
+            <div className="md:sticky md:top-8">
+              <Badge size="section" variant="mint">
+                Why it works
+              </Badge>
+              <h2 className="mt-6 max-w-[390px] text-[32px] leading-[1.1] font-medium text-black md:text-[44px]">
+                A calmer system for high-stakes learning.
+              </h2>
+              <p className="mt-5 max-w-[420px] text-[17px] leading-7 text-secondary-900/72">
+                The platform is built around one practical question: what should a
+                student do next to improve with less wasted effort?
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              {principles.map((card) => {
+                const Icon = card.icon;
+
+                return (
+                  <article
+                    key={card.title}
+                    className="grid gap-5 rounded-[8px] border border-secondary-900/12 bg-white p-6 shadow-[0_18px_48px_-38px_#191a23] md:grid-cols-[56px_1fr] md:p-7"
+                  >
+                    <span className="flex size-12 items-center justify-center rounded-[8px] bg-primary-50 text-primary-700">
+                      <Icon className="size-5" />
+                    </span>
+                    <div>
+                      <h3 className="text-[24px] leading-[1.15] font-medium text-black md:text-[30px]">
+                        {card.title}
+                      </h3>
+                      <p className="mt-3 max-w-[690px] text-[16px] leading-7 text-secondary-900/74 md:text-[17px]">
+                        {card.description}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 md:px-[100px]">
+          <div className="border-t border-secondary-900/15">
+            <div className="grid gap-5 py-8 md:grid-cols-[0.36fr_0.64fr] md:gap-14 md:py-11">
+              <div>
+                <Badge size="section" variant="accent">
+                  Our method
+                </Badge>
+              </div>
+              <div>
+                <h2 className="max-w-[760px] text-[32px] leading-[1.1] font-medium text-black md:text-[46px]">
+                  Preparation becomes easier to trust when every step has a job.
+                </h2>
+              </div>
+            </div>
+
+            {methodSteps.map((step) => (
+              <article
+                key={step.number}
+                className="grid gap-5 border-t border-secondary-900/15 py-7 md:grid-cols-[120px_0.8fr_1fr] md:gap-8 md:py-8"
+              >
+                <div className="flex items-center justify-between gap-4 md:block">
+                  <p className="text-[38px] leading-none font-medium text-primary-700 md:text-[48px]">
+                    {step.number}
+                  </p>
+                  <p className="rounded-full border border-primary-700/18 bg-primary-50 px-3 py-1 text-[12px] font-medium tracking-[0.14em] text-primary-700 uppercase md:mt-4 md:inline-flex">
+                    {step.label}
+                  </p>
+                </div>
+                <h3 className="text-[24px] leading-[1.18] font-medium text-black md:text-[32px]">
+                  {step.title}
+                </h3>
+                <p className="max-w-[620px] text-[16px] leading-7 text-secondary-900/74 md:text-[17px]">
+                  {step.description}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="px-4 md:px-[100px]">
+          <div className="grid overflow-hidden rounded-[8px] bg-[#eff6ef] md:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="p-7 md:p-12">
+              <h2 className="max-w-[690px] text-[31px] leading-[1.1] font-medium text-black md:text-[44px]">
+                Ready for a prep routine that feels focused and human?
+              </h2>
+              <p className="mt-5 max-w-[610px] text-[17px] leading-7 text-secondary-900/74 md:text-[18px]">
+                Share your goal, current level, and hardest subjects. The Vecalss
+                team can help you find the right starting point.
+              </p>
+              <div className="mt-8">
+                <ActionButtonLink className="w-full md:w-fit" href="/#contact">
+                  Start the conversation
+                </ActionButtonLink>
+              </div>
+            </div>
+
+            <div className="flex items-end justify-center bg-primary-900 px-8 pt-6">
+              <Image
+                alt="Vera AI learning support illustration"
+                className="h-[210px] w-[210px] md:h-[320px] md:w-[320px]"
+                height={320}
+                src="/landing-assets/cta-chat.svg"
+                width={320}
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <HomeFooter />
+    </main>
+  );
+}

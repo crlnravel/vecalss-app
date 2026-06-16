@@ -1,3 +1,4 @@
+import type { Item } from "@/components/ui/accordion";
 import type { RadioPillOption } from "@/components/ui/radio-pill-group";
 
 export type NavItem = {
@@ -23,19 +24,19 @@ export type Testimonial = {
   quote: string;
 };
 
-export const navItems: NavItem[] = [
-  { label: "About us", href: "#about" },
-  { label: "Programs", href: "#programs" },
-  { label: "Features", href: "#features" },
-  { label: "FAQ", href: "#faq" },
+export const marketingNavItems: NavItem[] = [
+  { label: "About us", href: "/about" },
+  { label: "Programs", href: "/#programs" },
+  { label: "Testimonials", href: "/#testimonials" },
+  { label: "FAQ", href: "/faq" },
 ];
 
 export const footerItems: NavItem[] = [
-  { label: "About us", href: "#about" },
-  { label: "Services", href: "#programs" },
-  { label: "Use Cases", href: "#features" },
-  { label: "Pricing", href: "#contact" },
-  { label: "Blog", href: "#testimonials" },
+  { label: "Home", href: "/" },
+  { label: "About us", href: "/about" },
+  { label: "Programs", href: "/#programs" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 export const programCards: ProgramCardData[] = [
@@ -92,21 +93,80 @@ export const programCards: ProgramCardData[] = [
 export const testimonials: Testimonial[] = [
   {
     quote:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit.",
-    name: "John Smith",
-    meta: "Marketing Director at XYZ Corp",
+      "The study flow feels clear from day one. I always know what to review, when to take a tryout, and how to fix the topics that are still slowing me down.",
+    name: "Raka",
+    meta: "SNBT intensive student",
   },
   {
     quote:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit.",
-    name: "Andi Saputra",
-    meta: "SMAN 68 Jakarta",
+      "Vera AI helps when I am studying late at night. Instead of getting stuck and losing momentum, I can ask follow-up questions and keep moving.",
+    name: "Nadia",
+    meta: "Foundation program student",
   },
   {
     quote:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit.",
-    name: "Andi Savitri",
-    meta: "SMAN 12 Pekalongan",
+      "The analytics make revision much more focused. I stop guessing what to study next because the dashboard already shows my weak chapters and timing pattern.",
+    name: "Alya",
+    meta: "Weekly tryout participant",
+  },
+];
+
+export const faqItems: Item[] = [
+  {
+    id: "1",
+    number: "01",
+    question: "What is Vecalss?",
+    answer:
+      "Vecalss is a university-preparation platform that brings together guided study paths, timed tryouts, performance analytics, and Vera AI support in one focused learning flow.",
+  },
+  {
+    id: "2",
+    number: "02",
+    question: "Who is Vecalss designed for?",
+    answer:
+      "It is built for students who want a more structured way to prepare for competitive university entrance exams, whether they are starting from the basics or sharpening for the final sprint.",
+  },
+  {
+    id: "3",
+    number: "03",
+    question: "What is included in the learning experience?",
+    answer:
+      "Students can move through learning modules, join regular tryouts, review detailed analytics, practice targeted drills, and use Vera AI whenever they need clarification or quick feedback.",
+  },
+  {
+    id: "4",
+    number: "04",
+    question: "What is Vera AI?",
+    answer:
+      "Vera AI is the platform's always-available learning companion. It helps explain concepts, break down difficult questions, suggest next steps, and keep study sessions moving when a student gets stuck.",
+  },
+  {
+    id: "5",
+    number: "05",
+    question: "How do tryouts and analytics work?",
+    answer:
+      "Tryouts simulate timed practice, while the analytics layer highlights accuracy, pacing, topic-level performance, and recurring mistakes so students can revise with more intention instead of guessing.",
+  },
+  {
+    id: "6",
+    number: "06",
+    question: "Can students focus on weak areas first?",
+    answer:
+      "Yes. The platform is meant to support focused improvement, so students can revisit specific topics, use targeted drills, and prioritize chapters where their accuracy or speed still needs work.",
+  },
+  {
+    id: "7",
+    number: "07",
+    question: "Does Vecalss replace live tutoring?",
+    answer:
+      "Vecalss is designed to make independent preparation more structured and more responsive. It can stand on its own for many students, and it can also work alongside mentoring or classroom study.",
+  },
+  {
+    id: "8",
+    number: "08",
+    question: "How do I get started?",
+    answer:
+      "Start by reaching out through the contact form, then the team can help map the right entry point based on your current level, target campus, and preferred study rhythm.",
   },
 ];
 
