@@ -47,6 +47,7 @@ function EnrollmentPageModule({
 }) {
   return (
     <PortalShell
+      audience="admin"
       description="Admins can provision approved students, hand off a temporary password, and manage account status without leaving the main app."
       title="Student enrollment"
       userLabel={session.user.fullName}

@@ -44,7 +44,7 @@ export default function HomePageModule() {
                   Register now
                 </ActionButtonLink>
                 <ActionButtonLink className="w-full md:w-fit" href="/login" variant="brandOutline">
-                  Login
+                  Student login
                 </ActionButtonLink>
               </div>
             </div>

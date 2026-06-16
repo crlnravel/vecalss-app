@@ -24,7 +24,7 @@ import {
 } from "./crypto";
 import { getRequestMetadata } from "./request";
 import { createSession, revokeAllUserSessions } from "./session";
-import type { AuthenticatedUser } from "./types";
+import type { AuthenticatedUser, LoginAudience } from "./types";
 
 type LoginOutcome =
   | { ok: true; user: AuthenticatedUser }
@@ -32,6 +32,10 @@ type LoginOutcome =
 
 type PasswordResetRequestResult = {
   deliveredResetUrl: string | null;
+};
+
+type AuthenticateUserOptions = {
+  requiredRole?: RoleName;
 };
 
 type EnrollmentCreateInput = {
@@ -113,7 +117,11 @@ async function ensureExamEventExists(targetExamEventId: string | null) {
   return examEvent;
 }
 
-async function authenticateUser(email: string, password: string): Promise<LoginOutcome> {
+async function authenticateUser(
+  email: string,
+  password: string,
+  options: AuthenticateUserOptions = {},
+): Promise<LoginOutcome> {
   const normalizedEmail = normalizeEmail(email);
 
   try {
@@ -160,9 +168,12 @@ async function authenticateUser(email: string, password: string): Promise<LoginO
       });
     }
 
-    const hasSupportedRole = user.roleAssignments.some((assignment) =>
-      assignment.revokedAt === null
-      && (assignment.role === RoleName.admin || assignment.role === RoleName.student));
+    const activeRoles = user.roleAssignments
+      .filter((assignment) => assignment.revokedAt === null)
+      .map((assignment) => assignment.role);
+    const hasSupportedRole = options.requiredRole
+      ? activeRoles.includes(options.requiredRole)
+      : activeRoles.some((role) => role === RoleName.admin || role === RoleName.student);
 
     if (
       user.status === UserStatus.disabled
@@ -172,7 +183,9 @@ async function authenticateUser(email: string, password: string): Promise<LoginO
     ) {
       await recordLoginAttempt({
         email: normalizedEmail,
-        failureReason: "inactive_or_unauthorized",
+        failureReason: options.requiredRole && !hasSupportedRole
+          ? "role_mismatch"
+          : "inactive_or_unauthorized",
         result: LoginAttemptResult.failed,
         userId: user.id,
       });
@@ -264,7 +277,10 @@ async function authenticateUser(email: string, password: string): Promise<LoginO
   }
 }
 
-async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
+async function requestPasswordReset(
+  email: string,
+  audience: LoginAudience = "student",
+): Promise<PasswordResetRequestResult> {
   const normalizedEmail = normalizeEmail(email);
   const user = await prisma.user.findUnique({
     where: {
@@ -309,7 +325,8 @@ async function requestPasswordReset(email: string): Promise<PasswordResetRequest
     }),
   ]);
 
-  const deliveredResetUrl = `${getAppBaseUrl()}/reset-password/${rawToken}`;
+  const query = audience === "admin" ? "?audience=admin" : "";
+  const deliveredResetUrl = `${getAppBaseUrl()}/reset-password/${rawToken}${query}`;
 
   return {
     deliveredResetUrl: isProduction ? null : deliveredResetUrl,

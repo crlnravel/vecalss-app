@@ -8,7 +8,8 @@
     "tokens": "node design-tokens/generate-theme.mjs",
     "dev": "pnpm tokens && next dev",
     "build": "pnpm tokens && next build",
-    "start": "next start"
+    "start": "next start",
+    "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

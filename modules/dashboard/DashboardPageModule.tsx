@@ -17,6 +17,7 @@ function DashboardPageModule({
 }) {
   return (
     <PortalShell
+      audience="student"
       description="This is the first protected dashboard placeholder for the MVP. It confirms the session state, shows the stored onboarding data, and leaves room for UC-03 to take over next."
       title="Student dashboard"
       userLabel={session.user.fullName}

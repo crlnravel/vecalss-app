@@ -2,45 +2,22 @@ import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 
+import { getDefaultHomePath, getLoginPathForAudience, getStudentHomePath } from "./paths";
 import { getSessionContext, hasRole } from "./session";
 import type { AuthenticatedUser, SessionContext } from "./types";
 
-function getStudentHomePath(user: AuthenticatedUser) {
-  if (user.mustChangePassword) {
-    return "/change-password";
-  }
-
-  if (user.onboardingStatus === OnboardingStatus.not_started || user.onboardingStatus === null) {
-    return "/onboarding";
-  }
-
-  return "/dashboard";
-}
-
-function getDefaultHomePath(user: AuthenticatedUser) {
-  if (user.roles.includes(RoleName.admin)) {
-    return "/admin/enrollment";
-  }
-
-  if (user.roles.includes(RoleName.student)) {
-    return getStudentHomePath(user);
-  }
-
-  return "/login";
-}
-
-async function requireSession() {
+async function requireSession(loginPath = getLoginPathForAudience("student")) {
   const session = await getSessionContext();
 
   if (!session) {
-    redirect("/login");
+    redirect(loginPath);
   }
 
   return session;
 }
 
 async function requireAdminSession() {
-  const session = await requireSession();
+  const session = await requireSession(getLoginPathForAudience("admin"));
 
   if (!hasRole(session, RoleName.admin)) {
     redirect(getDefaultHomePath(session.user));
@@ -95,6 +72,7 @@ function redirectIfOnboardingAlreadyComplete(session: SessionContext) {
 
 export {
   getDefaultHomePath,
+  getLoginPathForAudience,
   getStudentHomePath,
   redirectIfOnboardingAlreadyComplete,
   redirectToAuthorizedHome,

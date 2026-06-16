@@ -3,11 +3,15 @@ import { getResetTokenStatus } from "@/modules/auth/actions";
 
 export default async function ResetPasswordPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { token } = await params;
+  const resolvedSearchParams = await searchParams;
   const tokenStatus = await getResetTokenStatus(token);
+  const audience = resolvedSearchParams.audience === "admin" ? "admin" : "student";
 
-  return <ResetPasswordPageModule isValid={tokenStatus.isValid} token={token} />;
+  return <ResetPasswordPageModule audience={audience} isValid={tokenStatus.isValid} token={token} />;
 }

@@ -10,5 +10,5 @@ export default async function LoginPage({
     ? resolvedSearchParams.notice
     : null;
 
-  return <LoginPageModule notice={notice} />;
+  return <LoginPageModule audience="student" notice={notice} />;
 }

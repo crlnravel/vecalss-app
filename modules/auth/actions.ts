@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 
-import { OnboardingStatus } from "@/generated/prisma/client";
+import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 import {
   getDefaultHomePath,
+  getLoginPathForAudience,
   requireStudentSession,
 } from "@/lib/auth/access";
 import {
@@ -15,6 +16,7 @@ import {
   authenticateUser,
 } from "@/lib/auth/service";
 import { revokeCurrentSession } from "@/lib/auth/session";
+import type { LoginAudience } from "@/lib/auth/types";
 
 import type { FormState } from "./form-state";
 
@@ -36,7 +38,16 @@ function withFieldError(
   };
 }
 
-async function loginAction(_previousState: FormState, formData: FormData): Promise<FormState> {
+function readAudience(formData: FormData): LoginAudience {
+  const value = formData.get("audience");
+  return value === "admin" ? "admin" : "student";
+}
+
+async function handleLoginAction(
+  _previousState: FormState,
+  formData: FormData,
+  requiredRole: RoleName,
+): Promise<FormState> {
   const email = readTextField(formData, "email");
   const password = readTextField(formData, "password");
 
@@ -51,7 +62,9 @@ async function loginAction(_previousState: FormState, formData: FormData): Promi
     );
   }
 
-  const result = await authenticateUser(email, password);
+  const result = await authenticateUser(email, password, {
+    requiredRole,
+  });
 
   if (!result.ok) {
     if (result.code === "service_unavailable") {
@@ -75,7 +88,9 @@ async function loginAction(_previousState: FormState, formData: FormData): Promi
     return {
       fields: { email },
       message:
-        "Invalid credentials. If you have not been enrolled yet, please complete the registration flow first.",
+        requiredRole === RoleName.admin
+          ? "Invalid admin credentials. Please confirm your admin access is active and try again."
+          : "Invalid credentials. If you have not been enrolled yet, please complete the registration flow first.",
       status: "error",
     };
   }
@@ -83,11 +98,20 @@ async function loginAction(_previousState: FormState, formData: FormData): Promi
   redirect(getDefaultHomePath(result.user));
 }
 
+async function loginStudentAction(previousState: FormState, formData: FormData): Promise<FormState> {
+  return handleLoginAction(previousState, formData, RoleName.student);
+}
+
+async function loginAdminAction(previousState: FormState, formData: FormData): Promise<FormState> {
+  return handleLoginAction(previousState, formData, RoleName.admin);
+}
+
 async function forgotPasswordAction(
   _previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const email = readTextField(formData, "email");
+  const audience = readAudience(formData);
 
   if (!email) {
     return withFieldError(
@@ -98,7 +122,7 @@ async function forgotPasswordAction(
   }
 
   try {
-    const result = await requestPasswordReset(email);
+    const result = await requestPasswordReset(email, audience);
 
     return {
       fields: { email: "" },
@@ -123,6 +147,7 @@ async function resetPasswordAction(
   _previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const audience = readAudience(formData);
   const token = readTextField(formData, "token");
   const password = readTextField(formData, "password");
   const confirmPassword = readTextField(formData, "confirmPassword");
@@ -155,7 +180,7 @@ async function resetPasswordAction(
 
   try {
     await completePasswordReset(token, password);
-    redirect("/login?notice=password-reset");
+    redirect(`${getLoginPathForAudience(audience)}?notice=password-reset`);
   } catch (error) {
     return {
       message:
@@ -219,9 +244,11 @@ async function changePasswordAction(
   }
 }
 
-async function logoutAction() {
+async function logoutAction(formData: FormData) {
+  const audience = readAudience(formData);
+
   await revokeCurrentSession();
-  redirect("/login?notice=signed-out");
+  redirect(`${getLoginPathForAudience(audience)}?notice=signed-out`);
 }
 
 async function getResetTokenStatus(rawToken: string) {
@@ -236,7 +263,8 @@ export {
   changePasswordAction,
   forgotPasswordAction,
   getResetTokenStatus,
-  loginAction,
+  loginAdminAction,
+  loginStudentAction,
   logoutAction,
   resetPasswordAction,
 };

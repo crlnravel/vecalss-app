@@ -1,15 +1,18 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import type { LoginAudience } from "@/lib/auth/types";
 import { logoutAction } from "@/modules/auth/actions";
 import { BrandLogo } from "@/modules/home/components/home-primitives";
 
 function PortalShell({
+  audience,
   children,
   description,
   title,
   userLabel,
 }: {
+  audience: LoginAudience;
   children: React.ReactNode;
   description: string;
   title: string;
@@ -38,6 +41,7 @@ function PortalShell({
                 Signed in as {userLabel}
               </div>
               <form action={logoutAction}>
+                <input name="audience" type="hidden" value={audience} />
                 <Button type="submit" variant="brandOutline">
                   Log out
                 </Button>

@@ -4,17 +4,26 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import type { LoginAudience } from "@/lib/auth/types";
 
 import { forgotPasswordAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
 
-function ForgotPasswordForm() {
+function ForgotPasswordForm({
+  audience,
+  backHref,
+}: {
+  audience: LoginAudience;
+  backHref: string;
+}) {
   const [state, formAction] = useActionState(forgotPasswordAction, EMPTY_FORM_STATE);
 
   return (
     <form action={formAction} className="space-y-5">
+      <input name="audience" type="hidden" value={audience} />
+
       {state.message ? (
         <FormNotice tone={state.status === "success" ? "success" : "danger"}>
           {state.message}
@@ -35,7 +44,7 @@ function ForgotPasswordForm() {
           defaultValue={state.fields?.email ?? ""}
           id="forgot-email"
           name="email"
-          placeholder="student@vecalss.id"
+          placeholder={audience === "admin" ? "admin@vecalss.id" : "student@vecalss.id"}
           required
           type="email"
         />
@@ -45,7 +54,7 @@ function ForgotPasswordForm() {
       </Field>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <Link className="text-sm font-medium text-primary-700 hover:text-primary-800" href="/login">
+        <Link className="text-sm font-medium text-primary-700 hover:text-primary-800" href={backHref}>
           Back to login
         </Link>
         <SubmitButton pendingLabel="Preparing link..." size="lg" type="submit" variant="brand">

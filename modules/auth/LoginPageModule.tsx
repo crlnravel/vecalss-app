@@ -1,4 +1,5 @@
 import { getRegistrationFormUrl } from "@/lib/config";
+import type { LoginAudience } from "@/lib/auth/types";
 
 import { AuthShell } from "./components/auth-shell";
 import { LoginForm } from "./components/login-form";
@@ -8,20 +9,34 @@ const noticeCopy: Record<string, string> = {
   "signed-out": "You have been signed out of Vecalss.",
 };
 
-function LoginPageModule({ notice }: { notice?: string | null }) {
+function LoginPageModule({
+  audience = "student",
+  notice,
+}: {
+  audience?: LoginAudience;
+  notice?: string | null;
+}) {
+  const isAdminLogin = audience === "admin";
+
   return (
     <AuthShell
-      description="Use the shared sign-in flow for both student and admin accounts. Students will be routed into password setup, onboarding, or the dashboard depending on their current state."
-      eyebrow="UC-00 Authentication"
+      description={isAdminLogin
+        ? "Use your admin credentials to open the enrollment workspace and manage student provisioning inside the app."
+        : "Sign in with your student credentials to continue into first-password setup, onboarding, or the dashboard depending on your account state."}
+      eyebrow={isAdminLogin ? "Admin access" : "UC-00 Authentication"}
       footer={
         <p className="text-sm leading-6 text-secondary-600">
-          Need an account first? Use the official registration flow, then wait for an
-          admin to provision your access.
+          {isAdminLogin
+            ? "This screen is reserved for active admin accounts. Students should use the standard login flow."
+            : "Need an account first? Use the official registration flow, then wait for an admin to provision your access."}
         </p>
       }
-      title="Sign in to continue your Vecalss learning flow"
+      title={isAdminLogin
+        ? "Admin login for enrollment management"
+        : "Sign in to continue your Vecalss learning flow"}
     >
       <LoginForm
+        audience={audience}
         notice={notice ? noticeCopy[notice] ?? null : null}
         registerUrl={getRegistrationFormUrl()}
       />

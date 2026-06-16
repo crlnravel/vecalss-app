@@ -1,5 +1,7 @@
 import type { OnboardingStatus, RoleName, UserStatus } from "@/generated/prisma/client";
 
+type LoginAudience = "student" | "admin";
+
 type AuthenticatedUser = {
   email: string;
   fullName: string;
@@ -16,4 +18,4 @@ type SessionContext = {
   user: AuthenticatedUser;
 };
 
-export type { AuthenticatedUser, SessionContext };
+export type { AuthenticatedUser, LoginAudience, SessionContext };

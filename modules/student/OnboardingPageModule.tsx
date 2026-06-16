@@ -17,6 +17,7 @@ function OnboardingPageModule({
 }) {
   return (
     <PortalShell
+      audience="student"
       description="A short welcome pass helps the student understand the learning rhythm and store optional goals that will later inform dashboard countdowns and study priorities."
       title="Welcome to Vecalss"
       userLabel={session.user.fullName}

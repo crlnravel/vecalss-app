@@ -4,17 +4,27 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import type { LoginAudience } from "@/lib/auth/types";
 
 import { resetPasswordAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
 
-function ResetPasswordForm({ token }: { token: string }) {
+function ResetPasswordForm({
+  audience,
+  backHref,
+  token,
+}: {
+  audience: LoginAudience;
+  backHref: string;
+  token: string;
+}) {
   const [state, formAction] = useActionState(resetPasswordAction, EMPTY_FORM_STATE);
 
   return (
     <form action={formAction} className="space-y-5">
+      <input name="audience" type="hidden" value={audience} />
       <input name="token" type="hidden" value={token} />
 
       {state.message ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
@@ -50,7 +60,7 @@ function ResetPasswordForm({ token }: { token: string }) {
       </Field>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <Link className="text-sm font-medium text-primary-700 hover:text-primary-800" href="/login">
+        <Link className="text-sm font-medium text-primary-700 hover:text-primary-800" href={backHref}>
           Back to login
         </Link>
         <SubmitButton pendingLabel="Updating password..." size="lg" type="submit" variant="brand">

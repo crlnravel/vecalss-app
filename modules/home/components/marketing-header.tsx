@@ -43,7 +43,7 @@ function MarketingHeader({ currentPath }: MarketingHeaderProps) {
           );
         })}
         <ActionButtonLink href="/login" variant="brandOutline">
-          Login
+          Student Login
         </ActionButtonLink>
         <ActionButtonLink href={registerUrl}>
           Register Now
@@ -69,7 +69,7 @@ function MarketingHeader({ currentPath }: MarketingHeaderProps) {
               </Link>
             ))}
             <ActionButtonLink className="mt-2 w-full" href="/login" variant="brandOutline">
-              Login
+              Student Login
             </ActionButtonLink>
             <ActionButtonLink className="w-full" href={registerUrl}>
               Register Now
