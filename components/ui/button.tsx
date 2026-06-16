@@ -9,6 +9,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        brand:
+          "border-primary-700 bg-primary-700 text-white hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/25",
+        brandOutline:
+          "border-secondary-900 bg-white text-secondary-900 hover:bg-primary-50 focus-visible:border-secondary-900 focus-visible:ring-secondary-900/15",
+        inverseOutline:
+          "border-white/20 bg-transparent text-white hover:bg-white/10 focus-visible:border-white/35 focus-visible:ring-white/15",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-transparent dark:hover:bg-input/30",
         secondary:
@@ -25,6 +31,8 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 px-2.5 text-xs has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1 px-3 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         lg: "h-10 gap-1.5 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
+        marketing:
+          "h-auto rounded-[14px] px-[35px] py-[20px] text-[18px] leading-7 font-normal md:text-[20px]",
         icon: "size-9",
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
