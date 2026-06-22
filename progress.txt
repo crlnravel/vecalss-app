@@ -1,0 +1,32 @@
+2026-06-19 - Design audit Phase 1 implemented
+
+- Unified visual language across auth and protected portal shells with the same warm parchment / navy framing already established on the public site.
+- Increased shared interactive control sizing at the component layer so visible links, buttons, and auth actions consistently meet mobile tap-target expectations.
+- Repaired mobile overflow on `/admin/enrollment` by tightening field containment, allowing form regions to shrink correctly, and preventing cards from spilling horizontally.
+- Replaced generic proof placeholders on the home page with attached campus marks and the provided avatar placeholder, while keeping decorative missing assets in the hand-drawn SVG style.
+- Verified mobile behavior on `/`, `/dashboard`, and `/admin/enrollment` at 390px width after implementation.
+
+Remaining approved phases:
+- Phase 3 - polish pass for loading, empty, error, and motion details
+
+2026-06-19 - Design audit Phase 2 implemented
+
+- Refined the public-page surface language on `/about` and `/faq` so those screens now share the same warmer editorial atmosphere as the home page instead of reading like separate templates.
+- Reworked information cards and section framing to improve spacing rhythm, card radii, and hierarchy in the About and FAQ storytelling blocks.
+- Added stronger hierarchy to the home service cards and testimonial cards so numbering, labels, quotes, and outcomes read in a clearer sequence.
+- Repaired the remaining visually dead illustration panels by switching the mentoring and About CTA artwork to higher-contrast hand-drawn SVG presentation.
+- Re-verified `/`, `/about`, `/faq`, and `/login` at 390px width after the refinement pass.
+
+Remaining approved phases:
+- Phase 3 - polish pass for loading, empty, error, and motion details
+
+2026-06-19 - Design audit Phase 3 implemented
+
+- Added smoother FAQ micro-interactions with animated panel expansion, calmer icon rotation, and a gentler hover response on accordion cards.
+- Upgraded auth/admin form notices into a clearer state system with stronger visual hierarchy, icons, and live-region behavior for errors, success, and neutral handoff messages.
+- Added a branded global loading screen and a custom not-found route so loading and missing-route states now feel designed instead of default.
+- Added an explicit empty-roster state in admin enrollment so a zero-student account list still guides the next action.
+- Re-verified the new not-found state and upgraded auth error state in-browser, and kept touched mobile routes at 390px without overflow.
+
+Remaining approved phases:
+- None

@@ -1,7 +1,5 @@
-"use client";
-
-import { Accordion } from "@base-ui/react/accordion";
 import { Minus, Plus } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 export interface Item {
@@ -27,71 +25,58 @@ export function AccordionList({
   className,
 }: AccordionListProps) {
   return (
-    <Accordion.Root
-      defaultValue={items.length > 0 ? [items[0].id] : []}
-      multiple={allowMultiple}
-      className={cn("flex flex-col gap-7.5", className)}
-    >
-      {items.map((item) => (
-        <Accordion.Item
-          key={item.id}
-          value={item.id}
-          className={cn(
-            "w-full overflow-hidden rounded-[45px] border border-[#191a23]",
-            "px-5 py-5 md:px-15 md:py-10.25",
-            "shadow-[0px_5px_0px_0px_#191a23]",
-            "transition-colors duration-300",
-            "data-open:bg-primary-200",
-            "data-closed:bg-[#f3f3f3]",
-          )}
-        >
-          <Accordion.Header className="flex items-center justify-between">
-            <Accordion.Trigger
-              // Base UI sets data-panel-open on the trigger when expanded
+    <div className={cn("flex flex-col gap-3", className)}>
+      {items.map((item, index) => {
+        const panelId = `accordion-panel-${item.id}`;
+
+        return (
+          <details
+            key={item.id}
+            className={cn(
+              "group overflow-hidden rounded-[20px] border border-[#014C38]/10 bg-[#014C38]/[0.03] px-4 py-4 transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_52px_-42px_rgba(1,76,56,0.3)] md:px-5 md:py-4",
+              "open:bg-white open:shadow-[0_22px_64px_-50px_rgba(1,76,56,0.36)]",
+            )}
+            name={allowMultiple ? undefined : "faq-accordion"}
+            open={index === 0}
+          >
+            <summary
               className={cn(
-                "flex w-full cursor-pointer items-center justify-between gap-6 text-left",
-                "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "flex cursor-pointer list-none items-center justify-between gap-6 text-left",
+                "outline-none [&::-webkit-details-marker]:hidden",
               )}
             >
-              <div className="flex items-center gap-4 md:gap-6.25 font-space-grotesk font-medium text-black">
-                <span className="shrink-0 text-[40px] leading-none md:text-[60px]">
+              <div className="flex items-center gap-3 text-[#014C38] md:gap-4">
+                <span className="shrink-0 text-[14px] font-semibold leading-none text-[#014C38] md:text-[16px]">
                   {item.number}
                 </span>
-                <span className="text-[20px] leading-tight md:text-[30px]">
+                <span className="text-[17px] font-medium leading-tight md:text-[20px]">
                   {item.question}
                 </span>
               </div>
 
               <span
-                className={cn(
-                  "flex size-10 shrink-0 items-center justify-center rounded-full md:size-14.5",
-                  "border border-[#191a23] bg-white text-[#191a23] transition-transform duration-300",
-                )}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#014C38]/12 bg-white text-[#014C38] transition-[transform,background-color,border-color] duration-300 group-open:rotate-180 group-open:border-[#014C38]/30 group-open:bg-[#014C38]/10"
                 aria-hidden="true"
               >
-                <Plus className="size-4 md:size-5 in-data-panel-open:hidden" />
-                <Minus className="size-4 md:size-5 hidden in-data-panel-open:block" />
+                <Plus className="size-4 group-open:hidden md:size-5" />
+                <Minus className="hidden size-4 group-open:block md:size-5" />
               </span>
-            </Accordion.Trigger>
-          </Accordion.Header>
+            </summary>
 
-          <Accordion.Panel
-            keepMounted
-            className={cn(
-              "overflow-hidden",
-              "h-(--accordion-panel-height) opacity-100",
-              "transition-[height,opacity] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              "data-starting-style:h-0 data-starting-style:opacity-0",
-              "data-ending-style:h-0 data-ending-style:opacity-0",
-            )}
-          >
-            <div className="mt-5 h-px w-full bg-[#191a23] md:mt-7.5" />
-            <p className="pt-5 font-space-grotesk text-[16px] font-normal leading-relaxed text-black md:pt-7.5 md:text-[18px]">
-              {item.answer}
-            </p>
-          </Accordion.Panel>
-        </Accordion.Item>
-      ))}
-    </Accordion.Root>
+            <div
+              id={panelId}
+              className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]"
+            >
+              <div className="overflow-hidden">
+                <div className="mt-4 h-px w-full bg-[#014C38]/10" />
+                <p className="pt-4 text-[15px] leading-7 text-[#014C38]/70">
+                  {item.answer}
+                </p>
+              </div>
+            </div>
+          </details>
+        );
+      })}
+    </div>
   );
 }

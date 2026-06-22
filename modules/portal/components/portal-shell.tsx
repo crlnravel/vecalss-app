@@ -19,9 +19,9 @@ function PortalShell({
   userLabel: string;
 }) {
   return (
-    <main className="min-h-screen bg-[#f4f8f5] text-secondary-900">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#fcf8ee_0%,#f7f0df_48%,#efe6d5_100%)] text-secondary-900">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 md:px-8 md:py-8">
-        <header className="rounded-[28px] border border-primary-100 bg-white px-5 py-4 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)] md:px-7">
+        <header className="parchment-panel rounded-[28px] px-5 py-4 md:px-7">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
               <Link href="/" className="inline-flex items-center">
@@ -42,7 +42,7 @@ function PortalShell({
               </div>
               <form action={logoutAction}>
                 <input name="audience" type="hidden" value={audience} />
-                <Button type="submit" variant="brandOutline">
+                <Button size="default" type="submit" variant="brandOutline">
                   Log out
                 </Button>
               </form>

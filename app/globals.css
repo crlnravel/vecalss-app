@@ -10,12 +10,14 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    "Space Grotesk", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial,
-    sans-serif;
+    var(--font-voyage-sans), "Avenir Next", "Segoe UI", "Helvetica Neue",
+    Arial, sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
-  --font-heading:
-    "Space Grotesk", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial,
-    sans-serif;
+  --font-heading: var(--font-voyage-display), var(--font-sans);
+  --font-editorial: var(--font-heading);
+  --font-display:
+    var(--font-voyage-display), var(--font-voyage-sans), "Avenir Next",
+    "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -56,8 +58,8 @@
 
 :root {
   /* Core */
-  --background: oklch(1 0 0);
-  --foreground: var(--secondary-900);
+  --background: #ffffff;
+  --foreground: #10241d;
 
   /* Surfaces */
   --card: var(--background);
@@ -110,6 +112,11 @@
 
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+
+  --paper: rgba(247, 250, 248, 0.94);
+  --paper-strong: rgba(238, 245, 241, 0.98);
+  --navy-glow: rgba(1, 76, 56, 0.1);
+  --gold-glow: rgba(1, 76, 56, 0.14);
 }
 .dark {
   --background: oklch(0.145 0 0);
@@ -146,13 +153,235 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: #ffffff;
   }
-  html {
-    @apply font-sans;
+
+  ::selection {
+    background: rgba(1, 76, 56, 0.18);
+    color: #10241d;
+  }
+}
+
+@layer utilities {
+  .atlas-grid {
+    background-image:
+      linear-gradient(rgba(1, 76, 56, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(1, 76, 56, 0.05) 1px, transparent 1px);
+    background-size: 128px 128px;
+  }
+
+  .parchment-panel {
+    background:
+      linear-gradient(180deg, rgba(247, 250, 248, 0.98), rgba(238, 245, 241, 0.96));
+    border: 1px solid rgba(1, 76, 56, 0.12);
+    box-shadow:
+      0 26px 80px -46px rgba(1, 76, 56, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .navy-panel {
+    background: #014c38;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 28px 72px -44px rgba(1, 76, 56, 0.42);
+  }
+
+  .kicker-label {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  @media (min-width: 768px) {
+    .kicker-label {
+      font-size: 12px;
+    }
+  }
+
+  .editorial-title {
+    font-family: var(--font-display);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+
+  .typewriter-line {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    overflow: hidden;
+    padding-inline-end: 0.08em;
+    white-space: nowrap;
+    clip-path: inset(0 100% 0 0);
+    animation: title-reveal 0.45s steps(24, end) forwards;
+    animation-delay: var(--type-delay, 0s);
+  }
+
+  .marquee-mask {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .marquee-mask::before,
+  .marquee-mask::after {
+    position: absolute;
+    top: 0;
+    z-index: 2;
+    width: 72px;
+    height: 100%;
+    content: "";
+    pointer-events: none;
+  }
+
+  .marquee-mask::before {
+    left: 0;
+    background: linear-gradient(90deg, #f7faf8 0%, rgba(247, 250, 248, 0) 100%);
+  }
+
+  .marquee-mask::after {
+    right: 0;
+    background: linear-gradient(270deg, #f7faf8 0%, rgba(247, 250, 248, 0) 100%);
+  }
+
+  .marquee-mask-white::before {
+    background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  .marquee-mask-white::after {
+    background: linear-gradient(270deg, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  .marquee-mask-dark::before {
+    background: linear-gradient(90deg, #014c38 0%, rgba(1, 76, 56, 0) 100%);
+  }
+
+  .marquee-mask-dark::after {
+    background: linear-gradient(270deg, #014c38 0%, rgba(1, 76, 56, 0) 100%);
+  }
+
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee-scroll 32s linear infinite;
+  }
+
+  .animate-float-slow {
+    animation: float-slow 7s ease-in-out infinite;
+  }
+
+  .scroll-reveal {
+    animation: fade-up both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 28%;
+  }
+
+  .route-loader {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .route-loader::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.52) 45%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    transform: translateX(-120%);
+    animation: route-loader-sheen 1.8s ease-in-out infinite;
+    content: "";
+  }
+
+  .route-orbit {
+    animation: route-orbit 8s linear infinite;
+  }
+
+  .route-pulse {
+    animation: route-pulse 2.6s ease-in-out infinite;
+  }
+}
+
+@keyframes title-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes route-loader-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes route-orbit {
+  from {
+    transform: rotate(0deg) translateY(-8px) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateY(-8px) rotate(-360deg);
+  }
+}
+
+@keyframes route-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.94;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
   }
 }

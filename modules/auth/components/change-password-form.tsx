@@ -46,7 +46,7 @@ function ChangePasswordForm() {
         ) : null}
       </Field>
 
-      <SubmitButton pendingLabel="Updating password..." size="lg" type="submit" variant="brand">
+      <SubmitButton className="w-full sm:w-auto" pendingLabel="Updating password..." size="lg" type="submit" variant="brand">
         Save password and continue
       </SubmitButton>
     </form>

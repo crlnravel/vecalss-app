@@ -1,118 +1,86 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { testimonials } from "../data";
-import { NavigationDots } from "./home-primitives";
-import { TestimonialCard } from "./testimonial-card";
+import type { Testimonial } from "../data";
 
-const AUTOPLAY_INTERVAL_MS = 6000;
+type TestimonialsCarouselProps = {
+  items: Testimonial[];
+};
 
-function getWrappedIndex(index: number, total: number) {
-  return (index + total) % total;
-}
+function TestimonialsCarousel({ items }: TestimonialsCarouselProps) {
+  const [index, setIndex] = useState(0);
+  const active = items[index];
 
-function TestimonialsCarousel() {
-  const total = testimonials.length;
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-  const rotateBy = (delta: number) => {
-    setActiveIndex((currentIndex) => getWrappedIndex(currentIndex + delta, total));
+  const move = (direction: -1 | 1) => {
+    setIndex((current) => (current + direction + items.length) % items.length);
   };
-
-  const jumpTo = (index: number) => {
-    setActiveIndex(getWrappedIndex(index, total));
-  };
-
-  const autoplayAdvance = useEffectEvent(() => {
-    setActiveIndex((currentIndex) => getWrappedIndex(currentIndex + 1, total));
-  });
-
-  useEffect(() => {
-    if (isPaused || total < 2) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      autoplayAdvance();
-    }, AUTOPLAY_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [isPaused, total]);
-
-  const orderedTestimonials = [-1, 0, 1].map((offset) => {
-    return {
-      position: offset,
-      testimonial: testimonials[getWrappedIndex(activeIndex + offset, total)],
-    };
-  });
 
   return (
-    <div
-      className="overflow-hidden rounded-[32px] border border-primary-700 bg-primary-900 px-5 py-8 shadow-[0px_5px_0px_0px_#191a23] md:rounded-[45px] md:px-10 md:py-16"
-      onBlur={() => setIsPaused(false)}
-      onFocus={() => setIsPaused(true)}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      <div className="md:hidden">
-        <TestimonialCard testimonial={testimonials[activeIndex]} />
-      </div>
+    <div className="overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.04]">
+      <div className="grid gap-0 lg:grid-cols-[340px_1fr]">
+        <div className="relative min-h-[320px] bg-[#eef1f3]">
+          <Image
+            alt={active.avatarAlt}
+            fill
+            className="object-cover"
+            sizes="(min-width: 1024px) 340px, 100vw"
+            src={active.avatarSrc}
+          />
+        </div>
 
-      <div className="hidden md:flex md:flex-col md:gap-14">
-        <div className="grid items-end gap-6 md:grid-cols-[minmax(0,0.78fr)_minmax(0,1fr)_minmax(0,0.78fr)]">
-          {orderedTestimonials.map(({ position, testimonial }) => (
-            <TestimonialCard
-              key={`${testimonial.name}-${position}`}
-              className={
-                position === 0
-                  ? "translate-y-0"
-                  : position < 0
-                    ? "translate-y-8 -translate-x-5"
-                    : "translate-y-8 translate-x-5"
-              }
-              compact={position !== 0}
-              isActive={position === 0}
-              testimonial={testimonial}
-            />
-          ))}
+        <div className="flex min-h-[320px] flex-col justify-between p-6 md:p-9">
+          <div>
+            <p className="kicker-label text-white/68">{active.university}</p>
+            <blockquote className="mt-6 max-w-[720px] text-[28px] leading-[1.18] text-white md:text-[44px]">
+              &ldquo;{active.quote}&rdquo;
+            </blockquote>
+          </div>
+
+          <div className="mt-8 flex flex-col gap-5 border-t border-white/12 pt-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[24px] font-semibold tracking-[-0.02em] text-white">
+                {active.name}
+              </p>
+              <p className="mt-1 text-sm text-white/60">{active.meta}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                aria-label="Previous testimonial"
+                className="inline-flex size-11 items-center justify-center rounded-full border border-white/16 text-white transition-colors hover:border-white/48 hover:text-white/68"
+                onClick={() => move(-1)}
+                type="button"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                aria-label="Next testimonial"
+                className="inline-flex size-11 items-center justify-center rounded-full border border-white/16 text-white transition-colors hover:border-white/48 hover:text-white/68"
+                onClick={() => move(1)}
+                type="button"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mt-8 flex items-center justify-between gap-4 text-white md:mt-0 md:justify-center md:gap-10">
-        <Button
-          aria-label="Previous testimonial"
-          className="rounded-full"
-          onClick={() => rotateBy(-1)}
-          size="icon-lg"
-          type="button"
-          variant="inverseOutline"
-        >
-          <ArrowLeft data-icon="inline-start" />
-        </Button>
-
-        <NavigationDots
-          active={activeIndex}
-          count={total}
-          onSelect={jumpTo}
-          tone="light"
-        />
-
-        <Button
-          aria-label="Next testimonial"
-          className="rounded-full"
-          onClick={() => rotateBy(1)}
-          size="icon-lg"
-          type="button"
-          variant="inverseOutline"
-        >
-          <ArrowRight data-icon="inline-end" />
-        </Button>
+      <div className="flex gap-2 border-t border-white/12 px-6 py-4 md:px-9">
+        {items.map((item, itemIndex) => (
+          <button
+            aria-label={`Show testimonial from ${item.name}`}
+            className={`h-1.5 rounded-full transition-all ${
+              itemIndex === index ? "w-12 bg-white" : "w-5 bg-white/22 hover:bg-white/40"
+            }`}
+            key={item.name}
+            onClick={() => setIndex(itemIndex)}
+            type="button"
+          />
+        ))}
       </div>
     </div>
   );

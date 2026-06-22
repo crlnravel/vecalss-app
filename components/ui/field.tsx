@@ -3,7 +3,7 @@ import { Field as FieldPrimitive } from "@base-ui/react/field";
 import { cn } from "@/lib/utils";
 
 const fieldControlClassName =
-  "rounded-[14px] border border-primary-900 bg-white px-[30px] py-[18px] text-[18px] text-primary-900 outline-none transition-shadow placeholder:text-secondary-300 focus-visible:ring-2 focus-visible:ring-ring/30";
+  "min-w-0 w-full rounded-[18px] border border-secondary-900/14 bg-white px-5 py-4 text-[18px] text-secondary-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] outline-none transition-[border-color,box-shadow,background-color] placeholder:text-secondary-400 focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12";
 
 function Field({
   className,
@@ -12,7 +12,7 @@ function Field({
   return (
     <FieldPrimitive.Root
       data-slot="field"
-      className={cn("flex flex-col gap-[5px] text-primary-900", className)}
+      className={cn("flex min-w-0 flex-col gap-[5px] text-primary-900", className)}
       {...props}
     />
   );

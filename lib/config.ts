@@ -5,7 +5,7 @@ function getAppBaseUrl() {
 }
 
 function getRegistrationFormUrl() {
-  return process.env.REGISTRATION_FORM_URL?.trim() || "/#contact";
+  return process.env.REGISTRATION_FORM_URL?.trim() || "/#briefing";
 }
 
 const isProduction = process.env.NODE_ENV === "production";

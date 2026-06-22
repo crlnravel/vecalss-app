@@ -80,12 +80,12 @@ const methodSteps = [
 
 export default function AboutPageModule() {
   return (
-    <main className="overflow-x-hidden bg-[#fbfcf8] text-secondary-900">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-20 px-0 py-4 md:gap-28 md:py-3">
+    <main className="overflow-x-hidden bg-[linear-gradient(180deg,#faf6ec_0%,#f6efdf_46%,#efe5d2_100%)] text-secondary-900">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-18 px-0 py-4 md:gap-24 md:py-3">
         <section className="flex flex-col gap-8 md:gap-10">
           <MarketingHeader currentPath="/about" />
 
-          <div className="px-4 md:px-[100px]">
+          <div className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
             <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.72fr)] md:items-center md:gap-14 md:py-[72px]">
               <div>
                 <Badge size="card" variant="accent">
@@ -110,8 +110,10 @@ export default function AboutPageModule() {
                 </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-[8px] bg-primary-900 p-6 text-white shadow-[0_28px_80px_-54px_#191a23] md:p-8">
-                <div className="flex items-start justify-between gap-8">
+              <div className="navy-panel relative overflow-hidden rounded-[32px] p-6 text-white md:p-8">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,197,24,0.16),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.07),transparent_30%)]" />
+
+                <div className="relative flex items-start justify-between gap-8">
                   <div>
                     <p className="text-[13px] font-medium tracking-[0.16em] text-accent-300 uppercase">
                       Learning system
@@ -121,17 +123,18 @@ export default function AboutPageModule() {
                     </h2>
                   </div>
 
-                  <div className="relative hidden h-[118px] w-[118px] shrink-0 md:block">
+                  <div className="relative hidden h-[118px] w-[118px] shrink-0 rounded-[28px] border border-white/12 bg-[#fffaf0] shadow-[0_22px_58px_-38px_rgba(0,0,0,0.48)] md:block">
                     <Image
                       alt="Vecalss learning support illustration"
                       fill
+                      className="object-contain p-4"
                       sizes="118px"
                       src="/landing-assets/hero-rating.svg"
                     />
                   </div>
                 </div>
 
-                <div className="mt-9 divide-y divide-white/16 border-y border-white/16">
+                <div className="relative mt-9 divide-y divide-white/16 border-y border-white/16">
                   {proofPoints.map((item) => (
                     <div
                       key={item.value}
@@ -145,7 +148,7 @@ export default function AboutPageModule() {
                   ))}
                 </div>
 
-                <div className="mt-8 flex items-center gap-4 border-t border-white/16 pt-6">
+                <div className="relative mt-8 flex items-center gap-4 border-t border-white/16 pt-6">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-[8px] bg-white/10">
                     <TimerReset className="size-5" />
                   </span>
@@ -159,7 +162,7 @@ export default function AboutPageModule() {
           </div>
         </section>
 
-        <section className="px-4 md:px-[100px]">
+        <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="grid gap-10 md:grid-cols-[0.36fr_0.64fr] md:items-start md:gap-14">
             <div className="md:sticky md:top-8">
               <Badge size="section" variant="mint">
@@ -181,9 +184,9 @@ export default function AboutPageModule() {
                 return (
                   <article
                     key={card.title}
-                    className="grid gap-5 rounded-[8px] border border-secondary-900/12 bg-white p-6 shadow-[0_18px_48px_-38px_#191a23] md:grid-cols-[56px_1fr] md:p-7"
+                    className="grid gap-5 rounded-[24px] border border-secondary-900/12 bg-[rgba(255,250,239,0.94)] p-6 shadow-[0_24px_58px_-40px_rgba(25,26,35,0.18)] backdrop-blur md:grid-cols-[56px_1fr] md:p-7"
                   >
-                    <span className="flex size-12 items-center justify-center rounded-[8px] bg-primary-50 text-primary-700">
+                    <span className="flex size-12 items-center justify-center rounded-[16px] bg-primary-50 text-primary-700">
                       <Icon className="size-5" />
                     </span>
                     <div>
@@ -201,7 +204,7 @@ export default function AboutPageModule() {
           </div>
         </section>
 
-        <section className="px-4 md:px-[100px]">
+        <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="border-t border-secondary-900/15">
             <div className="grid gap-5 py-8 md:grid-cols-[0.36fr_0.64fr] md:gap-14 md:py-11">
               <div>
@@ -240,8 +243,8 @@ export default function AboutPageModule() {
           </div>
         </section>
 
-        <section className="px-4 md:px-[100px]">
-          <div className="grid overflow-hidden rounded-[8px] bg-[#eff6ef] md:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
+          <div className="grid overflow-hidden rounded-[32px] border border-primary-700/10 bg-[#eff6ef] shadow-[0_26px_72px_-46px_rgba(11,18,45,0.2)] md:grid-cols-[minmax(0,1fr)_360px]">
             <div className="p-7 md:p-12">
               <h2 className="max-w-[690px] text-[31px] leading-[1.1] font-medium text-black md:text-[44px]">
                 Ready for a prep routine that feels focused and human?
@@ -257,14 +260,31 @@ export default function AboutPageModule() {
               </div>
             </div>
 
-            <div className="flex items-end justify-center bg-primary-900 px-8 pt-6">
-              <Image
-                alt="Vera AI learning support illustration"
-                className="h-[210px] w-[210px] md:h-[320px] md:w-[320px]"
-                height={320}
-                src="/landing-assets/cta-chat.svg"
-                width={320}
-              />
+            <div className="relative overflow-hidden border-t border-primary-700/10 bg-[linear-gradient(165deg,rgba(14,59,33,0.99),rgba(11,45,25,0.98))] px-8 pt-8 md:border-t-0 md:border-l">
+              <div className="atlas-grid absolute inset-0 opacity-[0.08]" />
+              <div className="absolute right-6 top-6 flex size-16 items-center justify-center rounded-full border border-white/10 bg-white/8 md:size-20">
+                <Image
+                  alt=""
+                  fill
+                  className="object-contain p-3"
+                  sizes="80px"
+                  src="/landing-assets/program-stopwatch.svg"
+                />
+              </div>
+              <div className="relative flex h-full items-end justify-center">
+                <div className="flex h-[220px] w-[220px] items-center justify-center rounded-full bg-[#fff9ed] shadow-[0_28px_74px_-42px_rgba(0,0,0,0.52)] md:h-[310px] md:w-[310px]">
+                  <div className="relative h-[168px] w-[168px] md:h-[230px] md:w-[230px]">
+                    <Image
+                      alt="Vera AI learning support illustration"
+                      fill
+                      unoptimized
+                      className="object-contain drop-shadow-[0_16px_28px_rgba(11,18,45,0.1)]"
+                      sizes="(min-width: 768px) 230px, 168px"
+                      src="/landing-assets/cta-chat.svg"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

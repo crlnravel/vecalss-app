@@ -14,7 +14,11 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
   const [state, formAction] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
 
   return (
-    <form action={formAction} className="space-y-5 rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]">
+    <form
+      action={formAction}
+      className="space-y-5 overflow-hidden rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]"
+      id="create-student-account"
+    >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">
@@ -89,7 +93,7 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
         </Field>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start md:justify-end">
         <SubmitButton pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
           Create student account
         </SubmitButton>

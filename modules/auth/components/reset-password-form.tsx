@@ -60,7 +60,10 @@ function ResetPasswordForm({
       </Field>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <Link className="text-sm font-medium text-primary-700 hover:text-primary-800" href={backHref}>
+        <Link
+          className="inline-flex min-h-11 items-center text-sm font-medium text-primary-700 hover:text-primary-800"
+          href={backHref}
+        >
           Back to login
         </Link>
         <SubmitButton pendingLabel="Updating password..." size="lg" type="submit" variant="brand">

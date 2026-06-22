@@ -40,12 +40,12 @@ const supportLanes = [
 
 export default function FaqPageModule() {
   return (
-    <main className="overflow-x-hidden bg-[#fbfcf8] text-secondary-900">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-20 px-0 py-4 md:gap-24 md:py-3">
+    <main className="overflow-x-hidden bg-[linear-gradient(180deg,#faf6ec_0%,#f6efdf_46%,#efe5d2_100%)] text-secondary-900">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-18 px-0 py-4 md:gap-22 md:py-3">
         <section className="flex flex-col gap-8 md:gap-10">
           <MarketingHeader currentPath="/faq" />
 
-          <div className="px-4 md:px-[100px]">
+          <div className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
             <div className="grid gap-10 border-y border-secondary-900/15 py-12 md:grid-cols-[minmax(0,0.98fr)_minmax(360px,0.72fr)] md:items-end md:gap-16 md:py-[72px]">
               <div>
                 <Badge size="card" variant="mint">
@@ -70,7 +70,7 @@ export default function FaqPageModule() {
                 </div>
               </div>
 
-              <div className="rounded-[8px] border border-secondary-900/12 bg-white p-5 shadow-[0_24px_70px_-50px_#191a23] md:p-6">
+              <div className="parchment-panel rounded-[28px] p-5 md:p-7">
                 <div className="flex items-center justify-between gap-5 border-b border-secondary-900/12 pb-5">
                   <div>
                     <p className="text-[13px] font-medium tracking-[0.16em] text-primary-700 uppercase">
@@ -114,16 +114,16 @@ export default function FaqPageModule() {
           </div>
         </section>
 
-        <section className="px-4 md:px-[100px]">
+        <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="grid gap-10 md:grid-cols-[300px_minmax(0,1fr)] md:gap-16">
-            <aside className="md:sticky md:top-8 md:self-start">
+            <aside className="rounded-[28px] bg-[rgba(255,250,239,0.72)] p-6 shadow-[0_22px_58px_-44px_rgba(11,18,45,0.16)] md:sticky md:top-8 md:self-start">
               <Badge size="section" variant="accent">
                 Common questions
               </Badge>
               <h2 className="mt-6 text-[31px] leading-[1.1] font-medium text-black md:text-[40px]">
                 Straight answers, no maze.
               </h2>
-              <div className="mt-7 border-y border-secondary-900/15">
+              <div className="mt-7 rounded-[20px] border border-secondary-900/10 bg-white/72 px-4">
                 {supportLanes.map((lane) => (
                   <p
                     key={lane}
@@ -135,7 +135,7 @@ export default function FaqPageModule() {
               </div>
             </aside>
 
-            <div className="rounded-[8px] bg-white px-5 shadow-[0_24px_80px_-58px_#191a23] ring-1 ring-secondary-900/10 md:px-8">
+            <div className="parchment-panel rounded-[28px] px-5 md:px-8">
               {faqItems.map((item, index) => (
                 <details
                   key={item.id}
@@ -144,7 +144,7 @@ export default function FaqPageModule() {
                 >
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-5 outline-none transition-colors hover:text-primary-700 focus-visible:text-primary-700 [&::-webkit-details-marker]:hidden">
                     <span className="grid gap-3 md:grid-cols-[64px_1fr] md:gap-6">
-                      <span className="text-[16px] leading-none font-medium text-primary-700 md:pt-1">
+                      <span className="inline-flex h-fit w-fit rounded-full bg-primary-50 px-3 py-1 text-[12px] leading-none font-medium tracking-[0.14em] text-primary-700 md:mt-1">
                         {item.number}
                       </span>
                       <span className="text-[22px] leading-[1.18] font-medium text-black md:text-[30px]">
@@ -172,9 +172,10 @@ export default function FaqPageModule() {
           </div>
         </section>
 
-        <section className="px-4 md:px-[100px]">
-          <div className="grid gap-8 rounded-[8px] bg-primary-900 p-7 text-white md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-11">
-            <div>
+        <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
+          <div className="navy-panel relative grid gap-8 overflow-hidden rounded-[32px] p-7 text-white md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-11">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,197,24,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.07),transparent_28%)]" />
+            <div className="relative">
               <p className="text-[13px] font-medium tracking-[0.16em] text-accent-300 uppercase">
                 Still unsure
               </p>
@@ -188,7 +189,7 @@ export default function FaqPageModule() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row md:flex-col">
+            <div className="relative flex flex-col gap-4 sm:flex-row md:flex-col">
               <ActionButtonLink href="/#contact">Contact the team</ActionButtonLink>
               <ActionButtonLink href="/about" variant="inverseOutline">
                 Read our approach

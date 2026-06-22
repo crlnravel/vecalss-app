@@ -1,56 +1,80 @@
+import Image from "next/image";
 import Link from "next/link";
+import { AtSign, Mail, MessageCircle } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { footerItems } from "../data";
-import { BrandMark, SocialIcon } from "./home-primitives";
+const quickLinks = [
+  { label: "About Us", href: "/#about" },
+  { label: "Programs", href: "/#program" },
+  { label: "Login", href: "/login" },
+];
+
+const contactLinks = [
+  { label: "Contact Form", href: "/#briefing", icon: Mail },
+  { label: "Instagram", href: "https://www.instagram.com/vecalss.academy/", icon: AtSign },
+  { label: "WhatsApp & Links", href: "https://linktr.ee/vecalss2025", icon: MessageCircle },
+];
 
 function HomeFooter() {
   return (
-    <footer className="w-full bg-primary-900 text-white">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 pt-10 pb-12 text-center md:px-[113px] md:pt-[55px] md:pb-[50px] md:text-left">
-        <div className="flex w-full flex-col items-center gap-8 md:flex-row md:items-center md:justify-between">
-          <BrandMark />
+    <footer className="bg-[#014C38] text-white">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-6 py-14 md:px-10 lg:px-16 lg:py-16">
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.7fr_0.9fr] lg:items-start">
+          <div className="max-w-[28rem]">
+            <Link
+              aria-label="Vecalss homepage"
+              className="inline-flex items-center"
+              href="/"
+            >
+              <Image
+                alt="Vecalss"
+                className="h-auto w-[150px] brightness-0 invert"
+                height={44}
+                sizes="150px"
+                src="/brand/logo-full-cropped.png"
+                width={300}
+              />
+            </Link>
+            <p className="mt-5 max-w-[30ch] text-sm leading-7 text-white/76 md:text-base">
+              Ekosistem belajar untuk Voyager yang ingin mempersiapkan diri
+              menuju PTN dengan lebih terarah.
+            </p>
+          </div>
 
-          <nav className="flex flex-wrap items-center justify-center gap-6 text-[20px] leading-[23px] underline underline-offset-4 md:gap-10">
-            {footerItems.map((item) => (
-              <Link key={item.label} href={item.href}>
+          <nav className="grid gap-3 text-sm font-medium">
+            <p className="kicker-label mb-2 text-white/52">Quick Links</p>
+            {quickLinks.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="inline-flex min-h-11 items-center text-white/72 transition-colors hover:text-white"
+              >
                 {item.label}
               </Link>
             ))}
           </nav>
 
-          <div className="flex items-center gap-5">
-            <span className="inline-flex size-[30px] items-center justify-center rounded-full bg-white text-primary-900">
-              <SocialIcon platform="linkedin" />
-            </span>
-            <span className="inline-flex size-[30px] items-center justify-center rounded-full bg-white text-primary-900">
-              <SocialIcon platform="facebook" />
-            </span>
-            <span className="inline-flex size-[30px] items-center justify-center rounded-full bg-white text-primary-900">
-              <SocialIcon platform="twitter" />
-            </span>
-          </div>
+          <nav className="grid gap-3 text-sm font-medium">
+            <p className="kicker-label mb-2 text-white/52">Contact</p>
+            {contactLinks.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="inline-flex min-h-11 items-center gap-3 text-white/72 transition-colors hover:text-white"
+                >
+                  <Icon className="size-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        <div className="flex w-full flex-col gap-5 md:max-w-[332px]">
-          <Badge size="footer">Stay in touch</Badge>
-          <div className="space-y-3 text-[18px] leading-[1.3]">
-            <p>Email: hello@vecalss.com</p>
-            <p>Student support: Monday-Saturday, 08.00-20.00 WIB</p>
-            <p>
-              Built for ambitious students across Indonesia who want calmer, more focused
-              university-prep support.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-10 border-t border-white/70 pt-6 md:mt-[50px] md:pt-[50px]">
-        <div className="flex flex-col items-center gap-3 text-center text-[18px] md:flex-row md:gap-10 md:text-left">
-          <p>© 2026 Vecalss. All Rights Reserved.</p>
-          <Link href="/about" className="underline underline-offset-4">
-            About Vecalss
-          </Link>
+        <div className="flex flex-col gap-3 border-t border-white/12 pt-6 text-sm text-white/58 md:flex-row md:items-center md:justify-between">
+          <p>&copy;&nbsp;2026 Vecalss Learning Academy. Seluruh hak cipta dilindungi.</p>
+          <p>Belajar lebih terarah, konsisten, dan percaya diri menuju PTN.</p>
         </div>
       </div>
     </footer>

@@ -44,42 +44,30 @@ function ActionButtonLink({
 }
 
 function BrandLogo({ compact = false }: { compact?: boolean }) {
-  const iconSize = compact ? "h-[40px] w-[50px]" : "h-[55px] w-[68px]";
-  const wordSize = compact ? "h-[30px] w-[168px]" : "h-[39px] w-[219px]";
+  const sizeClass = compact ? "h-[50px] w-[178px]" : "h-[64px] w-[236px]";
 
   return (
-    <div className="flex items-center">
-      <div className={cn(iconSize, "relative shrink-0 overflow-hidden")}>
-        <Image
-          alt="Vecalss Learning Academy"
-          fill
-          className="absolute top-[-53.21%] left-[-40.26%] h-[281.41%] w-[181.03%] max-w-none"
-          sizes={compact ? "50px" : "68px"}
-          src="/landing-assets/logo-sprite.png"
-        />
-      </div>
-      <div className={cn(wordSize, "relative shrink-0 overflow-hidden")}>
-        <Image
-          alt=""
-          fill
-          className="absolute top-[-385.48%] left-[-0.03%] h-[708.06%] w-[100.06%] max-w-none"
-          sizes={compact ? "168px" : "219px"}
-          src="/landing-assets/logo-sprite.png"
-        />
-      </div>
+    <div className={cn(sizeClass, "relative shrink-0")}>
+      <Image
+        alt="Vecalss Learning Academy"
+        fill
+        className="object-contain"
+        sizes={compact ? "158px" : "214px"}
+        src="/brand/logo-full-cropped.png"
+      />
     </div>
   );
 }
 
 function BrandMark() {
   return (
-    <div className="relative h-12 w-[60px] overflow-hidden">
+    <div className="relative h-14 w-14 shrink-0">
       <Image
         alt="Vecalss Learning Academy"
         fill
-        className="absolute top-[-53.21%] left-[-40.26%] h-[281.41%] w-[181.03%] max-w-none"
-        sizes="60px"
-        src="/landing-assets/logo-sprite.png"
+        className="object-contain"
+        sizes="56px"
+        src="/brand/logo-mark-cropped.png"
       />
     </div>
   );
@@ -123,13 +111,17 @@ function SectionHeading({
   tone = "accent",
 }: SectionHeadingProps) {
   return (
-    <div className="flex w-full flex-col items-center gap-4 px-4 text-center md:flex-row md:items-start md:gap-10 md:px-[100px] md:text-left">
-      <div className="flex shrink-0 flex-col items-center md:items-start">
-        <Badge size="section" variant={tone === "mint" ? "mint" : "accent"}>
+    <div className="flex w-full flex-col gap-5 px-4 md:px-0">
+      <div className="flex">
+        <Badge
+          className="rounded-full px-4 py-2 font-display text-[12px] tracking-[0.26em] uppercase md:text-[13px]"
+          size="card"
+          variant={tone === "mint" ? "mint" : "accent"}
+        >
           {label}
         </Badge>
       </div>
-      <p className="max-w-[653px] text-[16px] leading-tight text-secondary-900 md:text-[18px]">
+      <p className="max-w-[62ch] font-heading text-[28px] leading-[1.08] text-secondary-900 md:text-[42px]">
         {description}
       </p>
     </div>
