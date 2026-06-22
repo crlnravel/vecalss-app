@@ -76,7 +76,7 @@ function TestimonialsCarousel({ items }: TestimonialsCarouselProps) {
             className={`h-1.5 rounded-full transition-all ${
               itemIndex === index ? "w-12 bg-white" : "w-5 bg-white/22 hover:bg-white/40"
             }`}
-            key={item.name}
+            key={`${item.name}-${itemIndex}`}
             onClick={() => setIndex(itemIndex)}
             type="button"
           />

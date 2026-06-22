@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AtSign, Mail, MessageCircle } from "lucide-react";
+import { AtSign, BriefcaseBusiness, X } from "lucide-react";
 
 const quickLinks = [
   { label: "About Us", href: "/#about" },
@@ -9,9 +9,17 @@ const quickLinks = [
 ];
 
 const contactLinks = [
-  { label: "Contact Form", href: "/#briefing", icon: Mail },
-  { label: "Instagram", href: "https://www.instagram.com/vecalss.academy/", icon: AtSign },
-  { label: "WhatsApp & Links", href: "https://linktr.ee/vecalss2025", icon: MessageCircle },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/vecalss.academy/",
+    icon: AtSign,
+  },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/vecalss",
+    icon: BriefcaseBusiness,
+  },
+  { label: "X", href: "https://x.com/vecalss", icon: X },
 ];
 
 function HomeFooter() {
@@ -22,17 +30,23 @@ function HomeFooter() {
           <div className="max-w-[28rem]">
             <Link
               aria-label="Vecalss homepage"
-              className="inline-flex items-center"
+              className="inline-flex items-center gap-4"
               href="/"
             >
               <Image
                 alt="Vecalss"
-                className="h-auto w-[150px] brightness-0 invert"
+                className="h-auto w-15 md:w-20"
                 height={44}
-                sizes="150px"
-                src="/brand/logo-full-cropped.png"
-                width={300}
+                sizes="100px"
+                src="/brand/logo-mark-cropped.png"
+                width={200}
               />
+              <span
+                className="text-[20px] font-normal leading-none tracking-[0.08em] text-white uppercase md:text-[30px]"
+                style={{ fontFamily: "var(--font-sports-world)" }}
+              >
+                VECALSS
+              </span>
             </Link>
             <p className="mt-5 max-w-[30ch] text-sm leading-7 text-white/76 md:text-base">
               Ekosistem belajar untuk Voyager yang ingin mempersiapkan diri
@@ -54,7 +68,7 @@ function HomeFooter() {
           </nav>
 
           <nav className="grid gap-3 text-sm font-medium">
-            <p className="kicker-label mb-2 text-white/52">Contact</p>
+            <p className="kicker-label mb-2 text-white/52">Social Media</p>
             {contactLinks.map((item) => {
               const Icon = item.icon;
 
@@ -73,8 +87,10 @@ function HomeFooter() {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-white/12 pt-6 text-sm text-white/58 md:flex-row md:items-center md:justify-between">
-          <p>&copy;&nbsp;2026 Vecalss Learning Academy. Seluruh hak cipta dilindungi.</p>
-          <p>Belajar lebih terarah, konsisten, dan percaya diri menuju PTN.</p>
+          <p>
+            &copy;&nbsp;2026 Vecalss Learning Academy. Seluruh hak cipta
+            dilindungi.
+          </p>
         </div>
       </div>
     </footer>

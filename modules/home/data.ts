@@ -80,8 +80,8 @@ export type Testimonial = {
   outcome: string;
   quote: string;
   university: string;
-  universityMarkAlt: string;
-  universityMarkSrc: string;
+  universityMarkAlt?: string;
+  universityMarkSrc?: string;
 };
 
 export type AcceptanceResult = {
@@ -381,48 +381,95 @@ export const crewMembers: CrewMember[] = [
 
 export const testimonials: Testimonial[] = [
   {
-    name: "Alya",
-    meta: "Voyager 2026",
-    outcome: "Diterima",
-    quote: "Vecalss bikin perjalanan belajarku terasa lebih jelas. Aku tahu harus mulai dari mana, kapan mengulang, dan bagaimana menjaga ritme sampai ujian.",
-    university: "Universitas Indonesia",
-    universityMarkSrc: "/brand/campuses/ui.png",
-    universityMarkAlt: "Universitas Indonesia mark",
-    avatarSrc: "/landing-assets/avatar-placeholder.png",
-    avatarAlt: "Placeholder avatar untuk Alya",
-  },
-  {
-    name: "Raka",
-    meta: "Voyager 2026",
-    outcome: "Diterima",
-    quote: "Kelasnya rapi dan tutor menjelaskan dengan cara yang dekat. Latihan mingguan membantu aku tetap konsisten tanpa merasa kehilangan arah.",
-    university: "Institut Teknologi Bandung",
-    universityMarkSrc: "/brand/campuses/itb.svg",
-    universityMarkAlt: "Institut Teknologi Bandung mark",
-    avatarSrc: "/landing-assets/avatar-placeholder.png",
-    avatarAlt: "Placeholder avatar untuk Raka",
-  },
-  {
-    name: "Nadia",
-    meta: "Voyager 2027",
-    outcome: "Diterima",
-    quote: "Aku suka karena belajarnya bukan cuma materi. Ada peta, evaluasi, dan dorongan kecil yang membuat target PTN terasa lebih mungkin dicapai.",
+    name: "Ayesha",
+    meta: "Kedokteran Universitas Padjadjaran",
+    outcome: "Terbantu",
+    quote: "Selama aku di Vecalss, ngerasa terbantu karena bahan ajarnya lengkap dari recording zoomnya yang bisa diakses kalau berhalangan hadir. Tutornya juga so fun dan penjelasannya oke banget!",
     university: "Universitas Padjadjaran",
     universityMarkSrc: "/brand/campuses/unpad.png",
     universityMarkAlt: "Universitas Padjadjaran mark",
-    avatarSrc: "/landing-assets/avatar-placeholder.png",
-    avatarAlt: "Placeholder avatar untuk Nadia",
+    avatarSrc: "/landing-assets/testimonials/Ayesha.png",
+    avatarAlt: "Foto Ayesha, alumni Kedokteran Universitas Padjadjaran",
   },
   {
-    name: "Dimas",
-    meta: "Voyager 2026",
-    outcome: "Diterima",
-    quote: "Menjelang ujian, Vecalss membantu aku memilah prioritas. Persiapan akhir jadi lebih tenang, fokus, dan tidak sekadar mengejar banyak soal.",
+    name: "Tiara",
+    meta: "Psikologi UNAND",
+    outcome: "Terbantu",
+    quote: "Jujur TO Vecalss ngebantu banget, terutama di PU yang tipe soalnya mirip sama yang keluar di ujian.",
+    university: "Universitas Andalas",
+    avatarSrc: "/landing-assets/testimonials/Tiara.png",
+    avatarAlt: "Foto Tiara, alumni Psikologi UNAND",
+  },
+  {
+    name: "Vertika",
+    meta: "Hukum UNS",
+    outcome: "Terbantu",
+    quote: "Ngebantu banget, apalagi tryout dan quiz-nya jadi acuan buat tau bagian mana yang masih harus dibenerin.",
+    university: "Universitas Sebelas Maret",
+    avatarSrc: "/landing-assets/testimonials/Vertika.png",
+    avatarAlt: "Foto Vertika, alumni Hukum UNS",
+  },
+  {
+    name: "Naila",
+    meta: "Sosiologi UNAIR",
+    outcome: "Terbantu",
+    quote: "Banget! Belajarku jadi lebih terarah dan nggak berasa sendirian karena ada community yang selalu nemenin prosesnya.",
     university: "Universitas Airlangga",
     universityMarkSrc: "/brand/campuses/unair.png",
     universityMarkAlt: "Universitas Airlangga mark",
-    avatarSrc: "/landing-assets/avatar-placeholder.png",
-    avatarAlt: "Placeholder avatar untuk Dimas",
+    avatarSrc: "/landing-assets/testimonials/Naila.png",
+    avatarAlt: "Foto Naila, alumni Sosiologi UNAIR",
+  },
+  {
+    name: "Housen",
+    meta: "Administrasi Perkantoran UI",
+    outcome: "Terbantu",
+    quote: "YES banget! Di waktu yang mepet pun materi-materinya masih bisa dipahami dengan baik berkat mentor dan kelas-kelasnya.",
+    university: "Universitas Indonesia",
+    universityMarkSrc: "/brand/campuses/ui.png",
+    universityMarkAlt: "Universitas Indonesia mark",
+    avatarSrc: "/landing-assets/testimonials/Housen.png",
+    avatarAlt: "Foto Housen, alumni Administrasi Perkantoran UI",
+  },
+  {
+    name: "Sheren",
+    meta: "Geologi UI",
+    outcome: "Terbantu",
+    quote: "Ngebantu banget! Jadi nggak bingung harus mulai belajar dari mana karena semuanya udah lebih terarah.",
+    university: "Universitas Indonesia",
+    universityMarkSrc: "/brand/campuses/ui.png",
+    universityMarkAlt: "Universitas Indonesia mark",
+    avatarSrc: "/landing-assets/testimonials/Sheren.png",
+    avatarAlt: "Foto Sheren, alumni Geologi UI",
+  },
+  {
+    name: "Decky",
+    meta: "Teknik Lepas Pantai ITS",
+    outcome: "Terbantu",
+    quote: "Jujur terbantu parah, terutama buat materi yang sebelumnya masih jadi kelemahanku.",
+    university: "Institut Teknologi Sepuluh Nopember",
+    avatarSrc: "/landing-assets/testimonials/Decky.png",
+    avatarAlt: "Foto Decky, alumni Teknik Lepas Pantai ITS",
+  },
+  {
+    name: "Rara",
+    meta: "Sistem Informasi ITS",
+    outcome: "Terbantu",
+    quote: "Bangettt, belajar jadi lebih seru karena tutor dan community-nya sama-sama suportif.",
+    university: "Institut Teknologi Sepuluh Nopember",
+    avatarSrc: "/landing-assets/testimonials/Rara.png",
+    avatarAlt: "Foto Rara, alumni Sistem Informasi ITS",
+  },
+  {
+    name: "Ayesha",
+    meta: "Kedokteran UNPAD",
+    outcome: "Terbantu",
+    quote: "Iyaa banget! Materinya lengkap, soal-soalnya banyak, jadi lebih enak buat latihan terus.",
+    university: "Universitas Padjadjaran",
+    universityMarkSrc: "/brand/campuses/unpad.png",
+    universityMarkAlt: "Universitas Padjadjaran mark",
+    avatarSrc: "/landing-assets/testimonials/Ayesha.png",
+    avatarAlt: "Foto Ayesha, alumni Kedokteran UNPAD",
   },
 ];
 
@@ -468,6 +515,13 @@ export const faqItems: Item[] = [
     question: "Apakah ada komunitas setelah bergabung?",
     answer:
       "Ya. Voyager bergabung ke komunitas untuk berbagi strategi dan saling mendukung.",
+  },
+  {
+    id: "7",
+    number: "07",
+    question: "Bagaimana cara mulai bergabung?",
+    answer:
+      "Kamu bisa mulai dari linktr.ee/vecalss.academy untuk melihat program yang sedang berjalan.",
   },
 ];
 
