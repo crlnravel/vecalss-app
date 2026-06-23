@@ -7,6 +7,7 @@ import { FAQ } from "./components/FAQ";
 import { MarketingHeader } from "./components/marketing-header";
 import { ActionButtonLink } from "./components/home-primitives";
 import { HomeFooter } from "./components/home-footer";
+import { MentorCards } from "./components/mentor-cards";
 import {
   campusCrewMarks,
   crewMembers,
@@ -293,45 +294,7 @@ function MentorsSection() {
           body="Tutor dari UI, ITB, UGM, dan PTN unggulan lainnya."
         />
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {crewMembers.map((member) => (
-            <article
-              key={member.name}
-              className="overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white"
-            >
-              <div className="relative aspect-[1/1] bg-[#014C38]/[0.035]">
-                <Image
-                  alt={member.photoAlt}
-                  fill
-                  className="object-cover"
-                  sizes="(min-width: 1024px) 33vw, 50vw"
-                  src={member.photoSrc}
-                />
-              </div>
-              <div className="p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-[26px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
-                      {member.name}
-                    </h3>
-                    <p className="mt-1 text-sm font-semibold text-[#014C38]/62">
-                      {member.focus}
-                    </p>
-                  </div>
-                  <div className="relative size-10 shrink-0">
-                    <Image
-                      alt={member.campusMarkAlt}
-                      fill
-                      className="object-contain"
-                      sizes="40px"
-                      src={member.campusMarkSrc}
-                    />
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+        <MentorCards members={crewMembers} />
       </div>
     </section>
   );

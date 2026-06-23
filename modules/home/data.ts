@@ -64,12 +64,20 @@ export type CampusOutcome = {
 export type CrewMember = {
   blurb: string;
   campus: string;
-  campusMarkAlt: string;
-  campusMarkSrc: string;
+  campusMarkAlt?: string;
+  campusMarkSrc?: string;
   focus: string;
+  fullName?: string;
+  gpa?: string;
+  id: string;
+  isEmpty?: boolean;
+  major?: string;
   name: string;
   photoAlt: string;
   photoSrc: string;
+  profileAchievements?: string[];
+  university?: string;
+  utbkScore?: string;
 };
 
 export type Testimonial = {
@@ -318,64 +326,102 @@ export const acceptanceResults: AcceptanceResult[] = [
 
 export const crewMembers: CrewMember[] = [
   {
-    name: "Mufli",
+    id: "mufli",
+    name: "Kak Mufli",
+    fullName: "Abdulah Muflih R.",
     campus: "ITB",
+    university: "Institut Teknologi Bandung (ITB)",
     campusMarkSrc: "/brand/campuses/itb.svg",
     campusMarkAlt: "Institut Teknologi Bandung mark",
-    focus: "Arsitektur",
+    major: "Architecture",
+    focus: "Architecture",
+    utbkScore: "700",
+    gpa: "3.80",
     blurb: "Membantu Voyager membangun cara berpikir runtut dari konsep dasar sampai strategi soal.",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Mufli",
+    photoSrc: "/landing-assets/mentors/mufli.jpg",
+    photoAlt: "Foto Kak Mufli, tutor Architecture Vecalss",
+    profileAchievements: [
+      "Awarded the Luar Biasa Scholarship, Batch 14",
+      "Awarded the IA Qatar ITB Scholarship",
+    ],
   },
   {
-    name: "Adit",
-    campus: "UI",
-    campusMarkSrc: "/brand/campuses/ui.png",
-    campusMarkAlt: "Universitas Indonesia mark",
-    focus: "Fisika",
-    blurb: "Mengajar dengan pengalaman langsung sebagai pejuang PTN yang pernah melewati fase yang sama.",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Adit",
-  },
-  {
-    name: "Nadiv",
-    campus: "UI",
-    campusMarkSrc: "/brand/campuses/ui.png",
-    campusMarkAlt: "Universitas Indonesia mark",
-    focus: "Psikologi",
-    blurb: "Menjaga kelas tetap jelas, suportif, dan tidak membuat siswa merasa berjuang sendirian.",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Nadiv",
-  },
-  {
-    name: "Kaori",
-    campus: "UPN",
+    id: "mira",
+    name: "Kak Mira",
+    fullName: "Mira Izzati",
+    campus: "UPN Veteran Jakarta",
+    university: "UPN Veteran Jakarta",
     campusMarkSrc: "/brand/campuses/upn.png",
     campusMarkAlt: "Universitas Pembangunan Nasional Veteran Jakarta mark",
-    focus: "Kedokteran",
+    major: "Medicine",
+    focus: "Medicine",
+    utbkScore: "-",
+    gpa: "3.70",
     blurb: "Mendampingi siswa yang perlu disiplin belajar tinggi untuk target jurusan kompetitif.",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Kaori",
+    photoSrc: "/landing-assets/mentors/mira.jpg",
+    photoAlt: "Foto Kak Mira, tutor Medicine Vecalss",
+    profileAchievements: [
+      "Participated in National Submission of PKM-RS (2024)",
+      "Participated in National Submission of PKM-VGK (2025)",
+    ],
   },
   {
-    name: "Dhini",
-    campus: "Unpad",
-    campusMarkSrc: "/brand/campuses/unpad.png",
-    campusMarkAlt: "Universitas Padjadjaran mark",
-    focus: "Hubungan Internasional",
-    blurb: "Membantu Voyager menata prioritas belajar tanpa kehilangan arah tujuan kampus.",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Dhini",
+    id: "jessica",
+    name: "Kak Jessica",
+    fullName: "Jessica Angelina",
+    campus: "ITB",
+    university: "Institut Teknologi Bandung (ITB)",
+    campusMarkSrc: "/brand/campuses/itb.svg",
+    campusMarkAlt: "Institut Teknologi Bandung mark",
+    major: "Pharmaceutical Science and Technology",
+    focus: "Pharmaceutical Science and Technology",
+    utbkScore: "728",
+    gpa: "3.88",
+    blurb: "Membawa ketelitian sains dan strategi belajar yang rapi untuk kelas-kelas intensif.",
+    photoSrc: "/landing-assets/mentors/jessica.jpg",
+    photoAlt: "Foto Kak Jessica, tutor Pharmaceutical Science and Technology Vecalss",
+    profileAchievements: [
+      "1st Winner, INVATION: Product Design (Airnology 3.0, Universitas Airlangga, 2024)",
+      "1st Winner, O2SN Tangerang City (2022)",
+    ],
   },
   {
-    name: "Nicho",
-    campus: "UGM",
-    campusMarkSrc: "/brand/campuses/ugm.png",
-    campusMarkAlt: "Universitas Gadjah Mada mark",
-    focus: "Teknik Nuklir",
-    blurb: "Membawa sudut pandang akademik yang kuat sekaligus dekat dengan realitas siswa.",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Nicho",
+    id: "nayla",
+    name: "Kak Nayla",
+    fullName: "Nayla Ramandha K.",
+    campus: "Universitas Brawijaya",
+    university: "Universitas Brawijaya",
+    major: "Psychology",
+    focus: "Psychology",
+    utbkScore: "704.47",
+    gpa: "3.67",
+    blurb: "Menjaga kelas tetap jelas, suportif, dan tidak membuat siswa merasa berjuang sendirian.",
+    photoSrc: "/landing-assets/mentors/nayla.jpg",
+    photoAlt: "Foto Kak Nayla, tutor Psychology Vecalss",
+    profileAchievements: [
+      "Se7enline Radio's April Crew of the Month (2023)",
+      "Top 50 AI4IMPACT Career Scholarship 2.0",
+    ],
+  },
+  {
+    id: "empty-1",
+    name: "",
+    campus: "",
+    focus: "",
+    blurb: "",
+    photoSrc: "",
+    photoAlt: "",
+    isEmpty: true,
+  },
+  {
+    id: "empty-2",
+    name: "",
+    campus: "",
+    focus: "",
+    blurb: "",
+    photoSrc: "",
+    photoAlt: "",
+    isEmpty: true,
   },
 ];
 

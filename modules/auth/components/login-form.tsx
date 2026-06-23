@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { fieldControlClassName, Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { LoginAudience } from "@/lib/auth/types";
 
 import { loginAdminAction, loginStudentAction } from "../actions";
@@ -38,6 +38,7 @@ function LoginForm({
         <FieldLabel htmlFor="login-email">Email</FieldLabel>
         <FieldInput
           autoComplete="email"
+          className="min-h-[54px] rounded-[12px] border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
@@ -54,9 +55,10 @@ function LoginForm({
         <FieldLabel htmlFor="login-password">Password</FieldLabel>
         <FieldInput
           autoComplete="current-password"
+          className="min-h-[54px] rounded-[12px] border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
           id="login-password"
           name="password"
-          placeholder="Enter your password"
+          placeholder="Masukkan password"
           required
           type="password"
         />
@@ -65,55 +67,45 @@ function LoginForm({
         ) : null}
       </Field>
 
-      <div className="flex flex-col gap-3 pt-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center justify-end pt-1">
         <Link
-          className="inline-flex min-h-11 items-center text-sm font-medium text-primary-700 hover:text-primary-800"
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 hover:text-primary-800"
           href={forgotPasswordHref}
         >
-          Forgot your password?
+          Lupa password?
         </Link>
-        <div className="flex flex-col gap-3 md:flex-row">
-          {!isAdminLogin ? (
-            <Link
-              className={`${fieldControlClassName} inline-flex min-h-[58px] items-center justify-center px-6 py-3 text-base font-medium`}
-              href={registerUrl}
-            >
-              Register
-            </Link>
-          ) : (
-            <Link
-              className={`${fieldControlClassName} inline-flex min-h-[58px] items-center justify-center px-6 py-3 text-base font-medium`}
-              href="/login"
-            >
-              Student login
-            </Link>
-          )}
-          <SubmitButton pendingLabel="Signing in..." size="lg" type="submit" variant="brand">
-            {isAdminLogin ? "Admin login" : "Login to Vecalss"}
-          </SubmitButton>
-        </div>
       </div>
 
-      <p className="text-sm leading-6 text-secondary-600">
+      <SubmitButton
+        className="min-h-[54px] w-full rounded-[14px] text-base font-semibold shadow-[0_16px_30px_-22px_rgba(1,76,56,0.7)]"
+        pendingLabel="Memproses..."
+        size="lg"
+        type="submit"
+        variant="brand"
+      >
+        {isAdminLogin ? "Masuk admin" : "Masuk"}
+      </SubmitButton>
+
+      <p className="text-center text-sm leading-6 text-secondary-600">
         {isAdminLogin ? (
           <>
-            Student account? Use the{" "}
+            Akun siswa? Gunakan{" "}
             <Link
-              className="inline-flex min-h-11 items-center font-medium text-primary-700 hover:text-primary-800"
+              className="font-semibold text-primary-700 hover:text-primary-800"
               href="/login"
             >
-              student sign-in
+              halaman masuk siswa
             </Link>
             .
           </>
         ) : (
           <>
-            Admin access is handled separately through the{" "}
+            Butuh akun? Daftar melalui{" "}
             <Link
-              className="inline-flex min-h-11 items-center font-medium text-primary-700 hover:text-primary-800"
-              href="/admin/login"
+              className="font-semibold text-primary-700 hover:text-primary-800"
+              href={registerUrl}
             >
-              admin login
+              formulir pendaftaran
             </Link>
             .
           </>
