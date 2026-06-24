@@ -82,7 +82,7 @@ function Hero() {
         <div className="grid flex-1 gap-8 py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.78fr)] lg:items-center lg:py-16">
           <div className="max-w-[720px]">
             <h1 className="text-balance text-[54px] font-semibold leading-[0.95] tracking-[-0.055em] text-[#014C38] sm:text-[72px] md:text-[92px] lg:text-[104px]">
-              Berlayar Menuju PTN Impian
+              Misi Belajar Konsisten Dari Dasar Sampai Mahir
             </h1>
             <p className="mt-7 max-w-[600px] text-[18px] leading-8 text-[#014C38]/70 md:text-[20px] md:leading-8">
               Peta belajar yang jelas, ritme yang konsisten, dan Kapten yang
@@ -151,7 +151,7 @@ function LogoMarquee() {
           {logos.map((item, index) => (
             <div
               key={`${item.name}-${index}`}
-              className="relative mx-10 h-14 w-28 shrink-0 opacity-58 grayscale transition duration-300 hover:opacity-100 md:mx-14 md:h-16 md:w-36"
+              className="relative mx-10 h-14 w-28 shrink-0 opacity-58 transition duration-300 hover:opacity-100 md:mx-14 md:h-16 md:w-36"
             >
               <Image
                 alt={item.markAlt}
