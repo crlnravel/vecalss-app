@@ -32,21 +32,22 @@ function MentorCards({ members }: MentorCardsProps) {
               render={
                 <button
                   aria-label={`Lihat profil ${member.name}`}
-                  className="group overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white text-left transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/22 hover:shadow-[0_34px_90px_-72px_rgba(1,76,56,0.55)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#014C38]/18"
+                  className="group overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white text-left transition-[transform,border-color,box-shadow] duration-500 ease-out hover:-translate-y-1 hover:border-[#014C38]/22 hover:shadow-[0_34px_90px_-72px_rgba(1,76,56,0.55)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#014C38]/18"
                   type="button"
                 />
               }
             >
-              <div className="relative aspect-[1/1] bg-[#014C38]/[0.035]">
+              <div className="relative aspect-[1/1] overflow-hidden bg-[#014C38]/[0.035]">
                 <Image
                   alt={member.photoAlt}
                   fill
-                  className="object-cover transition duration-500 group-hover:scale-[1.035]"
+                  className="object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.2,0.72,0.22,1)] group-hover:scale-[1.045] group-hover:brightness-[0.82] group-hover:saturate-[0.95]"
                   priority={index < 2}
                   sizes="(min-width: 1024px) 33vw, 50vw"
                   src={member.photoSrc}
                 />
-                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#014C38]/36 to-transparent" />
+                <div className="absolute inset-0 bg-[#014C38]/0 transition-colors duration-700 ease-[cubic-bezier(0.2,0.72,0.22,1)] group-hover:bg-[#014C38]/16" />
+                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#014C38]/42 via-[#014C38]/12 to-transparent transition-opacity duration-700 ease-[cubic-bezier(0.2,0.72,0.22,1)] group-hover:opacity-90" />
               </div>
               <div className="p-5">
                 <div className="flex items-center justify-between gap-4">
