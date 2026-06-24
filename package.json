@@ -7,7 +7,8 @@
     "lint": "eslint",
     "tokens": "node design-tokens/generate-theme.mjs",
     "dev": "pnpm tokens && next dev",
-    "build": "pnpm tokens && next build",
+    "db:generate": "prisma generate",
+    "build": "pnpm db:generate && pnpm tokens && next build",
     "start": "next start",
     "db:seed": "node prisma/seed.mjs"
   },
