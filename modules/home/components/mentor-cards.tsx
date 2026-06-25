@@ -32,12 +32,12 @@ function MentorCards({ members }: MentorCardsProps) {
               render={
                 <button
                   aria-label={`Lihat profil ${member.name}`}
-                  className="group overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white text-left transition-[transform,border-color,box-shadow] duration-500 ease-out hover:-translate-y-1 hover:border-[#014C38]/22 hover:shadow-[0_34px_90px_-72px_rgba(1,76,56,0.55)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#014C38]/18"
+                  className="group overflow-hidden rounded-[24px] bg-white text-left transition-[transform,box-shadow] duration-500 ease-out hover:-translate-y-1 hover:shadow-[0_34px_90px_-72px_rgba(1,76,56,0.55)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#014C38]/18"
                   type="button"
                 />
               }
             >
-              <div className="relative aspect-[1/1] overflow-hidden bg-[#014C38]/[0.035]">
+              <div className="relative aspect-[1/1] overflow-hidden bg-transparent">
                 <Image
                   alt={member.photoAlt}
                   fill
@@ -79,7 +79,7 @@ function MentorCards({ members }: MentorCardsProps) {
               showCloseButton
             >
               <div className="grid max-h-[calc(100vh-2rem)] overflow-y-auto lg:grid-cols-[0.82fr_1fr]">
-                <div className="relative min-h-[310px] bg-[#014C38]/[0.035] lg:min-h-[640px]">
+                <div className="relative min-h-[310px] bg-transparent lg:min-h-[640px]">
                   <Image
                     alt={member.photoAlt}
                     fill

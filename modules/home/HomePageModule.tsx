@@ -109,8 +109,6 @@ function Hero() {
 
           <div className="relative mx-auto w-full max-w-[540px] lg:max-w-[620px]">
             <div className="absolute inset-x-8 bottom-4 h-24 rounded-full bg-[#014C38]/12 blur-3xl" />
-            <div className="absolute -right-6 top-8 hidden h-24 w-24 rounded-full border border-[#014C38]/15 lg:block" />
-            <div className="absolute bottom-16 left-0 hidden h-16 w-16 rounded-full bg-[#014C38]/6 lg:block" />
             <div className="relative aspect-square">
               <Image
                 alt="Maskot Vecalss sebagai kapten perjalanan belajar"
@@ -369,11 +367,23 @@ function QuestionsSection() {
   return (
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-10 lg:grid-cols-[0.58fr_1fr] lg:items-start">
-        <SectionIntro
-          eyebrow="FAQ"
-          title="Pertanyaan dari Deck Kapal"
-          body="Jawaban singkat sebelum kamu mulai berlayar."
-        />
+        <div className="flex flex-col gap-8">
+          <SectionIntro
+            eyebrow="FAQ"
+            title="Pertanyaan dari Deck Kapal"
+            body="Jawaban singkat sebelum kamu mulai berlayar."
+          />
+          <div className="relative mx-auto aspect-square w-full max-w-[260px] lg:mx-0 lg:max-w-[320px]">
+            <div className="absolute inset-6 rounded-full bg-[#014C38]/10 blur-3xl" />
+            <Image
+              alt="Maskot Vecalss menemani bagian FAQ"
+              fill
+              className="relative object-contain drop-shadow-[0_30px_70px_rgba(1,76,56,0.14)]"
+              sizes="(min-width: 1024px) 320px, 260px"
+              src="/brand/mascot-vecalss.png"
+            />
+          </div>
+        </div>
         <FAQ className="gap-3" items={faqItems} />
       </div>
     </section>
