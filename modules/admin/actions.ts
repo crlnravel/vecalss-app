@@ -69,7 +69,7 @@ async function createStudentEnrollmentAction(
         fullName,
         targetExamEventId: targetExamEventId ?? "",
       },
-      message: "Complete the student's core details before creating the account.",
+      message: "Please fill in the student's name and email before creating the account.",
       status: "error",
     };
   }
@@ -103,7 +103,7 @@ async function createStudentEnrollmentAction(
       message:
         error instanceof Error
           ? error.message
-          : "We could not create the student account. Please try again.",
+          : "We're sorry, we couldn't create the student account. Please try again.",
       status: "error",
     };
   }

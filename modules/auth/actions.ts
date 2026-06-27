@@ -70,8 +70,7 @@ async function handleLoginAction(
     if (result.code === "service_unavailable") {
       return {
         fields: { email },
-        message:
-          "The authentication service is temporarily unavailable. Please try again in a moment.",
+        message: "We're sorry, sign-in is unavailable right now. Please try again soon.",
         status: "error",
       };
     }
@@ -136,8 +135,7 @@ async function forgotPasswordAction(
 
     return {
       fields: { email },
-      message:
-        "We could not prepare a password reset right now. Please try again in a moment.",
+      message: "We're sorry, we can't send a reset link right now. Please try again soon.",
       status: "error",
     };
   }
@@ -186,7 +184,7 @@ async function resetPasswordAction(
       message:
         error instanceof Error
           ? error.message
-          : "We could not reset your password. Please request a fresh reset link.",
+          : "We're sorry, this reset link no longer works. Please request a new one.",
       status: "error",
     };
   }
@@ -238,7 +236,7 @@ async function changePasswordAction(
       message:
         error instanceof Error
           ? error.message
-          : "We could not update your password. Please try again.",
+          : "We're sorry, we couldn't update your password. Please try again.",
       status: "error",
     };
   }

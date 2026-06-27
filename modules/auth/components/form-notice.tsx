@@ -12,7 +12,7 @@ function FormNotice({
   const Icon =
     tone === "danger" ? AlertTriangle : tone === "success" ? CircleCheckBig : Info;
   const label =
-    tone === "danger" ? "Something needs attention" : tone === "success" ? "Saved" : "Note";
+    tone === "danger" ? "We're sorry" : tone === "success" ? "Saved" : "Note";
 
   return (
     <div

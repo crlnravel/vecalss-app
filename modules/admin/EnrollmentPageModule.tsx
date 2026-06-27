@@ -25,10 +25,10 @@ const noticeMessages: Record<string, string> = {
 };
 
 const errorMessages: Record<string, string> = {
-  "duplicate-email": "That email is already in use by another student account.",
-  "missing-fields": "Name and email are required for student updates.",
-  "missing-user": "The requested student account could not be found.",
-  "update-failed": "We could not update that student account. Please try again.",
+  "duplicate-email": "That email is already being used by another student account.",
+  "missing-fields": "Please add the student's name and email before updating.",
+  "missing-user": "We couldn't find that student account.",
+  "update-failed": "We're sorry, we couldn't update that student account. Please try again.",
 };
 
 function EnrollmentPageModule({

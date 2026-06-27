@@ -60,22 +60,21 @@ async function saveOnboardingAction(
 
   if (targetExamEventId && !examEvent) {
     return {
-      message: "The selected exam goal is no longer available. Please choose another option.",
+      message: "We're sorry, that exam option is no longer available. Please choose another one.",
       status: "error",
     };
   }
 
   if (targetUniversityId && !university) {
     return {
-      message:
-        "The selected university is no longer available. Please choose another option.",
+      message: "We're sorry, that university is no longer available. Please choose another one.",
       status: "error",
     };
   }
 
   if (targetMajorId && !major) {
     return {
-      message: "The selected major is no longer available. Please choose another option.",
+      message: "We're sorry, that major is no longer available. Please choose another one.",
       status: "error",
     };
   }
@@ -86,8 +85,7 @@ async function saveOnboardingAction(
 
   if (major && targetUniversityId && major.universityId !== targetUniversityId) {
     return {
-      message:
-        "The selected major does not belong to the selected university. Please update your goal choices.",
+      message: "Please choose a major that matches the selected university.",
       status: "error",
     };
   }
