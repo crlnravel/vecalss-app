@@ -72,11 +72,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Progress,
   ProgressLabel,
   ProgressValue,
 } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -118,6 +127,50 @@ type NavigationItem = {
   label: string;
 };
 
+type NotificationItem = {
+  action: string;
+  detail: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  time: string;
+  title: string;
+  unread: boolean;
+};
+
+const notificationItems: NotificationItem[] = [
+  {
+    action: "Review sekarang",
+    detail: "PU modul 04 direkomendasikan ulang setelah tryout terakhir.",
+    href: "#progress",
+    icon: BookOpen,
+    time: "Baru saja",
+    title: "Fokus belajarmu diperbarui",
+    unread: true,
+  },
+  {
+    action: "Buka jadwal",
+    detail: "Mentoring strategi SNBT dimulai hari ini pukul 19.00 WIB.",
+    href: "#continue-learning",
+    icon: CalendarCheck,
+    time: "Hari ini",
+    title: "Kelas live malam ini",
+    unread: true,
+  },
+  {
+    action: "Lanjutkan diskusi",
+    detail: "Vera AI menyiapkan rangkuman kelemahan dan 5 soal lanjutan.",
+    href: "#vera-ai",
+    icon: MessageCircle,
+    time: "Kemarin",
+    title: "Balasan baru dari Vera AI",
+    unread: false,
+  },
+];
+
+const unreadNotificationCount = notificationItems.filter(
+  (item) => item.unread,
+).length;
+
 const mainNavigation: NavigationItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "#materi-runtun", icon: BookOpen, label: "Materi Runtun" },
@@ -129,7 +182,12 @@ const mainNavigation: NavigationItem[] = [
 
 const growthNavigation: NavigationItem[] = [
   { href: "#daily-mission", icon: Flame, label: "Daily Mission", badge: "3" },
-  { href: "#notifications", icon: Bell, label: "Notifications", badge: "2" },
+  {
+    href: "#notifications",
+    icon: Bell,
+    label: "Notifications",
+    badge: String(unreadNotificationCount),
+  },
   { href: "#settings", icon: Settings, label: "Profile / Settings" },
 ];
 
@@ -284,6 +342,91 @@ function getExamDaysLeft(profile: DashboardProfile) {
   return Math.ceil(diff / 86_400_000);
 }
 
+function NotificationPopover() {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            aria-label="Notifications"
+            className="relative"
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <Bell />
+        {unreadNotificationCount > 0 ? (
+          <span className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-[#F5C518] text-[10px] font-semibold text-secondary-900">
+            {unreadNotificationCount}
+          </span>
+        ) : null}
+      </PopoverTrigger>
+
+      <PopoverContent align="end" className="w-[360px] gap-0 p-0" sideOffset={8}>
+        <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <PopoverTitle>Notifications</PopoverTitle>
+              <PopoverDescription className="mt-1 text-xs">
+                Update penting buat belajarmu hari ini.
+              </PopoverDescription>
+            </div>
+            <span className="rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-semibold text-primary-800">
+              {unreadNotificationCount} baru
+            </span>
+          </div>
+        </PopoverHeader>
+
+        <div className="flex flex-col">
+          {notificationItems.map((item, index) => (
+            <div key={item.title}>
+              <Link
+                href={item.href}
+                className="flex gap-3 px-4 py-4 transition-colors hover:bg-primary-50/80"
+              >
+                <div
+                  className={cn(
+                    "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
+                    item.unread
+                      ? "border-primary-200 bg-primary-100 text-primary-800"
+                      : "border-primary-100 bg-white text-secondary-500",
+                  )}
+                >
+                  <item.icon />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-secondary-900">
+                      {item.title}
+                    </p>
+                    {item.unread ? (
+                      <span className="size-2 shrink-0 rounded-full bg-[#F5C518]" />
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-secondary-600">
+                    {item.detail}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+                    <span className="text-secondary-500">{item.time}</span>
+                    <span className="font-medium text-primary-800">
+                      {item.action}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+              {index < notificationItems.length - 1 ? (
+                <Separator className="bg-primary-100/80" />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function DashboardPageModule({
   profile,
   session,
@@ -397,16 +540,7 @@ function DashboardPageModule({
                 />
               </div>
 
-              <Button
-                aria-label="Notifications"
-                className="relative"
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <Bell />
-                <span className="absolute top-2 right-2 size-2 rounded-full bg-[#F5C518]" />
-              </Button>
+              <NotificationPopover />
 
               <DropdownMenu>
                 <DropdownMenuTrigger

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
+import { topAlumni, type TopAlumni } from "@/modules/alumni/data";
 import { ContactForm } from "./components/contact-form";
 import { CountUpStats } from "./components/count-up-stats";
 import { FAQ } from "./components/FAQ";
@@ -363,6 +364,73 @@ function ResultsSection() {
   );
 }
 
+function TopAlumniSection() {
+  const featuredAlumni = topAlumni.slice(0, 6);
+
+  return (
+    <section className="bg-[#F7FBF4] px-4 py-20 md:px-8 md:py-28 lg:px-10">
+      <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
+        <div className="grid gap-8 lg:grid-cols-[0.4fr_0.6fr] lg:items-end">
+          <SectionIntro
+            title="Top Alumni"
+            body="Tempat para voyager berlabuh!"
+          />
+
+          <div className="flex lg:justify-end">
+            <ActionButtonLink
+              className="rounded-full !bg-[#014C38] px-7 py-4 text-[15px] font-semibold !text-white hover:!bg-[#014C38]/90"
+              href="/top-alumni"
+              variant="brand"
+            >
+              Lihat Top 90 Alumni
+              <ArrowRight className="ml-2 size-4" />
+            </ActionButtonLink>
+          </div>
+        </div>
+
+        <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {featuredAlumni.map((alumnus) => (
+            <TopAlumniCard alumnus={alumnus} key={alumnus.id} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
+  return (
+    <article className="group overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white shadow-[0_26px_80px_-66px_rgba(1,76,56,0.28)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
+      <div className="relative aspect-[4/3] bg-[#014C38]/[0.04]">
+        <Image
+          alt={`${alumnus.name} profile photo`}
+          fill
+          className="object-cover"
+          sizes="(min-width: 1024px) 360px, (min-width: 768px) 50vw, 100vw"
+          src={alumnus.photoSrc}
+        />
+        <div className="absolute right-4 top-4 size-14">
+          <Image
+            alt={alumnus.logoAlt}
+            fill
+            className="object-contain"
+            sizes="56px"
+            src={alumnus.logoSrc}
+          />
+        </div>
+      </div>
+      <div className="p-5 md:p-6">
+        <h3 className="text-[23px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
+          {alumnus.name}
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-[#014C38]/68">
+          {alumnus.university}
+        </p>
+      </div>
+    </article>
+  );
+}
+
 function QuestionsSection() {
   return (
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
@@ -502,6 +570,7 @@ function HomePageModule() {
       <PrinciplesSection />
       <ProgramsSection />
       <MentorsSection />
+      <TopAlumniSection />
       <ResultsSection />
       <QuestionsSection />
       <VeraAiSection />
