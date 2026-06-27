@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import localFont from "next/font/local";
+
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -38,7 +41,9 @@ export default function RootLayout({
       lang="id"
       className={`${jakarta.variable} ${manrope.variable} ${sportsWorld.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }
