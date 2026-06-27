@@ -74,7 +74,6 @@ import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
-  PopoverDescription,
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
@@ -128,7 +127,6 @@ type NavigationItem = {
 };
 
 type NotificationItem = {
-  action: string;
   detail: string;
   href: string;
   icon: ComponentType<{ className?: string }>;
@@ -139,7 +137,6 @@ type NotificationItem = {
 
 const notificationItems: NotificationItem[] = [
   {
-    action: "Review sekarang",
     detail: "PU modul 04 direkomendasikan ulang setelah tryout terakhir.",
     href: "#progress",
     icon: BookOpen,
@@ -148,7 +145,6 @@ const notificationItems: NotificationItem[] = [
     unread: true,
   },
   {
-    action: "Buka jadwal",
     detail: "Mentoring strategi SNBT dimulai hari ini pukul 19.00 WIB.",
     href: "#continue-learning",
     icon: CalendarCheck,
@@ -157,7 +153,6 @@ const notificationItems: NotificationItem[] = [
     unread: true,
   },
   {
-    action: "Lanjutkan diskusi",
     detail: "Vera AI menyiapkan rangkuman kelemahan dan 5 soal lanjutan.",
     href: "#vera-ai",
     icon: MessageCircle,
@@ -358,7 +353,7 @@ function NotificationPopover() {
       >
         <Bell />
         {unreadNotificationCount > 0 ? (
-          <span className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-[#F5C518] text-[10px] font-semibold text-secondary-900">
+          <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-[#F5C518] px-1 py-0.5 text-[9px] leading-none font-semibold text-secondary-900">
             {unreadNotificationCount}
           </span>
         ) : null}
@@ -366,16 +361,8 @@ function NotificationPopover() {
 
       <PopoverContent align="end" className="w-[360px] gap-0 p-0" sideOffset={8}>
         <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <PopoverTitle>Notifications</PopoverTitle>
-              <PopoverDescription className="mt-1 text-xs">
-                Update penting buat belajarmu hari ini.
-              </PopoverDescription>
-            </div>
-            <span className="rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-semibold text-primary-800">
-              {unreadNotificationCount} baru
-            </span>
+          <div className="min-w-0">
+            <PopoverTitle>Notifications</PopoverTitle>
           </div>
         </PopoverHeader>
 
@@ -408,12 +395,9 @@ function NotificationPopover() {
                   <p className="mt-1 text-sm leading-6 text-secondary-600">
                     {item.detail}
                   </p>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs">
-                    <span className="text-secondary-500">{item.time}</span>
-                    <span className="font-medium text-primary-800">
-                      {item.action}
-                    </span>
-                  </div>
+                  <span className="mt-3 block text-xs text-secondary-500">
+                    {item.time}
+                  </span>
                 </div>
               </Link>
               {index < notificationItems.length - 1 ? (
@@ -456,7 +440,7 @@ function DashboardPageModule({
           <SidebarHeader className="gap-4 p-4">
             <Link
               href="/"
-              className="flex items-center justify-center rounded-2xl px-1 py-1"
+              className="flex origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:scale-50"
             >
               <BrandMark />
             </Link>
@@ -489,10 +473,10 @@ function DashboardPageModule({
             </SidebarGroup>
           </SidebarContent>
 
-          <SidebarFooter className="p-4">
-            <div className="rounded-3xl border border-primary-100 bg-white p-3 shadow-sm group-data-[collapsible=icon]:p-2">
-              <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-                <Avatar className="size-10 border border-primary-100">
+          <SidebarFooter className="p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2">
+            <div className="w-full overflow-hidden rounded-3xl border border-primary-100 bg-white p-3 shadow-sm transition-all duration-300 ease-out group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none">
+              <div className="flex items-center gap-3 transition-[gap] duration-300 ease-out group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+                <Avatar className="size-10 origin-center border border-primary-100 shadow-sm transition-transform duration-300 ease-out group-data-[collapsible=icon]:scale-[0.8]">
                   <AvatarFallback className="bg-primary-700 text-sm font-semibold text-white">
                     {initials}
                   </AvatarFallback>
