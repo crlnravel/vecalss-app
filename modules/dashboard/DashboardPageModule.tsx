@@ -359,7 +359,11 @@ function NotificationPopover() {
         ) : null}
       </PopoverTrigger>
 
-      <PopoverContent align="end" className="w-[360px] gap-0 p-0" sideOffset={8}>
+      <PopoverContent
+        align="end"
+        className="w-[360px] gap-0 p-0"
+        sideOffset={8}
+      >
         <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
           <div className="min-w-0">
             <PopoverTitle>Notifications</PopoverTitle>
@@ -497,7 +501,7 @@ function DashboardPageModule({
         <SidebarInset className="bg-transparent">
           <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-              <SidebarTrigger className="shrink-0 rounded-full border border-primary-100 bg-white shadow-sm" />
+              <SidebarTrigger className="shrink-0" />
 
               <div className="hidden min-w-0 flex-1 md:block">
                 <Breadcrumb>
