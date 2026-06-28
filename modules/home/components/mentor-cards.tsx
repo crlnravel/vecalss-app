@@ -103,6 +103,11 @@ function MentorCards({ members }: MentorCardsProps) {
                         <DialogDescription className="mt-3 text-[17px] font-semibold text-[#014C38]/70">
                           {member.fullName}
                         </DialogDescription>
+                        {member.quote ? (
+                          <p className="mt-3 max-w-[36ch] text-[14px] font-medium italic leading-6 text-[#014C38]/58">
+                            &ldquo;{member.quote}&rdquo;
+                          </p>
+                        ) : null}
                       </div>
                       {member.campusMarkSrc ? (
                         <div className="relative mt-1 hidden size-14 shrink-0 md:block">
@@ -125,18 +130,7 @@ function MentorCards({ members }: MentorCardsProps) {
                     <ProfileFact label="IPK" value={member.gpa} />
                   </div>
 
-                  {member.blurb ? (
-                    <div className="mt-7 rounded-[22px] border border-[#014C38]/10 bg-white/52 p-5">
-                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#014C38]/52">
-                        TENTANG
-                      </p>
-                      <p className="mt-4 text-[15px] leading-7 text-[#014C38]/74">
-                        {member.blurb}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  <div className="mt-5 rounded-[22px] border border-[#014C38]/10 bg-white/68 p-5">
+                  <div className="mt-9 rounded-[22px] border border-[#014C38]/10 bg-white/68 p-5">
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#014C38]/52">
                       ACHIEVEMENTS
                     </p>
@@ -151,12 +145,6 @@ function MentorCards({ members }: MentorCardsProps) {
                       ))}
                     </ul>
                   </div>
-
-                  {member.quote ? (
-                    <blockquote className="mt-5 rounded-[22px] bg-[#014C38]/[0.055] p-5 text-[17px] font-semibold leading-7 tracking-[-0.01em] text-[#014C38]/82">
-                      &ldquo;{member.quote}&rdquo;
-                    </blockquote>
-                  ) : null}
                 </div>
               </div>
             </DialogContent>
