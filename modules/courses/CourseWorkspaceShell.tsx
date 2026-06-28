@@ -68,7 +68,7 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/courses", icon: BookOpen, label: "Course Catalogue" },
+  { href: "/courses", icon: BookOpen, label: "Materi" },
   { href: "#quiz", icon: ListChecks, label: "Quiz" },
   { href: "#tryout", icon: Gauge, label: "Tryout" },
   { href: "#progress", icon: Target, label: "Progress" },
@@ -91,7 +91,7 @@ function CourseWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
   children,
-  searchPlaceholder = "Cari course, video, atau topik...",
+  searchPlaceholder = "Cari materi, video, atau topik...",
   session,
 }: {
   activeLabel: string;

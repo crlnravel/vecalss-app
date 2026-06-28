@@ -1,17 +1,16 @@
 import {
-  BarChart3,
   BookOpen,
   Brain,
   Calculator,
   FileText,
-  Lightbulb,
+  Languages,
+  LibraryBig,
   type LucideIcon,
-  PenLine,
-  Target,
+  PenTool,
 } from "lucide-react";
 
-type CourseDifficulty = "Beginner" | "Intermediate" | "Advanced";
-type CourseProgressStatus = "Not started" | "In progress" | "Completed";
+type CourseDifficulty = "Dasar" | "Menengah" | "Lanjutan";
+type CourseProgressStatus = "Belum mulai" | "Sedang dipelajari" | "Selesai";
 
 type VideoTutorial = {
   completed: boolean;
@@ -26,7 +25,7 @@ type CourseSection = {
 };
 
 type Course = {
-  category: string;
+  code: string;
   description: string;
   difficulty: CourseDifficulty;
   duration: string;
@@ -41,301 +40,458 @@ type Course = {
 
 const courseCatalogue: Course[] = [
   {
-    category: "Penalaran Umum",
-    description:
-      "Bangun fondasi membaca argumen, menarik kesimpulan, dan memilih strategi eliminasi jawaban.",
-    difficulty: "Beginner",
+    code: "PU",
+    description: "Argumen, logika dasar, simpulan, dan pola penalaran.",
+    difficulty: "Dasar",
     duration: "4j 20m",
     icon: Brain,
-    palette: "from-primary-50 via-white to-[#dff3ea]",
+    palette: "bg-[#dff5f8] text-[#0b5970]",
     progress: 64,
-    slug: "penalaran-umum-fondasi",
-    status: "In progress",
-    title: "Penalaran Umum: Fondasi Argumen",
+    slug: "penalaran-umum",
+    status: "Sedang dipelajari",
+    title: "PU",
     sections: [
       {
-        title: "Introduction",
+        title: "Pengenalan PU",
         videos: [
-          { completed: true, duration: "06:12", title: "Welcome to the Course" },
-          { completed: true, duration: "08:24", title: "How to Use This Course" },
-          { completed: false, duration: "10:08", title: "Mapping Your Current Skill" },
+          {
+            completed: true,
+            duration: "06:12",
+            title: "Apa yang Diuji di Penalaran Umum",
+          },
+          {
+            completed: true,
+            duration: "08:24",
+            title: "Cara Menggunakan Modul Ini",
+          },
+          {
+            completed: false,
+            duration: "10:08",
+            title: "Pemetaan Kemampuan Awal",
+          },
         ],
       },
       {
-        title: "Core Concepts",
+        title: "Konsep Inti",
         videos: [
-          { completed: true, duration: "14:30", title: "Understanding Premises and Claims" },
-          { completed: false, duration: "17:42", title: "Common Mistakes in Argument Questions" },
-          { completed: false, duration: "12:56", title: "Fast Elimination Patterns" },
+          {
+            completed: true,
+            duration: "14:30",
+            title: "Premis, Klaim, dan Simpulan",
+          },
+          {
+            completed: false,
+            duration: "17:42",
+            title: "Kesalahan Umum Membaca Argumen",
+          },
+          {
+            completed: false,
+            duration: "12:56",
+            title: "Strategi Eliminasi Cepat",
+          },
         ],
       },
       {
-        title: "Practice",
+        title: "Latihan",
         videos: [
-          { completed: false, duration: "18:10", title: "Guided Exercise: Short Arguments" },
-          { completed: false, duration: "21:36", locked: true, title: "Case Study: UTBK Argument Set" },
+          {
+            completed: false,
+            duration: "18:10",
+            title: "Guided Exercise: Argumen Pendek",
+          },
+          {
+            completed: false,
+            duration: "21:36",
+            locked: true,
+            title: "Case Study: Set Argumen UTBK",
+          },
         ],
       },
     ],
   },
   {
-    category: "Pengetahuan Kuantitatif",
-    description:
-      "Latihan kuantitatif runtun untuk rasio, persentase, pola bilangan, dan interpretasi cepat.",
-    difficulty: "Intermediate",
+    code: "PPU",
+    description: "Pemahaman informasi, hubungan ide, dan ketepatan makna.",
+    difficulty: "Menengah",
+    duration: "3j 55m",
+    icon: LibraryBig,
+    palette: "bg-[#e8f6df] text-[#215c42]",
+    progress: 22,
+    slug: "pengetahuan-pemahaman-umum",
+    status: "Sedang dipelajari",
+    title: "PPU",
+    sections: [
+      {
+        title: "Pengenalan PPU",
+        videos: [
+          { completed: true, duration: "07:16", title: "Ruang Lingkup PPU" },
+          {
+            completed: false,
+            duration: "09:44",
+            title: "Membaca Informasi Secara Presisi",
+          },
+        ],
+      },
+      {
+        title: "Konsep Inti",
+        videos: [
+          {
+            completed: false,
+            duration: "15:18",
+            title: "Relasi Ide dalam Teks",
+          },
+          {
+            completed: false,
+            duration: "16:05",
+            title: "Makna Kata dan Konteks",
+          },
+          {
+            completed: false,
+            duration: "13:40",
+            locked: true,
+            title: "Menghindari Distraktor Umum",
+          },
+        ],
+      },
+      {
+        title: "Latihan",
+        videos: [
+          {
+            completed: false,
+            duration: "19:24",
+            locked: true,
+            title: "Guided Exercise: Informasi Implisit",
+          },
+          {
+            completed: false,
+            duration: "22:10",
+            locked: true,
+            title: "Case Study: Bacaan Campuran",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    code: "PBM",
+    description: "Kaidah bahasa, efektivitas kalimat, dan penyuntingan teks.",
+    difficulty: "Menengah",
+    duration: "3j 40m",
+    icon: PenTool,
+    palette: "bg-[#eee7ff] text-[#302063]",
+    progress: 0,
+    slug: "pemahaman-bacaan-menulis",
+    status: "Belum mulai",
+    title: "PBM",
+    sections: [
+      {
+        title: "Pengenalan PBM",
+        videos: [
+          { completed: false, duration: "06:58", title: "Format Soal PBM" },
+          {
+            completed: false,
+            duration: "11:22",
+            title: "Cara Membaca Kalimat Bermasalah",
+          },
+        ],
+      },
+      {
+        title: "Konsep Inti",
+        videos: [
+          { completed: false, duration: "16:35", title: "Efektivitas Kalimat" },
+          {
+            completed: false,
+            duration: "14:48",
+            title: "Kohesi dan Koherensi Paragraf",
+          },
+          {
+            completed: false,
+            duration: "13:52",
+            locked: true,
+            title: "Kesalahan Ejaan yang Sering Muncul",
+          },
+        ],
+      },
+      {
+        title: "Latihan",
+        videos: [
+          {
+            completed: false,
+            duration: "20:28",
+            locked: true,
+            title: "Guided Exercise: Sunting Kalimat",
+          },
+          {
+            completed: false,
+            duration: "23:12",
+            locked: true,
+            title: "Case Study: Paragraf Tidak Efektif",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    code: "PK",
+    description: "Bilangan, rasio, persentase, pola, dan kuantitatif cepat.",
+    difficulty: "Menengah",
     duration: "5j 05m",
     icon: Calculator,
-    palette: "from-[#fff6c8] via-white to-primary-50",
+    palette: "bg-[#ffe8dd] text-[#872b16]",
     progress: 38,
-    slug: "pengetahuan-kuantitatif-cepat",
-    status: "In progress",
-    title: "Pengetahuan Kuantitatif Cepat",
+    slug: "pengetahuan-kuantitatif",
+    status: "Sedang dipelajari",
+    title: "Pengetahuan Kuantitatif",
     sections: [
       {
         title: "Number Sense",
         videos: [
           { completed: true, duration: "09:48", title: "Mental Math Warmup" },
-          { completed: true, duration: "13:22", title: "Ratio and Percentage Basics" },
-          { completed: false, duration: "16:14", title: "Pattern Recognition" },
+          { completed: true, duration: "13:22", title: "Rasio dan Persentase" },
+          {
+            completed: false,
+            duration: "16:14",
+            title: "Mengenali Pola Bilangan",
+          },
         ],
       },
       {
-        title: "Core Concepts",
+        title: "Konsep Inti",
         videos: [
-          { completed: false, duration: "18:02", title: "Comparing Values Efficiently" },
-          { completed: false, duration: "20:40", title: "Common Mistakes in Quantitative Items" },
-          { completed: false, duration: "15:45", locked: true, title: "Timed Drill Review" },
+          {
+            completed: false,
+            duration: "18:02",
+            title: "Membandingkan Nilai Secara Cepat",
+          },
+          {
+            completed: false,
+            duration: "20:40",
+            title: "Kesalahan Umum di Soal Kuantitatif",
+          },
+          {
+            completed: false,
+            duration: "15:45",
+            locked: true,
+            title: "Review Drill Bertempo",
+          },
         ],
       },
       {
-        title: "Practice",
+        title: "Latihan",
         videos: [
-          { completed: false, duration: "24:00", locked: true, title: "Guided Exercise: Mixed Questions" },
-          { completed: false, duration: "26:18", locked: true, title: "Case Study: Score Recovery Plan" },
+          {
+            completed: false,
+            duration: "24:00",
+            locked: true,
+            title: "Guided Exercise: Soal Campuran",
+          },
+          {
+            completed: false,
+            duration: "26:18",
+            locked: true,
+            title: "Case Study: Recovery Skor PK",
+          },
         ],
       },
     ],
   },
   {
-    category: "Literasi Bahasa Indonesia",
-    description:
-      "Pahami struktur bacaan, ide pokok, implikasi, dan cara mengurai soal literasi panjang.",
-    difficulty: "Intermediate",
+    code: "LBI",
+    description: "Ide pokok, simpulan, struktur bacaan, dan literasi panjang.",
+    difficulty: "Menengah",
     duration: "3j 45m",
     icon: FileText,
-    palette: "from-primary-50 via-white to-secondary-100",
+    palette: "bg-[#fde5ec] text-[#7c1838]",
     progress: 0,
     slug: "literasi-bahasa-indonesia",
-    status: "Not started",
-    title: "Literasi Bahasa Indonesia Runtun",
+    status: "Belum mulai",
+    title: "Literasi Bahasa Indonesia",
     sections: [
       {
-        title: "Introduction",
+        title: "Pengenalan LBI",
         videos: [
-          { completed: false, duration: "07:05", title: "Welcome to Literasi Indonesia" },
-          { completed: false, duration: "11:26", title: "How Long Passages Are Built" },
+          {
+            completed: false,
+            duration: "07:05",
+            title: "Apa yang Diuji di LBI",
+          },
+          {
+            completed: false,
+            duration: "11:26",
+            title: "Struktur Bacaan Panjang",
+          },
         ],
       },
       {
-        title: "Core Concepts",
+        title: "Konsep Inti",
         videos: [
-          { completed: false, duration: "16:50", title: "Finding Main Ideas" },
-          { completed: false, duration: "14:18", title: "Inference Without Overthinking" },
-          { completed: false, duration: "13:42", locked: true, title: "Tone and Author Intention" },
+          { completed: false, duration: "16:50", title: "Menemukan Ide Pokok" },
+          {
+            completed: false,
+            duration: "14:18",
+            title: "Inferensi Tanpa Overthinking",
+          },
+          {
+            completed: false,
+            duration: "13:42",
+            locked: true,
+            title: "Nada dan Tujuan Penulis",
+          },
         ],
       },
       {
-        title: "Practice",
+        title: "Latihan",
         videos: [
-          { completed: false, duration: "20:12", locked: true, title: "Guided Exercise: Editorial Passage" },
-          { completed: false, duration: "22:30", locked: true, title: "Case Study: Timed Reading" },
+          {
+            completed: false,
+            duration: "20:12",
+            locked: true,
+            title: "Guided Exercise: Teks Editorial",
+          },
+          {
+            completed: false,
+            duration: "22:30",
+            locked: true,
+            title: "Case Study: Reading Bertempo",
+          },
         ],
       },
     ],
   },
   {
-    category: "Literasi Bahasa Inggris",
-    description:
-      "Kuasai skimming, scanning, vocabulary in context, dan inferensi bahasa Inggris UTBK.",
-    difficulty: "Advanced",
+    code: "LBE",
+    description: "Skimming, scanning, vocabulary context, dan inference.",
+    difficulty: "Lanjutan",
     duration: "4j 10m",
-    icon: PenLine,
-    palette: "from-secondary-100 via-white to-[#e8f3ff]",
+    icon: Languages,
+    palette: "bg-[#e6eefc] text-[#1d3c73]",
     progress: 0,
     slug: "literasi-bahasa-inggris",
-    status: "Not started",
-    title: "English Literacy Strategy",
+    status: "Belum mulai",
+    title: "Literasi Bahasa Inggris",
     sections: [
       {
         title: "Reading Setup",
         videos: [
           { completed: false, duration: "08:44", title: "Course Orientation" },
-          { completed: false, duration: "12:10", title: "Skimming vs Scanning" },
-          { completed: false, duration: "10:58", title: "Vocabulary in Context" },
+          {
+            completed: false,
+            duration: "12:10",
+            title: "Skimming vs Scanning",
+          },
+          {
+            completed: false,
+            duration: "10:58",
+            title: "Vocabulary in Context",
+          },
         ],
       },
       {
-        title: "Core Concepts",
+        title: "Konsep Inti",
         videos: [
           { completed: false, duration: "18:36", title: "Inference Questions" },
-          { completed: false, duration: "17:05", locked: true, title: "Author Purpose and Tone" },
-          { completed: false, duration: "15:34", locked: true, title: "Distractor Patterns" },
+          {
+            completed: false,
+            duration: "17:05",
+            locked: true,
+            title: "Author Purpose and Tone",
+          },
+          {
+            completed: false,
+            duration: "15:34",
+            locked: true,
+            title: "Distractor Patterns",
+          },
         ],
       },
       {
-        title: "Practice",
+        title: "Latihan",
         videos: [
-          { completed: false, duration: "23:20", locked: true, title: "Guided Exercise: Science Passage" },
-          { completed: false, duration: "25:12", locked: true, title: "Case Study: Two-Passage Set" },
+          {
+            completed: false,
+            duration: "23:20",
+            locked: true,
+            title: "Guided Exercise: Science Passage",
+          },
+          {
+            completed: false,
+            duration: "25:12",
+            locked: true,
+            title: "Case Study: Two-Passage Set",
+          },
         ],
       },
     ],
   },
   {
-    category: "Tryout",
-    description:
-      "Pelajari cara membaca hasil tryout, menentukan prioritas remedial, dan menjaga momentum latihan.",
-    difficulty: "Beginner",
-    duration: "2j 35m",
-    icon: Target,
-    palette: "from-white via-primary-50 to-[#fff7d6]",
-    progress: 100,
-    slug: "tryout-review-system",
-    status: "Completed",
-    title: "Tryout Review System",
-    sections: [
-      {
-        title: "Score Review",
-        videos: [
-          { completed: true, duration: "07:36", title: "Reading Your Score Report" },
-          { completed: true, duration: "10:24", title: "Finding Weak Areas" },
-        ],
-      },
-      {
-        title: "Remedial Plan",
-        videos: [
-          { completed: true, duration: "13:48", title: "Building a 7-Day Recovery Plan" },
-          { completed: true, duration: "16:15", title: "Choosing Drill Types" },
-          { completed: true, duration: "14:08", title: "Tracking Confidence" },
-        ],
-      },
-      {
-        title: "Practice",
-        videos: [
-          { completed: true, duration: "19:50", title: "Guided Exercise: Review Sheet" },
-          { completed: true, duration: "21:05", title: "Case Study: From 612 to 676" },
-        ],
-      },
-    ],
-  },
-  {
-    category: "Strategi Belajar",
-    description:
-      "Bangun ritme belajar yang realistis dengan daily mission, review mingguan, dan bantuan Vera AI.",
-    difficulty: "Beginner",
-    duration: "3j 15m",
-    icon: Lightbulb,
-    palette: "from-[#effaf5] via-white to-secondary-100",
-    progress: 18,
-    slug: "strategi-belajar-personal",
-    status: "In progress",
-    title: "Strategi Belajar Personal",
-    sections: [
-      {
-        title: "Introduction",
-        videos: [
-          { completed: true, duration: "06:40", title: "Welcome to Your Study System" },
-          { completed: false, duration: "09:20", title: "How to Use Daily Mission" },
-        ],
-      },
-      {
-        title: "Core Concepts",
-        videos: [
-          { completed: false, duration: "15:06", title: "Building a Weekly Learning Loop" },
-          { completed: false, duration: "12:48", title: "Common Mistakes in Study Planning" },
-          { completed: false, duration: "13:16", locked: true, title: "Using Vera AI for Review" },
-        ],
-      },
-      {
-        title: "Practice",
-        videos: [
-          { completed: false, duration: "18:32", locked: true, title: "Guided Exercise: Build Your Week" },
-          { completed: false, duration: "20:44", locked: true, title: "Case Study: Busy Student Schedule" },
-        ],
-      },
-    ],
-  },
-  {
-    category: "Analisis Data",
-    description:
-      "Latihan membaca tabel, grafik, dan visual data yang sering muncul pada soal SNBT modern.",
-    difficulty: "Advanced",
+    code: "PM",
+    description: "Penalaran matematika, model soal, dan strategi hitung.",
+    difficulty: "Lanjutan",
     duration: "4j 55m",
-    icon: BarChart3,
-    palette: "from-secondary-100 via-white to-primary-50",
-    progress: 0,
-    slug: "analisis-data-snbt",
-    status: "Not started",
-    title: "Analisis Data SNBT",
-    sections: [
-      {
-        title: "Visual Reading",
-        videos: [
-          { completed: false, duration: "08:16", title: "Reading Tables Quickly" },
-          { completed: false, duration: "12:38", title: "Chart Types You Must Know" },
-          { completed: false, duration: "13:05", title: "Spotting Trend and Outlier" },
-        ],
-      },
-      {
-        title: "Core Concepts",
-        videos: [
-          { completed: false, duration: "18:55", title: "Connecting Text and Data" },
-          { completed: false, duration: "16:28", locked: true, title: "Common Mistakes in Data Questions" },
-          { completed: false, duration: "17:40", locked: true, title: "Choosing the Best Conclusion" },
-        ],
-      },
-      {
-        title: "Practice",
-        videos: [
-          { completed: false, duration: "24:18", locked: true, title: "Guided Exercise: Table Set" },
-          { completed: false, duration: "27:30", locked: true, title: "Case Study: Multi-Chart Passage" },
-        ],
-      },
-    ],
-  },
-  {
-    category: "Rangkuman",
-    description:
-      "Review cepat seluruh subtest, prioritas materi, dan checklist belajar sebelum hari ujian.",
-    difficulty: "Intermediate",
-    duration: "2j 50m",
     icon: BookOpen,
-    palette: "from-primary-50 via-white to-[#f4f0df]",
+    palette: "bg-[#fff4c9] text-[#705214]",
     progress: 0,
-    slug: "final-review-snbt",
-    status: "Not started",
-    title: "Final Review SNBT",
+    slug: "penalaran-matematika",
+    status: "Belum mulai",
+    title: "PM",
     sections: [
       {
-        title: "Exam Readiness",
+        title: "Pengenalan PM",
         videos: [
-          { completed: false, duration: "09:02", title: "Final Week Overview" },
-          { completed: false, duration: "11:50", title: "What to Review First" },
+          {
+            completed: false,
+            duration: "08:16",
+            title: "Format Penalaran Matematika",
+          },
+          {
+            completed: false,
+            duration: "12:38",
+            title: "Menerjemahkan Cerita ke Model",
+          },
+          {
+            completed: false,
+            duration: "13:05",
+            title: "Membaca Grafik dan Tabel",
+          },
         ],
       },
       {
-        title: "Core Concepts",
+        title: "Konsep Inti",
         videos: [
-          { completed: false, duration: "14:42", title: "High-Yield PU and PPU" },
-          { completed: false, duration: "15:18", locked: true, title: "High-Yield PK and Data" },
-          { completed: false, duration: "13:36", locked: true, title: "Literacy Last-Minute Review" },
+          {
+            completed: false,
+            duration: "18:55",
+            title: "Menghubungkan Data dan Operasi",
+          },
+          {
+            completed: false,
+            duration: "16:28",
+            locked: true,
+            title: "Kesalahan Umum di PM",
+          },
+          {
+            completed: false,
+            duration: "17:40",
+            locked: true,
+            title: "Memilih Simpulan Matematis",
+          },
         ],
       },
       {
-        title: "Practice",
+        title: "Latihan",
         videos: [
-          { completed: false, duration: "19:15", locked: true, title: "Guided Exercise: Mixed Drill" },
-          { completed: false, duration: "21:28", locked: true, title: "Case Study: Exam Morning Plan" },
+          {
+            completed: false,
+            duration: "24:18",
+            locked: true,
+            title: "Guided Exercise: Soal Tabel",
+          },
+          {
+            completed: false,
+            duration: "27:30",
+            locked: true,
+            title: "Case Study: Grafik Campuran",
+          },
         ],
       },
     ],

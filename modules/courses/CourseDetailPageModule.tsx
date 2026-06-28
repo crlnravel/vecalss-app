@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -43,9 +42,9 @@ function CourseDetailPageModule({
 
   return (
     <CourseWorkspaceShell
-      activeLabel="Course Catalogue"
+      activeLabel="Materi"
       breadcrumbLabel={course.title}
-      searchPlaceholder="Search videos in this course..."
+      searchPlaceholder="Cari video di materi ini..."
       session={session}
     >
       <div>
@@ -53,7 +52,7 @@ function CourseDetailPageModule({
           render={
             <Link href="/courses">
               <ArrowLeft data-icon="inline-start" />
-              Back to catalogue
+              Kembali ke materi
             </Link>
           }
           size="sm"
@@ -68,7 +67,7 @@ function CourseDetailPageModule({
               <div>
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-primary-800 shadow-sm">
-                    {course.category}
+                    {course.code}
                   </span>
                   <span className="rounded-full bg-secondary-100 px-3 py-1 text-xs font-semibold text-secondary-700">
                     {course.difficulty}
@@ -87,7 +86,7 @@ function CourseDetailPageModule({
 
               <div
                 className={cn(
-                  "flex aspect-[1.15] w-full max-w-[220px] shrink-0 items-center justify-center rounded-[28px] border border-primary-100 bg-gradient-to-br shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)]",
+                  "flex aspect-[1.15] w-full max-w-[220px] shrink-0 items-center justify-center rounded-[28px] border border-primary-100 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)]",
                   course.palette,
                 )}
               >
@@ -140,7 +139,7 @@ function CourseDetailPageModule({
           <CardContent className="px-6 pb-6 md:px-7 md:pb-7">
             <div
               className={cn(
-                "relative flex min-h-[280px] items-center justify-center overflow-hidden rounded-[28px] border border-primary-100 bg-gradient-to-br p-6",
+                "relative flex min-h-[280px] items-center justify-center overflow-hidden rounded-[28px] border border-primary-100 p-6",
                 course.palette,
               )}
             >
