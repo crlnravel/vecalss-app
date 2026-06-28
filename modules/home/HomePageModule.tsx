@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
-import { topAlumni, type TopAlumni } from "@/modules/alumni/data";
+import { featuredTopAlumni, type TopAlumni } from "@/modules/alumni/data";
 import { ContactForm } from "./components/contact-form";
 import { CountUpStats } from "./components/count-up-stats";
 import { FAQ } from "./components/FAQ";
@@ -365,31 +365,29 @@ function ResultsSection() {
 }
 
 function TopAlumniSection() {
-  const featuredAlumni = topAlumni.slice(0, 6);
-
   return (
     <section className="bg-[#F7FBF4] px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
         <div className="grid gap-8 lg:grid-cols-[0.4fr_0.6fr] lg:items-end">
           <SectionIntro
-            title="Top Alumni"
+            title="Top Alumni 2026"
             body="Tempat para voyager berlabuh!"
           />
 
           <div className="flex lg:justify-end">
             <ActionButtonLink
               className="rounded-full !bg-[#014C38] px-7 py-4 text-[15px] font-semibold !text-white hover:!bg-[#014C38]/90"
-              href="/top-alumni"
+              href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
               variant="brand"
             >
-              Lihat Top 90 Alumni
+              Lihat Top 90 dan Alumni Lainnya...
               <ArrowRight className="ml-2 size-4" />
             </ActionButtonLink>
           </div>
         </div>
 
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {featuredAlumni.map((alumnus) => (
+          {featuredTopAlumni.map((alumnus) => (
             <TopAlumniCard alumnus={alumnus} key={alumnus.id} />
           ))}
         </div>
@@ -409,15 +407,17 @@ function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
           sizes="(min-width: 1024px) 360px, (min-width: 768px) 50vw, 100vw"
           src={alumnus.photoSrc}
         />
-        <div className="absolute right-4 top-4 size-14">
-          <Image
-            alt={alumnus.logoAlt}
-            fill
-            className="object-contain"
-            sizes="56px"
-            src={alumnus.logoSrc}
-          />
-        </div>
+        {alumnus.logoSrc && alumnus.logoAlt ? (
+          <div className="absolute right-4 top-4 size-14">
+            <Image
+              alt={alumnus.logoAlt}
+              fill
+              className="object-contain"
+              sizes="56px"
+              src={alumnus.logoSrc}
+            />
+          </div>
+        ) : null}
       </div>
       <div className="p-5 md:p-6">
         <h3 className="text-[23px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">

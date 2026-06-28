@@ -41,15 +41,17 @@ function AlumniCard({ alumnus }: { alumnus: TopAlumni }) {
           sizes="(min-width: 1536px) 260px, (min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           src={alumnus.photoSrc}
         />
-        <div className="absolute right-4 top-4 size-14">
-          <Image
-            alt={alumnus.logoAlt}
-            fill
-            className="object-contain"
-            sizes="56px"
-            src={alumnus.logoSrc}
-          />
-        </div>
+        {alumnus.logoSrc && alumnus.logoAlt ? (
+          <div className="absolute right-4 top-4 size-14">
+            <Image
+              alt={alumnus.logoAlt}
+              fill
+              className="object-contain"
+              sizes="56px"
+              src={alumnus.logoSrc}
+            />
+          </div>
+        ) : null}
       </div>
       <div className="p-5 md:p-6">
         <h3 className="text-[23px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
