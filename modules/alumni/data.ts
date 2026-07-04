@@ -77,7 +77,7 @@ type TopAlumni = {
   university: string;
 };
 
-const featuredTopAlumni: TopAlumni[] = [
+const baseFeaturedTopAlumni: TopAlumni[] = [
   {
     id: "featured-top-alumni-1",
     logoAlt: "Institut Teknologi Sepuluh Nopember seal",
@@ -134,26 +134,45 @@ const featuredTopAlumni: TopAlumni[] = [
   },
 ];
 
-const placeholderTopAlumni: TopAlumni[] = Array.from(
-  { length: 20 - featuredTopAlumni.length },
+const homepagePlaceholderTopAlumni: TopAlumni[] = Array.from(
+  { length: 20 - baseFeaturedTopAlumni.length },
   (_, index) => {
     const name = alumniNames[index % alumniNames.length];
     const university = targetUniversities[index % targetUniversities.length];
 
     return {
-      id: `top-alumni-placeholder-${index + 1}`,
+      id: `featured-top-alumni-placeholder-${index + 1}`,
       isPlaceholder: true,
       logoAlt: university.logoAlt,
       logoSrc: university.logoSrc,
       name,
       photoSrc: avatarPlaceholder,
-      rank: featuredTopAlumni.length + index + 1,
+      rank: baseFeaturedTopAlumni.length + index + 1,
       university: `${university.name} placeholder`,
     };
   },
 );
 
-const topAlumni: TopAlumni[] = [...featuredTopAlumni, ...placeholderTopAlumni];
+const featuredTopAlumni: TopAlumni[] = [
+  ...baseFeaturedTopAlumni,
+  ...homepagePlaceholderTopAlumni,
+];
+
+const topAlumni: TopAlumni[] = Array.from({ length: 90 }, (_, index) => {
+  const round = Math.floor(index / alumniNames.length);
+  const name = alumniNames[index % alumniNames.length];
+  const university = targetUniversities[index % targetUniversities.length];
+
+  return {
+    id: `top-alumni-${index + 1}`,
+    logoAlt: university.logoAlt,
+    logoSrc: university.logoSrc,
+    name: round === 0 ? name : `${name} ${round + 1}`,
+    photoSrc: avatarPlaceholder,
+    rank: index + 1,
+    university: university.name,
+  };
+});
 
 export { featuredTopAlumni, topAlumni };
 export type { TopAlumni };

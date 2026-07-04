@@ -380,13 +380,13 @@ function TopAlumniSection() {
               href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
               variant="brand"
             >
-              Lihat Top 20 dan Alumni Lainnya...
+              Lihat Top 90 dan Alumni Lainnya...
               <ArrowRight className="ml-2 size-4" />
             </ActionButtonLink>
           </div>
         </div>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {featuredTopAlumni.map((alumnus) => (
             <TopAlumniCard alumnus={alumnus} key={alumnus.id} />
           ))}
@@ -398,34 +398,39 @@ function TopAlumniSection() {
 
 function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
   return (
-    <article className="group overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white shadow-[0_26px_80px_-66px_rgba(1,76,56,0.28)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
-      <div className="relative aspect-[4/3] bg-[#014C38]/[0.04]">
+    <article className="group overflow-hidden rounded-[18px] border border-[#014C38]/10 bg-white shadow-[0_18px_44px_-42px_rgba(1,76,56,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
+      <div className="relative aspect-[4/5] bg-[#014C38]/[0.04]">
         <Image
           alt={`${alumnus.name} profile photo`}
           fill
           className="object-cover"
-          sizes="(min-width: 1024px) 360px, (min-width: 768px) 50vw, 100vw"
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
           src={alumnus.photoSrc}
         />
         {alumnus.logoSrc && alumnus.logoAlt ? (
-          <div className="absolute right-4 top-4 size-14">
+          <div className="absolute right-3 top-3 size-9 md:size-10">
             <Image
               alt={alumnus.logoAlt}
               fill
               className="object-contain"
-              sizes="56px"
+              sizes="40px"
               src={alumnus.logoSrc}
             />
           </div>
         ) : null}
       </div>
-      <div className="p-5 md:p-6">
-        <h3 className="text-[23px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
+      <div className="p-3.5 md:p-4">
+        <h3 className="text-[16px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38] md:text-[18px]">
           {alumnus.name}
         </h3>
-        <p className="mt-3 text-sm leading-6 text-[#014C38]/68">
+        <p className="mt-1.5 text-[12px] leading-4 text-[#014C38]/68 md:text-[13px] md:leading-5">
           {alumnus.university}
         </p>
+        {alumnus.isPlaceholder ? (
+          <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#014C38]/42">
+            Placeholder
+          </p>
+        ) : null}
       </div>
     </article>
   );
