@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
@@ -14,12 +15,11 @@ function NotificationsPageModule({
   session: SessionContext;
 }) {
   const items = studentNotificationItems;
-  const unreadCount = items.filter((item) => item.unread).length;
 
   return (
     <StudentWorkspaceShell
       activeLabel="Notifications"
-      breadcrumbLabel="Notifications"
+      breadcrumbLabel="Notifikasi"
       searchPlaceholder="Cari notifikasi atau update belajar..."
       session={session}
       sidebarFooterLabel="Student workspace"
@@ -28,15 +28,12 @@ function NotificationsPageModule({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[32px] leading-tight font-semibold text-secondary-900 md:text-[42px]">
-              Notifications
+              Notifikasi
             </h1>
           </div>
-          <p className="text-sm text-secondary-500">
-            <span className="font-semibold text-secondary-900">
-              {unreadCount}
-            </span>{" "}
-            unread
-          </p>
+          <Button size="sm" type="button" variant="ghost">
+            Tandai sudah dibaca
+          </Button>
         </div>
 
         <div className="grid gap-4">
