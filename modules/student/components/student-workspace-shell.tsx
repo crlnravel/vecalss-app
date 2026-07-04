@@ -28,6 +28,7 @@ import {
   type StudentNotificationItem,
 } from "@/modules/student/components/student-notification-popover";
 import { StudentSidebar } from "@/modules/student/components/student-sidebar";
+import { studentNotificationItems } from "@/modules/student/notification-data";
 
 function StudentWorkspaceShell({
   accountMenuExtraItem = "home",
@@ -36,7 +37,7 @@ function StudentWorkspaceShell({
   children,
   dailyMissionBadge,
   mainClassName,
-  notificationItems,
+  notificationItems = studentNotificationItems,
   searchPlaceholder = "Cari materi, video, atau topik...",
   session,
   sidebarFooterLabel,

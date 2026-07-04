@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, Home, LogOut, Settings, UserRound } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -65,12 +66,12 @@ function StudentAccountMenu({
             Preferences
           </DropdownMenuItem>
           {extraItem === "notifications" ? (
-            <DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/notifications" />}>
               <Bell />
               Notifications
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/dashboard" />}>
               <Home />
               Student home
             </DropdownMenuItem>

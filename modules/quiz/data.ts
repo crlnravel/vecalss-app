@@ -394,7 +394,7 @@ function getQuizAttemptBySlugs(subjectSlug: string, quizSlug: string) {
         "(5) Oleh karena itu, redefinisi makna produktivitas yang lebih manusiawi perlu segera dilakukan agar kesehatan mental pekerja tidak dikorbankan.",
       ],
       prompt: "Kalimat (3) memiliki pola dasar yang sama dengan kalimat...",
-      selectedOptionKey: null,
+      selectedOptionKey: "B",
       supportCount: 5,
     },
     remainingTime: "12:48",

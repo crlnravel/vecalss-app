@@ -111,6 +111,16 @@ function StudentNotificationPopover({
             </div>
           ))}
         </div>
+
+        <div className="border-t border-primary-100 px-4 py-3">
+          <Button
+            className="w-full"
+            render={<Link href="/notifications" />}
+            variant="ghost"
+          >
+            See more
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );

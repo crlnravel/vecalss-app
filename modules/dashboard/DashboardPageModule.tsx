@@ -57,7 +57,6 @@ import type {
 } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 import type { SessionContext } from "@/lib/auth/types";
-import type { StudentNotificationItem } from "@/modules/student/components/student-notification-popover";
 import { StatTile } from "@/modules/student/components/stat-tile";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
@@ -66,33 +65,6 @@ type DashboardProfile = StudentProfile & {
   targetMajor: Major | null;
   targetUniversity: University | null;
 };
-
-const notificationItems: StudentNotificationItem[] = [
-  {
-    detail: "PU modul 04 direkomendasikan ulang setelah tryout terakhir.",
-    href: "#progress",
-    icon: BookOpen,
-    time: "Baru saja",
-    title: "Fokus belajarmu diperbarui",
-    unread: true,
-  },
-  {
-    detail: "Mentoring strategi SNBT dimulai hari ini pukul 19.00 WIB.",
-    href: "#continue-learning",
-    icon: CalendarCheck,
-    time: "Hari ini",
-    title: "Kelas live malam ini",
-    unread: true,
-  },
-  {
-    detail: "Vera AI menyiapkan rangkuman kelemahan dan 5 soal lanjutan.",
-    href: "#vera-ai",
-    icon: MessageCircle,
-    time: "Kemarin",
-    title: "Balasan baru dari Vera AI",
-    unread: false,
-  },
-];
 
 const missions = [
   {
@@ -259,7 +231,6 @@ function DashboardPageModule({
       activeLabel="Dashboard"
       breadcrumbLabel="Student Dashboard"
       mainClassName="gap-8 lg:gap-9"
-      notificationItems={notificationItems}
       searchPlaceholder="Cari materi, quiz, atau rekomendasi..."
       session={session}
       sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
