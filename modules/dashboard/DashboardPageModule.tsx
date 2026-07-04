@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import type { ComponentType } from "react";
 import {
   Area,
   AreaChart,
@@ -16,7 +14,6 @@ import {
 } from "recharts";
 import {
   Award,
-  Bell,
   BookOpen,
   Bot,
   CalendarCheck,
@@ -25,24 +22,11 @@ import {
   Flame,
   Gauge,
   Home,
-  LogOut,
   MessageCircle,
-  Search,
-  Settings,
   Target,
-  UserRound,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -60,34 +44,10 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Progress,
   ProgressLabel,
   ProgressValue,
 } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   ExamEvent,
@@ -97,11 +57,9 @@ import type {
 } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 import type { SessionContext } from "@/lib/auth/types";
-import { logoutAction } from "@/modules/auth/actions";
-import {
-  getInitials,
-  StudentSidebar,
-} from "@/modules/student/components/student-sidebar";
+import type { StudentNotificationItem } from "@/modules/student/components/student-notification-popover";
+import { StatTile } from "@/modules/student/components/stat-tile";
+import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 type DashboardProfile = StudentProfile & {
   targetExamEvent: ExamEvent | null;
@@ -109,16 +67,7 @@ type DashboardProfile = StudentProfile & {
   targetUniversity: University | null;
 };
 
-type NotificationItem = {
-  detail: string;
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  time: string;
-  title: string;
-  unread: boolean;
-};
-
-const notificationItems: NotificationItem[] = [
+const notificationItems: StudentNotificationItem[] = [
   {
     detail: "PU modul 04 direkomendasikan ulang setelah tryout terakhir.",
     href: "#progress",
@@ -144,10 +93,6 @@ const notificationItems: NotificationItem[] = [
     unread: false,
   },
 ];
-
-const unreadNotificationCount = notificationItems.filter(
-  (item) => item.unread,
-).length;
 
 const missions = [
   {
@@ -290,84 +235,6 @@ function getExamDaysLeft(profile: DashboardProfile) {
   return Math.ceil(diff / 86_400_000);
 }
 
-function NotificationPopover() {
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            aria-label="Notifications"
-            className="relative"
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          />
-        }
-      >
-        <Bell />
-        {unreadNotificationCount > 0 ? (
-          <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-[#F5C518] px-1 py-0.5 text-[9px] leading-none font-semibold text-secondary-900">
-            {unreadNotificationCount}
-          </span>
-        ) : null}
-      </PopoverTrigger>
-
-      <PopoverContent
-        align="end"
-        className="w-[360px] gap-0 p-0"
-        sideOffset={8}
-      >
-        <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
-          <div className="min-w-0">
-            <PopoverTitle>Notifications</PopoverTitle>
-          </div>
-        </PopoverHeader>
-
-        <div className="flex flex-col">
-          {notificationItems.map((item, index) => (
-            <div key={item.title}>
-              <Link
-                href={item.href}
-                className="flex gap-3 px-4 py-4 transition-colors hover:bg-primary-50/80"
-              >
-                <div
-                  className={cn(
-                    "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
-                    item.unread
-                      ? "border-primary-200 bg-primary-100 text-primary-800"
-                      : "border-primary-100 bg-white text-secondary-500",
-                  )}
-                >
-                  <item.icon />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-secondary-900">
-                      {item.title}
-                    </p>
-                    {item.unread ? (
-                      <span className="size-2 shrink-0 rounded-full bg-[#F5C518]" />
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-secondary-600">
-                    {item.detail}
-                  </p>
-                  <span className="mt-3 block text-xs text-secondary-500">
-                    {item.time}
-                  </span>
-                </div>
-              </Link>
-              {index < notificationItems.length - 1 ? (
-                <Separator className="bg-primary-100/80" />
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function DashboardPageModule({
   profile,
   session,
@@ -376,7 +243,6 @@ function DashboardPageModule({
   session: SessionContext;
 }) {
   const firstName = getFirstName(session.user.fullName);
-  const initials = getInitials(session.user.fullName);
   const examDaysLeft = getExamDaysLeft(profile);
   const hasGoal = Boolean(profile.targetUniversity || profile.targetMajor);
   const missionProgress = Math.round(
@@ -388,158 +254,64 @@ function DashboardPageModule({
   const xpProgress = 68;
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
-        <StudentSidebar
-          activeLabel="Dashboard"
-          footerLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
-          fullName={session.user.fullName}
-          notificationBadge={String(unreadNotificationCount)}
-        />
-
-        <SidebarInset className="bg-transparent">
-          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
-            <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-              <SidebarTrigger className="shrink-0" />
-
-              <div className="hidden min-w-0 flex-1 md:block">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink href="/" className="text-secondary-500">
-                        Vecalss
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>Student Dashboard</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
+    <StudentWorkspaceShell
+      accountMenuExtraItem="notifications"
+      activeLabel="Dashboard"
+      breadcrumbLabel="Student Dashboard"
+      mainClassName="gap-8 lg:gap-9"
+      notificationItems={notificationItems}
+      searchPlaceholder="Cari materi, quiz, atau rekomendasi..."
+      session={session}
+      sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
+    >
+      <section>
+        <Card className="relative min-h-[330px] overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#d8f2e3_52%,#fff1a8_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
+          <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10">
+            <div className="grid gap-10 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start">
+              <div>
+                <CardTitle className="max-w-3xl text-[32px] leading-[1.08] font-semibold text-secondary-900 md:text-[40px] xl:text-[46px]">
+                  Halo, {firstName}. Lanjutkan rute belajarmu.
+                </CardTitle>
+                <CardDescription className="mt-5 max-w-[42ch] text-[15px] leading-7 text-secondary-600 md:text-base">
+                  Semangat mengejar{" "}
+                  <span className="font-bold">Ilmu Komputer - UI </span>
+                  ya!
+                </CardDescription>
               </div>
-
-              <div className="relative ml-auto hidden w-full max-w-sm md:block">
-                <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
-                <Input
-                  aria-label="Cari materi, quiz, atau rekomendasi"
-                  className="h-10 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
-                  placeholder="Cari materi, quiz, atau rekomendasi..."
+              <div className="flex flex-wrap gap-3 2xl:justify-end">
+                <HeroCountdownPill daysLeft={examDaysLeft} />
+                <HeroXpPill
+                  level={studentLevel}
+                  progress={xpProgress}
+                  total={100}
+                  xp={studentXp}
                 />
               </div>
-
-              <NotificationPopover />
-
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      aria-label="Open user menu"
-                      className="rounded-full p-1"
-                      size="icon-sm"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
-                >
-                  <Avatar className="size-9 border border-primary-100">
-                    <AvatarFallback className="bg-primary-700 text-xs font-semibold text-white">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuLabel>
-                    <span className="block text-sm font-semibold text-secondary-900">
-                      {session.user.fullName}
-                    </span>
-                    <span className="block truncate text-xs">
-                      {session.user.email}
-                    </span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <UserRound />
-                      Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings />
-                      Preferences
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Bell />
-                      Notifications
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <form action={logoutAction}>
-                    <input name="audience" type="hidden" value="student" />
-                    <DropdownMenuItem
-                      render={<button className="w-full" type="submit" />}
-                    >
-                      <LogOut />
-                      Log out
-                    </DropdownMenuItem>
-                  </form>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
-          </header>
+          </CardHeader>
+        </Card>
+      </section>
 
-          <ScrollArea className="h-[calc(100svh-4rem)]">
-            <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-8 px-4 py-8 md:px-8 lg:px-10 lg:gap-9 lg:py-10">
-              <section>
-                <Card className="relative min-h-[330px] overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#d8f2e3_52%,#fff1a8_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
-                  <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10">
-                    <div className="grid gap-10 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start">
-                      <div>
-                        <CardTitle className="max-w-3xl text-[32px] leading-[1.08] font-semibold text-secondary-900 md:text-[40px] xl:text-[46px]">
-                          Halo, {firstName}. Lanjutkan rute belajarmu.
-                        </CardTitle>
-                        <CardDescription className="mt-5 max-w-[42ch] text-[15px] leading-7 text-secondary-600 md:text-base">
-                          Semangat mengejar{" "}
-                          <span className="font-bold">Ilmu Komputer - UI </span>
-                          ya!
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-wrap gap-3 2xl:justify-end">
-                        <HeroCountdownPill daysLeft={examDaysLeft} />
-                        <HeroXpPill
-                          level={studentLevel}
-                          progress={xpProgress}
-                          total={100}
-                          xp={studentXp}
-                        />
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
-              </section>
+      {!hasGoal ? <BeginnerState /> : null}
 
-              {!hasGoal ? <BeginnerState /> : null}
+      <section
+        id="continue-learning"
+        className="grid gap-6 xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]"
+      >
+        <DailyMissionCard missionProgress={missionProgress} />
+        <ContinueLearningCard />
+      </section>
 
-              <section
-                id="continue-learning"
-                className="grid gap-6 xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.28fr)]"
-              >
-                <DailyMissionCard missionProgress={missionProgress} />
-                <ContinueLearningCard />
-              </section>
+      <section id="progress" className="grid">
+        <ProgressOverview />
+      </section>
 
-              <section id="progress" className="grid">
-                <ProgressOverview />
-              </section>
+      <section id="vera-ai">
+        <FocusRecommendation />
+      </section>
 
-              <section id="vera-ai">
-                <FocusRecommendation />
-              </section>
-
-              <RecentActivity />
-            </main>
-          </ScrollArea>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+      <RecentActivity />
+    </StudentWorkspaceShell>
   );
 }
 
@@ -730,9 +502,9 @@ function ContinueLearningCard() {
           </Progress>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <MiniStat label="Subtest" value="PU" />
-          <MiniStat label="Lesson" value="4 / 7" />
-          <MiniStat label="Quiz readiness" value="Siap" />
+          <StatTile label="Subtest" value="PU" />
+          <StatTile label="Lesson" value="4 / 7" />
+          <StatTile label="Quiz readiness" value="Siap" />
         </div>
       </CardContent>
       <CardFooter className="mt-auto gap-3 px-7 pb-7 md:px-8">
@@ -760,11 +532,11 @@ function ProgressOverview() {
       </CardHeader>
       <CardContent className="flex flex-col gap-7 px-7 md:px-8">
         <div className="grid gap-4 md:grid-cols-5">
-          <MiniStat label="Modules" value="18/32" />
-          <MiniStat label="Tryout" value="676" />
-          <MiniStat label="Quiz avg" value="78%" />
-          <MiniStat label="Streak" value="12 hari" />
-          <MiniStat label="Weakest" value="PK" />
+          <StatTile label="Modules" value="18/32" />
+          <StatTile label="Tryout" value="676" />
+          <StatTile label="Quiz avg" value="78%" />
+          <StatTile label="Streak" value="12 hari" />
+          <StatTile label="Weakest" value="PK" />
         </div>
         <Tabs defaultValue="activity">
           <TabsList className="grid w-full max-w-[430px] grid-cols-3 rounded-2xl bg-primary-50 p-1">
@@ -954,15 +726,6 @@ function RecentActivity() {
         ))}
       </CardContent>
     </Card>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-primary-100 bg-white/86 p-3.5 shadow-sm">
-      <p className="text-xs text-secondary-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-secondary-900">{value}</p>
-    </div>
   );
 }
 

@@ -63,7 +63,7 @@ function StudentSidebar({
   dailyMissionBadge = "3",
   footerLabel,
   fullName,
-  notificationBadge = "2",
+  notificationBadge,
 }: {
   activeLabel: string;
   dailyMissionBadge?: string;
