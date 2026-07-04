@@ -4,13 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { BookOpenText, CalendarDays, ChevronRight, Sparkles } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
-import { tryoutCategories, tryoutSections } from "./data";
+import { tryoutSections } from "./data";
 
 const toneStyles = {
   cream: {
@@ -31,8 +30,6 @@ const toneStyles = {
 };
 
 function TryoutWorkspacePageModule({ session }: { session: SessionContext }) {
-  const featuredTryout = tryoutSections[0]?.tryouts[0];
-
   return (
     <CourseWorkspaceShell
       activeLabel="Tryout"
@@ -40,111 +37,6 @@ function TryoutWorkspacePageModule({ session }: { session: SessionContext }) {
       searchPlaceholder="Cari tryout, periode, atau paket latihan..."
       session={session}
     >
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_320px]">
-        <div className="relative overflow-hidden rounded-[32px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#d8f2e3_52%,#fff1a8_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
-          <div className="grid gap-6 p-7 md:p-8 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-end">
-            <div>
-              <Badge className="rounded-full px-4 py-2 text-[12px] tracking-[0.18em] uppercase" size="card" variant="mint">
-                Katalog Tryout
-              </Badge>
-              <h1 className="mt-5 max-w-[12ch] text-[34px] leading-[1.02] font-semibold text-secondary-900 md:text-[44px]">
-                Pilih tryout sesuai ritme dan target ujianmu.
-              </h1>
-              <p className="mt-4 max-w-[56ch] text-sm leading-7 text-secondary-700 md:text-base">
-                Sekarang tryout sudah masuk ke alur yang sama dengan materi dan quiz,
-                jadi siswa bisa pindah dari latihan, review, sampai evaluasi tanpa
-                terasa pindah produk.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button render={<Link href="#fleksibel" />} size="sm" variant="brand">
-                  Buka tryout terbaru
-                  <ChevronRight data-icon="inline-end" />
-                </Button>
-                <Button render={<Link href="/dashboard#progress" />} size="sm" variant="brandOutline">
-                  Lihat progres tryout
-                </Button>
-              </div>
-            </div>
-
-            <div className="overflow-hidden rounded-[24px] border border-white/60 bg-white/55 p-2 shadow-[0_24px_70px_-46px_rgba(1,76,56,0.38)]">
-              <Image
-                alt="Featured Vecalss tryout banner"
-                className="h-auto w-full rounded-[18px] object-cover"
-                height={1080}
-                priority
-                sizes="(min-width: 1280px) 22vw, (min-width: 768px) 32vw, 100vw"
-                src="/brand/tryout-placeholder-banner.jpg"
-                width={1920}
-              />
-            </div>
-          </div>
-        </div>
-
-        <aside className="grid gap-4">
-          <div className="rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_22px_64px_-48px_rgba(1,76,56,0.24)]">
-            <p className="text-xs font-semibold tracking-[0.16em] text-primary-700 uppercase">
-              Ringkasan cepat
-            </p>
-            <div className="mt-5 grid gap-3">
-              <SummaryRow label="Paket aktif" value="9 tryout" />
-              <SummaryRow label="Periode terbaru" value="Juli 2026" />
-              <SummaryRow label="Format populer" value="Fleksibel" />
-            </div>
-          </div>
-
-          {featuredTryout ? (
-            <div className="rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_22px_64px_-48px_rgba(1,76,56,0.24)]">
-              <p className="text-xs font-semibold tracking-[0.16em] text-primary-700 uppercase">
-                Rekomendasi hari ini
-              </p>
-              <h2 className="mt-4 text-xl leading-tight font-semibold text-secondary-900">
-                {featuredTryout.title}
-              </h2>
-              <div className="mt-4 flex flex-wrap gap-3 text-sm text-secondary-600">
-                <span className="inline-flex items-center gap-2">
-                  <CalendarDays className="size-4" />
-                  {featuredTryout.duration}
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <BookOpenText className="size-4" />
-                  {featuredTryout.questionCount}
-                </span>
-              </div>
-              <Button className="mt-6 w-full" size="sm" variant="brand">
-                Mulai dari paket ini
-              </Button>
-            </div>
-          ) : null}
-        </aside>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {tryoutCategories.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <Link
-              className="rounded-[26px] border border-primary-100 bg-white p-5 shadow-[0_18px_52px_-46px_rgba(1,76,56,0.2)] transition-transform duration-300 hover:-translate-y-1"
-              href={`#${item.id}`}
-              key={item.id}
-            >
-              <span className="flex size-14 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
-                <Icon className="size-7" />
-              </span>
-              <div className="mt-4 flex items-center gap-2">
-                <p className="text-lg font-semibold text-secondary-900">{item.label}</p>
-                {item.soon ? (
-                  <span className="rounded-full bg-primary-50 px-2 py-1 text-[11px] font-semibold text-primary-700">
-                    Segera
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-secondary-500">{item.blurb}</p>
-            </Link>
-          );
-        })}
-      </section>
-
       <div className="grid gap-8">
         {tryoutSections.map((section) => (
           <section className="scroll-mt-28" id={section.id} key={section.id}>
@@ -237,15 +129,6 @@ function TryoutWorkspacePageModule({ session }: { session: SessionContext }) {
         ))}
       </div>
     </CourseWorkspaceShell>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl bg-primary-50/70 px-4 py-3">
-      <span className="text-sm text-secondary-500">{label}</span>
-      <span className="text-sm font-semibold text-secondary-900">{value}</span>
-    </div>
   );
 }
 
