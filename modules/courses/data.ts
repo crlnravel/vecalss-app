@@ -38,6 +38,8 @@ type Course = {
   sections: CourseSection[];
 };
 
+const courseCardPalette = "bg-primary-100 text-primary-900";
+
 const courseCatalogue: Course[] = [
   {
     code: "TPS",
@@ -45,7 +47,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Dasar",
     duration: "4j 20m",
     icon: Brain,
-    palette: "bg-[#dff5f8] text-[#0b5970]",
+    palette: courseCardPalette,
     progress: 64,
     slug: "penalaran-umum",
     status: "Sedang dipelajari",
@@ -115,7 +117,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Menengah",
     duration: "3j 55m",
     icon: LibraryBig,
-    palette: "bg-[#e8f6df] text-[#215c42]",
+    palette: courseCardPalette,
     progress: 22,
     slug: "pengetahuan-pemahaman-umum",
     status: "Sedang dipelajari",
@@ -178,7 +180,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Menengah",
     duration: "3j 40m",
     icon: PenTool,
-    palette: "bg-[#eee7ff] text-[#302063]",
+    palette: courseCardPalette,
     progress: 0,
     slug: "pemahaman-bacaan-menulis",
     status: "Belum mulai",
@@ -237,7 +239,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Menengah",
     duration: "5j 05m",
     icon: Calculator,
-    palette: "bg-[#ffe8dd] text-[#872b16]",
+    palette: courseCardPalette,
     progress: 38,
     slug: "pengetahuan-kuantitatif",
     status: "Sedang dipelajari",
@@ -301,7 +303,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Menengah",
     duration: "3j 45m",
     icon: FileText,
-    palette: "bg-[#fde5ec] text-[#7c1838]",
+    palette: courseCardPalette,
     progress: 0,
     slug: "literasi-bahasa-indonesia",
     status: "Belum mulai",
@@ -364,7 +366,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Lanjutan",
     duration: "4j 10m",
     icon: Languages,
-    palette: "bg-[#e6eefc] text-[#1d3c73]",
+    palette: courseCardPalette,
     progress: 0,
     slug: "literasi-bahasa-inggris",
     status: "Belum mulai",
@@ -429,7 +431,7 @@ const courseCatalogue: Course[] = [
     difficulty: "Lanjutan",
     duration: "4j 55m",
     icon: BookOpen,
-    palette: "bg-[#fff4c9] text-[#705214]",
+    palette: courseCardPalette,
     progress: 0,
     slug: "penalaran-matematika",
     status: "Belum mulai",

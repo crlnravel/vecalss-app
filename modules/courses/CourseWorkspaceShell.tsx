@@ -1,19 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import type { ComponentType } from "react";
 import {
   Bell,
-  BookOpen,
-  Bot,
-  Gauge,
   Home,
-  LayoutDashboard,
-  ListChecks,
   LogOut,
   Search,
   Settings,
-  Target,
   UserRound,
 } from "lucide-react";
 
@@ -39,53 +31,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/modules/auth/actions";
-import { BrandMark } from "@/modules/home/components/home-primitives";
-
-type NavigationItem = {
-  badge?: string;
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-};
-
-const navigationItems: NavigationItem[] = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/courses", icon: BookOpen, label: "Materi" },
-  { href: "/quiz", icon: ListChecks, label: "Quiz" },
-  { href: "#tryout", icon: Gauge, label: "Tryout" },
-  { href: "#progress", icon: Target, label: "Progress" },
-  { href: "#vera-ai", icon: Bot, label: "Vera AI" },
-  { href: "#notifications", icon: Bell, label: "Notifications", badge: "2" },
-  { href: "#settings", icon: Settings, label: "Profile / Settings" },
-];
-
-function getInitials(fullName: string) {
-  return fullName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
+import {
+  getInitials,
+  StudentSidebar,
+} from "@/modules/student/components/student-sidebar";
 
 function CourseWorkspaceShell({
   activeLabel,
@@ -105,66 +61,11 @@ function CourseWorkspaceShell({
   return (
     <SidebarProvider>
       <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
-        <Sidebar
-          collapsible="icon"
-          className="border-primary-100 bg-white/95 backdrop-blur"
-        >
-          <SidebarHeader className="gap-4 p-4">
-            <Link
-              href="/"
-              className="flex origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:scale-50"
-            >
-              <BrandMark />
-            </Link>
-          </SidebarHeader>
-
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Belajar</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navigationItems.map((item) => (
-                    <SidebarMenuItem key={item.label}>
-                      <SidebarMenuButton
-                        isActive={item.label === activeLabel}
-                        tooltip={item.label}
-                        render={<Link href={item.href} />}
-                      >
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                      {item.badge ? (
-                        <SidebarMenuBadge className="bg-accent-300 text-secondary-900">
-                          {item.badge}
-                        </SidebarMenuBadge>
-                      ) : null}
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-
-          <SidebarFooter className="p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2">
-            <div className="w-full overflow-hidden rounded-3xl border border-primary-100 bg-white p-3 shadow-sm transition-all duration-300 ease-out group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none">
-              <div className="flex items-center gap-3 transition-[gap] duration-300 ease-out group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-                <Avatar className="size-10 origin-center border border-primary-100 shadow-sm transition-transform duration-300 ease-out group-data-[collapsible=icon]:scale-[0.8]">
-                  <AvatarFallback className="bg-primary-700 text-sm font-semibold text-white">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                  <p className="truncate text-sm font-semibold text-secondary-900">
-                    {session.user.fullName}
-                  </p>
-                  <p className="truncate text-xs text-secondary-500">
-                    Student workspace
-                  </p>
-                </div>
-              </div>
-            </div>
-          </SidebarFooter>
-        </Sidebar>
+        <StudentSidebar
+          activeLabel={activeLabel}
+          footerLabel="Student workspace"
+          fullName={session.user.fullName}
+        />
 
         <SidebarInset className="bg-transparent">
           <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">

@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Clock3, Lock, Play, PlayCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Clock3,
+  Lock,
+  Play,
+  PlayCircle,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +53,7 @@ function CourseDetailPageModule({
       </div>
 
       <section>
-        <Card className="relative overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#ffffff_56%,#fff3bc_100%)] shadow-[0_28px_90px_-60px_rgba(1,76,56,0.44)]">
+        <Card className="relative overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(135deg,rgba(1,76,56,0.24)_0%,rgba(1,76,56,0.16)_38%,rgba(1,76,56,0.08)_72%,rgba(255,255,255,0.92)_100%)] shadow-[0_28px_90px_-60px_rgba(1,76,56,0.44)]">
           <CardHeader className="gap-6 px-6 py-7 md:px-8 md:py-8">
             <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
               <div>
@@ -68,8 +75,8 @@ function CourseDetailPageModule({
 
               <div
                 className={cn(
-                  "flex h-40 w-40 shrink-0 items-center justify-center self-start rounded-[28px] border border-primary-100 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)] md:h-52 md:w-52 md:self-auto",
-                  course.palette,
+                  "flex h-40 w-40 shrink-0 items-center justify-center self-start rounded-[28px] border border-primary-100 bg-[linear-gradient(160deg,rgba(1,76,56,0.24)_0%,rgba(1,76,56,0.14)_58%,rgba(255,255,255,0.88)_100%)] text-primary-900 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)] md:h-52 md:w-52 md:self-auto",
+                  course.palette.replace("bg-primary-100", ""),
                 )}
               >
                 <div className="flex size-20 items-center justify-center rounded-[28px] border border-primary-100 bg-white/86 text-primary-700 shadow-[0_18px_42px_-26px_rgba(1,76,56,0.45)]">
@@ -80,9 +87,21 @@ function CourseDetailPageModule({
           </CardHeader>
 
           <CardContent className="grid gap-3 px-6 pb-7 sm:grid-cols-3 md:px-8">
-            <DetailStat icon={BookOpen} label="Sections" value={stats.totalSections} />
-            <DetailStat icon={PlayCircle} label="Videos" value={stats.totalVideos} />
-            <DetailStat icon={Clock3} label="Duration" value={course.duration} />
+            <DetailStat
+              icon={BookOpen}
+              label="Sections"
+              value={stats.totalSections}
+            />
+            <DetailStat
+              icon={PlayCircle}
+              label="Videos"
+              value={stats.totalVideos}
+            />
+            <DetailStat
+              icon={Clock3}
+              label="Duration"
+              value={course.duration}
+            />
           </CardContent>
         </Card>
       </section>
