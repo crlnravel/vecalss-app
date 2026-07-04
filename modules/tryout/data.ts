@@ -15,10 +15,10 @@ type TryoutCategory = {
 };
 
 type TryoutCard = {
-  badge: string;
   duration: string;
   id: string;
   indexLabel: string;
+  isNew?: boolean;
   period: string;
   questionCount: string;
   status: string;
@@ -73,9 +73,9 @@ const tryoutSections: TryoutSection[] = [
     tryouts: [
       {
         id: "fleksibel-14",
-        badge: "Fleksibel",
         duration: "3 jam 15 menit",
         indexLabel: "#14",
+        isNew: true,
         period: "Juli 2026",
         questionCount: "160 soal",
         status: "Berlangsung",
@@ -83,9 +83,9 @@ const tryoutSections: TryoutSection[] = [
       },
       {
         id: "fleksibel-13",
-        badge: "Fleksibel",
         duration: "3 jam 15 menit",
         indexLabel: "#13",
+        isNew: true,
         period: "Juni 2026",
         questionCount: "160 soal",
         status: "Terbaru",
@@ -93,7 +93,6 @@ const tryoutSections: TryoutSection[] = [
       },
       {
         id: "fleksibel-12",
-        badge: "Fleksibel",
         duration: "3 jam 15 menit",
         indexLabel: "#12",
         period: "Mei 2026",
@@ -103,7 +102,6 @@ const tryoutSections: TryoutSection[] = [
       },
       {
         id: "fleksibel-11",
-        badge: "Fleksibel",
         duration: "3 jam 15 menit",
         indexLabel: "#11",
         period: "April 2026",
@@ -123,9 +121,9 @@ const tryoutSections: TryoutSection[] = [
     tryouts: [
       {
         id: "premium-07",
-        badge: "Premium",
         duration: "3 jam 30 menit",
         indexLabel: "#07",
+        isNew: true,
         period: "Juli 2026",
         questionCount: "180 soal",
         status: "Premium",
@@ -133,7 +131,6 @@ const tryoutSections: TryoutSection[] = [
       },
       {
         id: "premium-06",
-        badge: "Premium",
         duration: "3 jam 30 menit",
         indexLabel: "#06",
         period: "Juni 2026",
@@ -153,9 +150,9 @@ const tryoutSections: TryoutSection[] = [
     tryouts: [
       {
         id: "reguler-09",
-        badge: "Reguler",
         duration: "2 jam 30 menit",
         indexLabel: "#09",
+        isNew: true,
         period: "Juli 2026",
         questionCount: "120 soal",
         status: "Terjadwal",
@@ -163,7 +160,6 @@ const tryoutSections: TryoutSection[] = [
       },
       {
         id: "reguler-08",
-        badge: "Reguler",
         duration: "2 jam 30 menit",
         indexLabel: "#08",
         period: "Juni 2026",
@@ -173,7 +169,6 @@ const tryoutSections: TryoutSection[] = [
       },
       {
         id: "reguler-07",
-        badge: "Reguler",
         duration: "2 jam 30 menit",
         indexLabel: "#07",
         period: "Mei 2026",
