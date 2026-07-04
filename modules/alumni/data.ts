@@ -134,24 +134,118 @@ const baseFeaturedTopAlumni: TopAlumni[] = [
   },
 ];
 
-const homepagePlaceholderTopAlumni: TopAlumni[] = Array.from(
-  { length: 20 - baseFeaturedTopAlumni.length },
-  (_, index) => {
-    const name = alumniNames[index % alumniNames.length];
-    const university = targetUniversities[index % targetUniversities.length];
-
-    return {
-      id: `featured-top-alumni-placeholder-${index + 1}`,
-      isPlaceholder: true,
-      logoAlt: university.logoAlt,
-      logoSrc: university.logoSrc,
-      name,
-      photoSrc: avatarPlaceholder,
-      rank: baseFeaturedTopAlumni.length + index + 1,
-      university: `${university.name} placeholder`,
-    };
+const homepagePlaceholderTopAlumni: TopAlumni[] = [
+  {
+    id: "featured-top-alumni-7",
+    logoAlt: "Universitas Indonesia mark",
+    logoSrc: "/brand/campuses/ui.png",
+    name: "Lintang",
+    photoSrc: "/landing-assets/top-20-extra/Lintang.jpg",
+    rank: 7,
+    university: "Arsitektur UI",
   },
-);
+  {
+    id: "featured-top-alumni-8",
+    logoAlt: "Institut Teknologi Sepuluh Nopember seal",
+    logoSrc: "/brand/campuses/its.svg",
+    name: "Rafi Adiwitya Ardana Shafwan",
+    photoSrc: "/landing-assets/top-20-extra/Rafi.jpg",
+    rank: 8,
+    university: "Teknik Telekomunikasi ITS",
+  },
+  {
+    id: "featured-top-alumni-9",
+    logoAlt: "Universitas Airlangga mark",
+    logoSrc: "/brand/campuses/unair.png",
+    name: "Nurzaki Arfiansyah",
+    photoSrc: "/landing-assets/top-20-extra/Nurzaki.jpg",
+    rank: 9,
+    university: "Teknik Elektro UNAIR",
+  },
+  {
+    id: "featured-top-alumni-10",
+    name: "Raihania Ruchlianti",
+    photoSrc: "/landing-assets/top-20-extra/Raihania.jpg",
+    rank: 10,
+    university: "Arsitektur UPI",
+  },
+  {
+    id: "featured-top-alumni-11",
+    name: "Suci Oktavia",
+    photoSrc: "/landing-assets/top-20-extra/Suci.jpg",
+    rank: 11,
+    university: "Bahasa dan Sastra Indonesia UPI",
+  },
+  {
+    id: "featured-top-alumni-12",
+    name: "Muhammad Zahran Nasir",
+    photoSrc: "/landing-assets/top-20-extra/Zahran.jpg",
+    rank: 12,
+    university: "Ilmu Hukum Universitas Jambi",
+  },
+  {
+    id: "featured-top-alumni-13",
+    name: "Asyraf Arrahman",
+    photoSrc: "/landing-assets/top-20-extra/asyraf.jpg",
+    rank: 13,
+    university: "Statistika dan Sains Data IPB",
+  },
+  {
+    id: "featured-top-alumni-14",
+    logoAlt: "Universitas Airlangga mark",
+    logoSrc: "/brand/campuses/unair.png",
+    name: "Ficky Rizki Wahyudi",
+    photoSrc: "/landing-assets/top-20-extra/ficky.jpg",
+    rank: 14,
+    university: "Manajemen UNAIR",
+  },
+  {
+    id: "featured-top-alumni-15",
+    logoAlt: "Universitas Airlangga mark",
+    logoSrc: "/brand/campuses/unair.png",
+    name: "Naila Wulidatul Afid",
+    photoSrc: "/landing-assets/top-20-extra/naila.jpg",
+    rank: 15,
+    university: "Sosiologi UNAIR",
+  },
+  {
+    id: "featured-top-alumni-16",
+    name: "Rayva Angeline Blissfully Tambunan",
+    photoSrc: "/landing-assets/top-20-extra/rayva.jpg",
+    rank: 16,
+    university: "Administrasi Bisnis UB",
+  },
+  {
+    id: "featured-top-alumni-17",
+    name: "Syafa Elisa",
+    photoSrc: "/landing-assets/top-20-extra/syafa.jpg",
+    rank: 17,
+    university: "Sastra Inggris UB",
+  },
+  {
+    id: "featured-top-alumni-18",
+    name: "May Alifia Santoso",
+    photoSrc: "/landing-assets/top-20-extra/may.jpg",
+    rank: 18,
+    university: "Teknik Metalurgi UNESA",
+  },
+  {
+    id: "featured-top-alumni-19",
+    name: "Tiara Denisa Putri",
+    photoSrc: "/landing-assets/top-20-extra/tiara.jpg",
+    rank: 19,
+    university: "Psikologi Universitas Andalas",
+  },
+  {
+    id: "featured-top-alumni-20",
+    logoAlt: "Universitas Indonesia mark",
+    logoSrc: "/brand/campuses/ui.png",
+    name: "Adam Housen Arpando",
+    photoSrc: "/landing-assets/top-20-extra/ocen.jpg",
+    rank: 20,
+    university: "Administrasi Perkantoran UI",
+  },
+];
 
 const featuredTopAlumni: TopAlumni[] = [
   ...baseFeaturedTopAlumni,

@@ -1,250 +1,301 @@
-type VeraMessage = {
+type VeraToolId = "analysis" | "route" | "drill" | "review" | "ptn" | "summary";
+
+type VeraContextSource = {
   id: string;
-  role: "student" | "vera";
-  text: string;
-  time: string;
-  context?: string;
+  title: string;
+  category: string;
+  detail: string;
+  meta: string;
 };
 
 type VeraQuickPrompt = {
   id: string;
   label: string;
-  prompt: string;
+  mode: VeraToolId | "chat";
 };
 
-type VeraWeaknessTopic = {
-  id: string;
-  subtest: string;
-  topic: string;
-  source: string;
-  mastery: number;
-  trend: string;
-  recommendation: string;
-};
-
-type VeraRecommendation = {
-  id: string;
-  rank: string;
-  type: "Materi" | "Quiz" | "Drill";
+type VeraStudioTool = {
+  id: VeraToolId;
   title: string;
-  reason: string;
-  duration: string;
-  href: string;
+  description: string;
+  badge: string;
+  outputTitle: string;
+  outputBody: string;
+  tone: "gold" | "mint" | "green" | "cream" | "sky" | "rose";
 };
 
-type VeraAdaptiveDrill = {
-  id: string;
-  topic: string;
-  difficulty: string;
-  questionCount: string;
-  readiness: string;
-  status: "Siap" | "Review" | "Ulang";
-  source: string;
+type VeraToolMode = {
+  id: VeraToolId;
+  eyebrow: string;
+  title: string;
+  description: string;
+  highlights: string[];
+  metrics: {
+    label: string;
+    value: string;
+  }[];
+  primaryAction: string;
+  followUp: string;
 };
 
-type VeraStrategySnapshot = {
-  target: string;
-  currentScore: string;
-  targetScore: string;
-  gap: string;
-  focus: string[];
-};
-
-type VeraExplanationContext = {
-  id: string;
-  label: string;
-  question: string;
-  mistake: string;
-  source: string;
-};
-
-const veraMessages: VeraMessage[] = [
+const veraContextSources: VeraContextSource[] = [
   {
-    id: "m-1",
-    role: "vera",
-    text: "Aku sudah membaca tryout terakhir dan quiz PU minggu ini. Fokus paling dekat: simpulan implisit, rasio, dan baca grafik.",
-    time: "09.14",
-    context: "Analisis otomatis",
+    id: "tryout-04",
+    title: "Tryout SNBT 04",
+    category: "Hasil tryout terakhir",
+    detail: "Skor 676 dengan penurunan paling terlihat di PU dan PK.",
+    meta: "Diperbarui hari ini",
   },
   {
-    id: "m-2",
-    role: "student",
-    text: "Kenapa nilai PK-ku turun padahal latihan sudah lumayan sering?",
-    time: "09.16",
+    id: "quiz-pk-02",
+    title: "Quiz PK Modul 02",
+    category: "Riwayat quiz",
+    detail: "Rasio dan persentase masih butuh latihan dua langkah.",
+    meta: "12 soal",
   },
   {
-    id: "m-3",
-    role: "vera",
-    text: "Polanya bukan jumlah latihan, tapi waktu pengerjaan. Akurasi kamu stabil di soal mudah, lalu turun saat soal rasio punya dua langkah hitung. Aku sarankan 8 soal adaptif dulu sebelum masuk modul baru.",
-    time: "09.16",
-    context: "PK - Rasio dan Persentase",
+    id: "target-ui",
+    title: "Target: Ilmu Komputer UI",
+    category: "Target PTN",
+    detail: "Gap estimasi 39 poin dari target aman.",
+    meta: "Prioritas utama",
+  },
+  {
+    id: "wrong-latest",
+    title: "Soal salah terbaru",
+    category: "Soal salah",
+    detail: "3 soal menunggu pembahasan ulang dari Vera.",
+    meta: "PU, PK, LBI",
+  },
+  {
+    id: "module-active",
+    title: "Modul Rasio Dasar",
+    category: "Modul yang sedang dipelajari",
+    detail: "Materi aktif untuk memperkuat pola hitung cepat.",
+    meta: "52% selesai",
+  },
+  {
+    id: "last-drill",
+    title: "Drill Tempo PK",
+    category: "Drill terakhir",
+    detail: "Akurasi naik, tempo masih belum stabil di soal medium.",
+    meta: "8 soal",
   },
 ];
 
 const veraQuickPrompts: VeraQuickPrompt[] = [
   {
-    id: "qp-1",
-    label: "Baca hasil tryout",
-    prompt: "Jelaskan kelemahan utama dari tryout terakhirku.",
+    id: "prompt-analysis",
+    label: "Analisis kelemahanku",
+    mode: "analysis",
   },
   {
-    id: "qp-2",
-    label: "Buat drill adaptif",
-    prompt: "Buatkan drill 10 soal dari topik yang paling lemah.",
+    id: "prompt-drill",
+    label: "Buat drill dari soal salah",
+    mode: "drill",
   },
   {
-    id: "qp-3",
-    label: "Strategi PTN",
-    prompt: "Bandingkan posisiku dengan target jurusan dan buat strategi 14 hari.",
+    id: "prompt-ratio",
+    label: "Jelaskan materi rasio",
+    mode: "chat",
   },
   {
-    id: "qp-4",
-    label: "Bahas soal salah",
-    prompt: "Jelaskan ulang soal yang terakhir salah dengan langkah yang lebih pelan.",
+    id: "prompt-route",
+    label: "Susun rute belajar minggu ini",
+    mode: "route",
   },
 ];
 
-const veraWeaknessTopics: VeraWeaknessTopic[] = [
+const veraStudioTools: VeraStudioTool[] = [
   {
-    id: "weak-1",
-    subtest: "PU",
-    topic: "Simpulan implisit",
-    source: "Tryout SNBT 04",
-    mastery: 42,
-    trend: "-11% dari sesi sebelumnya",
-    recommendation: "Review Struktur Argumen lalu kerjakan 6 soal bertahap.",
+    id: "analysis",
+    title: "Analisis Kelemahan",
+    description: "Baca pola dari tryout, quiz, tempo, dan soal salah.",
+    badge: "Core",
+    outputTitle: "Kelemahan utama ditemukan",
+    outputBody:
+      "PU simpulan implisit dan PK rasio dua langkah menjadi prioritas sesi berikutnya.",
+    tone: "gold",
   },
   {
-    id: "weak-2",
-    subtest: "PK",
-    topic: "Rasio dan persentase",
-    source: "Quiz PK Modul 02",
-    mastery: 48,
-    trend: "Waktu rata-rata 2m 14d",
-    recommendation: "Mulai drill adaptif dengan batas waktu ringan.",
+    id: "route",
+    title: "Rute Belajar",
+    description: "Susun urutan belajar paling dekat dengan target skor.",
+    badge: "Smart",
+    outputTitle: "Rute 7 hari siap",
+    outputBody:
+      "Mulai dari review struktur argumen, lanjut drill PK, lalu validasi lewat quiz pendek.",
+    tone: "mint",
   },
   {
-    id: "weak-3",
-    subtest: "LBI",
-    topic: "Baca grafik cepat",
-    source: "Latihan Literasi Data",
-    mastery: 54,
-    trend: "Akurasi naik, tempo belum stabil",
-    recommendation: "Minta Vera pecah pola grafik sebelum lanjut tryout.",
-  },
-];
-
-const veraRecommendations: VeraRecommendation[] = [
-  {
-    id: "rec-1",
-    rank: "01",
-    type: "Materi",
-    title: "Penalaran Umum: Struktur Argumen",
-    reason: "Membuka ulang konsep yang paling sering memicu jawaban ragu.",
-    duration: "18 menit",
-    href: "/courses/penalaran-umum",
+    id: "drill",
+    title: "Drill Adaptif",
+    description: "Buat latihan dari topik lemah dan soal salah terbaru.",
+    badge: "Smart",
+    outputTitle: "Drill adaptif dibuat",
+    outputBody:
+      "8 soal rasio bertingkat dan 6 soal simpulan implisit siap dijadikan sesi fokus.",
+    tone: "green",
   },
   {
-    id: "rec-2",
-    rank: "02",
-    type: "Drill",
-    title: "Rasio Bertingkat",
-    reason: "Latihan pendek untuk memperbaiki tempo PK tanpa membuat sesi berat.",
-    duration: "10 soal",
-    href: "/vera-ai#drill",
+    id: "review",
+    title: "Bahas Soal Salah",
+    description: "Urai kesalahan dengan langkah yang lebih pelan.",
+    badge: "Core",
+    outputTitle: "Queue pembahasan terbuka",
+    outputBody:
+      "3 soal terbaru diprioritaskan: PU nomor 17, PK nomor 08, dan LBI nomor 12.",
+    tone: "cream",
   },
   {
-    id: "rec-3",
-    rank: "03",
-    type: "Quiz",
-    title: "PU - Simpulan dan Pernyataan",
-    reason: "Validasi cepat setelah review materi, sebelum masuk tryout berikutnya.",
-    duration: "12 menit",
-    href: "/quiz/penalaran-umum",
-  },
-];
-
-const veraAdaptiveDrills: VeraAdaptiveDrill[] = [
-  {
-    id: "drill-1",
-    topic: "Rasio dan Persentase",
-    difficulty: "Adaptive",
-    questionCount: "8 soal",
-    readiness: "Direkomendasikan sekarang",
-    status: "Siap",
-    source: "PK weakness score",
+    id: "ptn",
+    title: "Strategi PTN",
+    description: "Hubungkan posisi skor dengan target jurusan.",
+    badge: "Smart",
+    outputTitle: "Strategi PTN diperbarui",
+    outputBody:
+      "Target Ilmu Komputer UI membutuhkan kenaikan stabil di PK dan PU selama 14 hari.",
+    tone: "sky",
   },
   {
-    id: "drill-2",
-    topic: "Simpulan Implisit",
-    difficulty: "Medium",
-    questionCount: "6 soal",
-    readiness: "Setelah review materi",
-    status: "Review",
-    source: "Tryout SNBT 04",
-  },
-  {
-    id: "drill-3",
-    topic: "Grafik dan Tabel",
-    difficulty: "Adaptive",
-    questionCount: "5 soal",
-    readiness: "Ulang dari kesalahan kemarin",
-    status: "Ulang",
-    source: "Quiz Literasi Data",
+    id: "summary",
+    title: "Ringkasan Belajar",
+    description: "Simpan keputusan belajar dan catatan penting sesi ini.",
+    badge: "Core",
+    outputTitle: "Ringkasan sesi disiapkan",
+    outputBody:
+      "Vera merangkum fokus hari ini, konteks yang dipakai, dan tugas belajar berikutnya.",
+    tone: "rose",
   },
 ];
 
-const veraStrategySnapshot: VeraStrategySnapshot = {
-  target: "Ilmu Komputer - UI",
-  currentScore: "676",
-  targetScore: "715",
-  gap: "39 poin",
-  focus: [
-    "Naikkan PK lewat drill tempo pendek.",
-    "Pertahankan LBI dengan 1 review ringan per minggu.",
-    "Gunakan tryout berikutnya untuk menguji stabilitas PU.",
-  ],
+const veraToolModes: Record<VeraToolId, VeraToolMode> = {
+  analysis: {
+    id: "analysis",
+    eyebrow: "Mode analisis",
+    title: "Vera membaca kelemahanmu dari konteks belajar.",
+    description:
+      "Analisis ini menggabungkan tryout terakhir, quiz modul, soal salah, dan target PTN supaya rekomendasi tidak terasa acak.",
+    highlights: [
+      "PU: simpulan implisit turun 11% dari sesi sebelumnya.",
+      "PK: rasio dua langkah sering benar konsep, tetapi salah basis hitung.",
+      "LBI: akurasi naik, tempo membaca tabel masih perlu dijaga.",
+    ],
+    metrics: [
+      { label: "Sumber", value: "6 konteks" },
+      { label: "Prioritas", value: "PU + PK" },
+      { label: "Estimasi", value: "28 menit" },
+    ],
+    primaryAction: "Buat rute dari analisis",
+    followUp: "Tanya Vera kenapa topik ini paling berpengaruh ke skor.",
+  },
+  route: {
+    id: "route",
+    eyebrow: "Mode rute belajar",
+    title: "Rute minggu ini dibuat dari prioritas paling dekat.",
+    description:
+      "Vera mengurutkan materi, quiz, dan drill agar sesi belajar terasa pendek, jelas, dan nyambung dengan target skor.",
+    highlights: [
+      "Hari 1-2: review Struktur Argumen dan contoh simpulan.",
+      "Hari 3-4: drill rasio bertingkat dengan batas waktu ringan.",
+      "Hari 5-7: validasi lewat quiz pendek dan bahas soal salah.",
+    ],
+    metrics: [
+      { label: "Durasi", value: "7 hari" },
+      { label: "Beban", value: "Ringan" },
+      { label: "Output", value: "3 sesi" },
+    ],
+    primaryAction: "Simpan rute belajar",
+    followUp: "Minta Vera menyesuaikan rute kalau kamu hanya punya 20 menit.",
+  },
+  drill: {
+    id: "drill",
+    eyebrow: "Mode generator drill",
+    title: "Drill adaptif siap dibuat dari soal salah.",
+    description:
+      "Pilih fokus, jumlah soal, lalu Vera menyiapkan latihan yang mengikuti kelemahan terdekat tanpa perlu cari soal manual.",
+    highlights: [
+      "8 soal PK rasio dan persentase, level adaptive.",
+      "6 soal PU simpulan implisit, level medium.",
+      "Pembahasan akan muncul setelah drill selesai dikerjakan.",
+    ],
+    metrics: [
+      { label: "Soal", value: "14" },
+      { label: "Topik", value: "2" },
+      { label: "Status", value: "Siap" },
+    ],
+    primaryAction: "Generate drill",
+    followUp: "Tanya Vera untuk mengubah tingkat kesulitan sebelum mulai.",
+  },
+  review: {
+    id: "review",
+    eyebrow: "Mode pembahasan",
+    title: "Bahas soal salah tanpa keluar dari workspace.",
+    description:
+      "Vera menampilkan antrean soal salah, menjelaskan alasan jawabanmu meleset, lalu memberi pola yang harus diingat.",
+    highlights: [
+      "PU nomor 17: jawaban faktual, tetapi tidak didukung teks.",
+      "PK nomor 08: basis persentase berubah di langkah kedua.",
+      "LBI nomor 12: membaca angka terbesar, bukan perubahan terbesar.",
+    ],
+    metrics: [
+      { label: "Antrean", value: "3 soal" },
+      { label: "Sumber", value: "Tryout + quiz" },
+      { label: "Mode", value: "Step-by-step" },
+    ],
+    primaryAction: "Mulai bahas soal",
+    followUp: "Minta Vera menjelaskan dengan analogi yang lebih sederhana.",
+  },
+  ptn: {
+    id: "ptn",
+    eyebrow: "Mode strategi PTN",
+    title: "Strategi menuju Ilmu Komputer UI.",
+    description:
+      "Vera membaca gap skor dan membuat prioritas yang realistis untuk menjaga peluang tanpa mengorbankan topik yang sudah stabil.",
+    highlights: [
+      "Skor saat ini 676, target aman 715.",
+      "Gap 39 poin lebih mungkin dikejar dari PK dan PU.",
+      "LBI cukup dijaga dengan review ringan mingguan.",
+    ],
+    metrics: [
+      { label: "Target", value: "UI" },
+      { label: "Gap", value: "39 poin" },
+      { label: "Horizon", value: "14 hari" },
+    ],
+    primaryAction: "Susun strategi 14 hari",
+    followUp: "Tanya Vera untuk membandingkan target cadangan.",
+  },
+  summary: {
+    id: "summary",
+    eyebrow: "Mode ringkasan",
+    title: "Ringkasan belajar yang bisa dibawa ke sesi berikutnya.",
+    description:
+      "Vera menyimpan konteks penting supaya percakapan berikutnya langsung mulai dari keputusan belajar terbaru.",
+    highlights: [
+      "Fokus hari ini: simpulan implisit dan rasio dua langkah.",
+      "Tindakan berikutnya: drill 14 soal sebelum modul baru.",
+      "Catatan strategi: jaga LBI, dorong PK dan PU.",
+    ],
+    metrics: [
+      { label: "Catatan", value: "3 poin" },
+      { label: "Konteks", value: "Tersimpan" },
+      { label: "Berikutnya", value: "Drill" },
+    ],
+    primaryAction: "Simpan ringkasan",
+    followUp: "Minta Vera membuat versi singkat untuk reminder harian.",
+  },
 };
-
-const veraExplanationContexts: VeraExplanationContext[] = [
-  {
-    id: "explain-1",
-    label: "PU Soal 17",
-    question: "Simpulan yang paling tepat dari paragraf argumentatif.",
-    mistake: "Memilih jawaban yang benar secara fakta, tapi tidak didukung teks.",
-    source: "Tryout SNBT 04",
-  },
-  {
-    id: "explain-2",
-    label: "PK Soal 08",
-    question: "Rasio campuran dengan dua perubahan persentase.",
-    mistake: "Langkah kedua memakai basis awal, bukan basis setelah perubahan.",
-    source: "Quiz PK Modul 02",
-  },
-  {
-    id: "explain-3",
-    label: "LBI Soal 12",
-    question: "Membaca tren dari tabel sederhana.",
-    mistake: "Terburu-buru mengambil angka terbesar, bukan perubahan terbesar.",
-    source: "Latihan Literasi Data",
-  },
-];
 
 export {
-  veraAdaptiveDrills,
-  veraExplanationContexts,
-  veraMessages,
+  veraContextSources,
   veraQuickPrompts,
-  veraRecommendations,
-  veraStrategySnapshot,
-  veraWeaknessTopics,
+  veraStudioTools,
+  veraToolModes,
 };
 export type {
-  VeraAdaptiveDrill,
-  VeraExplanationContext,
-  VeraMessage,
+  VeraContextSource,
   VeraQuickPrompt,
-  VeraRecommendation,
-  VeraStrategySnapshot,
-  VeraWeaknessTopic,
+  VeraStudioTool,
+  VeraToolId,
+  VeraToolMode,
 };

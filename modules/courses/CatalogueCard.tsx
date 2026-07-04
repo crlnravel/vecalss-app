@@ -31,7 +31,7 @@ function CatalogueCard({
   return (
     <Link
       className={cn(
-        "group relative flex min-h-[250px] overflow-hidden rounded-[34px] p-6 outline-none transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_-50px_rgba(1,76,56,0.42)] focus-visible:ring-3 focus-visible:ring-primary-400/25 md:min-h-[280px] md:p-8",
+        "group relative flex min-h-[200px] overflow-hidden rounded-[34px] p-6 outline-none transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_-50px_rgba(1,76,56,0.42)] focus-visible:ring-3 focus-visible:ring-primary-400/25 md:min-h-[230px] md:p-8",
         palette,
       )}
       href={href}

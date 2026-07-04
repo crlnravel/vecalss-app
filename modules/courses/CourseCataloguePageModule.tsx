@@ -22,8 +22,7 @@ function CourseCataloguePageModule({ session }: { session: SessionContext }) {
               Materi
             </h1>
             <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-500 md:text-base">
-              Pilih materi SNBT, lalu lanjutkan ke video pembelajaran yang sudah
-              dikelompokkan per bagian.
+              Cari materi yang ingin kamu pelajari di sini.
             </p>
           </div>
         </div>
@@ -50,7 +49,11 @@ function CourseCard({ course }: { course: Course }) {
       palette={course.palette}
       stats={[
         { icon: Clock3, label: "Durasi", value: course.duration },
-        { icon: PlayCircle, label: "Video", value: `${stats.totalVideos} video` },
+        {
+          icon: PlayCircle,
+          label: "Video",
+          value: `${stats.totalVideos} video`,
+        },
         { icon: CheckCircle2, label: "Progress", value: `${course.progress}%` },
       ]}
       title={course.title}
