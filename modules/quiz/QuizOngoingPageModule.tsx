@@ -57,31 +57,14 @@ function QuizOngoingPageModule({
             </div>
           </div>
 
-          <div className="flex flex-1 flex-col justify-between gap-6 px-5 py-6">
-            <div>
-              <p className="text-[13px] font-semibold tracking-[0.08em] text-secondary-400 uppercase">
-                Navigasi Soal
-              </p>
-              <div className="mt-5 grid grid-cols-4 gap-3">
-                {attempt.markers.map((marker) => (
-                  <QuestionMarker key={marker.number} marker={marker} />
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-5">
-              <div className="grid gap-3 rounded-[28px] border border-primary-100 bg-white p-4 shadow-[0_18px_42px_-34px_rgba(1,76,56,0.22)]">
-                <MetricTile label="Terjawab" value={`${attempt.answeredCount} soal`} />
-                <MetricTile label="Ditandai" value={`${attempt.flaggedCount} soal`} />
-                <MetricTile label="Durasi" value={quiz.duration} />
-              </div>
-
-              <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-secondary-500">
-                <LegendDot color="bg-primary-700" label="Aktif" />
-                <LegendDot color="bg-emerald-500" label="Benar" />
-                <LegendDot color="bg-[#fde68a]" label="Ditandai" />
-                <LegendDot color="bg-secondary-300" label="Kosong" />
-              </div>
+          <div className="px-5 py-6">
+            <p className="text-[13px] font-semibold tracking-[0.08em] text-secondary-400 uppercase">
+              Navigasi Soal
+            </p>
+            <div className="mt-5 grid grid-cols-4 gap-3">
+              {attempt.markers.map((marker) => (
+                <QuestionMarker key={marker.number} marker={marker} />
+              ))}
             </div>
           </div>
         </aside>
@@ -89,16 +72,9 @@ function QuizOngoingPageModule({
         <main className="flex min-h-svh flex-col bg-white">
           <div className="flex items-center justify-between border-b border-primary-100 px-4 py-4 md:px-8 lg:px-10">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-secondary-400">
+              <h2 className="text-[30px] leading-none font-semibold text-secondary-900 md:text-[34px]">
                 {quiz.title}
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-[30px] leading-none font-semibold text-[#7fd0f6]">
-                  SOAL {attempt.currentNumber}
-                </span>
-                <span className="text-sm text-secondary-400">•</span>
-                <span className="text-sm text-secondary-500">{subject.title}</span>
-              </div>
+              </h2>
             </div>
 
             <div className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white px-4 py-2 text-sm font-semibold text-secondary-700 shadow-sm">
@@ -197,24 +173,6 @@ function QuestionMarker({
     >
       {icon}
     </button>
-  );
-}
-
-function MetricTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-[18px] bg-secondary-50 px-4 py-3">
-      <span className="text-sm text-secondary-500">{label}</span>
-      <span className="text-sm font-semibold text-secondary-900">{value}</span>
-    </div>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={cn("size-3 rounded-full", color)} />
-      {label}
-    </span>
   );
 }
 
