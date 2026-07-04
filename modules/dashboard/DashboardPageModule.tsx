@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Area,
   AreaChart,
@@ -401,7 +402,12 @@ function DailyMissionCard({ missionProgress }: { missionProgress: number }) {
         </div>
       </CardContent>
       <CardFooter className="mt-auto px-7 pb-7">
-        <Button className="w-full" size="sm" variant="brand">
+        <Button
+          className="w-full"
+          render={<Link href="/tryout" />}
+          size="sm"
+          variant="brand"
+        >
           Kerjakan misi berikutnya
           <ChevronRight data-icon="inline-end" />
         </Button>
@@ -442,7 +448,7 @@ function ContinueLearningCard() {
           Continue Learning
         </CardTitle>
         <CardAction>
-          <Button size="sm" variant="ghost">
+          <Button render={<Link href="/tryout" />} size="sm" variant="ghost">
             Detail
             <ChevronRight data-icon="inline-end" />
           </Button>
@@ -482,6 +488,10 @@ function ContinueLearningCard() {
         <Button className="flex-1" size="sm" variant="brand">
           <BookOpen data-icon="inline-start" />
           Lanjut belajar
+        </Button>
+        <Button render={<Link href="/tryout" />} size="sm" variant="brandOutline">
+          <Gauge data-icon="inline-start" />
+          Buka tryout
         </Button>
         <Button size="sm" variant="brandOutline">
           <Bot data-icon="inline-start" />
@@ -696,6 +706,12 @@ function RecentActivity() {
           </div>
         ))}
       </CardContent>
+      <CardFooter className="px-7 pb-7">
+        <Button render={<Link href="/tryout" />} size="sm" variant="brandOutline">
+          Lihat katalog tryout
+          <ChevronRight data-icon="inline-end" />
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

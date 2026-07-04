@@ -18,7 +18,7 @@ export default async function QuizOngoingPage({
 }: {
   params: Promise<{ quizSlug: string; slug: string }>;
 }) {
-  const [{ quizSlug, slug }, session] = await Promise.all([
+  const [{ quizSlug, slug }] = await Promise.all([
     params,
     requireStudentSession(),
   ]);
@@ -33,8 +33,8 @@ export default async function QuizOngoingPage({
     <QuizOngoingPageModule
       attempt={quizContext.attempt}
       quiz={quizContext.quiz}
-      session={session}
-      subject={quizContext.subject}
+      subjectSlug={quizContext.subject.slug}
+      subjectTitle={quizContext.subject.title}
     />
   );
 }
