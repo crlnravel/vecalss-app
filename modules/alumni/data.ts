@@ -164,6 +164,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-10",
+    logoAlt: "Universitas Pendidikan Indonesia mark",
+    logoSrc: "/brand/campuses/upi.svg",
     name: "Raihania Ruchlianti",
     photoSrc: "/landing-assets/top-20-extra/Raihania.jpg",
     rank: 10,
@@ -171,6 +173,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-11",
+    logoAlt: "Universitas Pendidikan Indonesia mark",
+    logoSrc: "/brand/campuses/upi.svg",
     name: "Suci Oktavia",
     photoSrc: "/landing-assets/top-20-extra/Suci.jpg",
     rank: 11,
@@ -178,6 +182,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-12",
+    logoAlt: "Universitas Jambi mark",
+    logoSrc: "/brand/campuses/unja.png",
     name: "Muhammad Zahran Nasir",
     photoSrc: "/landing-assets/top-20-extra/Zahran.jpg",
     rank: 12,
@@ -185,6 +191,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-13",
+    logoAlt: "Institut Pertanian Bogor mark",
+    logoSrc: "/brand/campuses/ipb.png",
     name: "Asyraf Arrahman",
     photoSrc: "/landing-assets/top-20-extra/asyraf.jpg",
     rank: 13,
@@ -210,6 +218,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-16",
+    logoAlt: "Universitas Brawijaya mark",
+    logoSrc: "/brand/campuses/ub.webp",
     name: "Rayva Angeline Blissfully Tambunan",
     photoSrc: "/landing-assets/top-20-extra/rayva.jpg",
     rank: 16,
@@ -217,6 +227,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-17",
+    logoAlt: "Universitas Brawijaya mark",
+    logoSrc: "/brand/campuses/ub.webp",
     name: "Syafa Elisa",
     photoSrc: "/landing-assets/top-20-extra/syafa.jpg",
     rank: 17,
@@ -224,6 +236,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-18",
+    logoAlt: "Universitas Negeri Surabaya mark",
+    logoSrc: "/brand/campuses/unesa.svg",
     name: "May Alifia Santoso",
     photoSrc: "/landing-assets/top-20-extra/may.jpg",
     rank: 18,
@@ -231,6 +245,8 @@ const homepagePlaceholderTopAlumni: TopAlumni[] = [
   },
   {
     id: "featured-top-alumni-19",
+    logoAlt: "Universitas Andalas mark",
+    logoSrc: "/brand/campuses/unand.webp",
     name: "Tiara Denisa Putri",
     photoSrc: "/landing-assets/top-20-extra/tiara.jpg",
     rank: 19,

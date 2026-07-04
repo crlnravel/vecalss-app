@@ -15,6 +15,7 @@ type TryoutCategory = {
 };
 
 type TryoutCard = {
+  badge: string;
   duration: string;
   id: string;
   indexLabel: string;
@@ -72,6 +73,7 @@ const tryoutSections: TryoutSection[] = [
     tone: "cream",
     tryouts: [
       {
+        badge: "SNBT HOTS",
         id: "fleksibel-14",
         duration: "3 jam 15 menit",
         indexLabel: "#14",
@@ -82,6 +84,7 @@ const tryoutSections: TryoutSection[] = [
         title: "Tryout SNBT Fleksibel #14 HOTS!",
       },
       {
+        badge: "SNBT HOTS",
         id: "fleksibel-13",
         duration: "3 jam 15 menit",
         indexLabel: "#13",
@@ -92,6 +95,7 @@ const tryoutSections: TryoutSection[] = [
         title: "Tryout SNBT Fleksibel #13 HOTS!",
       },
       {
+        badge: "SNBT HOTS",
         id: "fleksibel-12",
         duration: "3 jam 15 menit",
         indexLabel: "#12",
@@ -101,6 +105,7 @@ const tryoutSections: TryoutSection[] = [
         title: "Tryout SNBT Fleksibel #12 HOTS!",
       },
       {
+        badge: "SNBT HOTS",
         id: "fleksibel-11",
         duration: "3 jam 15 menit",
         indexLabel: "#11",
@@ -120,6 +125,7 @@ const tryoutSections: TryoutSection[] = [
     tone: "sky",
     tryouts: [
       {
+        badge: "Intensive",
         id: "premium-07",
         duration: "3 jam 30 menit",
         indexLabel: "#07",
@@ -130,6 +136,7 @@ const tryoutSections: TryoutSection[] = [
         title: "Tryout Premium SNBT #07 Intensive Review",
       },
       {
+        badge: "Strategy",
         id: "premium-06",
         duration: "3 jam 30 menit",
         indexLabel: "#06",
@@ -149,6 +156,7 @@ const tryoutSections: TryoutSection[] = [
     tone: "mint",
     tryouts: [
       {
+        badge: "Momentum",
         id: "reguler-09",
         duration: "2 jam 30 menit",
         indexLabel: "#09",
@@ -159,6 +167,7 @@ const tryoutSections: TryoutSection[] = [
         title: "Tryout Reguler #09 Momentum Builder",
       },
       {
+        badge: "Weekly",
         id: "reguler-08",
         duration: "2 jam 30 menit",
         indexLabel: "#08",
@@ -168,6 +177,7 @@ const tryoutSections: TryoutSection[] = [
         title: "Tryout Reguler #08 Weekly Progress Check",
       },
       {
+        badge: "Foundation",
         id: "reguler-07",
         duration: "2 jam 30 menit",
         indexLabel: "#07",
