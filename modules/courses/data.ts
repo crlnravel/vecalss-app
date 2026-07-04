@@ -40,8 +40,8 @@ type Course = {
 
 const courseCatalogue: Course[] = [
   {
-    code: "PU",
-    description: "Argumen, logika dasar, simpulan, dan pola penalaran.",
+    code: "TPS",
+    description: "Penalaran Umum",
     difficulty: "Dasar",
     duration: "4j 20m",
     icon: Brain,
@@ -110,8 +110,8 @@ const courseCatalogue: Course[] = [
     ],
   },
   {
-    code: "PPU",
-    description: "Pemahaman informasi, hubungan ide, dan ketepatan makna.",
+    code: "TPS",
+    description: "Pengetahuan dan Pemahaman Umum",
     difficulty: "Menengah",
     duration: "3j 55m",
     icon: LibraryBig,
@@ -173,8 +173,8 @@ const courseCatalogue: Course[] = [
     ],
   },
   {
-    code: "PBM",
-    description: "Kaidah bahasa, efektivitas kalimat, dan penyuntingan teks.",
+    code: "TPS",
+    description: "Pemahaman Bacaan dan Menulis",
     difficulty: "Menengah",
     duration: "3j 40m",
     icon: PenTool,
@@ -232,8 +232,8 @@ const courseCatalogue: Course[] = [
     ],
   },
   {
-    code: "PK",
-    description: "Bilangan, rasio, persentase, pola, dan kuantitatif cepat.",
+    code: "TPS",
+    description: "Pengetahuan Kuantitatif",
     difficulty: "Menengah",
     duration: "5j 05m",
     icon: Calculator,
@@ -241,7 +241,7 @@ const courseCatalogue: Course[] = [
     progress: 38,
     slug: "pengetahuan-kuantitatif",
     status: "Sedang dipelajari",
-    title: "Pengetahuan Kuantitatif",
+    title: "PK",
     sections: [
       {
         title: "Number Sense",
@@ -296,8 +296,8 @@ const courseCatalogue: Course[] = [
     ],
   },
   {
-    code: "LBI",
-    description: "Ide pokok, simpulan, struktur bacaan, dan literasi panjang.",
+    code: "TPA",
+    description: "Literasi Bahasa Indonesia",
     difficulty: "Menengah",
     duration: "3j 45m",
     icon: FileText,
@@ -305,7 +305,7 @@ const courseCatalogue: Course[] = [
     progress: 0,
     slug: "literasi-bahasa-indonesia",
     status: "Belum mulai",
-    title: "Literasi Bahasa Indonesia",
+    title: "LBI",
     sections: [
       {
         title: "Pengenalan LBI",
@@ -359,8 +359,8 @@ const courseCatalogue: Course[] = [
     ],
   },
   {
-    code: "LBE",
-    description: "Skimming, scanning, vocabulary context, dan inference.",
+    code: "TPA",
+    description: "Literasi Bahasa Inggris",
     difficulty: "Lanjutan",
     duration: "4j 10m",
     icon: Languages,
@@ -368,7 +368,7 @@ const courseCatalogue: Course[] = [
     progress: 0,
     slug: "literasi-bahasa-inggris",
     status: "Belum mulai",
-    title: "Literasi Bahasa Inggris",
+    title: "LBE",
     sections: [
       {
         title: "Reading Setup",
@@ -424,8 +424,8 @@ const courseCatalogue: Course[] = [
     ],
   },
   {
-    code: "PM",
-    description: "Penalaran matematika, model soal, dan strategi hitung.",
+    code: "TPA",
+    description: "Penalaran Matematika",
     difficulty: "Lanjutan",
     duration: "4j 55m",
     icon: BookOpen,

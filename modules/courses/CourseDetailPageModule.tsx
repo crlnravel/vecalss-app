@@ -1,13 +1,5 @@
 import Link from "next/link";
-import {
-  ArrowLeft,
-  BookOpen,
-  CheckCircle2,
-  Clock3,
-  Lock,
-  Play,
-  PlayCircle,
-} from "lucide-react";
+import { ArrowLeft, BookOpen, Clock3, Lock, Play, PlayCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,8 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Progress, ProgressValue } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
@@ -34,11 +24,6 @@ function CourseDetailPageModule({
 }) {
   const stats = getCourseStats(course);
   const Icon = course.icon;
-  const nextVideo =
-    course.sections
-      .flatMap((section) => section.videos)
-      .find((video) => !video.completed && !video.locked) ??
-    course.sections[0]?.videos[0];
 
   return (
     <CourseWorkspaceShell
@@ -60,17 +45,14 @@ function CourseDetailPageModule({
         />
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section>
         <Card className="relative overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#ffffff_56%,#fff3bc_100%)] shadow-[0_28px_90px_-60px_rgba(1,76,56,0.44)]">
           <CardHeader className="gap-6 px-6 py-7 md:px-8 md:py-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-primary-800 shadow-sm">
                     {course.code}
-                  </span>
-                  <span className="rounded-full bg-secondary-100 px-3 py-1 text-xs font-semibold text-secondary-700">
-                    {course.difficulty}
                   </span>
                   <span className="rounded-full bg-primary-700 px-3 py-1 text-xs font-semibold text-white">
                     {course.status}
@@ -86,7 +68,7 @@ function CourseDetailPageModule({
 
               <div
                 className={cn(
-                  "flex aspect-[1.15] w-full max-w-[220px] shrink-0 items-center justify-center rounded-[28px] border border-primary-100 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)]",
+                  "flex h-40 w-40 shrink-0 items-center justify-center self-start rounded-[28px] border border-primary-100 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)] md:h-52 md:w-52 md:self-auto",
                   course.palette,
                 )}
               >
@@ -103,111 +85,43 @@ function CourseDetailPageModule({
             <DetailStat icon={Clock3} label="Duration" value={course.duration} />
           </CardContent>
         </Card>
-
-        <Card className="rounded-[30px] border border-primary-100 bg-white shadow-[0_22px_72px_-58px_rgba(1,76,56,0.34)]">
-          <CardHeader className="px-6 pt-6">
-            <CardTitle className="text-lg font-semibold">Course progress</CardTitle>
-            <CardDescription>
-              {stats.completedVideos} of {stats.totalVideos} videos completed
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <Progress className="gap-2" value={course.progress}>
-              <ProgressValue className="ml-0 text-sm text-secondary-600">
-                {() => `${course.progress}% complete`}
-              </ProgressValue>
-            </Progress>
-            <Button className="mt-6 w-full" size="sm" variant="brand">
-              <Play data-icon="inline-start" />
-              {nextVideo ? `Continue: ${nextVideo.title}` : "Start course"}
-            </Button>
-          </CardContent>
-        </Card>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)]">
-        <Card className="rounded-[30px] border border-primary-100 bg-white shadow-[0_22px_72px_-58px_rgba(1,76,56,0.3)]">
-          <CardHeader className="px-6 pt-6 md:px-7 md:pt-7">
-            <CardTitle className="text-lg font-semibold">
-              Course overview
-            </CardTitle>
-            <CardDescription className="leading-6">
-              Start with the overview, then move through each section in order.
-              Locked videos unlock as earlier lessons are completed.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6 md:px-7 md:pb-7">
-            <div
-              className={cn(
-                "relative flex min-h-[280px] items-center justify-center overflow-hidden rounded-[28px] border border-primary-100 p-6",
-                course.palette,
-              )}
-            >
-              <div className="absolute top-5 left-5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-secondary-700 shadow-sm">
-                Main content area
+      <section className="space-y-8">
+        {course.sections.map((section, sectionIndex) => (
+          <div className="space-y-4" key={section.title}>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-secondary-50 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-primary-800 shadow-sm">
+                  {sectionIndex + 1}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold tracking-[0.14em] text-primary-700 uppercase">
+                    {course.code}
+                  </p>
+                  <h2 className="text-xl font-semibold text-secondary-900 md:text-2xl">
+                    {section.title}
+                  </h2>
+                </div>
               </div>
-              <button
-                className="flex size-20 items-center justify-center rounded-full bg-primary-700 text-white shadow-[0_24px_60px_-30px_rgba(1,76,56,0.65)] transition-transform hover:scale-105"
-                type="button"
-              >
-                <Play className="ml-1 size-8 fill-current" />
-                <span className="sr-only">Play course overview</span>
-              </button>
-              <div className="absolute right-5 bottom-5 max-w-[220px] rounded-[22px] border border-primary-100 bg-white/88 p-4 shadow-sm">
-                <p className="text-sm font-semibold text-secondary-900">
-                  {nextVideo?.title ?? "Course overview"}
-                </p>
-                <p className="mt-1 text-xs text-secondary-500">
-                  {nextVideo?.duration ?? course.duration}
-                </p>
-              </div>
+              <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-secondary-600 shadow-sm">
+                {section.videos.length} video
+              </span>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card className="rounded-[30px] border border-primary-100 bg-white shadow-[0_22px_72px_-58px_rgba(1,76,56,0.3)]">
-          <CardHeader className="px-6 pt-6 md:px-7 md:pt-7">
-            <CardTitle className="text-lg font-semibold">
-              Video tutorials
-            </CardTitle>
-            <CardDescription className="leading-6">
-              Lessons are grouped by section title so you can scan the course
-              path quickly.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 px-6 pb-6 md:px-7 md:pb-7">
-            {course.sections.map((section, sectionIndex) => (
-              <div
-                className="overflow-hidden rounded-[24px] border border-primary-100 bg-primary-50/45"
-                key={section.title}
-              >
-                <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-5">
-                  <div>
-                    <p className="text-xs font-semibold tracking-[0.14em] text-primary-700 uppercase">
-                      Section {sectionIndex + 1}
-                    </p>
-                    <h2 className="mt-1 text-base font-semibold text-secondary-900">
-                      {section.title}
-                    </h2>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-secondary-600">
-                    {section.videos.length} videos
-                  </span>
-                </div>
-                <Separator className="bg-primary-100/80" />
-                <div className="bg-white">
-                  {section.videos.map((video, videoIndex) => (
-                    <VideoRow
-                      key={video.title}
-                      number={videoIndex + 1}
-                      video={video}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {section.videos.map((video, videoIndex) => (
+                <VideoCard
+                  course={course}
+                  key={`${section.title}-${video.title}`}
+                  number={videoIndex + 1}
+                  sectionTitle={section.title}
+                  video={video}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
     </CourseWorkspaceShell>
   );
@@ -233,73 +147,83 @@ function DetailStat({
   );
 }
 
-function VideoRow({
+function VideoCard({
+  course,
   number,
+  sectionTitle,
   video,
 }: {
+  course: Course;
   number: number;
+  sectionTitle: string;
   video: VideoTutorial;
 }) {
-  const Icon = video.locked ? Lock : video.completed ? CheckCircle2 : Play;
+  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
+    `${course.description} ${video.title} SNBT`,
+  )}`;
 
   return (
-    <div className="group/video flex items-center gap-3 border-b border-primary-100/70 px-4 py-3 last:border-b-0 md:px-5">
+    <a
+      className={cn(
+        "group block overflow-hidden rounded-2xl border border-primary-100 bg-white shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)] focus-visible:ring-3 focus-visible:ring-primary-400/25 focus-visible:outline-none",
+        video.locked ? "pointer-events-none opacity-62" : null,
+      )}
+      href={youtubeUrl}
+      rel="noreferrer"
+      target="_blank"
+    >
       <div
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-full border",
-          video.completed
-            ? "border-primary-700 bg-primary-700 text-white"
-            : video.locked
-              ? "border-secondary-200 bg-secondary-100 text-secondary-500"
-              : "border-primary-100 bg-primary-50 text-primary-700 group-hover/video:border-primary-300",
-        )}
+        className="relative aspect-video overflow-hidden"
+        style={{
+          background:
+            "radial-gradient(circle at 52% 44%, rgba(255,255,255,0.16), transparent 22%), linear-gradient(145deg, #061327 0%, #020305 100%)",
+        }}
       >
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-secondary-400">
-            Video {number}
+        <div className="absolute inset-0 grid place-items-center">
+          <span
+            className="grid size-16 place-items-center rounded-full text-white shadow-[0_18px_44px_-18px_rgba(238,29,36,0.7)] transition-transform group-hover:scale-105 md:size-20"
+            style={{ backgroundColor: "#ee1d24" }}
+          >
+            {video.locked ? (
+              <Lock className="size-7" />
+            ) : (
+              <Play className="ml-1 size-8 fill-current" />
+            )}
           </span>
-          {video.locked ? (
-            <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-[10px] font-semibold text-secondary-600">
-              Locked
-            </span>
-          ) : video.completed ? (
-            <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-800">
-              Completed
-            </span>
-          ) : (
-            <span className="rounded-full bg-[#fff6c8] px-2 py-0.5 text-[10px] font-semibold text-secondary-800">
-              Ready
-            </span>
-          )}
         </div>
-        <p className="mt-1 truncate text-sm font-semibold text-secondary-900">
-          {video.title}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="text-xs font-medium text-secondary-500">
+        <div className="absolute right-3 bottom-3 rounded-md bg-black/78 px-2 py-1 text-sm font-semibold text-white">
           {video.duration}
-        </span>
-        <button
-          className={cn(
-            "flex size-9 items-center justify-center rounded-full border transition-colors",
-            video.locked
-              ? "cursor-not-allowed border-secondary-200 bg-secondary-100 text-secondary-400"
-              : "border-primary-100 bg-white text-primary-700 hover:border-primary-300 hover:bg-primary-50",
-          )}
-          disabled={video.locked}
-          type="button"
-        >
-          {video.locked ? <Lock className="size-4" /> : <Play className="size-4" />}
-          <span className="sr-only">
-            {video.locked ? "Locked video" : `Play ${video.title}`}
-          </span>
-        </button>
+        </div>
+        {video.completed ? (
+          <div className="absolute bottom-3 left-3 rounded-md bg-primary-700 px-2 py-1 text-xs font-semibold text-white">
+            Selesai
+          </div>
+        ) : null}
       </div>
-    </div>
+
+      <div className="p-5">
+        <p className="text-xs font-semibold text-secondary-400">
+          Video {number} · {sectionTitle}
+        </p>
+        <h3 className="mt-2 line-clamp-2 min-h-[3.25rem] text-lg leading-[1.42] font-semibold text-secondary-900">
+          {video.title}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-secondary-500">
+          YouTube video untuk materi {course.description}.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <span className="rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-semibold text-secondary-600">
+            #{course.title.toLowerCase()}
+          </span>
+          <span className="rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-semibold text-secondary-600">
+            #snbt
+          </span>
+          <span className="rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-semibold text-secondary-600">
+            #youtube
+          </span>
+        </div>
+      </div>
+    </a>
   );
 }
 

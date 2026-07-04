@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { CheckCircle2, Clock3, PlayCircle, Search, Star } from "lucide-react";
+import { CheckCircle2, Clock3, PlayCircle, Star } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
@@ -12,23 +10,6 @@ import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import { courseCatalogue, getCourseStats, type Course } from "./data";
 
 function CourseCataloguePageModule({ session }: { session: SessionContext }) {
-  const [query, setQuery] = useState("");
-
-  const visibleCourses = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return courseCatalogue;
-    }
-
-    return courseCatalogue.filter((course) =>
-      [course.code, course.title, course.description]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery),
-    );
-  }, [query]);
-
   return (
     <CourseWorkspaceShell
       activeLabel="Materi"
@@ -36,7 +17,7 @@ function CourseCataloguePageModule({ session }: { session: SessionContext }) {
       session={session}
     >
       <section className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
           <div>
             <h1 className="text-[32px] leading-tight font-semibold text-secondary-900 md:text-[42px]">
               Materi
@@ -46,21 +27,10 @@ function CourseCataloguePageModule({ session }: { session: SessionContext }) {
               dikelompokkan per bagian.
             </p>
           </div>
-
-          <label className="relative block w-full md:max-w-sm">
-            <span className="sr-only">Cari materi</span>
-            <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
-            <Input
-              className="h-11 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari materi..."
-              value={query}
-            />
-          </label>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {visibleCourses.map((course, index) => (
+          {courseCatalogue.map((course, index) => (
             <CourseCard
               course={course}
               featured={index < 2}
@@ -68,17 +38,6 @@ function CourseCataloguePageModule({ session }: { session: SessionContext }) {
             />
           ))}
         </div>
-
-        {visibleCourses.length === 0 ? (
-          <div className="rounded-[28px] border border-primary-100 bg-white px-6 py-10 text-center shadow-sm">
-            <p className="text-base font-semibold text-secondary-900">
-              Materi tidak ditemukan.
-            </p>
-            <p className="mt-2 text-sm text-secondary-500">
-              Coba cari dengan kode seperti PU, PPU, PBM, PK, LBI, LBE, atau PM.
-            </p>
-          </div>
-        ) : null}
       </section>
     </CourseWorkspaceShell>
   );

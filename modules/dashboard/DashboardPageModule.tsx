@@ -169,7 +169,7 @@ const unreadNotificationCount = notificationItems.filter(
 const mainNavigation: NavigationItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/courses", icon: BookOpen, label: "Materi" },
-  { href: "#quiz", icon: ListChecks, label: "Quiz" },
+  { href: "/quiz", icon: ListChecks, label: "Quiz" },
   { href: "#tryout", icon: Gauge, label: "Tryout" },
   { href: "#progress", icon: Target, label: "Progress" },
   { href: "#vera-ai", icon: Bot, label: "Vera AI" },
