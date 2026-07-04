@@ -380,7 +380,7 @@ function TopAlumniSection() {
               href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
               variant="brand"
             >
-              Lihat Top 90 dan Alumni Lainnya...
+              Lihat Top 20 dan Alumni Lainnya...
               <ArrowRight className="ml-2 size-4" />
             </ActionButtonLink>
           </div>

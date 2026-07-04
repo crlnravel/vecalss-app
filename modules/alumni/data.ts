@@ -68,6 +68,7 @@ const avatarPlaceholder = "/landing-assets/avatar-placeholder.png";
 
 type TopAlumni = {
   id: string;
+  isPlaceholder?: boolean;
   logoAlt?: string;
   logoSrc?: string;
   name: string;
@@ -75,22 +76,6 @@ type TopAlumni = {
   rank: number;
   university: string;
 };
-
-const topAlumni: TopAlumni[] = Array.from({ length: 90 }, (_, index) => {
-  const round = Math.floor(index / alumniNames.length);
-  const name = alumniNames[index % alumniNames.length];
-  const university = targetUniversities[index % targetUniversities.length];
-
-  return {
-    id: `top-alumni-${index + 1}`,
-    logoAlt: university.logoAlt,
-    logoSrc: university.logoSrc,
-    name: round === 0 ? name : `${name} ${round + 1}`,
-    photoSrc: avatarPlaceholder,
-    rank: index + 1,
-    university: university.name,
-  };
-});
 
 const featuredTopAlumni: TopAlumni[] = [
   {
@@ -148,6 +133,27 @@ const featuredTopAlumni: TopAlumni[] = [
     university: "Teknologi Pangan UNPAD",
   },
 ];
+
+const placeholderTopAlumni: TopAlumni[] = Array.from(
+  { length: 20 - featuredTopAlumni.length },
+  (_, index) => {
+    const name = alumniNames[index % alumniNames.length];
+    const university = targetUniversities[index % targetUniversities.length];
+
+    return {
+      id: `top-alumni-placeholder-${index + 1}`,
+      isPlaceholder: true,
+      logoAlt: university.logoAlt,
+      logoSrc: university.logoSrc,
+      name,
+      photoSrc: avatarPlaceholder,
+      rank: featuredTopAlumni.length + index + 1,
+      university: `${university.name} placeholder`,
+    };
+  },
+);
+
+const topAlumni: TopAlumni[] = [...featuredTopAlumni, ...placeholderTopAlumni];
 
 export { featuredTopAlumni, topAlumni };
 export type { TopAlumni };
