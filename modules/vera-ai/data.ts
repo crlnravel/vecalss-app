@@ -4,8 +4,6 @@ type VeraContextSource = {
   id: string;
   title: string;
   category: string;
-  detail: string;
-  meta: string;
 };
 
 type VeraQuickPrompt = {
@@ -17,7 +15,6 @@ type VeraQuickPrompt = {
 type VeraStudioTool = {
   id: VeraToolId;
   title: string;
-  description: string;
   badge: string;
   outputTitle: string;
   outputBody: string;
@@ -43,43 +40,31 @@ const veraContextSources: VeraContextSource[] = [
     id: "tryout-04",
     title: "Tryout SNBT 04",
     category: "Hasil tryout terakhir",
-    detail: "Skor 676 dengan penurunan paling terlihat di PU dan PK.",
-    meta: "Diperbarui hari ini",
   },
   {
     id: "quiz-pk-02",
     title: "Quiz PK Modul 02",
     category: "Riwayat quiz",
-    detail: "Rasio dan persentase masih butuh latihan dua langkah.",
-    meta: "12 soal",
   },
   {
     id: "target-ui",
     title: "Target: Ilmu Komputer UI",
     category: "Target PTN",
-    detail: "Gap estimasi 39 poin dari target aman.",
-    meta: "Prioritas utama",
   },
   {
     id: "wrong-latest",
     title: "Soal salah terbaru",
     category: "Soal salah",
-    detail: "3 soal menunggu pembahasan ulang dari Vera.",
-    meta: "PU, PK, LBI",
   },
   {
     id: "module-active",
     title: "Modul Rasio Dasar",
     category: "Modul yang sedang dipelajari",
-    detail: "Materi aktif untuk memperkuat pola hitung cepat.",
-    meta: "52% selesai",
   },
   {
     id: "last-drill",
     title: "Drill Tempo PK",
     category: "Drill terakhir",
-    detail: "Akurasi naik, tempo masih belum stabil di soal medium.",
-    meta: "8 soal",
   },
 ];
 
@@ -110,7 +95,6 @@ const veraStudioTools: VeraStudioTool[] = [
   {
     id: "analysis",
     title: "Analisis Kelemahan",
-    description: "Baca pola dari tryout, quiz, tempo, dan soal salah.",
     badge: "Core",
     outputTitle: "Kelemahan utama ditemukan",
     outputBody:
@@ -120,7 +104,6 @@ const veraStudioTools: VeraStudioTool[] = [
   {
     id: "route",
     title: "Rute Belajar",
-    description: "Susun urutan belajar paling dekat dengan target skor.",
     badge: "Smart",
     outputTitle: "Rute 7 hari siap",
     outputBody:
@@ -130,7 +113,6 @@ const veraStudioTools: VeraStudioTool[] = [
   {
     id: "drill",
     title: "Drill Adaptif",
-    description: "Buat latihan dari topik lemah dan soal salah terbaru.",
     badge: "Smart",
     outputTitle: "Drill adaptif dibuat",
     outputBody:
@@ -140,7 +122,6 @@ const veraStudioTools: VeraStudioTool[] = [
   {
     id: "review",
     title: "Bahas Soal Salah",
-    description: "Urai kesalahan dengan langkah yang lebih pelan.",
     badge: "Core",
     outputTitle: "Queue pembahasan terbuka",
     outputBody:
@@ -150,7 +131,6 @@ const veraStudioTools: VeraStudioTool[] = [
   {
     id: "ptn",
     title: "Strategi PTN",
-    description: "Hubungkan posisi skor dengan target jurusan.",
     badge: "Smart",
     outputTitle: "Strategi PTN diperbarui",
     outputBody:
@@ -160,7 +140,6 @@ const veraStudioTools: VeraStudioTool[] = [
   {
     id: "summary",
     title: "Ringkasan Belajar",
-    description: "Simpan keputusan belajar dan catatan penting sesi ini.",
     badge: "Core",
     outputTitle: "Ringkasan sesi disiapkan",
     outputBody:

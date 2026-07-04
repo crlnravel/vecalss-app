@@ -1,23 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
   BookOpenCheck,
-  Bot,
   ChartNoAxesColumnIncreasing,
   ChevronRight,
   Dumbbell,
   FileQuestion,
   FileText,
   GraduationCap,
-  LayoutPanelLeft,
   Lightbulb,
   ListChecks,
-  MessageCircle,
   NotebookPen,
-  PanelRight,
   Plus,
   SendHorizontal,
   Sparkles,
@@ -109,29 +106,32 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
 function VeraTopBar({ session }: { session: SessionContext }) {
   return (
     <header className="relative z-20 flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
-      <Button
-        className="rounded-full border-primary-100 bg-white/82 shadow-sm hover:bg-white"
-        nativeButton={false}
-        render={<Link href="/dashboard" />}
-        size="sm"
-        variant="brandOutline"
-      >
-        <ArrowLeft data-icon="inline-start" />
-        Dashboard
-      </Button>
-
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#014c38] text-white shadow-[0_16px_34px_-22px_rgba(1,76,56,0.8)]">
-          <Bot className="size-5" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="truncate text-lg leading-tight font-semibold md:text-xl">
-            Vera AI
-          </h1>
-          <p className="hidden truncate text-xs font-medium text-secondary-500 sm:block">
-            Workspace belajar UTBK/SNBT
-          </p>
-        </div>
+        <Button
+          aria-label="Kembali ke dashboard"
+          className="rounded-full border-primary-100 bg-white/78 text-primary-900 shadow-sm hover:bg-white"
+          nativeButton={false}
+          render={<Link href="/dashboard" />}
+          size="icon-sm"
+          variant="brandOutline"
+        >
+          <ArrowLeft />
+        </Button>
+        <Link
+          aria-label="Vecalss dashboard"
+          className="flex h-11 min-w-0 items-center rounded-full bg-white/72 px-3 shadow-sm ring-1 ring-primary-100 backdrop-blur transition-colors hover:bg-white"
+          href="/dashboard"
+        >
+          <Image
+            alt="Vecalss"
+            className="h-7 w-auto object-contain"
+            height={28}
+            priority
+            src="/brand/logo-full-cropped.png"
+            style={{ height: "28px", width: "auto" }}
+            width={112}
+          />
+        </Link>
       </div>
 
       <div className="ml-auto flex items-center gap-1.5 rounded-full border border-primary-100 bg-white/72 px-1.5 py-1 shadow-sm backdrop-blur">
@@ -145,7 +145,7 @@ function VeraTopBar({ session }: { session: SessionContext }) {
 function ContextPanel() {
   return (
     <WorkspacePanel className="lg:min-h-0">
-      <PanelHeader icon={LayoutPanelLeft} title="Konteks Belajar" />
+      <PanelHeader title="Konteks Belajar" />
 
       <div className="px-4 py-3">
         <Button className="w-full rounded-full" size="sm" variant="brand">
@@ -161,12 +161,6 @@ function ContextPanel() {
           ))}
         </div>
       </div>
-
-      <div className="border-t border-primary-100/80 px-4 py-3">
-        <p className="rounded-2xl bg-primary-50/80 px-3 py-2 text-xs leading-5 text-secondary-500">
-          Data belajar yang terhubung akan muncul di sini.
-        </p>
-      </div>
     </WorkspacePanel>
   );
 }
@@ -176,27 +170,25 @@ function ContextSourceCard({ source }: { source: VeraContextSource }) {
 
   return (
     <button
-      className="group w-full rounded-3xl border border-primary-100 bg-white/84 p-3 text-left shadow-[0_14px_34px_-30px_rgba(1,76,56,0.45)] transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-white hover:shadow-[0_20px_44px_-32px_rgba(1,76,56,0.55)]"
+      className="group w-full rounded-[24px] border border-primary-100 bg-white/84 p-3.5 text-left shadow-[0_14px_34px_-30px_rgba(1,76,56,0.45)] transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-white hover:shadow-[0_20px_44px_-32px_rgba(1,76,56,0.55)]"
       type="button"
     >
-      <div className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
+      <div className="flex items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl text-primary-700 ring-1 ring-primary-100/90">
           <Icon className="size-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs font-semibold text-primary-700">
+          <span className="block text-[11px] font-semibold tracking-[0.08em] text-secondary-400 uppercase">
+            Tipe konteks
+          </span>
+          <span className="mt-1 block text-xs leading-tight font-semibold text-primary-800">
             {source.category}
           </span>
-          <span className="mt-1 block text-sm leading-tight font-semibold text-secondary-900">
+          <span className="mt-2 block text-sm leading-tight font-semibold text-secondary-950">
             {source.title}
           </span>
-          <span className="mt-2 block text-xs leading-5 text-secondary-500">
-            {source.detail}
-          </span>
-          <span className="mt-3 inline-flex rounded-full bg-[#f5c518]/18 px-2.5 py-1 text-[11px] font-semibold text-[#6a5300]">
-            {source.meta}
-          </span>
         </span>
+        <ChevronRight className="size-4 shrink-0 text-primary-400 transition-transform group-hover:translate-x-0.5" />
       </div>
     </button>
   );
@@ -214,16 +206,7 @@ function ChatWorkspace({
 
   return (
     <WorkspacePanel className="min-h-[720px] lg:min-h-0">
-      <PanelHeader
-        icon={MessageCircle}
-        title="Vera AI"
-        action={
-          <span className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">
-            <span className="size-2 rounded-full bg-[#10ac84]" />
-            Siap bantu
-          </span>
-        }
-      />
+      <PanelHeader title="Vera AI" />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6">
         {selectedMode ? (
@@ -233,7 +216,7 @@ function ChatWorkspace({
         )}
       </div>
 
-      <ChatComposer activeMode={activeMode} />
+      <ChatComposer />
     </WorkspacePanel>
   );
 }
@@ -246,10 +229,6 @@ function DefaultChatState({
   return (
     <div className="flex min-h-full flex-col justify-center">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white/80 px-3 py-1 text-xs font-semibold text-primary-800">
-          <Sparkles className="size-3.5" />
-          Vecalss Research Assistant
-        </div>
         <h2 className="max-w-2xl text-3xl leading-tight font-semibold text-secondary-950 md:text-4xl">
           Halo, aku Vera.
         </h2>
@@ -297,7 +276,7 @@ function ToolModeWorkspace({ mode }: { mode: VeraToolMode }) {
           </div>
           <Button className="rounded-full" size="sm" variant="brand">
             {mode.primaryAction}
-            <Sparkles data-icon="inline-end" />
+            <ChevronRight data-icon="inline-end" />
           </Button>
         </div>
 
@@ -344,13 +323,13 @@ function ToolModeWorkspace({ mode }: { mode: VeraToolMode }) {
   );
 }
 
-function ChatComposer({ activeMode }: { activeMode: ActiveMode }) {
+function ChatComposer() {
   return (
     <div className="border-t border-primary-100/80 bg-white/72 px-4 py-3 md:px-6">
       <div className="flex items-center gap-2 rounded-[28px] border border-primary-100 bg-white p-2 shadow-[0_18px_48px_-38px_rgba(1,76,56,0.55)]">
         <Button
           aria-label="Tambahkan konteks ke chat"
-          className="rounded-full"
+          className="rounded-full border-transparent bg-transparent text-secondary-500 hover:border-primary-100 hover:bg-primary-50 hover:text-primary-800"
           size="icon-sm"
           variant="brandOutline"
         >
@@ -361,9 +340,6 @@ function ChatComposer({ activeMode }: { activeMode: ActiveMode }) {
           placeholder="Tanya Vera tentang materi atau strategi belajar..."
           readOnly
         />
-        <span className="hidden rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800 sm:inline-flex">
-          {activeMode === "chat" ? "Chat" : veraToolModes[activeMode].eyebrow}
-        </span>
         <Button
           aria-label="Kirim pertanyaan ke Vera"
           className="rounded-full"
@@ -389,9 +365,9 @@ function StudioPanel({
 }) {
   return (
     <WorkspacePanel className="lg:min-h-0">
-      <PanelHeader icon={PanelRight} title="Studio Vera" />
+      <PanelHeader title="Studio Vera" />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
           {veraStudioTools.map((tool) => (
             <StudioToolCard
@@ -408,9 +384,6 @@ function StudioPanel({
             <h2 className="text-sm font-semibold text-secondary-950">
               Output Vera
             </h2>
-            <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-semibold text-primary-800">
-              {activeTool ? "Generated" : "Kosong"}
-            </span>
           </div>
 
           {activeTool ? (
@@ -429,7 +402,11 @@ function StudioPanel({
               <p className="mt-2 text-sm leading-6 text-secondary-600">
                 {activeTool.outputBody}
               </p>
-              <Button className="mt-4 w-full rounded-full" size="sm" variant="brandOutline">
+              <Button
+                className="mt-4 w-full rounded-full"
+                size="sm"
+                variant="brandOutline"
+              >
                 Buka di chat
                 <ChevronRight data-icon="inline-end" />
               </Button>
@@ -463,7 +440,7 @@ function StudioToolCard({
   return (
     <button
       className={cn(
-        "group min-h-[132px] rounded-[26px] p-3 text-left ring-1 transition-all hover:-translate-y-0.5",
+        "group min-h-[88px] rounded-[22px] p-3 text-left ring-1 transition-all hover:-translate-y-0.5",
         toolToneClass[tool.tone],
         active
           ? "shadow-[0_18px_48px_-34px_rgba(1,76,56,0.6)] outline-2 outline-[#014c38]"
@@ -473,7 +450,7 @@ function StudioToolCard({
       type="button"
     >
       <span className="flex items-start justify-between gap-3">
-        <span className="flex size-9 items-center justify-center rounded-2xl bg-white/64">
+        <span className="flex size-8 items-center justify-center">
           <Icon className="size-4" />
         </span>
         <span className="rounded-full bg-white/60 px-2 py-1 text-[11px] font-semibold">
@@ -482,9 +459,6 @@ function StudioToolCard({
       </span>
       <span className="mt-3 block text-sm leading-snug font-semibold">
         {tool.title}
-      </span>
-      <span className="mt-2 block text-xs leading-5 opacity-78">
-        {tool.description}
       </span>
     </button>
   );
@@ -511,19 +485,14 @@ function WorkspacePanel({
 
 function PanelHeader({
   action,
-  icon: Icon,
   title,
 }: {
   action?: React.ReactNode;
-  icon: LucideIcon;
   title: string;
 }) {
   return (
     <div className="flex min-h-16 items-center justify-between gap-3 border-b border-primary-100/80 px-4 py-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
-          <Icon className="size-4" />
-        </span>
+      <div className="flex min-w-0 items-center">
         <h2 className="truncate text-base font-semibold text-secondary-950">
           {title}
         </h2>
