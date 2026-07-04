@@ -56,7 +56,7 @@ function QuizSubjectDetailPageModule({
       </div>
 
       <section>
-        <Card className="relative overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#ffffff_56%,#fff3bc_100%)] shadow-[0_28px_90px_-60px_rgba(1,76,56,0.44)]">
+        <Card className="relative overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(135deg,rgba(1,76,56,0.24)_0%,rgba(1,76,56,0.16)_38%,rgba(1,76,56,0.08)_72%,rgba(255,255,255,0.92)_100%)] shadow-[0_28px_90px_-60px_rgba(1,76,56,0.44)]">
           <CardHeader className="gap-6 px-6 py-7 md:px-8 md:py-8">
             <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
               <div>
@@ -78,8 +78,8 @@ function QuizSubjectDetailPageModule({
 
               <div
                 className={cn(
-                  "flex h-40 w-40 shrink-0 items-center justify-center self-start rounded-[28px] border border-primary-100 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)] md:h-52 md:w-52 md:self-auto",
-                  subject.palette,
+                  "flex h-40 w-40 shrink-0 items-center justify-center self-start rounded-[28px] border border-primary-100 bg-[linear-gradient(160deg,rgba(1,76,56,0.24)_0%,rgba(1,76,56,0.14)_58%,rgba(255,255,255,0.88)_100%)] text-primary-900 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)] md:h-52 md:w-52 md:self-auto",
+                  subject.palette.replace("bg-primary-100", ""),
                 )}
               >
                 <div className="flex size-20 items-center justify-center rounded-[28px] border border-primary-100 bg-white/86 text-primary-700 shadow-[0_18px_42px_-26px_rgba(1,76,56,0.45)]">
@@ -142,9 +142,9 @@ function QuizCard({
   subject: QuizSubject;
 }) {
   return (
-    <button
+    <Link
       className="group overflow-hidden rounded-2xl border border-primary-100 bg-white text-left shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)] focus-visible:ring-3 focus-visible:ring-primary-400/25 focus-visible:outline-none"
-      type="button"
+      href={`/quiz/${subject.slug}/${quiz.slug}`}
     >
       <div className={cn("p-5", subject.palette)}>
         <div className="flex items-start justify-between gap-3">
@@ -189,10 +189,10 @@ function QuizCard({
 
         <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary-700">
           <Sparkles className="size-4" />
-          Mulai dari katalog ini
+          Buka sesi latihan
         </div>
       </div>
-    </button>
+    </Link>
   );
 }
 

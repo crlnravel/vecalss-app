@@ -22,6 +22,43 @@ type QuizItem = {
   title: string;
 };
 
+type QuizAttemptNavState =
+  | "active"
+  | "answered"
+  | "flagged"
+  | "locked"
+  | "empty";
+
+type QuizAttemptQuestionOption = {
+  key: string;
+  text: string;
+};
+
+type QuizAttemptQuestion = {
+  hint: string;
+  options: QuizAttemptQuestionOption[];
+  passage: string[];
+  prompt: string;
+  selectedOptionKey: string | null;
+  supportCount: number;
+};
+
+type QuizAttemptQuestionMarker = {
+  number: number;
+  state: QuizAttemptNavState;
+};
+
+type QuizAttempt = {
+  answeredCount: number;
+  currentNumber: number;
+  estimatedFinish: string;
+  flaggedCount: number;
+  focusLabel: string;
+  markers: QuizAttemptQuestionMarker[];
+  question: QuizAttemptQuestion;
+  remainingTime: string;
+};
+
 type QuizSubject = {
   code: string;
   description: string;
@@ -282,9 +319,106 @@ function getQuizSubjectBySlug(slug: string) {
   return quizSubjects.find((subject) => subject.slug === slug);
 }
 
+function getQuizBySlugs(subjectSlug: string, quizSlug: string) {
+  return getQuizSubjectBySlug(subjectSlug)?.quizzes.find(
+    (quiz) => quiz.slug === quizSlug,
+  );
+}
+
+function getQuizAttemptBySlugs(subjectSlug: string, quizSlug: string) {
+  const subject = getQuizSubjectBySlug(subjectSlug);
+  const quiz = getQuizBySlugs(subjectSlug, quizSlug);
+
+  if (!subject || !quiz) {
+    return undefined;
+  }
+
+  const markers = Array.from({ length: quiz.questionCount }, (_, index) => {
+    const number = index + 1;
+
+    if (number === 1) {
+      return { number, state: "active" } satisfies QuizAttemptQuestionMarker;
+    }
+
+    if (number <= Math.min(4, quiz.questionCount)) {
+      return { number, state: "locked" } satisfies QuizAttemptQuestionMarker;
+    }
+
+    if (number === quiz.questionCount - 1) {
+      return { number, state: "flagged" } satisfies QuizAttemptQuestionMarker;
+    }
+
+    if (number % 5 === 0) {
+      return { number, state: "answered" } satisfies QuizAttemptQuestionMarker;
+    }
+
+    return { number, state: "empty" } satisfies QuizAttemptQuestionMarker;
+  });
+
+  const attempt: QuizAttempt = {
+    answeredCount: Math.max(1, Math.round(quiz.questionCount * 0.25)),
+    currentNumber: 1,
+    estimatedFinish: "11:35 WIB",
+    flaggedCount: 1,
+    focusLabel: `Latihan ${subject.title}`,
+    markers,
+    question: {
+      hint: "Kalimat (3) menampilkan relasi sebab-akibat sebagai pola utama.",
+      options: [
+        {
+          key: "A",
+          text: "Pemerintah menaikkan harga BBM bersubsidi kemarin malam.",
+        },
+        {
+          key: "B",
+          text: "Mahasiswa berprestasi itu mendapatkan beasiswa penuh ke luar negeri.",
+        },
+        {
+          key: "C",
+          text: "Ayah membelikan adik sepeda baru di toko olahraga.",
+        },
+        {
+          key: "D",
+          text: "Buku sejarah yang tebal itu sangat membosankan bagi sebagian siswa.",
+        },
+        {
+          key: "E",
+          text: "Mereka bermain bola di lapangan sekolah saat hujan deras.",
+        },
+      ],
+      passage: [
+        "(1) Fenomena hustle culture mengagungkan kerja keras tanpa henti sebagai satu-satunya jalan menuju sukses.",
+        "(2) Penganut paham ini sering kali mengabaikan kebutuhan istirahat biologis demi mengejar target produktivitas yang terkadang tidak realistis.",
+        "(3) Akibatnya, kasus burnout atau kelelahan kronis di kalangan pekerja muda meningkat tajam dalam lima tahun terakhir.",
+        "(4) Ironisnya, riset menunjukkan bahwa jam kerja yang berlebihan justru menurunkan kualitas output kreatif seseorang dalam jangka panjang.",
+        "(5) Oleh karena itu, redefinisi makna produktivitas yang lebih manusiawi perlu segera dilakukan agar kesehatan mental pekerja tidak dikorbankan.",
+      ],
+      prompt: "Kalimat (3) memiliki pola dasar yang sama dengan kalimat...",
+      selectedOptionKey: null,
+      supportCount: 5,
+    },
+    remainingTime: "12:48",
+  };
+
+  return {
+    attempt,
+    quiz,
+    subject,
+  };
+}
+
 export {
+  getQuizAttemptBySlugs,
+  getQuizBySlugs,
   getQuizSubjectBySlug,
   getQuizSubjectStats,
   quizSubjects,
 };
-export type { QuizDifficulty, QuizItem, QuizStatus, QuizSubject };
+export type {
+  QuizAttempt,
+  QuizAttemptNavState,
+  QuizDifficulty,
+  QuizItem,
+  QuizStatus,
+  QuizSubject,
+};
