@@ -493,7 +493,12 @@ function ContinueLearningCard() {
           <Gauge data-icon="inline-start" />
           Buka tryout
         </Button>
-        <Button size="sm" variant="brandOutline">
+        <Button
+          nativeButton={false}
+          render={<Link href="/vera-ai" />}
+          size="sm"
+          variant="brandOutline"
+        >
           <Bot data-icon="inline-start" />
           Tanya Vera
         </Button>
@@ -649,12 +654,19 @@ function FocusRecommendation() {
             </p>
           </div>
           <div className="mt-auto flex flex-wrap gap-3 pt-8">
-            <Button size="sm" variant="inverseOutline">
+            <Button
+              nativeButton={false}
+              render={<Link href="/vera-ai" />}
+              size="sm"
+              variant="inverseOutline"
+            >
               Open Vera AI
               <MessageCircle data-icon="inline-end" />
             </Button>
             <Button
               className="bg-[#F5C518] text-secondary-900 hover:bg-[#F5C518]/90"
+              nativeButton={false}
+              render={<Link href="/vera-ai#recommendations" />}
               size="sm"
               variant="default"
             >

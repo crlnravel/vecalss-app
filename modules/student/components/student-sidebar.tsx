@@ -42,7 +42,7 @@ const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/quiz", icon: ListChecks, label: "Quiz" },
   { href: "/tryout", icon: Gauge, label: "Tryout" },
   { href: "#progress", icon: Target, label: "Progress" },
-  { href: "#vera-ai", icon: Bot, label: "Vera AI" },
+  { href: "/vera-ai", icon: Bot, label: "Vera AI" },
   { href: "#daily-mission", icon: Flame, label: "Daily Mission" },
   { href: "/notifications", icon: Bell, label: "Notifications" },
   { href: "#settings", icon: Settings, label: "Profile / Settings" },

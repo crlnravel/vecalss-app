@@ -114,7 +114,7 @@ function StudentNotificationPopover({
 
         <div className="border-t border-primary-100 px-4 py-3">
           <Button
-            className="w-full"
+            className="h-auto w-auto justify-start px-0 py-0 text-sm font-medium text-secondary-700 hover:bg-transparent hover:text-secondary-700"
             render={<Link href="/notifications" />}
             variant="ghost"
           >
