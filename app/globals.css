@@ -154,6 +154,8 @@
 
 @layer base {
   html {
+    /* Slightly reduce the global rem scale without touching component-level type classes. */
+    font-size: 93.75%;
     scroll-behavior: smooth;
   }
 

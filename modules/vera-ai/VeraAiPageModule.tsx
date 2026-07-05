@@ -5,8 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
-  BookOpenCheck,
+  BookOpen,
   ChartNoAxesColumnIncreasing,
+  CheckCircle2,
   ChevronRight,
   Dumbbell,
   FileQuestion,
@@ -16,14 +17,24 @@ import {
   ListChecks,
   NotebookPen,
   Plus,
+  Search,
   SendHorizontal,
   Sparkles,
-  Target,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
@@ -31,10 +42,17 @@ import { StudentNotificationPopover } from "@/modules/student/components/student
 
 import {
   veraContextSources,
+  veraContextTypes,
+  veraMaterialHistory,
+  veraPracticeHistory,
   veraQuickPrompts,
   veraStudioTools,
   veraToolModes,
   type VeraContextSource,
+  type VeraContextType,
+  type VeraContextTypeId,
+  type VeraMaterialHistory,
+  type VeraPracticeHistory,
   type VeraStudioTool,
   type VeraToolId,
   type VeraToolMode,
@@ -51,14 +69,13 @@ const toolIcons: Record<VeraToolId, LucideIcon> = {
   summary: FileText,
 };
 
-const sourceIcons: Record<string, LucideIcon> = {
-  "Hasil tryout terakhir": ChartNoAxesColumnIncreasing,
-  "Riwayat quiz": BookOpenCheck,
-  "Soal salah": FileQuestion,
-  "Target PTN": Target,
-  "Modul yang sedang dipelajari": NotebookPen,
-  "Drill terakhir": Dumbbell,
+const contextTypeIcons: Record<VeraContextTypeId, LucideIcon> = {
+  practice: ChartNoAxesColumnIncreasing,
+  material: BookOpen,
+  document: FileText,
 };
+
+const fallbackContextType = veraContextTypes[0];
 
 const toolToneClass: Record<VeraStudioTool["tone"], string> = {
   cream: "bg-[#fff8e8] text-[#6b5620] ring-[#f1d88a]/70",
@@ -124,11 +141,10 @@ function VeraTopBar({ session }: { session: SessionContext }) {
         >
           <Image
             alt="Vecalss"
-            className="h-7 w-auto object-contain"
+            className="object-contain"
             height={28}
             priority
             src="/brand/logo-full-cropped.png"
-            style={{ height: "28px", width: "auto" }}
             width={112}
           />
         </Link>
@@ -148,10 +164,17 @@ function ContextPanel() {
       <PanelHeader title="Konteks Belajar" />
 
       <div className="px-4 py-3">
-        <Button className="w-full rounded-full" size="sm" variant="brand">
-          <Plus data-icon="inline-start" />
-          Tambahkan konteks
-        </Button>
+        <Dialog>
+          <DialogTrigger
+            render={
+              <Button className="w-full rounded-full" size="sm" variant="brand" />
+            }
+          >
+            <Plus data-icon="inline-start" />
+            Tambahkan konteks
+          </DialogTrigger>
+          <AddContextDialog />
+        </Dialog>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -166,31 +189,209 @@ function ContextPanel() {
 }
 
 function ContextSourceCard({ source }: { source: VeraContextSource }) {
-  const Icon = sourceIcons[source.category] ?? BookOpenCheck;
+  const contextType = getContextType(source.type);
+  const Icon = contextTypeIcons[source.type];
 
   return (
     <button
       className="group w-full rounded-[24px] border border-primary-100 bg-white/84 p-3.5 text-left shadow-[0_14px_34px_-30px_rgba(1,76,56,0.45)] transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-white hover:shadow-[0_20px_44px_-32px_rgba(1,76,56,0.55)]"
       type="button"
     >
-      <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl text-primary-700 ring-1 ring-primary-100/90">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-primary-700">
           <Icon className="size-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-semibold tracking-[0.08em] text-secondary-400 uppercase">
-            Tipe konteks
+          <span className="block text-xs leading-tight font-semibold text-primary-800">
+            {contextType.label}
           </span>
-          <span className="mt-1 block text-xs leading-tight font-semibold text-primary-800">
-            {source.category}
-          </span>
-          <span className="mt-2 block text-sm leading-tight font-semibold text-secondary-950">
+          <span className="mt-1.5 block text-sm leading-tight font-semibold text-secondary-950">
             {source.title}
           </span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-primary-400 transition-transform group-hover:translate-x-0.5" />
       </div>
     </button>
+  );
+}
+
+function AddContextDialog() {
+  const [materialQuery, setMaterialQuery] = useState("");
+  const filteredMaterials = useMemo(() => {
+    const query = materialQuery.trim().toLowerCase();
+
+    if (!query) {
+      return veraMaterialHistory;
+    }
+
+    return veraMaterialHistory.filter((material) =>
+      [material.title, material.kind, material.topic]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [materialQuery]);
+
+  return (
+    <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[760px] gap-0 overflow-hidden rounded-[30px] border border-primary-100 bg-[#f8fffb] p-0 text-secondary-950 shadow-[0_34px_120px_-50px_rgba(1,76,56,0.55)] sm:max-w-[760px]">
+      <div className="border-b border-primary-100 px-5 py-5 md:px-6">
+        <DialogHeader className="gap-1">
+          <DialogTitle className="text-xl font-semibold text-secondary-950">
+            Tambahkan konteks
+          </DialogTitle>
+          <DialogDescription className="max-w-xl leading-6 text-secondary-500">
+            Pilih data belajar yang ingin Vera pakai untuk membaca progres,
+            menjawab pertanyaan, dan membuat rekomendasi.
+          </DialogDescription>
+        </DialogHeader>
+      </div>
+
+      <Tabs defaultValue="practice" className="min-h-0 gap-0">
+        <div className="border-b border-primary-100 px-5 py-3 md:px-6">
+          <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl bg-primary-50 p-1">
+            <TabsTrigger value="practice">Hasil Latihan</TabsTrigger>
+            <TabsTrigger value="material">Materi</TabsTrigger>
+            <TabsTrigger value="document">Dokumen</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <div className="max-h-[62vh] overflow-y-auto px-5 py-5 md:px-6">
+          <TabsContent className="m-0" value="practice">
+            <ContextTypeIntro typeId="practice" />
+            <div className="mt-4 grid gap-3">
+              {veraPracticeHistory.map((item) => (
+                <PracticeContextOption item={item} key={item.id} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent className="m-0" value="material">
+            <ContextTypeIntro typeId="material" />
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+              <Input
+                className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
+                onChange={(event) => setMaterialQuery(event.target.value)}
+                placeholder="Cari materi Vecalss..."
+                value={materialQuery}
+              />
+            </div>
+            <div className="mt-4 grid gap-3">
+              {filteredMaterials.length > 0 ? (
+                filteredMaterials.map((item) => (
+                  <MaterialContextOption item={item} key={item.id} />
+                ))
+              ) : (
+                <div className="rounded-[22px] border border-dashed border-primary-200 bg-white/72 p-5 text-center text-sm leading-6 text-secondary-500">
+                  Materi tidak ditemukan.
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent className="m-0" value="document">
+            <ContextTypeIntro typeId="document" />
+            <label className="mt-4 flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-[26px] border border-dashed border-primary-300 bg-white/80 p-6 text-center transition-colors hover:border-primary-500 hover:bg-primary-50/70">
+              <input
+                accept=".pdf,.txt,text/plain,application/pdf"
+                className="sr-only"
+                multiple
+                type="file"
+              />
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+                <Upload className="size-5" />
+              </span>
+              <span className="mt-4 text-base font-semibold text-secondary-950">
+                Upload dokumen belajar
+              </span>
+              <span className="mt-2 max-w-sm text-sm leading-6 text-secondary-500">
+                Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
+                TXT untuk catatan, rangkuman, dan materi eksternal.
+              </span>
+              <span className="mt-5 inline-flex rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white">
+                Pilih file
+              </span>
+            </label>
+          </TabsContent>
+        </div>
+      </Tabs>
+    </DialogContent>
+  );
+}
+
+function ContextTypeIntro({ typeId }: { typeId: VeraContextTypeId }) {
+  const contextType = getContextType(typeId);
+
+  return (
+    <div className="rounded-[22px] border border-primary-100 bg-white/78 p-4">
+      <p className="text-sm font-semibold text-primary-900">
+        {contextType.label}
+      </p>
+      <p className="mt-1 text-sm leading-6 text-secondary-500">
+        {contextType.description}
+      </p>
+    </div>
+  );
+}
+
+function PracticeContextOption({ item }: { item: VeraPracticeHistory }) {
+  return (
+    <button
+      className="group flex w-full items-center gap-3 rounded-[22px] border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
+      type="button"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+        <ChartNoAxesColumnIncreasing className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-secondary-950">
+            {item.title}
+          </span>
+          <span className="rounded-full bg-[#f5c518]/18 px-2 py-0.5 text-[11px] font-semibold text-[#6a5300]">
+            {item.kind}
+          </span>
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-secondary-500">
+          {item.meta} • {item.result}
+        </span>
+      </span>
+      <CheckCircle2 className="size-4 shrink-0 text-primary-500 opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
+  );
+}
+
+function MaterialContextOption({ item }: { item: VeraMaterialHistory }) {
+  return (
+    <button
+      className="group flex w-full items-center gap-3 rounded-[22px] border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
+      type="button"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+        <NotebookPen className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-secondary-950">
+            {item.title}
+          </span>
+          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-800">
+            {item.kind}
+          </span>
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-secondary-500">
+          {item.topic} • {item.lastAccessed}
+        </span>
+      </span>
+      <CheckCircle2 className="size-4 shrink-0 text-primary-500 opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
+  );
+}
+
+function getContextType(typeId: VeraContextTypeId): VeraContextType {
+  return (
+    veraContextTypes.find((contextType) => contextType.id === typeId) ??
+    fallbackContextType
   );
 }
 

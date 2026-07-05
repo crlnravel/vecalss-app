@@ -45,7 +45,7 @@ const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/vera-ai", icon: Bot, label: "Vera AI" },
   { href: "#daily-mission", icon: Flame, label: "Misi Harian" },
   { href: "/notifications", icon: Bell, label: "Notifikasi" },
-  { href: "#settings", icon: Settings, label: "Pengaturan" },
+  { href: "/settings", icon: Settings, label: "Pengaturan" },
 ];
 
 function getInitials(fullName: string) {

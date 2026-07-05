@@ -57,23 +57,23 @@ function StudentAccountMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/settings#profil" />}>
             <UserRound />
-            Profile
+            Profil
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/settings" />}>
             <Settings />
-            Preferences
+            Pengaturan
           </DropdownMenuItem>
           {extraItem === "notifications" ? (
             <DropdownMenuItem render={<Link href="/notifications" />}>
               <Bell />
-              Notifications
+              Notifikasi
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem render={<Link href="/dashboard" />}>
               <Home />
-              Student home
+              Dashboard siswa
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
@@ -82,7 +82,7 @@ function StudentAccountMenu({
           <input name="audience" type="hidden" value="student" />
           <DropdownMenuItem render={<button className="w-full" type="submit" />}>
             <LogOut />
-            Log out
+            Keluar
           </DropdownMenuItem>
         </form>
       </DropdownMenuContent>
