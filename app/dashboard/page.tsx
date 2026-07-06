@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { requireStudentSession } from "@/lib/auth/access";
 import { prisma } from "@/lib/prisma";
 import { DashboardPageModule } from "@/modules/dashboard/DashboardPageModule";
@@ -16,7 +18,7 @@ export default async function DashboardPage() {
   });
 
   if (!profile) {
-    throw new Error("Student profile is missing for this account.");
+    redirect("/onboarding");
   }
 
   return <DashboardPageModule profile={profile} session={session} />;

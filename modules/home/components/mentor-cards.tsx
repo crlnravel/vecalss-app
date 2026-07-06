@@ -23,7 +23,7 @@ function MentorCards({ members }: MentorCardsProps) {
         member.isEmpty ? (
           <article
             aria-hidden="true"
-            className="min-h-[402px] overflow-hidden rounded-[24px] border border-dashed border-[#014C38]/14 bg-[#014C38]/[0.025]"
+            className="min-h-[402px] overflow-hidden rounded-4xl border border-dashed border-[#014C38]/14 bg-[#014C38]/[0.025]"
             key={member.id}
           />
         ) : (
@@ -32,7 +32,7 @@ function MentorCards({ members }: MentorCardsProps) {
               render={
                 <button
                   aria-label={`Lihat profil ${member.name}`}
-                  className="group overflow-hidden rounded-[24px] bg-white text-left transition-[transform,box-shadow] duration-500 ease-out hover:-translate-y-1 hover:shadow-[0_34px_90px_-72px_rgba(1,76,56,0.55)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#014C38]/18"
+                  className="group overflow-hidden rounded-4xl bg-white text-left transition-[transform,box-shadow] duration-500 ease-out hover:-translate-y-1 hover:shadow-[0_34px_90px_-72px_rgba(1,76,56,0.55)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#014C38]/18"
                   type="button"
                 />
               }
@@ -75,7 +75,7 @@ function MentorCards({ members }: MentorCardsProps) {
             </DialogTrigger>
 
             <DialogContent
-              className="max-h-[calc(100vh-2rem)] max-w-[940px] gap-0 overflow-hidden rounded-[28px] border border-[#014C38]/12 bg-[#fbf8ef] p-0 text-[#014C38] shadow-[0_32px_110px_-46px_rgba(0,0,0,0.6)] sm:max-w-[940px]"
+              className="max-h-[calc(100vh-2rem)] max-w-[940px] gap-0 overflow-hidden rounded-5xl border border-[#014C38]/12 bg-[#fbf8ef] p-0 text-[#014C38] shadow-[0_32px_110px_-46px_rgba(0,0,0,0.6)] sm:max-w-[940px]"
               showCloseButton
             >
               <div className="grid max-h-[calc(100vh-2rem)] overflow-y-auto lg:grid-cols-[0.82fr_1fr]">
@@ -130,7 +130,7 @@ function MentorCards({ members }: MentorCardsProps) {
                     <ProfileFact label="IPK" value={member.gpa} />
                   </div>
 
-                  <div className="mt-9 rounded-[22px] border border-[#014C38]/10 bg-white/68 p-5">
+                  <div className="mt-9 rounded-3xl border border-[#014C38]/10 bg-white/68 p-5">
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#014C38]/52">
                       ACHIEVEMENTS
                     </p>
@@ -163,7 +163,7 @@ function ProfileFact({
   value?: string;
 }) {
   return (
-    <div className="rounded-[18px] border border-[#014C38]/10 bg-white/64 p-4">
+    <div className="rounded-2xl border border-[#014C38]/10 bg-white/64 p-4">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#014C38]/45">
         {label}
       </p>

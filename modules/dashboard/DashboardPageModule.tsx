@@ -237,7 +237,7 @@ function DashboardPageModule({
       sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
     >
       <section>
-        <Card className="relative min-h-[330px] overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#d8f2e3_52%,#fff1a8_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
+        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-100 bg-[linear-gradient(125deg,#ecfbf9_0%,#d8f2e3_52%,#fff1a8_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
           <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10">
             <div className="grid gap-10 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start">
               <div>
@@ -346,7 +346,7 @@ function DailyMissionCard({ missionProgress }: { missionProgress: number }) {
   return (
     <Card
       id="daily-mission"
-      className="h-full rounded-[30px] border border-primary-100 shadow-[0_22px_70px_-54px_rgba(1,76,56,0.34)]"
+      className="h-full rounded-5xl border border-primary-100 shadow-[0_22px_70px_-54px_rgba(1,76,56,0.34)]"
     >
         <CardHeader className="gap-2 px-7 pt-7">
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">
@@ -418,7 +418,7 @@ function DailyMissionCard({ missionProgress }: { missionProgress: number }) {
 
 function BeginnerState() {
   return (
-    <Alert className="rounded-[28px] border-primary-100 bg-white px-5 py-4 shadow-sm">
+    <Alert className="rounded-5xl border-primary-100 bg-white px-5 py-4 shadow-sm">
       <Target />
       <AlertTitle>Lengkapi target agar beranda makin personal.</AlertTitle>
       <AlertDescription className="mt-2 flex flex-col gap-3 text-secondary-600 md:flex-row md:items-center md:justify-between">
@@ -441,7 +441,7 @@ function BeginnerState() {
 
 function ContinueLearningCard() {
   return (
-    <Card className="h-full rounded-[30px] border border-primary-100 shadow-[0_20px_72px_-56px_rgba(1,76,56,0.28)]">
+    <Card className="h-full rounded-5xl border border-primary-100 shadow-[0_20px_72px_-56px_rgba(1,76,56,0.28)]">
         <CardHeader className="gap-2 px-7 pt-7 md:px-8">
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">
             <BookOpen className="size-4 text-primary-700" />
@@ -455,7 +455,7 @@ function ContinueLearningCard() {
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-6 px-7 md:px-8">
-        <div className="rounded-[26px] border border-primary-100 bg-primary-50/72 p-6 md:p-7">
+        <div className="rounded-4xl border border-primary-100 bg-primary-50/72 p-6 md:p-7">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
               <p className="text-xs font-semibold tracking-[0.14em] text-primary-700 uppercase">
@@ -509,7 +509,7 @@ function ContinueLearningCard() {
 
 function ProgressOverview() {
   return (
-    <Card className="rounded-[30px] border border-primary-100 shadow-[0_20px_72px_-56px_rgba(1,76,56,0.24)]">
+    <Card className="rounded-5xl border border-primary-100 shadow-[0_20px_72px_-56px_rgba(1,76,56,0.24)]">
       <CardHeader className="gap-2 px-7 pt-7 md:px-8">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">
           <Target className="size-4 text-primary-700" />
@@ -531,7 +531,7 @@ function ProgressOverview() {
             <TabsTrigger value="mastery">Penguasaan</TabsTrigger>
           </TabsList>
           <TabsContent
-            className="mt-7 rounded-[26px] border border-primary-100 bg-white/70 p-5 md:p-6"
+            className="mt-7 rounded-4xl border border-primary-100 bg-white/70 p-5 md:p-6"
             value="activity"
           >
             <ChartContainer
@@ -551,7 +551,7 @@ function ProgressOverview() {
             </ChartContainer>
           </TabsContent>
           <TabsContent
-            className="mt-7 rounded-[26px] border border-primary-100 bg-white/70 p-5 md:p-6"
+            className="mt-7 rounded-4xl border border-primary-100 bg-white/70 p-5 md:p-6"
             value="score"
           >
             <ChartContainer
@@ -574,7 +574,7 @@ function ProgressOverview() {
             </ChartContainer>
           </TabsContent>
           <TabsContent
-            className="mt-7 rounded-[26px] border border-primary-100 bg-white/70 p-5 md:p-6"
+            className="mt-7 rounded-4xl border border-primary-100 bg-white/70 p-5 md:p-6"
             value="mastery"
           >
             <ChartContainer
@@ -603,7 +603,7 @@ function ProgressOverview() {
 
 function FocusRecommendation() {
   return (
-    <Card className="overflow-hidden rounded-[30px] border border-primary-100 shadow-[0_22px_78px_-58px_rgba(1,76,56,0.32)]">
+    <Card className="overflow-hidden rounded-5xl border border-primary-100 shadow-[0_22px_78px_-58px_rgba(1,76,56,0.32)]">
       <CardHeader className="gap-2 px-7 pt-7 md:px-8">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-primary-800">
           <Bot className="size-4 text-primary-700" />
@@ -614,7 +614,7 @@ function FocusRecommendation() {
         <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1">
           {weakTopics.map((topic) => (
             <div
-              className="rounded-[24px] border border-primary-100 bg-white/86 p-5"
+              className="rounded-4xl border border-primary-100 bg-white/86 p-5"
               key={topic.title}
             >
               <div className="flex items-start justify-between gap-4">
@@ -642,7 +642,7 @@ function FocusRecommendation() {
           ))}
         </div>
 
-        <div className="flex flex-col rounded-[28px] border border-primary-800/20 bg-[#014C38] p-6 text-white md:p-7">
+        <div className="flex flex-col rounded-5xl border border-primary-800/20 bg-[#014C38] p-6 text-white md:p-7">
           <div>
             <p className="text-xs font-semibold tracking-[0.14em] text-white/56 uppercase">
               Vera AI
@@ -683,7 +683,7 @@ function RecentActivity() {
   return (
     <Card
       size="sm"
-      className="rounded-[28px] border border-primary-100 bg-white/92 shadow-[0_16px_56px_-52px_rgba(1,76,56,0.22)]"
+      className="rounded-5xl border border-primary-100 bg-white/92 shadow-[0_16px_56px_-52px_rgba(1,76,56,0.22)]"
     >
       <CardHeader className="gap-2 px-7 pt-7">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">

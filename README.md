@@ -20,7 +20,7 @@ first coherent account lifecycle slice for:
 - `DATABASE_URL`: PostgreSQL connection string used by Prisma.
 - `APP_BASE_URL`: Base URL used to generate password-reset links.
 - `REGISTRATION_FORM_URL`: Public registration form target used by landing-page CTAs.
-- `SEED_*`: Optional overrides for the dummy admin and student credentials created by
+- `SEED_*`: Optional overrides for the dummy admin, student, and tutor credentials created by
   `pnpm db:seed`.
 
 ## Verification
@@ -44,3 +44,4 @@ pnpm db:seed
 - `/onboarding`
 - `/dashboard`
 - `/admin/enrollment`
+- `/mentor/dashboard`

@@ -21,7 +21,7 @@ function PortalShell({
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#fcf8ee_0%,#f7f0df_48%,#efe6d5_100%)] text-secondary-900">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 md:px-8 md:py-8">
-        <header className="parchment-panel rounded-[28px] px-5 py-4 md:px-7">
+        <header className="parchment-panel rounded-5xl px-5 py-4 md:px-7">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
               <Link href="/" className="inline-flex items-center">

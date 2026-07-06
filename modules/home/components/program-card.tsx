@@ -32,7 +32,7 @@ function ProgramCard({
     <article
       className={cn(
         backgroundClass,
-        "flex min-h-[217px] flex-col justify-between overflow-hidden rounded-[32px] border border-primary-700 p-7 shadow-[0px_5px_0px_0px_#191a23] md:h-[297px] md:flex-row md:items-center md:rounded-[45px] md:p-[50px]",
+        "flex min-h-[217px] flex-col justify-between overflow-hidden rounded-5xl border border-primary-700 p-7 shadow-[0px_5px_0px_0px_#191a23] md:h-[297px] md:flex-row md:items-center md:rounded-6xl md:p-[50px]",
       )}
     >
       <div className="flex flex-col gap-10 md:gap-[93px]">

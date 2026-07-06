@@ -16,7 +16,7 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
   return (
     <form
       action={formAction}
-      className="space-y-5 overflow-hidden rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]"
+      className="space-y-5 overflow-hidden rounded-5xl border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]"
       id="create-student-account"
     >
       <div className="flex items-start justify-between gap-4">

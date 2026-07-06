@@ -46,7 +46,7 @@ function CourseDetailPageModule({
       </div>
 
       <section>
-        <Card className="relative overflow-hidden rounded-[34px] border border-[#dbe8e3] bg-white p-0 gap-0 shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
+        <Card className="relative overflow-hidden rounded-6xl border border-[#dbe8e3] bg-white p-0 gap-0 shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
           <CardHeader className="relative bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,246,0.96)_100%)] px-6 pt-8 pb-8 md:px-10 md:pt-10 md:pb-10">
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute top-0 right-[-8%] h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(239,244,241,0.96)_0%,rgba(239,244,241,0.72)_42%,rgba(239,244,241,0)_74%)] md:top-4 md:h-[42rem] md:w-[42rem]" />
@@ -120,7 +120,7 @@ function CourseDetailPageModule({
       <section className="space-y-8">
         {course.sections.map((section, sectionIndex) => (
           <div className="space-y-4" key={section.title}>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-secondary-50 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-4xl bg-secondary-50 px-5 py-4">
               <div className="flex items-center gap-3">
                 <span className="flex size-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-primary-800 shadow-sm">
                   {sectionIndex + 1}

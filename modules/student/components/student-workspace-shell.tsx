@@ -31,7 +31,7 @@ import { StudentSidebar } from "@/modules/student/components/student-sidebar";
 import { studentNotificationItems } from "@/modules/student/notification-data";
 
 function StudentWorkspaceShell({
-  accountMenuExtraItem = "home",
+  accountMenuExtraItem,
   activeLabel,
   breadcrumbLabel,
   children,
@@ -101,10 +101,10 @@ function StudentWorkspaceShell({
 
               <StudentNotificationPopover items={notificationItems} />
 
-              <StudentAccountMenu
-                extraItem={accountMenuExtraItem}
-                session={session}
-              />
+          <StudentAccountMenu
+            extraItem={accountMenuExtraItem}
+            session={session}
+          />
             </div>
           </header>
 

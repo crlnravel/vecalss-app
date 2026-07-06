@@ -4,9 +4,17 @@ import type { LoginAudience } from "@/lib/auth/types";
 import { AuthShell } from "./components/auth-shell";
 import { LoginForm } from "./components/login-form";
 
-const noticeCopy: Record<string, string> = {
-  "password-reset": "Password kamu sudah diperbarui. Silakan masuk dengan kredensial baru.",
-  "signed-out": "Kamu sudah keluar dari Vecalss.",
+const noticeCopy: Record<
+  string,
+  { compact?: boolean; text: string }
+> = {
+  "password-reset": {
+    text: "Password kamu sudah diperbarui. Silakan masuk dengan kredensial baru.",
+  },
+  "signed-out": {
+    compact: true,
+    text: "Kamu sudah keluar dari akun.",
+  },
 };
 
 function LoginPageModule({

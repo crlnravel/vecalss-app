@@ -22,7 +22,7 @@ function TestimonialCard({
     >
       <div
         className={cn(
-          "relative rounded-[32px] border border-accent-300 bg-primary-700 px-6 py-7 text-white shadow-[0px_5px_0px_0px_#191a23]/0 md:rounded-[45px]",
+          "relative rounded-5xl border border-accent-300 bg-primary-700 px-6 py-7 text-white shadow-[0px_5px_0px_0px_#191a23]/0 md:rounded-6xl",
           compact ? "md:px-8 md:py-8" : "md:px-[52px] md:py-[48px]",
           isActive && "shadow-[0px_10px_30px_0px_rgba(0,0,0,0.18)]",
         )}

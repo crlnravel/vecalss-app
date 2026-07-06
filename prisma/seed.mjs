@@ -23,6 +23,12 @@ const DEFAULT_TEMP_STUDENT = {
   password: process.env.SEED_TEMP_STUDENT_PASSWORD?.trim() || "TempStudent123!",
 };
 
+const DEFAULT_TUTOR = {
+  email: process.env.SEED_TUTOR_EMAIL?.trim() || "tutor@vecalss.local",
+  fullName: "Vecalss Tutor",
+  password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
+};
+
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
 
@@ -265,6 +271,154 @@ async function upsertStudentProfile(
   );
 }
 
+async function upsertTutorProfile(client, { bio, headline, userId }) {
+  await client.query(
+    `
+      INSERT INTO tutor_profiles (
+        user_id,
+        headline,
+        bio,
+        is_active
+      )
+      VALUES ($1, $2, $3, TRUE)
+      ON CONFLICT (user_id)
+      DO UPDATE
+        SET bio = EXCLUDED.bio,
+            headline = EXCLUDED.headline,
+            is_active = TRUE,
+            updated_at = NOW()
+    `,
+    [userId, headline, bio],
+  );
+}
+
+async function upsertCohort(
+  client,
+  {
+    endDate,
+    examEventId,
+    name,
+    startDate,
+  },
+) {
+  const existing = await client.query(
+    `
+      SELECT id
+      FROM cohorts
+      WHERE exam_event_id = $1
+        AND name = $2
+      LIMIT 1
+    `,
+    [examEventId, name],
+  );
+
+  if (existing.rowCount) {
+    await client.query(
+      `
+        UPDATE cohorts
+        SET end_date = $2,
+            is_active = TRUE,
+            start_date = $3,
+            updated_at = NOW()
+        WHERE id = $1
+      `,
+      [existing.rows[0].id, endDate, startDate],
+    );
+
+    return existing.rows[0].id;
+  }
+
+  const created = await client.query(
+    `
+      INSERT INTO cohorts (
+        exam_event_id,
+        name,
+        start_date,
+        end_date,
+        is_active
+      )
+      VALUES ($1, $2, $3, $4, TRUE)
+      RETURNING id
+    `,
+    [examEventId, name, startDate, endDate],
+  );
+
+  return created.rows[0].id;
+}
+
+async function ensureCohortStudent(client, { cohortId, studentId }) {
+  const existing = await client.query(
+    `
+      SELECT id
+      FROM cohort_students
+      WHERE cohort_id = $1
+        AND student_id = $2
+      LIMIT 1
+    `,
+    [cohortId, studentId],
+  );
+
+  if (existing.rowCount) {
+    await client.query(
+      `
+        UPDATE cohort_students
+        SET left_at = NULL
+        WHERE id = $1
+      `,
+      [existing.rows[0].id],
+    );
+
+    return existing.rows[0].id;
+  }
+
+  const created = await client.query(
+    `
+      INSERT INTO cohort_students (
+        cohort_id,
+        student_id
+      )
+      VALUES ($1, $2)
+      RETURNING id
+    `,
+    [cohortId, studentId],
+  );
+
+  return created.rows[0].id;
+}
+
+async function ensureTutorCohortAssignment(client, { assignedByUserId = null, cohortId, tutorId }) {
+  const existing = await client.query(
+    `
+      SELECT id
+      FROM tutor_cohort_assignments
+      WHERE cohort_id = $1
+        AND tutor_id = $2
+        AND revoked_at IS NULL
+      LIMIT 1
+    `,
+    [cohortId, tutorId],
+  );
+
+  if (existing.rowCount) {
+    return existing.rows[0].id;
+  }
+
+  const created = await client.query(
+    `
+      INSERT INTO tutor_cohort_assignments (
+        tutor_id,
+        cohort_id,
+        assigned_by_user_id
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
+    `,
+    [tutorId, cohortId, assignedByUserId],
+  );
+
+  return created.rows[0].id;
+}
+
 async function ensureNotificationPreference(client, userId) {
   await client.query(
     `
@@ -401,6 +555,47 @@ async function main() {
       userId: tempStudentUserId,
     });
 
+    const tutorUserId = await upsertUser(client, {
+      email: DEFAULT_TUTOR.email,
+      fullName: DEFAULT_TUTOR.fullName,
+      mustChangePassword: false,
+      passwordHash: await hashPassword(DEFAULT_TUTOR.password),
+      passwordUpdatedAt: new Date(),
+    });
+
+    await ensureRoleAssignment(client, {
+      assignedByUserId: adminUserId,
+      role: "tutor",
+      userId: tutorUserId,
+    });
+    await ensureNotificationPreference(client, tutorUserId);
+    await upsertTutorProfile(client, {
+      bio: "Tutor demo untuk cohort SNBT. Akun ini dipakai untuk memverifikasi alur mentor/kapten dan relasi cohort di seed data.",
+      headline: "Tutor SNBT · Pendamping cohort",
+      userId: tutorUserId,
+    });
+
+    const cohortId = await upsertCohort(client, {
+      endDate: new Date("2027-04-30"),
+      examEventId: upcomingExamEventId,
+      name: "Cohort SNBT 2027 - Utama",
+      startDate: new Date("2027-01-15"),
+    });
+
+    await ensureCohortStudent(client, {
+      cohortId,
+      studentId: studentUserId,
+    });
+    await ensureCohortStudent(client, {
+      cohortId,
+      studentId: tempStudentUserId,
+    });
+    await ensureTutorCohortAssignment(client, {
+      assignedByUserId: adminUserId,
+      cohortId,
+      tutorId: tutorUserId,
+    });
+
     await client.query("COMMIT");
 
     console.log("Vecalss seed completed.\n");
@@ -422,6 +617,12 @@ async function main() {
         loginPath: "/login",
         password: DEFAULT_TEMP_STUDENT.password,
         role: "student-temporary",
+      },
+      {
+        email: DEFAULT_TUTOR.email,
+        loginPath: "/mentor/dashboard",
+        password: DEFAULT_TUTOR.password,
+        role: "tutor",
       },
     ]);
   } catch (error) {

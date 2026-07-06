@@ -34,7 +34,7 @@ function OnboardingForm({
 
       {state.message ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
 
-      <form action={formAction} className="space-y-5 rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]">
+      <form action={formAction} className="space-y-5 rounded-5xl border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]">
         <div className="grid gap-5 md:grid-cols-3">
           <Field>
             <FieldLabel htmlFor="target-exam">Target exam</FieldLabel>

@@ -73,9 +73,9 @@ export default function TryoutPageModule() {
               </div>
             </div>
 
-            <div className="relative overflow-hidden rounded-[34px] border border-[#014c38]/12 bg-[#dbe5d6] p-3 shadow-[0_34px_90px_-58px_rgba(1,76,56,0.35)]">
+            <div className="relative overflow-hidden rounded-6xl border border-[#014c38]/12 bg-[#dbe5d6] p-3 shadow-[0_34px_90px_-58px_rgba(1,76,56,0.35)]">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.62),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(245,197,24,0.18),transparent_24%)]" />
-              <div className="relative overflow-hidden rounded-[26px]">
+              <div className="relative overflow-hidden rounded-4xl">
                 <Image
                   alt="Placeholder banner tryout Vecalss"
                   className="h-auto w-full object-cover"
@@ -96,13 +96,13 @@ export default function TryoutPageModule() {
 
                 return (
                   <Link
-                    className="group relative overflow-hidden rounded-[28px] border border-[#014c38]/10 bg-white/92 p-5 shadow-[0_22px_58px_-44px_rgba(1,76,56,0.2)] transition-transform duration-300 hover:-translate-y-1"
+                    className="group relative overflow-hidden rounded-5xl border border-[#014c38]/10 bg-white/92 p-5 shadow-[0_22px_58px_-44px_rgba(1,76,56,0.2)] transition-transform duration-300 hover:-translate-y-1"
                     href={`#${item.id}`}
                     key={item.id}
                   >
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,197,24,0.13),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(1,76,56,0.08),transparent_34%)] opacity-80" />
                     <div className="relative">
-                      <span className="flex size-16 items-center justify-center rounded-[22px] border border-[#014c38]/10 bg-[linear-gradient(180deg,#f8fbf4,#eef3ea)] text-[#014c38] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                      <span className="flex size-16 items-center justify-center rounded-3xl border border-[#014c38]/10 bg-[linear-gradient(180deg,#f8fbf4,#eef3ea)] text-[#014c38] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
                         <Icon className="size-8" />
                       </span>
                       <div className="mt-5 flex items-center gap-2">
@@ -130,7 +130,7 @@ export default function TryoutPageModule() {
               </span>
               <div className="relative w-full xl:max-w-[300px]">
                 <select
-                  className="h-14 w-full appearance-none rounded-[20px] border border-[#014c38]/14 bg-white px-5 pr-14 text-lg text-secondary-900 shadow-[0_18px_48px_-40px_rgba(1,76,56,0.26)] outline-none transition-colors focus:border-[#014c38]/28"
+                  className="h-14 w-full appearance-none rounded-3xl border border-[#014c38]/14 bg-white px-5 pr-14 text-lg text-secondary-900 shadow-[0_18px_48px_-40px_rgba(1,76,56,0.26)] outline-none transition-colors focus:border-[#014c38]/28"
                   defaultValue="all"
                 >
                   <option value="all">Semua Periode</option>
@@ -192,7 +192,7 @@ export default function TryoutPageModule() {
                 {section.tryouts.map((tryout) => (
                   <article
                     className={cn(
-                      "min-w-[320px] snap-start overflow-hidden rounded-[30px] border shadow-[0_28px_74px_-48px_rgba(1,76,56,0.22)] md:min-w-[360px] lg:min-w-[372px]",
+                      "min-w-[320px] snap-start overflow-hidden rounded-5xl border shadow-[0_28px_74px_-48px_rgba(1,76,56,0.22)] md:min-w-[360px] lg:min-w-[372px]",
                       toneStyles[section.tone].frame,
                     )}
                     key={tryout.id}
@@ -262,7 +262,7 @@ export default function TryoutPageModule() {
                       <Link
                         className={cn(
                           buttonVariants({ variant: "brand", size: "marketing" }),
-                          "mt-7 flex w-full justify-center rounded-[18px] bg-[#f4d15f] text-[#2a2408] shadow-[0_20px_42px_-26px_rgba(244,209,95,0.9)] hover:bg-[#efc949]",
+                          "mt-7 flex w-full justify-center rounded-2xl bg-[#f4d15f] text-[#2a2408] shadow-[0_20px_42px_-26px_rgba(244,209,95,0.9)] hover:bg-[#efc949]",
                         )}
                         href="/login"
                       >
@@ -277,7 +277,7 @@ export default function TryoutPageModule() {
         </div>
 
         <section className="px-4 pb-14 md:px-8 lg:px-10 xl:px-[100px]">
-          <div className="relative overflow-hidden rounded-[34px] border border-[#014c38]/10 bg-[#014c38] px-6 py-8 text-white shadow-[0_32px_80px_-54px_rgba(1,76,56,0.44)] md:px-10 md:py-10">
+          <div className="relative overflow-hidden rounded-6xl border border-[#014c38]/10 bg-[#014c38] px-6 py-8 text-white shadow-[0_32px_80px_-54px_rgba(1,76,56,0.44)] md:px-10 md:py-10">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(245,197,24,0.2),transparent_22%)]" />
             <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
               <div>

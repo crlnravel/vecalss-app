@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +23,7 @@ export default async function SettingsPage() {
   });
 
   if (!profile) {
-    throw new Error("Student profile is missing for this account.");
+    redirect("/onboarding");
   }
 
   return <SettingsPageModule profile={profile} session={session} />;

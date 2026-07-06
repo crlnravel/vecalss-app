@@ -86,7 +86,7 @@ function NavigationDots({
       : "text-secondary-300 hover:text-secondary-900";
 
   return (
-    <div className="flex items-center gap-3 text-xs">
+    <div className="flex items-center gap-3 text-ui-xs">
       {Array.from({ length: count }).map((_, index) => (
         <button
           aria-label={`Go to testimonial ${index + 1}`}
@@ -114,7 +114,7 @@ function SectionHeading({
     <div className="flex w-full flex-col gap-5 px-4 md:px-0">
       <div className="flex">
         <Badge
-          className="rounded-full px-4 py-2 font-display text-xs tracking-[0.26em] uppercase md:text-sm"
+          className="rounded-full px-4 py-2 font-display text-ui-xs tracking-[0.26em] uppercase md:text-ui-sm"
           size="card"
           variant={tone === "mint" ? "mint" : "accent"}
         >

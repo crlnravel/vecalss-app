@@ -110,7 +110,7 @@ export default function AboutPageModule() {
                 </div>
               </div>
 
-              <div className="navy-panel relative overflow-hidden rounded-[32px] p-6 text-white md:p-8">
+              <div className="navy-panel relative overflow-hidden rounded-5xl p-6 text-white md:p-8">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,197,24,0.16),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.07),transparent_30%)]" />
 
                 <div className="relative flex items-start justify-between gap-8">
@@ -123,7 +123,7 @@ export default function AboutPageModule() {
                     </h2>
                   </div>
 
-                  <div className="relative hidden h-[118px] w-[118px] shrink-0 rounded-[28px] border border-white/12 bg-[#fffaf0] shadow-[0_22px_58px_-38px_rgba(0,0,0,0.48)] md:block">
+                  <div className="relative hidden h-[118px] w-[118px] shrink-0 rounded-5xl border border-white/12 bg-[#fffaf0] shadow-[0_22px_58px_-38px_rgba(0,0,0,0.48)] md:block">
                     <Image
                       alt="Vecalss learning support illustration"
                       fill
@@ -149,7 +149,7 @@ export default function AboutPageModule() {
                 </div>
 
                 <div className="relative mt-8 flex items-center gap-4 border-t border-white/16 pt-6">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-[8px] bg-white/10">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-white/10">
                     <TimerReset className="size-5" />
                   </span>
                   <p className="text-base leading-6 text-white/78">
@@ -184,9 +184,9 @@ export default function AboutPageModule() {
                 return (
                   <article
                     key={card.title}
-                    className="grid gap-5 rounded-[24px] border border-secondary-900/12 bg-[rgba(255,250,239,0.94)] p-6 shadow-[0_24px_58px_-40px_rgba(25,26,35,0.18)] backdrop-blur md:grid-cols-[56px_1fr] md:p-7"
+                    className="grid gap-5 rounded-4xl border border-secondary-900/12 bg-[rgba(255,250,239,0.94)] p-6 shadow-[0_24px_58px_-40px_rgba(25,26,35,0.18)] backdrop-blur md:grid-cols-[56px_1fr] md:p-7"
                   >
-                    <span className="flex size-12 items-center justify-center rounded-[16px] bg-primary-50 text-primary-700">
+                    <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
                       <Icon className="size-5" />
                     </span>
                     <div>
@@ -244,7 +244,7 @@ export default function AboutPageModule() {
         </section>
 
         <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
-          <div className="grid overflow-hidden rounded-[32px] border border-primary-700/10 bg-[#eff6ef] shadow-[0_26px_72px_-46px_rgba(11,18,45,0.2)] md:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid overflow-hidden rounded-5xl border border-primary-700/10 bg-[#eff6ef] shadow-[0_26px_72px_-46px_rgba(11,18,45,0.2)] md:grid-cols-[minmax(0,1fr)_360px]">
             <div className="p-7 md:p-12">
               <h2 className="max-w-[690px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Ready for a prep routine that feels focused and human?

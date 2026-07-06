@@ -11,13 +11,18 @@ import { EMPTY_FORM_STATE } from "../form-state";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
 
+type LoginNotice = {
+  compact?: boolean;
+  text: string;
+};
+
 function LoginForm({
   audience,
   notice,
   registerUrl,
 }: {
   audience: LoginAudience;
-  notice?: string | null;
+  notice?: LoginNotice | null;
   registerUrl: string;
 }) {
   const [state, formAction] = useActionState(
@@ -31,14 +36,18 @@ function LoginForm({
     <form action={formAction} className="space-y-5">
       <input name="audience" type="hidden" value={audience} />
 
-      {notice ? <FormNotice tone="success">{notice}</FormNotice> : null}
+      {notice ? (
+        <FormNotice compact={notice.compact} tone="success">
+          {notice.text}
+        </FormNotice>
+      ) : null}
       {state.message ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
 
       <Field>
         <FieldLabel htmlFor="login-email">Email</FieldLabel>
         <FieldInput
           autoComplete="email"
-          className="min-h-[54px] rounded-[12px] border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
+          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
@@ -55,7 +64,7 @@ function LoginForm({
         <FieldLabel htmlFor="login-password">Password</FieldLabel>
         <FieldInput
           autoComplete="current-password"
-          className="min-h-[54px] rounded-[12px] border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
+          className="min-h-[54px] rounded-xl border-transparent bg-secondary-50 px-5 text-base shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)] placeholder:text-secondary-400 focus-visible:bg-white"
           id="login-password"
           name="password"
           placeholder="Masukkan password"
@@ -77,7 +86,7 @@ function LoginForm({
       </div>
 
       <SubmitButton
-        className="min-h-[54px] w-full rounded-[14px] text-base font-semibold shadow-[0_16px_30px_-22px_rgba(1,76,56,0.7)]"
+        className="min-h-[54px] w-full rounded-xl text-base font-semibold shadow-[0_16px_30px_-22px_rgba(1,76,56,0.7)]"
         pendingLabel="Memproses..."
         size="lg"
         type="submit"

@@ -19,7 +19,7 @@ function TestimonialsCarousel({ items }: TestimonialsCarouselProps) {
   };
 
   return (
-    <div className="overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.04]">
+    <div className="overflow-hidden rounded-2xl border border-white/12 bg-white/[0.04]">
       <div className="grid gap-0 lg:grid-cols-[340px_1fr]">
         <div className="relative min-h-[320px] bg-[#eef1f3]">
           <Image

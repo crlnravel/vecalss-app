@@ -46,7 +46,7 @@ function TryoutWorkspacePageModule({ session }: { session: SessionContext }) {
               {section.tryouts.map((tryout) => (
                 <article
                   className={cn(
-                    "overflow-hidden rounded-[28px] border shadow-[0_22px_64px_-48px_rgba(1,76,56,0.22)]",
+                    "overflow-hidden rounded-5xl border shadow-[0_22px_64px_-48px_rgba(1,76,56,0.22)]",
                     toneStyles[section.tone].frame,
                   )}
                   key={tryout.id}

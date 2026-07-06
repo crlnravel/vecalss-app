@@ -32,7 +32,7 @@ function TopAlumniPageModule() {
 
 function AlumniCard({ alumnus }: { alumnus: TopAlumni }) {
   return (
-    <article className="group overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white shadow-[0_26px_80px_-66px_rgba(1,76,56,0.28)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
+    <article className="group overflow-hidden rounded-4xl border border-[#014C38]/10 bg-white shadow-[0_26px_80px_-66px_rgba(1,76,56,0.28)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
       <div className="relative aspect-[4/3] bg-[#014C38]/[0.04]">
         <Image
           alt={`${alumnus.name} profile photo`}

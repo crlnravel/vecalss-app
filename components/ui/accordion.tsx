@@ -33,7 +33,7 @@ export function AccordionList({
           <details
             key={item.id}
             className={cn(
-              "group overflow-hidden rounded-[20px] border border-[#014C38]/10 bg-[#014C38]/[0.03] px-4 py-4 transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_52px_-42px_rgba(1,76,56,0.3)] md:px-5 md:py-4",
+              "group overflow-hidden rounded-2xl border border-[#014C38]/10 bg-[#014C38]/[0.03] px-4 py-4 transition-[background-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_52px_-42px_rgba(1,76,56,0.3)] md:px-5 md:py-4",
               "open:bg-white open:shadow-[0_22px_64px_-50px_rgba(1,76,56,0.36)]",
             )}
             name={allowMultiple ? undefined : "faq-accordion"}
@@ -46,10 +46,10 @@ export function AccordionList({
               )}
             >
               <div className="flex items-center gap-3 text-[#014C38] md:gap-4">
-                <span className="shrink-0 text-sm font-semibold leading-none text-[#014C38] md:text-base">
+                <span className="shrink-0 text-ui-sm font-semibold leading-none text-[#014C38] md:text-ui-base">
                   {item.number}
                 </span>
-                <span className="text-lg font-medium leading-tight md:text-xl">
+                <span className="text-ui-lg font-medium leading-tight md:text-ui-title">
                   {item.question}
                 </span>
               </div>
@@ -69,7 +69,7 @@ export function AccordionList({
             >
               <div className="overflow-hidden">
                 <div className="mt-4 h-px w-full bg-[#014C38]/10" />
-                <p className="pt-4 text-base leading-7 text-[#014C38]/70">
+                <p className="pt-4 text-ui-base text-[#014C38]/70">
                   {item.answer}
                 </p>
               </div>

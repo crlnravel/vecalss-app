@@ -69,7 +69,7 @@ function AuthShell({
               </p>
             </div>
 
-            <div className="rounded-[28px] bg-white px-5 py-6 shadow-[0_22px_68px_-48px_rgba(1,76,56,0.48)] md:px-8 md:py-8">
+            <div className="rounded-5xl bg-white px-5 py-6 shadow-[0_22px_68px_-48px_rgba(1,76,56,0.48)] md:px-8 md:py-8">
               {children}
             </div>
           </div>

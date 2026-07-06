@@ -6,9 +6,21 @@ import { marketingNavItems } from "../data";
 
 type MarketingHeaderProps = {
   currentPath?: string;
+  layout?: "default" | "landing";
 };
 
-function MarketingHeader({ currentPath }: MarketingHeaderProps) {
+function MarketingHeader({
+  currentPath,
+  layout = "default",
+}: MarketingHeaderProps) {
+  const showLandingCta = layout === "landing";
+  const navItems = showLandingCta
+    ? marketingNavItems.filter(
+        (item) => item.href !== "/tryout" && item.href !== "/login",
+      )
+    : marketingNavItems;
+  const loginItem = marketingNavItems.find((item) => item.href === "/login");
+
   return (
     <header
       className="sticky top-0 z-40 w-screen bg-white/94 backdrop-blur"
@@ -38,37 +50,58 @@ function MarketingHeader({ currentPath }: MarketingHeaderProps) {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex">
-          {marketingNavItems.map((item) => {
-            const isActive = item.href === currentPath;
+        <div className="hidden items-center gap-6 lg:flex">
+          <nav className="flex items-center gap-8">
+            {navItems.map((item) => {
+              const isActive = item.href === currentPath;
 
-            return (
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold transition-colors ${isActive ? "text-[#014C38]" : "text-[#014C38]/62 hover:text-[#014C38]"}`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {showLandingCta && loginItem ? (
+            <span className="inline-flex">
               <Link
-                key={item.label}
-                href={item.href}
-                className={`inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold transition-colors ${isActive ? "text-[#014C38]" : "text-[#014C38]/62 hover:text-[#014C38]"}`}
+                className="inline-flex min-h-11 items-center rounded-full bg-[#014C38] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#014C38]/90"
+                href={loginItem.href}
               >
-                {item.label}
+                {loginItem.label}
               </Link>
-            );
-          })}
-        </nav>
+            </span>
+          ) : null}
+        </div>
 
         <details className="relative lg:hidden">
           <summary className="flex size-12 list-none items-center justify-center rounded-full border border-[#014C38]/12 bg-white text-[#014C38] [&::-webkit-details-marker]:hidden">
             <Menu className="size-5" />
           </summary>
-          <div className="absolute right-0 top-full mt-3 w-[18rem] rounded-[18px] border border-[#014C38]/10 bg-white p-4 shadow-[0_24px_64px_-44px_rgba(1,76,56,0.24)]">
+          <div className="absolute right-0 top-full mt-3 w-[18rem] rounded-2xl border border-[#014C38]/10 bg-white p-4 shadow-[0_24px_64px_-44px_rgba(1,76,56,0.24)]">
             <nav className="flex flex-col gap-4">
-              {marketingNavItems.map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="inline-flex min-h-11 items-center rounded-[14px] px-3 text-sm font-semibold text-[#014C38]/70 transition-colors hover:bg-[#014C38]/5 hover:text-[#014C38]"
+                  className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-[#014C38]/70 transition-colors hover:bg-[#014C38]/5 hover:text-[#014C38]"
                 >
                   {item.label}
                 </Link>
               ))}
+              {showLandingCta && loginItem ? (
+                <Link
+                  className="mt-2 inline-flex min-h-11 items-center justify-center rounded-full bg-[#014C38] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#014C38]/90"
+                  href={loginItem.href}
+                >
+                  {loginItem.label}
+                </Link>
+              ) : null}
             </nav>
           </div>
         </details>

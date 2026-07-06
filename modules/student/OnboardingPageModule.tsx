@@ -23,7 +23,7 @@ function OnboardingPageModule({
       userLabel={session.user.fullName}
     >
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-[28px] border border-primary-100 bg-secondary-900 p-6 text-white shadow-[0_18px_60px_-40px_rgba(17,37,26,0.65)]">
+        <section className="rounded-5xl border border-primary-100 bg-secondary-900 p-6 text-white shadow-[0_18px_60px_-40px_rgba(17,37,26,0.65)]">
           <p className="text-xs tracking-[0.16em] text-accent-300 uppercase">
             UC-02 Onboarding
           </p>

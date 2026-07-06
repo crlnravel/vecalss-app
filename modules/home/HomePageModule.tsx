@@ -78,7 +78,7 @@ function Hero() {
   return (
     <section className="bg-white">
       <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-4 pb-14 pt-3 md:px-8 lg:px-10">
-        <MarketingHeader currentPath="/" />
+        <MarketingHeader currentPath="/" layout="landing" />
 
         <div className="grid flex-1 gap-8 py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.78fr)] lg:items-center lg:py-16">
           <div className="max-w-[720px]">
@@ -210,7 +210,7 @@ function PrinciplesSection() {
           {voyagePrinciples.map((principle, index) => (
             <article
               key={principle.title}
-              className="group min-h-[320px] rounded-[26px] border border-white/14 bg-white/[0.06] p-6 transition duration-300 hover:-translate-y-1 hover:bg-white/[0.09]"
+              className="group min-h-[320px] rounded-4xl border border-white/14 bg-white/[0.06] p-6 transition duration-300 hover:-translate-y-1 hover:bg-white/[0.09]"
             >
               <div className="relative mx-auto h-36 w-36 md:h-44 md:w-44">
                 <Image
@@ -253,7 +253,7 @@ function ProgramsSection() {
           {pathways.map((pathway, index) => (
             <article
               key={pathway.id}
-              className="group relative min-h-[300px] overflow-hidden rounded-[24px] border border-[#014C38]/10 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18 hover:shadow-[0_34px_90px_-74px_rgba(1,76,56,0.5)] md:p-10"
+              className="group relative min-h-[300px] overflow-hidden rounded-4xl border border-[#014C38]/10 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18 hover:shadow-[0_34px_90px_-74px_rgba(1,76,56,0.5)] md:p-10"
             >
               <div className="absolute -bottom-12 -right-10 h-48 w-48 opacity-[0.11] transition duration-300 group-hover:scale-105 md:h-64 md:w-64">
                 <Image
@@ -319,7 +319,7 @@ function ResultsSection() {
           {marqueeItems.map((item, index) => (
             <article
               key={`${item.name}-${index}`}
-              className="mx-3 flex w-[320px] shrink-0 flex-col rounded-[24px] border border-white/12 bg-white p-5 text-[#014C38] shadow-[0_26px_80px_-64px_rgba(0,0,0,0.44)] md:mx-4 md:w-[390px] md:p-6"
+              className="mx-3 flex w-[320px] shrink-0 flex-col rounded-4xl border border-white/12 bg-white p-5 text-[#014C38] shadow-[0_26px_80px_-64px_rgba(0,0,0,0.44)] md:mx-4 md:w-[390px] md:p-6"
             >
               <div className="flex items-center justify-between gap-5">
                 <div className="flex items-center gap-4">
@@ -398,7 +398,7 @@ function TopAlumniSection() {
 
 function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
   return (
-    <article className="group overflow-hidden rounded-[18px] border border-[#014C38]/10 bg-white shadow-[0_18px_44px_-42px_rgba(1,76,56,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
+    <article className="group overflow-hidden rounded-2xl border border-[#014C38]/10 bg-white shadow-[0_18px_44px_-42px_rgba(1,76,56,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#014C38]/18">
       <div className="relative aspect-[4/5] bg-[#014C38]/[0.04]">
         <Image
           alt={`${alumnus.name} profile photo`}
@@ -534,7 +534,7 @@ function BriefingSection() {
 function FinalCTA() {
   return (
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
-      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-8 rounded-[32px] bg-[#014C38] p-8 text-white md:p-12 lg:grid-cols-[1fr_240px] lg:items-center">
+      <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-8 rounded-5xl bg-[#014C38] p-8 text-white md:p-12 lg:grid-cols-[1fr_240px] lg:items-center">
         <div>
           <h2 className="text-5xl font-semibold leading-tight tracking-[-0.05em] md:text-7xl">
             Siap Memulai Misimu?

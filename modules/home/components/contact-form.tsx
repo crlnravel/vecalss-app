@@ -5,7 +5,7 @@ import { contactTopicOptions } from "../data";
 
 function ContactForm() {
   return (
-    <div className="overflow-hidden rounded-[26px] border border-[#014C38]/10 bg-[#014C38]/[0.025] shadow-[0_30px_90px_-72px_rgba(1,76,56,0.42)]">
+    <div className="overflow-hidden rounded-4xl border border-[#014C38]/10 bg-[#014C38]/[0.025] shadow-[0_30px_90px_-72px_rgba(1,76,56,0.42)]">
       <form className="px-6 py-8 md:px-8 lg:px-10 lg:py-10">
         <div className="flex flex-col gap-8">
           <RadioPillGroup
@@ -19,7 +19,7 @@ function ContactForm() {
               <FieldLabel>Nama</FieldLabel>
               <FieldInput
                 autoComplete="name"
-                className="rounded-[14px] border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
+                className="rounded-xl border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
                 name="name"
                 placeholder="Nama lengkap"
                 type="text"
@@ -30,7 +30,7 @@ function ContactForm() {
               <FieldLabel>Email</FieldLabel>
               <FieldInput
                 autoComplete="email"
-                className="rounded-[14px] border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
+                className="rounded-xl border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
                 name="email"
                 placeholder="name@email.com"
                 type="email"
@@ -40,7 +40,7 @@ function ContactForm() {
             <Field className="md:col-span-2">
               <FieldLabel htmlFor="contact-message">Pesan</FieldLabel>
               <FieldTextarea
-                className="min-h-[190px] rounded-[14px] border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
+                className="min-h-[190px] rounded-xl border-[#014C38]/14 bg-white text-[#014C38] placeholder:text-[#014C38]/38"
                 id="contact-message"
                 name="message"
                 placeholder="Ceritakan target, kelas, atau program yang ingin kamu tanyakan."

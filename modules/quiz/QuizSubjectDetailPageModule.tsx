@@ -55,7 +55,7 @@ function QuizSubjectDetailPageModule({
       </div>
 
       <section>
-        <Card className="relative overflow-hidden rounded-[34px] border border-[#dbe8e3] bg-white p-0 gap-0 shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
+        <Card className="relative overflow-hidden rounded-6xl border border-[#dbe8e3] bg-white p-0 gap-0 shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
           <CardHeader className="relative bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,246,0.96)_100%)] px-6 pt-8 pb-8 md:px-10 md:pt-10 md:pb-10">
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute top-0 right-[-8%] h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(239,244,241,0.96)_0%,rgba(239,244,241,0.72)_42%,rgba(239,244,241,0)_74%)] md:top-4 md:h-[42rem] md:w-[42rem]" />

@@ -70,7 +70,7 @@ export default function FaqPageModule() {
                 </div>
               </div>
 
-              <div className="parchment-panel rounded-[28px] p-5 md:p-7">
+              <div className="parchment-panel rounded-5xl p-5 md:p-7">
                 <div className="flex items-center justify-between gap-5 border-b border-secondary-900/12 pb-5">
                   <div>
                     <p className="text-sm font-medium tracking-[0.16em] text-primary-700 uppercase">
@@ -80,7 +80,7 @@ export default function FaqPageModule() {
                       The most common decisions in one place.
                     </h2>
                   </div>
-                  <span className="hidden size-11 shrink-0 items-center justify-center rounded-[8px] bg-primary-50 text-primary-700 md:flex">
+                  <span className="hidden size-11 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700 md:flex">
                     <ArrowRight className="size-5" />
                   </span>
                 </div>
@@ -92,9 +92,9 @@ export default function FaqPageModule() {
                     return (
                       <article
                         key={item.title}
-                        className="grid grid-cols-[44px_1fr] gap-4 rounded-[8px] bg-[#f7faf5] p-4"
+                        className="grid grid-cols-[44px_1fr] gap-4 rounded-md bg-[#f7faf5] p-4"
                       >
-                        <span className="flex size-11 items-center justify-center rounded-[8px] bg-white text-primary-700">
+                        <span className="flex size-11 items-center justify-center rounded-md bg-white text-primary-700">
                           <Icon className="size-5" />
                         </span>
                         <div>
@@ -116,14 +116,14 @@ export default function FaqPageModule() {
 
         <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="grid gap-10 md:grid-cols-[300px_minmax(0,1fr)] md:gap-16">
-            <aside className="rounded-[28px] bg-[rgba(255,250,239,0.72)] p-6 shadow-[0_22px_58px_-44px_rgba(11,18,45,0.16)] md:sticky md:top-8 md:self-start">
+            <aside className="rounded-5xl bg-[rgba(255,250,239,0.72)] p-6 shadow-[0_22px_58px_-44px_rgba(11,18,45,0.16)] md:sticky md:top-8 md:self-start">
               <Badge size="section" variant="accent">
                 Common questions
               </Badge>
               <h2 className="mt-6 text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Straight answers, no maze.
               </h2>
-              <div className="mt-7 rounded-[20px] border border-secondary-900/10 bg-white/72 px-4">
+              <div className="mt-7 rounded-3xl border border-secondary-900/10 bg-white/72 px-4">
                 {supportLanes.map((lane) => (
                   <p
                     key={lane}
@@ -135,7 +135,7 @@ export default function FaqPageModule() {
               </div>
             </aside>
 
-            <div className="parchment-panel rounded-[28px] px-5 md:px-8">
+            <div className="parchment-panel rounded-5xl px-5 md:px-8">
               {faqItems.map((item, index) => (
                 <details
                   key={item.id}
@@ -154,7 +154,7 @@ export default function FaqPageModule() {
 
                     <span
                       aria-hidden="true"
-                      className="mt-1 flex size-9 shrink-0 items-center justify-center rounded-[8px] border border-secondary-900/14 bg-[#fbfcf8] text-secondary-900"
+                      className="mt-1 flex size-9 shrink-0 items-center justify-center rounded-md border border-secondary-900/14 bg-[#fbfcf8] text-secondary-900"
                     >
                       <Plus className="size-4 group-open:hidden" />
                       <Minus className="hidden size-4 group-open:block" />
@@ -173,7 +173,7 @@ export default function FaqPageModule() {
         </section>
 
         <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
-          <div className="navy-panel relative grid gap-8 overflow-hidden rounded-[32px] p-7 text-white md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-11">
+          <div className="navy-panel relative grid gap-8 overflow-hidden rounded-5xl p-7 text-white md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-11">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,197,24,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.07),transparent_28%)]" />
             <div className="relative">
               <p className="text-sm font-medium tracking-[0.16em] text-accent-300 uppercase">

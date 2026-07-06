@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Home, LogOut, Settings, UserRound } from "lucide-react";
+import { Bell, LogOut, Settings, UserRound } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,10 @@ import type { SessionContext } from "@/lib/auth/types";
 import { logoutAction } from "@/modules/auth/actions";
 import { getInitials } from "@/modules/student/components/student-sidebar";
 
-type StudentAccountMenuItem = "home" | "notifications";
+type StudentAccountMenuItem = "notifications";
 
 function StudentAccountMenu({
-  extraItem = "home",
+  extraItem,
   session,
 }: {
   extraItem?: StudentAccountMenuItem;
@@ -70,17 +70,15 @@ function StudentAccountMenu({
               <Bell />
               Notifikasi
             </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem render={<Link href="/dashboard" />}>
-              <Home />
-              Beranda siswa
-            </DropdownMenuItem>
-          )}
+          ) : null}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <form action={logoutAction}>
           <input name="audience" type="hidden" value="student" />
-          <DropdownMenuItem render={<button className="w-full" type="submit" />}>
+          <DropdownMenuItem
+            className="bg-primary-100 text-secondary-950 hover:bg-primary-200 focus:bg-primary-200 focus:text-secondary-950"
+            render={<button className="w-full" type="submit" />}
+          >
             <LogOut />
             Keluar
           </DropdownMenuItem>

@@ -127,46 +127,46 @@ function QuizOngoingPageModule({
     <div className="min-h-svh bg-white text-secondary-900">
       <Dialog onOpenChange={setIsExitDialogOpen} open={isExitDialogOpen}>
         <DialogContent
-          className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[34px] bg-white p-0 shadow-[0_40px_120px_-48px_rgba(15,23,42,0.35)] sm:max-w-[900px]"
+          className="max-w-[calc(100%-1.5rem)] gap-0 overflow-hidden rounded-5xl bg-white p-0 shadow-[0_32px_90px_-40px_rgba(15,23,42,0.32)] sm:max-w-[760px]"
           showCloseButton={false}
         >
-          <div className="flex items-start gap-5 px-7 py-8 md:px-11 md:py-10">
-            <div className="flex size-24 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444]">
-              <AlertTriangle className="size-11" strokeWidth={2.2} />
+          <div className="flex items-start gap-4 px-6 py-7 md:px-8 md:py-8">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444] md:size-22">
+              <AlertTriangle className="size-9 md:size-10" strokeWidth={2.2} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-4">
-                <DialogTitle className="text-3xl leading-tight font-semibold text-secondary-900 md:text-5xl">
+                <DialogTitle className="text-2xl leading-tight font-semibold text-secondary-900 md:text-4xl">
                   Keluar dari Latihan?
                 </DialogTitle>
                 <button
                   aria-label="Tutup modal"
-                  className="inline-flex size-11 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-secondary-50 hover:text-secondary-500"
+                  className="inline-flex size-10 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-secondary-50 hover:text-secondary-500"
                   onClick={() => setIsExitDialogOpen(false)}
                   type="button"
                 >
-                  <span className="text-4xl leading-none">×</span>
+                  <span className="text-3xl leading-none">×</span>
                 </button>
               </div>
 
-              <DialogDescription className="mt-4 max-w-[26ch] text-2xl leading-[1.55] font-medium text-secondary-500 md:text-3xl">
+              <DialogDescription className="mt-3 max-w-[22ch] text-lg leading-[1.55] font-medium text-secondary-500 md:text-2xl">
                 Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
                 Sayang banget kan!🥲
               </DialogDescription>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-4 border-t border-primary-100 bg-[#fbfbfb] px-7 py-7 md:px-11 md:py-8">
+          <div className="flex items-center justify-end gap-3 border-t border-primary-100 bg-[#fbfbfb] px-6 py-6 md:px-8 md:py-7">
             <button
-              className="inline-flex h-16 min-w-[170px] items-center justify-center rounded-full px-8 text-2xl font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
+              className="inline-flex h-12 min-w-[128px] items-center justify-center rounded-full px-6 text-lg font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700 md:h-14 md:min-w-[150px] md:text-xl"
               onClick={() => setIsExitDialogOpen(false)}
               type="button"
             >
               Batal
             </button>
             <button
-              className="inline-flex h-16 min-w-[230px] items-center justify-center rounded-full bg-[#ff0008] px-10 text-2xl font-semibold text-white transition-colors hover:bg-[#e10007]"
+              className="inline-flex h-12 min-w-[176px] items-center justify-center rounded-full bg-[#ff0008] px-7 text-lg font-semibold text-white transition-colors hover:bg-[#e10007] md:h-14 md:min-w-[206px] md:text-xl"
               onClick={() => router.push(`/quiz/${subjectSlug}`)}
               type="button"
             >
@@ -348,7 +348,7 @@ function QuestionMarker({
   return (
     <button
       className={cn(
-        "flex h-12 items-center justify-center rounded-[16px] border text-sm font-semibold transition-all duration-200",
+        "flex h-12 items-center justify-center rounded-2xl border text-sm font-semibold transition-all duration-200",
         marker.state === "active" &&
           "border-[#9fdef9] bg-[#ecf8ff] text-[#3f95bf] shadow-[0_12px_28px_-18px_rgba(127,208,246,0.55)]",
         marker.state === "answered" &&
@@ -432,7 +432,7 @@ function AnswerOption({
   return (
     <button
       className={cn(
-        "group flex w-full items-start gap-4 rounded-[26px] border bg-white px-5 py-5 text-left shadow-none transition-all duration-200 hover:border-[#c9ebfa] hover:bg-[#f8fcff] focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-6",
+        "group flex w-full items-start gap-4 rounded-4xl border bg-white px-5 py-5 text-left shadow-none transition-all duration-200 hover:border-[#c9ebfa] hover:bg-[#f8fcff] focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-6",
         selected ? "border-[#8fd9fb] bg-[#f3fbff]" : "border-primary-100",
       )}
       onClick={onClick}

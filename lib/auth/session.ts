@@ -123,6 +123,23 @@ async function getSessionContext() {
     return null;
   }
 
+  const isStudent = session.user.roleAssignments.some(
+    (assignment) => assignment.revokedAt === null && assignment.role === RoleName.student,
+  );
+
+  if (isStudent && !session.user.studentProfile) {
+    session.user.studentProfile = await prisma.studentProfile.upsert({
+      create: {
+        displayName: session.user.fullName,
+        userId: session.user.id,
+      },
+      update: {},
+      where: {
+        userId: session.user.id,
+      },
+    });
+  }
+
   const mapped: SessionContext = {
     expiresAt: session.expiresAt,
     sessionId: session.id,

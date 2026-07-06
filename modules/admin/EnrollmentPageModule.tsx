@@ -59,7 +59,7 @@ function EnrollmentPageModule({
         {notice ? <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice> : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <section className="overflow-hidden rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]">
+        <section className="overflow-hidden rounded-5xl border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">
@@ -75,7 +75,7 @@ function EnrollmentPageModule({
 
           <div className="mt-6 space-y-4">
             {students.length === 0 ? (
-              <div className="parchment-panel rounded-[28px] px-6 py-8 md:px-8 md:py-10">
+              <div className="parchment-panel rounded-5xl px-6 py-8 md:px-8 md:py-10">
                 <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">
                   Empty roster
                 </p>
@@ -94,7 +94,7 @@ function EnrollmentPageModule({
               students.map((student) => (
                 <article
                   className={cn(
-                    "overflow-hidden rounded-[24px] border border-primary-100 p-5 transition-shadow",
+                    "overflow-hidden rounded-4xl border border-primary-100 p-5 transition-shadow",
                     focus === student.id && "shadow-[0_0_0_2px_rgba(26,107,60,0.18)]",
                   )}
                   id={`student-${student.id}`}

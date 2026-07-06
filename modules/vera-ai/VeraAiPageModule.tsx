@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -501,7 +501,7 @@ function ContextPanel({
             ))}
           </div>
         ) : (
-          <div className="rounded-[20px] border border-dashed border-primary-200 bg-white/76 px-4 py-5 text-sm text-secondary-500">
+          <div className="rounded-3xl border border-dashed border-primary-200 bg-white/76 px-4 py-5 text-sm text-secondary-500">
             Tidak ada konteks aktif pada filter ini.
           </div>
         )}
@@ -588,7 +588,7 @@ function AddContextDialog() {
   }, [materialQuery]);
 
   return (
-    <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[760px] gap-0 overflow-hidden rounded-[30px] border border-primary-100 bg-[#f8fffb] p-0 text-secondary-950 shadow-[0_34px_120px_-50px_rgba(1,76,56,0.55)] sm:max-w-[760px]">
+    <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[760px] gap-0 overflow-hidden rounded-5xl border border-primary-100 bg-[#f8fffb] p-0 text-secondary-950 shadow-[0_34px_120px_-50px_rgba(1,76,56,0.55)] sm:max-w-[760px]">
       <div className="border-b border-primary-100 px-5 py-5 md:px-6">
         <DialogHeader className="gap-1">
           <DialogTitle className="text-xl font-semibold text-secondary-950">
@@ -603,17 +603,31 @@ function AddContextDialog() {
 
       <Tabs defaultValue="practice" className="min-h-0 gap-0">
         <div className="border-b border-primary-100 px-5 py-3 md:px-6">
-          <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl bg-primary-50 p-1">
-            <TabsTrigger value="practice">Hasil Latihan</TabsTrigger>
-            <TabsTrigger value="material">Materi</TabsTrigger>
-            <TabsTrigger value="document">Dokumen</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-primary-50 p-1">
+            <TabsTrigger
+              className="!h-auto !min-h-10 rounded-lg px-3 py-2 text-sm leading-5 data-[state=active]:shadow-sm"
+              value="practice"
+            >
+              Hasil Latihan
+            </TabsTrigger>
+            <TabsTrigger
+              className="!h-auto !min-h-10 rounded-lg px-3 py-2 text-sm leading-5 data-[state=active]:shadow-sm"
+              value="material"
+            >
+              Materi
+            </TabsTrigger>
+            <TabsTrigger
+              className="!h-auto !min-h-10 rounded-lg px-3 py-2 text-sm leading-5 data-[state=active]:shadow-sm"
+              value="document"
+            >
+              Dokumen
+            </TabsTrigger>
           </TabsList>
         </div>
 
         <div className="max-h-[62vh] overflow-y-auto px-5 py-5 md:px-6">
           <TabsContent className="m-0" value="practice">
-            <ContextTypeIntro typeId="practice" />
-            <div className="mt-4 grid gap-3">
+            <div className="grid gap-3">
               {veraPracticeHistory.map((item) => (
                 <PracticeContextOption item={item} key={item.id} />
               ))}
@@ -621,8 +635,7 @@ function AddContextDialog() {
           </TabsContent>
 
           <TabsContent className="m-0" value="material">
-            <ContextTypeIntro typeId="material" />
-            <div className="relative mt-4">
+            <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
               <Input
                 className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
@@ -637,7 +650,7 @@ function AddContextDialog() {
                   <MaterialContextOption item={item} key={item.id} />
                 ))
               ) : (
-                <div className="rounded-[22px] border border-dashed border-primary-200 bg-white/72 p-5 text-center text-sm leading-6 text-secondary-500">
+                <div className="rounded-3xl border border-dashed border-primary-200 bg-white/72 p-5 text-center text-sm leading-6 text-secondary-500">
                   Materi tidak ditemukan.
                 </div>
               )}
@@ -645,8 +658,7 @@ function AddContextDialog() {
           </TabsContent>
 
           <TabsContent className="m-0" value="document">
-            <ContextTypeIntro typeId="document" />
-            <label className="mt-4 flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-[26px] border border-dashed border-primary-300 bg-white/80 p-6 text-center transition-colors hover:border-primary-500 hover:bg-primary-50/70">
+            <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-4xl border border-dashed border-primary-300 bg-white/80 p-6 text-center transition-colors hover:border-primary-500 hover:bg-primary-50/70">
               <input
                 accept=".pdf,.txt,text/plain,application/pdf"
                 className="sr-only"
@@ -674,25 +686,10 @@ function AddContextDialog() {
   );
 }
 
-function ContextTypeIntro({ typeId }: { typeId: VeraContextTypeId }) {
-  const contextType = getContextType(typeId);
-
-  return (
-    <div className="rounded-[22px] border border-primary-100 bg-white/78 p-4">
-      <p className="text-sm font-semibold text-primary-900">
-        {contextType.label}
-      </p>
-      <p className="mt-1 text-sm leading-6 text-secondary-500">
-        {contextType.description}
-      </p>
-    </div>
-  );
-}
-
 function PracticeContextOption({ item }: { item: VeraPracticeHistory }) {
   return (
     <button
-      className="group flex w-full items-center gap-3 rounded-[22px] border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
+      className="group flex w-full items-center gap-3 rounded-3xl border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
       type="button"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
@@ -719,7 +716,7 @@ function PracticeContextOption({ item }: { item: VeraPracticeHistory }) {
 function MaterialContextOption({ item }: { item: VeraMaterialHistory }) {
   return (
     <button
-      className="group flex w-full items-center gap-3 rounded-[22px] border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
+      className="group flex w-full items-center gap-3 rounded-3xl border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
       type="button"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
@@ -915,7 +912,7 @@ function StudioPanel({
       <PanelHeader title="Studio Vera" />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className="grid gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {veraStudioTools.map((tool) => (
             <StudioGenerateRow
               key={tool.id}
@@ -1046,21 +1043,24 @@ function StudioGenerateRow({
   tool: VeraStudioTool;
   onGenerate: () => void;
 }) {
+  const ToolIcon = toolIcons[tool.id];
+
   return (
     <button
-      className="flex items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white/84 px-3 py-3 text-left transition-colors hover:border-primary-300 hover:bg-white"
+      className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-white/84 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white hover:shadow-[0_18px_46px_-38px_rgba(1,76,56,0.32)]"
       onClick={onGenerate}
       type="button"
     >
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-secondary-950">
+      <span className="inline-flex size-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+        <ToolIcon className="size-4" aria-hidden="true" />
+      </span>
+
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 text-sm font-semibold leading-5 text-secondary-950">
           {tool.title}
         </span>
-        <span className="mt-1 block text-xs text-secondary-500">
-          Hasil akan masuk ke Studio.
-        </span>
+        <ChevronRight className="size-4 shrink-0 text-primary-700" />
       </span>
-      <ChevronRight className="size-4 shrink-0 text-primary-700" />
     </button>
   );
 }
@@ -1076,21 +1076,35 @@ function StudioArtifactCard({
   onOpen: () => void;
   onRequestDelete: () => void;
 }) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpen();
+    }
+  };
+
   return (
     <div
+      aria-label={`Buka hasil ${tool.outputTitle}`}
       className={cn(
-        "rounded-2xl border p-3 text-left transition-all",
+        "group rounded-2xl border p-3 text-left transition-all duration-300",
+        "cursor-pointer hover:-translate-y-1 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.42)]",
         active
           ? "border-primary-300 bg-white"
           : "border-primary-100 bg-white/84 hover:border-primary-200 hover:bg-white",
       )}
+      onClick={onOpen}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
     >
-      <div className="flex items-start justify-between gap-3">
-        <button
-          className="min-w-0 flex-1 text-left"
-          onClick={onOpen}
-          type="button"
-        >
+      <div
+        className={cn(
+          "flex items-start justify-between gap-3 transition-transform duration-300",
+          active ? "translate-y-0" : "group-hover:-translate-y-0.5",
+        )}
+      >
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-secondary-950">
             {tool.outputTitle}
           </p>
@@ -1098,22 +1112,21 @@ function StudioArtifactCard({
           <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-600">
             {tool.outputBody}
           </p>
-        </button>
+        </div>
 
         <button
           aria-label={`Hapus hasil ${tool.outputTitle}`}
           className="flex size-8 shrink-0 items-center justify-center rounded-full text-secondary-400 transition-colors hover:bg-primary-50 hover:text-primary-800"
-          onClick={onRequestDelete}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRequestDelete();
+          }}
           type="button"
         >
           <Trash2 className="size-4" />
         </button>
       </div>
 
-      <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-primary-800">
-        <span>Buka di workspace</span>
-        <ChevronRight className="size-3.5" />
-      </div>
     </div>
   );
 }
