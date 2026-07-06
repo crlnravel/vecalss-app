@@ -1,11 +1,5 @@
-import {
-  Camera,
-  ChevronDown,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldInput,
@@ -20,6 +14,7 @@ import type {
   University,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 type SettingsProfile = StudentProfile & {
@@ -175,27 +170,7 @@ function SettingsPageModule({
               </Field>
             </div>
 
-            <div className="flex flex-col items-start gap-3 xl:items-center xl:pt-2">
-              <Avatar className="size-32 border border-primary-100 shadow-[0_18px_44px_-24px_rgba(1,76,56,0.32)]">
-                <AvatarFallback className="bg-[linear-gradient(135deg,#d7ebe3_0%,#7abda8_100%)] text-2xl font-semibold text-primary-800">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex items-center gap-2">
-                <Button size="sm" type="button" variant="brandOutline">
-                  <Camera className="size-4" />
-                  Ganti foto
-                </Button>
-                <Button
-                  aria-label="Hapus foto"
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            </div>
+            <ProfilePhotoEditor initials={initials} />
           </div>
         </SettingsSection>
 

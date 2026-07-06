@@ -95,15 +95,6 @@ const contextTypeIcons: Record<VeraContextTypeId, LucideIcon> = {
   document: FileText,
 };
 
-const toolToneClass: Record<VeraStudioTool["tone"], string> = {
-  cream: "bg-[#fff8e8] text-[#6b5620] ring-[#f1d88a]/70",
-  gold: "bg-[#fff3bc] text-[#6a5300] ring-[#f5c518]/70",
-  green: "bg-[#e4f6eb] text-[#014c38] ring-[#96d9b5]/70",
-  mint: "bg-[#dff8ef] text-[#0b624d] ring-[#8bdcc1]/70",
-  rose: "bg-[#fff0ee] text-[#70413c] ring-[#f2b8ae]/70",
-  sky: "bg-[#e9f5ff] text-[#245a78] ring-[#b4daf2]/70",
-};
-
 const fallbackContextType = veraContextTypes[0];
 
 const initialSelectedSourceIds = [
@@ -207,9 +198,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       : initialGeneratedTools,
   );
   const [messages, setMessages] = useState<VeraMessage[]>(initialMessages);
-  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
-    requestedTool ?? "analysis",
-  );
+  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const selectedSources = useMemo(
@@ -244,7 +233,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       return activeArtifactId;
     }
 
-    return generatedArtifacts[0]?.id ?? null;
+    return null;
   }, [activeArtifactId, generatedArtifacts]);
 
   const activeArtifact = useMemo(
@@ -302,7 +291,6 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       return;
     }
 
-    setActiveArtifactId(toolId);
     setGeneratedTools((current) => moveItemToFront(current, toolId));
   }
 
@@ -368,7 +356,14 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       <div className="relative flex min-h-svh flex-col lg:h-svh">
         <VeraTopBar session={session} />
 
-        <main className="grid flex-1 gap-2 px-2 pb-2 md:px-3 md:pb-3 lg:min-h-0 lg:grid-cols-[272px_minmax(0,1fr)_312px] xl:grid-cols-[292px_minmax(640px,1fr)_324px]">
+        <main
+          className={cn(
+            "grid flex-1 gap-2 px-2 pb-2 md:px-3 md:pb-3 lg:min-h-0",
+            activeArtifact
+              ? "lg:grid-cols-[272px_minmax(0,1fr)_minmax(420px,40vw)] xl:grid-cols-[292px_minmax(560px,1fr)_minmax(520px,44vw)]"
+              : "lg:grid-cols-[272px_minmax(0,1fr)_312px] xl:grid-cols-[292px_minmax(640px,1fr)_324px]",
+          )}
+        >
           <ContextPanel
             activeVisibleSources={activeVisibleSources}
             sourceFilter={sourceFilter}
@@ -386,6 +381,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
             activeArtifactId={resolvedActiveArtifactId}
             generatedArtifacts={generatedArtifacts}
             selectedSources={selectedSources}
+            onClosePreview={() => setActiveArtifactId(null)}
             onGenerateTool={handleToolRequest}
             onOpenArtifact={openArtifact}
             onRequestDeleteArtifact={requestDeleteArtifact}
@@ -872,6 +868,7 @@ function StudioPanel({
   activeArtifactId,
   generatedArtifacts,
   selectedSources,
+  onClosePreview,
   onGenerateTool,
   onOpenArtifact,
   onRequestDeleteArtifact,
@@ -880,16 +877,36 @@ function StudioPanel({
   activeArtifactId: VeraToolId | null;
   generatedArtifacts: VeraStudioTool[];
   selectedSources: VeraContextSource[];
+  onClosePreview: () => void;
   onGenerateTool: (toolId: VeraToolId) => void;
   onOpenArtifact: (toolId: VeraToolId) => void;
   onRequestDeleteArtifact: (tool: VeraStudioTool) => void;
 }) {
+  if (activeArtifact) {
+    return (
+      <WorkspacePanel className="order-3 lg:min-h-0">
+        <PanelHeader
+          action={
+            <Button className="rounded-full" onClick={onClosePreview} size="sm" variant="ghost">
+              Kembali
+            </Button>
+          }
+          title="Studio Vera"
+        />
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <StudioArtifactPreview selectedSources={selectedSources} tool={activeArtifact} />
+        </div>
+      </WorkspacePanel>
+    );
+  }
+
   return (
     <WorkspacePanel className="order-3 lg:min-h-0">
       <PanelHeader title="Studio Vera" />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           {veraStudioTools.map((tool) => (
             <StudioGenerateRow
               key={tool.id}
@@ -900,25 +917,10 @@ function StudioPanel({
         </div>
 
         <section className="mt-6 border-t border-primary-100 pt-6">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-              Preview aktif
-            </p>
-          </div>
-
-          <div className="mt-3">
-            <StudioArtifactPreview
-              selectedSources={selectedSources}
-              tool={activeArtifact}
-            />
-          </div>
-        </section>
-
-        <section className="mt-6 border-t border-primary-100 pt-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-                Library hasil
+                Hasil
               </p>
             </div>
           </div>
@@ -950,48 +952,29 @@ function StudioArtifactPreview({
 }) {
   if (!tool) {
     return (
-      <div className="rounded-[24px] border border-dashed border-primary-200 bg-white/76 px-4 py-5 text-sm leading-6 text-secondary-500">
+      <div className="text-sm leading-6 text-secondary-500">
         Belum ada hasil yang dipilih. Generate output dari Studio Vera atau minta Vera menyiapkannya lewat chat.
       </div>
     );
   }
 
   const mode = veraToolModes[tool.id];
-  const Icon = toolIcons[tool.id];
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-primary-100 bg-white shadow-[0_18px_60px_-36px_rgba(1,76,56,0.45)]">
-      <div className="border-b border-primary-100 bg-[linear-gradient(135deg,rgba(245,197,24,0.12),rgba(228,246,235,0.68),rgba(255,255,255,0.96))] px-4 py-4">
-        <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl ring-1",
-              toolToneClass[tool.tone],
-            )}
-          >
-            <Icon className="size-4.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-              {tool.title}
-            </p>
-            <h3 className="mt-1 text-lg font-semibold leading-tight text-secondary-950">
-              {tool.outputTitle}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-secondary-700">
-              {tool.outputBody}
-            </p>
-          </div>
-        </div>
+    <div className="flex min-h-full flex-col">
+      <div className="border-b border-primary-100 pb-4">
+        <h3 className="text-xl font-semibold leading-tight text-secondary-950">
+          {tool.outputTitle}
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-secondary-700">
+          {tool.outputBody}
+        </p>
       </div>
 
-      <div className="space-y-5 px-4 py-4">
-        <div className="grid gap-2 sm:grid-cols-3">
+      <div className="space-y-6 py-5">
+        <div className="grid gap-4 sm:grid-cols-3">
           {mode.metrics.map((metric) => (
-            <div
-              className="rounded-2xl border border-primary-100 bg-primary-50/45 px-3 py-3"
-              key={metric.label}
-            >
+            <div key={metric.label}>
               <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
                 {metric.label}
               </p>
@@ -1003,33 +986,30 @@ function StudioArtifactPreview({
         </div>
 
         <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-            Ringkasan hasil
+          <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+            Ringkasan
           </p>
-          <p className="mt-2 text-sm leading-6 text-secondary-700">
+          <p className="mt-2 text-sm leading-7 text-secondary-700">
             {mode.description}
           </p>
         </div>
 
         <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-            Detail utama
+          <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+            Detail
           </p>
-          <div className="mt-2 grid gap-2">
+          <div className="mt-3 space-y-3">
             {mode.highlights.map((highlight) => (
-              <div
-                className="rounded-2xl border border-primary-100 bg-white/90 px-3 py-3 text-sm leading-6 text-secondary-700"
-                key={highlight}
-              >
+              <p className="text-sm leading-7 text-secondary-700" key={highlight}>
                 {highlight}
-              </div>
+              </p>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-            Konteks dipakai
+          <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+            Konteks Dipakai
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {selectedSources.map((source) => (
@@ -1054,27 +1034,21 @@ function StudioGenerateRow({
   tool: VeraStudioTool;
   onGenerate: () => void;
 }) {
-  const Icon = toolIcons[tool.id];
-
   return (
     <button
-      className="flex items-center gap-2.5 rounded-2xl border border-primary-100 bg-white/84 px-3 py-2.5 text-left transition-colors hover:border-primary-300 hover:bg-white"
+      className="flex items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white/84 px-3 py-3 text-left transition-colors hover:border-primary-300 hover:bg-white"
       onClick={onGenerate}
       type="button"
     >
-      <span
-        className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-xl ring-1",
-          toolToneClass[tool.tone],
-        )}
-      >
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold leading-snug text-secondary-950">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-secondary-950">
           {tool.title}
         </span>
+        <span className="mt-1 block text-xs text-secondary-500">
+          Hasil akan masuk ke Studio.
+        </span>
       </span>
+      <ChevronRight className="size-4 shrink-0 text-primary-700" />
     </button>
   );
 }
@@ -1090,8 +1064,6 @@ function StudioArtifactCard({
   onOpen: () => void;
   onRequestDelete: () => void;
 }) {
-  const Icon = toolIcons[tool.id];
-
   return (
     <div
       className={cn(
@@ -1103,19 +1075,11 @@ function StudioArtifactCard({
     >
       <div className="flex items-start justify-between gap-3">
         <button className="min-w-0 flex-1 text-left" onClick={onOpen} type="button">
-          <span
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
-              toolToneClass[tool.tone],
-            )}
-          >
-            <Icon className="size-3.5" />
-            {tool.badge}
-          </span>
-          <p className="mt-3 text-sm font-semibold text-secondary-950">
+          <p className="text-sm font-semibold text-secondary-950">
             {tool.outputTitle}
           </p>
-          <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-secondary-600">
+          <p className="mt-1 text-xs text-secondary-500">{tool.title}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-600">
             {tool.outputBody}
           </p>
         </button>
