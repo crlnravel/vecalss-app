@@ -109,16 +109,14 @@ const initialMessages: VeraMessage[] = [
   {
     id: "msg-brief",
     role: "vera",
-    body:
-      "Aku sudah membaca tryout terakhir, modul rasio, dan rangkuman PK pribadimu. Fokus yang paling dekat saat ini masih simpulan implisit dan rasio dua langkah, jadi chat ini kita pakai untuk ngobrol dan menyusun langkah belajarnya.",
+    body: "Aku sudah membaca tryout terakhir, modul rasio, dan rangkuman PK pribadimu. Fokus yang paling dekat saat ini masih simpulan implisit dan rasio dua langkah, jadi chat ini kita pakai untuk ngobrol dan menyusun langkah belajarnya.",
     createdAt: "Baru saja",
     citations: ["Tryout SNBT 04", "Modul Rasio Dasar", "Rangkuman PK Pribadi"],
   },
   {
     id: "msg-follow-up",
     role: "vera",
-    body:
-      "Kalau kamu butuh output belajar yang rapi, bilang saja. Aku akan siapkan hasilnya di Studio Vera supaya chat tetap bersih.",
+    body: "Kalau kamu butuh output belajar yang rapi, bilang saja. Aku akan siapkan hasilnya di Studio Vera supaya chat tetap bersih.",
     createdAt: "Baru saja",
   },
 ];
@@ -139,9 +137,7 @@ function moveItemToFront<T extends string>(items: T[], nextItem: T) {
 function isToolId(value: string | null): value is VeraToolId {
   return Boolean(
     value &&
-      ["analysis", "route", "drill", "review", "ptn", "summary"].includes(
-        value,
-      ),
+    ["analysis", "route", "drill", "review", "ptn", "summary"].includes(value),
   );
 }
 
@@ -198,12 +194,16 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       : initialGeneratedTools,
   );
   const [messages, setMessages] = useState<VeraMessage[]>(initialMessages);
-  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(null);
+  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
+    null,
+  );
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const selectedSources = useMemo(
     () =>
-      veraContextSources.filter((source) => selectedSourceIds.includes(source.id)),
+      veraContextSources.filter((source) =>
+        selectedSourceIds.includes(source.id),
+      ),
     [selectedSourceIds],
   );
 
@@ -238,7 +238,8 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
 
   const activeArtifact = useMemo(
     () =>
-      generatedArtifacts.find((tool) => tool.id === resolvedActiveArtifactId) ?? null,
+      generatedArtifacts.find((tool) => tool.id === resolvedActiveArtifactId) ??
+      null,
     [generatedArtifacts, resolvedActiveArtifactId],
   );
 
@@ -297,7 +298,9 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
   function handleToolRequest(toolId: VeraToolId) {
     const tool = veraStudioTools.find((item) => item.id === toolId);
     const mode = veraToolModes[toolId];
-    const sourceTitles = selectedSources.slice(0, 3).map((source) => source.title);
+    const sourceTitles = selectedSources
+      .slice(0, 3)
+      .map((source) => source.title);
 
     if (!tool) {
       return;
@@ -459,7 +462,9 @@ function ContextPanel({
       <div className="border-b border-primary-100/70 px-4 py-3">
         <Dialog>
           <DialogTrigger
-            render={<Button className="w-full rounded-xl" size="sm" variant="brand" />}
+            render={
+              <Button className="w-full rounded-xl" size="sm" variant="brand" />
+            }
           >
             <Plus data-icon="inline-start" />
             Tambah konteks
@@ -770,11 +775,7 @@ function ChatWorkspace({
   );
 }
 
-function MessageCard({
-  message,
-}: {
-  message: VeraMessage;
-}) {
+function MessageCard({ message }: { message: VeraMessage }) {
   const isStudent = message.role === "student";
 
   return (
@@ -887,7 +888,12 @@ function StudioPanel({
       <WorkspacePanel className="order-3 lg:min-h-0">
         <PanelHeader
           action={
-            <Button className="rounded-full" onClick={onClosePreview} size="sm" variant="ghost">
+            <Button
+              className="rounded-full"
+              onClick={onClosePreview}
+              size="sm"
+              variant="ghost"
+            >
               Kembali
             </Button>
           }
@@ -895,7 +901,10 @@ function StudioPanel({
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          <StudioArtifactPreview selectedSources={selectedSources} tool={activeArtifact} />
+          <StudioArtifactPreview
+            selectedSources={selectedSources}
+            tool={activeArtifact}
+          />
         </div>
       </WorkspacePanel>
     );
@@ -937,7 +946,6 @@ function StudioPanel({
             ))}
           </div>
         </section>
-
       </div>
     </WorkspacePanel>
   );
@@ -953,7 +961,8 @@ function StudioArtifactPreview({
   if (!tool) {
     return (
       <div className="text-sm leading-6 text-secondary-500">
-        Belum ada hasil yang dipilih. Generate output dari Studio Vera atau minta Vera menyiapkannya lewat chat.
+        Belum ada hasil yang dipilih. Generate output dari Studio Vera atau
+        minta Vera menyiapkannya lewat chat.
       </div>
     );
   }
@@ -1000,7 +1009,10 @@ function StudioArtifactPreview({
           </p>
           <div className="mt-3 space-y-3">
             {mode.highlights.map((highlight) => (
-              <p className="text-sm leading-7 text-secondary-700" key={highlight}>
+              <p
+                className="text-sm leading-7 text-secondary-700"
+                key={highlight}
+              >
                 {highlight}
               </p>
             ))}
@@ -1074,7 +1086,11 @@ function StudioArtifactCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <button className="min-w-0 flex-1 text-left" onClick={onOpen} type="button">
+        <button
+          className="min-w-0 flex-1 text-left"
+          onClick={onOpen}
+          type="button"
+        >
           <p className="text-sm font-semibold text-secondary-950">
             {tool.outputTitle}
           </p>
@@ -1111,8 +1127,7 @@ function DeleteConfirmationDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const title =
-    target?.kind === "artifact" ? "Hapus hasil?" : "Hapus konteks?";
+  const title = target?.kind === "artifact" ? "Hapus hasil?" : "Hapus konteks?";
   const description =
     target?.kind === "artifact"
       ? `Hasil "${target.label}" akan dihapus dari daftar hasil.`

@@ -176,11 +176,11 @@ function AboutSection() {
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-14 lg:grid-cols-[0.86fr_1fr] lg:items-center">
         <div className="relative min-h-[300px] md:min-h-[500px]">
           <Image
-            alt="Ilustrasi paus Vecalss"
+            alt="Variasi maskot Vecalss"
             fill
             className="object-contain object-center drop-shadow-[0_34px_70px_rgba(1,76,56,0.14)] lg:object-left"
             sizes="(min-width: 2048px) 1045px, 120vw"
-            src="/brand/voyage-assets/paus.png"
+            src="/brand/voyage-assets/mascot-about-variation.png"
           />
         </div>
 
