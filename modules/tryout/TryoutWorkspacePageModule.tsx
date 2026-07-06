@@ -37,7 +37,7 @@ function TryoutWorkspacePageModule({ session }: { session: SessionContext }) {
         {tryoutSections.map((section) => (
           <section className="scroll-mt-28" id={section.id} key={section.id}>
             <div>
-              <h2 className="text-[30px] leading-tight font-semibold text-secondary-900 md:text-[36px]">
+              <h2 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
                 {section.title}
               </h2>
             </div>
@@ -61,7 +61,7 @@ function TryoutWorkspacePageModule({ session }: { session: SessionContext }) {
                       width={1920}
                     />
                     {tryout.isNew ? (
-                      <span className="absolute top-4 right-4 rounded-full bg-[#effdfc] px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-[#14938d] uppercase shadow-[0_10px_24px_-16px_rgba(20,147,141,0.65)]">
+                      <span className="absolute top-4 right-4 rounded-full bg-[#effdfc] px-3 py-1 text-xs font-semibold tracking-[0.12em] text-[#14938d] uppercase shadow-[0_10px_24px_-16px_rgba(20,147,141,0.65)]">
                         Baru
                       </span>
                     ) : null}

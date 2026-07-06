@@ -35,7 +35,6 @@ function StudentWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
   children,
-  dailyMissionBadge,
   mainClassName,
   notificationItems = studentNotificationItems,
   searchPlaceholder = "Cari materi, video, atau topik...",
@@ -46,7 +45,6 @@ function StudentWorkspaceShell({
   activeLabel: string;
   breadcrumbLabel: string;
   children: React.ReactNode;
-  dailyMissionBadge?: string;
   mainClassName?: string;
   notificationItems?: StudentNotificationItem[];
   searchPlaceholder?: string;
@@ -62,7 +60,6 @@ function StudentWorkspaceShell({
       <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
         <StudentSidebar
           activeLabel={activeLabel}
-          dailyMissionBadge={dailyMissionBadge}
           footerLabel={sidebarFooterLabel}
           fullName={session.user.fullName}
           notificationBadge={

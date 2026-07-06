@@ -52,11 +52,11 @@ export default function FaqPageModule() {
                   FAQ
                 </Badge>
 
-                <h1 className="mt-7 max-w-[840px] text-[42px] leading-[1.03] font-medium text-secondary-900 md:text-[70px]">
+                <h1 className="mt-7 max-w-[840px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
                   Clear answers before you choose a study path.
                 </h1>
 
-                <p className="mt-6 max-w-[660px] text-[18px] leading-7 text-secondary-900/78 md:text-[21px] md:leading-8">
+                <p className="mt-6 max-w-[660px] text-lg leading-7 text-secondary-900/78 md:text-2xl md:leading-8">
                   A focused guide to Vecalss programs, Vera AI support, tryouts,
                   analytics, and the first step for students who want a more
                   structured prep routine.
@@ -73,10 +73,10 @@ export default function FaqPageModule() {
               <div className="parchment-panel rounded-[28px] p-5 md:p-7">
                 <div className="flex items-center justify-between gap-5 border-b border-secondary-900/12 pb-5">
                   <div>
-                    <p className="text-[13px] font-medium tracking-[0.16em] text-primary-700 uppercase">
+                    <p className="text-sm font-medium tracking-[0.16em] text-primary-700 uppercase">
                       Quick map
                     </p>
-                    <h2 className="mt-2 text-[27px] leading-[1.12] font-medium text-black md:text-[34px]">
+                    <h2 className="mt-2 text-3xl leading-[1.12] font-medium text-black md:text-4xl">
                       The most common decisions in one place.
                     </h2>
                   </div>
@@ -98,10 +98,10 @@ export default function FaqPageModule() {
                           <Icon className="size-5" />
                         </span>
                         <div>
-                          <h3 className="text-[20px] leading-tight font-medium text-black">
+                          <h3 className="text-xl leading-tight font-medium text-black">
                             {item.title}
                           </h3>
-                          <p className="mt-1 text-[15px] leading-6 text-secondary-900/70">
+                          <p className="mt-1 text-base leading-6 text-secondary-900/70">
                             {item.description}
                           </p>
                         </div>
@@ -120,14 +120,14 @@ export default function FaqPageModule() {
               <Badge size="section" variant="accent">
                 Common questions
               </Badge>
-              <h2 className="mt-6 text-[31px] leading-[1.1] font-medium text-black md:text-[40px]">
+              <h2 className="mt-6 text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Straight answers, no maze.
               </h2>
               <div className="mt-7 rounded-[20px] border border-secondary-900/10 bg-white/72 px-4">
                 {supportLanes.map((lane) => (
                   <p
                     key={lane}
-                    className="border-b border-secondary-900/12 py-3 text-[15px] leading-6 text-secondary-900/72 last:border-b-0"
+                    className="border-b border-secondary-900/12 py-3 text-base leading-6 text-secondary-900/72 last:border-b-0"
                   >
                     {lane}
                   </p>
@@ -144,10 +144,10 @@ export default function FaqPageModule() {
                 >
                   <summary className="flex cursor-pointer list-none items-start justify-between gap-5 outline-none transition-colors hover:text-primary-700 focus-visible:text-primary-700 [&::-webkit-details-marker]:hidden">
                     <span className="grid gap-3 md:grid-cols-[64px_1fr] md:gap-6">
-                      <span className="inline-flex h-fit w-fit rounded-full bg-primary-50 px-3 py-1 text-[12px] leading-none font-medium tracking-[0.14em] text-primary-700 md:mt-1">
+                      <span className="inline-flex h-fit w-fit rounded-full bg-primary-50 px-3 py-1 text-xs leading-none font-medium tracking-[0.14em] text-primary-700 md:mt-1">
                         {item.number}
                       </span>
-                      <span className="text-[22px] leading-[1.18] font-medium text-black md:text-[30px]">
+                      <span className="text-2xl leading-[1.18] font-medium text-black md:text-4xl">
                         {item.question}
                       </span>
                     </span>
@@ -162,7 +162,7 @@ export default function FaqPageModule() {
                   </summary>
 
                   <div className="mt-5 md:ml-[88px]">
-                    <p className="max-w-[760px] text-[16px] leading-7 text-secondary-900/74 md:text-[18px] md:leading-8">
+                    <p className="max-w-[760px] text-base leading-7 text-secondary-900/74 md:text-lg md:leading-8">
                       {item.answer}
                     </p>
                   </div>
@@ -176,13 +176,13 @@ export default function FaqPageModule() {
           <div className="navy-panel relative grid gap-8 overflow-hidden rounded-[32px] p-7 text-white md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-11">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,197,24,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.07),transparent_28%)]" />
             <div className="relative">
-              <p className="text-[13px] font-medium tracking-[0.16em] text-accent-300 uppercase">
+              <p className="text-sm font-medium tracking-[0.16em] text-accent-300 uppercase">
                 Still unsure
               </p>
-              <h2 className="mt-4 max-w-[690px] text-[31px] leading-[1.1] font-medium md:text-[44px]">
+              <h2 className="mt-4 max-w-[690px] text-4xl leading-[1.1] font-medium md:text-5xl">
                 Tell us your goal and we will help find the cleanest starting lane.
               </h2>
-              <p className="mt-5 max-w-[650px] text-[17px] leading-7 text-white/76 md:text-[18px]">
+              <p className="mt-5 max-w-[650px] text-lg leading-7 text-white/76 md:text-lg">
                 Share your current level, target campus, and the subjects that feel
                 hardest right now. The team can point you toward a realistic first
                 step.

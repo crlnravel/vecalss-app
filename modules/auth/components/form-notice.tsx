@@ -36,7 +36,7 @@ function FormNotice({
           <Icon className="size-4" />
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] font-medium tracking-[0.16em] uppercase opacity-80">
+          <p className="text-xs font-medium tracking-[0.16em] uppercase opacity-80">
             {label}
           </p>
           <div className="mt-1">{children}</div>

@@ -92,11 +92,11 @@ export default function AboutPageModule() {
                   About Vecalss
                 </Badge>
 
-                <h1 className="mt-7 max-w-[850px] text-[42px] leading-[1.03] font-medium text-secondary-900 md:text-[70px]">
+                <h1 className="mt-7 max-w-[850px] text-5xl leading-[1.03] font-medium text-secondary-900 md:text-7xl">
                   Vecalss makes university prep feel less scattered.
                 </h1>
 
-                <p className="mt-6 max-w-[670px] text-[18px] leading-7 text-secondary-900/78 md:text-[21px] md:leading-8">
+                <p className="mt-6 max-w-[670px] text-lg leading-7 text-secondary-900/78 md:text-2xl md:leading-8">
                   Students get a clean path from concepts to timed practice, with
                   analytics and Vera AI support keeping each week focused on the
                   work that actually moves the score.
@@ -115,10 +115,10 @@ export default function AboutPageModule() {
 
                 <div className="relative flex items-start justify-between gap-8">
                   <div>
-                    <p className="text-[13px] font-medium tracking-[0.16em] text-accent-300 uppercase">
+                    <p className="text-sm font-medium tracking-[0.16em] text-accent-300 uppercase">
                       Learning system
                     </p>
-                    <h2 className="mt-4 max-w-[330px] text-[30px] leading-[1.08] font-medium md:text-[40px]">
+                    <h2 className="mt-4 max-w-[330px] text-4xl leading-[1.08] font-medium md:text-5xl">
                       One route from preparation noise to focused progress.
                     </h2>
                   </div>
@@ -140,10 +140,10 @@ export default function AboutPageModule() {
                       key={item.value}
                       className="grid grid-cols-[96px_1fr] items-center gap-5 py-4"
                     >
-                      <p className="text-[25px] leading-none font-medium text-accent-300 md:text-[31px]">
+                      <p className="text-3xl leading-none font-medium text-accent-300 md:text-4xl">
                         {item.value}
                       </p>
-                      <p className="text-[16px] leading-6 text-white/78">{item.label}</p>
+                      <p className="text-base leading-6 text-white/78">{item.label}</p>
                     </div>
                   ))}
                 </div>
@@ -152,7 +152,7 @@ export default function AboutPageModule() {
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-[8px] bg-white/10">
                     <TimerReset className="size-5" />
                   </span>
-                  <p className="text-[16px] leading-6 text-white/78">
+                  <p className="text-base leading-6 text-white/78">
                     Designed for students who need structure, honest feedback, and fast
                     recovery when a study session gets stuck.
                   </p>
@@ -168,10 +168,10 @@ export default function AboutPageModule() {
               <Badge size="section" variant="mint">
                 Why it works
               </Badge>
-              <h2 className="mt-6 max-w-[390px] text-[32px] leading-[1.1] font-medium text-black md:text-[44px]">
+              <h2 className="mt-6 max-w-[390px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 A calmer system for high-stakes learning.
               </h2>
-              <p className="mt-5 max-w-[420px] text-[17px] leading-7 text-secondary-900/72">
+              <p className="mt-5 max-w-[420px] text-lg leading-7 text-secondary-900/72">
                 The platform is built around one practical question: what should a
                 student do next to improve with less wasted effort?
               </p>
@@ -190,10 +190,10 @@ export default function AboutPageModule() {
                       <Icon className="size-5" />
                     </span>
                     <div>
-                      <h3 className="text-[24px] leading-[1.15] font-medium text-black md:text-[30px]">
+                      <h3 className="text-2xl leading-[1.15] font-medium text-black md:text-4xl">
                         {card.title}
                       </h3>
-                      <p className="mt-3 max-w-[690px] text-[16px] leading-7 text-secondary-900/74 md:text-[17px]">
+                      <p className="mt-3 max-w-[690px] text-base leading-7 text-secondary-900/74 md:text-lg">
                         {card.description}
                       </p>
                     </div>
@@ -213,7 +213,7 @@ export default function AboutPageModule() {
                 </Badge>
               </div>
               <div>
-                <h2 className="max-w-[760px] text-[32px] leading-[1.1] font-medium text-black md:text-[46px]">
+                <h2 className="max-w-[760px] text-4xl leading-[1.1] font-medium text-black md:text-6xl">
                   Preparation becomes easier to trust when every step has a job.
                 </h2>
               </div>
@@ -225,17 +225,17 @@ export default function AboutPageModule() {
                 className="grid gap-5 border-t border-secondary-900/15 py-7 md:grid-cols-[120px_0.8fr_1fr] md:gap-8 md:py-8"
               >
                 <div className="flex items-center justify-between gap-4 md:block">
-                  <p className="text-[38px] leading-none font-medium text-primary-700 md:text-[48px]">
+                  <p className="text-5xl leading-none font-medium text-primary-700 md:text-6xl">
                     {step.number}
                   </p>
-                  <p className="rounded-full border border-primary-700/18 bg-primary-50 px-3 py-1 text-[12px] font-medium tracking-[0.14em] text-primary-700 uppercase md:mt-4 md:inline-flex">
+                  <p className="rounded-full border border-primary-700/18 bg-primary-50 px-3 py-1 text-xs font-medium tracking-[0.14em] text-primary-700 uppercase md:mt-4 md:inline-flex">
                     {step.label}
                   </p>
                 </div>
-                <h3 className="text-[24px] leading-[1.18] font-medium text-black md:text-[32px]">
+                <h3 className="text-2xl leading-[1.18] font-medium text-black md:text-4xl">
                   {step.title}
                 </h3>
-                <p className="max-w-[620px] text-[16px] leading-7 text-secondary-900/74 md:text-[17px]">
+                <p className="max-w-[620px] text-base leading-7 text-secondary-900/74 md:text-lg">
                   {step.description}
                 </p>
               </article>
@@ -246,10 +246,10 @@ export default function AboutPageModule() {
         <section className="px-4 md:px-8 lg:px-10 xl:px-[100px]">
           <div className="grid overflow-hidden rounded-[32px] border border-primary-700/10 bg-[#eff6ef] shadow-[0_26px_72px_-46px_rgba(11,18,45,0.2)] md:grid-cols-[minmax(0,1fr)_360px]">
             <div className="p-7 md:p-12">
-              <h2 className="max-w-[690px] text-[31px] leading-[1.1] font-medium text-black md:text-[44px]">
+              <h2 className="max-w-[690px] text-4xl leading-[1.1] font-medium text-black md:text-5xl">
                 Ready for a prep routine that feels focused and human?
               </h2>
-              <p className="mt-5 max-w-[610px] text-[17px] leading-7 text-secondary-900/74 md:text-[18px]">
+              <p className="mt-5 max-w-[610px] text-lg leading-7 text-secondary-900/74 md:text-lg">
                 Share your goal, current level, and hardest subjects. The Vecalss
                 team can help you find the right starting point.
               </p>

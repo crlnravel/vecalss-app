@@ -33,7 +33,7 @@ function StudentNotificationPopover({
 
   if (items.length === 0) {
     return (
-      <Button aria-label="Notifications" size="icon-sm" variant="ghost">
+      <Button aria-label="Notifikasi" size="icon-sm" variant="ghost">
         <Bell />
       </Button>
     );
@@ -44,7 +44,7 @@ function StudentNotificationPopover({
       <PopoverTrigger
         render={
           <Button
-            aria-label="Notifications"
+            aria-label="Notifikasi"
             className="relative"
             size="icon-sm"
             type="button"
@@ -54,7 +54,7 @@ function StudentNotificationPopover({
       >
         <Bell />
         {unreadCount > 0 ? (
-          <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-[#F5C518] px-1 py-0.5 text-[9px] leading-none font-semibold text-secondary-900">
+          <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-[#F5C518] px-1 py-0.5 text-xs leading-none font-semibold text-secondary-900">
             {unreadCount}
           </span>
         ) : null}
@@ -67,7 +67,7 @@ function StudentNotificationPopover({
       >
         <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
           <div className="min-w-0">
-            <PopoverTitle>Notifications</PopoverTitle>
+            <PopoverTitle>Notifikasi</PopoverTitle>
           </div>
         </PopoverHeader>
 
@@ -118,7 +118,7 @@ function StudentNotificationPopover({
             render={<Link href="/notifications" />}
             variant="ghost"
           >
-            See more
+            Lihat semua
           </Button>
         </div>
       </PopoverContent>

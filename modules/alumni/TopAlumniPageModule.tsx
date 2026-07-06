@@ -12,10 +12,10 @@ function TopAlumniPageModule() {
 
       <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-16 px-4 pb-20 pt-12 md:px-8 md:gap-20 md:pt-16 lg:px-10">
         <div className="mx-auto max-w-[860px] text-center">
-          <h1 className="text-balance text-[42px] font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-[68px]">
+          <h1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-7xl">
             Top 90 Alumni
           </h1>
-          <p className="mt-4 text-[16px] leading-7 text-[#014C38]/68 md:text-[18px]">
+          <p className="mt-4 text-base leading-7 text-[#014C38]/68 md:text-lg">
             Tempat para voyager berlabuh!
           </p>
         </div>
@@ -54,7 +54,7 @@ function AlumniCard({ alumnus }: { alumnus: TopAlumni }) {
         ) : null}
       </div>
       <div className="p-5 md:p-6">
-        <h3 className="text-[23px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
+        <h3 className="text-2xl font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
           {alumnus.name}
         </h3>
         <p className="mt-3 text-sm leading-6 text-[#014C38]/68">

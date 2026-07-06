@@ -34,7 +34,7 @@ function StudentAccountMenu({
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label="Open user menu"
+            aria-label="Buka menu pengguna"
             className="rounded-full p-1"
             size="icon-sm"
             type="button"
@@ -73,7 +73,7 @@ function StudentAccountMenu({
           ) : (
             <DropdownMenuItem render={<Link href="/dashboard" />}>
               <Home />
-              Dashboard siswa
+              Beranda siswa
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>

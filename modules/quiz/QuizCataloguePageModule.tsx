@@ -15,19 +15,19 @@ import {
 function QuizCataloguePageModule({ session }: { session: SessionContext }) {
   return (
     <CourseWorkspaceShell
-      activeLabel="Quiz"
-      breadcrumbLabel="Quiz"
-      searchPlaceholder="Cari subject quiz atau topik latihan..."
+      activeLabel="Kuis"
+      breadcrumbLabel="Kuis"
+      searchPlaceholder="Cari subjek kuis atau topik latihan..."
       session={session}
     >
       <section className="flex flex-col gap-5">
         <div>
           <div>
-            <h1 className="text-[32px] leading-tight font-semibold text-secondary-900 md:text-[42px]">
-              Quiz
+            <h1 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
+              Kuis
             </h1>
             <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-500 md:text-base">
-              Temukan quiz berdasarkan mata pelajaran dan materi yang ingin
+              Temukan kuis berdasarkan mata pelajaran dan materi yang ingin
               kamu pelajari.
             </p>
           </div>
@@ -54,7 +54,7 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
       icon={subject.icon}
       palette={subject.palette}
       stats={[
-        { icon: ListChecks, label: "Quiz", value: `${stats.totalQuizzes} quiz` },
+        { icon: ListChecks, label: "Kuis", value: `${stats.totalQuizzes} kuis` },
         {
           icon: BookOpenCheck,
           label: "Soal",

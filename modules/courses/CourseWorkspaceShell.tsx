@@ -22,7 +22,7 @@ function CourseWorkspaceShell({
       breadcrumbLabel={breadcrumbLabel}
       searchPlaceholder={searchPlaceholder}
       session={session}
-      sidebarFooterLabel="Student workspace"
+      sidebarFooterLabel="Ruang kerja siswa"
     >
       {children}
     </StudentWorkspaceShell>

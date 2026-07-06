@@ -12,9 +12,9 @@ const badgeVariants = cva(
         neutral: "bg-white text-secondary-900",
       },
       size: {
-        section: "text-[32px] md:text-[40px]",
-        card: "text-[24px] md:text-[30px]",
-        footer: "text-[20px] leading-[26px]",
+        section: "text-4xl md:text-5xl",
+        card: "text-2xl md:text-4xl",
+        footer: "text-xl leading-[26px]",
       },
     },
     defaultVariants: {

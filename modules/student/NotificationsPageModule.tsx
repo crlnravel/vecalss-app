@@ -18,16 +18,16 @@ function NotificationsPageModule({
 
   return (
     <StudentWorkspaceShell
-      activeLabel="Notifications"
+      activeLabel="Notifikasi"
       breadcrumbLabel="Notifikasi"
       searchPlaceholder="Cari notifikasi atau update belajar..."
       session={session}
-      sidebarFooterLabel="Student workspace"
+      sidebarFooterLabel="Ruang kerja siswa"
     >
       <section className="flex flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[32px] leading-tight font-semibold text-secondary-900 md:text-[42px]">
+            <h1 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
               Notifikasi
             </h1>
           </div>

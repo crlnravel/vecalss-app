@@ -29,8 +29,8 @@ function TestimonialCard({
       >
         <p
           className={cn(
-            "text-[16px] leading-[1.45]",
-            compact ? "md:text-[22px]/[1.4]" : "md:text-[30px]/[1.28]",
+            "text-base leading-[1.45]",
+            compact ? "md:text-2xl/[1.4]" : "md:text-4xl/[1.28]",
           )}
         >
           “{testimonial.quote}”
@@ -38,10 +38,10 @@ function TestimonialCard({
         <div className="absolute bottom-[-18px] left-20 h-9 w-9 rotate-45 border-r border-b border-accent-300 bg-primary-700" />
       </div>
       <div className={cn("pt-8 pl-5", compact ? "md:pt-8 md:pl-10" : "md:pt-10 md:pl-20")}>
-        <p className="text-[20px] leading-tight font-medium text-accent-300">
+        <p className="text-xl leading-tight font-medium text-accent-300">
           {testimonial.name}
         </p>
-        <p className="text-[18px] leading-tight text-white">{testimonial.meta}</p>
+        <p className="text-lg leading-tight text-white">{testimonial.meta}</p>
       </div>
     </article>
   );

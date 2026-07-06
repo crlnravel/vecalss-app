@@ -67,7 +67,7 @@ function CountUpStats({ items }: CountUpStatsProps) {
               key={item.label}
               className="group rounded-[28px] border border-[#014C38]/10 bg-[#014C38]/[0.03] p-6 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:border-[#014C38]/18 hover:bg-white hover:shadow-[0_26px_70px_-56px_rgba(1,76,56,0.42)] md:p-8"
             >
-              <p className="text-[48px] font-semibold leading-none tracking-[-0.05em] text-[#014C38] md:text-[76px]">
+              <p className="text-6xl font-semibold leading-none tracking-[-0.05em] text-[#014C38] md:text-7xl">
                 {formatValue(current, item.suffix)}
               </p>
               <p className="mt-4 text-sm font-semibold text-[#014C38]/62 md:text-base">

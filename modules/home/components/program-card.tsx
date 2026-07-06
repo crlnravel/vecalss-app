@@ -50,7 +50,7 @@ function ProgramCard({
 
         <Link
           className={cn(
-            "inline-flex items-center gap-[15px] text-[18px] leading-7 font-normal md:text-[20px]",
+            "inline-flex items-center gap-[15px] text-lg leading-7 font-normal md:text-xl",
             linkToneClass,
           )}
           href={href}

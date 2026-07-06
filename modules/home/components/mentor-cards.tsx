@@ -52,7 +52,7 @@ function MentorCards({ members }: MentorCardsProps) {
               <div className="p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-[26px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
+                    <h3 className="text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#014C38]">
                       {member.name}
                     </h3>
                     <p className="mt-1 text-sm font-semibold text-[#014C38]/62">
@@ -97,14 +97,14 @@ function MentorCards({ members }: MentorCardsProps) {
                     </p>
                     <div className="mt-4 flex items-start justify-between gap-6">
                       <div>
-                        <DialogTitle className="text-[38px] font-semibold leading-[0.98] tracking-[-0.045em] text-[#014C38] md:text-[54px]">
+                        <DialogTitle className="text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-[#014C38] md:text-6xl">
                           {member.name}
                         </DialogTitle>
-                        <DialogDescription className="mt-3 text-[17px] font-semibold text-[#014C38]/70">
+                        <DialogDescription className="mt-3 text-lg font-semibold text-[#014C38]/70">
                           {member.fullName}
                         </DialogDescription>
                         {member.quote ? (
-                          <p className="mt-3 max-w-[36ch] text-[14px] font-medium italic leading-6 text-[#014C38]/58">
+                          <p className="mt-3 max-w-[36ch] text-sm font-medium italic leading-6 text-[#014C38]/58">
                             &ldquo;{member.quote}&rdquo;
                           </p>
                         ) : null}
@@ -137,7 +137,7 @@ function MentorCards({ members }: MentorCardsProps) {
                     <ul className="mt-5 list-disc space-y-3 pl-5">
                       {member.profileAchievements?.map((achievement) => (
                         <li
-                          className="text-[15px] leading-6 text-[#014C38]/78"
+                          className="text-base leading-6 text-[#014C38]/78"
                           key={achievement}
                         >
                           {achievement}
@@ -167,7 +167,7 @@ function ProfileFact({
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#014C38]/45">
         {label}
       </p>
-      <p className="mt-2 text-[16px] font-semibold leading-6 text-[#014C38]">
+      <p className="mt-2 text-base font-semibold leading-6 text-[#014C38]">
         {value}
       </p>
     </div>

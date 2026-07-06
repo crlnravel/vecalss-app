@@ -56,17 +56,17 @@ function QuizOngoingPageModule({
 
   const readingTextClass =
     textScale === "large"
-      ? "text-[20px] leading-[1.9]"
+      ? "text-xl leading-[1.9]"
       : textScale === "compact"
-        ? "text-[16px] leading-[1.8]"
-        : "text-[18px] leading-[1.85]";
+        ? "text-base leading-[1.8]"
+        : "text-lg leading-[1.85]";
 
   const uiTextClass =
     textScale === "large"
-      ? "text-[18px]"
+      ? "text-lg"
       : textScale === "compact"
-        ? "text-[15px]"
-        : "text-[16px]";
+        ? "text-sm"
+        : "text-base";
 
   const unlockedQuestionCount = Math.max(
     currentQuestion,
@@ -137,7 +137,7 @@ function QuizOngoingPageModule({
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-4">
-                <DialogTitle className="text-[28px] leading-tight font-semibold text-secondary-900 md:text-[42px]">
+                <DialogTitle className="text-3xl leading-tight font-semibold text-secondary-900 md:text-5xl">
                   Keluar dari Latihan?
                 </DialogTitle>
                 <button
@@ -146,11 +146,11 @@ function QuizOngoingPageModule({
                   onClick={() => setIsExitDialogOpen(false)}
                   type="button"
                 >
-                  <span className="text-[34px] leading-none">×</span>
+                  <span className="text-4xl leading-none">×</span>
                 </button>
               </div>
 
-              <DialogDescription className="mt-4 max-w-[26ch] text-[22px] leading-[1.55] font-medium text-secondary-500 md:text-[26px]">
+              <DialogDescription className="mt-4 max-w-[26ch] text-2xl leading-[1.55] font-medium text-secondary-500 md:text-3xl">
                 Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
                 Sayang banget kan!🥲
               </DialogDescription>
@@ -159,14 +159,14 @@ function QuizOngoingPageModule({
 
           <div className="flex items-center justify-end gap-4 border-t border-primary-100 bg-[#fbfbfb] px-7 py-7 md:px-11 md:py-8">
             <button
-              className="inline-flex h-16 min-w-[170px] items-center justify-center rounded-full px-8 text-[22px] font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
+              className="inline-flex h-16 min-w-[170px] items-center justify-center rounded-full px-8 text-2xl font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
               onClick={() => setIsExitDialogOpen(false)}
               type="button"
             >
               Batal
             </button>
             <button
-              className="inline-flex h-16 min-w-[230px] items-center justify-center rounded-full bg-[#ff0008] px-10 text-[22px] font-semibold text-white transition-colors hover:bg-[#e10007]"
+              className="inline-flex h-16 min-w-[230px] items-center justify-center rounded-full bg-[#ff0008] px-10 text-2xl font-semibold text-white transition-colors hover:bg-[#e10007]"
               onClick={() => router.push(`/quiz/${subjectSlug}`)}
               type="button"
             >
@@ -191,7 +191,7 @@ function QuizOngoingPageModule({
           </div>
 
           <div className="px-5 py-6">
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-secondary-400 uppercase">
+            <p className="text-xs font-semibold tracking-[0.08em] text-secondary-400 uppercase">
               Navigasi Soal
             </p>
             <div className="mt-4 grid grid-cols-4 gap-2.5">
@@ -223,7 +223,7 @@ function QuizOngoingPageModule({
         <main className="flex min-h-svh flex-col bg-white">
           <div className="flex items-center justify-between border-b border-primary-100 px-4 py-4 md:px-8 lg:px-10">
             <div className="min-w-0">
-              <h2 className="text-[30px] leading-none font-semibold text-secondary-900 md:text-[34px]">
+              <h2 className="text-3xl leading-none font-semibold text-secondary-900 md:text-4xl">
                 {quiz.title}
               </h2>
             </div>
@@ -348,7 +348,7 @@ function QuestionMarker({
   return (
     <button
       className={cn(
-        "flex h-12 items-center justify-center rounded-[16px] border text-[13px] font-semibold transition-all duration-200",
+        "flex h-12 items-center justify-center rounded-[16px] border text-sm font-semibold transition-all duration-200",
         marker.state === "active" &&
           "border-[#9fdef9] bg-[#ecf8ff] text-[#3f95bf] shadow-[0_12px_28px_-18px_rgba(127,208,246,0.55)]",
         marker.state === "answered" &&
@@ -448,7 +448,7 @@ function AnswerOption({
       >
         {option.key}
       </span>
-      <span className="text-[18px] leading-[1.85] font-medium text-secondary-800">
+      <span className="text-lg leading-[1.85] font-medium text-secondary-800">
         {option.text}
       </span>
     </button>

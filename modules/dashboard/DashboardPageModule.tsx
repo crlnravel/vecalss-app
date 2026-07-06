@@ -134,10 +134,10 @@ const recentActivities = [
     title: "Tryout SNBT selesai",
   },
   {
-    detail: "Badge Konsisten 7 Hari terbuka.",
+    detail: "Lencana Konsisten 7 Hari terbuka.",
     icon: Award,
     time: "Minggu ini",
-    title: "Achievement baru",
+    title: "Pencapaian baru",
   },
 ];
 
@@ -184,7 +184,7 @@ const scoreChartConfig = {
 const radarChartConfig = {
   value: {
     color: "#F5C518",
-    label: "Mastery",
+    label: "Penguasaan",
   },
 } satisfies ChartConfig;
 
@@ -229,10 +229,10 @@ function DashboardPageModule({
   return (
     <StudentWorkspaceShell
       accountMenuExtraItem="notifications"
-      activeLabel="Dashboard"
-      breadcrumbLabel="Student Dashboard"
+      activeLabel="Beranda"
+      breadcrumbLabel="Beranda Siswa"
       mainClassName="gap-8 lg:gap-9"
-      searchPlaceholder="Cari materi, quiz, atau rekomendasi..."
+      searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
       sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
     >
@@ -241,10 +241,10 @@ function DashboardPageModule({
           <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10">
             <div className="grid gap-10 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start">
               <div>
-                <CardTitle className="max-w-3xl text-[32px] leading-[1.08] font-semibold text-secondary-900 md:text-[40px] xl:text-[46px]">
+                <CardTitle className="max-w-3xl text-4xl leading-[1.08] font-semibold text-secondary-900 md:text-5xl xl:text-6xl">
                   Halo, {firstName}. Lanjutkan rute belajarmu.
                 </CardTitle>
-                <CardDescription className="mt-5 max-w-[42ch] text-[15px] leading-7 text-secondary-600 md:text-base">
+                <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600 md:text-base">
                   Semangat mengejar{" "}
                   <span className="font-bold">Ilmu Komputer - UI </span>
                   ya!
@@ -326,7 +326,7 @@ function HeroXpPill({
       </div>
       <div className="flex min-w-32 items-center gap-2.5 px-3.5 py-2">
         <div>
-          <p className="text-[11px] font-bold leading-none">Lvl {level}</p>
+          <p className="text-xs font-bold leading-none">Tingkat {level}</p>
           <div className="mt-1 h-1.5 w-[72px] overflow-hidden rounded-full bg-primary-950/30">
             <div
               className="h-full rounded-full bg-white/86"
@@ -348,13 +348,13 @@ function DailyMissionCard({ missionProgress }: { missionProgress: number }) {
       id="daily-mission"
       className="h-full rounded-[30px] border border-primary-100 shadow-[0_22px_70px_-54px_rgba(1,76,56,0.34)]"
     >
-      <CardHeader className="gap-2 px-7 pt-7">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-          <Flame className="size-4 text-primary-700" />
-          Daily Mission
+        <CardHeader className="gap-2 px-7 pt-7">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <Flame className="size-4 text-primary-700" />
+          Misi Harian
         </CardTitle>
         <CardAction>
-          {/* <span className="inline-flex rounded-full bg-[#F5C518]/85 px-2.5 py-1 text-[11px] font-semibold leading-none text-secondary-900"> */}
+          {/* <span className="inline-flex rounded-full bg-[#F5C518]/85 px-2.5 py-1 text-xs font-semibold leading-none text-secondary-900"> */}
           {/*   +100 XP */}
           {/* </span> */}
         </CardAction>
@@ -362,7 +362,7 @@ function DailyMissionCard({ missionProgress }: { missionProgress: number }) {
       <CardContent className="flex flex-1 flex-col gap-6 px-7">
         <Progress className="gap-2" value={missionProgress}>
           <ProgressLabel className="text-sm font-medium">
-            Progress misi
+            Progres misi
           </ProgressLabel>
           <ProgressValue className="text-xs text-secondary-500">
             {() => `${missionProgress}%`}
@@ -394,7 +394,7 @@ function DailyMissionCard({ missionProgress }: { missionProgress: number }) {
                   {mission.label}
                 </p>
               </div>
-              <span className="shrink-0 text-[11px] font-medium text-secondary-500">
+              <span className="shrink-0 text-xs font-medium text-secondary-500">
                 {mission.reward}
               </span>
             </div>
@@ -420,10 +420,10 @@ function BeginnerState() {
   return (
     <Alert className="rounded-[28px] border-primary-100 bg-white px-5 py-4 shadow-sm">
       <Target />
-      <AlertTitle>Lengkapi target agar dashboard makin personal.</AlertTitle>
+      <AlertTitle>Lengkapi target agar beranda makin personal.</AlertTitle>
       <AlertDescription className="mt-2 flex flex-col gap-3 text-secondary-600 md:flex-row md:items-center md:justify-between">
         <span>
-          Pilih kampus, jurusan, dan jadwal exam untuk membuka rekomendasi
+          Pilih kampus, jurusan, dan jadwal ujian untuk membuka rekomendasi
           belajar yang lebih presisi.
         </span>
         <div className="flex flex-wrap gap-2">
@@ -442,14 +442,14 @@ function BeginnerState() {
 function ContinueLearningCard() {
   return (
     <Card className="h-full rounded-[30px] border border-primary-100 shadow-[0_20px_72px_-56px_rgba(1,76,56,0.28)]">
-      <CardHeader className="gap-2 px-7 pt-7 md:px-8">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-          <BookOpen className="size-4 text-primary-700" />
-          Continue Learning
+        <CardHeader className="gap-2 px-7 pt-7 md:px-8">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <BookOpen className="size-4 text-primary-700" />
+          Lanjut Belajar
         </CardTitle>
         <CardAction>
           <Button render={<Link href="/tryout" />} size="sm" variant="ghost">
-            Detail
+            Rincian
             <ChevronRight data-icon="inline-end" />
           </Button>
         </CardAction>
@@ -465,13 +465,13 @@ function ContinueLearningCard() {
                 Penalaran Umum: Struktur Argumen
               </h2>
             </div>
-            <span className="inline-flex rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold leading-none text-secondary-700">
+            <span className="inline-flex rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold leading-none text-secondary-700">
               18 menit lagi
             </span>
           </div>
           <Progress className="mt-6 gap-2" value={64}>
             <ProgressLabel className="text-sm font-medium">
-              Progress modul
+              Progres modul
             </ProgressLabel>
             <ProgressValue className="text-xs text-secondary-500">
               {() => "64%"}
@@ -479,9 +479,9 @@ function ContinueLearningCard() {
           </Progress>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <StatTile label="Subtest" value="PU" />
-          <StatTile label="Lesson" value="4 / 7" />
-          <StatTile label="Quiz readiness" value="Siap" />
+          <StatTile label="Subtes" value="PU" />
+          <StatTile label="Sesi" value="4 / 7" />
+          <StatTile label="Kesiapan kuis" value="Siap" />
         </div>
       </CardContent>
       <CardFooter className="mt-auto gap-3 px-7 pb-7 md:px-8">
@@ -495,7 +495,7 @@ function ContinueLearningCard() {
         </Button>
         <Button
           nativeButton={false}
-          render={<Link href="/vera-ai" />}
+          render={<Link href="/vera-ai?tool=summary" />}
           size="sm"
           variant="brandOutline"
         >
@@ -513,22 +513,22 @@ function ProgressOverview() {
       <CardHeader className="gap-2 px-7 pt-7 md:px-8">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">
           <Target className="size-4 text-primary-700" />
-          Progress Overview
+          Ikhtisar Progres
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-7 px-7 md:px-8">
         <div className="grid gap-4 md:grid-cols-5">
-          <StatTile label="Modules" value="18/32" />
+          <StatTile label="Modul" value="18/32" />
           <StatTile label="Tryout" value="676" />
-          <StatTile label="Quiz avg" value="78%" />
+          <StatTile label="Rata-rata kuis" value="78%" />
           <StatTile label="Streak" value="12 hari" />
-          <StatTile label="Weakest" value="PK" />
+          <StatTile label="Terlemah" value="PK" />
         </div>
         <Tabs defaultValue="activity">
           <TabsList className="grid w-full max-w-[430px] grid-cols-3 rounded-2xl bg-primary-50 p-1">
             <TabsTrigger value="activity">Aktivitas</TabsTrigger>
             <TabsTrigger value="score">Tryout</TabsTrigger>
-            <TabsTrigger value="mastery">Mastery</TabsTrigger>
+            <TabsTrigger value="mastery">Penguasaan</TabsTrigger>
           </TabsList>
           <TabsContent
             className="mt-7 rounded-[26px] border border-primary-100 bg-white/70 p-5 md:p-6"
@@ -607,7 +607,7 @@ function FocusRecommendation() {
       <CardHeader className="gap-2 px-7 pt-7 md:px-8">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-primary-800">
           <Bot className="size-4 text-primary-700" />
-          Vera AI Recommendation
+          Rekomendasi Vera AI
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-5 px-7 md:px-8 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)]">
@@ -626,7 +626,7 @@ function FocusRecommendation() {
                     {topic.description}
                   </p>
                 </div>
-                <span className="inline-flex rounded-full bg-primary-200 px-2.5 py-1 text-[11px] font-semibold leading-none text-secondary-900">
+                <span className="inline-flex rounded-full bg-primary-200 px-2.5 py-1 text-xs font-semibold leading-none text-secondary-900">
                   {topic.mastery}%
                 </span>
               </div>
@@ -635,7 +635,7 @@ function FocusRecommendation() {
                   {topic.module}
                 </ProgressLabel>
                 <span className="ml-auto text-xs text-muted-foreground">
-                  Mastery
+                  Penguasaan
                 </span>
               </Progress>
             </div>
@@ -647,26 +647,26 @@ function FocusRecommendation() {
             <p className="text-xs font-semibold tracking-[0.14em] text-white/56 uppercase">
               Vera AI
             </p>
-            <p className="mt-4 max-w-[58ch] text-base leading-8 font-medium text-white/92 md:text-[17px]">
+            <p className="mt-4 max-w-[58ch] text-base leading-8 font-medium text-white/92 md:text-lg">
               Bagian yang paling perlu diperbaiki saat ini adalah Penalaran Umum
-              dan PK. Mulai dari review Struktur Argumen, lalu lanjutkan drill
+              dan PK. Mulai dari tinjau Struktur Argumen, lalu lanjutkan latihan
               rasio supaya akurasi naik tanpa mengorbankan waktu pengerjaan.
             </p>
           </div>
           <div className="mt-auto flex flex-wrap gap-3 pt-8">
             <Button
               nativeButton={false}
-              render={<Link href="/vera-ai" />}
+              render={<Link href="/vera-ai?tool=analysis" />}
               size="sm"
               variant="inverseOutline"
             >
-              Open Vera AI
+              Buka Vera AI
               <MessageCircle data-icon="inline-end" />
             </Button>
             <Button
               className="bg-[#F5C518] text-secondary-900 hover:bg-[#F5C518]/90"
               nativeButton={false}
-              render={<Link href="/vera-ai#recommendations" />}
+              render={<Link href="/vera-ai?tool=review" />}
               size="sm"
               variant="default"
             >
@@ -688,7 +688,7 @@ function RecentActivity() {
       <CardHeader className="gap-2 px-7 pt-7">
         <CardTitle className="flex items-center gap-2 text-lg font-semibold">
           <Home className="size-4 text-primary-700" />
-          Recent Activity
+          Aktivitas Terbaru
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 px-7">

@@ -31,7 +31,7 @@ function AuthShell({
               width={64}
             />
             <span
-              className="text-[28px] leading-none tracking-[0.02em] text-white"
+              className="text-3xl leading-none tracking-[0.02em] text-white"
               style={{ fontFamily: "var(--font-sports-world)" }}
             >
               VECALSS
@@ -39,7 +39,7 @@ function AuthShell({
           </Link>
 
           <div className="relative z-10 mt-14 max-w-[25rem] lg:mt-20">
-            <h1 className="font-heading text-[38px] leading-[1.04] font-semibold text-white md:text-[54px] lg:text-[60px]">
+            <h1 className="font-heading text-5xl leading-[1.04] font-semibold text-white md:text-6xl lg:text-7xl">
               {title}
             </h1>
           </div>
@@ -61,7 +61,7 @@ function AuthShell({
         <section className="flex min-h-screen items-center justify-center px-5 py-10 md:px-8 lg:px-12">
           <div className="w-full max-w-[520px]">
             <div className="mb-9">
-              <h2 className="font-heading text-[42px] leading-none font-semibold text-secondary-900 md:text-[52px]">
+              <h2 className="font-heading text-5xl leading-none font-semibold text-secondary-900 md:text-6xl">
                 Selamat Datang
               </h2>
               <p className="mt-4 text-lg leading-7 text-secondary-600">

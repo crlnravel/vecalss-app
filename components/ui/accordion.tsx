@@ -46,10 +46,10 @@ export function AccordionList({
               )}
             >
               <div className="flex items-center gap-3 text-[#014C38] md:gap-4">
-                <span className="shrink-0 text-[14px] font-semibold leading-none text-[#014C38] md:text-[16px]">
+                <span className="shrink-0 text-sm font-semibold leading-none text-[#014C38] md:text-base">
                   {item.number}
                 </span>
-                <span className="text-[17px] font-medium leading-tight md:text-[20px]">
+                <span className="text-lg font-medium leading-tight md:text-xl">
                   {item.question}
                 </span>
               </div>
@@ -69,7 +69,7 @@ export function AccordionList({
             >
               <div className="overflow-hidden">
                 <div className="mt-4 h-px w-full bg-[#014C38]/10" />
-                <p className="pt-4 text-[15px] leading-7 text-[#014C38]/70">
+                <p className="pt-4 text-base leading-7 text-[#014C38]/70">
                   {item.answer}
                 </p>
               </div>

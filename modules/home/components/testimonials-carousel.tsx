@@ -34,14 +34,14 @@ function TestimonialsCarousel({ items }: TestimonialsCarouselProps) {
         <div className="flex min-h-[320px] flex-col justify-between p-6 md:p-9">
           <div>
             <p className="kicker-label text-white/68">{active.university}</p>
-            <blockquote className="mt-6 max-w-[720px] text-[28px] leading-[1.18] text-white md:text-[44px]">
+            <blockquote className="mt-6 max-w-[720px] text-3xl leading-[1.18] text-white md:text-5xl">
               &ldquo;{active.quote}&rdquo;
             </blockquote>
           </div>
 
           <div className="mt-8 flex flex-col gap-5 border-t border-white/12 pt-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[24px] font-semibold tracking-[-0.02em] text-white">
+              <p className="text-2xl font-semibold tracking-[-0.02em] text-white">
                 {active.name}
               </p>
               <p className="mt-1 text-sm text-white/60">{active.meta}</p>

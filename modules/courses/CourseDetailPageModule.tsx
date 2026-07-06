@@ -1,12 +1,6 @@
 import Link from "next/link";
-import {
-  ArrowLeft,
-  BookOpen,
-  Clock3,
-  Lock,
-  Play,
-  PlayCircle,
-} from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, BookOpen, Clock3, Lock, Play, PlayCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +24,6 @@ function CourseDetailPageModule({
   session: SessionContext;
 }) {
   const stats = getCourseStats(course);
-  const Icon = course.icon;
 
   return (
     <CourseWorkspaceShell
@@ -53,55 +46,73 @@ function CourseDetailPageModule({
       </div>
 
       <section>
-        <Card className="relative overflow-hidden rounded-[30px] border border-primary-100 bg-[linear-gradient(135deg,rgba(1,76,56,0.24)_0%,rgba(1,76,56,0.16)_38%,rgba(1,76,56,0.08)_72%,rgba(255,255,255,0.92)_100%)] shadow-[0_28px_90px_-60px_rgba(1,76,56,0.44)]">
-          <CardHeader className="gap-6 px-6 py-7 md:px-8 md:py-8">
-            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-primary-800 shadow-sm">
-                    {course.code}
-                  </span>
-                  <span className="rounded-full bg-primary-700 px-3 py-1 text-xs font-semibold text-white">
-                    {course.status}
-                  </span>
+        <Card className="relative overflow-hidden rounded-[34px] border border-[#dbe8e3] bg-white p-0 gap-0 shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
+          <CardHeader className="relative bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,246,0.96)_100%)] px-6 pt-8 pb-8 md:px-10 md:pt-10 md:pb-10">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute top-0 right-[-8%] h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(239,244,241,0.96)_0%,rgba(239,244,241,0.72)_42%,rgba(239,244,241,0)_74%)] md:top-4 md:h-[42rem] md:w-[42rem]" />
+              <div className="absolute top-16 left-[58%] hidden gap-1.5 md:flex">
+                <span className="size-2 rounded-full bg-primary-700/45" />
+                <span className="size-2 rounded-full bg-primary-700/45" />
+                <span className="size-2 rounded-full bg-primary-700/45" />
+              </div>
+            </div>
+
+            <div className="relative grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.96fr)] lg:gap-12">
+              <div className="max-w-2xl space-y-6">
+                <span className="inline-flex w-fit items-center rounded-full bg-primary-50 px-5 py-2 text-sm font-semibold tracking-[0.08em] text-primary-900 shadow-sm ring-1 ring-primary-100">
+                  {course.code}
+                </span>
+                <div className="space-y-3">
+                  <CardTitle
+                    className="text-[clamp(4.5rem,10vw,7rem)] leading-[0.88] font-semibold tracking-[-0.08em] text-primary-950"
+                    style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
+                  >
+                    {course.title}
+                  </CardTitle>
+                  <h2 className="text-[clamp(1.55rem,3vw,2.7rem)] leading-[1.08] font-semibold text-secondary-700">
+                    {course.description}
+                  </h2>
                 </div>
-                <CardTitle className="mt-4 max-w-4xl text-[32px] leading-tight font-semibold text-secondary-900 md:text-[44px]">
-                  {course.title}
-                </CardTitle>
-                <CardDescription className="mt-4 max-w-[68ch] text-[15px] leading-7 text-secondary-600 md:text-base">
-                  {course.description}
+                <CardDescription className="max-w-[34rem] text-base leading-8 text-secondary-600 md:text-[1.05rem]">
+                  {course.title === "PU"
+                    ? "Pelajari kemampuan penalaran logis, analitis, dan kritis untuk menyelesaikan berbagai jenis soal secara tepat dan efisien."
+                    : `Pelajari kemampuan ${course.description.toLowerCase()} melalui materi yang ringkas, terarah, dan mudah dipraktikkan.`}
                 </CardDescription>
               </div>
 
-              <div
-                className={cn(
-                  "flex h-40 w-40 shrink-0 items-center justify-center self-start rounded-[28px] border border-primary-100 bg-[linear-gradient(160deg,rgba(1,76,56,0.24)_0%,rgba(1,76,56,0.14)_58%,rgba(255,255,255,0.88)_100%)] text-primary-900 shadow-[0_22px_60px_-42px_rgba(1,76,56,0.5)] md:h-52 md:w-52 md:self-auto",
-                  course.palette.replace("bg-primary-100", ""),
-                )}
-              >
-                <div className="flex size-20 items-center justify-center rounded-[28px] border border-primary-100 bg-white/86 text-primary-700 shadow-[0_18px_42px_-26px_rgba(1,76,56,0.45)]">
-                  <Icon className="size-9" />
+              <div className="relative flex justify-center lg:justify-end">
+                <div className="relative aspect-[879/639] w-full max-w-[560px]">
+                  <div className="absolute inset-x-6 top-14 h-[72%] rounded-full bg-[radial-gradient(circle_at_center,rgba(239,244,241,0.96)_0%,rgba(239,244,241,0.72)_48%,rgba(239,244,241,0)_76%)]" />
+                  <div className="absolute top-12 left-12 hidden gap-1.5 md:flex">
+                    <span className="size-2 rounded-full bg-primary-700/45" />
+                    <span className="size-2 rounded-full bg-primary-700/45" />
+                    <span className="size-2 rounded-full bg-primary-700/45" />
+                  </div>
+                  <Image
+                    alt={`${course.title} illustration`}
+                    className="object-contain object-center drop-shadow-[0_28px_48px_rgba(10,77,59,0.14)]"
+                    fill
+                    priority
+                    sizes="(min-width: 1024px) 42vw, 90vw"
+                    src="/landing-assets/materi-hero-illustration.png"
+                  />
                 </div>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="grid gap-3 px-6 pb-7 sm:grid-cols-3 md:px-8">
+          <CardContent className="grid gap-0 border-t border-[#dbe8e3] bg-white px-0 py-0 lg:grid-cols-3 lg:divide-x lg:divide-[#dbe8e3]">
             <DetailStat
               icon={BookOpen}
-              label="Sections"
+              label="Bagian"
               value={stats.totalSections}
             />
             <DetailStat
               icon={PlayCircle}
-              label="Videos"
+              label="Video"
               value={stats.totalVideos}
             />
-            <DetailStat
-              icon={Clock3}
-              label="Duration"
-              value={course.duration}
-            />
+            <DetailStat icon={Clock3} label="Durasi" value={course.duration} />
           </CardContent>
         </Card>
       </section>
@@ -115,9 +126,6 @@ function CourseDetailPageModule({
                   {sectionIndex + 1}
                 </span>
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.14em] text-primary-700 uppercase">
-                    {course.code}
-                  </p>
                   <h2 className="text-xl font-semibold text-secondary-900 md:text-2xl">
                     {section.title}
                   </h2>
@@ -156,12 +164,16 @@ function DetailStat({
   value: number | string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/80 bg-white/80 p-4 shadow-sm">
-      <Icon className="size-4 text-primary-700" />
-      <p className="mt-3 text-2xl font-semibold text-primary-800">{value}</p>
-      <p className="mt-1 text-xs font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-        {label}
-      </p>
+    <div className="flex items-center gap-4 px-6 py-6 md:px-8 md:py-8">
+      <Icon className="size-7 shrink-0 text-primary-700" />
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <p className="text-[2rem] leading-none font-semibold tracking-[-0.05em] text-primary-900 md:text-[2.35rem]">
+          {value}
+        </p>
+        <p className="text-base font-medium text-secondary-500 md:text-lg">
+          {label}
+        </p>
+      </div>
     </div>
   );
 }
@@ -184,7 +196,7 @@ function VideoCard({
   return (
     <a
       className={cn(
-        "group block overflow-hidden rounded-2xl border border-primary-100 bg-white shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)] focus-visible:ring-3 focus-visible:ring-primary-400/25 focus-visible:outline-none",
+        "group flex h-full flex-col overflow-hidden rounded-2xl border border-primary-100 bg-white shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)] focus-visible:ring-3 focus-visible:ring-primary-400/25 focus-visible:outline-none",
         video.locked ? "pointer-events-none opacity-62" : null,
       )}
       href={youtubeUrl}
@@ -220,17 +232,17 @@ function VideoCard({
         ) : null}
       </div>
 
-      <div className="p-5">
+      <div className="flex flex-1 flex-col p-5">
         <p className="text-xs font-semibold text-secondary-400">
           Video {number} · {sectionTitle}
         </p>
-        <h3 className="mt-2 line-clamp-2 min-h-[3.25rem] text-lg leading-[1.42] font-semibold text-secondary-900">
+        <h3 className="mt-2 line-clamp-2 text-lg leading-[1.42] font-semibold text-secondary-900">
           {video.title}
         </h3>
         <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-secondary-500">
           YouTube video untuk materi {course.description}.
         </p>
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2 pt-5">
           <span className="rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-semibold text-secondary-600">
             #{course.title.toLowerCase()}
           </span>

@@ -55,7 +55,7 @@ function SectionIntro({
         </p>
       ) : null}
       <h2
-        className={`mt-3 text-balance text-[34px] font-semibold leading-[1.02] tracking-[-0.04em] md:text-[54px] ${
+        className={`mt-3 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.04em] md:text-6xl ${
           light ? "text-white" : "text-[#014C38]"
         }`}
       >
@@ -63,7 +63,7 @@ function SectionIntro({
       </h2>
       {body ? (
         <p
-          className={`mt-5 max-w-[54ch] text-[16px] leading-7 md:text-[18px] ${
+          className={`mt-5 max-w-[54ch] text-base leading-7 md:text-lg ${
             center ? "mx-auto" : ""
           } ${light ? "text-white/78" : "text-[#014C38]/70"}`}
         >
@@ -82,24 +82,24 @@ function Hero() {
 
         <div className="grid flex-1 gap-8 py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.78fr)] lg:items-center lg:py-16">
           <div className="max-w-[720px]">
-            <h1 className="text-balance text-[54px] font-semibold leading-[0.95] tracking-[-0.055em] text-[#014C38] sm:text-[72px] md:text-[92px] lg:text-[104px]">
+            <h1 className="text-balance text-6xl font-semibold leading-[0.95] tracking-[-0.055em] text-[#014C38] sm:text-7xl md:text-8xl lg:text-8xl">
               Misi Belajar Konsisten Dari Dasar Sampai Mahir
             </h1>
-            <p className="mt-7 max-w-[600px] text-[18px] leading-8 text-[#014C38]/70 md:text-[20px] md:leading-8">
+            <p className="mt-7 max-w-[600px] text-lg leading-8 text-[#014C38]/70 md:text-xl md:leading-8">
               Peta belajar yang jelas, ritme yang konsisten, dan Kapten yang
               menjaga perjalananmu tetap menuju PTN.
             </p>
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <ActionButtonLink
-                className="rounded-full !bg-[#014C38] px-7 py-4 text-[15px] font-semibold !text-white hover:!bg-[#014C38]/90"
+                className="rounded-full !bg-[#014C38] px-7 py-4 text-base font-semibold !text-white hover:!bg-[#014C38]/90"
                 href="/login"
                 variant="brand"
               >
                 Mulai Belajar
               </ActionButtonLink>
               <ActionButtonLink
-                className="rounded-full border-[#014C38]/20 bg-white px-7 py-4 text-[15px] font-semibold text-[#014C38] hover:bg-[#014C38]/5"
+                className="rounded-full border-[#014C38]/20 bg-white px-7 py-4 text-base font-semibold text-[#014C38] hover:bg-[#014C38]/5"
                 href="/#program"
                 variant="brandOutline"
               >
@@ -136,10 +136,10 @@ function LogoMarquee() {
         <p className="kicker-label text-[#014C38]/62">
           University Destinations
         </p>
-        <h2 className="mt-3 max-w-[780px] text-balance text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-[58px]">
+        <h2 className="mt-3 max-w-[780px] text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-6xl">
           Tempat Para Voyager Berlabuh
         </h2>
-        <p className="mt-5 max-w-[620px] text-[16px] leading-7 text-[#014C38]/66 md:text-[18px] md:leading-8">
+        <p className="mt-5 max-w-[620px] text-base leading-7 text-[#014C38]/66 md:text-lg md:leading-8">
           Ribuan Voyager telah menuntaskan perjalanan mereka dan berlabuh di
           kampus impian di seluruh Indonesia.
         </p>
@@ -221,7 +221,7 @@ function PrinciplesSection() {
                   src={principleAssets[index]}
                 />
               </div>
-              <h3 className="mt-7 text-center text-[28px] font-semibold tracking-[-0.03em]">
+              <h3 className="mt-7 text-center text-3xl font-semibold tracking-[-0.03em]">
                 {principle.title}
               </h3>
               <p className="mx-auto mt-3 max-w-[25ch] text-center text-sm leading-6 text-white/72">
@@ -267,10 +267,10 @@ function ProgramsSection() {
               <span className="relative text-sm font-semibold text-[#014C38]/55">
                 Rute {pathway.kicker}
               </span>
-              <h3 className="relative mt-8 max-w-[13ch] text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-[46px]">
+              <h3 className="relative mt-8 max-w-[13ch] text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-6xl">
                 {pathway.title}
               </h3>
-              <p className="relative mt-5 max-w-[34ch] text-[15px] leading-7 text-[#014C38]/70">
+              <p className="relative mt-5 max-w-[34ch] text-base leading-7 text-[#014C38]/70">
                 {pathway.summary}
               </p>
               <div className="relative mt-8 h-px w-16 bg-[#014C38]/16" />
@@ -333,7 +333,7 @@ function ResultsSection() {
                     />
                   </div>
                   <div>
-                    <h3 className="text-[21px] font-semibold tracking-[-0.03em]">
+                    <h3 className="text-2xl font-semibold tracking-[-0.03em]">
                       {item.name}
                     </h3>
                     <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#014C38]/48">
@@ -353,7 +353,7 @@ function ResultsSection() {
                   </div>
                 ) : null}
               </div>
-              <p className="mt-7 text-[16px] leading-7 text-[#014C38]/72 md:text-[17px] md:leading-8">
+              <p className="mt-7 text-base leading-7 text-[#014C38]/72 md:text-lg md:leading-8">
                 &ldquo;{item.quote}&rdquo;
               </p>
             </article>
@@ -376,7 +376,7 @@ function TopAlumniSection() {
 
           <div className="flex lg:justify-end">
             <ActionButtonLink
-              className="rounded-full !bg-[#014C38] px-7 py-4 text-[15px] font-semibold !text-white hover:!bg-[#014C38]/90"
+              className="rounded-full !bg-[#014C38] px-7 py-4 text-base font-semibold !text-white hover:!bg-[#014C38]/90"
               href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
               variant="brand"
             >
@@ -420,14 +420,14 @@ function TopAlumniCard({ alumnus }: { alumnus: TopAlumni }) {
         ) : null}
       </div>
       <div className="p-3.5 md:p-4">
-        <h3 className="text-[16px] font-semibold leading-tight tracking-[-0.03em] text-[#014C38] md:text-[18px]">
+        <h3 className="text-base font-semibold leading-tight tracking-[-0.03em] text-[#014C38] md:text-lg">
           {alumnus.name}
         </h3>
-        <p className="mt-1.5 text-[12px] leading-4 text-[#014C38]/68 md:text-[13px] md:leading-5">
+        <p className="mt-1.5 text-xs leading-4 text-[#014C38]/68 md:text-sm md:leading-5">
           {alumnus.university}
         </p>
         {alumnus.isPlaceholder ? (
-          <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#014C38]/42">
+          <p className="mt-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#014C38]/42">
             Placeholder
           </p>
         ) : null}
@@ -536,14 +536,14 @@ function FinalCTA() {
     <section className="bg-white px-4 py-20 md:px-8 md:py-28 lg:px-10">
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-8 rounded-[32px] bg-[#014C38] p-8 text-white md:p-12 lg:grid-cols-[1fr_240px] lg:items-center">
         <div>
-          <h2 className="text-[42px] font-semibold leading-tight tracking-[-0.05em] md:text-[68px]">
+          <h2 className="text-5xl font-semibold leading-tight tracking-[-0.05em] md:text-7xl">
             Siap Memulai Misimu?
           </h2>
-          <p className="mt-5 max-w-[520px] text-[18px] leading-8 text-white/76">
+          <p className="mt-5 max-w-[520px] text-lg leading-8 text-white/76">
             Bergabung ke misi belajar konsisten bersama Vecalss.
           </p>
           <ActionButtonLink
-            className="mt-8 rounded-full !bg-white px-7 py-4 text-[15px] font-semibold !text-[#014C38] hover:!bg-white/90"
+            className="mt-8 rounded-full !bg-white px-7 py-4 text-base font-semibold !text-[#014C38] hover:!bg-white/90"
             href="/login"
             variant="brandOutline"
           >

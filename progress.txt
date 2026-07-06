@@ -30,3 +30,13 @@ Remaining approved phases:
 
 Remaining approved phases:
 - None
+
+2026-07-06 - Vera AI minimalist refinement implemented
+
+- Reduced the Vera AI workspace visual weight by removing the decorative background wash, tightening panel spacing, and simplifying shadows while preserving the existing green/secondary/accent palette.
+- Preserved the Konteks Belajar structure with active source types, add-context flow, and removable selected sources, but removed the redundant active-source search from the primary panel.
+- Moved saved notes out of the central Vera chat flow into Studio Vera so the middle column now prioritizes the current artifact, quick prompts, chat, and composer.
+- Verified `/vera-ai` on desktop and mobile with Playwright; mobile width stayed at 390px scroll width with no horizontal overflow.
+
+Remaining approved phases:
+- None

@@ -47,9 +47,9 @@ function CatalogueCard({
         <div className="mt-auto">
           <h2
             className={cn(
-              "max-w-[12ch] text-[30px] leading-[1.05] font-semibold md:text-[40px]",
+              "max-w-[12ch] text-4xl leading-[1.05] font-semibold md:text-5xl",
               title.length > 24
-                ? "max-w-[16ch] text-[28px] md:text-[34px]"
+                ? "max-w-[16ch] text-3xl md:text-4xl"
                 : null,
             )}
           >

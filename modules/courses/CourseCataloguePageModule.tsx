@@ -18,7 +18,7 @@ function CourseCataloguePageModule({ session }: { session: SessionContext }) {
       <section className="flex flex-col gap-5">
         <div>
           <div>
-            <h1 className="text-[32px] leading-tight font-semibold text-secondary-900 md:text-[42px]">
+            <h1 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
               Materi
             </h1>
             <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-500 md:text-base">

@@ -183,19 +183,9 @@ const veraMaterialHistory: VeraMaterialHistory[] = [
 
 const veraQuickPrompts: VeraQuickPrompt[] = [
   {
-    id: "prompt-analysis",
-    label: "Analisis kelemahanku",
-    mode: "analysis",
-  },
-  {
     id: "prompt-drill",
     label: "Buat drill dari soal salah",
     mode: "drill",
-  },
-  {
-    id: "prompt-ratio",
-    label: "Jelaskan materi rasio",
-    mode: "chat",
   },
   {
     id: "prompt-route",

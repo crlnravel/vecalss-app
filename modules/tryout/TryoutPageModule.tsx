@@ -48,18 +48,18 @@ export default function TryoutPageModule() {
           <div className="grid gap-8 border-b border-[#014c38]/10 py-10 md:gap-10 md:py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.82fr)] lg:items-end">
             <div>
               <Badge
-                className="rounded-full px-4 py-2 font-display text-[12px] tracking-[0.22em] uppercase"
+                className="rounded-full px-4 py-2 font-display text-xs tracking-[0.22em] uppercase"
                 size="card"
                 variant="mint"
               >
                 Tryout Vecalss
               </Badge>
 
-              <h1 className="mt-7 max-w-[14ch] text-[44px] leading-[0.94] font-medium text-black md:text-[72px]">
+              <h1 className="mt-7 max-w-[14ch] text-5xl leading-[0.94] font-medium text-black md:text-7xl">
                 Siap Hadapi Ujian?
               </h1>
 
-              <p className="mt-5 max-w-[62ch] text-[17px] leading-8 text-secondary-900/72 md:text-[20px]">
+              <p className="mt-5 max-w-[62ch] text-lg leading-8 text-secondary-900/72 md:text-xl">
                 Uji kemampuanmu dengan katalog tryout SNBT yang terasa akrab
                 dengan referensi, lalu dibawa masuk ke sistem visual Vecalss
                 supaya tetap menyatu dengan project ini.
@@ -106,11 +106,11 @@ export default function TryoutPageModule() {
                         <Icon className="size-8" />
                       </span>
                       <div className="mt-5 flex items-center gap-2">
-                        <h2 className="text-[24px] leading-[1.06] font-medium text-black">
+                        <h2 className="text-2xl leading-[1.06] font-medium text-black">
                           {item.label}
                         </h2>
                         {item.soon ? (
-                          <span className="rounded-full bg-[#dff5c8] px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-[#5f8a1e] uppercase">
+                          <span className="rounded-full bg-[#dff5c8] px-2.5 py-1 text-xs font-semibold tracking-[0.12em] text-[#5f8a1e] uppercase">
                             Segera
                           </span>
                         ) : null}
@@ -130,7 +130,7 @@ export default function TryoutPageModule() {
               </span>
               <div className="relative w-full xl:max-w-[300px]">
                 <select
-                  className="h-14 w-full appearance-none rounded-[20px] border border-[#014c38]/14 bg-white px-5 pr-14 text-[18px] text-secondary-900 shadow-[0_18px_48px_-40px_rgba(1,76,56,0.26)] outline-none transition-colors focus:border-[#014c38]/28"
+                  className="h-14 w-full appearance-none rounded-[20px] border border-[#014c38]/14 bg-white px-5 pr-14 text-lg text-secondary-900 shadow-[0_18px_48px_-40px_rgba(1,76,56,0.26)] outline-none transition-colors focus:border-[#014c38]/28"
                   defaultValue="all"
                 >
                   <option value="all">Semua Periode</option>
@@ -151,21 +151,21 @@ export default function TryoutPageModule() {
                 <div>
                   <span
                     className={cn(
-                      "inline-flex rounded-full px-3 py-1 text-[12px] font-semibold tracking-[0.12em] uppercase",
+                      "inline-flex rounded-full px-3 py-1 text-xs font-semibold tracking-[0.12em] uppercase",
                       toneStyles[section.tone].kicker,
                     )}
                   >
                     {section.kicker}
                   </span>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <h2 className="text-[36px] leading-none font-medium text-black md:text-[48px]">
+                    <h2 className="text-5xl leading-none font-medium text-black md:text-6xl">
                       {section.title}
                     </h2>
-                    <span className="rounded-full border border-[#49c7c3]/45 bg-[#effdfc] px-3 py-1 text-[13px] font-semibold text-[#14938d]">
+                    <span className="rounded-full border border-[#49c7c3]/45 bg-[#effdfc] px-3 py-1 text-sm font-semibold text-[#14938d]">
                       Baru
                     </span>
                   </div>
-                  <p className="mt-3 max-w-[68ch] text-[16px] leading-7 text-secondary-900/66 md:text-[17px]">
+                  <p className="mt-3 max-w-[68ch] text-base leading-7 text-secondary-900/66 md:text-lg">
                     {section.description}
                   </p>
                 </div>
@@ -207,15 +207,15 @@ export default function TryoutPageModule() {
                         width={1920}
                       />
                       <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
-                        <span className="rounded-full bg-white/92 px-3 py-1 text-[13px] font-semibold text-[#014c38] shadow-[0_12px_34px_-24px_rgba(1,76,56,0.4)]">
+                        <span className="rounded-full bg-white/92 px-3 py-1 text-sm font-semibold text-[#014c38] shadow-[0_12px_34px_-24px_rgba(1,76,56,0.4)]">
                           {tryout.badge}
                         </span>
-                        <span className="rounded-full bg-[#014c38] px-3 py-1 text-[12px] font-semibold tracking-[0.12em] text-white uppercase">
+                        <span className="rounded-full bg-[#014c38] px-3 py-1 text-xs font-semibold tracking-[0.12em] text-white uppercase">
                           {tryout.period}
                         </span>
                       </div>
                       <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(8,14,12,0.74)_100%)] p-5">
-                        <span className="inline-flex rounded-full bg-white px-4 py-2 text-[15px] font-semibold text-[#014c38] shadow-[0_12px_30px_-24px_rgba(0,0,0,0.42)]">
+                        <span className="inline-flex rounded-full bg-white px-4 py-2 text-base font-semibold text-[#014c38] shadow-[0_12px_30px_-24px_rgba(0,0,0,0.42)]">
                           {tryout.indexLabel}
                         </span>
                       </div>
@@ -224,7 +224,7 @@ export default function TryoutPageModule() {
                     <div className="p-6">
                       <span
                         className={cn(
-                          "inline-flex rounded-full px-3 py-1 text-[13px] font-semibold",
+                          "inline-flex rounded-full px-3 py-1 text-sm font-semibold",
                           tryout.status === "Berlangsung" &&
                             "border border-[#ffb8b0] bg-[#fff0ee] text-[#c23d2f]",
                           tryout.status === "Terbaru" &&
@@ -244,11 +244,11 @@ export default function TryoutPageModule() {
                         {tryout.status}
                       </span>
 
-                      <h3 className="mt-5 text-[34px] leading-[0.95] font-medium text-black">
+                      <h3 className="mt-5 text-4xl leading-[0.95] font-medium text-black">
                         {tryout.title}
                       </h3>
 
-                      <div className="mt-5 flex flex-wrap gap-4 text-[15px] text-secondary-900/64">
+                      <div className="mt-5 flex flex-wrap gap-4 text-base text-secondary-900/64">
                         <span className="inline-flex items-center gap-2">
                           <CalendarDays className="size-4" />
                           {tryout.duration}
@@ -281,13 +281,13 @@ export default function TryoutPageModule() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(245,197,24,0.2),transparent_22%)]" />
             <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
               <div>
-                <p className="text-[13px] font-semibold tracking-[0.18em] text-white/64 uppercase">
+                <p className="text-sm font-semibold tracking-[0.18em] text-white/64 uppercase">
                   Next step
                 </p>
-                <h2 className="mt-4 max-w-[16ch] text-[34px] leading-[1.02] font-medium md:text-[52px]">
+                <h2 className="mt-4 max-w-[16ch] text-4xl leading-[1.02] font-medium md:text-6xl">
                   Masuk ke dashboard dan lanjutkan latihan yang paling cocok.
                 </h2>
-                <p className="mt-4 max-w-[54ch] text-[17px] leading-7 text-white/74">
+                <p className="mt-4 max-w-[54ch] text-lg leading-7 text-white/74">
                   Halaman ini sudah mengikuti komposisi referensi, sementara
                   visual banner tryout masih memakai placeholder Vecalss yang
                   kamu berikan untuk fase sekarang.

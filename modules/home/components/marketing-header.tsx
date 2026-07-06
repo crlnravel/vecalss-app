@@ -31,7 +31,7 @@ function MarketingHeader({ currentPath }: MarketingHeaderProps) {
             />
           </span>
           <span
-            className="text-[20px] font-normal leading-none tracking-[0.08em] text-[#014C38] uppercase md:text-[25px]"
+            className="text-xl font-normal leading-none tracking-[0.08em] text-[#014C38] uppercase md:text-3xl"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS

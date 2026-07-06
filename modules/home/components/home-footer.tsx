@@ -43,7 +43,7 @@ function HomeFooter() {
                 width={200}
               />
               <span
-                className="text-[20px] font-normal leading-none tracking-[0.08em] text-white uppercase md:text-[30px]"
+                className="text-xl font-normal leading-none tracking-[0.08em] text-white uppercase md:text-4xl"
                 style={{ fontFamily: "var(--font-sports-world)" }}
               >
                 VECALSS

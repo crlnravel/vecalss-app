@@ -4,7 +4,6 @@ import {
   BookOpenCheck,
   Clock3,
   ListChecks,
-  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,9 +36,9 @@ function QuizSubjectDetailPageModule({
 
   return (
     <CourseWorkspaceShell
-      activeLabel="Quiz"
+      activeLabel="Kuis"
       breadcrumbLabel={subject.title}
-      searchPlaceholder="Cari quiz di subject ini..."
+      searchPlaceholder="Cari kuis di subjek ini..."
       session={session}
     >
       <div>
@@ -47,7 +46,7 @@ function QuizSubjectDetailPageModule({
           render={
             <Link href="/quiz">
               <ArrowLeft data-icon="inline-start" />
-              Kembali ke subject quiz
+              Kembali ke subjek kuis
             </Link>
           }
           size="sm"
@@ -65,13 +64,13 @@ function QuizSubjectDetailPageModule({
                     {subject.code}
                   </span>
                   <span className="rounded-full bg-primary-700 px-3 py-1 text-xs font-semibold text-white">
-                    Precreated quiz
+                    Kuis siap pakai
                   </span>
                 </div>
-                <CardTitle className="mt-4 max-w-4xl text-[32px] leading-tight font-semibold text-secondary-900 md:text-[44px]">
+                <CardTitle className="mt-4 max-w-4xl text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
                   {subject.title}
                 </CardTitle>
-                <CardDescription className="mt-4 max-w-[68ch] text-[15px] leading-7 text-secondary-600 md:text-base">
+                <CardDescription className="mt-4 max-w-[68ch] text-base leading-7 text-secondary-600 md:text-base">
                   {subject.description}
                 </CardDescription>
               </div>
@@ -90,7 +89,7 @@ function QuizSubjectDetailPageModule({
           </CardHeader>
 
           <CardContent className="grid gap-3 px-6 pb-7 sm:grid-cols-3 md:px-8">
-            <DetailStat icon={ListChecks} label="Quiz" value={stats.totalQuizzes} />
+            <DetailStat icon={ListChecks} label="Kuis" value={stats.totalQuizzes} />
             <DetailStat
               icon={BookOpenCheck}
               label="Total soal"
@@ -142,19 +141,9 @@ function QuizCard({
   subject: QuizSubject;
 }) {
   return (
-    <Link
-      className="group overflow-hidden rounded-2xl border border-primary-100 bg-white text-left shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)] focus-visible:ring-3 focus-visible:ring-primary-400/25 focus-visible:outline-none"
-      href={`/quiz/${subject.slug}/${quiz.slug}`}
-    >
+    <article className="group overflow-hidden rounded-2xl border border-primary-100 bg-white text-left shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)]">
       <div className={cn("p-5", subject.palette)}>
-        <div className="flex items-start justify-between gap-3">
-          <span className="rounded-full border border-current/15 bg-white/35 px-3 py-1 text-xs font-semibold tracking-[0.16em] uppercase">
-            {quiz.difficulty}
-          </span>
-          <span className="text-xs font-semibold opacity-80">{quiz.status}</span>
-        </div>
-
-        <h3 className="mt-6 max-w-[16ch] text-[28px] leading-[1.08] font-semibold">
+        <h3 className="max-w-[16ch] text-3xl leading-[1.08] font-semibold">
           {quiz.title}
         </h3>
         <p className="mt-3 text-sm leading-6 opacity-80">
@@ -174,25 +163,16 @@ function QuizCard({
           </span>
         </div>
 
-        <div className="mt-5">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase text-secondary-500">
-            <span>Readiness</span>
-            <span>{quiz.completionRate}%</span>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-secondary-100">
-            <div
-              className="h-full rounded-full bg-primary-700 transition-[width] duration-300"
-              style={{ width: `${quiz.completionRate}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary-700">
-          <Sparkles className="size-4" />
-          Buka sesi latihan
-        </div>
+        <Button
+          className="mt-5 w-full justify-center sm:w-fit"
+          render={<Link href={`/quiz/${subject.slug}/${quiz.slug}`} />}
+          size="sm"
+          variant="brand"
+        >
+          Kerjakan
+        </Button>
       </div>
-    </Link>
+    </article>
   );
 }
 

@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   BookOpen,
+  Bot,
   ChartNoAxesColumnIncreasing,
   CheckCircle2,
   ChevronRight,
@@ -13,13 +15,12 @@ import {
   FileQuestion,
   FileText,
   GraduationCap,
-  Lightbulb,
   ListChecks,
   NotebookPen,
   Plus,
   Search,
   SendHorizontal,
-  Sparkles,
+  Trash2,
   Upload,
   type LucideIcon,
 } from "lucide-react";
@@ -39,13 +40,13 @@ import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentNotificationPopover } from "@/modules/student/components/student-notification-popover";
+import { studentNotificationItems } from "@/modules/student/notification-data";
 
 import {
   veraContextSources,
   veraContextTypes,
   veraMaterialHistory,
   veraPracticeHistory,
-  veraQuickPrompts,
   veraStudioTools,
   veraToolModes,
   type VeraContextSource,
@@ -55,10 +56,29 @@ import {
   type VeraPracticeHistory,
   type VeraStudioTool,
   type VeraToolId,
-  type VeraToolMode,
 } from "./data";
 
-type ActiveMode = VeraToolId | "chat";
+type SourceFilter = "all" | VeraContextTypeId;
+
+type VeraMessage = {
+  id: string;
+  role: "vera" | "student";
+  body: string;
+  createdAt: string;
+  citations?: string[];
+};
+
+type DeleteTarget =
+  | {
+      kind: "context";
+      sourceId: string;
+      label: string;
+    }
+  | {
+      kind: "artifact";
+      toolId: VeraToolId;
+      label: string;
+    };
 
 const toolIcons: Record<VeraToolId, LucideIcon> = {
   analysis: ChartNoAxesColumnIncreasing,
@@ -75,8 +95,6 @@ const contextTypeIcons: Record<VeraContextTypeId, LucideIcon> = {
   document: FileText,
 };
 
-const fallbackContextType = veraContextTypes[0];
-
 const toolToneClass: Record<VeraStudioTool["tone"], string> = {
   cream: "bg-[#fff8e8] text-[#6b5620] ring-[#f1d88a]/70",
   gold: "bg-[#fff3bc] text-[#6a5300] ring-[#f5c518]/70",
@@ -86,35 +104,298 @@ const toolToneClass: Record<VeraStudioTool["tone"], string> = {
   sky: "bg-[#e9f5ff] text-[#245a78] ring-[#b4daf2]/70",
 };
 
-function VeraAiPageModule({ session }: { session: SessionContext }) {
-  const [activeMode, setActiveMode] = useState<ActiveMode>("chat");
+const fallbackContextType = veraContextTypes[0];
 
-  const activeTool = useMemo(
+const initialSelectedSourceIds = [
+  "tryout-04",
+  "module-ratio",
+  "personal-summary",
+];
+
+const initialGeneratedTools: VeraToolId[] = ["analysis", "review", "summary"];
+
+const initialMessages: VeraMessage[] = [
+  {
+    id: "msg-brief",
+    role: "vera",
+    body:
+      "Aku sudah membaca tryout terakhir, modul rasio, dan rangkuman PK pribadimu. Fokus yang paling dekat saat ini masih simpulan implisit dan rasio dua langkah, jadi chat ini kita pakai untuk ngobrol dan menyusun langkah belajarnya.",
+    createdAt: "Baru saja",
+    citations: ["Tryout SNBT 04", "Modul Rasio Dasar", "Rangkuman PK Pribadi"],
+  },
+  {
+    id: "msg-follow-up",
+    role: "vera",
+    body:
+      "Kalau kamu butuh output belajar yang rapi, bilang saja. Aku akan siapkan hasilnya di Studio Vera supaya chat tetap bersih.",
+    createdAt: "Baru saja",
+  },
+];
+
+const toolRequestLabels: Record<VeraToolId, string> = {
+  analysis: "Analisis kelemahanku dari konteks ini.",
+  route: "Susun rute belajar mingguan dari konteks yang aktif.",
+  drill: "Buat drill adaptif dari soal salahku.",
+  review: "Bahas soal yang paling sering bikin aku meleset.",
+  ptn: "Bantu susun strategi PTN dari skor dan targetku.",
+  summary: "Ringkas keputusan belajar yang perlu aku bawa ke sesi berikutnya.",
+};
+
+function moveItemToFront<T extends string>(items: T[], nextItem: T) {
+  return [nextItem, ...items.filter((item) => item !== nextItem)];
+}
+
+function isToolId(value: string | null): value is VeraToolId {
+  return Boolean(
+    value &&
+      ["analysis", "route", "drill", "review", "ptn", "summary"].includes(
+        value,
+      ),
+  );
+}
+
+function getContextType(typeId: VeraContextTypeId): VeraContextType {
+  return (
+    veraContextTypes.find((contextType) => contextType.id === typeId) ??
+    fallbackContextType
+  );
+}
+
+function buildGeneralReply(prompt: string, sourceTitles: string[]) {
+  const sourceLine =
+    sourceTitles.length > 0
+      ? sourceTitles.join(", ")
+      : "konteks belajar yang sedang aktif";
+  const loweredPrompt = prompt.toLowerCase();
+
+  if (loweredPrompt.includes("rasio")) {
+    return `Aku membaca ${sourceLine}. Untuk rasio, pola yang paling sering bikin tempo melambat adalah ketika basis hitung berpindah di langkah kedua. Mulai dulu dari 3 soal pendek dengan urutan: tentukan basis, ubah perbandingan, lalu cek satuan hasil akhirnya.`;
+  }
+
+  if (
+    loweredPrompt.includes("ptn") ||
+    loweredPrompt.includes("ui") ||
+    loweredPrompt.includes("jurusan")
+  ) {
+    return `Aku pakai ${sourceLine} sebagai pijakan. Dari konteks ini, langkah paling aman adalah menjaga topik yang sudah stabil tetap ringan, lalu mendorong PK dan PU sebagai sumber kenaikan skor yang paling realistis sebelum membahas target PTN lebih rinci.`;
+  }
+
+  return `Aku membaca ${sourceLine}. Pertanyaanmu paling dekat dengan dua kebutuhan: memperjelas konsep yang sedang lemah dan menjaga alur belajar tetap pendek. Kalau kamu butuh output yang lebih rapi, aku bisa siapkan versinya di Studio Vera tanpa memenuhi chat ini.`;
+}
+
+function buildStudioConfirmation(tool: VeraStudioTool) {
+  return `Siap, ${tool.title.toLowerCase()} sudah aku siapkan di Studio Vera. Buka panel kanan untuk melihat hasil lengkapnya.`;
+}
+
+function VeraAiPageModule({ session }: { session: SessionContext }) {
+  const searchParams = useSearchParams();
+  const requestedArtifact = searchParams.get("artifact");
+  const requestedToolParam = searchParams.get("tool");
+  const requestedTool: VeraToolId | null = isToolId(requestedArtifact)
+    ? requestedArtifact
+    : isToolId(requestedToolParam)
+      ? requestedToolParam
+      : null;
+  const [selectedSourceIds, setSelectedSourceIds] = useState(
+    initialSelectedSourceIds,
+  );
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [draft, setDraft] = useState("");
+  const [generatedTools, setGeneratedTools] = useState<VeraToolId[]>(() =>
+    requestedTool
+      ? moveItemToFront(initialGeneratedTools, requestedTool)
+      : initialGeneratedTools,
+  );
+  const [messages, setMessages] = useState<VeraMessage[]>(initialMessages);
+  const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
+    requestedTool ?? "analysis",
+  );
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+
+  const selectedSources = useMemo(
     () =>
-      activeMode === "chat"
-        ? undefined
-        : veraStudioTools.find((tool) => tool.id === activeMode),
-    [activeMode],
+      veraContextSources.filter((source) => selectedSourceIds.includes(source.id)),
+    [selectedSourceIds],
   );
 
+  const activeVisibleSources = useMemo(() => {
+    return selectedSources.filter((source) => {
+      if (sourceFilter !== "all" && source.type !== sourceFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [selectedSources, sourceFilter]);
+
+  const generatedArtifacts = useMemo(
+    () =>
+      generatedTools
+        .map((toolId) => veraStudioTools.find((tool) => tool.id === toolId))
+        .filter((tool): tool is VeraStudioTool => Boolean(tool)),
+    [generatedTools],
+  );
+
+  const resolvedActiveArtifactId = useMemo(() => {
+    if (
+      activeArtifactId &&
+      generatedArtifacts.some((tool) => tool.id === activeArtifactId)
+    ) {
+      return activeArtifactId;
+    }
+
+    return generatedArtifacts[0]?.id ?? null;
+  }, [activeArtifactId, generatedArtifacts]);
+
+  const activeArtifact = useMemo(
+    () =>
+      generatedArtifacts.find((tool) => tool.id === resolvedActiveArtifactId) ?? null,
+    [generatedArtifacts, resolvedActiveArtifactId],
+  );
+
+  function toggleSource(sourceId: string) {
+    setSelectedSourceIds((current) =>
+      current.includes(sourceId)
+        ? current.filter((id) => id !== sourceId)
+        : [...current, sourceId],
+    );
+  }
+
+  function requestDeleteSource(source: VeraContextSource) {
+    setDeleteTarget({
+      kind: "context",
+      sourceId: source.id,
+      label: source.title,
+    });
+  }
+
+  function requestDeleteArtifact(tool: VeraStudioTool) {
+    setDeleteTarget({
+      kind: "artifact",
+      toolId: tool.id,
+      label: tool.outputTitle,
+    });
+  }
+
+  function confirmDeleteTarget() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    if (deleteTarget.kind === "context") {
+      toggleSource(deleteTarget.sourceId);
+      setDeleteTarget(null);
+      return;
+    }
+
+    setGeneratedTools((current) =>
+      current.filter((toolId) => toolId !== deleteTarget.toolId),
+    );
+    setActiveArtifactId((current) =>
+      current === deleteTarget.toolId ? null : current,
+    );
+    setDeleteTarget(null);
+  }
+
+  function openArtifact(toolId: VeraToolId) {
+    if (!generatedTools.includes(toolId)) {
+      return;
+    }
+
+    setActiveArtifactId(toolId);
+    setGeneratedTools((current) => moveItemToFront(current, toolId));
+  }
+
+  function handleToolRequest(toolId: VeraToolId) {
+    const tool = veraStudioTools.find((item) => item.id === toolId);
+    const mode = veraToolModes[toolId];
+    const sourceTitles = selectedSources.slice(0, 3).map((source) => source.title);
+
+    if (!tool) {
+      return;
+    }
+
+    setGeneratedTools((current) => moveItemToFront(current, toolId));
+    setActiveArtifactId(toolId);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `student-${toolId}-${current.length}`,
+        role: "student",
+        body: toolRequestLabels[toolId],
+        createdAt: "Sekarang",
+      },
+      {
+        id: `vera-${toolId}-${current.length}`,
+        role: "vera",
+        body: `${buildStudioConfirmation(tool)} ${mode.followUp}`,
+        createdAt: "Sekarang",
+        citations: sourceTitles,
+      },
+    ]);
+  }
+
+  function handleSend() {
+    const nextDraft = draft.trim();
+
+    if (!nextDraft) {
+      return;
+    }
+
+    const citations = selectedSources.slice(0, 3).map((source) => source.title);
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: `student-free-${current.length}`,
+        role: "student",
+        body: nextDraft,
+        createdAt: "Sekarang",
+      },
+      {
+        id: `vera-free-${current.length}`,
+        role: "vera",
+        body: buildGeneralReply(nextDraft, citations),
+        createdAt: "Sekarang",
+        citations,
+      },
+    ]);
+    setDraft("");
+  }
+
   return (
-    <div className="min-h-svh bg-[#edf8f3] text-secondary-900 lg:h-svh lg:overflow-hidden">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_14%_6%,rgba(245,197,24,0.18),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(16,172,132,0.15),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.72),rgba(237,248,243,0.94))]" />
+    <div className="min-h-svh bg-primary-50 text-secondary-900 lg:h-svh lg:overflow-hidden">
       <div className="relative flex min-h-svh flex-col lg:h-svh">
         <VeraTopBar session={session} />
 
-        <main className="grid flex-1 gap-4 px-3 pb-3 md:px-4 md:pb-4 lg:min-h-0 lg:grid-cols-[300px_minmax(0,1fr)_330px] xl:grid-cols-[340px_minmax(560px,1fr)_360px]">
-          <ContextPanel />
+        <main className="grid flex-1 gap-2 px-2 pb-2 md:px-3 md:pb-3 lg:min-h-0 lg:grid-cols-[272px_minmax(0,1fr)_312px] xl:grid-cols-[292px_minmax(640px,1fr)_324px]">
+          <ContextPanel
+            activeVisibleSources={activeVisibleSources}
+            sourceFilter={sourceFilter}
+            onFilterChange={setSourceFilter}
+            onRequestRemoveSource={requestDeleteSource}
+          />
           <ChatWorkspace
-            activeMode={activeMode}
-            onModeChange={setActiveMode}
+            draft={draft}
+            messages={messages}
+            onDraftChange={setDraft}
+            onSend={handleSend}
           />
           <StudioPanel
-            activeMode={activeMode}
-            activeTool={activeTool}
-            onModeChange={setActiveMode}
+            activeArtifact={activeArtifact}
+            activeArtifactId={resolvedActiveArtifactId}
+            generatedArtifacts={generatedArtifacts}
+            selectedSources={selectedSources}
+            onGenerateTool={handleToolRequest}
+            onOpenArtifact={openArtifact}
+            onRequestDeleteArtifact={requestDeleteArtifact}
           />
         </main>
+        <DeleteConfirmationDialog
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={confirmDeleteTarget}
+          target={deleteTarget}
+        />
       </div>
     </div>
   );
@@ -136,82 +417,155 @@ function VeraTopBar({ session }: { session: SessionContext }) {
         </Button>
         <Link
           aria-label="Vecalss dashboard"
-          className="flex h-11 min-w-0 items-center rounded-full bg-white/72 px-3 shadow-sm ring-1 ring-primary-100 backdrop-blur transition-colors hover:bg-white"
+          className="flex min-w-0 items-center gap-2.5 p-0 transition-opacity hover:opacity-90"
           href="/dashboard"
         >
           <Image
-            alt="Vecalss"
-            className="object-contain"
-            height={28}
+            alt="Vecalss logo"
+            className="h-[26px] w-auto object-contain md:h-[30px]"
+            height={42}
             priority
-            src="/brand/logo-full-cropped.png"
-            width={112}
+            src="/brand/logo-mark-cropped.png"
+            width={42}
           />
+          <span
+            className="text-[1.35rem] leading-none tracking-[0.04em] text-primary-800 md:text-[1.7rem]"
+            style={{ fontFamily: "var(--font-sports-world)" }}
+          >
+            VECALSS
+          </span>
         </Link>
       </div>
 
       <div className="ml-auto flex items-center gap-1.5 rounded-full border border-primary-100 bg-white/72 px-1.5 py-1 shadow-sm backdrop-blur">
-        <StudentNotificationPopover />
-        <StudentAccountMenu session={session} />
+        <StudentNotificationPopover items={studentNotificationItems} />
+        <StudentAccountMenu extraItem="notifications" session={session} />
       </div>
     </header>
   );
 }
 
-function ContextPanel() {
+function ContextPanel({
+  activeVisibleSources,
+  sourceFilter,
+  onFilterChange,
+  onRequestRemoveSource,
+}: {
+  activeVisibleSources: VeraContextSource[];
+  sourceFilter: SourceFilter;
+  onFilterChange: (filter: SourceFilter) => void;
+  onRequestRemoveSource: (source: VeraContextSource) => void;
+}) {
   return (
-    <WorkspacePanel className="lg:min-h-0">
+    <WorkspacePanel className="order-2 lg:order-1 lg:min-h-0">
       <PanelHeader title="Konteks Belajar" />
 
-      <div className="px-4 py-3">
+      <div className="border-b border-primary-100/70 px-4 py-3">
         <Dialog>
           <DialogTrigger
-            render={
-              <Button className="w-full rounded-full" size="sm" variant="brand" />
-            }
+            render={<Button className="w-full rounded-xl" size="sm" variant="brand" />}
           >
             <Plus data-icon="inline-start" />
-            Tambahkan konteks
+            Tambah konteks
           </DialogTrigger>
           <AddContextDialog />
         </Dialog>
-      </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <div className="grid gap-3">
-          {veraContextSources.map((source) => (
-            <ContextSourceCard key={source.id} source={source} />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <SourceFilterChip
+            active={sourceFilter === "all"}
+            label="Semua"
+            onClick={() => onFilterChange("all")}
+          />
+          {veraContextTypes.map((type) => (
+            <SourceFilterChip
+              active={sourceFilter === type.id}
+              key={type.id}
+              label={type.label}
+              onClick={() => onFilterChange(type.id)}
+            />
           ))}
         </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {activeVisibleSources.length > 0 ? (
+          <div className="grid gap-2">
+            {activeVisibleSources.map((source) => (
+              <ContextSourceRow
+                key={source.id}
+                source={source}
+                onRemove={() => onRequestRemoveSource(source)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[20px] border border-dashed border-primary-200 bg-white/76 px-4 py-5 text-sm text-secondary-500">
+            Tidak ada konteks aktif pada filter ini.
+          </div>
+        )}
       </div>
     </WorkspacePanel>
   );
 }
 
-function ContextSourceCard({ source }: { source: VeraContextSource }) {
+function SourceFilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+        active
+          ? "border-primary-700 bg-primary-700 text-white"
+          : "border-primary-100 bg-white/84 text-secondary-600 hover:border-primary-300 hover:text-primary-800",
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+function ContextSourceRow({
+  source,
+  onRemove,
+}: {
+  source: VeraContextSource;
+  onRemove: () => void;
+}) {
   const contextType = getContextType(source.type);
   const Icon = contextTypeIcons[source.type];
 
   return (
-    <button
-      className="group w-full rounded-[24px] border border-primary-100 bg-white/84 p-3.5 text-left shadow-[0_14px_34px_-30px_rgba(1,76,56,0.45)] transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-white hover:shadow-[0_20px_44px_-32px_rgba(1,76,56,0.55)]"
-      type="button"
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-primary-700">
-          <Icon className="size-4" />
+    <div className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-white/86 px-3 py-3 transition-colors hover:border-primary-200 hover:bg-white">
+      <Icon className="size-4 shrink-0 text-primary-800" />
+
+      <div className="min-w-0 flex-1">
+        <span className="inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-800">
+          {contextType.label}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs leading-tight font-semibold text-primary-800">
-            {contextType.label}
-          </span>
-          <span className="mt-1.5 block text-sm leading-tight font-semibold text-secondary-950">
-            {source.title}
-          </span>
-        </span>
-        <ChevronRight className="size-4 shrink-0 text-primary-400 transition-transform group-hover:translate-x-0.5" />
+        <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
+          {source.title}
+        </p>
       </div>
-    </button>
+
+      <button
+        aria-label={`Hapus konteks ${source.title}`}
+        className="flex size-8 shrink-0 items-center justify-center rounded-full text-secondary-400 transition-colors hover:bg-primary-50 hover:text-primary-800"
+        onClick={onRemove}
+        type="button"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </div>
   );
 }
 
@@ -348,7 +702,7 @@ function PracticeContextOption({ item }: { item: VeraPracticeHistory }) {
           <span className="text-sm font-semibold text-secondary-950">
             {item.title}
           </span>
-          <span className="rounded-full bg-[#f5c518]/18 px-2 py-0.5 text-[11px] font-semibold text-[#6a5300]">
+          <span className="rounded-full bg-[#f5c518]/18 px-2 py-0.5 text-xs font-semibold text-[#6a5300]">
             {item.kind}
           </span>
         </span>
@@ -375,7 +729,7 @@ function MaterialContextOption({ item }: { item: VeraMaterialHistory }) {
           <span className="text-sm font-semibold text-secondary-950">
             {item.title}
           </span>
-          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-800">
+          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-800">
             {item.kind}
           </span>
         </span>
@@ -388,280 +742,451 @@ function MaterialContextOption({ item }: { item: VeraMaterialHistory }) {
   );
 }
 
-function getContextType(typeId: VeraContextTypeId): VeraContextType {
-  return (
-    veraContextTypes.find((contextType) => contextType.id === typeId) ??
-    fallbackContextType
-  );
-}
-
 function ChatWorkspace({
-  activeMode,
-  onModeChange,
+  draft,
+  messages,
+  onDraftChange,
+  onSend,
 }: {
-  activeMode: ActiveMode;
-  onModeChange: (mode: ActiveMode) => void;
+  draft: string;
+  messages: VeraMessage[];
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
 }) {
-  const selectedMode =
-    activeMode === "chat" ? undefined : veraToolModes[activeMode];
-
   return (
-    <WorkspacePanel className="min-h-[720px] lg:min-h-0">
-      <PanelHeader title="Vera AI" />
+    <WorkspacePanel className="order-1 min-h-[720px] lg:order-2 lg:min-h-0">
+      <PanelHeader title="Chat" />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6">
-        {selectedMode ? (
-          <ToolModeWorkspace mode={selectedMode} />
-        ) : (
-          <DefaultChatState onModeChange={onModeChange} />
-        )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="space-y-3 px-4 py-4 md:px-5">
+          {messages.map((message) => (
+            <MessageCard key={message.id} message={message} />
+          ))}
+        </div>
       </div>
 
-      <ChatComposer />
+      <ChatComposer
+        draft={draft}
+        onDraftChange={onDraftChange}
+        onSend={onSend}
+      />
     </WorkspacePanel>
   );
 }
 
-function DefaultChatState({
-  onModeChange,
+function MessageCard({
+  message,
 }: {
-  onModeChange: (mode: ActiveMode) => void;
+  message: VeraMessage;
+}) {
+  const isStudent = message.role === "student";
+
+  return (
+    <div className={cn("flex", isStudent ? "justify-end" : "justify-start")}>
+      <div
+        className={cn(
+          "max-w-3xl rounded-3xl border px-4 py-4",
+          isStudent
+            ? "border-primary-200 bg-primary-50/86"
+            : "border-primary-100 bg-white/88",
+        )}
+      >
+        {!isStudent ? (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+              <Bot className="size-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-secondary-950">Vera</p>
+              <p className="text-xs text-secondary-400">{message.createdAt}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mb-2 text-xs font-semibold text-secondary-500">
+            Kamu • {message.createdAt}
+          </p>
+        )}
+
+        <p className="text-sm leading-7 text-secondary-700">{message.body}</p>
+
+        {message.citations && message.citations.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {message.citations.map((citation) => (
+              <span
+                className="inline-flex rounded-full border border-primary-100 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800"
+                key={citation}
+              >
+                {citation}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ChatComposer({
+  draft,
+  onDraftChange,
+  onSend,
+}: {
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
 }) {
   return (
-    <div className="flex min-h-full flex-col justify-center">
-      <div className="mx-auto w-full max-w-3xl">
-        <h2 className="max-w-2xl text-3xl leading-tight font-semibold text-secondary-950 md:text-4xl">
-          Halo, aku Vera.
-        </h2>
-        <p className="mt-4 max-w-2xl text-base leading-8 text-secondary-600">
-          Aku bisa bantu jelaskan materi, membaca kelemahanmu, membuat drill
-          adaptif, dan menyusun strategi belajar.
-        </p>
-
-        <div className="mt-8 grid gap-2 sm:grid-cols-2">
-          {veraQuickPrompts.map((prompt) => (
-            <button
-              className="group flex min-h-14 items-center justify-between gap-3 rounded-3xl border border-primary-100 bg-white/82 px-4 py-3 text-left text-sm font-semibold text-secondary-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:bg-white"
-              key={prompt.id}
-              onClick={() => onModeChange(prompt.mode)}
-              type="button"
-            >
-              <span>{prompt.label}</span>
-              <ChevronRight className="size-4 shrink-0 text-primary-600 transition-transform group-hover:translate-x-0.5" />
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ToolModeWorkspace({ mode }: { mode: VeraToolMode }) {
-  const Icon = toolIcons[mode.id];
-
-  return (
-    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col justify-center py-4">
-      <div className="rounded-[32px] border border-primary-100 bg-white/78 p-4 shadow-[0_28px_80px_-64px_rgba(1,76,56,0.5)] md:p-6">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">
-              <Icon className="size-3.5" />
-              {mode.eyebrow}
-            </div>
-            <h2 className="mt-5 max-w-3xl text-2xl leading-tight font-semibold text-secondary-950 md:text-3xl">
-              {mode.title}
-            </h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-secondary-600 md:text-base">
-              {mode.description}
-            </p>
-          </div>
-          <Button className="rounded-full" size="sm" variant="brand">
-            {mode.primaryAction}
-            <ChevronRight data-icon="inline-end" />
+    <div className="border-t border-primary-100/80 bg-white/80 px-4 py-2.5 md:px-5">
+      <div className="rounded-3xl border border-primary-100 bg-white p-2.5">
+        <form
+          className="flex items-center gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSend();
+          }}
+        >
+          <Input
+            className="h-10 flex-1 border-transparent bg-transparent px-1 text-sm text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder="Tanya Vera tentang materi, strategi, atau langkah berikutnya..."
+            value={draft}
+          />
+          <Button
+            aria-label="Kirim pertanyaan ke Vera"
+            className="rounded-full"
+            disabled={!draft.trim()}
+            size="icon-sm"
+            type="submit"
+            variant="brand"
+          >
+            <SendHorizontal />
           </Button>
-        </div>
-
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          {mode.metrics.map((metric) => (
-            <div
-              className="rounded-3xl border border-primary-100 bg-primary-50/70 p-4"
-              key={metric.label}
-            >
-              <p className="text-xs font-semibold text-secondary-500">
-                {metric.label}
-              </p>
-              <p className="mt-2 text-xl leading-none font-semibold text-secondary-950">
-                {metric.value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 grid gap-3">
-          {mode.highlights.map((highlight, index) => (
-            <div
-              className="flex gap-3 rounded-3xl border border-primary-100 bg-white/82 p-4"
-              key={highlight}
-            >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#014c38] text-xs font-semibold text-white">
-                {index + 1}
-              </span>
-              <p className="text-sm leading-6 text-secondary-650">
-                {highlight}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 rounded-3xl bg-[#014c38] p-4 text-white">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="mt-0.5 size-4 shrink-0 text-[#f5c518]" />
-            <p className="text-sm leading-6 text-white/82">{mode.followUp}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChatComposer() {
-  return (
-    <div className="border-t border-primary-100/80 bg-white/72 px-4 py-3 md:px-6">
-      <div className="flex items-center gap-2 rounded-[28px] border border-primary-100 bg-white p-2 shadow-[0_18px_48px_-38px_rgba(1,76,56,0.55)]">
-        <Button
-          aria-label="Tambahkan konteks ke chat"
-          className="rounded-full border-transparent bg-transparent text-secondary-500 hover:border-primary-100 hover:bg-primary-50 hover:text-primary-800"
-          size="icon-sm"
-          variant="brandOutline"
-        >
-          <Plus />
-        </Button>
-        <Input
-          className="h-12 flex-1 border-transparent bg-transparent px-2 text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
-          placeholder="Tanya Vera tentang materi atau strategi belajar..."
-          readOnly
-        />
-        <Button
-          aria-label="Kirim pertanyaan ke Vera"
-          className="rounded-full"
-          disabled
-          size="icon-sm"
-          variant="brand"
-        >
-          <SendHorizontal />
-        </Button>
+        </form>
       </div>
     </div>
   );
 }
 
 function StudioPanel({
-  activeMode,
-  activeTool,
-  onModeChange,
+  activeArtifact,
+  activeArtifactId,
+  generatedArtifacts,
+  selectedSources,
+  onGenerateTool,
+  onOpenArtifact,
+  onRequestDeleteArtifact,
 }: {
-  activeMode: ActiveMode;
-  activeTool?: VeraStudioTool;
-  onModeChange: (mode: ActiveMode) => void;
+  activeArtifact: VeraStudioTool | null;
+  activeArtifactId: VeraToolId | null;
+  generatedArtifacts: VeraStudioTool[];
+  selectedSources: VeraContextSource[];
+  onGenerateTool: (toolId: VeraToolId) => void;
+  onOpenArtifact: (toolId: VeraToolId) => void;
+  onRequestDeleteArtifact: (tool: VeraStudioTool) => void;
 }) {
   return (
-    <WorkspacePanel className="lg:min-h-0">
+    <WorkspacePanel className="order-3 lg:min-h-0">
       <PanelHeader title="Studio Vera" />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           {veraStudioTools.map((tool) => (
-            <StudioToolCard
-              active={activeMode === tool.id}
+            <StudioGenerateRow
               key={tool.id}
-              onSelect={() => onModeChange(tool.id)}
               tool={tool}
+              onGenerate={() => onGenerateTool(tool.id)}
             />
           ))}
         </div>
 
-        <div className="mt-5 border-t border-primary-100 pt-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-secondary-950">
-              Output Vera
-            </h2>
+        <section className="mt-6 border-t border-primary-100 pt-6">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+              Preview aktif
+            </p>
           </div>
 
-          {activeTool ? (
-            <div className="mt-3 rounded-[26px] border border-primary-100 bg-white/82 p-4">
-              <div
-                className={cn(
-                  "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1",
-                  toolToneClass[activeTool.tone],
-                )}
-              >
-                {activeTool.badge}
-              </div>
-              <h3 className="text-base leading-snug font-semibold text-secondary-950">
-                {activeTool.outputTitle}
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-secondary-600">
-                {activeTool.outputBody}
-              </p>
-              <Button
-                className="mt-4 w-full rounded-full"
-                size="sm"
-                variant="brandOutline"
-              >
-                Buka di chat
-                <ChevronRight data-icon="inline-end" />
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-3 flex min-h-[240px] flex-col items-center justify-center rounded-[26px] border border-dashed border-primary-200 bg-primary-50/54 p-6 text-center">
-              <Sparkles className="size-8 text-primary-500" />
-              <p className="mt-4 text-sm leading-6 text-secondary-500">
-                Hasil analisis, drill, rute belajar, dan pembahasan dari Vera
-                akan muncul di sini.
+          <div className="mt-3">
+            <StudioArtifactPreview
+              selectedSources={selectedSources}
+              tool={activeArtifact}
+            />
+          </div>
+        </section>
+
+        <section className="mt-6 border-t border-primary-100 pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+                Library hasil
               </p>
             </div>
-          )}
-        </div>
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            {generatedArtifacts.map((tool) => (
+              <StudioArtifactCard
+                active={activeArtifactId === tool.id}
+                key={tool.id}
+                tool={tool}
+                onOpen={() => onOpenArtifact(tool.id)}
+                onRequestDelete={() => onRequestDeleteArtifact(tool)}
+              />
+            ))}
+          </div>
+        </section>
+
       </div>
     </WorkspacePanel>
   );
 }
 
-function StudioToolCard({
-  active,
-  onSelect,
+function StudioArtifactPreview({
+  selectedSources,
   tool,
 }: {
-  active: boolean;
-  onSelect: () => void;
+  selectedSources: VeraContextSource[];
+  tool: VeraStudioTool | null;
+}) {
+  if (!tool) {
+    return (
+      <div className="rounded-[24px] border border-dashed border-primary-200 bg-white/76 px-4 py-5 text-sm leading-6 text-secondary-500">
+        Belum ada hasil yang dipilih. Generate output dari Studio Vera atau minta Vera menyiapkannya lewat chat.
+      </div>
+    );
+  }
+
+  const mode = veraToolModes[tool.id];
+  const Icon = toolIcons[tool.id];
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-primary-100 bg-white shadow-[0_18px_60px_-36px_rgba(1,76,56,0.45)]">
+      <div className="border-b border-primary-100 bg-[linear-gradient(135deg,rgba(245,197,24,0.12),rgba(228,246,235,0.68),rgba(255,255,255,0.96))] px-4 py-4">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl ring-1",
+              toolToneClass[tool.tone],
+            )}
+          >
+            <Icon className="size-4.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+              {tool.title}
+            </p>
+            <h3 className="mt-1 text-lg font-semibold leading-tight text-secondary-950">
+              {tool.outputTitle}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-secondary-700">
+              {tool.outputBody}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-5 px-4 py-4">
+        <div className="grid gap-2 sm:grid-cols-3">
+          {mode.metrics.map((metric) => (
+            <div
+              className="rounded-2xl border border-primary-100 bg-primary-50/45 px-3 py-3"
+              key={metric.label}
+            >
+              <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+                {metric.label}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-secondary-950">
+                {metric.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+            Ringkasan hasil
+          </p>
+          <p className="mt-2 text-sm leading-6 text-secondary-700">
+            {mode.description}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+            Detail utama
+          </p>
+          <div className="mt-2 grid gap-2">
+            {mode.highlights.map((highlight) => (
+              <div
+                className="rounded-2xl border border-primary-100 bg-white/90 px-3 py-3 text-sm leading-6 text-secondary-700"
+                key={highlight}
+              >
+                {highlight}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+            Konteks dipakai
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {selectedSources.map((source) => (
+              <span
+                className="inline-flex rounded-full border border-primary-100 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800"
+                key={source.id}
+              >
+                {source.title}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudioGenerateRow({
+  tool,
+  onGenerate,
+}: {
   tool: VeraStudioTool;
+  onGenerate: () => void;
 }) {
   const Icon = toolIcons[tool.id];
 
   return (
     <button
-      className={cn(
-        "group min-h-[88px] rounded-[22px] p-3 text-left ring-1 transition-all hover:-translate-y-0.5",
-        toolToneClass[tool.tone],
-        active
-          ? "shadow-[0_18px_48px_-34px_rgba(1,76,56,0.6)] outline-2 outline-[#014c38]"
-          : "hover:shadow-[0_18px_44px_-36px_rgba(1,76,56,0.45)]",
-      )}
-      onClick={onSelect}
+      className="flex items-center gap-2.5 rounded-2xl border border-primary-100 bg-white/84 px-3 py-2.5 text-left transition-colors hover:border-primary-300 hover:bg-white"
+      onClick={onGenerate}
       type="button"
     >
-      <span className="flex items-start justify-between gap-3">
-        <span className="flex size-8 items-center justify-center">
-          <Icon className="size-4" />
-        </span>
-        <span className="rounded-full bg-white/60 px-2 py-1 text-[11px] font-semibold">
-          {tool.badge}
-        </span>
+      <span
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-xl ring-1",
+          toolToneClass[tool.tone],
+        )}
+      >
+        <Icon className="size-4" />
       </span>
-      <span className="mt-3 block text-sm leading-snug font-semibold">
-        {tool.title}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold leading-snug text-secondary-950">
+          {tool.title}
+        </span>
       </span>
     </button>
+  );
+}
+
+function StudioArtifactCard({
+  active,
+  tool,
+  onOpen,
+  onRequestDelete,
+}: {
+  active: boolean;
+  tool: VeraStudioTool;
+  onOpen: () => void;
+  onRequestDelete: () => void;
+}) {
+  const Icon = toolIcons[tool.id];
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-3 text-left transition-all",
+        active
+          ? "border-primary-300 bg-white"
+          : "border-primary-100 bg-white/84 hover:border-primary-200 hover:bg-white",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button className="min-w-0 flex-1 text-left" onClick={onOpen} type="button">
+          <span
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
+              toolToneClass[tool.tone],
+            )}
+          >
+            <Icon className="size-3.5" />
+            {tool.badge}
+          </span>
+          <p className="mt-3 text-sm font-semibold text-secondary-950">
+            {tool.outputTitle}
+          </p>
+          <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-secondary-600">
+            {tool.outputBody}
+          </p>
+        </button>
+
+        <button
+          aria-label={`Hapus hasil ${tool.outputTitle}`}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-secondary-400 transition-colors hover:bg-primary-50 hover:text-primary-800"
+          onClick={onRequestDelete}
+          type="button"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-primary-800">
+        <span>Buka di workspace</span>
+        <ChevronRight className="size-3.5" />
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmationDialog({
+  target,
+  onCancel,
+  onConfirm,
+}: {
+  target: DeleteTarget | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const title =
+    target?.kind === "artifact" ? "Hapus hasil?" : "Hapus konteks?";
+  const description =
+    target?.kind === "artifact"
+      ? `Hasil "${target.label}" akan dihapus dari daftar hasil.`
+      : `Konteks "${target?.label ?? ""}" akan dihapus dari workspace belajar.`;
+
+  return (
+    <Dialog
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onCancel();
+        }
+      }}
+      open={target !== null}
+    >
+      <DialogContent className="max-w-[28rem] border border-primary-100 bg-[#fbfffd] shadow-[0_24px_80px_-30px_rgba(1,76,56,0.45)]">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold text-secondary-950">
+            {title}
+          </DialogTitle>
+          <DialogDescription className="mt-1 leading-6 text-secondary-600">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button className="rounded-full" onClick={onCancel} variant="ghost">
+            Batal
+          </Button>
+          <Button
+            className="rounded-full border-danger-200 bg-danger-50 text-danger-700 hover:bg-danger-100 hover:text-danger-800 focus-visible:border-danger-400 focus-visible:ring-danger-200"
+            onClick={onConfirm}
+            variant="destructive"
+          >
+            Hapus
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -675,7 +1200,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "flex min-h-[520px] flex-col overflow-hidden rounded-[30px] border border-primary-100/90 bg-white/72 shadow-[0_28px_88px_-68px_rgba(1,76,56,0.58)] backdrop-blur-xl",
+        "flex min-h-[520px] flex-col overflow-hidden rounded-3xl border border-primary-100/90 bg-white/82 backdrop-blur-xl",
         className,
       )}
     >
@@ -692,7 +1217,7 @@ function PanelHeader({
   title: string;
 }) {
   return (
-    <div className="flex min-h-16 items-center justify-between gap-3 border-b border-primary-100/80 px-4 py-3">
+    <div className="flex min-h-14 items-center justify-between gap-3 border-b border-primary-100/80 px-4 py-3">
       <div className="flex min-w-0 items-center">
         <h2 className="truncate text-base font-semibold text-secondary-950">
           {title}

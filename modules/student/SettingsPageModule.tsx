@@ -77,10 +77,10 @@ function SettingsSection({
       className="grid gap-6 border-t border-primary-100 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10"
     >
       <div>
-        <h2 className="text-[20px] leading-tight font-semibold text-secondary-900">
+        <h2 className="text-xl leading-tight font-semibold text-secondary-900">
           {title}
         </h2>
-        <p className="mt-2 text-[13px] leading-6 text-secondary-500">{description}</p>
+        <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p>
       </div>
       <div>{children}</div>
     </section>
@@ -121,10 +121,10 @@ function SettingsPageModule({
       sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
     >
       <div>
-        <h1 className="text-[28px] leading-tight font-semibold text-secondary-900 md:text-[34px]">
+        <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
           Pengaturan
         </h1>
-        <p className="mt-2 text-[13px] leading-6 text-secondary-500 md:text-sm">
+        <p className="mt-2 text-sm leading-6 text-secondary-500 md:text-sm">
           Atur akun dan preferensi belajarmu.
         </p>
 
@@ -133,7 +133,7 @@ function SettingsPageModule({
             <button
               key={tab.label}
               className={[
-                "inline-flex rounded-full px-4 py-2 text-[13px] font-medium transition-colors",
+                "inline-flex rounded-full px-4 py-2 text-sm font-medium transition-colors",
                 tab.active
                   ? "bg-primary-700 text-white"
                   : "bg-secondary-100 text-secondary-700 hover:bg-primary-50 hover:text-primary-800",
@@ -156,18 +156,12 @@ function SettingsPageModule({
             <div className="grid gap-5 md:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="settings-first-name">Nama depan</FieldLabel>
-                <FieldInput
-                  defaultValue={firstName}
-                  id="settings-first-name"
-                />
+                <FieldInput defaultValue={firstName} id="settings-first-name" />
               </Field>
 
               <Field>
                 <FieldLabel htmlFor="settings-last-name">Nama belakang</FieldLabel>
-                <FieldInput
-                  defaultValue={lastName}
-                  id="settings-last-name"
-                />
+                <FieldInput defaultValue={lastName} id="settings-last-name" />
               </Field>
 
               <Field className="md:col-span-2">
@@ -257,10 +251,10 @@ function SettingsPageModule({
           <div className="grid gap-6 xl:grid-cols-2">
             <div className="px-1 py-1">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-semibold text-secondary-900">
+                <p className="text-sm font-semibold text-secondary-900">
                   Durasi belajar harian yang diinginkan
                 </p>
-                <span className="rounded-2xl bg-white px-3 py-2 text-[13px] font-medium text-secondary-900 shadow-sm ring-1 ring-primary-100">
+                <span className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-secondary-900 shadow-sm ring-1 ring-primary-100">
                   2 jam
                 </span>
               </div>
@@ -271,7 +265,7 @@ function SettingsPageModule({
                 min="0"
                 type="range"
               />
-              <p className="mt-4 text-[13px] leading-6 text-secondary-500">
+              <p className="mt-4 text-sm leading-6 text-secondary-500">
                 Bantu kami menjaga alokasi belajar harianmu tetap realistis dan
                 konsisten.
               </p>
@@ -279,10 +273,10 @@ function SettingsPageModule({
 
             <div className="px-1 py-1">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-semibold text-secondary-900">
+                <p className="text-sm font-semibold text-secondary-900">
                   Rentang fokus inti per hari
                 </p>
-                <span className="rounded-2xl bg-white px-3 py-2 text-[13px] font-medium text-secondary-900 shadow-sm ring-1 ring-primary-100">
+                <span className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-secondary-900 shadow-sm ring-1 ring-primary-100">
                   90 menit
                 </span>
               </div>
@@ -293,7 +287,7 @@ function SettingsPageModule({
                 min="0"
                 type="range"
               />
-              <p className="mt-4 text-[13px] leading-6 text-secondary-500">
+              <p className="mt-4 text-sm leading-6 text-secondary-500">
                 Prioritaskan jam paling fokus untuk materi yang paling menantang.
               </p>
             </div>
@@ -310,28 +304,19 @@ function SettingsPageModule({
               <FieldLabel htmlFor="settings-target-university">
                 PTN tujuan
               </FieldLabel>
-              <FieldInput
-                defaultValue={targetUniversity}
-                id="settings-target-university"
-              />
+              <FieldInput defaultValue={targetUniversity} id="settings-target-university" />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="settings-target-major">
                 Jurusan tujuan
               </FieldLabel>
-              <FieldInput
-                defaultValue={targetMajor}
-                id="settings-target-major"
-              />
+              <FieldInput defaultValue={targetMajor} id="settings-target-major" />
             </Field>
 
             <Field className="md:col-span-2">
               <FieldLabel htmlFor="settings-target-exam">Ujian target</FieldLabel>
-              <FieldInput
-                defaultValue={targetExam}
-                id="settings-target-exam"
-              />
+              <FieldInput defaultValue={targetExam} id="settings-target-exam" />
             </Field>
 
             <Field className="md:col-span-2">

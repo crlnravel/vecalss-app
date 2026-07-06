@@ -10,3 +10,4 @@
 - Test placeholder illustrations inside the actual composed panel, not only as standalone files. Some SVGs are technically valid but still feel visually absent until the surrounding contrast and framing are adjusted.
 - Polish work should close the edge states, not only the happy path. A branded 404, better notices, and a real empty roster state make the product feel trustworthy when something is missing or goes wrong.
 - Motion is most effective when it clarifies state change. Accordion expansion, icon rotation, and loader movement should all reinforce what just happened rather than calling attention to themselves.
+- AI workspace pages get noisy quickly when notes, generated outputs, and chat all occupy the primary column. Keep the conversational surface central, move saved/reusable artifacts to the side panel, and preserve context selection as a supporting structure.

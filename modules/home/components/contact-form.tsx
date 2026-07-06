@@ -49,7 +49,7 @@ function ContactForm() {
           </div>
 
           <Button
-            className="w-full rounded-full bg-[#014C38] py-3.5 text-[14px] font-semibold text-white hover:bg-[#014C38]/90 md:text-[15px]"
+            className="w-full rounded-full bg-[#014C38] py-3.5 text-sm font-semibold text-white hover:bg-[#014C38]/90 md:text-base"
             size="marketing"
             type="button"
             variant="brand"

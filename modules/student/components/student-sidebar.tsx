@@ -6,12 +6,10 @@ import {
   Bell,
   BookOpen,
   Bot,
-  Flame,
   Gauge,
   LayoutDashboard,
   ListChecks,
   Settings,
-  Target,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,13 +35,11 @@ type StudentNavigationItem = {
 };
 
 const studentNavigationItems: StudentNavigationItem[] = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "Beranda" },
   { href: "/courses", icon: BookOpen, label: "Materi" },
-  { href: "/quiz", icon: ListChecks, label: "Quiz" },
+  { href: "/quiz", icon: ListChecks, label: "Kuis" },
   { href: "/tryout", icon: Gauge, label: "Tryout" },
-  { href: "#progress", icon: Target, label: "Progress" },
   { href: "/vera-ai", icon: Bot, label: "Vera AI" },
-  { href: "#daily-mission", icon: Flame, label: "Misi Harian" },
   { href: "/notifications", icon: Bell, label: "Notifikasi" },
   { href: "/settings", icon: Settings, label: "Pengaturan" },
 ];
@@ -60,30 +56,16 @@ function getInitials(fullName: string) {
 
 function StudentSidebar({
   activeLabel,
-  dailyMissionBadge = "3",
   footerLabel,
   fullName,
   notificationBadge,
 }: {
   activeLabel: string;
-  dailyMissionBadge?: string;
   footerLabel: string;
   fullName: string;
   notificationBadge?: string;
 }) {
   const initials = getInitials(fullName);
-
-  function getBadge(item: StudentNavigationItem) {
-    if (item.label === "Daily Mission") {
-      return dailyMissionBadge;
-    }
-
-    if (item.label === "Notifications") {
-      return notificationBadge;
-    }
-
-    return undefined;
-  }
 
   return (
     <Sidebar
@@ -105,7 +87,8 @@ function StudentSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {studentNavigationItems.map((item) => {
-                const badge = getBadge(item);
+                const badge =
+                  item.label === "Notifikasi" ? notificationBadge : undefined;
 
                 return (
                   <SidebarMenuItem key={item.label}>
