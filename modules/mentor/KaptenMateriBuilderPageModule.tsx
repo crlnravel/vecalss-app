@@ -196,6 +196,9 @@ function KaptenMateriBuilderPageModule({
   const readySectionCount = builderState.sections.filter(
     (section) => section.title.trim() && section.body.trim(),
   ).length;
+  const materiStatus = savedMateri?.status ?? "draft";
+  const isDraft = materiStatus === "draft";
+  const saveLabel = isDraft ? "Simpan Draft" : "Simpan perubahan";
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -337,7 +340,7 @@ function KaptenMateriBuilderPageModule({
     saveMateriDraft({ materi: materiDraft, sections: builderState.sections });
     setSavedMateri(materiDraft);
     setHasUnsavedChanges(false);
-    setLastSavedAt("Draft tersimpan.");
+    setLastSavedAt(isDraft ? "Draft tersimpan." : "Perubahan tersimpan.");
 
     if (!materiId && !initialMateri) {
       router.replace(materiDraft.href);
@@ -355,6 +358,7 @@ function KaptenMateriBuilderPageModule({
       }
       searchPlaceholder="Cari materi atau asset..."
       session={session}
+      shouldGuardNavigation={hasUnsavedChanges}
     >
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
@@ -373,20 +377,24 @@ function KaptenMateriBuilderPageModule({
             <span
               className={cn(
                 "text-sm font-semibold",
-                (savedMateri?.status ?? "draft") === "draft"
+                materiStatus === "draft"
                   ? "text-[#856300]"
                   : "text-primary-800",
               )}
             >
-              {savedMateri?.status === "scheduled"
+              {materiStatus === "scheduled"
                 ? "Scheduled"
-                : savedMateri?.status === "published"
+                : materiStatus === "published"
                   ? "Published"
-                  : savedMateri?.status === "archived"
+                  : materiStatus === "archived"
                     ? "Archived"
                     : "Draft"}
             </span>
           </div>
+          <p className="mt-2 text-sm text-secondary-500 xl:hidden">
+            {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"} · {readySectionCount}/
+            {builderState.sections.length} section siap
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -400,13 +408,13 @@ function KaptenMateriBuilderPageModule({
           </Button>
           <Button onClick={saveDraft} type="button" variant="brand">
             <Save />
-            Simpan Draft
+            {saveLabel}
           </Button>
         </div>
       </section>
 
       <section className="grid gap-8 xl:grid-cols-[minmax(260px,0.28fr)_minmax(0,0.72fr)]">
-        <aside className="border-t border-primary-100 pt-5 xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
+        <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
           <div>
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -428,11 +436,11 @@ function KaptenMateriBuilderPageModule({
               </Button>
             </div>
 
-            <div className="mt-5 space-y-1 border-t border-primary-100 pt-3">
+            <div className="mt-4 flex gap-1 overflow-x-auto border-t border-primary-100 pt-3 xl:mt-5 xl:block xl:space-y-1">
               {builderState.sections.map((section, index) => (
                 <button
                   className={cn(
-                    "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
+                    "group flex min-w-[190px] items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors xl:w-full",
                     section.id === activeSection?.id
                       ? "bg-primary-50 text-primary-900"
                       : "text-secondary-600 hover:bg-primary-50/60",
@@ -456,7 +464,7 @@ function KaptenMateriBuilderPageModule({
             </div>
           </div>
 
-          <div className="mt-7 border-t border-primary-100 pt-5">
+          <div className="mt-7 hidden border-t border-primary-100 pt-5 xl:block">
             <p className="text-sm font-semibold text-secondary-900">Status</p>
             <div className="mt-4 space-y-3 text-sm text-secondary-600">
               <div className="flex items-center justify-between gap-4">
@@ -492,19 +500,118 @@ function KaptenMateriBuilderPageModule({
           </div>
         </aside>
 
-        <div className="space-y-8">
-          <section className="border-b border-primary-100 pb-8">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <Field>
+        <div className="order-1 space-y-8 xl:order-none">
+          {isPreviewOpen ? (
+            <section
+              aria-live="polite"
+              className="rounded-3xl border border-primary-100 bg-white px-5 py-6 shadow-sm md:px-7"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-primary-800">
+                    Preview learner
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-secondary-900">
+                    {builderState.title}
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-500">
+                    {selectedSubject} · {builderState.description || "Belum ada ringkasan."}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setIsPreviewOpen(false)}
+                  size="sm"
+                  type="button"
+                  variant="brandOutline"
+                >
+                  Kembali mengedit
+                </Button>
+              </div>
+
+              <div className="mt-6 divide-y divide-primary-100">
+                {builderState.sections.map((section, index) => (
+                  <div className="py-5 first:pt-0 last:pb-0" key={section.id}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-secondary-400">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <SectionKindIcon kind={section.kind} />
+                      <h3 className="text-lg font-semibold text-secondary-900">
+                        {section.title}
+                      </h3>
+                    </div>
+                    {section.kind === "video" ? (
+                      <div className="mt-3 max-w-3xl rounded-2xl bg-secondary-900 px-5 py-5 text-white">
+                        <p className="text-xs font-semibold tracking-[0.08em] text-primary-100 uppercase">
+                          Video pembelajaran
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-white/75">
+                          {section.body || "Video section belum diberi deskripsi."}
+                        </p>
+                        {section.videoUrl ? (
+                          <a
+                            className="mt-4 inline-flex text-sm font-semibold text-primary-100 underline underline-offset-4"
+                            href={section.videoUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            Buka video
+                          </a>
+                        ) : (
+                          <p className="mt-4 text-sm text-white/60">Video belum ditautkan.</p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {section.kind === "attachment" ? (
+                      <div className="mt-3 flex max-w-3xl items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-4">
+                        <Paperclip className="size-5 shrink-0 text-primary-800" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-secondary-900">
+                            {mediaAssets.find((asset) => asset.id === section.assetId)?.title ??
+                              "Attachment belum dipilih"}
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-secondary-600">
+                            {section.body || "Resource pendukung untuk section ini."}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {section.kind === "practice" ? (
+                      <div className="mt-3 max-w-3xl border-l-2 border-primary-600 pl-4">
+                        <p className="text-sm leading-6 text-secondary-600">
+                          {section.body || "Instruksi latihan belum diisi."}
+                        </p>
+                        <p className="mt-3 text-sm leading-6 font-semibold text-secondary-900">
+                          {section.prompt || "Prompt latihan belum diisi."}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {section.kind === "notes" ? (
+                      <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">
+                        {section.body || "Konten section belum diisi."}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="border-b border-primary-100 pb-8">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                  <Field>
                 <FieldLabel htmlFor="materi-title">Judul materi</FieldLabel>
                 <FieldInput
                   id="materi-title"
                   onChange={(event) => updateMetadata("title", event.target.value)}
                   value={builderState.title}
                 />
-              </Field>
+                  </Field>
 
-              <Field>
+                  <Field>
                 <FieldLabel htmlFor="materi-subject">Subject</FieldLabel>
                 <div className="relative">
                   <select
@@ -523,9 +630,9 @@ function KaptenMateriBuilderPageModule({
                   </select>
                   <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
                 </div>
-              </Field>
+                  </Field>
 
-              <Field className="lg:col-span-2">
+                  <Field className="lg:col-span-2">
                 <FieldLabel htmlFor="materi-summary">Ringkasan</FieldLabel>
                 <FieldTextarea
                   className="min-h-[118px]"
@@ -535,12 +642,12 @@ function KaptenMateriBuilderPageModule({
                   }
                   value={builderState.description}
                 />
-              </Field>
-            </div>
-          </section>
+                  </Field>
+                </div>
+              </section>
 
-          {activeSection ? (
-            <section className="pb-2">
+              {activeSection ? (
+                <section className="pb-2">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-secondary-900">
@@ -666,106 +773,12 @@ function KaptenMateriBuilderPageModule({
                   </Field>
                 ) : null}
               </div>
-            </section>
-          ) : null}
+                </section>
+              ) : null}
+            </>
+          )}
         </div>
       </section>
-
-      {isPreviewOpen ? (
-        <section className="rounded-3xl border border-primary-100 bg-white px-5 py-6 shadow-sm md:px-7">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-primary-800">
-                Preview learner
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-secondary-900">
-                {builderState.title}
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-500">
-                {selectedSubject} · {builderState.description || "Belum ada ringkasan."}
-              </p>
-            </div>
-            <Button
-              onClick={() => setIsPreviewOpen(false)}
-              size="sm"
-              type="button"
-              variant="brandOutline"
-            >
-              Tutup Preview
-            </Button>
-          </div>
-
-          <div className="mt-6 divide-y divide-primary-100">
-            {builderState.sections.map((section, index) => (
-              <div className="py-5 first:pt-0 last:pb-0" key={section.id}>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-secondary-400">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <SectionKindIcon kind={section.kind} />
-                  <h3 className="text-lg font-semibold text-secondary-900">
-                    {section.title}
-                  </h3>
-                </div>
-                {section.kind === "video" ? (
-                  <div className="mt-3 max-w-3xl rounded-2xl bg-secondary-900 px-5 py-5 text-white">
-                    <p className="text-xs font-semibold tracking-[0.08em] text-primary-100 uppercase">
-                      Video pembelajaran
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-white/75">
-                      {section.body || "Video section belum diberi deskripsi."}
-                    </p>
-                    {section.videoUrl ? (
-                      <a
-                        className="mt-4 inline-flex text-sm font-semibold text-primary-100 underline underline-offset-4"
-                        href={section.videoUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Buka video
-                      </a>
-                    ) : (
-                      <p className="mt-4 text-sm text-white/60">Video belum ditautkan.</p>
-                    )}
-                  </div>
-                ) : null}
-
-                {section.kind === "attachment" ? (
-                  <div className="mt-3 flex max-w-3xl items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-4">
-                    <Paperclip className="size-5 shrink-0 text-primary-800" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-secondary-900">
-                        {mediaAssets.find((asset) => asset.id === section.assetId)?.title ??
-                          "Attachment belum dipilih"}
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-secondary-600">
-                        {section.body || "Resource pendukung untuk section ini."}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {section.kind === "practice" ? (
-                  <div className="mt-3 max-w-3xl border-l-2 border-primary-600 pl-4">
-                    <p className="text-sm leading-6 text-secondary-600">
-                      {section.body || "Instruksi latihan belum diisi."}
-                    </p>
-                    <p className="mt-3 text-sm leading-6 font-semibold text-secondary-900">
-                      {section.prompt || "Prompt latihan belum diisi."}
-                    </p>
-                  </div>
-                ) : null}
-
-                {section.kind === "notes" ? (
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">
-                    {section.body || "Konten section belum diisi."}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </MentorWorkspaceShell>
   );
 }

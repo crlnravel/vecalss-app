@@ -187,6 +187,7 @@ function MentorWorkspaceShell({
   onNavigateAway,
   searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
   session,
+  shouldGuardNavigation = false,
 }: {
   activeLabel: string;
   breadcrumbLabel: string;
@@ -196,8 +197,10 @@ function MentorWorkspaceShell({
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
   session: SessionContext;
+  shouldGuardNavigation?: boolean;
 }) {
   const onNavigateAwayRef = useRef(onNavigateAway);
+  const hasHistoryGuardRef = useRef(false);
 
   useEffect(() => {
     onNavigateAwayRef.current = onNavigateAway;
@@ -245,6 +248,53 @@ function MentorWorkspaceShell({
     document.addEventListener("click", handleWorkspaceNavigation, true);
     return () => document.removeEventListener("click", handleWorkspaceNavigation, true);
   }, []);
+
+  useEffect(() => {
+    if (!shouldGuardNavigation) {
+      if (hasHistoryGuardRef.current) {
+        hasHistoryGuardRef.current = false;
+        window.history.back();
+      }
+
+      return;
+    }
+
+    // App Router does not expose a cancellable history hook. Keep a same-URL
+    // entry in front of the current route, so a Back attempt can be confirmed
+    // without allowing the visible route to get ahead of the mounted editor.
+    window.history.pushState(window.history.state, "", window.location.href);
+    hasHistoryGuardRef.current = true;
+
+    let restoreCurrentEntry = false;
+    let allowRequestedNavigation = false;
+
+    function handleHistoryTraversal() {
+      if (restoreCurrentEntry) {
+        restoreCurrentEntry = false;
+        return;
+      }
+
+      if (allowRequestedNavigation) {
+        allowRequestedNavigation = false;
+        return;
+      }
+
+      const canLeave = onNavigateAwayRef.current?.() ?? true;
+
+      if (canLeave) {
+        hasHistoryGuardRef.current = false;
+        allowRequestedNavigation = true;
+        window.history.back();
+        return;
+      }
+
+      restoreCurrentEntry = true;
+      window.history.forward();
+    }
+
+    window.addEventListener("popstate", handleHistoryTraversal);
+    return () => window.removeEventListener("popstate", handleHistoryTraversal);
+  }, [shouldGuardNavigation]);
 
   return (
     <SidebarProvider>
