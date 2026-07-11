@@ -39,9 +39,7 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
       session={session}
     >
       <PageIntro
-        eyebrow="Kapten Workspace"
         title={`Selamat bekerja, ${firstName}.`}
-        description="Lanjutkan draft, cek jadwal, atau buat konten baru."
         action={
           <Button render={<Link href="/mentor/materi#create" />} variant="brand">
             Buat Konten

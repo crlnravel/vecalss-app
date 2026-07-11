@@ -55,7 +55,12 @@ function PageIntro({
         {eyebrow ? (
           <p className="kicker-label text-secondary-500">{eyebrow}</p>
         ) : null}
-        <h1 className="mt-2 text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
+        <h1
+          className={cn(
+            "text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl",
+            eyebrow ? "mt-2" : "",
+          )}
+        >
           {title}
         </h1>
         {description ? (
@@ -114,7 +119,7 @@ function ResourceRow({
           : "border-primary-100 bg-white hover:border-primary-200 hover:bg-primary-50/40",
       )}
     >
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-800">
+      <div className="flex size-8 shrink-0 items-center justify-center text-primary-800">
         <meta.icon className="size-5" />
       </div>
 
@@ -161,7 +166,7 @@ function QuickCreateGrid() {
           href={item.href}
           key={item.label}
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary-100 bg-primary-50 text-primary-800">
+          <div className="flex size-7 shrink-0 items-center justify-center text-primary-800">
             <item.icon className="size-4" />
           </div>
           <p className="min-w-0 flex-1 text-sm font-semibold text-secondary-900">
