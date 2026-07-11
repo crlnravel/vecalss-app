@@ -16,11 +16,11 @@ import {
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
   getMateriWithStoredDrafts,
-  getRecentlyEditedMateri,
+  getStoredMateriDrafts,
 } from "@/modules/mentor/materi-draft-storage";
 import {
   getQuizWithStoredDrafts,
-  getRecentlyEditedQuizzes,
+  getStoredQuizDrafts,
 } from "@/modules/mentor/quiz-draft-storage";
 import {
   allResources,
@@ -28,6 +28,7 @@ import {
   scheduledPublications,
   materi,
   quizzes,
+  type KaptenResource,
 } from "@/modules/mentor/mock-data";
 
 function getFirstName(fullName: string) {
@@ -38,11 +39,26 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
   const firstName = getFirstName(session.user.fullName);
   const [storedMateri, setStoredMateri] = useState(materi);
   const [storedQuizzes, setStoredQuizzes] = useState(quizzes);
+  const [savedRecentlyEdited, setSavedRecentlyEdited] = useState<
+    Array<{ resource: KaptenResource; savedAt: number }>
+  >([]);
 
   useEffect(() => {
     const syncStoredDrafts = () => {
       setStoredMateri(getMateriWithStoredDrafts(materi));
       setStoredQuizzes(getQuizWithStoredDrafts(quizzes));
+      setSavedRecentlyEdited(
+        [
+          ...getStoredMateriDrafts().map((draft) => ({
+            resource: draft.materi,
+            savedAt: draft.savedAt,
+          })),
+          ...getStoredQuizDrafts().map((draft) => ({
+            resource: draft.quiz,
+            savedAt: draft.savedAt,
+          })),
+        ].sort((a, b) => b.savedAt - a.savedAt),
+      );
     };
 
     syncStoredDrafts();
@@ -57,12 +73,10 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
       (resource) => resource.resourceType !== "materi" && resource.resourceType !== "quiz",
     ),
   ];
+  const savedResourceIds = new Set(savedRecentlyEdited.map(({ resource }) => resource.id));
   const updatedRecentlyEdited = [
-    ...getRecentlyEditedMateri(storedMateri),
-    ...getRecentlyEditedQuizzes(storedQuizzes),
-    ...recentlyEdited.filter(
-      (resource) => resource.resourceType !== "materi" && resource.resourceType !== "quiz",
-    ),
+    ...savedRecentlyEdited.map(({ resource }) => resource),
+    ...recentlyEdited.filter((resource) => !savedResourceIds.has(resource.id)),
   ];
   const continueEditing = updatedRecentlyEdited[0];
   const draftQueue = updatedResources

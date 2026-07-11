@@ -107,9 +107,14 @@ function getRecentlyEditedMateri(baseResources: KaptenMateri[]) {
   return [...saved, ...baseResources.filter((item) => !savedIds.has(item.id))];
 }
 
+function getStoredMateriDrafts() {
+  return readDrafts().sort((a, b) => b.savedAt - a.savedAt);
+}
+
 export {
   getMateriWithStoredDrafts,
   getRecentlyEditedMateri,
+  getStoredMateriDrafts,
   getStoredMateriDraft,
   saveMateriDraft,
   useStoredMateriDraft,

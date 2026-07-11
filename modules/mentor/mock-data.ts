@@ -231,13 +231,13 @@ const quizzes: KaptenQuiz[] = [
 
 const questionBanks: KaptenQuestionBank[] = [
   {
-    description: "Kumpulan soal inferensi untuk quiz dan tryout PU.",
+    description: "Kumpulan 15 soal inferensi untuk quiz dan tryout PU.",
     difficultyMix: "40% sedang, 60% sulit",
     href: "/mentor/quiz/question-bank#bank-pu-inferensi",
     id: "bank-pu-inferensi",
-    primaryMetric: "48 soal",
+    primaryMetric: "15 soal",
     progress: 78,
-    questionCount: 48,
+    questionCount: 15,
     resourceType: "question-bank",
     reusableIn: ["Quiz PU", "Tryout TPS"],
     status: "draft",
@@ -247,13 +247,13 @@ const questionBanks: KaptenQuestionBank[] = [
     updatedAt: "Diedit 42 menit lalu",
   },
   {
-    description: "Soal grafik, tabel, rasio, dan perbandingan nilai.",
+    description: "Kumpulan 19 soal grafik, rasio, dan perbandingan nilai.",
     difficultyMix: "55% sedang, 45% sulit",
     href: "/mentor/quiz/question-bank#bank-pk-grafik",
     id: "bank-pk-grafik",
-    primaryMetric: "64 soal",
+    primaryMetric: "19 soal",
     progress: 100,
-    questionCount: 64,
+    questionCount: 19,
     resourceType: "question-bank",
     reusableIn: ["Quiz PK", "Tryout Campuran"],
     status: "published",
@@ -263,13 +263,13 @@ const questionBanks: KaptenQuestionBank[] = [
     updatedAt: "Diedit 2 hari lalu",
   },
   {
-    description: "Soal kohesi, koherensi, dan gagasan penghubung paragraf.",
+    description: "Kumpulan 13 soal kohesi, koherensi, dan gagasan penghubung paragraf.",
     difficultyMix: "50% mudah, 50% sedang",
     href: "/mentor/quiz/question-bank#bank-pbm-paragraf",
     id: "bank-pbm-paragraf",
-    primaryMetric: "36 soal",
+    primaryMetric: "13 soal",
     progress: 94,
-    questionCount: 36,
+    questionCount: 13,
     resourceType: "question-bank",
     reusableIn: ["Quiz PBM", "Tryout Literasi"],
     status: "published",
@@ -492,6 +492,49 @@ const seedQuizQuestions = {
     seedQuestion("Pengulangan kata kunci yang paling wajar untuk menjaga kohesi paragraf adalah...", ["Membaca melatih fokus. Kebiasaan membaca juga memperkaya kosakata.", "Membaca melatih fokus. Sepeda itu berwarna merah.", "Membaca melatih fokus. Kemarin hujan deras.", "Membaca melatih fokus. Namun, namun, namun."], 0, "Pengulangan kata kunci secara wajar menjaga hubungan antarkalimat."),
   ],
 } satisfies Record<string, SeedQuestionDefinition[]>;
+
+const seedInventorySources = [
+  {
+    bankId: "bank-pu-inferensi",
+    difficulty: "medium" as const,
+    quizId: "quiz-pu-simpulan",
+    subjectCode: "PU",
+    tags: ["inferensi", "simpulan"],
+  },
+  {
+    bankId: "bank-pk-grafik",
+    difficulty: "medium" as const,
+    quizId: "quiz-pk-rasio",
+    subjectCode: "PK",
+    tags: ["rasio", "kuantitatif"],
+  },
+  {
+    bankId: "bank-pbm-paragraf",
+    difficulty: "medium" as const,
+    quizId: "quiz-pbm-paragraf",
+    subjectCode: "PBM",
+    tags: ["paragraf", "koherensi"],
+  },
+] as const;
+
+for (const source of seedInventorySources) {
+  bankQuestions.push(
+    ...seedQuizQuestions[source.quizId].map((question, index) => ({
+      bankId: source.bankId,
+      choices: question.choices.map((text, choiceIndex) => ({
+        id: String.fromCharCode(97 + choiceIndex),
+        text,
+      })),
+      correctChoiceId: String.fromCharCode(97 + question.correctChoiceIndex),
+      difficulty: source.difficulty,
+      explanation: question.explanation,
+      id: `${source.bankId}-inventory-${index + 1}`,
+      prompt: question.prompt,
+      subjectCode: source.subjectCode,
+      tags: [...source.tags],
+    })),
+  );
+}
 
 function createSeedQuizSnapshots(
   quizId: string,

@@ -589,8 +589,8 @@ function KaptenQuizBuilderPageModule({
                   </h3>
                   <div className="mt-6 space-y-3">
                     {previewQuestion.choices.map((choice, index) => (
-                      <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-primary-100 px-4 py-4 text-sm text-secondary-700 transition hover:border-primary-300 hover:bg-primary-50/50" key={choice.id}>
-                        <input className="size-4 accent-primary-700" name="preview-answer" type="radio" />
+                      <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-primary-100 px-4 py-4 text-sm text-secondary-700 transition hover:border-primary-300 hover:bg-primary-50/50" key={`${previewQuestion.id}-${choice.id}`}>
+                        <input className="size-4 accent-primary-700" name={`preview-answer-${previewQuestion.id}`} type="radio" />
                         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">
                           {String.fromCharCode(65 + index)}
                         </span>
