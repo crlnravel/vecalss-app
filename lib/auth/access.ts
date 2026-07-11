@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 
-import { getDefaultHomePath, getLoginPathForAudience, getStudentHomePath } from "./paths";
+import {
+  getDefaultHomePath,
+  getLoginPathForAudience,
+  getStudentHomePath,
+  getTutorHomePath,
+} from "./paths";
 import { getSessionContext, hasRole } from "./session";
 import type { AuthenticatedUser, SessionContext } from "./types";
 
@@ -53,6 +58,24 @@ async function requireStudentSession({
   return session;
 }
 
+async function requireTutorSession({
+  allowMustChangePassword = false,
+}: {
+  allowMustChangePassword?: boolean;
+} = {}) {
+  const session = await requireSession(getLoginPathForAudience("tutor"));
+
+  if (!hasRole(session, RoleName.tutor)) {
+    redirect(getDefaultHomePath(session.user));
+  }
+
+  if (!allowMustChangePassword && session.user.mustChangePassword) {
+    redirect("/change-password");
+  }
+
+  return session;
+}
+
 function redirectToAuthorizedHome(user: AuthenticatedUser) {
   redirect(getDefaultHomePath(user));
 }
@@ -74,9 +97,11 @@ export {
   getDefaultHomePath,
   getLoginPathForAudience,
   getStudentHomePath,
+  getTutorHomePath,
   redirectIfOnboardingAlreadyComplete,
   redirectToAuthorizedHome,
   requireAdminSession,
   requireSession,
   requireStudentSession,
+  requireTutorSession,
 };

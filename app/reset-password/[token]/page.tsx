@@ -11,7 +11,11 @@ export default async function ResetPasswordPage({
   const { token } = await params;
   const resolvedSearchParams = await searchParams;
   const tokenStatus = await getResetTokenStatus(token);
-  const audience = resolvedSearchParams.audience === "admin" ? "admin" : "student";
+  const audience = resolvedSearchParams.audience === "admin"
+    ? "admin"
+    : resolvedSearchParams.audience === "tutor"
+      ? "tutor"
+      : "student";
 
   return <ResetPasswordPageModule audience={audience} isValid={tokenStatus.isValid} token={token} />;
 }

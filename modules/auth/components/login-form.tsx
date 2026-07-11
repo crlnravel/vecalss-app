@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { LoginAudience } from "@/lib/auth/types";
 
-import { loginAdminAction, loginStudentAction } from "../actions";
+import { loginAdminAction, loginStudentAction, loginTutorAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
@@ -25,12 +25,22 @@ function LoginForm({
   notice?: LoginNotice | null;
   registerUrl: string;
 }) {
+  const loginAction = audience === "admin"
+    ? loginAdminAction
+    : audience === "tutor"
+      ? loginTutorAction
+      : loginStudentAction;
   const [state, formAction] = useActionState(
-    audience === "admin" ? loginAdminAction : loginStudentAction,
+    loginAction,
     EMPTY_FORM_STATE,
   );
-  const forgotPasswordHref = audience === "admin" ? "/forgot-password?audience=admin" : "/forgot-password";
+  const forgotPasswordHref = audience === "admin"
+    ? "/forgot-password?audience=admin"
+    : audience === "tutor"
+      ? "/forgot-password?audience=tutor"
+      : "/forgot-password";
   const isAdminLogin = audience === "admin";
+  const isTutorLogin = audience === "tutor";
 
   return (
     <form action={formAction} className="space-y-5">
@@ -51,7 +61,13 @@ function LoginForm({
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
-          placeholder={isAdminLogin ? "admin@vecalss.id" : "student@vecalss.id"}
+          placeholder={
+            isAdminLogin
+              ? "admin@vecalss.id"
+              : isTutorLogin
+                ? "kapten@vecalss.id"
+                : "student@vecalss.id"
+          }
           required
           type="email"
         />
@@ -92,11 +108,22 @@ function LoginForm({
         type="submit"
         variant="brand"
       >
-        {isAdminLogin ? "Masuk admin" : "Masuk"}
+        {isAdminLogin ? "Masuk admin" : isTutorLogin ? "Masuk Kapten" : "Masuk"}
       </SubmitButton>
 
       <p className="text-center text-sm leading-6 text-secondary-600">
         {isAdminLogin ? (
+          <>
+            Akun siswa? Gunakan{" "}
+            <Link
+              className="font-semibold text-primary-700 hover:text-primary-800"
+              href="/login"
+            >
+              halaman masuk siswa
+            </Link>
+            .
+          </>
+        ) : isTutorLogin ? (
           <>
             Akun siswa? Gunakan{" "}
             <Link

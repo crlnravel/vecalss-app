@@ -6,7 +6,11 @@ export default async function ForgotPasswordPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const audience = resolvedSearchParams.audience === "admin" ? "admin" : "student";
+  const audience = resolvedSearchParams.audience === "admin"
+    ? "admin"
+    : resolvedSearchParams.audience === "tutor"
+      ? "tutor"
+      : "student";
 
   return <ForgotPasswordPageModule audience={audience} />;
 }

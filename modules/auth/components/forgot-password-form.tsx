@@ -44,7 +44,13 @@ function ForgotPasswordForm({
           defaultValue={state.fields?.email ?? ""}
           id="forgot-email"
           name="email"
-          placeholder={audience === "admin" ? "admin@vecalss.id" : "student@vecalss.id"}
+          placeholder={
+            audience === "admin"
+              ? "admin@vecalss.id"
+              : audience === "tutor"
+                ? "kapten@vecalss.id"
+                : "student@vecalss.id"
+          }
           required
           type="email"
         />

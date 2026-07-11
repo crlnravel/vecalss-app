@@ -2,11 +2,11 @@
 
 import { redirect } from "next/navigation";
 
-import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
+import { RoleName } from "@/generated/prisma/client";
 import {
   getDefaultHomePath,
   getLoginPathForAudience,
-  requireStudentSession,
+  requireSession,
 } from "@/lib/auth/access";
 import {
   changePasswordForUser,
@@ -40,7 +40,11 @@ function withFieldError(
 
 function readAudience(formData: FormData): LoginAudience {
   const value = formData.get("audience");
-  return value === "admin" ? "admin" : "student";
+  if (value === "admin" || value === "tutor") {
+    return value;
+  }
+
+  return "student";
 }
 
 async function handleLoginAction(
@@ -89,6 +93,8 @@ async function handleLoginAction(
       message:
         requiredRole === RoleName.admin
           ? "Invalid admin credentials. Please confirm your admin access is active and try again."
+          : requiredRole === RoleName.tutor
+            ? "Invalid Kapten credentials. Please confirm your Kapten access is active and try again."
           : "Invalid credentials. If you have not been enrolled yet, please complete the registration flow first.",
       status: "error",
     };
@@ -103,6 +109,10 @@ async function loginStudentAction(previousState: FormState, formData: FormData):
 
 async function loginAdminAction(previousState: FormState, formData: FormData): Promise<FormState> {
   return handleLoginAction(previousState, formData, RoleName.admin);
+}
+
+async function loginTutorAction(previousState: FormState, formData: FormData): Promise<FormState> {
+  return handleLoginAction(previousState, formData, RoleName.tutor);
 }
 
 async function forgotPasswordAction(
@@ -194,10 +204,7 @@ async function changePasswordAction(
   _previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const session = await requireStudentSession({
-    allowIncompleteOnboarding: true,
-    allowMustChangePassword: true,
-  });
+  const session = await requireSession();
   const password = readTextField(formData, "password");
   const confirmPassword = readTextField(formData, "confirmPassword");
 
@@ -223,14 +230,10 @@ async function changePasswordAction(
   try {
     await changePasswordForUser(session.user.id, password);
 
-    if (
-      session.user.onboardingStatus === OnboardingStatus.not_started
-      || session.user.onboardingStatus === null
-    ) {
-      redirect("/onboarding");
-    }
-
-    redirect("/dashboard");
+    redirect(getDefaultHomePath({
+      ...session.user,
+      mustChangePassword: false,
+    }));
   } catch (error) {
     return {
       message:
@@ -263,6 +266,7 @@ export {
   getResetTokenStatus,
   loginAdminAction,
   loginStudentAction,
+  loginTutorAction,
   logoutAction,
   resetPasswordAction,
 };

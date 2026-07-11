@@ -25,13 +25,24 @@ function LoginPageModule({
   notice?: string | null;
 }) {
   const isAdminLogin = audience === "admin";
+  const isTutorLogin = audience === "tutor";
 
   return (
     <AuthShell
-      description={isAdminLogin
-        ? "Masuk untuk melanjutkan pengelolaan pendaftaran."
-        : "Masuk untuk melanjutkan perjalanan belajarmu."}
-      title={isAdminLogin ? "Masuk admin" : "Masuk ke Vecalss"}
+      description={
+        isAdminLogin
+          ? "Masuk untuk melanjutkan pengelolaan pendaftaran."
+          : isTutorLogin
+            ? "Masuk untuk membuat, mengatur, dan mempublikasikan konten belajar."
+            : "Masuk untuk melanjutkan perjalanan belajarmu."
+      }
+      title={
+        isAdminLogin
+          ? "Masuk admin"
+          : isTutorLogin
+            ? "Masuk Kapten"
+            : "Masuk ke Vecalss"
+      }
     >
       <LoginForm
         audience={audience}

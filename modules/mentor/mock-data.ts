@@ -1,676 +1,438 @@
 import {
-  AlertTriangle,
-  BookOpen,
-  Flame,
-  Sparkles,
-  Users,
-  TrendingDown,
-  ShieldCheck,
+  BookOpenText,
+  CalendarClock,
+  FileQuestion,
+  Gauge,
+  Image as ImageIcon,
+  LibraryBig,
+  ListChecks,
+  type LucideIcon,
+  Video,
 } from "lucide-react";
-import type { ComponentType } from "react";
 
-type MentorNotificationItem = {
+type KaptenContentStatus = "draft" | "scheduled" | "published" | "archived";
+type KaptenResourceType = "materi" | "quiz" | "question-bank" | "tryout" | "media";
+
+type KaptenSubject = {
+  code: string;
+  description: string;
+  name: string;
+  slug: string;
+};
+
+type KaptenResource = {
+  description: string;
+  href: string;
+  id: string;
+  primaryMetric: string;
+  progress: number;
+  resourceType: KaptenResourceType;
+  scheduledFor?: string;
+  status: KaptenContentStatus;
+  subjectCode?: string;
+  subjectName?: string;
+  title: string;
+  updatedAt: string;
+};
+
+type KaptenMateri = KaptenResource & {
+  duration: string;
+  resourceCount: number;
+  sections: string[];
+  videoUrl: string;
+};
+
+type KaptenQuiz = KaptenResource & {
+  questionCount: number;
+  sourceBank: string;
+};
+
+type KaptenQuestionBank = KaptenResource & {
+  difficultyMix: string;
+  questionCount: number;
+  reusableIn: string[];
+};
+
+type KaptenTryout = KaptenResource & {
+  questionCount: number;
+  sections: {
+    duration: string;
+    questionCount: number;
+    title: string;
+  }[];
+};
+
+type KaptenMediaAsset = KaptenResource & {
+  dimensions: string;
+  fileSize: string;
+  mimeType: string;
+  usage: string;
+};
+
+type KaptenNotificationItem = {
   detail: string;
   href: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   time: string;
   title: string;
   unread: boolean;
 };
 
-type MentorOverviewStat = {
-  label: string;
-  value: string;
-};
-
-type MentorStatusFilterKey = "all" | "at-risk" | "broken-streak" | "low-mastery";
-
-type MentorStatusFilter = {
-  count: number;
-  key: MentorStatusFilterKey;
-  label: string;
-};
-
-type MentorSubtestKey = "all" | "Literasi" | "Kuantitatif" | "Penalaran";
-
-type MentorSubtestFilter = {
-  count: number;
-  key: MentorSubtestKey;
-  label: string;
-};
-
-type MentorRiskTone = "high" | "medium" | "low";
-
-type MentorRosterStudent = {
-  className: string;
-  id: string;
-  initials: string;
-  latestScore: string;
-  latestScoreLabel: string;
-  name: string;
-  rank: number;
-  riskLabel: string;
-  riskTone: MentorRiskTone;
-  scoreTrend: string;
-  scoreTrendTone: "up" | "down" | "flat";
-  selected: boolean;
-  streakState: string;
-  subtest: Exclude<MentorSubtestKey, "all">;
-  weakSubtest: string;
-  detail: MentorStudentDetail;
-  isAtRisk: boolean;
-  isBrokenStreak: boolean;
-  isLowMastery: boolean;
-};
-
-type MentorRiskLegendItem = {
-  detail: string;
-  tone: MentorRiskTone;
-  title: string;
-};
-
-type MentorLearningGap = {
-  detail: string;
-  mastery: number;
-  title: string;
-};
-
-type MentorActivityItem = {
-  detail: string;
-  time: string;
-  title: string;
-};
-
-type MentorInterventionSummary = {
-  detail: string;
-  time: string;
-  title: string;
-};
-
-type MentorRecommendedModule = {
-  href: string;
-  reason: string;
-  title: string;
-  tone: "calm" | "warning";
-};
-
-type MentorStudentDetail = {
-  focusSummary: string;
-  learningGaps: MentorLearningGap[];
-  lastIntervention: MentorInterventionSummary;
-  messageStarter: string;
-  recentActivity: MentorActivityItem[];
-  recommendedModule: MentorRecommendedModule;
-  trendSnapshot: string;
-};
-
-const mentorRoster: MentorRosterStudent[] = [
+const kaptenSubjects: KaptenSubject[] = [
   {
-    className: "XII-2",
-    id: "nisa",
-    initials: "NI",
-    latestScore: "438",
-    latestScoreLabel: "Skor terakhir",
-    name: "Nisa Rahma",
-    rank: 1,
-    riskLabel: "At risk",
-    riskTone: "high",
-    scoreTrend: "Turun 12 poin",
-    scoreTrendTone: "down",
-    selected: true,
-    streakState: "Streak putus 2 hari",
-    subtest: "Literasi",
-    weakSubtest: "Simpulan implisit",
-    detail: {
-      focusSummary: "Utamakan simpulan implisit dan cek ulang dua jawaban terakhir.",
-      learningGaps: [
-        {
-          detail: "Masih sering lompat ke jawaban yang terlalu cepat.",
-          mastery: 42,
-          title: "Simpulan implisit",
-        },
-        {
-          detail: "Butuh jeda baca yang lebih stabil saat data muncul panjang.",
-          mastery: 51,
-          title: "Literasi data",
-        },
-        {
-          detail: "Ritme pengerjaan turun saat soal bertingkat.",
-          mastery: 38,
-          title: "Kontrol ritme",
-        },
-      ],
-      lastIntervention: {
-        detail: "Latihan pendek dikirim untuk membangun ulang ritme baca.",
-        time: "Kemarin",
-        title: "Intervensi terakhir",
-      },
-      messageStarter:
-        "Nisa, kita fokus 10 menit ke simpulan implisit lalu cek ulang jawaban yang paling ragu.",
-      recentActivity: [
-        {
-          detail: "Menyelesaikan 18 dari 20 soal dan berhenti lebih cepat di literasi panjang.",
-          time: "2 jam lalu",
-          title: "Tryout utama",
-        },
-        {
-          detail: "Masih ragu di soal inferensi panjang dan simpulan bertumpuk.",
-          time: "Kemarin",
-          title: "Review terakhir",
-        },
-      ],
-      recommendedModule: {
-        href: "/courses",
-        reason: "Paling dekat dengan gap utama hari ini.",
-        title: "Literasi: Simpulan implisit",
-        tone: "warning",
-      },
-      trendSnapshot: "Skor turun 12 poin, paling banyak di literasi inferensial.",
-    },
-    isAtRisk: true,
-    isBrokenStreak: true,
-    isLowMastery: true,
+    code: "PU",
+    description: "Penalaran umum dan logika argumen.",
+    name: "Penalaran Umum",
+    slug: "penalaran-umum",
   },
   {
-    className: "XII-1",
-    id: "rafi",
-    initials: "RA",
-    latestScore: "471",
-    latestScoreLabel: "Skor terakhir",
-    name: "Rafi Mahendra",
-    rank: 2,
-    riskLabel: "Perlu tindak lanjut",
-    riskTone: "medium",
-    scoreTrend: "Naik 4 poin",
-    scoreTrendTone: "up",
-    selected: false,
-    streakState: "Hadir, tetapi belum konsisten",
-    subtest: "Kuantitatif",
-    weakSubtest: "Grafik dan rasio",
-    detail: {
-      focusSummary: "Ambil grafik rasio dulu, lalu dorong tempo yang lebih stabil.",
-      learningGaps: [
-        {
-          detail: "Masih kehilangan langkah saat membaca skala grafik.",
-          mastery: 49,
-          title: "Grafik",
-        },
-        {
-          detail: "Rasio benar, tetapi pemilihan formula belum konsisten.",
-          mastery: 55,
-          title: "Rasio",
-        },
-        {
-          detail: "Perlu latihan tempo agar tidak panik di soal hitung.",
-          mastery: 46,
-          title: "Tempo pengerjaan",
-        },
-      ],
-      lastIntervention: {
-        detail: "Catatan latihan dikirim setelah sesi sore.",
-        time: "3 hari lalu",
-        title: "Intervensi terakhir",
-      },
-      messageStarter:
-        "Rafi, mulai dari grafik dulu lalu pilih satu soal rasio sebagai penguat.",
-      recentActivity: [
-        {
-          detail: "Naik 4 poin setelah sesi latihan kuantitatif pendek.",
-          time: "Hari ini",
-          title: "Tryout mingguan",
-        },
-        {
-          detail: "Masih sering berhenti saat grafik memiliki dua variabel.",
-          time: "Kemarin",
-          title: "Catatan mentor",
-        },
-      ],
-      recommendedModule: {
-        href: "/courses",
-        reason: "Menutup gap grafik dan rasio paling cepat.",
-        title: "Kuantitatif: Grafik cepat",
-        tone: "calm",
-      },
-      trendSnapshot: "Skor naik 4 poin, tetapi konsistensi belum stabil.",
-    },
-    isAtRisk: true,
-    isBrokenStreak: false,
-    isLowMastery: true,
+    code: "PPU",
+    description: "Pengetahuan dan pemahaman umum.",
+    name: "Pengetahuan dan Pemahaman Umum",
+    slug: "pengetahuan-pemahaman-umum",
   },
   {
-    className: "XII-4",
-    id: "alya",
-    initials: "AL",
-    latestScore: "489",
-    latestScoreLabel: "Skor terakhir",
-    name: "Alya Putri",
-    rank: 3,
-    riskLabel: "Perlu tindak lanjut",
-    riskTone: "medium",
-    scoreTrend: "Stagnan",
-    scoreTrendTone: "flat",
-    selected: false,
-    streakState: "Streak aman",
-    subtest: "Penalaran",
-    weakSubtest: "Simpulan berlapis",
-    detail: {
-      focusSummary: "Pertahankan ritme, lalu rapikan simpulan berlapis yang masih kabur.",
-      learningGaps: [
-        {
-          detail: "Masih ragu saat dua opsi sama-sama terlihat benar.",
-          mastery: 53,
-          title: "Simpulan berlapis",
-        },
-        {
-          detail: "Perlu pembacaan petunjuk yang lebih hemat waktu.",
-          mastery: 58,
-          title: "Seleksi petunjuk",
-        },
-        {
-          detail: "Pola logika cukup baik, tinggal dirapikan di soal panjang.",
-          mastery: 61,
-          title: "Pola logika",
-        },
-      ],
-      lastIntervention: {
-        detail: "Sesi diskusi singkat dipakai untuk menahan jawaban impulsif.",
-        time: "Kemarin",
-        title: "Intervensi terakhir",
-      },
-      messageStarter:
-        "Alya, pertahankan ritme lalu lihat kembali dua opsi yang paling dekat.",
-      recentActivity: [
-        {
-          detail: "Skor stabil setelah dua sesi latihan penalaran berturut-turut.",
-          time: "Hari ini",
-          title: "Tryout utama",
-        },
-        {
-          detail: "Masih butuh jeda baca sebelum mengunci simpulan akhir.",
-          time: "Kemarin",
-          title: "Review terakhir",
-        },
-      ],
-      recommendedModule: {
-        href: "/courses",
-        reason: "Menjaga ritme sambil memperjelas simpulan berlapis.",
-        title: "Penalaran: Simpulan berlapis",
-        tone: "calm",
-      },
-      trendSnapshot: "Skor stagnan, tetapi ritme pengerjaan aman.",
-    },
-    isAtRisk: true,
-    isBrokenStreak: false,
-    isLowMastery: true,
+    code: "PBM",
+    description: "Pemahaman bacaan dan menulis.",
+    name: "Pemahaman Bacaan dan Menulis",
+    slug: "pemahaman-bacaan-menulis",
   },
   {
-    className: "XII-6",
-    id: "dimas",
-    initials: "DI",
-    latestScore: "494",
-    latestScoreLabel: "Skor terakhir",
-    name: "Dimas Arjuna",
-    rank: 4,
-    riskLabel: "At risk",
-    riskTone: "high",
-    scoreTrend: "Turun 8 poin",
-    scoreTrendTone: "down",
-    selected: false,
-    streakState: "Putus 1 sesi",
-    subtest: "Kuantitatif",
-    weakSubtest: "Persentase",
-    detail: {
-      focusSummary: "Persentase dulu, lalu baca ulang langkah yang paling sering terlewat.",
-      learningGaps: [
-        {
-          detail: "Sering salah saat persentase berpadu dengan desimal.",
-          mastery: 41,
-          title: "Persentase",
-        },
-        {
-          detail: "Langkah hitung cukup baik, tetapi urutan belum konsisten.",
-          mastery: 48,
-          title: "Urutan langkah",
-        },
-        {
-          detail: "Butuh pengulangan ringan agar tempo kembali aman.",
-          mastery: 44,
-          title: "Tempo pengerjaan",
-        },
-      ],
-      lastIntervention: {
-        detail: "Sesi penguatan pendek dibuka setelah sesi yang terlewat.",
-        time: "Kemarin",
-        title: "Intervensi terakhir",
-      },
-      messageStarter:
-        "Dimas, kita mulai dari persentase yang paling sering keluar lalu cek satu contoh penuh.",
-      recentActivity: [
-        {
-          detail: "Skor turun 8 poin setelah satu sesi terlewat minggu ini.",
-          time: "3 jam lalu",
-          title: "Tryout mingguan",
-        },
-        {
-          detail: "Perlu pengingat ritme agar tidak putus lagi.",
-          time: "Kemarin",
-          title: "Catatan mentor",
-        },
-      ],
-      recommendedModule: {
-        href: "/courses",
-        reason: "Paling efektif untuk menutup gap dasar kuantitatif.",
-        title: "Kuantitatif: Persentase praktis",
-        tone: "warning",
-      },
-      trendSnapshot: "Skor turun 8 poin setelah ritme belajar terganggu.",
-    },
-    isAtRisk: true,
-    isBrokenStreak: true,
-    isLowMastery: true,
-  },
-  {
-    className: "XII-7",
-    id: "yusuf",
-    initials: "YU",
-    latestScore: "452",
-    latestScoreLabel: "Skor terakhir",
-    name: "Yusuf Hidayat",
-    rank: 5,
-    riskLabel: "At risk",
-    riskTone: "high",
-    scoreTrend: "Turun 10 poin",
-    scoreTrendTone: "down",
-    selected: false,
-    streakState: "Putus 3 sesi",
-    subtest: "Penalaran",
-    weakSubtest: "Pola logika",
-    detail: {
-      focusSummary: "Pola logika harus dipasang ulang sebelum soal panjang dikejar.",
-      learningGaps: [
-        {
-          detail: "Masih mudah tertukar saat petunjuk disusun bertingkat.",
-          mastery: 39,
-          title: "Pola logika",
-        },
-        {
-          detail: "Perlu bantuan visual untuk menahan langkah yang hilang.",
-          mastery: 45,
-          title: "Urutan petunjuk",
-        },
-        {
-          detail: "Tempo terlalu cepat setelah soal awal terasa mudah.",
-          mastery: 43,
-          title: "Kontrol tempo",
-        },
-      ],
-      lastIntervention: {
-        detail: "Pesan ulang jadwal belajar dikirim setelah dua sesi hilang.",
-        time: "Kemarin",
-        title: "Intervensi terakhir",
-      },
-      messageStarter:
-        "Yusuf, kita rapikan pola logika dulu supaya langkahnya tidak loncat.",
-      recentActivity: [
-        {
-          detail: "Tiga sesi terakhir tidak terselesaikan penuh.",
-          time: "Hari ini",
-          title: "Streak review",
-        },
-        {
-          detail: "Masih paling lambat di soal dengan petunjuk berlapis.",
-          time: "Kemarin",
-          title: "Catatan mentor",
-        },
-      ],
-      recommendedModule: {
-        href: "/courses",
-        reason: "Membantu membangun ulang urutan logika dari dasar.",
-        title: "Penalaran: Pola logika",
-        tone: "warning",
-      },
-      trendSnapshot: "Skor turun 10 poin, streak putus tiga sesi.",
-    },
-    isAtRisk: true,
-    isBrokenStreak: true,
-    isLowMastery: true,
-  },
-  {
-    className: "XII-3",
-    id: "hafiz",
-    initials: "HA",
-    latestScore: "523",
-    latestScoreLabel: "Skor terakhir",
-    name: "Hafiz Prakoso",
-    rank: 6,
-    riskLabel: "Stabil",
-    riskTone: "low",
-    scoreTrend: "Naik 6 poin",
-    scoreTrendTone: "up",
-    selected: false,
-    streakState: "Stabil 5 hari",
-    subtest: "Literasi",
-    weakSubtest: "Literasi data",
-    detail: {
-      focusSummary: "Pertahankan stabilitas sambil menajamkan literasi data.",
-      learningGaps: [
-        {
-          detail: "Cukup kuat, hanya perlu latihan interpretasi yang lebih cepat.",
-          mastery: 68,
-          title: "Literasi data",
-        },
-        {
-          detail: "Butuh penguatan ringan pada ringkasan bacaan panjang.",
-          mastery: 72,
-          title: "Ringkasan bacaan",
-        },
-        {
-          detail: "Tempo sudah aman, tinggal dijaga tetap rata.",
-          mastery: 74,
-          title: "Tempo baca",
-        },
-      ],
-      lastIntervention: {
-        detail: "Penguatan ringan diberikan untuk menjaga konsistensi.",
-        time: "4 hari lalu",
-        title: "Intervensi terakhir",
-      },
-      messageStarter:
-        "Hafiz, kita pertahankan ritme dan kasih satu latihan literasi data yang lebih tajam.",
-      recentActivity: [
-        {
-          detail: "Naik 6 poin dan tetap stabil selama lima hari.",
-          time: "Hari ini",
-          title: "Tryout utama",
-        },
-        {
-          detail: "Tidak ada jeda belajar yang signifikan minggu ini.",
-          time: "Kemarin",
-          title: "Streak check",
-        },
-      ],
-      recommendedModule: {
-        href: "/courses",
-        reason: "Mendukung stabilitas tanpa mengubah ritme yang sudah baik.",
-        title: "Literasi: Literasi data",
-        tone: "calm",
-      },
-      trendSnapshot: "Skor naik 6 poin, ritme belajar stabil.",
-    },
-    isAtRisk: false,
-    isBrokenStreak: false,
-    isLowMastery: false,
+    code: "PK",
+    description: "Pengetahuan kuantitatif dan numerasi.",
+    name: "Pengetahuan Kuantitatif",
+    slug: "pengetahuan-kuantitatif",
   },
 ];
 
-const mentorDashboardMockData = {
-  cohort: {
-    cachedLabel: "Snapshot aktif",
-    name: "Cohort XII - Soshum",
-    refreshedAt: "12 menit lalu",
-    workspaceLabel: "Ruang kerja kapten",
+const materi: KaptenMateri[] = [
+  {
+    description: "Video pembuka untuk membantu siswa mengenali premis, klaim, dan simpulan.",
+    duration: "18 menit",
+    href: "/mentor/materi#pu-argumen",
+    id: "mod-pu-argumen",
+    primaryMetric: "3 section",
+    progress: 72,
+    resourceCount: 4,
+    resourceType: "materi",
+    sections: ["Pengenalan", "Contoh Terpandu", "Latihan Ringkas"],
+    status: "draft",
+    subjectCode: "PU",
+    subjectName: "Penalaran Umum",
+    title: "Struktur Argumen Dasar",
+    updatedAt: "Diedit 26 menit lalu",
+    videoUrl: "https://youtube.com/watch?v=vecalss-pu-argumen",
   },
-  mentor: {
-    email: "maya.adhitya@vecalss.local",
-    fullName: "Maya Adhitya",
-    roleLabel: "Kapten",
+  {
+    description: "Materi video untuk membedakan gagasan utama, detail pendukung, dan distraktor.",
+    duration: "24 menit",
+    href: "/mentor/materi#ppu-informasi",
+    id: "mod-ppu-informasi",
+    primaryMetric: "5 asset",
+    progress: 46,
+    resourceCount: 5,
+    resourceType: "materi",
+    scheduledFor: "Senin, 15 Juli 2026",
+    sections: ["Konsep", "Checklist Baca", "Contoh Soal"],
+    status: "scheduled",
+    subjectCode: "PPU",
+    subjectName: "Pengetahuan dan Pemahaman Umum",
+    title: "Membaca Informasi Secara Presisi",
+    updatedAt: "Diedit kemarin",
+    videoUrl: "https://youtube.com/watch?v=vecalss-ppu-informasi",
   },
-  overviewStats: [
-    {
-      label: "Total siswa",
-      value: "28",
-    },
-    {
-      label: "At-risk",
-      value: "6",
-    },
-    {
-      label: "Broken streak",
-      value: "4",
-    },
-    {
-      label: "Score drop",
-      value: "3",
-    },
-  ] satisfies MentorOverviewStat[],
-  statusFilters: [
-    {
-      key: "all",
-      label: "Semua",
-      count: mentorRoster.length,
-    },
-    {
-      key: "at-risk",
-      label: "At risk",
-      count: mentorRoster.filter((student) => student.isAtRisk).length,
-    },
-    {
-      key: "broken-streak",
-      label: "Broken streak",
-      count: mentorRoster.filter((student) => student.isBrokenStreak).length,
-    },
-    {
-      key: "low-mastery",
-      label: "Low mastery",
-      count: mentorRoster.filter((student) => student.isLowMastery).length,
-    },
-  ] satisfies MentorStatusFilter[],
-  subtestFilters: [
-    {
-      key: "all",
-      label: "Semua subtest",
-      count: mentorRoster.length,
-    },
-    {
-      key: "Literasi",
-      label: "Literasi",
-      count: mentorRoster.filter((student) => student.subtest === "Literasi").length,
-    },
-    {
-      key: "Kuantitatif",
-      label: "Kuantitatif",
-      count: mentorRoster.filter((student) => student.subtest === "Kuantitatif")
-        .length,
-    },
-    {
-      key: "Penalaran",
-      label: "Penalaran",
-      count: mentorRoster.filter((student) => student.subtest === "Penalaran").length,
-    },
-  ] satisfies MentorSubtestFilter[],
-  students: mentorRoster,
-  riskLegend: [
-    {
-      detail: "Butuh tindak lanjut paling cepat. Warna dipakai hemat agar tidak terasa ramai.",
-      tone: "high",
-      title: "At risk",
-    },
-    {
-      detail: "Menandakan ritme belajar putus atau absen beruntun.",
-      tone: "medium",
-      title: "Broken streak",
-    },
-    {
-      detail: "Perlu penguatan pada subtest inti, tetapi belum darurat.",
-      tone: "low",
-      title: "Low mastery",
-    },
-  ] satisfies MentorRiskLegendItem[],
-  notificationItems: [
-    {
-      detail: "Nisa dan Yusuf naik ke prioritas 1 setelah refresh snapshot pagi ini.",
-      href: "/mentor/dashboard#students",
-      icon: AlertTriangle,
-      time: "Baru saja",
-      title: "Prioritas cohort berubah",
-      unread: true,
-    },
-    {
-      detail: "4 siswa memiliki streak yang putus pada dua hari terakhir.",
-      href: "/mentor/dashboard#signals",
-      icon: Flame,
-      time: "Pagi ini",
-      title: "Broken streak terpantau",
-      unread: true,
-    },
-    {
-      detail: "Subtest Literasi masih mendominasi daftar perhatian minggu ini.",
-      href: "/mentor/dashboard#students",
-      icon: BookOpen,
-      time: "Kemarin",
-      title: "Subtest fokus diperbarui",
-      unread: false,
-    },
-    {
-      detail: "Ringkasan cohort tersimpan untuk review cepat sebelum intervensi.",
-      href: "/mentor/dashboard#overview",
-      icon: Sparkles,
-      time: "Kemarin",
-      title: "Snapshot tersimpan",
-      unread: false,
-    },
-    {
-      detail: "Cohort sekarang diringkas sebagai lapisan scan sebelum detail dibuka.",
-      href: "/mentor/dashboard#overview",
-      icon: Users,
-      time: "Minggu ini",
-      title: "Mode overview aktif",
-      unread: false,
-    },
-    {
-      detail: "Score drop kecil di dua siswa terakhir sudah masuk daftar pantauan.",
-      href: "/mentor/dashboard#signals",
-      icon: TrendingDown,
-      time: "Minggu ini",
-      title: "Score drop dipantau",
-      unread: false,
-    },
-    {
-      detail: "Siswa stabil tetap diberi label hijau agar scan cohort terasa tenang.",
-      href: "/mentor/dashboard#students",
-      icon: ShieldCheck,
-      time: "Minggu ini",
-      title: "Sinyal stabil dipertahankan",
-      unread: false,
-    },
-  ] satisfies MentorNotificationItem[],
-} as const;
+  {
+    description: "Rangkaian video dan catatan untuk memperbaiki efektivitas kalimat.",
+    duration: "31 menit",
+    href: "/mentor/materi#pbm-kalimat",
+    id: "mod-pbm-kalimat",
+    primaryMetric: "6 section",
+    progress: 100,
+    resourceCount: 6,
+    resourceType: "materi",
+    sections: ["Konsep", "Contoh Revisi", "Latihan Mandiri"],
+    status: "published",
+    subjectCode: "PBM",
+    subjectName: "Pemahaman Bacaan dan Menulis",
+    title: "Efektivitas Kalimat",
+    updatedAt: "Diedit 3 hari lalu",
+    videoUrl: "https://youtube.com/watch?v=vecalss-pbm-kalimat",
+  },
+];
 
-export type {
-  MentorActivityItem,
-  MentorInterventionSummary,
-  MentorLearningGap,
-  MentorNotificationItem,
-  MentorOverviewStat,
-  MentorRecommendedModule,
-  MentorRiskLegendItem,
-  MentorRosterStudent,
-  MentorStatusFilter,
-  MentorStatusFilterKey,
-  MentorSubtestFilter,
-  MentorSubtestKey,
-  MentorRiskTone,
-  MentorStudentDetail,
+const quizzes: KaptenQuiz[] = [
+  {
+    description: "Latihan pendek untuk mengecek pemahaman simpulan implisit.",
+    href: "/mentor/quiz#quiz-pu-simpulan",
+    id: "quiz-pu-simpulan",
+    primaryMetric: "12 soal",
+    progress: 64,
+    questionCount: 12,
+    resourceType: "quiz",
+    sourceBank: "Bank Soal PU Inferensi",
+    status: "draft",
+    subjectCode: "PU",
+    subjectName: "Penalaran Umum",
+    title: "Quiz PU: Simpulan Implisit",
+    updatedAt: "Diedit 1 jam lalu",
+  },
+  {
+    description: "Kuis penguatan untuk rasio, persentase, dan grafik dasar.",
+    href: "/mentor/quiz#quiz-pk-rasio",
+    id: "quiz-pk-rasio",
+    primaryMetric: "16 soal",
+    progress: 88,
+    questionCount: 16,
+    resourceType: "quiz",
+    scheduledFor: "Rabu, 17 Juli 2026",
+    sourceBank: "Bank Soal PK Grafik",
+    status: "scheduled",
+    subjectCode: "PK",
+    subjectName: "Pengetahuan Kuantitatif",
+    title: "Quiz PK: Grafik dan Rasio",
+    updatedAt: "Diedit kemarin",
+  },
+  {
+    description: "Paket evaluasi topik kohesi dan koherensi paragraf.",
+    href: "/mentor/quiz#quiz-pbm-paragraf",
+    id: "quiz-pbm-paragraf",
+    primaryMetric: "10 soal",
+    progress: 100,
+    questionCount: 10,
+    resourceType: "quiz",
+    sourceBank: "Bank Soal PBM Paragraf",
+    status: "published",
+    subjectCode: "PBM",
+    subjectName: "Pemahaman Bacaan dan Menulis",
+    title: "Quiz PBM: Koherensi Paragraf",
+    updatedAt: "Diedit 4 hari lalu",
+  },
+];
+
+const questionBanks: KaptenQuestionBank[] = [
+  {
+    description: "Kumpulan soal inferensi untuk quiz dan tryout PU.",
+    difficultyMix: "40% sedang, 60% sulit",
+    href: "/mentor/quiz/question-bank#bank-pu-inferensi",
+    id: "bank-pu-inferensi",
+    primaryMetric: "48 soal",
+    progress: 78,
+    questionCount: 48,
+    resourceType: "question-bank",
+    reusableIn: ["Quiz PU", "Tryout TPS"],
+    status: "draft",
+    subjectCode: "PU",
+    subjectName: "Penalaran Umum",
+    title: "Bank Soal PU Inferensi",
+    updatedAt: "Diedit 42 menit lalu",
+  },
+  {
+    description: "Soal grafik, tabel, rasio, dan perbandingan nilai.",
+    difficultyMix: "55% sedang, 45% sulit",
+    href: "/mentor/quiz/question-bank#bank-pk-grafik",
+    id: "bank-pk-grafik",
+    primaryMetric: "64 soal",
+    progress: 100,
+    questionCount: 64,
+    resourceType: "question-bank",
+    reusableIn: ["Quiz PK", "Tryout Campuran"],
+    status: "published",
+    subjectCode: "PK",
+    subjectName: "Pengetahuan Kuantitatif",
+    title: "Bank Soal PK Grafik",
+    updatedAt: "Diedit 2 hari lalu",
+  },
+];
+
+const tryouts: KaptenTryout[] = [
+  {
+    description: "Paket tryout mingguan dengan komposisi subtest TPS lengkap.",
+    href: "/mentor/tryout#to-17",
+    id: "to-17",
+    primaryMetric: "88 soal",
+    progress: 58,
+    questionCount: 88,
+    resourceType: "tryout",
+    sections: [
+      { duration: "30 menit", questionCount: 24, title: "Penalaran Umum" },
+      { duration: "25 menit", questionCount: 22, title: "PBM" },
+      { duration: "35 menit", questionCount: 42, title: "PK & PPU" },
+    ],
+    status: "draft",
+    title: "Tryout 17 - TPS Campuran",
+    updatedAt: "Diedit 18 menit lalu",
+  },
+  {
+    description: "Tryout diagnostik untuk siswa baru sebelum masuk rute belajar.",
+    href: "/mentor/tryout#diagnostik-awal",
+    id: "diagnostik-awal",
+    primaryMetric: "60 soal",
+    progress: 100,
+    questionCount: 60,
+    resourceType: "tryout",
+    scheduledFor: "Jumat, 19 Juli 2026",
+    sections: [
+      { duration: "30 menit", questionCount: 30, title: "Literasi" },
+      { duration: "30 menit", questionCount: 30, title: "Kuantitatif" },
+    ],
+    status: "scheduled",
+    title: "Diagnostik Awal SNBT",
+    updatedAt: "Diedit kemarin",
+  },
+];
+
+const mediaAssets: KaptenMediaAsset[] = [
+  {
+    description: "Thumbnail materi PU dengan ilustrasi struktur argumen.",
+    dimensions: "1600 x 900",
+    fileSize: "284 KB",
+    href: "/mentor/media#thumb-pu-argumen",
+    id: "thumb-pu-argumen",
+    mimeType: "image/jpeg",
+    primaryMetric: "284 KB",
+    progress: 100,
+    resourceType: "media",
+    status: "published",
+    title: "thumbnail-pu-argumen.jpg",
+    updatedAt: "Diunggah 2 jam lalu",
+    usage: "Dipakai di 1 materi",
+  },
+  {
+    description: "Cover tryout untuk paket mingguan.",
+    dimensions: "1920 x 1080",
+    fileSize: "412 KB",
+    href: "/mentor/media#cover-to-17",
+    id: "cover-to-17",
+    mimeType: "image/jpeg",
+    primaryMetric: "412 KB",
+    progress: 100,
+    resourceType: "media",
+    status: "draft",
+    title: "cover-tryout-17.jpg",
+    updatedAt: "Diunggah kemarin",
+    usage: "Belum dipakai",
+  },
+];
+
+const recentlyEdited: KaptenResource[] = [
+  materi[0],
+  tryouts[0],
+  quizzes[0],
+  questionBanks[0],
+  materi[1],
+];
+
+const scheduledPublications: KaptenResource[] = [
+  quizzes[1],
+  materi[1],
+  tryouts[1],
+];
+
+const allResources: KaptenResource[] = [
+  ...materi,
+  ...quizzes,
+  ...questionBanks,
+  ...tryouts,
+  ...mediaAssets,
+];
+
+const kaptenNotificationItems: KaptenNotificationItem[] = [
+  {
+    detail: "Tryout 17 masih membutuhkan review komposisi soal sebelum bisa dijadwalkan.",
+    href: "/mentor/tryout#to-17",
+    icon: Gauge,
+    time: "18 menit lalu",
+    title: "Tryout menunggu review",
+    unread: true,
+  },
+  {
+    detail: "Quiz PK: Grafik dan Rasio sudah masuk antrean publikasi.",
+    href: "/mentor/quiz#quiz-pk-rasio",
+    icon: CalendarClock,
+    time: "Kemarin",
+    title: "Publikasi terjadwal",
+    unread: true,
+  },
+  {
+    detail: "Thumbnail baru sudah tersedia di Media.",
+    href: "/mentor/media#thumb-pu-argumen",
+    icon: ImageIcon,
+    time: "2 jam lalu",
+    title: "Asset siap dipakai",
+    unread: false,
+  },
+];
+
+const quickCreateItems = [
+  {
+    description: "Video, catatan, resource pendukung",
+    href: "/mentor/materi#create",
+    icon: Video,
+    label: "Materi",
+  },
+  {
+    description: "Kuis singkat dari question bank",
+    href: "/mentor/quiz#create",
+    icon: ListChecks,
+    label: "Quiz",
+  },
+  {
+    description: "Assessment bertahap dan terjadwal",
+    href: "/mentor/tryout#create",
+    icon: Gauge,
+    label: "Tryout",
+  },
+  {
+    description: "Soal reusable untuk quiz dan tryout",
+    href: "/mentor/quiz/question-bank#create",
+    icon: FileQuestion,
+    label: "Question Bank",
+  },
+];
+
+const contentTypeMeta: Record<
+  KaptenResourceType,
+  { icon: LucideIcon; label: string }
+> = {
+  materi: { icon: BookOpenText, label: "Materi" },
+  media: { icon: ImageIcon, label: "Media" },
+  quiz: { icon: ListChecks, label: "Quiz" },
+  "question-bank": { icon: LibraryBig, label: "Question Bank" },
+  tryout: { icon: Gauge, label: "Tryout" },
 };
 
-export { mentorDashboardMockData };
+const statusLabels: Record<KaptenContentStatus, string> = {
+  archived: "Archived",
+  draft: "Draft",
+  published: "Published",
+  scheduled: "Scheduled",
+};
+
+export {
+  allResources,
+  contentTypeMeta,
+  kaptenNotificationItems,
+  kaptenSubjects,
+  mediaAssets,
+  materi,
+  questionBanks,
+  quickCreateItems,
+  quizzes,
+  recentlyEdited,
+  scheduledPublications,
+  statusLabels,
+  tryouts,
+};
+
+export type {
+  KaptenContentStatus,
+  KaptenMediaAsset,
+  KaptenMateri,
+  KaptenNotificationItem,
+  KaptenQuestionBank,
+  KaptenQuiz,
+  KaptenResource,
+  KaptenResourceType,
+  KaptenSubject,
+  KaptenTryout,
+};

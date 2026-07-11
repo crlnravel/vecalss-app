@@ -325,7 +325,11 @@ async function requestPasswordReset(
     }),
   ]);
 
-  const query = audience === "admin" ? "?audience=admin" : "";
+  const query = audience === "admin"
+    ? "?audience=admin"
+    : audience === "tutor"
+      ? "?audience=tutor"
+      : "";
   const deliveredResetUrl = `${getAppBaseUrl()}/reset-password/${rawToken}${query}`;
 
   return {

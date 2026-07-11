@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Bell } from "lucide-react";
+import { Bell, BookOpenText, Search } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -38,31 +38,27 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { MentorSidebar, getInitials } from "@/modules/mentor/components/mentor-sidebar";
-import type { MentorNotificationItem } from "@/modules/mentor/mock-data";
+import {
+  kaptenNotificationItems,
+  type KaptenNotificationItem,
+} from "@/modules/mentor/mock-data";
 
-function MentorNotificationPopover({
+function KaptenNotificationPopover({
   items = [],
 }: {
-  items?: MentorNotificationItem[];
+  items?: KaptenNotificationItem[];
 }) {
   const unreadCount = items.filter((item) => item.unread).length;
-
-  if (items.length === 0) {
-    return (
-      <Button aria-label="Notifikasi" size="icon-sm" variant="ghost">
-        <Bell />
-      </Button>
-    );
-  }
 
   return (
     <Popover>
       <PopoverTrigger
         render={
           <Button
-            aria-label="Notifikasi"
+            aria-label="Notifikasi workspace"
             className="relative"
             size="icon-sm"
             type="button"
@@ -84,9 +80,7 @@ function MentorNotificationPopover({
         sideOffset={8}
       >
         <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
-          <div className="min-w-0">
-            <PopoverTitle>Notifikasi</PopoverTitle>
-          </div>
+          <PopoverTitle>Notifikasi CMS</PopoverTitle>
         </PopoverHeader>
 
         <div className="flex flex-col">
@@ -129,36 +123,20 @@ function MentorNotificationPopover({
             </div>
           ))}
         </div>
-
-        <div className="border-t border-primary-100 px-4 py-3">
-          <Button
-            className="h-auto w-auto justify-start px-0 py-0 text-sm font-medium text-secondary-700 hover:bg-transparent hover:text-secondary-700"
-            render={<Link href="/mentor/dashboard#signals" />}
-            variant="ghost"
-          >
-            Lihat semua
-          </Button>
-        </div>
       </PopoverContent>
     </Popover>
   );
 }
 
-function MentorAccountMenu({
-  fullName,
-  email,
-}: {
-  email: string;
-  fullName: string;
-}) {
-  const initials = getInitials(fullName);
+function KaptenAccountMenu({ session }: { session: SessionContext }) {
+  const initials = getInitials(session.user.fullName);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label="Buka menu kapten"
+            aria-label="Buka menu Kapten"
             className="rounded-full p-1"
             size="icon-sm"
             type="button"
@@ -176,22 +154,22 @@ function MentorAccountMenu({
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>
           <span className="block text-sm font-semibold text-secondary-900">
-            {fullName}
+            {session.user.fullName}
           </span>
-          <span className="block truncate text-xs">{email}</span>
+          <span className="block truncate text-xs">{session.user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem render={<Link href="/mentor/dashboard#overview" />}>
-            Ringkasan kapten
+          <DropdownMenuItem render={<Link href="/mentor/dashboard" />}>
+            Dashboard
           </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/mentor/dashboard#students" />}>
-            Siswa
+          <DropdownMenuItem render={<Link href="/mentor/materi" />}>
+            Materi
           </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/mentor/dashboard#signals" />}>
-            Sinyal risiko
+          <DropdownMenuItem render={<Link href="/mentor/quiz" />}>
+            Quiz
           </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/mentor/dashboard#settings" />}>
+          <DropdownMenuItem render={<Link href="/mentor/settings" />}>
             Pengaturan
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -204,40 +182,26 @@ function MentorWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
   children,
-  cohortLabel,
   mainClassName,
-  mentorEmail,
-  mentorName,
-  notificationItems = [],
-  searchPlaceholder = "Cari siswa, subtest, atau catatan...",
-  sidebarFooterLabel,
+  notificationItems = kaptenNotificationItems,
+  searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
+  session,
 }: {
   activeLabel: string;
   breadcrumbLabel: string;
   children: ReactNode;
-  cohortLabel: string;
   mainClassName?: string;
-  mentorEmail: string;
-  mentorName: string;
-  notificationItems?: MentorNotificationItem[];
+  notificationItems?: KaptenNotificationItem[];
   searchPlaceholder?: string;
-  sidebarFooterLabel: string;
+  session: SessionContext;
 }) {
-  const unreadNotificationCount = notificationItems.filter(
-    (item) => item.unread,
-  ).length;
-
   return (
     <SidebarProvider>
       <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
         <MentorSidebar
           activeLabel={activeLabel}
-          cohortLabel={cohortLabel}
-          footerLabel={sidebarFooterLabel}
-          fullName={mentorName}
-          notificationBadge={
-            unreadNotificationCount === 0 ? undefined : String(unreadNotificationCount)
-          }
+          footerLabel="Kapten CMS"
+          fullName={session.user.fullName}
         />
 
         <SidebarInset className="bg-transparent">
@@ -253,7 +217,7 @@ function MentorWorkspaceShell({
                         href="/mentor/dashboard"
                         className="text-secondary-500"
                       >
-                        Vecalss
+                        Vecalss CMS
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
@@ -273,8 +237,16 @@ function MentorWorkspaceShell({
                 />
               </div>
 
-              <MentorNotificationPopover items={notificationItems} />
-              <MentorAccountMenu email={mentorEmail} fullName={mentorName} />
+              <Button
+                render={<Link href="/mentor/materi#create" />}
+                size="sm"
+                variant="brand"
+              >
+                <BookOpenText />
+                Buat Konten
+              </Button>
+              <KaptenNotificationPopover items={notificationItems} />
+              <KaptenAccountMenu session={session} />
             </div>
           </header>
 

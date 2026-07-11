@@ -1,111 +1,324 @@
-# GUIDE_MENTOR_PAGE
+# GUIDE_KAPTEN_PAGE
 
 ## Goal
 
-Build a kapten-facing dashboard that follows the LMS spec for **Kapten Dashboard (UC-15)** while staying visually native to the current Vecalss app.
+Design a **Kapten Workspace** for the Vecalss Learning Management System (LMS).
 
-Use **Kapten** in product/UI copy.
-Use **Kapten** when mapping to existing schema/auth roles.
+This workspace is **not** a student management dashboard.
 
-## What The Spec Requires
+Instead, it is the primary place where Kapten create, organize, review, and publish learning content for students.
 
-- Cohort-scoped dashboard
-- Ranked student list
-- Clear at-risk highlighting
-- Filter by subtest
-- Student detail with learning gaps
-- Custom intervention message
-- Recommended module link
-- Cached-data fallback when analytics is unavailable
-- Messaging disabled during analytics failure
+The workspace should feel like a modern content management system (CMS) built specifically for educational content.
 
-## Current Repo Facts
+A Kapten's primary responsibility is producing high-quality learning materials, quizzes, and tryouts—not monitoring student analytics.
 
-- App routing pattern: `app/**/page.tsx` -> `modules/**/**PageModule.tsx`
-- Student shell already exists:
-  - `modules/student/components/student-workspace-shell.tsx`
-  - `modules/student/components/student-sidebar.tsx`
-- Current visual reference:
-  - `modules/dashboard/DashboardPageModule.tsx`
-  - `modules/student/NotificationsPageModule.tsx`
-- Current auth only handles student/admin:
-  - `lib/auth/access.ts`
-  - `lib/auth/paths.ts`
-- Kapten-capable schema already exists:
-  - `TutorProfile`
-  - `TutorCohortAssignment`
-  - `RiskFlag`
-  - `Intervention`
+---
 
-## Design Direction
+## Product Philosophy
 
-- Reuse current green, navy, gold palette
-- Reuse current card radius, shadows, header rhythm, and sidebar behavior
-- Prefer dense, quiet, operational UI
-- Keep wording short
-- No marketing-style hero copy
-- No new design language
+When a Kapten opens Vecalss, they should immediately know:
 
-## UI Direction
+> "What should I continue working on today?"
 
-- Treat this as a **workspace**, not a landing page
-- Desktop first, but mobile must collapse cleanly
-- Primary screen should feel like:
-  - cohort snapshot
-  - risk triage
-  - student inspection
-  - intervention dispatch
+The experience should prioritize unfinished work, recently edited content, and quick access to content creation.
 
-## Recommended Route Shape
+Avoid turning the dashboard into a reporting or analytics page.
 
-- `app/mentor/dashboard/page.tsx`
-- `modules/mentor/MentorDashboardPageModule.tsx`
-- `modules/mentor/components/*`
+Analytics belong to another role within the system and should not influence this workspace.
 
-This keeps the kapten surface separate from student `/dashboard`.
+---
 
-## Reuse First
+## Primary Responsibilities
 
-- `Button` variants: `brand`, `brandOutline`, `ghost`, `inverseOutline`
-- `Card`, `StatTile`, `Progress`, `Tabs`
-- Existing sidebar and notification patterns
-- Existing `ScrollArea`, sticky top bar, and breadcrumb structure
+The Kapten workspace should help users:
 
-## Suggested Information Architecture
+- Continue editing unfinished work
+- Create new learning materials
+- Build quizzes
+- Manage question banks
+- Create tryouts
+- Schedule content publication
+- Organize educational resources
 
-- `Dashboard`
-- `Students`
-- `Interventions`
-- `Notifications`
-- `Settings`
+Everything else should remain secondary.
 
-Only `Dashboard` must be real in the first pass.
-The rest can be placeholders if needed.
+---
 
-## Important Constraints
+## Information Architecture
 
-- UI-first phase: use mock data first
-- Do not wire full Prisma queries until UI is approved
-- Do not reuse student-specific labels like `Beranda siswa`
-- Do not expose cross-cohort views
-- Do not touch unrelated dirty files already in the repo
+The workspace should be organized around content creation rather than student management.
 
-## Shared Mock Data Shape
+Suggested navigation:
 
-Use mock data that already anticipates real schema:
+```text
+Dashboard
 
-- kapten profile
-- active cohort
-- cohort summary counts
-- risk-filter tabs
-- ranked students
-- selected student detail
-- recent interventions
+Learning Content
+    Materi
+    Quiz
+        Question Bank
+    Tryout
 
-## Acceptance Standard
+Media
 
-- Looks like Vecalss already built it
-- Clear kapten-specific job flow
-- Easy to review step by step
-- Minimal copy
-- Ready for later auth/data wiring without redoing layout
+Settings
+```
+
+This structure is only an example.
+
+If another organization provides a better user experience while preserving the same workflow, feel free to adapt it.
+
+---
+
+## Dashboard
+
+The dashboard should feel like a personal workspace rather than an administration panel.
+
+Instead of large statistics or charts, it should focus on helping Kapten resume their work.
+
+Suggested sections include:
+
+- Greeting
+- Continue Editing
+- Drafts
+- Scheduled Publications
+- Quick Create
+- Recently Edited
+
+The interface should remain intentionally calm and uncluttered.
+
+Every section should help the user perform an action rather than simply displaying information.
+
+---
+
+## Greeting
+
+A welcoming greeting helps reinforce that this is a personal workspace.
+
+For example:
+
+> Good Morning, Ravel 👋
+
+Avoid generic page titles such as "Dashboard" as the primary visual focus.
+
+---
+
+## Continue Editing
+
+This should be one of the most prominent sections.
+
+It should help Kapten immediately resume unfinished work.
+
+Prioritize recently edited content.
+
+Example:
+
+- Quiz PBM
+- Video PPU
+- TO 17
+
+Keep this section lightweight and easy to scan.
+
+---
+
+## Drafts
+
+Drafts represent unfinished content that still requires attention.
+
+Drafts should feel like work waiting to be completed rather than a statistic.
+
+The workflow is intentionally simple:
+
+Draft → Scheduled → Published
+
+---
+
+## Scheduled Publications
+
+Kapten should easily see which learning resources are planned for future publication.
+
+This allows them to review upcoming releases without needing a complex calendar interface.
+
+---
+
+## Quick Create
+
+Creating new content should always be easy.
+
+A single entry point that lets users choose between creating:
+
+- Materi
+- Quiz
+- Tryout
+
+is encouraged.
+
+The exact interaction is flexible.
+
+---
+
+## Recently Edited
+
+Display recently edited learning resources so Kapten can quickly jump back into previous work.
+
+Recently edited content should be prioritized over recently created content.
+
+---
+
+# Learning Content
+
+The workspace revolves around three primary resource types.
+
+## Materi
+
+Learning materials are organized by subject.
+
+For example:
+
+```text
+Materi
+
+PBM
+    Video 1
+    Video 2
+
+PPU
+    Video 1
+    Video 2
+```
+
+Subjects are predefined by the system.
+
+Kapten should not manage subjects.
+
+A learning material may include:
+
+- title
+- description
+- thumbnail
+- embedded YouTube video
+- supporting resources
+- ordered sections
+- publication status
+
+The editing experience should feel comfortable for writing educational content rather than editing database records.
+
+---
+
+## Quiz
+
+Quizzes are also grouped by subject.
+
+Each quiz should support:
+
+- question management
+- reordering questions
+- importing questions from a Question Bank
+- previewing the student experience
+- scheduling publication
+
+Question Bank belongs naturally within the Quiz area instead of existing as a completely separate product.
+
+---
+
+## Question Bank
+
+Questions should be reusable across multiple quizzes and tryouts.
+
+Question management should encourage reuse rather than duplication.
+
+---
+
+## Tryout
+
+Tryouts represent larger assessments.
+
+Unlike quizzes, tryouts should guide Kapten through a creation process.
+
+A multi-step wizard is preferred over a single long form.
+
+An example flow might be:
+
+1. Basic Information
+2. Configure Subtests
+3. Select Questions
+4. Review
+5. Schedule Publication
+
+This flow is only an example.
+
+The exact steps may change if a better experience is discovered.
+
+Questions should preferably be selected from the Question Bank rather than recreated.
+
+---
+
+## Media
+
+For the current scope, Media only needs to manage image assets.
+
+The structure should remain extensible for future asset types without introducing unnecessary complexity today.
+
+---
+
+## Search
+
+Searching should help Kapten find learning content quickly.
+
+Page-level search is sufficient for the first version.
+
+The design should not prevent introducing a global search experience in the future.
+
+---
+
+## Empty States
+
+A brand-new Kapten should receive helpful guidance.
+
+For example:
+
+> Welcome to the Vecalss CMS.
+
+> Start by creating your first learning material.
+
+Every empty state should provide a clear next action.
+
+---
+
+## Design Principles
+
+The interface should feel:
+
+- calm
+- focused
+- operational
+- content-first
+- familiar
+- lightweight
+
+Avoid making the interface feel like:
+
+- an analytics dashboard
+- a CRM
+- a student management system
+- an admin reporting tool
+
+The goal is to help Kapten stay in a creative flow while building educational content.
+
+---
+
+## Future Considerations
+
+The workspace should be designed so future roles (such as Academic Manager or Administrator) can introduce analytics and reporting without requiring major redesigns to the Kapten experience.
+
+For the first version, optimize exclusively for content creation.
+
+---
+
+## Collaboration
+
+For the first version, assume each learning resource is owned and edited by a single Kapten.
+
+The interface should not introduce collaborative editing, presence indicators, conflict resolution, or permission management.
+
+However, the overall design should remain flexible enough that collaboration could be added in the future without requiring fundamental changes to the product structure.
