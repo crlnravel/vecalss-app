@@ -19,10 +19,15 @@ import {
   getRecentlyEditedMateri,
 } from "@/modules/mentor/materi-draft-storage";
 import {
+  getQuizWithStoredDrafts,
+  getRecentlyEditedQuizzes,
+} from "@/modules/mentor/quiz-draft-storage";
+import {
   allResources,
   recentlyEdited,
   scheduledPublications,
   materi,
+  quizzes,
 } from "@/modules/mentor/mock-data";
 
 function getFirstName(fullName: string) {
@@ -32,9 +37,13 @@ function getFirstName(fullName: string) {
 function MentorDashboardPageModule({ session }: { session: SessionContext }) {
   const firstName = getFirstName(session.user.fullName);
   const [storedMateri, setStoredMateri] = useState(materi);
+  const [storedQuizzes, setStoredQuizzes] = useState(quizzes);
 
   useEffect(() => {
-    const syncStoredDrafts = () => setStoredMateri(getMateriWithStoredDrafts(materi));
+    const syncStoredDrafts = () => {
+      setStoredMateri(getMateriWithStoredDrafts(materi));
+      setStoredQuizzes(getQuizWithStoredDrafts(quizzes));
+    };
 
     syncStoredDrafts();
     window.addEventListener("storage", syncStoredDrafts);
@@ -43,11 +52,17 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
 
   const updatedResources = [
     ...storedMateri,
-    ...allResources.filter((resource) => resource.resourceType !== "materi"),
+    ...storedQuizzes,
+    ...allResources.filter(
+      (resource) => resource.resourceType !== "materi" && resource.resourceType !== "quiz",
+    ),
   ];
   const updatedRecentlyEdited = [
     ...getRecentlyEditedMateri(storedMateri),
-    ...recentlyEdited.filter((resource) => resource.resourceType !== "materi"),
+    ...getRecentlyEditedQuizzes(storedQuizzes),
+    ...recentlyEdited.filter(
+      (resource) => resource.resourceType !== "materi" && resource.resourceType !== "quiz",
+    ),
   ];
   const continueEditing = updatedRecentlyEdited[0];
   const draftQueue = updatedResources

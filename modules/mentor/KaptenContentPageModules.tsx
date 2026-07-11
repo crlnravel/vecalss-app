@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   getMateriWithStoredDrafts,
 } from "@/modules/mentor/materi-draft-storage";
+import { getQuizWithStoredDrafts } from "@/modules/mentor/quiz-draft-storage";
 import {
   Field,
   FieldInput,
@@ -126,6 +127,16 @@ function KaptenMateriPageModule({ session }: { session: SessionContext }) {
 }
 
 function KaptenQuizPageModule({ session }: { session: SessionContext }) {
+  const [displayQuizzes, setDisplayQuizzes] = useState(quizzes);
+
+  useEffect(() => {
+    const syncStoredDrafts = () => setDisplayQuizzes(getQuizWithStoredDrafts(quizzes));
+
+    syncStoredDrafts();
+    window.addEventListener("storage", syncStoredDrafts);
+    return () => window.removeEventListener("storage", syncStoredDrafts);
+  }, []);
+
   return (
     <MentorWorkspaceShell
       activeLabel="Quiz"
@@ -134,7 +145,7 @@ function KaptenQuizPageModule({ session }: { session: SessionContext }) {
       session={session}
     >
       <PageIntro
-        action={<CreateButton href="/mentor/quiz#create" label="Buat Quiz" />}
+        action={<CreateButton href="/mentor/quiz/create" label="Buat Quiz" />}
         description="Kelola quiz dan hubungkan ke question bank."
         title="Quiz"
       />
@@ -142,7 +153,7 @@ function KaptenQuizPageModule({ session }: { session: SessionContext }) {
       <section className="space-y-4">
         <SearchPanel placeholder="Cari quiz atau subject..." />
         <div className="space-y-2">
-          {quizzes.map((quiz) => (
+          {displayQuizzes.map((quiz) => (
             <ResourceRow key={quiz.id} resource={quiz} />
           ))}
         </div>

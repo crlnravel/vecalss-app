@@ -1,0 +1,769 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  Eye,
+  GripVertical,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Field,
+  FieldInput,
+  FieldLabel,
+  FieldTextarea,
+  fieldControlClassName,
+} from "@/components/ui/field";
+import type { SessionContext } from "@/lib/auth/types";
+import { cn } from "@/lib/utils";
+import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import {
+  bankQuestions,
+  getSeedQuizContent,
+  kaptenSubjects,
+  questionBanks,
+  type BankQuestion,
+  type KaptenQuiz,
+} from "@/modules/mentor/mock-data";
+import {
+  getStoredQuizDraft,
+  saveQuizDraft,
+} from "@/modules/mentor/quiz-draft-storage";
+import type {
+  QuizBuilderState,
+  QuizChoice,
+  QuizQuestionSnapshot,
+} from "@/modules/mentor/quiz-builder-types";
+
+type LocalQuestionForm = {
+  choices: QuizChoice[];
+  correctChoiceId: string;
+  explanation: string;
+  prompt: string;
+};
+
+const emptyLocalQuestion: LocalQuestionForm = {
+  choices: [
+    { id: "a", text: "" },
+    { id: "b", text: "" },
+    { id: "c", text: "" },
+    { id: "d", text: "" },
+  ],
+  correctChoiceId: "a",
+  explanation: "",
+  prompt: "",
+};
+
+function slugify(value: string) {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return slug || "quiz-baru";
+}
+
+function getSubjectName(subjectCode: string) {
+  return kaptenSubjects.find((subject) => subject.code === subjectCode)?.name ?? subjectCode;
+}
+
+function toSnapshot(question: BankQuestion, idPrefix: string): QuizQuestionSnapshot {
+  return {
+    choices: question.choices.map((choice) => ({ ...choice })),
+    correctChoiceId: question.correctChoiceId,
+    explanation: question.explanation,
+    id: `${idPrefix}-${question.id}`,
+    origin: "bank",
+    prompt: question.prompt,
+    sourceQuestionId: question.id,
+  };
+}
+
+function getInitialState(quiz?: KaptenQuiz | null): QuizBuilderState {
+  const sourceBankId = quiz?.sourceBankId
+    ?? questionBanks.find((bank) => bank.title === quiz?.sourceBank)?.id
+    ?? "";
+  const seedContent = getSeedQuizContent(quiz?.id);
+  const seedQuestions = seedContent?.questions ?? (sourceBankId
+    ? bankQuestions
+        .filter((question) => question.bankId === sourceBankId)
+        .slice(0, Math.min(3, quiz?.questionCount ?? 0))
+        .map((question) => toSnapshot(question, `${quiz?.id ?? "new"}-snapshot`))
+    : []);
+
+  return {
+    description: quiz?.description ?? "",
+    questions: seedQuestions,
+    sourceBankId,
+    subjectCode: quiz?.subjectCode ?? "PU",
+    targetQuestionCount: seedContent
+      ? String(seedContent.targetQuestionCount)
+      : quiz?.questionCount
+        ? String(quiz.questionCount)
+        : "10",
+    title: quiz?.title ?? "Draft Quiz Baru",
+  };
+}
+
+function getReadiness(questions: QuizQuestionSnapshot[]) {
+  return questions.filter(
+    (question) =>
+      question.isReady !== false
+      &&
+      question.prompt.trim()
+      && question.choices.length >= 2
+      && question.choices.every((choice) => choice.text.trim())
+      && question.choices.some((choice) => choice.id === question.correctChoiceId),
+  ).length;
+}
+
+function KaptenQuizBuilderPageModule({
+  initialQuiz = null,
+  mode,
+  quizId,
+  session,
+}: {
+  initialQuiz?: KaptenQuiz | null;
+  mode: "create" | "edit";
+  quizId?: string;
+  session: SessionContext;
+}) {
+  const router = useRouter();
+  const initialStoredDraft = getStoredQuizDraft(quizId ?? initialQuiz?.id);
+  const [builderState, setBuilderState] = useState<QuizBuilderState>(() => {
+    if (initialStoredDraft) {
+      return {
+        description: initialStoredDraft.quiz.description,
+        questions: initialStoredDraft.questions,
+        sourceBankId: initialStoredDraft.sourceBankId,
+        subjectCode: initialStoredDraft.quiz.subjectCode ?? "PU",
+        targetQuestionCount: initialStoredDraft.targetQuestionCount
+          ? String(initialStoredDraft.targetQuestionCount)
+          : "",
+        title: initialStoredDraft.quiz.title,
+      };
+    }
+
+    return getInitialState(initialQuiz);
+  });
+  const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(
+    () => initialStoredDraft?.quiz ?? initialQuiz,
+  );
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewQuestionIndex, setPreviewQuestionIndex] = useState(0);
+  const [isAddingLocalQuestion, setIsAddingLocalQuestion] = useState(false);
+  const [localQuestion, setLocalQuestion] = useState<LocalQuestionForm>(emptyLocalQuestion);
+  const questionSequenceRef = useRef(0);
+
+  const compatibleBanks = useMemo(
+    () => questionBanks.filter((bank) => bank.subjectCode === builderState.subjectCode),
+    [builderState.subjectCode],
+  );
+  const selectedBank = compatibleBanks.find((bank) => bank.id === builderState.sourceBankId)
+    ?? questionBanks.find((bank) => bank.id === builderState.sourceBankId)
+    ?? null;
+  const selectedSourceQuestionIds = new Set(
+    builderState.questions.flatMap((question) =>
+      question.origin === "bank" && question.sourceQuestionId ? [question.sourceQuestionId] : [],
+    ),
+  );
+  const availableBankQuestions = bankQuestions.filter(
+    (question) =>
+      question.bankId === builderState.sourceBankId
+      && !selectedSourceQuestionIds.has(question.id),
+  );
+  const readyQuestionCount = getReadiness(builderState.questions);
+  const targetQuestionCount = Number.parseInt(builderState.targetQuestionCount, 10);
+  const hasTarget = Number.isFinite(targetQuestionCount) && targetQuestionCount > 0;
+  const quizStatus = savedQuiz?.status ?? "draft";
+  const isDraft = quizStatus === "draft";
+  const saveLabel = isDraft ? "Simpan Draft" : "Simpan perubahan";
+  const previewQuestion = builderState.questions[previewQuestionIndex];
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  function markChanged(nextState: QuizBuilderState) {
+    setBuilderState(nextState);
+    setHasUnsavedChanges(true);
+    setLastSavedAt(null);
+  }
+
+  function updateMetadata(
+    field: Exclude<keyof QuizBuilderState, "questions" | "sourceBankId">,
+    value: string,
+  ) {
+    markChanged({ ...builderState, [field]: value });
+  }
+
+  function selectSubject(nextSubjectCode: string) {
+    if (nextSubjectCode === builderState.subjectCode) {
+      return;
+    }
+
+    const needsClear = Boolean(builderState.sourceBankId || builderState.questions.length);
+    if (
+      needsClear
+      && !window.confirm(
+        "Mengubah subject akan menghapus Question Bank dan semua soal yang sudah dipilih. Lanjutkan?",
+      )
+    ) {
+      return;
+    }
+
+    markChanged({
+      ...builderState,
+      questions: needsClear ? [] : builderState.questions,
+      sourceBankId: needsClear ? "" : builderState.sourceBankId,
+      subjectCode: nextSubjectCode,
+    });
+    setIsAddingLocalQuestion(false);
+  }
+
+  function selectSourceBank(nextSourceBankId: string) {
+    if (nextSourceBankId === builderState.sourceBankId) {
+      return;
+    }
+
+    if (
+      builderState.questions.length > 0
+      && !window.confirm(
+        "Mengganti Question Bank akan menghapus semua soal yang sudah dipilih, termasuk soal lokal. Lanjutkan?",
+      )
+    ) {
+      return;
+    }
+
+    markChanged({
+      ...builderState,
+      questions: [],
+      sourceBankId: nextSourceBankId,
+    });
+    setIsAddingLocalQuestion(false);
+  }
+
+  function addBankQuestion(question: BankQuestion) {
+    if (selectedSourceQuestionIds.has(question.id)) {
+      return;
+    }
+
+    markChanged({
+      ...builderState,
+      questions: [
+        ...builderState.questions,
+        toSnapshot(question, `snapshot-${++questionSequenceRef.current}`),
+      ],
+    });
+  }
+
+  function removeQuestion(questionId: string) {
+    const nextQuestions = builderState.questions.filter((question) => question.id !== questionId);
+    markChanged({ ...builderState, questions: nextQuestions });
+    setPreviewQuestionIndex((index) => Math.max(0, Math.min(index, nextQuestions.length - 1)));
+  }
+
+  function moveQuestion(questionId: string, direction: "up" | "down") {
+    const currentIndex = builderState.questions.findIndex((question) => question.id === questionId);
+    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+    if (
+      currentIndex < 0
+      || nextIndex < 0
+      || nextIndex >= builderState.questions.length
+    ) {
+      return;
+    }
+
+    const questions = [...builderState.questions];
+    const [movedQuestion] = questions.splice(currentIndex, 1);
+    if (!movedQuestion) {
+      return;
+    }
+
+    questions.splice(nextIndex, 0, movedQuestion);
+    markChanged({ ...builderState, questions });
+  }
+
+  function updateLocalChoice(choiceId: string, text: string) {
+    setLocalQuestion((current) => ({
+      ...current,
+      choices: current.choices.map((choice) =>
+        choice.id === choiceId ? { ...choice, text } : choice,
+      ),
+    }));
+  }
+
+  function addLocalQuestion() {
+    const isValid =
+      localQuestion.prompt.trim()
+      && localQuestion.choices.every((choice) => choice.text.trim())
+      && localQuestion.choices.some((choice) => choice.id === localQuestion.correctChoiceId);
+
+    if (!isValid || !builderState.sourceBankId) {
+      return;
+    }
+
+    markChanged({
+      ...builderState,
+      questions: [
+        ...builderState.questions,
+        {
+          choices: localQuestion.choices.map((choice) => ({ ...choice })),
+          correctChoiceId: localQuestion.correctChoiceId,
+          explanation: localQuestion.explanation,
+          id: `local-${Date.now()}`,
+          origin: "local",
+          prompt: localQuestion.prompt,
+        },
+      ],
+    });
+    setLocalQuestion(emptyLocalQuestion);
+    setIsAddingLocalQuestion(false);
+  }
+
+  function saveDraft() {
+    const currentQuiz = savedQuiz;
+    const id = currentQuiz?.id ?? `draft-quiz-${slugify(builderState.title)}-${Date.now()}`;
+    const sourceBank = questionBanks.find((bank) => bank.id === builderState.sourceBankId);
+    const quiz: KaptenQuiz = {
+      description: builderState.description,
+      href: `/mentor/quiz/${id}`,
+      id,
+      primaryMetric: `${builderState.questions.length} soal`,
+      progress:
+        builderState.questions.length > 0
+          ? Math.round((readyQuestionCount / builderState.questions.length) * 100)
+          : 0,
+      questionCount: builderState.questions.length,
+      resourceType: "quiz",
+      scheduledFor: currentQuiz?.scheduledFor,
+      sourceBank: sourceBank?.title ?? "Belum memilih Question Bank",
+      sourceBankId: builderState.sourceBankId || undefined,
+      status: currentQuiz?.status ?? "draft",
+      subjectCode: builderState.subjectCode,
+      subjectName: getSubjectName(builderState.subjectCode),
+      title: builderState.title || "Draft Quiz Baru",
+      updatedAt: "Diedit baru saja",
+    };
+
+    saveQuizDraft({
+      quiz,
+      questions: builderState.questions,
+      sourceBankId: builderState.sourceBankId,
+      targetQuestionCount: hasTarget ? targetQuestionCount : undefined,
+    });
+    setSavedQuiz(quiz);
+    setHasUnsavedChanges(false);
+    setLastSavedAt(isDraft ? "Draft tersimpan." : "Perubahan tersimpan.");
+
+    if (!quizId && !initialQuiz) {
+      router.replace(quiz.href);
+    }
+  }
+
+  return (
+    <MentorWorkspaceShell
+      activeLabel="Quiz"
+      breadcrumbLabel={mode === "create" ? "Buat Quiz" : "Edit Quiz"}
+      mainClassName="max-w-[1500px] gap-7"
+      onNavigateAway={() =>
+        !hasUnsavedChanges
+        || window.confirm("Perubahan belum disimpan. Keluar dari builder?")
+      }
+      searchPlaceholder="Cari quiz atau question bank..."
+      session={session}
+      shouldGuardNavigation={hasUnsavedChanges}
+    >
+      <section className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <Button render={<Link href="/mentor/quiz" />} size="sm" variant="ghost">
+            <ArrowLeft />
+            Quiz
+          </Button>
+          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
+              {mode === "create" ? "Buat Quiz" : builderState.title}
+            </h1>
+            <span
+              className={cn(
+                "text-sm font-semibold",
+                quizStatus === "draft" ? "text-[#856300]" : "text-primary-800",
+              )}
+            >
+              {quizStatus === "scheduled"
+                ? "Scheduled"
+                : quizStatus === "published"
+                  ? "Published"
+                  : quizStatus === "archived"
+                    ? "Archived"
+                    : "Draft"}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-secondary-500 xl:hidden">
+            {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"} · {readyQuestionCount}/
+            {builderState.questions.length} soal siap
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            disabled={builderState.questions.length === 0}
+            onClick={() => {
+              setPreviewQuestionIndex(0);
+              setIsPreviewOpen(true);
+            }}
+            type="button"
+            variant="brandOutline"
+          >
+            <Eye />
+            Preview
+          </Button>
+          <Button onClick={saveDraft} type="button" variant="brand">
+            <Save />
+            {saveLabel}
+          </Button>
+        </div>
+      </section>
+
+      <section className="grid gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
+        <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-secondary-900">Susunan soal</p>
+              <p className="mt-1 text-xs text-secondary-500">
+                {builderState.questions.length} dipilih
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-1 overflow-x-auto border-t border-primary-100 pt-3 xl:mt-5 xl:block xl:space-y-1">
+            {builderState.questions.length > 0 ? (
+              builderState.questions.map((question, index) => (
+                <div
+                  className="flex min-w-[215px] items-center gap-2 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-primary-50/60 xl:w-full"
+                  key={question.id}
+                >
+                  <GripVertical className="size-4 shrink-0 text-secondary-300" />
+                  <button
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => {
+                      setPreviewQuestionIndex(index);
+                      setIsPreviewOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <span className="block truncate text-sm font-semibold text-secondary-900">
+                      {String(index + 1).padStart(2, "0")}. {question.prompt || "Soal tanpa pertanyaan"}
+                    </span>
+                    <span className="mt-1 block text-xs text-secondary-500">
+                      {question.origin === "local" ? "Soal lokal" : selectedBank?.title ?? "Question Bank"}
+                    </span>
+                  </button>
+                  <div className="flex shrink-0 items-center">
+                    <Button
+                      aria-label="Pindah soal ke atas"
+                      onClick={() => moveQuestion(question.id, "up")}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </Button>
+                    <Button
+                      aria-label="Pindah soal ke bawah"
+                      onClick={() => moveQuestion(question.id, "down")}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </Button>
+                    <Button
+                      aria-label="Hapus soal"
+                      onClick={() => removeQuestion(question.id)}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="px-2 py-4 text-sm leading-6 text-secondary-500">
+                Pilih soal dari Question Bank setelah metadata ditetapkan.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-7 hidden border-t border-primary-100 pt-5 xl:block">
+            <p className="text-sm font-semibold text-secondary-900">Status</p>
+            <div className="mt-4 space-y-3 text-sm text-secondary-600">
+              <div className="flex items-center justify-between gap-4">
+                <span>Question Bank</span>
+                <span className="max-w-[150px] truncate text-right font-semibold text-secondary-900">
+                  {selectedBank?.title ?? "Belum dipilih"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Siap</span>
+                <span className="font-semibold text-secondary-900">
+                  {readyQuestionCount}/{builderState.questions.length} soal
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Target</span>
+                <span className="font-semibold text-secondary-900">
+                  {hasTarget ? `${targetQuestionCount} soal` : "Opsional"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Perubahan</span>
+                <span className={cn("font-semibold", hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}>
+                  {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}
+                </span>
+              </div>
+            </div>
+            {lastSavedAt ? (
+              <p className="mt-4 flex items-center gap-2 text-sm font-medium text-primary-800">
+                <CheckCircle2 className="size-4" />
+                {lastSavedAt}
+              </p>
+            ) : null}
+          </div>
+        </aside>
+
+        <div className="order-1 space-y-8 xl:order-none">
+          {isPreviewOpen ? (
+            <section aria-live="polite" className="rounded-3xl border border-primary-100 bg-white px-5 py-6 shadow-sm md:px-7">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-primary-800">Preview learner</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-secondary-900">
+                    {builderState.title}
+                  </h2>
+                  <p className="mt-2 text-sm text-secondary-500">
+                    {getSubjectName(builderState.subjectCode)} · Soal {previewQuestionIndex + 1} dari {builderState.questions.length}
+                  </p>
+                </div>
+                <Button onClick={() => setIsPreviewOpen(false)} size="sm" type="button" variant="brandOutline">
+                  Kembali mengedit
+                </Button>
+              </div>
+
+              {previewQuestion ? (
+                <div className="mx-auto mt-8 max-w-3xl">
+                  <div className="flex items-center justify-between text-xs font-semibold tracking-[0.08em] text-secondary-400 uppercase">
+                    <span>Question {String(previewQuestionIndex + 1).padStart(2, "0")}</span>
+                    <span>{previewQuestion.origin === "local" ? "Soal lokal" : "Question Bank"}</span>
+                  </div>
+                  <h3 className="mt-5 text-xl leading-8 font-semibold text-secondary-900 md:text-2xl">
+                    {previewQuestion.prompt}
+                  </h3>
+                  <div className="mt-6 space-y-3">
+                    {previewQuestion.choices.map((choice, index) => (
+                      <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-primary-100 px-4 py-4 text-sm text-secondary-700 transition hover:border-primary-300 hover:bg-primary-50/50" key={choice.id}>
+                        <input className="size-4 accent-primary-700" name="preview-answer" type="radio" />
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">
+                          {String.fromCharCode(65 + index)}
+                        </span>
+                        <span>{choice.text}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-8 flex items-center justify-between gap-3 border-t border-primary-100 pt-5">
+                    <Button
+                      disabled={previewQuestionIndex === 0}
+                      onClick={() => setPreviewQuestionIndex((index) => index - 1)}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ChevronLeft />
+                      Sebelumnya
+                    </Button>
+                    <span className="text-sm font-semibold text-secondary-500">
+                      {previewQuestionIndex + 1}/{builderState.questions.length}
+                    </span>
+                    <Button
+                      disabled={previewQuestionIndex >= builderState.questions.length - 1}
+                      onClick={() => setPreviewQuestionIndex((index) => index + 1)}
+                      type="button"
+                      variant="brandOutline"
+                    >
+                      Berikutnya
+                      <ChevronRight />
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <>
+              <section className="border-b border-primary-100 pb-8">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                  <Field>
+                    <FieldLabel htmlFor="quiz-title">Judul quiz</FieldLabel>
+                    <FieldInput id="quiz-title" onChange={(event) => updateMetadata("title", event.target.value)} value={builderState.title} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="quiz-target">Target soal <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
+                    <FieldInput id="quiz-target" min="1" onChange={(event) => updateMetadata("targetQuestionCount", event.target.value)} type="number" value={builderState.targetQuestionCount} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="quiz-subject">Subject</FieldLabel>
+                    <div className="relative">
+                      <select className={`${fieldControlClassName} appearance-none pr-12`} id="quiz-subject" onChange={(event) => selectSubject(event.target.value)} value={builderState.subjectCode}>
+                        {kaptenSubjects.map((subject) => (
+                          <option key={subject.code} value={subject.code}>{subject.code} - {subject.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
+                    </div>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="quiz-bank">Question Bank</FieldLabel>
+                    <div className="relative">
+                      <select className={`${fieldControlClassName} appearance-none pr-12`} id="quiz-bank" onChange={(event) => selectSourceBank(event.target.value)} value={builderState.sourceBankId}>
+                        <option value="">Pilih Question Bank</option>
+                        {compatibleBanks.map((bank) => (
+                          <option key={bank.id} value={bank.id}>{bank.title} · {bank.questionCount} soal</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
+                    </div>
+                  </Field>
+                  <Field className="lg:col-span-2">
+                    <FieldLabel htmlFor="quiz-summary">Ringkasan</FieldLabel>
+                    <FieldTextarea className="min-h-[100px]" id="quiz-summary" onChange={(event) => updateMetadata("description", event.target.value)} value={builderState.description} />
+                  </Field>
+                </div>
+              </section>
+
+              <section>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-secondary-900">Pilih soal</p>
+                    <p className="mt-1 text-sm text-secondary-500">
+                      {selectedBank ? `Soal dari ${selectedBank.title} akan disalin ke quiz ini.` : "Pilih Question Bank yang sesuai dengan subject terlebih dahulu."}
+                    </p>
+                  </div>
+                  <Button disabled={!selectedBank} onClick={() => setIsAddingLocalQuestion((current) => !current)} type="button" variant="brandOutline">
+                    <Plus />
+                    Soal lokal
+                  </Button>
+                </div>
+
+                {selectedBank ? (
+                  <div className="mt-5 grid gap-3">
+                    {availableBankQuestions.length > 0 ? availableBankQuestions.map((question) => (
+                      <div className="flex flex-col gap-4 rounded-2xl border border-primary-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between" key={question.id}>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-secondary-400">
+                            <span>{question.difficulty === "easy" ? "Mudah" : question.difficulty === "medium" ? "Sedang" : "Sulit"}</span>
+                            <span>·</span>
+                            <span>{question.tags.join(", ")}</span>
+                          </div>
+                          <p className="mt-2 text-sm leading-6 font-semibold text-secondary-900">{question.prompt}</p>
+                        </div>
+                        <Button className="shrink-0" onClick={() => addBankQuestion(question)} size="sm" type="button" variant="brandOutline">
+                          <Plus />
+                          Tambah
+                        </Button>
+                      </div>
+                    )) : (
+                      <div className="rounded-2xl border border-dashed border-primary-200 px-4 py-5 text-sm leading-6 text-secondary-500">
+                        Semua soal dari bank ini sudah dipilih. Tambahkan soal lokal bila masih diperlukan.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-5 flex items-start gap-3 rounded-2xl border border-dashed border-primary-200 px-4 py-5 text-sm leading-6 text-secondary-500">
+                    <CircleHelp className="mt-0.5 size-5 shrink-0 text-primary-800" />
+                    <p>
+                      {compatibleBanks.length === 0
+                        ? "Belum ada Question Bank yang sesuai dengan subject ini. "
+                        : "Question Bank yang tampil akan selalu mengikuti subject Quiz. "}
+                      {compatibleBanks.length === 0 ? (
+                        <Link className="font-semibold text-primary-800 underline underline-offset-4" href="/mentor/quiz/question-bank">
+                          Buka Question Bank
+                        </Link>
+                      ) : null}
+                    </p>
+                  </div>
+                )}
+
+                {isAddingLocalQuestion && selectedBank ? (
+                  <div className="mt-5 rounded-3xl border border-primary-200 bg-primary-50/45 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-secondary-900">Soal pilihan ganda lokal</p>
+                        <p className="mt-1 text-sm text-secondary-500">Soal ini hanya tersimpan dalam Quiz, bukan Question Bank.</p>
+                      </div>
+                      <Button aria-label="Tutup formulir soal lokal" onClick={() => setIsAddingLocalQuestion(false)} size="icon-sm" type="button" variant="ghost">
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-5 grid gap-5">
+                      <Field>
+                        <FieldLabel htmlFor="local-question-prompt">Pertanyaan</FieldLabel>
+                        <FieldTextarea id="local-question-prompt" onChange={(event) => setLocalQuestion((current) => ({ ...current, prompt: event.target.value }))} value={localQuestion.prompt} />
+                      </Field>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {localQuestion.choices.map((choice, index) => (
+                          <label className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-3" key={choice.id}>
+                            <input aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === localQuestion.correctChoiceId} className="size-4 accent-primary-700" name="local-correct-choice" onChange={() => setLocalQuestion((current) => ({ ...current, correctChoiceId: choice.id }))} type="radio" />
+                            <span className="text-xs font-semibold text-primary-800">{String.fromCharCode(65 + index)}</span>
+                            <input aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" onChange={(event) => updateLocalChoice(choice.id, event.target.value)} placeholder={`Opsi ${String.fromCharCode(65 + index)}`} value={choice.text} />
+                          </label>
+                        ))}
+                      </div>
+                      <Field>
+                        <FieldLabel htmlFor="local-question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
+                        <FieldTextarea id="local-question-explanation" onChange={(event) => setLocalQuestion((current) => ({ ...current, explanation: event.target.value }))} value={localQuestion.explanation} />
+                      </Field>
+                      <div>
+                        <Button disabled={!localQuestion.prompt.trim() || localQuestion.choices.some((choice) => !choice.text.trim())} onClick={addLocalQuestion} type="button" variant="brand">
+                          <Plus />
+                          Tambahkan ke Quiz
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            </>
+          )}
+        </div>
+      </section>
+    </MentorWorkspaceShell>
+  );
+}
+
+export { KaptenQuizBuilderPageModule };
