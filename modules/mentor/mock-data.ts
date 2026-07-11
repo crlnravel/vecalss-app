@@ -538,6 +538,7 @@ for (const source of seedInventorySources) {
 
 function createSeedQuizSnapshots(
   quizId: string,
+  bankId: string,
   questions: SeedQuestionDefinition[],
 ): QuizQuestionSnapshot[] {
   return questions.map((question, index) => {
@@ -554,7 +555,7 @@ function createSeedQuizSnapshots(
       isReady: question.isReady,
       origin: "bank",
       prompt: question.prompt,
-      sourceQuestionId: `${quizId}-source-${index + 1}`,
+      sourceQuestionId: `${bankId}-inventory-${index + 1}`,
     };
   });
 }
@@ -564,15 +565,27 @@ const seedQuizContent: Record<
   { questions: QuizQuestionSnapshot[]; targetQuestionCount: number }
 > = {
   "quiz-pu-simpulan": {
-    questions: createSeedQuizSnapshots("quiz-pu-simpulan", seedQuizQuestions["quiz-pu-simpulan"]),
+    questions: createSeedQuizSnapshots(
+      "quiz-pu-simpulan",
+      "bank-pu-inferensi",
+      seedQuizQuestions["quiz-pu-simpulan"],
+    ),
     targetQuestionCount: 12,
   },
   "quiz-pk-rasio": {
-    questions: createSeedQuizSnapshots("quiz-pk-rasio", seedQuizQuestions["quiz-pk-rasio"]),
+    questions: createSeedQuizSnapshots(
+      "quiz-pk-rasio",
+      "bank-pk-grafik",
+      seedQuizQuestions["quiz-pk-rasio"],
+    ),
     targetQuestionCount: 16,
   },
   "quiz-pbm-paragraf": {
-    questions: createSeedQuizSnapshots("quiz-pbm-paragraf", seedQuizQuestions["quiz-pbm-paragraf"]),
+    questions: createSeedQuizSnapshots(
+      "quiz-pbm-paragraf",
+      "bank-pbm-paragraf",
+      seedQuizQuestions["quiz-pbm-paragraf"],
+    ),
     targetQuestionCount: 10,
   },
 };
