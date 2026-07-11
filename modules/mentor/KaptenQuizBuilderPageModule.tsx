@@ -38,6 +38,7 @@ import {
   type BankQuestion,
   type KaptenQuiz,
 } from "@/modules/mentor/mock-data";
+import { getQuestionBankSourceCatalog } from "@/modules/mentor/question-bank-draft-storage";
 import {
   getStoredQuizDraft,
   saveQuizDraft,
@@ -170,23 +171,37 @@ function KaptenQuizBuilderPageModule({
   const [isAddingLocalQuestion, setIsAddingLocalQuestion] = useState(false);
   const [localQuestion, setLocalQuestion] = useState<LocalQuestionForm>(emptyLocalQuestion);
   const questionSequenceRef = useRef(0);
+  const [sourceCatalog, setSourceCatalog] = useState(() => getQuestionBankSourceCatalog());
+
+  useEffect(() => {
+    const syncSourceCatalog = () => setSourceCatalog(getQuestionBankSourceCatalog());
+
+    syncSourceCatalog();
+    window.addEventListener("storage", syncSourceCatalog);
+    window.addEventListener("vecalss-question-bank-drafts-change", syncSourceCatalog);
+    return () => {
+      window.removeEventListener("storage", syncSourceCatalog);
+      window.removeEventListener("vecalss-question-bank-drafts-change", syncSourceCatalog);
+    };
+  }, []);
 
   const compatibleBanks = useMemo(
-    () => questionBanks.filter((bank) => bank.subjectCode === builderState.subjectCode),
-    [builderState.subjectCode],
+    () => sourceCatalog.filter(
+      ({ bank, questions }) => bank.subjectCode === builderState.subjectCode && questions.length > 0,
+    ),
+    [builderState.subjectCode, sourceCatalog],
   );
-  const selectedBank = compatibleBanks.find((bank) => bank.id === builderState.sourceBankId)
-    ?? questionBanks.find((bank) => bank.id === builderState.sourceBankId)
+  const selectedBankEntry = compatibleBanks.find(({ bank }) => bank.id === builderState.sourceBankId)
+    ?? sourceCatalog.find(({ bank }) => bank.id === builderState.sourceBankId)
     ?? null;
+  const selectedBank = selectedBankEntry?.bank ?? null;
   const selectedSourceQuestionIds = new Set(
     builderState.questions.flatMap((question) =>
       question.origin === "bank" && question.sourceQuestionId ? [question.sourceQuestionId] : [],
     ),
   );
-  const availableBankQuestions = bankQuestions.filter(
-    (question) =>
-      question.bankId === builderState.sourceBankId
-      && !selectedSourceQuestionIds.has(question.id),
+  const availableBankQuestions = (selectedBankEntry?.questions ?? []).filter(
+    (question) => !selectedSourceQuestionIds.has(question.id),
   );
   const readyQuestionCount = getReadiness(builderState.questions);
   const targetQuestionCount = Number.parseInt(builderState.targetQuestionCount, 10);
@@ -350,7 +365,7 @@ function KaptenQuizBuilderPageModule({
   function saveDraft() {
     const currentQuiz = savedQuiz;
     const id = currentQuiz?.id ?? `draft-quiz-${slugify(builderState.title)}-${Date.now()}`;
-    const sourceBank = questionBanks.find((bank) => bank.id === builderState.sourceBankId);
+    const sourceBank = sourceCatalog.find(({ bank }) => bank.id === builderState.sourceBankId)?.bank;
     const quiz: KaptenQuiz = {
       description: builderState.description,
       href: `/mentor/quiz/${id}`,
@@ -652,7 +667,7 @@ function KaptenQuizBuilderPageModule({
                     <div className="relative">
                       <select className={`${fieldControlClassName} appearance-none pr-12`} id="quiz-bank" onChange={(event) => selectSourceBank(event.target.value)} value={builderState.sourceBankId}>
                         <option value="">Pilih Question Bank</option>
-                        {compatibleBanks.map((bank) => (
+                        {compatibleBanks.map(({ bank }) => (
                           <option key={bank.id} value={bank.id}>{bank.title} · {bank.questionCount} soal</option>
                         ))}
                       </select>

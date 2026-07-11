@@ -16,6 +16,7 @@ import {
   getMateriWithStoredDrafts,
 } from "@/modules/mentor/materi-draft-storage";
 import { getQuizWithStoredDrafts } from "@/modules/mentor/quiz-draft-storage";
+import { getQuestionBankCatalog } from "@/modules/mentor/question-bank-draft-storage";
 import {
   Field,
   FieldInput,
@@ -167,6 +168,32 @@ function KaptenQuestionBankPageModule({
 }: {
   session: SessionContext;
 }) {
+  const [displayBanks, setDisplayBanks] = useState(() =>
+    questionBanks.map((bank) => ({
+      ...bank,
+      href: `/mentor/quiz/question-bank/${bank.id}`,
+    })),
+  );
+
+  useEffect(() => {
+    const syncStoredDrafts = () => {
+      setDisplayBanks(
+        getQuestionBankCatalog().map(({ bank }) => ({
+          ...bank,
+          href: `/mentor/quiz/question-bank/${bank.id}`,
+        })),
+      );
+    };
+
+    syncStoredDrafts();
+    window.addEventListener("storage", syncStoredDrafts);
+    window.addEventListener("vecalss-question-bank-drafts-change", syncStoredDrafts);
+    return () => {
+      window.removeEventListener("storage", syncStoredDrafts);
+      window.removeEventListener("vecalss-question-bank-drafts-change", syncStoredDrafts);
+    };
+  }, []);
+
   return (
     <MentorWorkspaceShell
       activeLabel="Question Bank"
@@ -177,7 +204,7 @@ function KaptenQuestionBankPageModule({
       <PageIntro
         action={
           <CreateButton
-            href="/mentor/quiz/question-bank#create"
+            href="/mentor/quiz/question-bank/create"
             label="Buat Bank Soal"
           />
         }
@@ -188,7 +215,7 @@ function KaptenQuestionBankPageModule({
       <section className="space-y-4">
         <SearchPanel placeholder="Cari question bank, topic, atau source..." />
         <div className="space-y-2">
-          {questionBanks.map((bank) => (
+          {displayBanks.map((bank) => (
             <ResourceRow key={bank.id} resource={bank} />
           ))}
         </div>

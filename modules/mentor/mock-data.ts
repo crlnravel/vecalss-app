@@ -53,6 +53,7 @@ type KaptenQuestionBank = KaptenResource & {
   difficultyMix: string;
   questionCount: number;
   reusableIn: string[];
+  topic?: string;
 };
 
 type BankQuestion = {
@@ -233,7 +234,7 @@ const questionBanks: KaptenQuestionBank[] = [
   {
     description: "Kumpulan 15 soal inferensi untuk quiz dan tryout PU.",
     difficultyMix: "40% sedang, 60% sulit",
-    href: "/mentor/quiz/question-bank#bank-pu-inferensi",
+    href: "/mentor/quiz/question-bank/bank-pu-inferensi",
     id: "bank-pu-inferensi",
     primaryMetric: "15 soal",
     progress: 78,
@@ -249,7 +250,7 @@ const questionBanks: KaptenQuestionBank[] = [
   {
     description: "Kumpulan 19 soal grafik, rasio, dan perbandingan nilai.",
     difficultyMix: "55% sedang, 45% sulit",
-    href: "/mentor/quiz/question-bank#bank-pk-grafik",
+    href: "/mentor/quiz/question-bank/bank-pk-grafik",
     id: "bank-pk-grafik",
     primaryMetric: "19 soal",
     progress: 100,
@@ -265,7 +266,7 @@ const questionBanks: KaptenQuestionBank[] = [
   {
     description: "Kumpulan 13 soal kohesi, koherensi, dan gagasan penghubung paragraf.",
     difficultyMix: "50% mudah, 50% sedang",
-    href: "/mentor/quiz/question-bank#bank-pbm-paragraf",
+    href: "/mentor/quiz/question-bank/bank-pbm-paragraf",
     id: "bank-pbm-paragraf",
     primaryMetric: "13 soal",
     progress: 94,
@@ -730,7 +731,7 @@ const quickCreateItems = [
   },
   {
     description: "Soal reusable untuk quiz dan tryout",
-    href: "/mentor/quiz/question-bank#create",
+    href: "/mentor/quiz/question-bank/create",
     icon: FileQuestion,
     label: "Question Bank",
   },
