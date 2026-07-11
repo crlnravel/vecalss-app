@@ -75,7 +75,7 @@ function SubjectResourceSection({
           <EmptyState
             actionLabel={`Buat ${subject.code}`}
             description="Subject ini belum punya resource dalam mock data."
-            href="/mentor/materi#create"
+            href="/mentor/materi/create"
             title={`Belum ada konten ${subject.code}`}
           />
         )}
@@ -93,7 +93,7 @@ function KaptenMateriPageModule({ session }: { session: SessionContext }) {
       session={session}
     >
       <PageIntro
-        action={<CreateButton href="/mentor/materi#create" label="Buat Materi" />}
+        action={<CreateButton href="/mentor/materi/create" label="Buat Materi" />}
         description="Kelola materi berdasarkan subject."
         title="Materi"
       />

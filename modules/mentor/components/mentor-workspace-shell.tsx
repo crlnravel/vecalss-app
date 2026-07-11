@@ -238,7 +238,7 @@ function MentorWorkspaceShell({
               </div>
 
               <Button
-                render={<Link href="/mentor/materi#create" />}
+                render={<Link href="/mentor/materi/create" />}
                 size="sm"
                 variant="brand"
               >

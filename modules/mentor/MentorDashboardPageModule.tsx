@@ -41,7 +41,7 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
       <PageIntro
         title={`Selamat bekerja, ${firstName}.`}
         action={
-          <Button render={<Link href="/mentor/materi#create" />} variant="brand">
+          <Button render={<Link href="/mentor/materi/create" />} variant="brand">
             Buat Konten
             <ArrowRight />
           </Button>

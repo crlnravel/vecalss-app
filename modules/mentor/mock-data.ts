@@ -109,7 +109,7 @@ const materi: KaptenMateri[] = [
   {
     description: "Video pembuka untuk membantu siswa mengenali premis, klaim, dan simpulan.",
     duration: "18 menit",
-    href: "/mentor/materi#pu-argumen",
+    href: "/mentor/materi/mod-pu-argumen",
     id: "mod-pu-argumen",
     primaryMetric: "3 section",
     progress: 72,
@@ -126,7 +126,7 @@ const materi: KaptenMateri[] = [
   {
     description: "Materi video untuk membedakan gagasan utama, detail pendukung, dan distraktor.",
     duration: "24 menit",
-    href: "/mentor/materi#ppu-informasi",
+    href: "/mentor/materi/mod-ppu-informasi",
     id: "mod-ppu-informasi",
     primaryMetric: "5 asset",
     progress: 46,
@@ -144,7 +144,7 @@ const materi: KaptenMateri[] = [
   {
     description: "Rangkaian video dan catatan untuk memperbaiki efektivitas kalimat.",
     duration: "31 menit",
-    href: "/mentor/materi#pbm-kalimat",
+    href: "/mentor/materi/mod-pbm-kalimat",
     id: "mod-pbm-kalimat",
     primaryMetric: "6 section",
     progress: 100,
@@ -366,7 +366,7 @@ const kaptenNotificationItems: KaptenNotificationItem[] = [
 const quickCreateItems = [
   {
     description: "Video, catatan, resource pendukung",
-    href: "/mentor/materi#create",
+    href: "/mentor/materi/create",
     icon: Video,
     label: "Materi",
   },
@@ -408,9 +408,14 @@ const statusLabels: Record<KaptenContentStatus, string> = {
   scheduled: "Scheduled",
 };
 
+function getMateriById(id: string) {
+  return materi.find((item) => item.id === id) ?? null;
+}
+
 export {
   allResources,
   contentTypeMeta,
+  getMateriById,
   kaptenNotificationItems,
   kaptenSubjects,
   mediaAssets,
