@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell, BookOpenText, Search } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
@@ -199,8 +200,10 @@ function MentorWorkspaceShell({
   session: SessionContext;
   shouldGuardNavigation?: boolean;
 }) {
+  const router = useRouter();
   const onNavigateAwayRef = useRef(onNavigateAway);
   const hasHistoryGuardRef = useRef(false);
+  const pendingNavigationRef = useRef<string | null>(null);
 
   useEffect(() => {
     onNavigateAwayRef.current = onNavigateAway;
@@ -242,6 +245,16 @@ function MentorWorkspaceShell({
       if (!guard()) {
         event.preventDefault();
         event.stopPropagation();
+        return;
+      }
+
+      if (hasHistoryGuardRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        hasHistoryGuardRef.current = false;
+        pendingNavigationRef.current =
+          destination.pathname + destination.search + destination.hash;
+        window.history.back();
       }
     }
 
@@ -269,6 +282,14 @@ function MentorWorkspaceShell({
     let allowRequestedNavigation = false;
 
     function handleHistoryTraversal() {
+      const pendingNavigation = pendingNavigationRef.current;
+
+      if (pendingNavigation) {
+        pendingNavigationRef.current = null;
+        router.push(pendingNavigation);
+        return;
+      }
+
       if (restoreCurrentEntry) {
         restoreCurrentEntry = false;
         return;
@@ -294,7 +315,7 @@ function MentorWorkspaceShell({
 
     window.addEventListener("popstate", handleHistoryTraversal);
     return () => window.removeEventListener("popstate", handleHistoryTraversal);
-  }, [shouldGuardNavigation]);
+  }, [router, shouldGuardNavigation]);
 
   return (
     <SidebarProvider>
