@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import { KaptenMateriBuilderPageModule } from "@/modules/mentor/KaptenMateriBuilderPageModule";
+import { PersistedMateriBuilderRoute } from "@/modules/mentor/PersistedMateriBuilderRoute";
 import { getMateriById } from "@/modules/mentor/mock-data";
 
 type MentorMateriBuilderPageProps = {
@@ -25,12 +25,13 @@ export default async function MentorMateriBuilderPage({
   const initialMateri = getMateriById(materiId);
 
   if (!initialMateri) {
-    notFound();
+    return <PersistedMateriBuilderRoute materiId={materiId} session={session} />;
   }
 
   return (
     <KaptenMateriBuilderPageModule
       initialMateri={initialMateri}
+      materiId={materiId}
       mode="edit"
       session={session}
     />

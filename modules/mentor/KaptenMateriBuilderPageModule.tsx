@@ -18,7 +18,8 @@ import {
   Video,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,25 +37,15 @@ import {
   mediaAssets,
   type KaptenMateri,
 } from "@/modules/mentor/mock-data";
-
-type MateriSectionKind = "video" | "notes" | "attachment" | "practice";
-
-type MateriBuilderSection = {
-  assetId?: string;
-  body: string;
-  id: string;
-  kind: MateriSectionKind;
-  prompt?: string;
-  title: string;
-  videoUrl?: string;
-};
-
-type MateriBuilderState = {
-  description: string;
-  sections: MateriBuilderSection[];
-  subjectCode: string;
-  title: string;
-};
+import {
+  getStoredMateriDraft,
+  saveMateriDraft,
+} from "@/modules/mentor/materi-draft-storage";
+import type {
+  MateriBuilderSection,
+  MateriBuilderState,
+  MateriSectionKind,
+} from "@/modules/mentor/materi-builder-types";
 
 const sectionKindMeta: Record<
   MateriSectionKind,
@@ -115,6 +106,16 @@ function getInitialState(materi?: KaptenMateri | null): MateriBuilderState {
   };
 }
 
+function slugify(value: string) {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return slug || "materi-baru";
+}
+
 function getSubjectName(subjectCode: string) {
   return kaptenSubjects.find((subject) => subject.code === subjectCode)?.name ?? subjectCode;
 }
@@ -152,22 +153,37 @@ function SectionTypeSelect({
 
 function KaptenMateriBuilderPageModule({
   initialMateri = null,
+  materiId,
   mode,
   session,
 }: {
   initialMateri?: KaptenMateri | null;
+  materiId?: string;
   mode: "create" | "edit";
   session: SessionContext;
 }) {
-  const [builderState, setBuilderState] = useState(() =>
-    getInitialState(initialMateri),
-  );
+  const router = useRouter();
+  const [builderState, setBuilderState] = useState(() => {
+    const storedDraft = getStoredMateriDraft(materiId ?? initialMateri?.id);
+
+    return storedDraft
+      ? {
+          description: storedDraft.materi.description,
+          sections: storedDraft.sections,
+          subjectCode: storedDraft.materi.subjectCode ?? "PU",
+          title: storedDraft.materi.title,
+        }
+      : getInitialState(initialMateri);
+  });
   const [activeSectionId, setActiveSectionId] = useState(
     builderState.sections[0]?.id ?? "",
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [savedMateri, setSavedMateri] = useState<KaptenMateri | null>(
+    () => getStoredMateriDraft(materiId ?? initialMateri?.id)?.materi ?? initialMateri,
+  );
 
   const activeSection = useMemo(
     () =>
@@ -290,16 +306,41 @@ function KaptenMateriBuilderPageModule({
   }
 
   function saveDraft() {
+    const currentMateri = savedMateri;
+    const id = currentMateri?.id ?? `draft-${slugify(builderState.title)}-${Date.now()}`;
+    const subjectName = getSubjectName(builderState.subjectCode);
+    const videoSection = builderState.sections.find(
+      (section) => section.kind === "video" && section.videoUrl,
+    );
+    const materiDraft: KaptenMateri = {
+      description: builderState.description,
+      duration: currentMateri?.duration ?? "0 menit",
+      href: `/mentor/materi/${id}`,
+      id,
+      primaryMetric: `${builderState.sections.length} section`,
+      progress:
+        builderState.sections.length > 0
+          ? Math.round((readySectionCount / builderState.sections.length) * 100)
+          : 0,
+      resourceCount: builderState.sections.length,
+      resourceType: "materi",
+      sections: builderState.sections.map((section) => section.title),
+      scheduledFor: currentMateri?.scheduledFor,
+      status: currentMateri?.status ?? "draft",
+      subjectCode: builderState.subjectCode,
+      subjectName,
+      title: builderState.title || "Draft Materi Baru",
+      updatedAt: "Diedit baru saja",
+      videoUrl: videoSection?.videoUrl ?? currentMateri?.videoUrl ?? "",
+    };
+
+    saveMateriDraft({ materi: materiDraft, sections: builderState.sections });
+    setSavedMateri(materiDraft);
     setHasUnsavedChanges(false);
     setLastSavedAt("Draft tersimpan.");
-  }
 
-  function handleBackNavigation(event: MouseEvent<HTMLAnchorElement>) {
-    if (
-      hasUnsavedChanges &&
-      !window.confirm("Perubahan belum disimpan. Keluar dari builder?")
-    ) {
-      event.preventDefault();
+    if (!materiId && !initialMateri) {
+      router.replace(materiDraft.href);
     }
   }
 
@@ -308,13 +349,17 @@ function KaptenMateriBuilderPageModule({
       activeLabel="Materi"
       breadcrumbLabel={mode === "create" ? "Buat Materi" : "Edit Materi"}
       mainClassName="max-w-[1500px] gap-7"
+      onNavigateAway={() =>
+        !hasUnsavedChanges ||
+        window.confirm("Perubahan belum disimpan. Keluar dari builder?")
+      }
       searchPlaceholder="Cari materi atau asset..."
       session={session}
     >
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <Button
-            render={<Link href="/mentor/materi" onClick={handleBackNavigation} />}
+            render={<Link href="/mentor/materi" />}
             size="sm"
             variant="ghost"
           >
@@ -325,7 +370,22 @@ function KaptenMateriBuilderPageModule({
             <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
               {mode === "create" ? "Buat Materi" : builderState.title}
             </h1>
-            <span className="text-sm font-semibold text-[#856300]">Draft</span>
+            <span
+              className={cn(
+                "text-sm font-semibold",
+                (savedMateri?.status ?? "draft") === "draft"
+                  ? "text-[#856300]"
+                  : "text-primary-800",
+              )}
+            >
+              {savedMateri?.status === "scheduled"
+                ? "Scheduled"
+                : savedMateri?.status === "published"
+                  ? "Published"
+                  : savedMateri?.status === "archived"
+                    ? "Archived"
+                    : "Draft"}
+            </span>
           </div>
         </div>
 
@@ -345,9 +405,9 @@ function KaptenMateriBuilderPageModule({
         </div>
       </section>
 
-      <section className="grid gap-8 xl:grid-cols-[minmax(300px,0.34fr)_minmax(0,0.66fr)]">
-        <aside className="space-y-5">
-          <div className="rounded-3xl border border-primary-100 bg-white px-5 py-5 shadow-sm">
+      <section className="grid gap-8 xl:grid-cols-[minmax(260px,0.28fr)_minmax(0,0.72fr)]">
+        <aside className="border-t border-primary-100 pt-5 xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
+          <div>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-secondary-900">
@@ -368,7 +428,7 @@ function KaptenMateriBuilderPageModule({
               </Button>
             </div>
 
-            <div className="mt-5 space-y-1">
+            <div className="mt-5 space-y-1 border-t border-primary-100 pt-3">
               {builderState.sections.map((section, index) => (
                 <button
                   className={cn(
@@ -396,7 +456,7 @@ function KaptenMateriBuilderPageModule({
             </div>
           </div>
 
-          <div className="rounded-3xl border border-primary-100 bg-white px-5 py-5 shadow-sm">
+          <div className="mt-7 border-t border-primary-100 pt-5">
             <p className="text-sm font-semibold text-secondary-900">Status</p>
             <div className="mt-4 space-y-3 text-sm text-secondary-600">
               <div className="flex items-center justify-between gap-4">
@@ -432,8 +492,8 @@ function KaptenMateriBuilderPageModule({
           </div>
         </aside>
 
-        <div className="space-y-7">
-          <section className="rounded-3xl border border-primary-100 bg-white px-5 py-5 shadow-sm md:px-6 md:py-6">
+        <div className="space-y-8">
+          <section className="border-b border-primary-100 pb-8">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
               <Field>
                 <FieldLabel htmlFor="materi-title">Judul materi</FieldLabel>
@@ -480,7 +540,7 @@ function KaptenMateriBuilderPageModule({
           </section>
 
           {activeSection ? (
-            <section className="rounded-3xl border border-primary-100 bg-white px-5 py-5 shadow-sm md:px-6 md:py-6">
+            <section className="pb-2">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-secondary-900">
@@ -647,12 +707,58 @@ function KaptenMateriBuilderPageModule({
                     {section.title}
                   </h3>
                 </div>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">
-                  {section.body || "Konten section belum diisi."}
-                </p>
-                {section.videoUrl ? (
-                  <p className="mt-2 text-sm text-primary-800">
-                    {section.videoUrl}
+                {section.kind === "video" ? (
+                  <div className="mt-3 max-w-3xl rounded-2xl bg-secondary-900 px-5 py-5 text-white">
+                    <p className="text-xs font-semibold tracking-[0.08em] text-primary-100 uppercase">
+                      Video pembelajaran
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-white/75">
+                      {section.body || "Video section belum diberi deskripsi."}
+                    </p>
+                    {section.videoUrl ? (
+                      <a
+                        className="mt-4 inline-flex text-sm font-semibold text-primary-100 underline underline-offset-4"
+                        href={section.videoUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Buka video
+                      </a>
+                    ) : (
+                      <p className="mt-4 text-sm text-white/60">Video belum ditautkan.</p>
+                    )}
+                  </div>
+                ) : null}
+
+                {section.kind === "attachment" ? (
+                  <div className="mt-3 flex max-w-3xl items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-4">
+                    <Paperclip className="size-5 shrink-0 text-primary-800" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-secondary-900">
+                        {mediaAssets.find((asset) => asset.id === section.assetId)?.title ??
+                          "Attachment belum dipilih"}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-secondary-600">
+                        {section.body || "Resource pendukung untuk section ini."}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {section.kind === "practice" ? (
+                  <div className="mt-3 max-w-3xl border-l-2 border-primary-600 pl-4">
+                    <p className="text-sm leading-6 text-secondary-600">
+                      {section.body || "Instruksi latihan belum diisi."}
+                    </p>
+                    <p className="mt-3 text-sm leading-6 font-semibold text-secondary-900">
+                      {section.prompt || "Prompt latihan belum diisi."}
+                    </p>
+                  </div>
+                ) : null}
+
+                {section.kind === "notes" ? (
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">
+                    {section.body || "Konten section belum diisi."}
                   </p>
                 ) : null}
               </div>

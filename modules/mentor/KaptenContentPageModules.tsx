@@ -9,9 +9,12 @@ import {
   Plus,
   Upload,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  getMateriWithStoredDrafts,
+} from "@/modules/mentor/materi-draft-storage";
 import {
   Field,
   FieldInput,
@@ -85,6 +88,16 @@ function SubjectResourceSection({
 }
 
 function KaptenMateriPageModule({ session }: { session: SessionContext }) {
+  const [displayMateri, setDisplayMateri] = useState(materi);
+
+  useEffect(() => {
+    const syncStoredDrafts = () => setDisplayMateri(getMateriWithStoredDrafts(materi));
+
+    syncStoredDrafts();
+    window.addEventListener("storage", syncStoredDrafts);
+    return () => window.removeEventListener("storage", syncStoredDrafts);
+  }, []);
+
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
@@ -103,7 +116,7 @@ function KaptenMateriPageModule({ session }: { session: SessionContext }) {
         {kaptenSubjects.map((subject) => (
           <SubjectResourceSection
             key={subject.code}
-            resources={materi}
+            resources={displayMateri}
             subject={subject}
           />
         ))}

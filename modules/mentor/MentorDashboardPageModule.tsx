@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,9 +15,14 @@ import {
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
+  getMateriWithStoredDrafts,
+  getRecentlyEditedMateri,
+} from "@/modules/mentor/materi-draft-storage";
+import {
   allResources,
   recentlyEdited,
   scheduledPublications,
+  materi,
 } from "@/modules/mentor/mock-data";
 
 function getFirstName(fullName: string) {
@@ -25,8 +31,26 @@ function getFirstName(fullName: string) {
 
 function MentorDashboardPageModule({ session }: { session: SessionContext }) {
   const firstName = getFirstName(session.user.fullName);
-  const continueEditing = recentlyEdited[0];
-  const draftQueue = allResources
+  const [storedMateri, setStoredMateri] = useState(materi);
+
+  useEffect(() => {
+    const syncStoredDrafts = () => setStoredMateri(getMateriWithStoredDrafts(materi));
+
+    syncStoredDrafts();
+    window.addEventListener("storage", syncStoredDrafts);
+    return () => window.removeEventListener("storage", syncStoredDrafts);
+  }, []);
+
+  const updatedResources = [
+    ...storedMateri,
+    ...allResources.filter((resource) => resource.resourceType !== "materi"),
+  ];
+  const updatedRecentlyEdited = [
+    ...getRecentlyEditedMateri(storedMateri),
+    ...recentlyEdited.filter((resource) => resource.resourceType !== "materi"),
+  ];
+  const continueEditing = updatedRecentlyEdited[0];
+  const draftQueue = updatedResources
     .filter((resource) => resource.status === "draft")
     .slice(0, 4);
 
@@ -100,7 +124,7 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
           title="Recently Edited"
         />
         <div className="space-y-2">
-          {recentlyEdited.slice(0, 3).map((resource) => (
+          {updatedRecentlyEdited.slice(0, 3).map((resource) => (
             <ResourceRow key={resource.id} resource={resource} />
           ))}
         </div>

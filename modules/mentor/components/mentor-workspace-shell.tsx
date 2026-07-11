@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell, BookOpenText, Search } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -184,6 +184,7 @@ function MentorWorkspaceShell({
   children,
   mainClassName,
   notificationItems = kaptenNotificationItems,
+  onNavigateAway,
   searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
   session,
 }: {
@@ -192,9 +193,59 @@ function MentorWorkspaceShell({
   children: ReactNode;
   mainClassName?: string;
   notificationItems?: KaptenNotificationItem[];
+  onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
   session: SessionContext;
 }) {
+  const onNavigateAwayRef = useRef(onNavigateAway);
+
+  useEffect(() => {
+    onNavigateAwayRef.current = onNavigateAway;
+  }, [onNavigateAway]);
+
+  useEffect(() => {
+    function handleWorkspaceNavigation(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const link = (event.target as Element | null)?.closest<HTMLAnchorElement>(
+        "a[href]",
+      );
+      const guard = onNavigateAwayRef.current;
+
+      if (!link || !guard || link.getAttribute("target") === "_blank") {
+        return;
+      }
+
+      const destination = new URL(link.href, window.location.href);
+      const current = new URL(window.location.href);
+
+      if (
+        destination.origin !== current.origin ||
+        (destination.pathname === current.pathname &&
+          destination.search === current.search)
+      ) {
+        return;
+      }
+
+      if (!guard()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
+
+    document.addEventListener("click", handleWorkspaceNavigation, true);
+    return () => document.removeEventListener("click", handleWorkspaceNavigation, true);
+  }, []);
+
   return (
     <SidebarProvider>
       <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
