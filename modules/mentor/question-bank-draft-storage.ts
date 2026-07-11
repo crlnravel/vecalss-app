@@ -25,7 +25,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isQuestionChoice(value: unknown): value is { id: string; text: string } {
-  return isRecord(value) && typeof value.id === "string" && typeof value.text === "string";
+  return isRecord(value)
+    && typeof value.id === "string"
+    && value.id.trim().length > 0
+    && typeof value.text === "string";
 }
 
 function isBankQuestion(value: unknown): value is BankQuestion {
@@ -35,7 +38,9 @@ function isBankQuestion(value: unknown): value is BankQuestion {
 
   return (
     typeof value.bankId === "string"
+    && value.bankId.trim().length > 0
     && typeof value.id === "string"
+    && value.id.trim().length > 0
     && typeof value.prompt === "string"
     && typeof value.correctChoiceId === "string"
     && typeof value.explanation === "string"
@@ -44,6 +49,7 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     && value.choices.length === 4
     && value.choices.every(isQuestionChoice)
     && new Set(value.choices.map((choice) => choice.id)).size === value.choices.length
+    && value.choices.filter((choice) => choice.id === value.correctChoiceId).length === 1
     && value.tags.every((tag) => typeof tag === "string")
   );
 }
@@ -55,6 +61,7 @@ function isKaptenQuestionBank(value: unknown): value is KaptenQuestionBank {
 
   return (
     typeof value.id === "string"
+    && value.id.trim().length > 0
     && typeof value.title === "string"
     && typeof value.description === "string"
     && typeof value.href === "string"

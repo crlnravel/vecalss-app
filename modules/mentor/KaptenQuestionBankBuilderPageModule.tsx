@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, ChevronDown, Plus, Save, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,8 +23,8 @@ import {
 } from "@/modules/mentor/mock-data";
 import {
   getSubjectName,
-  getStoredQuestionBankDraft,
   saveQuestionBankDraft,
+  useStoredQuestionBankDraft,
 } from "@/modules/mentor/question-bank-draft-storage";
 
 const emptyQuestion = (bankId: string, subjectCode: string): BankQuestion => ({
@@ -79,28 +79,42 @@ function KaptenQuestionBankBuilderPageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
-  const persisted = getStoredQuestionBankDraft(bankId ?? initialBank?.id);
-  const [builderState, setBuilderState] = useState(() => ({
-    description: persisted?.bank.description ?? initialBank?.description ?? "",
-    questions: persisted?.questions ?? initialQuestions,
-    subjectCode: persisted?.bank.subjectCode ?? initialBank?.subjectCode ?? "PU",
-    title: persisted?.bank.title ?? initialBank?.title ?? "Bank Soal Baru",
-    topic: persisted?.bank.topic ?? "",
+  const storedDraft = useStoredQuestionBankDraft(bankId ?? initialBank?.id ?? "");
+  const [localBuilderState, setLocalBuilderState] = useState(() => ({
+    description: initialBank?.description ?? "",
+    questions: initialQuestions,
+    subjectCode: initialBank?.subjectCode ?? "PU",
+    title: initialBank?.title ?? "Bank Soal Baru",
+    topic: initialBank?.topic ?? "",
   }));
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [questionDraft, setQuestionDraft] = useState<BankQuestion>(() => emptyQuestion(
     bankId ?? initialBank?.id ?? "new-bank",
-    persisted?.bank.subjectCode ?? initialBank?.subjectCode ?? "PU",
+    initialBank?.subjectCode ?? "PU",
   ));
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  const builderState = useMemo(() => {
+    if (!hasUnsavedChanges && storedDraft) {
+      return {
+        description: storedDraft.bank.description,
+        questions: storedDraft.questions,
+        subjectCode: storedDraft.bank.subjectCode ?? "PU",
+        title: storedDraft.bank.title,
+        topic: storedDraft.bank.topic ?? "",
+      };
+    }
+
+    return localBuilderState;
+  }, [hasUnsavedChanges, localBuilderState, storedDraft]);
 
   const activeQuestion = activeQuestionId
     ? builderState.questions.find((question) => question.id === activeQuestionId) ?? null
     : null;
   const readyCount = builderState.questions.filter(isReady).length;
   const subjectLocked = builderState.questions.length > 0;
-  const lifecycleStatus = persisted?.bank.status ?? initialBank?.status ?? "draft";
+  const lifecycleStatus = storedDraft?.bank.status ?? initialBank?.status ?? "draft";
   const isDraftLifecycle = lifecycleStatus === "draft";
   const saveLabel = isDraftLifecycle ? "Simpan Draft" : "Simpan perubahan";
 
@@ -118,7 +132,7 @@ function KaptenQuestionBankBuilderPageModule({
   }, [hasUnsavedChanges]);
 
   function markChanged(nextState: typeof builderState) {
-    setBuilderState(nextState);
+    setLocalBuilderState(nextState);
     setHasUnsavedChanges(true);
     setLastSavedAt(null);
   }
@@ -192,7 +206,7 @@ function KaptenQuestionBankBuilderPageModule({
     }));
 
     saveQuestionBankDraft({ bank, questions });
-    setBuilderState({ ...builderState, questions });
+    setLocalBuilderState({ ...builderState, questions });
     setHasUnsavedChanges(false);
     setLastSavedAt(isDraftLifecycle ? "Draft tersimpan." : "Perubahan tersimpan.");
     if (mode === "create") router.replace(`/mentor/quiz/question-bank/${id}`);
