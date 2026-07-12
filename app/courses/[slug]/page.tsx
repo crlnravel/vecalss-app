@@ -25,5 +25,5 @@ export default async function CourseDetailPage({
     notFound();
   }
 
-  return <CourseDetailPageModule course={course} session={session} />;
+  return <CourseDetailPageModule courseSlug={course.slug} session={session} />;
 }

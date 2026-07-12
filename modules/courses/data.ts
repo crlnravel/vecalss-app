@@ -19,6 +19,22 @@ type VideoTutorial = {
   title: string;
 };
 
+type CourseLesson = VideoTutorial & {
+  courseSlug: string;
+  id: string;
+  position: number;
+  sectionIndex: number;
+  sectionTitle: string;
+  videoIndex: number;
+};
+
+type CourseProgressSnapshot = {
+  completedLessonIds: string[];
+  skippedToLessonId?: string;
+};
+
+type LessonProgressStatus = "completed" | "active" | "available" | "locked";
+
 type CourseSection = {
   title: string;
   videos: VideoTutorial[];
@@ -504,6 +520,101 @@ function getCourseBySlug(slug: string) {
   return courseCatalogue.find((course) => course.slug === slug);
 }
 
+function getCourseLessons(course: Course): CourseLesson[] {
+  return course.sections.flatMap((section, sectionIndex) =>
+    section.videos.map((video, videoIndex) => ({
+      ...video,
+      courseSlug: course.slug,
+      id: `${course.slug}-${sectionIndex + 1}-${videoIndex + 1}`,
+      position: course.sections
+        .slice(0, sectionIndex)
+        .reduce((total, previousSection) => total + previousSection.videos.length, 0)
+        + videoIndex,
+      sectionIndex,
+      sectionTitle: section.title,
+      videoIndex,
+    })),
+  );
+}
+
+function getCourseLesson(course: Course, lessonId: string) {
+  return getCourseLessons(course).find((lesson) => lesson.id === lessonId);
+}
+
+function getSeedCourseProgress(course: Course): CourseProgressSnapshot {
+  return {
+    completedLessonIds: getCourseLessons(course)
+      .filter((lesson) => lesson.completed)
+      .map((lesson) => lesson.id),
+  };
+}
+
+function getCourseProgressState(
+  course: Course,
+  progress: CourseProgressSnapshot = getSeedCourseProgress(course),
+) {
+  const lessons = getCourseLessons(course);
+  const lessonsById = new Map(lessons.map((lesson) => [lesson.id, lesson]));
+  const seedCompletedLessonIds = new Set(getSeedCourseProgress(course).completedLessonIds);
+  const completedLessonIds = new Set(
+    progress.completedLessonIds.filter((lessonId) => lessonsById.has(lessonId)),
+  );
+
+  seedCompletedLessonIds.forEach((lessonId) => completedLessonIds.add(lessonId));
+
+  const skippedLesson = progress.skippedToLessonId
+    ? lessonsById.get(progress.skippedToLessonId)
+    : undefined;
+  const nextLesson = skippedLesson && !completedLessonIds.has(skippedLesson.id)
+    ? skippedLesson
+    : lessons.find((lesson) => !completedLessonIds.has(lesson.id));
+  const completedCount = completedLessonIds.size;
+
+  return {
+    completedLessonIds: lessons.filter((lesson) => completedLessonIds.has(lesson.id)).map((lesson) => lesson.id),
+    completionPercentage: lessons.length === 0 ? 0 : Math.round((completedCount / lessons.length) * 100),
+    lessons,
+    nextLesson,
+    skippedToLessonId: skippedLesson?.id,
+  };
+}
+
+function getLessonProgressStatus(
+  course: Course,
+  lessonId: string,
+  progress: CourseProgressSnapshot = getSeedCourseProgress(course),
+): LessonProgressStatus | undefined {
+  const lesson = getCourseLesson(course, lessonId);
+  if (!lesson) {
+    return undefined;
+  }
+
+  const state = getCourseProgressState(course, progress);
+  if (state.completedLessonIds.includes(lesson.id)) {
+    return "completed";
+  }
+
+  if (state.nextLesson?.id === lesson.id) {
+    return state.skippedToLessonId === lesson.id ? "active" : "available";
+  }
+
+  return "locked";
+}
+
+function getNextAvailableLesson(
+  course: Course,
+  progress: CourseProgressSnapshot = getSeedCourseProgress(course),
+) {
+  return getCourseProgressState(course, progress).nextLesson;
+}
+
+function getCourseCompletionPercentage(
+  course: Course,
+  progress: CourseProgressSnapshot = getSeedCourseProgress(course),
+) {
+  return getCourseProgressState(course, progress).completionPercentage;
+}
+
 function getCourseStats(course: Course) {
   const totalSections = course.sections.length;
   const totalVideos = course.sections.reduce(
@@ -523,11 +634,25 @@ function getCourseStats(course: Course) {
   };
 }
 
-export { courseCatalogue, getCourseBySlug, getCourseStats };
+export {
+  courseCatalogue,
+  getCourseBySlug,
+  getCourseCompletionPercentage,
+  getCourseLesson,
+  getCourseLessons,
+  getCourseProgressState,
+  getCourseStats,
+  getLessonProgressStatus,
+  getNextAvailableLesson,
+  getSeedCourseProgress,
+};
 export type {
   Course,
+  CourseLesson,
   CourseDifficulty,
+  CourseProgressSnapshot,
   CourseProgressStatus,
   CourseSection,
+  LessonProgressStatus,
   VideoTutorial,
 };
