@@ -12,19 +12,12 @@ type PublishedLessonContent = {
   title: string;
 };
 
-type PublishedTopicContent = {
+type PublishedCourseContent = {
   code: string;
   lessons: PublishedLessonContent[];
   name: string;
-  sortOrder: number;
-};
-
-type PublishedCourseContent = {
-  code: string;
-  name: string;
   slug: string;
   sortOrder: number;
-  topics: PublishedTopicContent[];
 };
 
 type VideoTutorial = {
@@ -39,9 +32,6 @@ type CourseLesson = VideoTutorial & {
   courseSlug: string;
   id: string;
   position: number;
-  sectionIndex: number;
-  sectionTitle: string;
-  videoIndex: number;
 };
 
 type CourseProgressSnapshot = {
@@ -50,11 +40,6 @@ type CourseProgressSnapshot = {
 };
 
 type LessonProgressStatus = "completed" | "active" | "available" | "locked";
-
-type CourseSection = {
-  title: string;
-  videos: VideoTutorial[];
-};
 
 type Course = {
   code: string;
@@ -67,7 +52,7 @@ type Course = {
   slug: string;
   status: CourseProgressStatus;
   title: string;
-  sections: CourseSection[];
+  lessons: VideoTutorial[];
 };
 
 type SubjectUiMetadata = {
@@ -78,7 +63,7 @@ type SubjectUiMetadata = {
 
 const courseCardPalette = "bg-primary-100 text-primary-900";
 
-// These are presentation-only choices. Published subject, section, and lesson
+// These are presentation-only choices. Published subject and lesson
 // content is supplied by the server repository below.
 const subjectUiMetadata: Record<string, SubjectUiMetadata> = {
   PU: { difficulty: "Dasar", icon: "brain", palette: courseCardPalette },
@@ -116,25 +101,20 @@ function toCourseCatalogue(content: readonly PublishedCourseContent[]): Course[]
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((publishedCourse) => {
       const metadata = subjectUiMetadata[publishedCourse.code];
-      if (!metadata || publishedCourse.topics.length !== 3) {
+      if (!metadata) {
         throw new Error("Published Materi subject is incomplete.");
       }
 
-      const sections = [...publishedCourse.topics]
-        .sort((left, right) => left.sortOrder - right.sortOrder)
-        .map((topic) => ({
-          title: topic.name,
-          videos: [...topic.lessons]
-            .sort((left, right) => left.sequenceNo - right.sequenceNo)
-            .map((lesson) => ({
-              completed: false,
-              duration: formatDuration(lesson.durationSeconds),
-              title: lesson.title,
-              videoUrl: lesson.mediaUrl,
-              id: lesson.code,
-            })),
+      const lessons = [...publishedCourse.lessons]
+        .sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code))
+        .map((lesson) => ({
+          completed: false,
+          duration: formatDuration(lesson.durationSeconds),
+          id: lesson.code,
+          title: lesson.title,
+          videoUrl: lesson.mediaUrl,
         }));
-      const durationSeconds = publishedCourse.topics.flatMap((topic) => topic.lessons)
+      const durationSeconds = publishedCourse.lessons
         .reduce((total, lesson) => total + lesson.durationSeconds, 0);
 
       return {
@@ -145,7 +125,7 @@ function toCourseCatalogue(content: readonly PublishedCourseContent[]): Course[]
         icon: metadata.icon,
         palette: metadata.palette,
         progress: 0,
-        sections,
+        lessons,
         slug: publishedCourse.slug,
         status: "Belum mulai",
         title: publishedCourse.code,
@@ -158,20 +138,11 @@ function getCourseBySlug(courses: readonly Course[], slug: string) {
 }
 
 function getCourseLessons(course: Course): CourseLesson[] {
-  return course.sections.flatMap((section, sectionIndex) =>
-    section.videos.map((video, videoIndex) => ({
-      ...video,
-      courseSlug: course.slug,
-      id: video.id,
-      position: course.sections
-        .slice(0, sectionIndex)
-        .reduce((total, previousSection) => total + previousSection.videos.length, 0)
-        + videoIndex,
-      sectionIndex,
-      sectionTitle: section.title,
-      videoIndex,
-    })),
-  );
+  return course.lessons.map((lesson, position) => ({
+    ...lesson,
+    courseSlug: course.slug,
+    position,
+  }));
 }
 
 function getCourseLesson(course: Course, lessonId: string) {
@@ -256,7 +227,6 @@ export type {
   CourseLesson,
   CourseProgressSnapshot,
   CourseProgressStatus,
-  CourseSection,
   LessonProgressStatus,
   PublishedCourseContent,
   SubjectIcon,

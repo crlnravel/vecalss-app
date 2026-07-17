@@ -116,7 +116,7 @@ function ResourceRow({
   const isMateri = resource.resourceType === "materi";
   const lesson = resource as MateriResource;
   const primaryMetric = isMateri
-    ? `${lesson.duration || "Durasi belum diisi"} · ${lesson.readiness === "ready" ? "Siap" : "Belum siap"}`
+    ? lesson.readiness === "ready" ? (lesson.duration || "Durasi belum diisi") : `${lesson.duration || "Durasi belum diisi"} · Belum siap`
     : resource.primaryMetric;
 
   return (

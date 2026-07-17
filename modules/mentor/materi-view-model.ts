@@ -18,9 +18,6 @@ type KaptenMateriView = {
   readiness: "ready" | "incomplete";
   resourceCount: number;
   resourceType: "materi";
-  sections: string[];
-  sectionId: string;
-  sectionTitle: string;
   status: KaptenMateriStatus;
   subjectCode: string;
   subjectName: string;
@@ -35,7 +32,6 @@ type KaptenMateriSubjectView = {
   code: string;
   description: string;
   name: string;
-  sections: { sectionId: string; title: string }[];
   slug: string;
 };
 
@@ -59,27 +55,23 @@ function relativeEditedAt(value: string) {
 function toKaptenMateriView(
   lesson: MentorMateriLesson & {
     subject: { code: string; name: string; slug: string };
-    topic: { code: string; name: string };
   },
 ): KaptenMateriView {
   const duration = formatDuration(lesson.primaryVideo?.durationSeconds);
   const videoUrl = lesson.primaryVideo?.mediaUrl ?? "";
   return {
     code: lesson.code,
-    description: `${lesson.subject.name} · ${lesson.topic.name}`,
+    description: `${lesson.subject.name} · Video Materi`,
     duration,
     href: `/mentor/materi/${lesson.code}`,
     id: lesson.code,
     lifecycleStatus: lesson.lifecycleStatus,
     position: lesson.sequenceNo,
-    primaryMetric: `${duration || "Durasi belum diisi"} · ${lesson.readiness === "ready" ? "Siap" : "Belum siap"}`,
+    primaryMetric: lesson.readiness === "ready" ? (duration || "Durasi belum diisi") : `${duration || "Durasi belum diisi"} · Belum siap`,
     progress: lesson.readiness === "ready" ? 100 : 0,
     readiness: lesson.readiness,
     resourceCount: 1,
     resourceType: "materi",
-    sections: [lesson.topic.name],
-    sectionId: lesson.topic.code,
-    sectionTitle: lesson.topic.name,
     status: lesson.lifecycleStatus,
     subjectCode: lesson.subject.code,
     subjectName: lesson.subject.name,
@@ -96,16 +88,12 @@ function toKaptenMateriCatalogueView(catalogue: MentorMateriSubject[]) {
     code: subject.code,
     description: subject.name,
     name: subject.name,
-    sections: subject.topics.map((topic) => ({ sectionId: topic.code, title: topic.name })),
     slug: subject.slug,
   }));
-  const lessons = catalogue.flatMap((subject) => subject.topics.flatMap((topic) =>
-    topic.lessons.map((lesson) => toKaptenMateriView({
+  const lessons = catalogue.flatMap((subject) => subject.lessons.map((lesson) => toKaptenMateriView({
       ...lesson,
       subject,
-      topic,
-    })),
-  ));
+    }))).sort((a, b) => a.position - b.position || a.code.localeCompare(b.code));
 
   return { lessons, subjects };
 }

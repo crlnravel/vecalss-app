@@ -12,7 +12,6 @@ export const metadata: Metadata = {
 type CreateMentorMateriPageProps = {
   searchParams: Promise<{
     returnTo?: string | string[];
-    section?: string | string[];
     subject?: string | string[];
   }>;
 };
@@ -24,18 +23,12 @@ export default async function CreateMentorMateriPage({
   const [query, catalogue] = await Promise.all([searchParams, getMentorMateriCatalogue()]);
   const view = toKaptenMateriCatalogueView(catalogue);
   const subjectSlug = typeof query.subject === "string" ? query.subject : undefined;
-  const sectionId = typeof query.section === "string" ? query.section : undefined;
-  const hasValidContext = Boolean(
-    subjectSlug
-    && sectionId
-    && view.subjects.some((subject) => subject.slug === subjectSlug && subject.sections.some((section) => section.sectionId === sectionId)),
-  );
+  const initialSubjectSlug = view.subjects.some((subject) => subject.slug === subjectSlug) ? subjectSlug : undefined;
   const returnTo = typeof query.returnTo === "string" && view.subjects.some((subject) => query.returnTo === `/mentor/materi/subject/${subject.slug}`) ? query.returnTo : undefined;
 
   return (
     <KaptenMateriBuilderPageModule
-      catalogue={view.lessons}
-      createContext={hasValidContext && subjectSlug && sectionId ? { sectionId, subjectSlug } : undefined}
+      initialSubjectSlug={initialSubjectSlug}
       mode="create"
       returnTo={returnTo}
       session={session}

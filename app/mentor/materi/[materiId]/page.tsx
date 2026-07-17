@@ -38,7 +38,6 @@ export default async function MentorMateriBuilderPage({
 
   return (
     <KaptenMateriBuilderPageModule
-      catalogue={view.lessons}
       initialMateri={initialMateri}
       initialPreview={query.preview === "1"}
       materiId={materiId}

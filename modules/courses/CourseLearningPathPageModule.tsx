@@ -1,13 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
+  BookOpen,
   Check,
   ChevronDown,
   ChevronRight,
   Clock3,
-  Globe2,
   LoaderCircle,
   LockKeyhole,
   Play,
@@ -64,18 +63,14 @@ function CourseLearningPathPageModule({
       searchPlaceholder="Cari video di materi ini..."
       session={session}
     >
-      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#fbfcff] pb-40 text-[#182334]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_88%_8%,rgba(255,237,117,0.34),transparent_30%),radial-gradient(circle_at_18%_46%,rgba(220,231,255,0.42),transparent_34%),radial-gradient(circle_at_55%_74%,rgba(240,222,255,0.34),transparent_35%)]"
-        />
+      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#f7faf8] pb-40 text-[#173c2d]">
 
         <div className="sticky top-3 z-30 mx-auto w-full max-w-[48rem] px-4 pt-3 sm:px-6">
           <SubjectSelector course={course} courses={courses} />
         </div>
 
         <div className="mx-auto mt-4 w-full max-w-[42rem] px-4 sm:mt-6 sm:px-6">
-          <ActiveUnitBanner
+          <ActiveMateriBanner
             completionPercentage={state.completionPercentage}
             lesson={state.nextLesson}
           />
@@ -139,17 +134,15 @@ function SubjectSelector({
       <DropdownMenuTrigger
         render={
           <button
-            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#edf0f4] bg-white px-4 py-3 text-left shadow-[0_18px_45px_-30px_rgba(39,54,82,0.42)] outline-none transition duration-200 hover:border-[#dfe8f7] hover:shadow-[0_22px_52px_-28px_rgba(39,54,82,0.5)] focus-visible:ring-4 focus-visible:ring-[#85dff4]/30 sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
+            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#d6e5db] bg-white px-4 py-3 text-left outline-none transition duration-200 hover:border-[#9dcab0] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
             type="button"
           />
         }
       >
-        <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#8fe2f7,#c8f26b)] text-[#17202d] shadow-[0_10px_22px_-13px_rgba(55,109,87,0.65)] sm:size-16">
-          <Globe2 className="size-7 sm:size-8" strokeWidth={2.4} />
-        </span>
+        <BookOpen className="size-7 shrink-0 text-[#176b4d] sm:size-8" strokeWidth={2.4} />
         <span className="min-w-0 flex-1">
           <span className="block text-[0.68rem] font-bold tracking-[0.16em] text-[#98a1b1] uppercase sm:text-xs">
-            World
+            Materi
           </span>
           <span className="mt-1 block truncate text-xl leading-tight font-extrabold tracking-[-0.035em] text-[#1b2534] sm:hidden">
             {course.title}
@@ -161,16 +154,16 @@ function SubjectSelector({
         {isPending ? (
           <LoaderCircle
             aria-label="Memuat materi"
-            className="size-6 shrink-0 animate-spin text-[#95a0b1]"
+            className="size-6 shrink-0 animate-spin text-[#5f776a]"
           />
         ) : (
-          <ChevronDown className="size-6 shrink-0 text-[#95a0b1] transition-transform group-data-popup-open:rotate-180" />
+          <ChevronDown className="size-6 shrink-0 text-[#5f776a] transition-transform motion-reduce:transform-none group-data-popup-open:rotate-180" />
         )}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="center"
-        className="max-h-[min(34rem,var(--available-height))] rounded-[2rem] border border-[#e8ecf2] bg-white p-2 shadow-[0_30px_90px_-42px_rgba(28,39,61,0.5)]"
+        className="max-h-[min(34rem,var(--available-height))] rounded-[2rem] border border-[#d6e5db] bg-white p-2"
         sideOffset={10}
       >
         {courses.map((subject, index) => {
@@ -179,16 +172,16 @@ function SubjectSelector({
           return (
             <DropdownMenuItem
               className={cn(
-                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#1b2534] focus:bg-[#eff6ff] focus:text-[#1b2534] sm:min-h-16",
-                isActive && "bg-[#eaf3ff] ring-2 ring-[#cfe4ff]",
+                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#173c2d] focus:bg-[#edf7f0] focus:text-[#173c2d] sm:min-h-16",
+                isActive && "bg-[#e8f5ec] ring-2 ring-[#b7ddc3]",
               )}
               key={subject.slug}
               onClick={() => handleCourseChange(subject.slug)}
             >
               <span
                 className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-xl bg-[#f2f4f7] text-sm font-extrabold sm:size-10",
-                  isActive && "bg-white text-[#28758a]",
+                  "grid size-9 shrink-0 place-items-center rounded-xl bg-[#f2f6f3] text-sm font-extrabold sm:size-10",
+                  isActive && "bg-white text-[#176b4d]",
                 )}
               >
                 {index + 1}
@@ -203,7 +196,7 @@ function SubjectSelector({
               </span>
               {isActive ? (
                 <Check
-                  className="size-5 shrink-0 text-[#249475]"
+                  className="size-5 shrink-0 text-[#176b4d]"
                   strokeWidth={3}
                 />
               ) : null}
@@ -215,7 +208,7 @@ function SubjectSelector({
   );
 }
 
-function ActiveUnitBanner({
+function ActiveMateriBanner({
   completionPercentage,
   lesson,
 }: {
@@ -223,15 +216,11 @@ function ActiveUnitBanner({
   lesson?: CourseLesson;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#77d7f3,#92e3f7)] px-5 py-5 text-white shadow-[0_10px_0_#54a6bc,0_24px_50px_-30px_rgba(44,138,166,0.65)] sm:rounded-[2.35rem] sm:px-7 sm:py-6 z-10">
-      <div
-        aria-hidden="true"
-        className="absolute -top-20 -right-12 size-48 rounded-full border-[2rem] border-white/10"
-      />
+    <div className="relative overflow-hidden rounded-[2rem] bg-[#176b4d] px-5 py-5 text-white sm:rounded-[2.35rem] sm:px-7 sm:py-6 z-10">
       <div className="relative flex items-center gap-4 sm:gap-6">
         <span className="flex size-16 shrink-0 flex-col items-center justify-center rounded-[1.45rem] border border-white/35 bg-white/10 sm:size-20">
           <span className="text-[0.62rem] font-bold tracking-[0.13em] uppercase sm:text-xs">
-            Unit
+            Bagian
           </span>
           <span className="text-2xl leading-none font-extrabold sm:text-3xl">
             {lesson ? lesson.position + 1 : "✓"}
@@ -242,7 +231,7 @@ function ActiveUnitBanner({
             {completionPercentage}% perjalanan selesai
           </p>
           <h1 className="mt-1 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl md:text-3xl">
-            {lesson?.title ?? "Semua unit sudah selesai"}
+            {lesson?.title ?? "Semua Bagian sudah selesai"}
           </h1>
         </div>
       </div>
@@ -294,17 +283,10 @@ function LearningRoad({ lessonCount }: { lessonCount: number }) {
       preserveAspectRatio="none"
       viewBox={`0 0 1000 ${viewBoxHeight}`}
     >
-      <defs>
-        <linearGradient id="learning-road-dashes" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#71b9ff" />
-          <stop offset="0.5" stopColor="#68dfc7" />
-          <stop offset="1" stopColor="#83c5ff" />
-        </linearGradient>
-      </defs>
       <path
         d={path}
         fill="none"
-        stroke="#dcecff"
+        stroke="#e2ece5"
         strokeLinecap="round"
         strokeWidth="52"
         vectorEffect="non-scaling-stroke"
@@ -312,7 +294,7 @@ function LearningRoad({ lessonCount }: { lessonCount: number }) {
       <path
         d={path}
         fill="none"
-        stroke="url(#learning-road-dashes)"
+        stroke="#4c9a70"
         strokeDasharray="18 34"
         strokeLinecap="round"
         strokeWidth="9"
@@ -355,25 +337,18 @@ function PathNode({
         {isActive ? (
           <Link
             aria-label={`Mulai ${lesson.title}`}
-            className="group relative grid size-[5.35rem] place-items-center rounded-[1.75rem] border-4 border-white bg-[#c9f167] text-white shadow-[0_9px_0_#8eb33d,0_24px_35px_-18px_rgba(80,112,30,0.6)] outline-none transition duration-200 hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-[#63d9f0]/40 sm:size-24 sm:rounded-[2rem]"
+            className="group relative grid size-[5.35rem] place-items-center rounded-[1.75rem] border-4 border-white bg-[#176b4d] text-white outline-none transition duration-200 hover:bg-[#0f563b] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none sm:size-24 sm:rounded-[2rem]"
             href={href}
           >
-            <Image
-              alt=""
-              className="pointer-events-none absolute -top-8 -left-5 size-16 object-contain drop-shadow-[0_8px_8px_rgba(31,66,54,0.18)] transition-transform duration-200 group-hover:-rotate-3 sm:-top-10 sm:-left-7 sm:size-20"
-              height={80}
-              src="/brand/voyage-assets/mascot-about-variation.png"
-              width={80}
-            />
             <Play className="size-9 fill-none sm:size-11" strokeWidth={2.5} />
           </Link>
         ) : (
           <span
             className={cn(
-              "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white shadow-[0_8px_0_#c8ccd5,0_20px_32px_-20px_rgba(43,54,77,0.48)] sm:size-20",
+              "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white sm:size-20",
               isCompleted
-                ? "bg-[#20c7a0] text-white"
-                : "bg-white/85 text-[#a7afbc]",
+                ? "bg-[#25805a] text-white"
+                : "bg-[#f2f4f3] text-[#88948d]",
             )}
           >
             {isCompleted ? (
@@ -393,10 +368,10 @@ function PathNode({
             ? "justify-self-start pl-2 sm:mr-[5.5rem] sm:justify-self-end sm:pl-12"
             : "justify-self-end pr-2 sm:ml-[5.5rem] sm:justify-self-start sm:pr-16",
           isLocked
-            ? "border-[#e9ecf1] bg-[#f5f6f8]/95 text-[#737d8f] shadow-[0_8px_0_#d8dce3,0_22px_45px_-30px_rgba(43,54,77,0.42)]"
+            ? "border-[#dce3df] bg-[#f5f7f6] text-[#6f7d75]"
             : isCompleted
-              ? "border-[#c9efe5] bg-white/95 shadow-[0_8px_0_#a7dfd1,0_22px_45px_-30px_rgba(33,112,92,0.38)]"
-              : "border-[#e6dcad] bg-[#fffdf3]/95 shadow-[0_8px_0_#f2ce52,0_24px_48px_-28px_rgba(142,107,19,0.48)]",
+              ? "border-[#b7ddc3] bg-white"
+              : "border-[#c8dfd0] bg-white",
         )}
       >
         <div className="flex items-start gap-3">
@@ -404,33 +379,30 @@ function PathNode({
             className={cn(
               "flex size-14 shrink-0 flex-col items-center justify-center rounded-[1.25rem] text-center sm:size-16",
               isLocked
-                ? "bg-[#e8eaf0] text-[#919aaa]"
+                ? "bg-[#e8ecea] text-[#87928c]"
                 : isCompleted
-                  ? "bg-[#e7faf4] text-[#16816a]"
-                  : "bg-[#fff1a9] text-[#6e5a12]",
+                  ? "bg-[#e6f4eb] text-[#176b4d]"
+                  : "bg-[#eaf5ed] text-[#176b4d]",
             )}
           >
             <span className="text-[0.55rem] font-bold tracking-[0.12em] uppercase">
-              Unit
+              Bagian
             </span>
             <span className="text-xl leading-none font-extrabold">
               {index + 1}
             </span>
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[0.65rem] font-bold tracking-[0.12em] text-[#98a1b1] uppercase">
-              {lesson.sectionTitle}
-            </p>
             <h2 className="mt-1 line-clamp-2 text-base leading-snug font-extrabold tracking-[-0.025em] sm:text-lg lg:text-xl">
               {lesson.title}
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#919aaa]">
+              <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#718077]">
                 <Clock3 className="size-3.5" /> {lesson.duration}
               </span>
               {isCompleted ? (
                 <Link
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#e7faf4] px-3 text-[0.68rem] font-extrabold text-[#16715e] outline-none transition hover:bg-[#d7f5eb] focus-visible:ring-3 focus-visible:ring-[#63d9f0]/35"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#e6f4eb] px-3 text-[0.68rem] font-extrabold text-[#176b4d] outline-none transition hover:bg-[#d7eddf] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
                   href={href}
                 >
                   <RotateCcw className="size-3.5" /> Ulangi
@@ -438,7 +410,7 @@ function PathNode({
               ) : null}
               {isLocked ? (
                 <button
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#ffdc62] px-3 text-[0.68rem] font-extrabold text-[#5d501e] shadow-[0_3px_0_#d3aa22] outline-none transition hover:-translate-y-0.5 hover:bg-[#ffe37b] focus-visible:ring-3 focus-visible:ring-[#ffcf2f]/35 active:translate-y-0"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white outline-none transition hover:bg-[#0f563b] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
                   onClick={onSkip}
                   type="button"
                 >
@@ -447,7 +419,7 @@ function PathNode({
               ) : null}
               {isActive ? (
                 <Link
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#ffdc62] px-3 text-[0.68rem] font-extrabold text-[#5d501e] shadow-[0_3px_0_#d3aa22] outline-none transition hover:-translate-y-0.5 hover:bg-[#ffe37b] focus-visible:ring-3 focus-visible:ring-[#ffcf2f]/35"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white outline-none transition hover:bg-[#0f563b] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
                   href={href}
                 >
                   <Play className="size-3.5 fill-current" /> Mulai
@@ -457,7 +429,7 @@ function PathNode({
           </div>
         </div>
         {isLocked ? (
-          <LockKeyhole className="absolute top-4 right-4 size-4 text-[#b1b7c2]" />
+          <LockKeyhole className="absolute top-4 right-4 size-4 text-[#9aa59f]" />
         ) : null}
       </article>
     </li>
@@ -474,9 +446,9 @@ function StartLessonPrompt({
   if (!lesson) {
     return (
       <aside className="fixed bottom-5 left-1/2 z-40 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 md:left-[calc(50%+8rem)]">
-        <div className="flex min-h-20 items-center justify-center gap-3 rounded-[1.8rem] border-4 border-white bg-[#19c9a3] px-5 text-white shadow-[0_7px_0_#0b9a7d,0_24px_48px_-26px_rgba(20,120,99,0.62)]">
+        <div className="flex min-h-20 items-center justify-center gap-3 rounded-[1.8rem] border border-[#b7ddc3] bg-[#176b4d] px-5 text-white">
           <Sparkles className="size-6" />
-          <span className="text-base font-extrabold">Semua unit selesai!</span>
+          <span className="text-base font-extrabold">Semua Bagian selesai!</span>
         </div>
       </aside>
     );
@@ -485,15 +457,15 @@ function StartLessonPrompt({
   return (
     <aside className="fixed bottom-5 left-1/2 z-40 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 md:left-[calc(50%+8rem)]">
       <Link
-        className="group flex min-h-20 w-full items-center gap-4 rounded-[1.8rem] border-4 border-white bg-[#ffdc62] px-4 py-3 text-[#302b1d] shadow-[0_7px_0_#d4a923,0_26px_55px_-25px_rgba(125,92,10,0.65)] outline-none transition duration-200 hover:-translate-y-1 hover:bg-[#ffe37a] focus-visible:ring-4 focus-visible:ring-[#ffd234]/35 active:translate-y-0"
+        className="group flex min-h-20 w-full items-center gap-4 rounded-[1.8rem] border border-[#b7ddc3] bg-white px-4 py-3 text-[#173c2d] outline-none transition duration-200 hover:border-[#6aaa83] hover:bg-[#f3faf5] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
         href={`/courses/${course.slug}/${lesson.id}`}
       >
-        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-[#e1b72d] shadow-sm sm:size-14">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white sm:size-14">
           <Play className="size-6 fill-current sm:size-7" />
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[0.65rem] font-extrabold tracking-[0.14em] text-[#806a24] uppercase">
-            Mulai
+          <span className="block text-[0.65rem] font-extrabold tracking-[0.14em] text-[#477060] uppercase">
+            Mulai Bagian
           </span>
           <span className="mt-0.5 block truncate text-base font-extrabold tracking-[-0.02em] sm:text-lg">
             {lesson.title}

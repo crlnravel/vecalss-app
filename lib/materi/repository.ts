@@ -40,20 +40,12 @@ type MentorMateriLesson = {
   updatedAt: string;
 };
 
-type MentorMateriTopic = {
-  code: string;
-  lessons: MentorMateriLesson[];
-  name: string;
-  sortOrder: number;
-};
-
 type MentorMateriSubject = {
   code: MateriSubjectCode;
   lessons: MentorMateriLesson[];
   name: string;
   slug: MateriCourseSlug;
   sortOrder: number;
-  topics: MentorMateriTopic[];
 };
 
 type PublishedMateriLesson = {
@@ -64,33 +56,28 @@ type PublishedMateriLesson = {
   title: string;
 };
 
-type PublishedMateriTopic = {
-  code: string;
-  lessons: PublishedMateriLesson[];
-  name: string;
-  sortOrder: number;
-};
-
 type PublishedMateriCourse = {
   code: MateriSubjectCode;
   lessons: PublishedMateriLesson[];
   name: string;
   slug: MateriCourseSlug;
   sortOrder: number;
-  topics: PublishedMateriTopic[];
 };
 
 type SaveMateriLessonInput = {
   code?: string;
   duration: string;
-  position: number;
   subjectSlug: string;
   title: string;
-  topicCode: string;
   videoUrl: string;
 };
 
-type MateriValidationField = "code" | "duration" | "position" | "subjectSlug" | "title" | "topicCode" | "videoUrl";
+type BulkMateriLifecycleInput = {
+  codes: string[];
+  subjectSlug: string;
+};
+
+type MateriValidationField = "code" | "duration" | "subjectSlug" | "title" | "videoUrl";
 
 class MateriValidationError extends Error {
   fieldErrors: Partial<Record<MateriValidationField, string>>;
@@ -248,26 +235,18 @@ async function getMentorMateriCatalogue(): Promise<MentorMateriSubject[]> {
     return [{
       code: subject.code,
       lessons: subtest.topics
+        .filter((topic) => isCanonicalTopicForSubject(subject.slug, topic.code))
         .flatMap((topic) => topic.modules.map(toMentorLesson))
         .sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code)),
       name: subtest.name,
       slug: subject.slug,
       sortOrder: subtest.sortOrder,
-      topics: subtest.topics
-        .filter((topic) => isCanonicalTopicForSubject(subject.slug, topic.code))
-        .map((topic) => ({
-        code: topic.code,
-        lessons: topic.modules.map(toMentorLesson),
-        name: topic.name,
-        sortOrder: topic.sortOrder,
-        })),
     }];
   });
 }
 
 async function getMentorMateriByCode(code: string): Promise<(MentorMateriLesson & {
   subject: Pick<MentorMateriSubject, "code" | "name" | "slug" | "sortOrder">;
-  topic: Pick<MentorMateriTopic, "code" | "name" | "sortOrder">;
 }) | undefined> {
   const lessonRecord = await prisma.module.findUnique({
     where: { code },
@@ -284,7 +263,7 @@ async function getMentorMateriByCode(code: string): Promise<(MentorMateriLesson 
       status: true,
       title: true,
       updatedAt: true,
-      topic: { select: { code: true, name: true, sortOrder: true, subtest: { select: { code: true, name: true, sortOrder: true } } } },
+      topic: { select: { code: true, subtest: { select: { code: true, name: true, sortOrder: true } } } },
     },
   });
   const subject = lessonRecord ? getSubjectByCode(lessonRecord.topic.subtest.code) : undefined;
@@ -300,7 +279,6 @@ async function getMentorMateriByCode(code: string): Promise<(MentorMateriLesson 
   return {
     ...toMentorLesson(lessonRecord),
     subject: { code: subject.code, name: lessonRecord.topic.subtest.name, slug: subject.slug, sortOrder: lessonRecord.topic.subtest.sortOrder },
-    topic: { code: lessonRecord.topic.code, name: lessonRecord.topic.name, sortOrder: lessonRecord.topic.sortOrder },
   };
 }
 
@@ -350,6 +328,7 @@ async function getPublishedCourseCatalogue(): Promise<PublishedMateriCourse[]> {
     return [{
       code: subject.code,
       lessons: subtest.topics
+        .filter((topic) => isCanonicalTopicForSubject(subject.slug, topic.code))
         .flatMap((topic) => topic.modules.flatMap((module) => {
           const video = toPrimaryVideo(module.assets[0]);
           return video && module.title.trim() ? [{ ...video, code: module.code, sequenceNo: module.sequenceNo, title: module.title }] : [];
@@ -358,24 +337,12 @@ async function getPublishedCourseCatalogue(): Promise<PublishedMateriCourse[]> {
       name: subtest.name,
       slug: subject.slug,
       sortOrder: subtest.sortOrder,
-      topics: subtest.topics
-        .filter((topic) => isCanonicalTopicForSubject(subject.slug, topic.code))
-        .map((topic) => ({
-        code: topic.code,
-        name: topic.name,
-        sortOrder: topic.sortOrder,
-        lessons: topic.modules.flatMap((module) => {
-          const video = toPrimaryVideo(module.assets[0]);
-          return video && module.title.trim() ? [{ ...video, code: module.code, sequenceNo: module.sequenceNo, title: module.title }] : [];
-        }),
-        })),
     }];
   });
 }
 
 async function getPublishedLesson(courseSlug: string, lessonCode: string): Promise<(PublishedMateriLesson & {
   course: Pick<PublishedMateriCourse, "code" | "name" | "slug" | "sortOrder">;
-  topic: Pick<PublishedMateriTopic, "code" | "name" | "sortOrder">;
 }) | undefined> {
   const subject = getSubjectBySlug(courseSlug);
   if (!subject) return undefined;
@@ -397,7 +364,7 @@ async function getPublishedLesson(courseSlug: string, lessonCode: string): Promi
       code: true,
       sequenceNo: true,
       title: true,
-      topic: { select: { code: true, name: true, sortOrder: true, subtest: { select: { code: true, name: true, sortOrder: true } } } },
+      topic: { select: { code: true, subtest: { select: { code: true, name: true, sortOrder: true } } } },
     },
   });
   const video = lessonRecord ? toPrimaryVideo(lessonRecord.assets[0]) : null;
@@ -409,7 +376,6 @@ async function getPublishedLesson(courseSlug: string, lessonCode: string): Promi
     sequenceNo: lessonRecord.sequenceNo,
     title: lessonRecord.title,
     course: { code: subject.code, name: lessonRecord.topic.subtest.name, slug: subject.slug, sortOrder: lessonRecord.topic.subtest.sortOrder },
-    topic: { code: lessonRecord.topic.code, name: lessonRecord.topic.name, sortOrder: lessonRecord.topic.sortOrder },
   };
 }
 
@@ -429,7 +395,7 @@ async function reorderMateriSubject(subjectSlug: string, orderedCodes: string[],
       orderBy: { code: "asc" },
       select: { id: true },
     });
-    if (topics.length !== 3) throw new MateriValidationError("Topic internal Materi tidak lengkap.");
+    if (topics.length !== 3) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
 
     // A deterministic lock order serializes overlapping subject reorders.
     await tx.$queryRawUnsafe("SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", topics.map((topic) => topic.id));
@@ -462,166 +428,60 @@ async function reorderMateriSubject(subjectSlug: string, orderedCodes: string[],
  * every statement, not merely at transaction commit.
  */
 async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
+  const subject = getSubjectBySlug(input.subjectSlug);
   const title = input.title.trim();
   const videoUrl = input.videoUrl.trim();
-  const subject = getSubjectBySlug(input.subjectSlug);
-  const requestedPosition = Number(input.position);
-  const fieldErrors: Partial<Record<MateriValidationField, string>> = {};
-
-  if (!subject) fieldErrors.subjectSlug = "Pilih subject Materi yang tersedia.";
-  if (!input.topicCode.trim()) fieldErrors.topicCode = "Pilih section kanonis untuk lesson ini.";
-  if (!title) fieldErrors.title = "Judul lesson wajib diisi.";
-  if (!Number.isInteger(requestedPosition) || requestedPosition < 1) {
-    fieldErrors.position = "Urutan lesson harus berupa angka minimal 1.";
+  if (!subject || !title || !validateHttpUrl(videoUrl)) {
+    throw new MateriValidationError("Lengkapi subject, judul, dan URL video yang valid.");
   }
-  if (!validateHttpUrl(videoUrl)) {
-    fieldErrors.videoUrl = "Gunakan URL video HTTP atau HTTPS yang valid.";
-  }
-  if (Object.keys(fieldErrors).length > 0) {
-    throw new MateriValidationError("Lengkapi field yang ditandai sebelum menyimpan lesson.", fieldErrors);
-  }
-
   const durationSeconds = parseDurationSeconds(input.duration);
-  if (!subject || !isCanonicalTopicForSubject(subject.slug, input.topicCode)) {
-    throw new MateriValidationError(
-      "Section tidak cocok dengan subject yang dipilih.",
-      { topicCode: "Pilih section kanonis pada subject yang dipilih." },
-    );
-  }
-
-  const targetTopic = await prisma.topic.findFirst({
-    where: {
-      code: input.topicCode,
-      isActive: true,
-      parentTopicId: null,
-      subtest: { code: subject.code, isActive: true },
-    },
-    select: { id: true },
-  });
-  if (!targetTopic) {
-    throw new MateriValidationError("Section tujuan tidak ditemukan.", { topicCode: "Section tidak tersedia. Muat ulang halaman lalu coba lagi." });
-  }
-
   let code = input.code?.trim();
-  if (code && code.length > 80) {
-    throw new MateriValidationError("Kode lesson tidak valid.", { code: "Kode lesson tidak valid." });
-  }
 
   await prisma.$transaction(async (tx) => {
-    const current = code
-      ? await tx.module.findUnique({
-        where: { code },
-        select: { code: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } },
-      })
-      : null;
-
-    if (code && !current) {
-      throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson mungkin telah dihapus atau dipindahkan." });
-    }
-    const currentSubject = current ? getSubjectByCode(current.topic.subtest.code) : undefined;
-    if (current && (!currentSubject || !isCanonicalTopicForSubject(currentSubject.slug, current.topic.code))) {
-      throw new MateriValidationError("Lesson tidak berada dalam katalog Materi kanonis.", { code: "Lesson ini tidak dapat diedit dari workspace Materi." });
-    }
+    const current = code ? await tx.module.findUnique({ where: { code }, select: { id: true, code: true, topicId: true, topic: { select: { code: true, subtest: { select: { code: true } } } } } }) : null;
+    if (code && !current) throw new MateriValidationError("Lesson tidak ditemukan.");
+    const source = current ? getSubjectByCode(current.topic.subtest.code) : undefined;
+    if (current && (!source || !isCanonicalTopicForSubject(source.slug, current.topic.code))) throw new MateriValidationError("Lesson tidak berada dalam katalog Materi kanonis.");
     if (!code) code = createMateriCode(title);
 
-    const sourceTopicId = current?.topicId;
-    const topicIds = [...new Set([targetTopic.id, sourceTopicId].filter((id): id is string => Boolean(id)))].sort();
+    const subjectSlugs = [...new Set([subject.slug, source?.slug].filter(Boolean))] as string[];
+    const topics = await tx.topic.findMany({ where: { code: { in: subjectSlugs.flatMap(getCanonicalTopicCodes) }, parentTopicId: null }, orderBy: [{ subtestId: "asc" }, { code: "asc" }], select: { id: true, code: true, subtest: { select: { code: true } } } });
+    const expectedTopics = subjectSlugs.length * 3;
+    if (topics.length !== expectedTopics) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
+    await tx.$queryRawUnsafe("SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", topics.map((topic) => topic.id));
 
-    // Updating a no-op field obtains row locks in a portable Prisma query and
-    // serializes simultaneous moves involving the same source/target topics.
-    for (const id of topicIds) {
-      await tx.topic.update({ where: { id }, data: { updatedAt: new Date() } });
+    const topicBySubject = new Map<string, typeof topics>();
+    for (const topic of topics) {
+      const group = topicBySubject.get(topic.subtest.code) ?? [];
+      group.push(topic); topicBySubject.set(topic.subtest.code, group);
     }
+    const modules = await tx.module.findMany({ where: { topicId: { in: topics.map((topic) => topic.id) } }, orderBy: [{ sequenceNo: "asc" }, { code: "asc" }], select: { code: true, sequenceNo: true, topicId: true } });
+    const max = Math.max(0, ...modules.map((lesson) => Math.abs(lesson.sequenceNo)));
+    for (const [index, lesson] of modules.entries()) await tx.module.update({ where: { code: lesson.code }, data: { sequenceNo: max + modules.length + index + 1 } });
 
-    const existing = await tx.module.findMany({
-      where: { topicId: { in: topicIds } },
-      orderBy: [{ sequenceNo: "asc" }, { code: "asc" }],
-      select: { code: true, sequenceNo: true, topicId: true },
-    });
-    const existingByTopic = new Map<string, typeof existing>();
-    for (const lessonRecord of existing) {
-      const modules = existingByTopic.get(lessonRecord.topicId) ?? [];
-      modules.push(lessonRecord);
-      existingByTopic.set(lessonRecord.topicId, modules);
-    }
-
-    // The temporary range is above every absolute current value, including
-    // legacy irregular orders, and is unique across both topics.
-    const temporaryBase = Math.max(10_000, ...existing.map((lessonRecord) => Math.abs(lessonRecord.sequenceNo))) + existing.length + 10;
-    for (const [index, lessonRecord] of existing.entries()) {
-      await tx.module.update({ where: { code: lessonRecord.code }, data: { sequenceNo: temporaryBase + index } });
-    }
-
+    const sourceCode = source?.code;
+    const destinationTopics = topicBySubject.get(subject.code)!;
+    const destinationTopicId = current && sourceCode === subject.code ? current.topicId : destinationTopics[0].id;
     if (!current) {
-      await tx.module.create({
-        data: {
-          code,
-          createdByUserId: tutorId,
-          estimatedMinutes: Math.ceil(durationSeconds / 60),
-          sequenceNo: temporaryBase + existing.length,
-          status: ContentStatus.draft,
-          title,
-          topicId: targetTopic.id,
-          updatedByUserId: tutorId,
-        },
-      });
-    } else if (sourceTopicId !== targetTopic.id) {
-      await tx.module.update({ where: { code }, data: { topicId: targetTopic.id } });
+      await tx.module.create({ data: { code, topicId: destinationTopicId, title, sequenceNo: max + (modules.length * 2) + 1, estimatedMinutes: Math.ceil(durationSeconds / 60), status: ContentStatus.draft, createdByUserId: tutorId, updatedByUserId: tutorId } });
+    } else {
+      await tx.module.update({ where: { code }, data: { ...(sourceCode === subject.code ? {} : { topicId: destinationTopicId }), title, estimatedMinutes: Math.ceil(durationSeconds / 60), updatedByUserId: tutorId } });
     }
 
-    const sourceCodes = (sourceTopicId ? existingByTopic.get(sourceTopicId) ?? [] : [])
-      .filter((lessonRecord) => lessonRecord.code !== code)
-      .map((lessonRecord) => lessonRecord.code);
-    const targetCodes = (existingByTopic.get(targetTopic.id) ?? [])
-      .filter((lessonRecord) => lessonRecord.code !== code)
-      .map((lessonRecord) => lessonRecord.code);
-    const insertionIndex = Math.min(Math.max(requestedPosition - 1, 0), targetCodes.length);
-    targetCodes.splice(insertionIndex, 0, code);
+    const orderFor = (subjectCode: string) => modules.filter((lesson) => topicBySubject.get(subjectCode)!.some((topic) => topic.id === lesson.topicId)).map((lesson) => lesson.code).filter((candidate) => candidate !== code);
+    const orders = new Map<string, string[]>();
+    if (sourceCode && sourceCode !== subject.code) orders.set(sourceCode, orderFor(sourceCode));
+    const destinationOrder = current && sourceCode === subject.code ? [...orderFor(subject.code), code] : [...orderFor(subject.code), code];
+    if (current && sourceCode === subject.code) {
+      const original = modules.filter((lesson) => topicBySubject.get(subject.code)!.some((topic) => topic.id === lesson.topicId)).map((lesson) => lesson.code);
+      orders.set(subject.code, original);
+    } else orders.set(subject.code, destinationOrder);
 
-    const finalOrderByTopic = new Map<string, string[]>();
-    if (sourceTopicId && sourceTopicId !== targetTopic.id) finalOrderByTopic.set(sourceTopicId, sourceCodes);
-    finalOrderByTopic.set(targetTopic.id, targetCodes);
-
-    for (const [topicId, orderedCodes] of finalOrderByTopic) {
-      for (const [index, moduleCode] of orderedCodes.entries()) {
-        await tx.module.update({
-          where: { code: moduleCode },
-          data: {
-            ...(moduleCode === code
-              ? {
-                estimatedMinutes: Math.ceil(durationSeconds / 60),
-                title,
-                topicId,
-                updatedByUserId: tutorId,
-              }
-              : {}),
-            sequenceNo: index + 1,
-          },
-        });
-      }
-    }
-
+    for (const orderedCodes of orders.values()) for (const [index, moduleCode] of orderedCodes.entries()) await tx.module.update({ where: { code: moduleCode }, data: { sequenceNo: index + 1, updatedByUserId: tutorId } });
     const saved = await tx.module.findUnique({ where: { code }, select: { id: true } });
     if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
-    await tx.moduleAsset.upsert({
-      where: { moduleId_sortOrder: { moduleId: saved.id, sortOrder: 0 } },
-      create: {
-        assetType: ModuleAssetType.video,
-        durationSeconds,
-        mediaUrl: videoUrl,
-        moduleId: saved.id,
-        sortOrder: 0,
-        title,
-      },
-      update: {
-        assetType: ModuleAssetType.video,
-        durationSeconds,
-        mediaUrl: videoUrl,
-        title,
-      },
-    });
+    await tx.moduleAsset.upsert({ where: { moduleId_sortOrder: { moduleId: saved.id, sortOrder: 0 } }, create: { moduleId: saved.id, sortOrder: 0, assetType: ModuleAssetType.video, title, mediaUrl: videoUrl, durationSeconds }, update: { assetType: ModuleAssetType.video, title, mediaUrl: videoUrl, durationSeconds } });
   });
-
   const saved = await getMentorMateriByCode(code!);
   if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
   return saved;
@@ -634,7 +494,7 @@ async function publishMateriLesson(code: string, tutorId: string) {
     throw new MateriValidationError("Hanya lesson draf yang dapat diterbitkan.");
   }
   if (lesson.readiness !== "ready") {
-    throw new MateriValidationError("Lengkapi penempatan, judul, durasi, dan URL video sebelum menerbitkan.");
+    throw new MateriValidationError("Lengkapi judul, durasi, dan URL video sebelum menerbitkan.");
   }
 
   const updated = await prisma.module.updateMany({
@@ -660,6 +520,101 @@ async function unpublishMateriLesson(code: string, tutorId: string) {
   return getMentorMateriByCode(code);
 }
 
+function validateBulkMateriInput(input: BulkMateriLifecycleInput) {
+  const subject = getSubjectBySlug(input.subjectSlug);
+  if (!subject || !Array.isArray(input.codes) || input.codes.length === 0) {
+    throw new MateriValidationError("Pilih setidaknya satu lesson pada subject yang valid.");
+  }
+  const codes = input.codes.map((code) => typeof code === "string" ? code.trim() : "");
+  if (codes.some((code) => !code) || new Set(codes).size !== codes.length) {
+    throw new MateriValidationError("Pilihan lesson tidak valid. Muat ulang halaman lalu coba lagi.");
+  }
+  return { codes, subject };
+}
+
+async function bulkUpdateMateriLifecycle(
+  input: BulkMateriLifecycleInput,
+  tutorId: string,
+  operation: "publish" | "unpublish",
+) {
+  const { codes, subject } = validateBulkMateriInput(input);
+  const requiredStatus = operation === "publish" ? ContentStatus.draft : ContentStatus.published;
+  const nextStatus = operation === "publish" ? ContentStatus.published : ContentStatus.draft;
+
+  await prisma.$transaction(async (tx) => {
+    const topics = await tx.topic.findMany({
+      where: {
+        code: { in: getCanonicalTopicCodes(subject.slug) },
+        parentTopicId: null,
+        subtest: { code: subject.code },
+      },
+      orderBy: { code: "asc" },
+      select: { id: true },
+    });
+    if (topics.length !== 3) {
+      throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
+    }
+
+    // Use the same canonical-topic lock boundary as saves before validating
+    // readiness or changing lifecycle state.
+    await tx.$queryRawUnsafe("SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", topics.map((topic) => topic.id));
+    const topicIds = topics.map((topic) => topic.id);
+    const records = await tx.module.findMany({
+      where: {
+        code: { in: codes },
+        topicId: { in: topicIds },
+      },
+      select: {
+        assets: {
+          where: { assetType: ModuleAssetType.video, sortOrder: 0 },
+          select: { assetType: true, durationSeconds: true, mediaUrl: true },
+          take: 1,
+        },
+        code: true,
+        status: true,
+        title: true,
+      },
+    });
+    if (records.length !== codes.length) {
+      throw new MateriValidationError("Sebagian lesson tidak lagi berada pada subject ini. Muat ulang halaman lalu coba lagi.");
+    }
+    if (records.some((record) => record.status !== requiredStatus)) {
+      throw new MateriValidationError(operation === "publish"
+        ? "Pilih hanya lesson draf yang siap diterbitkan."
+        : "Pilih hanya lesson yang sudah diterbitkan.");
+    }
+    if (operation === "publish" && records.some((record) => !record.title.trim() || !toPrimaryVideo(record.assets[0]))) {
+      throw new MateriValidationError("Pilih hanya lesson draf yang siap diterbitkan.");
+    }
+
+    const updated = await tx.module.updateMany({
+      where: {
+        code: { in: codes },
+        status: requiredStatus,
+        topicId: { in: topicIds },
+      },
+      data: {
+        ...(operation === "publish" ? { publishedAt: new Date() } : {}),
+        status: nextStatus,
+        updatedByUserId: tutorId,
+      },
+    });
+    if (updated.count !== codes.length) {
+      throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+    }
+  });
+
+  return { codes, status: nextStatus };
+}
+
+async function bulkPublishMateriLessons(input: BulkMateriLifecycleInput, tutorId: string) {
+  return bulkUpdateMateriLifecycle(input, tutorId, "publish");
+}
+
+async function bulkUnpublishMateriLessons(input: BulkMateriLifecycleInput, tutorId: string) {
+  return bulkUpdateMateriLifecycle(input, tutorId, "unpublish");
+}
+
 /**
  * Scheduled and archived lessons stay out of the student catalogue. Returning
  * one to draft deliberately changes only lifecycle/audit fields, preserving
@@ -681,6 +636,8 @@ async function returnMateriLessonToDraft(code: string, tutorId: string) {
 }
 
 export {
+  bulkPublishMateriLessons,
+  bulkUnpublishMateriLessons,
   getMentorMateriByCode,
   getMentorMateriCatalogue,
   getPublishedCourseCatalogue,
@@ -693,16 +650,15 @@ export {
   unpublishMateriLesson,
 };
 export type {
+  BulkMateriLifecycleInput,
   MateriCourseSlug,
   MateriLifecycleStatus,
   MateriPrimaryVideo,
   MateriSubjectCode,
   MentorMateriLesson,
   MentorMateriSubject,
-  MentorMateriTopic,
   PublishedMateriCourse,
   PublishedMateriLesson,
-  PublishedMateriTopic,
   SaveMateriLessonInput,
 };
 export { MateriValidationError };

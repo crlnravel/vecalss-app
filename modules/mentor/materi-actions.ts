@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
+  bulkPublishMateriLessons,
+  bulkUnpublishMateriLessons,
   MateriValidationError,
   publishMateriLesson,
-  reorderMateriSubject,
   returnMateriLessonToDraft,
   saveMateriLesson,
   unpublishMateriLesson,
@@ -15,21 +16,27 @@ import {
 import { toKaptenMateriEditorView } from "@/modules/mentor/materi-view-model";
 
 type MateriActionResult =
-  | { fieldErrors?: Partial<Record<"duration" | "position" | "subjectSlug" | "title" | "topicCode" | "videoUrl", string>>; message: string; ok: false }
+  | { fieldErrors?: Partial<Record<"duration" | "subjectSlug" | "title" | "videoUrl", string>>; message: string; ok: false }
   | { lesson: NonNullable<ReturnType<typeof toKaptenMateriEditorView>>; message: string; ok: true };
 
-function revalidateMateriPaths(subjectSlug: string, code: string) {
+type MateriBulkActionResult =
+  | { message: string; ok: false }
+  | { affectedCodes: string[]; message: string; ok: true; status: "draft" | "published" };
+
+function revalidateMateriPaths(subjectSlug: string, codes?: string | string[]) {
   revalidatePath("/mentor/dashboard");
   revalidatePath("/mentor/materi");
   revalidatePath("/mentor/materi/subject/[subjectSlug]", "page");
   revalidatePath(`/mentor/materi/subject/${subjectSlug}`);
   revalidatePath("/mentor/materi/[materiId]", "page");
-  revalidatePath(`/mentor/materi/${code}`);
   revalidatePath("/courses");
   revalidatePath("/courses/[slug]", "page");
   revalidatePath("/courses/[slug]/[lessonId]", "page");
   revalidatePath(`/courses/${subjectSlug}`);
-  revalidatePath(`/courses/${subjectSlug}/${code}`);
+  for (const code of (codes ? (Array.isArray(codes) ? codes : [codes]) : [])) {
+    revalidatePath(`/mentor/materi/${code}`);
+    revalidatePath(`/courses/${subjectSlug}/${code}`);
+  }
 }
 
 function failedResult(error: unknown): Extract<MateriActionResult, { ok: false }> {
@@ -39,6 +46,12 @@ function failedResult(error: unknown): Extract<MateriActionResult, { ok: false }
 
   console.error("Materi mutation failed", error);
   return { message: "Lesson tidak dapat disimpan saat ini. Coba lagi.", ok: false };
+}
+
+function failedBulkResult(error: unknown): Extract<MateriBulkActionResult, { ok: false }> {
+  if (error instanceof MateriValidationError) return { message: error.message, ok: false };
+  console.error("Materi bulk lifecycle mutation failed", error);
+  return { message: "Status lesson tidak dapat diubah saat ini. Coba lagi.", ok: false };
 }
 
 async function saveMateriLessonAction(input: SaveMateriLessonInput): Promise<MateriActionResult> {
@@ -90,26 +103,38 @@ async function returnMateriLessonToDraftAction(code: string): Promise<MateriActi
     const view = toKaptenMateriEditorView(lesson);
     if (!view) throw new Error("Status lesson tidak dapat dimuat ulang.");
     revalidateMateriPaths(view.subjectSlug, view.code);
-    return { lesson: view, message: "Lesson dikembalikan ke draf. Konten dan urutannya tetap sama.", ok: true };
+    return { lesson: view, message: "Lesson dikembalikan ke draf.", ok: true };
   } catch (error) {
     return failedResult(error);
   }
 }
 
-async function reorderMateriSubjectAction(subjectSlug: string, orderedCodes: string[]) {
+async function bulkPublishMateriLessonsAction(subjectSlug: string, codes: string[]): Promise<MateriBulkActionResult> {
   const session = await requireTutorSession();
   try {
-    const order = await reorderMateriSubject(subjectSlug, orderedCodes, session.user.id);
-    revalidateMateriPaths(subjectSlug, "");
-    return { message: "Urutan Materi telah disimpan.", ok: true as const, order };
+    const result = await bulkPublishMateriLessons({ codes, subjectSlug }, session.user.id);
+    revalidateMateriPaths(subjectSlug, result.codes);
+    return { affectedCodes: result.codes, message: `${result.codes.length} lesson telah diterbitkan.`, ok: true, status: "published" };
   } catch (error) {
-    return failedResult(error);
+    return failedBulkResult(error);
+  }
+}
+
+async function bulkUnpublishMateriLessonsAction(subjectSlug: string, codes: string[]): Promise<MateriBulkActionResult> {
+  const session = await requireTutorSession();
+  try {
+    const result = await bulkUnpublishMateriLessons({ codes, subjectSlug }, session.user.id);
+    revalidateMateriPaths(subjectSlug, result.codes);
+    return { affectedCodes: result.codes, message: `${result.codes.length} lesson kembali menjadi draf.`, ok: true, status: "draft" };
+  } catch (error) {
+    return failedBulkResult(error);
   }
 }
 
 export {
+  bulkPublishMateriLessonsAction,
+  bulkUnpublishMateriLessonsAction,
   publishMateriLessonAction,
-  reorderMateriSubjectAction,
   returnMateriLessonToDraftAction,
   saveMateriLessonAction,
   unpublishMateriLessonAction,
