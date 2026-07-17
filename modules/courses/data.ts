@@ -565,9 +565,11 @@ function getCourseProgressState(
   const skippedLesson = progress.skippedToLessonId
     ? lessonsById.get(progress.skippedToLessonId)
     : undefined;
-  const nextLesson = skippedLesson && !completedLessonIds.has(skippedLesson.id)
-    ? skippedLesson
-    : lessons.find((lesson) => !completedLessonIds.has(lesson.id));
+  const minimumPosition = skippedLesson?.position ?? 0;
+  const nextLesson = lessons.find(
+    (lesson) =>
+      lesson.position >= minimumPosition && !completedLessonIds.has(lesson.id),
+  );
   const completedCount = completedLessonIds.size;
 
   return {

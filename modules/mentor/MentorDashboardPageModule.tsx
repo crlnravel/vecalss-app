@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,22 +13,26 @@ import {
   SectionHeading,
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { getStoredMateriDrafts } from "@/modules/mentor/materi-draft-storage";
+import { getStoredQuizDrafts } from "@/modules/mentor/quiz-draft-storage";
 import {
-  getMateriWithStoredDrafts,
-  getStoredMateriDrafts,
-} from "@/modules/mentor/materi-draft-storage";
-import {
-  getQuizWithStoredDrafts,
-  getStoredQuizDrafts,
-} from "@/modules/mentor/quiz-draft-storage";
-import {
-  allResources,
   recentlyEdited,
   scheduledPublications,
-  materi,
-  quizzes,
-  type KaptenResource,
 } from "@/modules/mentor/mock-data";
+
+const materiChangeEvent = "vecalss-materi-drafts-change";
+
+type RecentlyEditedResource = {
+  resource: (typeof recentlyEdited)[number];
+  savedAt: number;
+};
+
+function compareRecentlyEdited(
+  a: RecentlyEditedResource,
+  b: RecentlyEditedResource,
+) {
+  return b.savedAt - a.savedAt || a.resource.id.localeCompare(b.resource.id);
+}
 
 function getFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] ?? "Kapten";
@@ -37,16 +40,21 @@ function getFirstName(fullName: string) {
 
 function MentorDashboardPageModule({ session }: { session: SessionContext }) {
   const firstName = getFirstName(session.user.fullName);
-  const [storedMateri, setStoredMateri] = useState(materi);
-  const [storedQuizzes, setStoredQuizzes] = useState(quizzes);
-  const [savedRecentlyEdited, setSavedRecentlyEdited] = useState<
-    Array<{ resource: KaptenResource; savedAt: number }>
-  >([]);
+  const [savedRecentlyEdited, setSavedRecentlyEdited] = useState(() =>
+    [
+      ...getStoredMateriDrafts().map((draft) => ({
+        resource: draft.materi,
+        savedAt: draft.savedAt,
+      })),
+      ...getStoredQuizDrafts().map((draft) => ({
+        resource: draft.quiz,
+        savedAt: draft.savedAt,
+      })),
+    ].sort(compareRecentlyEdited),
+  );
 
   useEffect(() => {
     const syncStoredDrafts = () => {
-      setStoredMateri(getMateriWithStoredDrafts(materi));
-      setStoredQuizzes(getQuizWithStoredDrafts(quizzes));
       setSavedRecentlyEdited(
         [
           ...getStoredMateriDrafts().map((draft) => ({
@@ -57,31 +65,24 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
             resource: draft.quiz,
             savedAt: draft.savedAt,
           })),
-        ].sort((a, b) => b.savedAt - a.savedAt),
+        ].sort(compareRecentlyEdited),
       );
     };
 
     syncStoredDrafts();
     window.addEventListener("storage", syncStoredDrafts);
-    return () => window.removeEventListener("storage", syncStoredDrafts);
+    window.addEventListener(materiChangeEvent, syncStoredDrafts);
+    return () => {
+      window.removeEventListener("storage", syncStoredDrafts);
+      window.removeEventListener(materiChangeEvent, syncStoredDrafts);
+    };
   }, []);
 
-  const updatedResources = [
-    ...storedMateri,
-    ...storedQuizzes,
-    ...allResources.filter(
-      (resource) => resource.resourceType !== "materi" && resource.resourceType !== "quiz",
-    ),
-  ];
   const savedResourceIds = new Set(savedRecentlyEdited.map(({ resource }) => resource.id));
   const updatedRecentlyEdited = [
     ...savedRecentlyEdited.map(({ resource }) => resource),
     ...recentlyEdited.filter((resource) => !savedResourceIds.has(resource.id)),
   ];
-  const continueEditing = updatedRecentlyEdited[0];
-  const draftQueue = updatedResources
-    .filter((resource) => resource.status === "draft")
-    .slice(0, 4);
 
   return (
     <MentorWorkspaceShell
@@ -93,67 +94,54 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
     >
       <PageIntro
         title={`Selamat bekerja, ${firstName}.`}
-        action={
-          <Button render={<Link href="/mentor/materi/create" />} variant="brand">
-            Buat Konten
-            <ArrowRight />
-          </Button>
-        }
       />
 
       <section className="grid gap-10 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
         <div className="space-y-4">
-          <SectionHeading title="Continue Editing" />
-          <div className="max-w-4xl">
-            <ResourceRow emphasis resource={continueEditing} />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <SectionHeading title="Quick Create" />
-          <QuickCreateGrid />
-        </div>
-      </section>
-
-      <section className="grid gap-10 xl:grid-cols-2">
-        <div className="space-y-4">
-          <SectionHeading
-            title="Draft"
-          />
-          <div className="space-y-2">
-            {draftQueue.map((resource) => (
-              <ResourceRow key={resource.id} resource={resource} />
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-4">
           <SectionHeading
             action={
               <Button
-                render={<Link href="/mentor/tryout" />}
+                render={<Link href="/mentor/materi" />}
                 size="sm"
                 variant="brandOutline"
               >
-                Review Jadwal
+                Lihat Semua Konten
               </Button>
             }
-            title="Scheduled"
+            title="Lanjutkan Penyuntingan"
           />
           <div className="space-y-2">
-            {scheduledPublications.map((resource) => (
-              <ResourceRow key={resource.id} resource={resource} />
+            {updatedRecentlyEdited.slice(0, 3).map((resource, index) => (
+              <ResourceRow
+                emphasis={index === 0}
+                key={resource.id}
+                resource={resource}
+              />
             ))}
           </div>
+        </div>
+
+        <div className="space-y-4">
+          <SectionHeading title="Buat Cepat" />
+          <QuickCreateGrid />
         </div>
       </section>
 
       <section className="space-y-4">
         <SectionHeading
-          title="Recently Edited"
+          action={
+            <Button
+              render={<Link href="/mentor/tryout" />}
+              size="sm"
+              variant="brandOutline"
+            >
+              Review Jadwal
+            </Button>
+          }
+          title="Terjadwal"
         />
         <div className="space-y-2">
-          {updatedRecentlyEdited.slice(0, 3).map((resource) => (
+          {scheduledPublications.map((resource) => (
             <ResourceRow key={resource.id} resource={resource} />
           ))}
         </div>

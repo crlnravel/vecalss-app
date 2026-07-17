@@ -25,7 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BrandMark } from "@/modules/home/components/home-primitives";
+import { BrandLockup } from "@/modules/home/components/home-primitives";
 
 type KaptenNavigationItem = {
   href: string;
@@ -40,7 +40,7 @@ const kaptenMainNavigation: KaptenNavigationItem[] = [
   {
     href: "/mentor/quiz/question-bank",
     icon: LibraryBig,
-    label: "Question Bank",
+    label: "Bank Soal",
   },
   { href: "/mentor/tryout", icon: Gauge, label: "Tryout" },
 ];
@@ -108,12 +108,12 @@ function MentorSidebar({
       collapsible="icon"
       className="border-primary-100 bg-white/95 backdrop-blur"
     >
-      <SidebarHeader className="gap-4 p-4">
+      <SidebarHeader className="gap-4 p-4 group-data-[collapsible=icon]:px-2">
         <Link
           href="/mentor/dashboard"
-          className="flex origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:scale-50"
+          className="flex w-full origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50"
         >
-          <BrandMark />
+          <BrandLockup />
         </Link>
       </SidebarHeader>
 
@@ -126,7 +126,7 @@ function MentorSidebar({
         <NavigationGroup
           activeLabel={activeLabel}
           items={kaptenUtilityNavigation}
-          label="Workspace"
+          label="Ruang Kerja"
         />
       </SidebarContent>
 

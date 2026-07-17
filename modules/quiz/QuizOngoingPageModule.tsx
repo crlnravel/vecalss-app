@@ -127,17 +127,17 @@ function QuizOngoingPageModule({
     <div className="min-h-svh bg-white text-secondary-900">
       <Dialog onOpenChange={setIsExitDialogOpen} open={isExitDialogOpen}>
         <DialogContent
-          className="max-w-[calc(100%-1.5rem)] gap-0 overflow-hidden rounded-5xl bg-white p-0 shadow-[0_32px_90px_-40px_rgba(15,23,42,0.32)] sm:max-w-[760px]"
+          className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-4xl bg-white p-0 shadow-[0_32px_90px_-40px_rgba(15,23,42,0.32)] sm:max-w-[620px]"
           showCloseButton={false}
         >
-          <div className="flex items-start gap-4 px-6 py-7 md:px-8 md:py-8">
-            <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444] md:size-22">
-              <AlertTriangle className="size-9 md:size-10" strokeWidth={2.2} />
+          <div className="flex items-start gap-3 px-5 py-5 md:px-6 md:py-6">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444] md:size-16">
+              <AlertTriangle className="size-7 md:size-8" strokeWidth={2.2} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-4">
-                <DialogTitle className="text-2xl leading-tight font-semibold text-secondary-900 md:text-4xl">
+                <DialogTitle className="text-xl leading-tight font-semibold text-secondary-900 md:text-3xl">
                   Keluar dari Latihan?
                 </DialogTitle>
                 <button
@@ -150,23 +150,23 @@ function QuizOngoingPageModule({
                 </button>
               </div>
 
-              <DialogDescription className="mt-3 max-w-[22ch] text-lg leading-[1.55] font-medium text-secondary-500 md:text-2xl">
+              <DialogDescription className="mt-2 max-w-[30ch] text-base leading-[1.5] font-medium text-secondary-500 md:text-xl">
                 Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
                 Sayang banget kan!🥲
               </DialogDescription>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-primary-100 bg-[#fbfbfb] px-6 py-6 md:px-8 md:py-7">
+          <div className="flex items-center justify-end gap-2 border-t border-primary-100 bg-[#fbfbfb] px-5 py-4 md:px-6 md:py-5">
             <button
-              className="inline-flex h-12 min-w-[128px] items-center justify-center rounded-full px-6 text-lg font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700 md:h-14 md:min-w-[150px] md:text-xl"
+              className="inline-flex h-10 min-w-[100px] items-center justify-center rounded-full px-5 text-base font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700 md:h-11 md:min-w-[120px] md:text-lg"
               onClick={() => setIsExitDialogOpen(false)}
               type="button"
             >
               Batal
             </button>
             <button
-              className="inline-flex h-12 min-w-[176px] items-center justify-center rounded-full bg-[#ff0008] px-7 text-lg font-semibold text-white transition-colors hover:bg-[#e10007] md:h-14 md:min-w-[206px] md:text-xl"
+              className="inline-flex h-10 min-w-[140px] items-center justify-center rounded-full bg-[#ff0008] px-6 text-base font-semibold text-white transition-colors hover:bg-[#e10007] md:h-11 md:min-w-[160px] md:text-lg"
               onClick={() => router.push(`/quiz/${subjectSlug}`)}
               type="button"
             >
@@ -237,7 +237,7 @@ function QuizOngoingPageModule({
           <div className="flex-1 px-4 py-6 md:px-8 lg:px-10">
             <div className="mx-auto flex w-full max-w-[1550px] flex-col gap-5">
               <div className={cn("flex flex-wrap items-center gap-3 font-medium", uiTextClass)}>
-                <span className="font-semibold tracking-[0.08em] text-[#7fd0f6] uppercase">
+                <span className="font-semibold tracking-[0.08em] text-primary-700 uppercase">
                   Soal {currentQuestion}
                 </span>
                 <span className="text-secondary-300">•</span>
@@ -319,7 +319,7 @@ function QuizOngoingPageModule({
                 Soal Sebelumnya
               </Button>
               <Button
-                className="border-[#f6d86c] bg-[#fde68a] text-secondary-900 hover:bg-[#f9df77] focus-visible:border-[#f6d86c] focus-visible:ring-[#f6d86c]/35"
+                className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35"
                 disabled={currentQuestion === quiz.questionCount}
                 onClick={() => goToQuestion(currentQuestion + 1)}
                 size="lg"
@@ -350,15 +350,15 @@ function QuestionMarker({
       className={cn(
         "flex h-12 items-center justify-center rounded-2xl border text-sm font-semibold transition-all duration-200",
         marker.state === "active" &&
-          "border-[#9fdef9] bg-[#ecf8ff] text-[#3f95bf] shadow-[0_12px_28px_-18px_rgba(127,208,246,0.55)]",
+          "border-primary-300 bg-primary-50 text-primary-800 shadow-[0_12px_28px_-18px_rgba(1,76,56,0.35)]",
         marker.state === "answered" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "border-primary-200 bg-primary-50 text-primary-800",
         marker.state === "flagged" &&
           "border-[#f4dea2] bg-[#fff6d5] text-[#8a6a00]",
         marker.state === "locked" &&
           "border-primary-100 bg-secondary-50 text-secondary-400",
         marker.state === "empty" &&
-          "border-primary-100 bg-white text-secondary-500 hover:border-primary-200 hover:bg-primary-50/30",
+          "border-primary-100 bg-white text-secondary-500 hover:border-primary-300 hover:bg-primary-50/60",
       )}
       disabled={marker.state === "locked"}
       onClick={onClick}
@@ -408,8 +408,8 @@ function UtilityPill({
       className={cn(
         "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
         active
-          ? "bg-[#f3fbff] text-[#3f95bf]"
-          : "bg-secondary-50 text-secondary-600 hover:bg-secondary-100",
+          ? "bg-primary-50 text-primary-800"
+          : "bg-secondary-50 text-secondary-600 hover:bg-primary-50 hover:text-primary-800",
       )}
       onClick={onClick}
       type="button"
@@ -432,8 +432,8 @@ function AnswerOption({
   return (
     <button
       className={cn(
-        "group flex w-full items-start gap-4 rounded-4xl border bg-white px-5 py-5 text-left shadow-none transition-all duration-200 hover:border-[#c9ebfa] hover:bg-[#f8fcff] focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-6",
-        selected ? "border-[#8fd9fb] bg-[#f3fbff]" : "border-primary-100",
+        "group flex w-full items-start gap-4 rounded-4xl border bg-white px-5 py-5 text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-6",
+        selected ? "border-primary-300 bg-primary-50" : "border-primary-100",
       )}
       onClick={onClick}
       type="button"
@@ -442,8 +442,8 @@ function AnswerOption({
         className={cn(
           "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
           selected
-            ? "border-[#78cff5] bg-[#8dd8fb] text-white"
-            : "border-secondary-200 bg-secondary-50 text-secondary-500 group-hover:border-[#c9ebfa] group-hover:bg-white",
+            ? "border-primary-700 bg-primary-700 text-white"
+            : "border-secondary-200 bg-secondary-50 text-secondary-500 group-hover:border-primary-300 group-hover:bg-white",
         )}
       >
         {option.key}

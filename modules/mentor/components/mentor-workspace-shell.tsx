@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, BookOpenText, Search } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { AlertTriangle, LogOut, Search } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,158 +24,125 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
-  Popover,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
-import { MentorSidebar, getInitials } from "@/modules/mentor/components/mentor-sidebar";
+import { logoutAction } from "@/modules/auth/actions";
 import {
-  kaptenNotificationItems,
-  type KaptenNotificationItem,
-} from "@/modules/mentor/mock-data";
+  MentorSidebar,
+  getInitials,
+} from "@/modules/mentor/components/mentor-sidebar";
 
-function KaptenNotificationPopover({
-  items = [],
-}: {
-  items?: KaptenNotificationItem[];
-}) {
-  const unreadCount = items.filter((item) => item.unread).length;
-
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            aria-label="Notifikasi workspace"
-            className="relative"
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          />
-        }
-      >
-        <Bell />
-        {unreadCount > 0 ? (
-          <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-[#F5C518] px-1 py-0.5 text-xs leading-none font-semibold text-secondary-900">
-            {unreadCount}
-          </span>
-        ) : null}
-      </PopoverTrigger>
-
-      <PopoverContent
-        align="end"
-        className="w-[360px] gap-0 p-0"
-        sideOffset={8}
-      >
-        <PopoverHeader className="gap-1 border-b border-primary-100 px-4 py-4">
-          <PopoverTitle>Notifikasi CMS</PopoverTitle>
-        </PopoverHeader>
-
-        <div className="flex flex-col">
-          {items.map((item, index) => (
-            <div key={item.title}>
-              <Link
-                href={item.href}
-                className="flex gap-3 px-4 py-4 transition-colors hover:bg-primary-50/80"
-              >
-                <div
-                  className={cn(
-                    "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
-                    item.unread
-                      ? "border-primary-200 bg-primary-100 text-primary-800"
-                      : "border-primary-100 bg-white text-secondary-500",
-                  )}
-                >
-                  <item.icon />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-secondary-900">
-                      {item.title}
-                    </p>
-                    {item.unread ? (
-                      <span className="size-2 shrink-0 rounded-full bg-[#F5C518]" />
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-secondary-600">
-                    {item.detail}
-                  </p>
-                  <span className="mt-3 block text-xs text-secondary-500">
-                    {item.time}
-                  </span>
-                </div>
-              </Link>
-              {index < items.length - 1 ? (
-                <Separator className="bg-primary-100/80" />
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
+type PendingNavigation = {
+  continueNavigation: () => void;
+};
 
 function KaptenAccountMenu({ session }: { session: SessionContext }) {
   const initials = getInitials(session.user.fullName);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="Buka menu Kapten"
-            className="rounded-full p-1"
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          />
-        }
-      >
-        <Avatar className="size-9 border border-primary-100">
-          <AvatarFallback className="bg-primary-700 text-xs font-semibold text-white">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              aria-label="Buka menu Kapten"
+              className="rounded-full p-1"
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            />
+          }
+        >
+          <Avatar className="size-9 border border-primary-100">
+            <AvatarFallback className="bg-primary-700 text-xs font-semibold text-white">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>
-          <span className="block text-sm font-semibold text-secondary-900">
-            {session.user.fullName}
-          </span>
-          <span className="block truncate text-xs">{session.user.email}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem render={<Link href="/mentor/dashboard" />}>
-            Dashboard
-          </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/mentor/materi" />}>
-            Materi
-          </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/mentor/quiz" />}>
-            Quiz
-          </DropdownMenuItem>
-          <DropdownMenuItem render={<Link href="/mentor/settings" />}>
-            Pengaturan
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>
+            <span className="block text-sm font-semibold text-secondary-900">
+              {session.user.fullName}
+            </span>
+            <span className="block truncate text-xs">{session.user.email}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem render={<Link href="/mentor/dashboard" />}>
+              Dashboard
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/mentor/materi" />}>
+              Materi
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/mentor/quiz" />}>
+              Quiz
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/mentor/settings" />}>
+              Pengaturan
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsLogoutDialogOpen(true)}>
+              Keluar
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
+        <DialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-4xl bg-white p-0 sm:max-w-[440px]">
+          <div className="flex items-start gap-3 px-5 py-5 md:px-6 md:py-6">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+              <AlertTriangle className="size-6" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle className="text-xl font-semibold text-secondary-900">
+                Keluar dari akun?
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
+                Kamu perlu masuk kembali untuk melanjutkan mengelola konten di
+                dashboard.
+              </DialogDescription>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-row justify-end border-t border-primary-100 bg-secondary-50/60 px-5 py-4 md:px-6">
+            <DialogClose
+              render={
+                <Button type="button" variant="ghost">
+                  Batal
+                </Button>
+              }
+            />
+            <form action={logoutAction}>
+              <input name="audience" type="hidden" value="tutor" />
+              <Button
+                className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25"
+                type="submit"
+                variant="destructive"
+              >
+                Ya, keluar
+              </Button>
+            </form>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -184,7 +151,6 @@ function MentorWorkspaceShell({
   breadcrumbLabel,
   children,
   mainClassName,
-  notificationItems = kaptenNotificationItems,
   onNavigateAway,
   searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
   session,
@@ -194,7 +160,6 @@ function MentorWorkspaceShell({
   breadcrumbLabel: string;
   children: ReactNode;
   mainClassName?: string;
-  notificationItems?: KaptenNotificationItem[];
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
   session: SessionContext;
@@ -203,11 +168,39 @@ function MentorWorkspaceShell({
   const router = useRouter();
   const onNavigateAwayRef = useRef(onNavigateAway);
   const hasHistoryGuardRef = useRef(false);
-  const pendingNavigationRef = useRef<string | null>(null);
+  const pendingRouteContinuationRef = useRef<(() => void) | null>(null);
+  const restoreSyntheticEntryRef = useRef(false);
+  const allowHistoryTraversalRef = useRef(false);
+  const [pendingNavigation, setPendingNavigation] =
+    useState<PendingNavigation | null>(null);
 
   useEffect(() => {
     onNavigateAwayRef.current = onNavigateAway;
   }, [onNavigateAway]);
+
+  function requestConfirmation(continueNavigation: () => void) {
+    setPendingNavigation((current) => current ?? { continueNavigation });
+  }
+
+  function dismissConfirmation() {
+    setPendingNavigation(null);
+  }
+
+  function confirmPendingNavigation() {
+    const request = pendingNavigation;
+    dismissConfirmation();
+    request?.continueNavigation();
+  }
+
+  function consumeSyntheticEntry(continueNavigation: () => void) {
+    if (!hasHistoryGuardRef.current) {
+      continueNavigation();
+      return;
+    }
+
+    pendingRouteContinuationRef.current = continueNavigation;
+    window.history.back();
+  }
 
   useEffect(() => {
     function handleWorkspaceNavigation(event: MouseEvent) {
@@ -225,9 +218,11 @@ function MentorWorkspaceShell({
       const link = (event.target as Element | null)?.closest<HTMLAnchorElement>(
         "a[href]",
       );
-      const guard = onNavigateAwayRef.current;
-
-      if (!link || !guard || link.getAttribute("target") === "_blank") {
+      if (
+        !link ||
+        link.getAttribute("target") === "_blank" ||
+        link.hasAttribute("download")
+      ) {
         return;
       }
 
@@ -242,25 +237,31 @@ function MentorWorkspaceShell({
         return;
       }
 
-      if (!guard()) {
+      const navigate = () => {
+        router.push(
+          destination.pathname + destination.search + destination.hash,
+        );
+      };
+      const canLeave = onNavigateAwayRef.current?.() ?? true;
+
+      if (!canLeave) {
         event.preventDefault();
         event.stopPropagation();
+        requestConfirmation(() => consumeSyntheticEntry(navigate));
         return;
       }
 
       if (hasHistoryGuardRef.current) {
         event.preventDefault();
         event.stopPropagation();
-        hasHistoryGuardRef.current = false;
-        pendingNavigationRef.current =
-          destination.pathname + destination.search + destination.hash;
-        window.history.back();
+        consumeSyntheticEntry(navigate);
       }
     }
 
     document.addEventListener("click", handleWorkspaceNavigation, true);
-    return () => document.removeEventListener("click", handleWorkspaceNavigation, true);
-  }, []);
+    return () =>
+      document.removeEventListener("click", handleWorkspaceNavigation, true);
+  }, [router]);
 
   useEffect(() => {
     if (!shouldGuardNavigation) {
@@ -278,25 +279,29 @@ function MentorWorkspaceShell({
     window.history.pushState(window.history.state, "", window.location.href);
     hasHistoryGuardRef.current = true;
 
-    let restoreCurrentEntry = false;
-    let allowRequestedNavigation = false;
-
     function handleHistoryTraversal() {
-      const pendingNavigation = pendingNavigationRef.current;
-
-      if (pendingNavigation) {
-        pendingNavigationRef.current = null;
-        router.push(pendingNavigation);
+      const pendingRouteContinuation = pendingRouteContinuationRef.current;
+      if (pendingRouteContinuation) {
+        pendingRouteContinuationRef.current = null;
+        hasHistoryGuardRef.current = false;
+        pendingRouteContinuation();
         return;
       }
 
-      if (restoreCurrentEntry) {
-        restoreCurrentEntry = false;
+      if (restoreSyntheticEntryRef.current) {
+        restoreSyntheticEntryRef.current = false;
+        requestConfirmation(() => {
+          hasHistoryGuardRef.current = false;
+          allowHistoryTraversalRef.current = true;
+          // We are back on the synthetic entry. Skip both duplicate entries
+          // to complete the originally requested browser Back in one action.
+          window.history.go(-2);
+        });
         return;
       }
 
-      if (allowRequestedNavigation) {
-        allowRequestedNavigation = false;
+      if (allowHistoryTraversalRef.current) {
+        allowHistoryTraversalRef.current = false;
         return;
       }
 
@@ -304,12 +309,14 @@ function MentorWorkspaceShell({
 
       if (canLeave) {
         hasHistoryGuardRef.current = false;
-        allowRequestedNavigation = true;
+        allowHistoryTraversalRef.current = true;
         window.history.back();
         return;
       }
 
-      restoreCurrentEntry = true;
+      // Return to the same-URL synthetic entry before opening the dialog.
+      // Cancelling then leaves both the route and its history position intact.
+      restoreSyntheticEntryRef.current = true;
       window.history.forward();
     }
 
@@ -318,73 +325,107 @@ function MentorWorkspaceShell({
   }, [router, shouldGuardNavigation]);
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
-        <MentorSidebar
-          activeLabel={activeLabel}
-          footerLabel="Kapten CMS"
-          fullName={session.user.fullName}
-        />
+    <>
+      <SidebarProvider>
+        <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
+          <MentorSidebar
+            activeLabel={activeLabel}
+            footerLabel="CMS Kapten"
+            fullName={session.user.fullName}
+          />
 
-        <SidebarInset className="bg-transparent">
-          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
-            <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-              <SidebarTrigger className="shrink-0" />
+          <SidebarInset className="bg-transparent">
+            <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+              <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
+                <SidebarTrigger className="shrink-0" />
 
-              <div className="hidden min-w-0 flex-1 md:block">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink
-                        href="/mentor/dashboard"
-                        className="text-secondary-500"
-                      >
-                        Vecalss CMS
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
+                <div className="hidden min-w-0 flex-1 md:block">
+                  <Breadcrumb>
+                    <BreadcrumbList>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink
+                          href="/mentor/dashboard"
+                          className="text-secondary-500"
+                        >
+                          Vecalss CMS
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </BreadcrumbList>
+                  </Breadcrumb>
+                </div>
+
+                <div className="relative ml-auto hidden w-full max-w-sm md:block">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
+                  <Input
+                    aria-label={searchPlaceholder}
+                    className="h-10 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
+                    placeholder={searchPlaceholder}
+                  />
+                </div>
+
+                <KaptenAccountMenu session={session} />
               </div>
+            </header>
 
-              <div className="relative ml-auto hidden w-full max-w-sm md:block">
-                <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
-                <Input
-                  aria-label={searchPlaceholder}
-                  className="h-10 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
-                  placeholder={searchPlaceholder}
-                />
-              </div>
-
-              <Button
-                render={<Link href="/mentor/materi/create" />}
-                size="sm"
-                variant="brand"
+            <ScrollArea className="h-[calc(100svh-4rem)]">
+              <main
+                className={cn(
+                  "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
+                  mainClassName,
+                )}
               >
-                <BookOpenText />
-                Buat Konten
-              </Button>
-              <KaptenNotificationPopover items={notificationItems} />
-              <KaptenAccountMenu session={session} />
-            </div>
-          </header>
+                {children}
+              </main>
+            </ScrollArea>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
 
-          <ScrollArea className="h-[calc(100svh-4rem)]">
-            <main
-              className={cn(
-                "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
-                mainClassName,
-              )}
+      <Dialog
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            dismissConfirmation();
+          }
+        }}
+        open={Boolean(pendingNavigation)}
+      >
+        <DialogContent
+          className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"
+          showCloseButton={false}
+        >
+          <div>
+            <DialogTitle className="font-semibold text-secondary-900">
+              Keluar dari editor?
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
+              Perubahan yang belum disimpan akan hilang jika Anda meninggalkan
+              halaman ini.
+            </DialogDescription>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={dismissConfirmation}
+              type="button"
+              variant="brandOutline"
             >
-              {children}
-            </main>
-          </ScrollArea>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+              Batal
+            </Button>
+            <Button
+              className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25"
+              onClick={confirmPendingNavigation}
+              type="button"
+              variant="destructive"
+            >
+              Keluar tanpa menyimpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

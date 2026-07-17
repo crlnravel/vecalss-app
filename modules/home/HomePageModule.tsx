@@ -378,6 +378,7 @@ function TopAlumniSection() {
             <ActionButtonLink
               className="rounded-full !bg-[#014C38] px-7 py-4 text-base font-semibold !text-white hover:!bg-[#014C38]/90"
               href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
+              target="_blank"
               variant="brand"
             >
               Lihat Top 90 dan Alumni Lainnya...

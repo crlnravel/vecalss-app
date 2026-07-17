@@ -7,12 +7,14 @@ function CourseWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
   children,
+  mainClassName,
   searchPlaceholder = "Cari materi, video, atau topik...",
   session,
 }: {
   activeLabel: string;
   breadcrumbLabel: string;
   children: React.ReactNode;
+  mainClassName?: string;
   searchPlaceholder?: string;
   session: SessionContext;
 }) {
@@ -20,6 +22,7 @@ function CourseWorkspaceShell({
     <StudentWorkspaceShell
       activeLabel={activeLabel}
       breadcrumbLabel={breadcrumbLabel}
+      mainClassName={mainClassName}
       searchPlaceholder={searchPlaceholder}
       session={session}
       sidebarFooterLabel="Ruang kerja siswa"

@@ -7,20 +7,15 @@ import {
   CheckCircle2,
   Clipboard,
   ExternalLink,
-  Lock,
+  LockKeyhole,
+  MessageCircle,
   Share2,
 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { SessionContext } from "@/lib/auth/types";
+import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import {
@@ -32,10 +27,7 @@ import {
   type CourseLesson,
   type LessonProgressStatus,
 } from "./data";
-import {
-  completeCourseLesson,
-  useCourseProgress,
-} from "./progress-storage";
+import { completeCourseLesson, useCourseProgress } from "./progress-storage";
 
 const YOUTUBE_VIDEO_ID = "4rPIpRTEhfY";
 const YOUTUBE_WATCH_URL = `https://www.youtube.com/watch?v=${YOUTUBE_VIDEO_ID}`;
@@ -56,7 +48,13 @@ function CourseLessonPageModule({
     return null;
   }
 
-  return <CourseLessonPlayerModule course={course} lesson={lesson} session={session} />;
+  return (
+    <CourseLessonPlayerModule
+      course={course}
+      lesson={lesson}
+      session={session}
+    />
+  );
 }
 
 function CourseLessonPlayerModule({
@@ -69,36 +67,45 @@ function CourseLessonPlayerModule({
   session: SessionContext;
 }) {
   const progress = useCourseProgress(course);
-  const lessonStatus = getLessonProgressStatus(course, lesson.id, {
+  const progressSnapshot = {
     completedLessonIds: progress.completedLessonIds,
     skippedToLessonId: progress.skippedToLessonId,
-  });
-  const nextLesson = getNextAvailableLesson(course, {
-    completedLessonIds: progress.completedLessonIds,
-    skippedToLessonId: progress.skippedToLessonId,
-  });
+  };
+  const lessonStatus = getLessonProgressStatus(
+    course,
+    lesson.id,
+    progressSnapshot,
+  );
+  const nextLesson = getNextAvailableLesson(course, progressSnapshot);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  const handleComplete = () => {
+    if (lessonStatus === "completed") {
+      return;
+    }
+
+    const updatedProgress = completeCourseLesson(course.slug, lesson.id);
+    const nextAfterCompletion = getNextAvailableLesson(
+      course,
+      updatedProgress[course.slug],
+    );
+
+    setFeedback({
+      tone: "success",
+      text: nextAfterCompletion
+        ? `Progress tersimpan. Selanjutnya: ${nextAfterCompletion.title}.`
+        : "Progress tersimpan. Kamu sudah mencapai akhir jalur belajar ini.",
+    });
+  };
 
   return (
     <CourseWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel={`${course.title} · ${lesson.title}`}
+      mainClassName="max-w-[112rem] gap-0 bg-white px-4 py-7 md:px-8 lg:px-10 lg:py-9"
       searchPlaceholder="Cari video di materi ini..."
       session={session}
     >
-      <div>
-        <Button
-          render={
-            <Link href={`/courses/${course.slug}`}>
-              <ArrowLeft data-icon="inline-start" />
-              Kembali ke {course.title}
-            </Link>
-          }
-          size="sm"
-          variant="ghost"
-        />
-      </div>
-
       {lessonStatus === "locked" ? (
         <LockedLessonState
           course={course}
@@ -112,23 +119,7 @@ function CourseLessonPlayerModule({
           lesson={lesson}
           lessonStatus={lessonStatus}
           nextLesson={nextLesson}
-          onComplete={() => {
-            if (lessonStatus === "completed") {
-              return;
-            }
-
-            const updatedProgress = completeCourseLesson(course.slug, lesson.id);
-            const nextAfterCompletion = getNextAvailableLesson(
-              course,
-              updatedProgress[course.slug],
-            );
-            setFeedback({
-              tone: "success",
-              text: nextAfterCompletion
-                ? `Selesai! Selanjutnya: ${nextAfterCompletion.title}.`
-                : "Selesai! Kamu sudah menuntaskan semua pelajaran di materi ini.",
-            });
-          }}
+          onComplete={handleComplete}
           onFeedback={setFeedback}
         />
       )}
@@ -155,14 +146,14 @@ function LessonPlayer({
 }) {
   const isCompleted = lessonStatus === "completed";
 
-  async function handleShare() {
+  const handleShare = async () => {
     const url = window.location.href;
 
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({
+          text: `${lesson.title} · ${course.description}`,
           title: lesson.title,
-          text: `${lesson.title} · ${course.title}`,
           url,
         });
         onFeedback({ tone: "success", text: "Tautan pelajaran siap dibagikan." });
@@ -181,98 +172,118 @@ function LessonPlayer({
       }
 
       await navigator.clipboard.writeText(url);
-      onFeedback({ tone: "success", text: "Tautan pelajaran disalin ke clipboard." });
+      onFeedback({ tone: "success", text: "Tautan pelajaran disalin." });
     } catch {
       onFeedback({
         tone: "error",
-        text: "Tautan belum bisa disalin. Coba salin URL dari bilah alamat.",
+        text: "Tautan belum bisa disalin. Salin URL dari bilah alamat.",
       });
     }
-  }
+  };
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden rounded-4xl border border-[#dbe8e3] bg-white p-0 shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
-        <CardHeader className="gap-4 border-b border-[#dbe8e3] px-5 py-6 md:px-8 md:py-8">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-secondary-500">
-            <span className="rounded-full bg-primary-50 px-3 py-1.5 text-primary-800">
-              {course.title}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>
-              Bagian {lesson.sectionIndex + 1} · Video {lesson.videoIndex + 1}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <CardTitle className="text-3xl leading-tight font-semibold tracking-[-0.04em] text-secondary-950 md:text-5xl">
-              {lesson.title}
-            </CardTitle>
-            <CardDescription className="text-base leading-7 text-secondary-500 md:text-lg">
-              {lesson.sectionTitle} · {course.description}
-            </CardDescription>
-          </div>
-        </CardHeader>
+    <article className="mx-auto w-full max-w-[96rem]">
+      <Link
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-[#68cbe6] outline-none transition hover:text-[#258da9] focus-visible:ring-3 focus-visible:ring-[#68cbe6]/30 md:text-base"
+        href={`/courses/${course.slug}`}
+      >
+        <ArrowLeft className="size-4" />
+        Kembali ke {course.description} ({course.title})
+      </Link>
 
-        <CardContent className="space-y-5 px-5 py-5 md:px-8 md:py-8">
-          <div className="overflow-hidden rounded-3xl bg-secondary-950 shadow-inner">
-            <div className="relative aspect-video w-full">
-              <iframe
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="absolute inset-0 size-full border-0"
-                src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?rel=0`}
-                title={`Video pembelajaran: ${lesson.title}`}
-              />
-            </div>
-          </div>
+      <header className="mt-2">
+        <p className="text-xs font-bold tracking-[0.14em] text-[#98a1b1] uppercase">
+          Unit {lesson.position + 1} · {lesson.sectionTitle}
+        </p>
+        <h1 className="mt-2 max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[#121a29] text-balance md:text-4xl lg:text-[2.8rem]">
+          {lesson.title}
+        </h1>
+        <p className="mt-2 text-base text-[#7e8797] md:text-lg">
+          {lesson.sectionTitle} · {course.description}
+        </p>
+      </header>
 
-          <p className="text-sm leading-6 text-secondary-500">
-            Video tidak tampil?{" "}
-            <a
-              className="font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4 hover:text-primary-950"
-              href={YOUTUBE_WATCH_URL}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Buka video di YouTube <ExternalLink className="inline size-3.5" />
-            </a>
-          </p>
+      <div className="mt-7 overflow-hidden rounded-[1.65rem] bg-black shadow-[0_26px_70px_-48px_rgba(20,28,45,0.75)] ring-1 ring-[#dfe3e9] md:mt-9 md:rounded-[2rem]">
+        <div className="relative aspect-video w-full">
+          <iframe
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 size-full border-0"
+            loading="lazy"
+            src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?rel=0`}
+            title={`Video pembelajaran: ${lesson.title}`}
+          />
+        </div>
+      </div>
 
-          <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <Button
-              onClick={handleShare}
-              size="lg"
-              type="button"
-              variant="outline"
-            >
-              <Share2 data-icon="inline-start" />
-              Bagikan
-            </Button>
-            <Button
-              className="sm:min-w-52"
-              disabled={isCompleted}
-              onClick={onComplete}
-              size="lg"
-              type="button"
-              variant={isCompleted ? "secondary" : "brand"}
-            >
-              {isCompleted ? (
-                <CheckCircle2 data-icon="inline-start" />
-              ) : (
-                <Check data-icon="inline-start" />
-              )}
-              {isCompleted ? "Sudah Selesai" : "Selesai Menonton"}
-            </Button>
-          </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          className="rounded-full border-[#dfe3e9] bg-white px-5 text-[#596476]"
+          onClick={handleShare}
+          size="lg"
+          type="button"
+          variant="outline"
+        >
+          <Share2 data-icon="inline-start" />
+          Bagikan
+        </Button>
+        <a
+          className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl px-1 text-sm font-semibold text-[#778193] underline decoration-[#c9cfd8] underline-offset-4 outline-none hover:text-[#333f52] focus-visible:ring-3 focus-visible:ring-[#68cbe6]/30 sm:self-auto"
+          href={YOUTUBE_WATCH_URL}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Buka di YouTube <ExternalLink className="size-4" />
+        </a>
+      </div>
 
-          <FeedbackNotice feedback={feedback} />
-        </CardContent>
-      </Card>
+      <section className="mt-8 rounded-[1.8rem] border border-[#e3e7ed] bg-white px-5 py-7 text-center shadow-[0_24px_70px_-54px_rgba(30,42,64,0.4)] md:mt-10 md:px-8 md:py-9">
+        <p className="text-xs font-bold tracking-[0.14em] text-[#a1a8b5] uppercase">
+          Tandai progresmu
+        </p>
+        <Button
+          className={cn(
+            "mt-4 min-h-14 min-w-[min(100%,20rem)] rounded-[1.15rem] px-7 text-base font-extrabold shadow-[0_5px_0_#c99408]",
+            isCompleted
+              ? "bg-[#d9f6ed] text-[#18725f] shadow-[0_5px_0_#9edacb] hover:bg-[#d9f6ed]"
+              : "bg-[#ffdc62] text-[#302b1d] hover:bg-[#ffe37a]",
+          )}
+          disabled={isCompleted}
+          onClick={onComplete}
+          size="lg"
+          type="button"
+        >
+          {isCompleted ? (
+            <CheckCircle2 className="size-5" data-icon="inline-start" />
+          ) : (
+            <Check className="size-5" data-icon="inline-start" />
+          )}
+          {isCompleted ? "Sudah Selesai" : "Selesai Menonton"}
+        </Button>
+        <p className="mt-4 text-sm italic text-[#a7aeba]">
+          Transkrip tidak tersedia
+        </p>
 
-      {isCompleted ? (
-        <NextLessonNotice course={course} nextLesson={nextLesson} />
-      ) : null}
-    </div>
+        <FeedbackNotice feedback={feedback} />
+
+        {isCompleted && nextLesson ? (
+          <Link
+            className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#eaf9f4] px-4 text-sm font-bold text-[#176d5b] outline-none transition hover:bg-[#d9f4eb] focus-visible:ring-3 focus-visible:ring-[#54c9ac]/30"
+            href={`/courses/${course.slug}/${nextLesson.id}`}
+          >
+            Lanjut ke {nextLesson.title}
+            <ArrowLeft className="size-4 rotate-180" />
+          </Link>
+        ) : null}
+      </section>
+
+      <a
+        className="fixed right-4 bottom-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#a8e4f4] bg-[#e8f9ff] px-4 text-sm font-semibold text-[#4b7e8c] shadow-[0_15px_35px_-22px_rgba(36,114,135,0.65)] outline-none transition hover:-translate-y-0.5 hover:bg-[#dff7ff] focus-visible:ring-3 focus-visible:ring-[#64cce7]/35 md:right-7"
+        href="/vera-ai"
+      >
+        <MessageCircle className="size-5" /> Tanya Vera
+      </a>
+    </article>
   );
 }
 
@@ -286,78 +297,37 @@ function LockedLessonState({
   nextLesson?: CourseLesson;
 }) {
   return (
-    <Card className="rounded-4xl border border-primary-100 bg-white shadow-[0_32px_100px_-72px_rgba(10,77,59,0.36)]">
-      <CardHeader className="px-5 pt-8 md:px-10 md:pt-10">
-        <div className="grid size-14 place-items-center rounded-2xl bg-secondary-100 text-secondary-500">
-          <Lock className="size-7" />
-        </div>
-        <CardTitle className="pt-3 text-3xl leading-tight font-semibold text-secondary-950 md:text-4xl">
-          Pelajaran ini masih terkunci
-        </CardTitle>
-        <CardDescription className="max-w-2xl text-base leading-7 text-secondary-500">
-          {lesson.title} tersedia setelah kamu mengikuti urutan belajar di materi {course.title}.
-          Akses dari lesson ini tidak mengubah progres secara otomatis.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-5 pb-8 md:px-10 md:pb-10">
-        {nextLesson ? (
-          <Button
-            render={
-              <Link href={`/courses/${course.slug}/${nextLesson.id}`}>
-                Lanjut ke pelajaran yang tersedia
-                <ArrowLeft className="rotate-180" data-icon="inline-end" />
-              </Link>
+    <section className="mx-auto flex w-full max-w-3xl flex-col items-center rounded-[2rem] border border-[#e2e6ec] bg-white px-6 py-12 text-center shadow-[0_30px_90px_-65px_rgba(28,39,61,0.5)] md:px-10 md:py-16">
+      <span className="grid size-16 place-items-center rounded-[1.5rem] bg-[#eef0f4] text-[#8d96a6] shadow-[0_5px_0_#d7dbe2]">
+        <LockKeyhole className="size-8" />
+      </span>
+      <p className="mt-6 text-xs font-bold tracking-[0.14em] text-[#9aa3b2] uppercase">
+        Unit {lesson.position + 1}
+      </p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-[#172132] md:text-4xl">
+        Pelajaran ini masih terkunci
+      </h1>
+      <p className="mt-4 max-w-[58ch] text-sm leading-7 text-[#727d8f] md:text-base">
+        {lesson.title} akan terbuka setelah kamu mengikuti urutan jalur belajar.
+        Kamu juga bisa memilih “Skip ke sini” dari halaman materi.
+      </p>
+      <Button
+        className="mt-7 rounded-[1.1rem] bg-[#ffdc62] font-extrabold text-[#302b1d] shadow-[0_5px_0_#c99408] hover:bg-[#ffe37a]"
+        render={
+          <Link
+            href={
+              nextLesson
+                ? `/courses/${course.slug}/${nextLesson.id}`
+                : `/courses/${course.slug}`
             }
-            size="lg"
-            variant="brand"
-          />
-        ) : (
-          <Button
-            render={<Link href={`/courses/${course.slug}`}>Kembali ke materi</Link>}
-            size="lg"
-            variant="brand"
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function NextLessonNotice({
-  course,
-  nextLesson,
-}: {
-  course: Course;
-  nextLesson?: CourseLesson;
-}) {
-  return (
-    <Card className="rounded-3xl border border-primary-100 bg-primary-50/60">
-      <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between md:px-7">
-        <div>
-          <p className="flex items-center gap-2 text-sm font-semibold text-primary-900">
-            <CheckCircle2 className="size-4" />
-            Progress tersimpan
-          </p>
-          <p className="mt-1 text-sm leading-6 text-primary-900/70">
-            {nextLesson
-              ? `Pelajaran berikutnya: ${nextLesson.title}`
-              : "Semua pelajaran di materi ini sudah selesai."}
-          </p>
-        </div>
-        {nextLesson ? (
-          <Button
-            render={
-              <Link href={`/courses/${course.slug}/${nextLesson.id}`}>
-                Pelajaran berikutnya
-                <ArrowLeft className="rotate-180" data-icon="inline-end" />
-              </Link>
-            }
-            size="sm"
-            variant="brand"
-          />
-        ) : null}
-      </CardContent>
-    </Card>
+          >
+            {nextLesson ? "Lanjut ke unit yang tersedia" : "Kembali ke materi"}
+            <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
+          </Link>
+        }
+        size="lg"
+      />
+    </section>
   );
 }
 
@@ -373,19 +343,25 @@ function FeedbackNotice({ feedback }: { feedback: Feedback | null }) {
     return null;
   }
 
-  const Icon = feedback.tone === "success" ? CheckCircle2 : feedback.tone === "error" ? Clipboard : Share2;
+  const Icon =
+    feedback.tone === "success"
+      ? CheckCircle2
+      : feedback.tone === "error"
+        ? Clipboard
+        : Share2;
 
   return (
     <div
       aria-live="polite"
-      className={
+      className={cn(
+        "mx-auto mt-5 flex max-w-xl items-start gap-2 rounded-2xl px-4 py-3 text-left text-sm leading-6",
         feedback.tone === "error"
-          ? "flex items-start gap-2 rounded-2xl bg-red-50 px-4 py-3 text-sm leading-6 text-red-800"
-          : "flex items-start gap-2 rounded-2xl bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-900"
-      }
+          ? "bg-red-50 text-red-800"
+          : "bg-[#eaf9f4] text-[#176d5b]",
+      )}
       role="status"
     >
-      <Icon className="mt-0.5 size-4 shrink-0" />
+      <Icon className="mt-1 size-4 shrink-0" />
       <span>{feedback.text}</span>
     </div>
   );

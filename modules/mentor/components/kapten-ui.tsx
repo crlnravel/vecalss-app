@@ -15,6 +15,7 @@ import {
   quickCreateItems,
   statusLabels,
   type KaptenContentStatus,
+  type KaptenMateri,
   type KaptenResource,
 } from "@/modules/mentor/mock-data";
 
@@ -108,6 +109,11 @@ function ResourceRow({
   resource: KaptenResource;
 }) {
   const meta = contentTypeMeta[resource.resourceType];
+  const isMateri = resource.resourceType === "materi";
+  const lesson = resource as KaptenMateri;
+  const primaryMetric = isMateri
+    ? `${lesson.duration || "Durasi belum diisi"} · ${lesson.readiness === "ready" ? "Siap" : "Belum siap"}`
+    : resource.primaryMetric;
 
   return (
     <Link
@@ -143,14 +149,9 @@ function ResourceRow({
       </div>
 
       <div className="flex items-center justify-between gap-4 md:min-w-[128px] md:justify-end md:text-right">
-        <div>
         <p className="text-sm font-semibold text-secondary-900">
-          {resource.primaryMetric}
+          {primaryMetric}
         </p>
-        <p className="mt-1 text-xs text-secondary-500">
-          {resource.progress}% siap
-        </p>
-        </div>
         <ArrowRight className="size-4 text-secondary-400 transition-transform group-hover:translate-x-1" />
       </div>
     </Link>
@@ -162,7 +163,7 @@ function QuickCreateGrid() {
     <div className="grid gap-2">
       {quickCreateItems.map((item) => (
         <Link
-          className="group flex min-h-14 items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-primary-50"
+          className="group flex min-h-14 items-center gap-3 rounded-2xl border border-primary-200 bg-white px-3 py-2 transition-colors hover:border-primary-300 hover:bg-primary-50"
           href={item.href}
           key={item.label}
         >

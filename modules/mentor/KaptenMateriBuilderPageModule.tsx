@@ -1,110 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardList,
-  Eye,
-  FileText,
-  GripVertical,
-  Paperclip,
-  Plus,
-  Save,
-  Trash2,
-  Video,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, Eye, Save, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldInput,
-  FieldLabel,
-  FieldTextarea,
-  fieldControlClassName,
-} from "@/components/ui/field";
+import { Field, FieldInput, FieldLabel, fieldControlClassName } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { getMateriWithStoredDrafts, saveMateriDraft } from "@/modules/mentor/materi-draft-storage";
 import {
-  kaptenSubjects,
-  mediaAssets,
-  type KaptenMateri,
-} from "@/modules/mentor/mock-data";
-import {
-  getStoredMateriDraft,
-  saveMateriDraft,
-} from "@/modules/mentor/materi-draft-storage";
-import type {
-  MateriBuilderSection,
-  MateriBuilderState,
-  MateriSectionKind,
-} from "@/modules/mentor/materi-builder-types";
+  getCanonicalMateriSection,
+  getCanonicalMateriSections,
+  getMateriReadiness,
+  getMateriSubject,
+  isValidHttpUrl,
+  materiSubjects,
+} from "@/modules/mentor/materi-model";
+import { materi, type KaptenMateri } from "@/modules/mentor/mock-data";
+import type { MateriBuilderState } from "@/modules/mentor/materi-builder-types";
 
-const sectionKindMeta: Record<
-  MateriSectionKind,
-  { icon: LucideIcon; label: string }
-> = {
-  attachment: { icon: Paperclip, label: "Attachment" },
-  notes: { icon: FileText, label: "Catatan" },
-  practice: { icon: ClipboardList, label: "Practice" },
-  video: { icon: Video, label: "Video" },
+type BuilderErrors = Partial<Record<keyof MateriBuilderState, string>>;
+
+type CreateContext = {
+  sectionId: string;
+  subjectSlug: string;
 };
-
-const blankSection: MateriBuilderSection = {
-  body: "",
-  id: "section-new",
-  kind: "notes",
-  title: "Section baru",
-};
-
-function getSeedSections(materi?: KaptenMateri | null): MateriBuilderSection[] {
-  if (!materi) {
-    return [
-      {
-        body: "",
-        id: "section-video",
-        kind: "video",
-        title: "Video pembuka",
-        videoUrl: "",
-      },
-      {
-        body: "",
-        id: "section-notes",
-        kind: "notes",
-        title: "Catatan inti",
-      },
-    ];
-  }
-
-  return materi.sections.map((title, index) => ({
-    assetId: index === 1 ? mediaAssets[0]?.id : undefined,
-    body:
-      index === 0
-        ? materi.description
-        : "Tambahkan catatan ringkas untuk membantu siswa mengikuti materi.",
-    id: `${materi.id}-section-${index + 1}`,
-    kind: index === 0 ? "video" : index === 1 ? "notes" : "practice",
-    prompt: index === 2 ? "Tulis satu contoh soal singkat untuk section ini." : "",
-    title,
-    videoUrl: index === 0 ? materi.videoUrl : "",
-  }));
-}
-
-function getInitialState(materi?: KaptenMateri | null): MateriBuilderState {
-  return {
-    description: materi?.description ?? "",
-    sections: getSeedSections(materi),
-    subjectCode: materi?.subjectCode ?? "PU",
-    title: materi?.title ?? "Draft Materi Baru",
-  };
-}
 
 function slugify(value: string) {
   const slug = value
@@ -116,89 +39,150 @@ function slugify(value: string) {
   return slug || "materi-baru";
 }
 
-function getSubjectName(subjectCode: string) {
-  return kaptenSubjects.find((subject) => subject.code === subjectCode)?.name ?? subjectCode;
-}
+function getAppendOrder(subjectSlug: string, sectionId: string, currentId?: string) {
+  if (!getCanonicalMateriSection(subjectSlug, sectionId)) {
+    return "1";
+  }
 
-function SectionKindIcon({ kind }: { kind: MateriSectionKind }) {
-  const meta = sectionKindMeta[kind];
-
-  return <meta.icon className="size-4 text-primary-800" />;
-}
-
-function SectionTypeSelect({
-  onChange,
-  value,
-}: {
-  onChange: (value: MateriSectionKind) => void;
-  value: MateriSectionKind;
-}) {
-  return (
-    <div className="relative">
-      <select
-        className={`${fieldControlClassName} appearance-none pr-12`}
-        onChange={(event) => onChange(event.target.value as MateriSectionKind)}
-        value={value}
-      >
-        {Object.entries(sectionKindMeta).map(([kind, meta]) => (
-          <option key={kind} value={kind}>
-            {meta.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-    </div>
+  const siblings = getMateriWithStoredDrafts(materi).filter(
+    (lesson) =>
+      lesson.id !== currentId
+      && lesson.status !== "archived"
+      && lesson.migrationState !== "needs-review"
+      && lesson.subjectSlug === subjectSlug
+      && lesson.sectionId === sectionId,
   );
+
+  return String(siblings.length + 1);
+}
+
+function getInitialState(
+  materiRecord?: KaptenMateri | null,
+  createContext?: CreateContext,
+): MateriBuilderState {
+  if (materiRecord) {
+    const hasCanonicalPlacement = materiRecord.migrationState !== "needs-review" && Boolean(
+      getCanonicalMateriSection(materiRecord.subjectSlug, materiRecord.sectionId),
+    );
+
+    return {
+      duration: materiRecord.duration,
+      position: hasCanonicalPlacement ? String(materiRecord.position + 1) : "1",
+      sectionId: hasCanonicalPlacement ? materiRecord.sectionId ?? "" : "",
+      subjectSlug: getMateriSubject(materiRecord.subjectSlug)?.slug ?? materiSubjects[0]?.slug ?? "",
+      title: materiRecord.title,
+      videoUrl: materiRecord.videoUrl,
+    };
+  }
+
+  const subjectSlug = createContext?.subjectSlug ?? materiSubjects[0]?.slug ?? "";
+  const sectionId = createContext?.sectionId ?? "";
+
+  return {
+    duration: "",
+    position: getAppendOrder(subjectSlug, sectionId),
+    sectionId,
+    subjectSlug,
+    title: "",
+    videoUrl: "",
+  };
+}
+
+function getValidationErrors(state: MateriBuilderState): BuilderErrors {
+  const errors: BuilderErrors = {};
+  const subject = getMateriSubject(state.subjectSlug);
+  const canonicalSection = getCanonicalMateriSection(state.subjectSlug, state.sectionId);
+
+  if (!subject) {
+    errors.subjectSlug = "Pilih subject Materi yang tersedia.";
+  }
+  if (!canonicalSection) {
+    errors.sectionId = "Pilih section kanonis untuk menempatkan video ini.";
+  }
+  if (!state.title.trim()) {
+    errors.title = "Judul lesson wajib diisi.";
+  }
+  if (!state.duration.trim()) {
+    errors.duration = "Durasi video wajib diisi.";
+  }
+  if (!state.videoUrl.trim()) {
+    errors.videoUrl = "URL video wajib diisi.";
+  } else {
+    try {
+      const url = new URL(state.videoUrl.trim());
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        errors.videoUrl = "Gunakan URL video HTTP atau HTTPS yang valid.";
+      }
+    } catch {
+      errors.videoUrl = "Gunakan URL video HTTP atau HTTPS yang valid.";
+    }
+  }
+
+  const parsedPosition = Number(state.position);
+  if (!Number.isInteger(parsedPosition) || parsedPosition < 1) {
+    errors.position = "Urutan lesson harus berupa angka minimal 1.";
+  }
+
+  return errors;
+}
+
+function FieldError({ error, id }: { error?: string; id: string }) {
+  return error ? <p className="text-sm leading-5 text-red-700" id={id}>{error}</p> : null;
+}
+
+function LifecycleLabel({ status }: { status: KaptenMateri["status"] }) {
+  const labels = {
+    archived: "Diarsipkan",
+    draft: "Draf",
+    published: "Diterbitkan",
+    scheduled: "Terjadwal",
+  } as const;
+
+  return <span className="rounded-full border border-primary-100 bg-white px-3 py-1.5 text-sm font-semibold text-secondary-700">{labels[status]}</span>;
 }
 
 function KaptenMateriBuilderPageModule({
+  createContext,
   initialMateri = null,
+  initialPreview = false,
   materiId,
   mode,
+  returnTo,
   session,
 }: {
+  createContext?: CreateContext;
   initialMateri?: KaptenMateri | null;
+  initialPreview?: boolean;
   materiId?: string;
   mode: "create" | "edit";
+  returnTo?: string;
   session: SessionContext;
 }) {
   const router = useRouter();
-  const [builderState, setBuilderState] = useState(() => {
-    const storedDraft = getStoredMateriDraft(materiId ?? initialMateri?.id);
-
-    return storedDraft
-      ? {
-          description: storedDraft.materi.description,
-          sections: storedDraft.sections,
-          subjectCode: storedDraft.materi.subjectCode ?? "PU",
-          title: storedDraft.materi.title,
-        }
-      : getInitialState(initialMateri);
-  });
-  const [activeSectionId, setActiveSectionId] = useState(
-    builderState.sections[0]?.id ?? "",
-  );
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [builderState, setBuilderState] = useState(() => getInitialState(initialMateri, createContext));
+  const [savedMateri, setSavedMateri] = useState<KaptenMateri | null>(initialMateri);
+  const [errors, setErrors] = useState<BuilderErrors>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [savedMateri, setSavedMateri] = useState<KaptenMateri | null>(
-    () => getStoredMateriDraft(materiId ?? initialMateri?.id)?.materi ?? initialMateri,
-  );
+  const [isPreviewOpen, setIsPreviewOpen] = useState(initialPreview);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
 
-  const activeSection = useMemo(
-    () =>
-      builderState.sections.find((section) => section.id === activeSectionId) ??
-      builderState.sections[0],
-    [activeSectionId, builderState.sections],
+  const canonicalSections = useMemo(
+    () => getCanonicalMateriSections(builderState.subjectSlug),
+    [builderState.subjectSlug],
   );
-
-  const selectedSubject = getSubjectName(builderState.subjectCode);
-  const readySectionCount = builderState.sections.filter(
-    (section) => section.title.trim() && section.body.trim(),
-  ).length;
+  const selectedSubject = getMateriSubject(builderState.subjectSlug);
+  const selectedSection = getCanonicalMateriSection(builderState.subjectSlug, builderState.sectionId);
   const materiStatus = savedMateri?.status ?? "draft";
-  const isDraft = materiStatus === "draft";
-  const saveLabel = isDraft ? "Simpan Draft" : "Simpan perubahan";
+  const saveLabel = materiStatus === "draft" ? "Simpan draf" : "Simpan perubahan";
+  const readiness = getMateriReadiness({
+    duration: builderState.duration,
+    sectionId: builderState.sectionId || null,
+    subjectSlug: builderState.subjectSlug,
+    title: builderState.title,
+    videoUrl: builderState.videoUrl,
+  });
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -210,140 +194,126 @@ function KaptenMateriBuilderPageModule({
     }
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (!pendingRouteReplacement || hasUnsavedChanges) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => router.replace(pendingRouteReplacement));
+    return () => window.cancelAnimationFrame(frame);
+  }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 
   function markChanged(nextState: MateriBuilderState) {
     setBuilderState(nextState);
     setHasUnsavedChanges(true);
     setLastSavedAt(null);
-  }
-
-  function updateMetadata(field: keyof Omit<MateriBuilderState, "sections">, value: string) {
-    markChanged({
-      ...builderState,
-      [field]: value,
+    setSaveError(null);
+    setErrors((current) => {
+      const nextErrors = { ...current };
+      for (const field of Object.keys(nextState) as Array<keyof MateriBuilderState>) {
+        delete nextErrors[field];
+      }
+      return nextErrors;
     });
   }
 
-  function updateActiveSection(patch: Partial<MateriBuilderSection>) {
-    if (!activeSection) {
-      return;
-    }
+  function updateField(field: keyof MateriBuilderState, value: string) {
+    markChanged({ ...builderState, [field]: value });
+  }
 
+  function updateSubject(subjectSlug: string) {
     markChanged({
       ...builderState,
-      sections: builderState.sections.map((section) =>
-        section.id === activeSection.id ? { ...section, ...patch } : section,
-      ),
+      position: "1",
+      sectionId: "",
+      subjectSlug,
     });
   }
 
-  function addSection(kind: MateriSectionKind = "notes") {
-    const nextSection: MateriBuilderSection = {
-      ...blankSection,
-      id: `section-${Date.now()}`,
-      kind,
-      title:
-        kind === "video"
-          ? "Video baru"
-          : kind === "attachment"
-            ? "Resource pendukung"
-            : kind === "practice"
-              ? "Latihan singkat"
-              : "Catatan baru",
-    };
-
+  function updateSection(sectionId: string) {
     markChanged({
       ...builderState,
-      sections: [...builderState.sections, nextSection],
+      position: getAppendOrder(builderState.subjectSlug, sectionId, savedMateri?.id),
+      sectionId,
     });
-    setActiveSectionId(nextSection.id);
   }
 
-  function removeSection(sectionId: string) {
-    if (builderState.sections.length <= 1) {
+  function saveLesson() {
+    const nextErrors = getValidationErrors(builderState);
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setSaveError("Lengkapi field yang ditandai sebelum menyimpan lesson.");
+      setHasUnsavedChanges(true);
       return;
     }
 
-    const nextSections = builderState.sections.filter(
-      (section) => section.id !== sectionId,
-    );
-
-    markChanged({
-      ...builderState,
-      sections: nextSections,
-    });
-
-    if (activeSectionId === sectionId) {
-      setActiveSectionId(nextSections[0]?.id ?? "");
-    }
-  }
-
-  function moveSection(sectionId: string, direction: "up" | "down") {
-    const currentIndex = builderState.sections.findIndex(
-      (section) => section.id === sectionId,
-    );
-    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-
-    if (
-      currentIndex < 0 ||
-      nextIndex < 0 ||
-      nextIndex >= builderState.sections.length
-    ) {
+    const subject = getMateriSubject(builderState.subjectSlug);
+    const section = getCanonicalMateriSection(builderState.subjectSlug, builderState.sectionId);
+    if (!subject || !section) {
       return;
     }
 
-    const nextSections = [...builderState.sections];
-    const [movedSection] = nextSections.splice(currentIndex, 1);
-
-    if (!movedSection) {
-      return;
-    }
-
-    nextSections.splice(nextIndex, 0, movedSection);
-    markChanged({ ...builderState, sections: nextSections });
-  }
-
-  function saveDraft() {
     const currentMateri = savedMateri;
     const id = currentMateri?.id ?? `draft-${slugify(builderState.title)}-${Date.now()}`;
-    const subjectName = getSubjectName(builderState.subjectCode);
-    const videoSection = builderState.sections.find(
-      (section) => section.kind === "video" && section.videoUrl,
-    );
+    const title = builderState.title.trim();
+    const duration = builderState.duration.trim();
+    const videoUrl = builderState.videoUrl.trim();
+    const requestedPosition = Number(builderState.position);
+    const nextReadiness = getMateriReadiness({
+      duration,
+      sectionId: section.sectionId,
+      subjectSlug: subject.slug,
+      title,
+      videoUrl,
+    });
     const materiDraft: KaptenMateri = {
-      description: builderState.description,
-      duration: currentMateri?.duration ?? "0 menit",
+      description: currentMateri?.description ?? `${subject.name} · ${section.title}`,
+      duration,
       href: `/mentor/materi/${id}`,
       id,
-      primaryMetric: `${builderState.sections.length} section`,
-      progress:
-        builderState.sections.length > 0
-          ? Math.round((readySectionCount / builderState.sections.length) * 100)
-          : 0,
-      resourceCount: builderState.sections.length,
+      migrationState: currentMateri?.migrationState === "needs-review" ? "canonical" : currentMateri?.migrationState,
+      position: Math.max(0, requestedPosition - 1),
+      primaryMetric: `${duration} · ${nextReadiness === "ready" ? "Siap" : "Belum siap"}`,
+      progress: nextReadiness === "ready" ? 100 : 0,
+      readiness: nextReadiness,
+      resourceCount: currentMateri?.resourceCount ?? 1,
       resourceType: "materi",
-      sections: builderState.sections.map((section) => section.title),
+      sections: currentMateri?.sections ?? [section.title],
+      sectionId: section.sectionId,
+      sectionTitle: section.title,
       scheduledFor: currentMateri?.scheduledFor,
       status: currentMateri?.status ?? "draft",
-      subjectCode: builderState.subjectCode,
-      subjectName,
-      title: builderState.title || "Draft Materi Baru",
+      subjectCode: subject.code,
+      subjectName: subject.name,
+      subjectSlug: subject.slug,
+      title,
       updatedAt: "Diedit baru saja",
-      videoUrl: videoSection?.videoUrl ?? currentMateri?.videoUrl ?? "",
+      videoUrl,
     };
 
-    saveMateriDraft({ materi: materiDraft, sections: builderState.sections });
-    setSavedMateri(materiDraft);
-    setHasUnsavedChanges(false);
-    setLastSavedAt(isDraft ? "Draft tersimpan." : "Perubahan tersimpan.");
+    try {
+      const savedDraft = saveMateriDraft({ materi: materiDraft, sections: [] }, { requestedPosition });
+      const saved = savedDraft.materi;
+      setSavedMateri(saved);
+      setBuilderState((current) => ({ ...current, position: String(saved.position + 1) }));
+      setErrors({});
+      setHasUnsavedChanges(false);
+      setSaveError(null);
+      setLastSavedAt(materiStatus === "draft" ? "Draf tersimpan." : "Perubahan tersimpan.");
 
-    if (!materiId && !initialMateri) {
-      router.replace(materiDraft.href);
+      if (!materiId && !initialMateri) {
+        setPendingRouteReplacement(
+          returnTo
+            ? `${saved.href}?${new URLSearchParams({ returnTo }).toString()}`
+            : saved.href,
+        );
+      }
+    } catch (error) {
+      setHasUnsavedChanges(true);
+      setSaveError(error instanceof Error ? error.message : "Lesson tidak dapat disimpan. Coba lagi.");
     }
   }
 
@@ -351,434 +321,155 @@ function KaptenMateriBuilderPageModule({
     <MentorWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel={mode === "create" ? "Buat Materi" : "Edit Materi"}
-      mainClassName="max-w-[1500px] gap-7"
-      onNavigateAway={() =>
-        !hasUnsavedChanges ||
-        window.confirm("Perubahan belum disimpan. Keluar dari builder?")
-      }
-      searchPlaceholder="Cari materi atau asset..."
+      mainClassName="max-w-5xl gap-7"
+      onNavigateAway={() => !hasUnsavedChanges}
+      searchPlaceholder="Cari materi..."
       session={session}
       shouldGuardNavigation={hasUnsavedChanges}
     >
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <Button
-            render={<Link href="/mentor/materi" />}
-            size="sm"
-            variant="ghost"
-          >
+          <Button render={<Link href={returnTo ?? "/mentor/materi"} />} size="sm" variant="ghost">
             <ArrowLeft />
             Materi
           </Button>
           <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
-              {mode === "create" ? "Buat Materi" : builderState.title}
+              {mode === "create" ? "Buat Materi" : builderState.title || "Edit Materi"}
             </h1>
-            <span
-              className={cn(
-                "text-sm font-semibold",
-                materiStatus === "draft"
-                  ? "text-[#856300]"
-                  : "text-primary-800",
-              )}
-            >
-              {materiStatus === "scheduled"
-                ? "Scheduled"
-                : materiStatus === "published"
-                  ? "Published"
-                  : materiStatus === "archived"
-                    ? "Archived"
-                    : "Draft"}
+            <span className={cn("inline-flex items-center gap-2 text-sm font-medium", hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}>
+              <span aria-hidden="true" className={cn("size-2 rounded-full", hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />
+              {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}
             </span>
+            <LifecycleLabel status={materiStatus} />
           </div>
-          <p className="mt-2 text-sm text-secondary-500 xl:hidden">
-            {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"} · {readySectionCount}/
-            {builderState.sections.length} section siap
+          <p className="mt-2 text-sm text-secondary-500">
+            Status lifecycle hanya sebagai konteks dan tidak berubah saat lesson disimpan.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            onClick={() => setIsPreviewOpen((current) => !current)}
-            type="button"
-            variant="brandOutline"
-          >
+          <Button onClick={() => setIsPreviewOpen((current) => !current)} type="button" variant="brandOutline">
             <Eye />
             Preview
           </Button>
-          <Button onClick={saveDraft} type="button" variant="brand">
+          <Button onClick={saveLesson} type="button" variant="brand">
             <Save />
             {saveLabel}
           </Button>
         </div>
       </section>
 
-      <section className="grid gap-8 xl:grid-cols-[minmax(260px,0.28fr)_minmax(0,0.72fr)]">
-        <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
-          <div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-secondary-900">
-                  Struktur
-                </p>
-                <p className="mt-1 text-xs text-secondary-500">
-                  {builderState.sections.length} section
-                </p>
-              </div>
-              <Button
-                onClick={() => addSection("notes")}
-                size="sm"
-                type="button"
-                variant="brandOutline"
-              >
-                <Plus />
-                Section
-              </Button>
-            </div>
+      {lastSavedAt ? (
+        <p className="flex items-center gap-2 text-sm font-medium text-primary-800" role="status">
+          <CheckCircle2 className="size-4" />
+          {lastSavedAt}
+        </p>
+      ) : null}
+      {saveError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">
+          {saveError}
+        </div>
+      ) : null}
 
-            <div className="mt-4 flex gap-1 overflow-x-auto border-t border-primary-100 pt-3 xl:mt-5 xl:block xl:space-y-1">
-              {builderState.sections.map((section, index) => (
-                <button
-                  className={cn(
-                    "group flex min-w-[190px] items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors xl:w-full",
-                    section.id === activeSection?.id
-                      ? "bg-primary-50 text-primary-900"
-                      : "text-secondary-600 hover:bg-primary-50/60",
-                  )}
-                  key={section.id}
-                  onClick={() => setActiveSectionId(section.id)}
-                  type="button"
-                >
-                  <GripVertical className="size-4 shrink-0 text-secondary-300" />
-                  <SectionKindIcon kind={section.kind} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">
-                      {section.title || `Section ${index + 1}`}
-                    </span>
-                    <span className="mt-1 block text-xs text-secondary-500">
-                      {sectionKindMeta[section.kind].label}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-7 hidden border-t border-primary-100 pt-5 xl:block">
-            <p className="text-sm font-semibold text-secondary-900">Status</p>
-            <div className="mt-4 space-y-3 text-sm text-secondary-600">
-              <div className="flex items-center justify-between gap-4">
-                <span>Subject</span>
-                <span className="font-semibold text-secondary-900">
-                  {builderState.subjectCode}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>Siap</span>
-                <span className="font-semibold text-secondary-900">
-                  {readySectionCount}/{builderState.sections.length} section
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>Perubahan</span>
-                <span
-                  className={cn(
-                    "font-semibold",
-                    hasUnsavedChanges ? "text-[#856300]" : "text-primary-800",
-                  )}
-                >
-                  {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}
-                </span>
-              </div>
-            </div>
-            {lastSavedAt ? (
-              <p className="mt-4 flex items-center gap-2 text-sm font-medium text-primary-800">
-                <CheckCircle2 className="size-4" />
-                {lastSavedAt}
+      {isPreviewOpen ? (
+        <section aria-live="polite" className="border-y border-primary-100 py-7 md:py-9">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-primary-800">Preview lesson siswa</p>
+              <p className="mt-2 text-sm text-secondary-500">
+                {selectedSubject?.code ?? "Subject"} · Unit {(Number(builderState.position) || 1)}
               </p>
-            ) : null}
+              <h2 className="mt-2 text-2xl font-semibold text-secondary-900 md:text-3xl">
+                {builderState.title.trim() || "Judul lesson belum diisi"}
+              </h2>
+            </div>
+            <Button onClick={() => setIsPreviewOpen(false)} type="button" variant="brandOutline">
+              Kembali mengedit
+            </Button>
           </div>
-        </aside>
 
-        <div className="order-1 space-y-8 xl:order-none">
-          {isPreviewOpen ? (
-            <section
-              aria-live="polite"
-              className="rounded-3xl border border-primary-100 bg-white px-5 py-6 shadow-sm md:px-7"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-primary-800">
-                    Preview learner
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-secondary-900">
-                    {builderState.title}
-                  </h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-500">
-                    {selectedSubject} · {builderState.description || "Belum ada ringkasan."}
-                  </p>
-                </div>
-                <Button
-                  onClick={() => setIsPreviewOpen(false)}
-                  size="sm"
-                  type="button"
-                  variant="brandOutline"
-                >
-                  Kembali mengedit
-                </Button>
-              </div>
-
-              <div className="mt-6 divide-y divide-primary-100">
-                {builderState.sections.map((section, index) => (
-                  <div className="py-5 first:pt-0 last:pb-0" key={section.id}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-secondary-400">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <SectionKindIcon kind={section.kind} />
-                      <h3 className="text-lg font-semibold text-secondary-900">
-                        {section.title}
-                      </h3>
-                    </div>
-                    {section.kind === "video" ? (
-                      <div className="mt-3 max-w-3xl rounded-2xl bg-secondary-900 px-5 py-5 text-white">
-                        <p className="text-xs font-semibold tracking-[0.08em] text-primary-100 uppercase">
-                          Video pembelajaran
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-white/75">
-                          {section.body || "Video section belum diberi deskripsi."}
-                        </p>
-                        {section.videoUrl ? (
-                          <a
-                            className="mt-4 inline-flex text-sm font-semibold text-primary-100 underline underline-offset-4"
-                            href={section.videoUrl}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            Buka video
-                          </a>
-                        ) : (
-                          <p className="mt-4 text-sm text-white/60">Video belum ditautkan.</p>
-                        )}
-                      </div>
-                    ) : null}
-
-                    {section.kind === "attachment" ? (
-                      <div className="mt-3 flex max-w-3xl items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-4">
-                        <Paperclip className="size-5 shrink-0 text-primary-800" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-secondary-900">
-                            {mediaAssets.find((asset) => asset.id === section.assetId)?.title ??
-                              "Attachment belum dipilih"}
-                          </p>
-                          <p className="mt-1 text-sm leading-6 text-secondary-600">
-                            {section.body || "Resource pendukung untuk section ini."}
-                          </p>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {section.kind === "practice" ? (
-                      <div className="mt-3 max-w-3xl border-l-2 border-primary-600 pl-4">
-                        <p className="text-sm leading-6 text-secondary-600">
-                          {section.body || "Instruksi latihan belum diisi."}
-                        </p>
-                        <p className="mt-3 text-sm leading-6 font-semibold text-secondary-900">
-                          {section.prompt || "Prompt latihan belum diisi."}
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {section.kind === "notes" ? (
-                      <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">
-                        {section.body || "Konten section belum diisi."}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : (
-            <>
-              <section className="border-b border-primary-100 pb-8">
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-                  <Field>
-                <FieldLabel htmlFor="materi-title">Judul materi</FieldLabel>
-                <FieldInput
-                  id="materi-title"
-                  onChange={(event) => updateMetadata("title", event.target.value)}
-                  value={builderState.title}
-                />
-                  </Field>
-
-                  <Field>
+          <div className="mt-7 max-w-3xl">
+            <p className="text-sm font-semibold text-secondary-700">{selectedSection?.title ?? "Section belum dipilih"}</p>
+            <div className="mt-3 aspect-video overflow-hidden rounded-3xl bg-secondary-900 p-6 text-white sm:p-8">
+              <Video className="size-7 text-primary-100" />
+              <p className="mt-8 text-xs font-semibold tracking-[0.12em] text-primary-100 uppercase">Video pembelajaran</p>
+              <p className="mt-2 text-lg font-semibold">{builderState.duration.trim() || "Durasi belum diisi"}</p>
+              {isValidHttpUrl(builderState.videoUrl) ? (
+                <a className="mt-5 inline-flex text-sm font-semibold text-primary-100 underline underline-offset-4" href={builderState.videoUrl} rel="noreferrer" target="_blank">
+                  Buka video
+                </a>
+              ) : (
+                <p className="mt-5 text-sm text-white/65">Video belum ditautkan.</p>
+              )}
+            </div>
+          </div>
+          <p className="mt-5 text-sm text-secondary-500">Preview ini hanya simulasi Kapten dan tidak membaca atau mengubah progres siswa.</p>
+        </section>
+      ) : (
+        <form className="max-w-3xl" onSubmit={(event) => { event.preventDefault(); saveLesson(); }} noValidate>
+          <section className="space-y-5 border-b border-primary-100 pb-8">
+            <div>
+              <h2 className="text-xl font-semibold text-secondary-900">Penempatan</h2>
+              <p className="mt-1 text-sm leading-6 text-secondary-500">Tentukan subject, section kanonis, dan urutan yang akan dilihat siswa.</p>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field>
                 <FieldLabel htmlFor="materi-subject">Subject</FieldLabel>
                 <div className="relative">
-                  <select
-                    className={`${fieldControlClassName} appearance-none pr-12`}
-                    id="materi-subject"
-                    onChange={(event) =>
-                      updateMetadata("subjectCode", event.target.value)
-                    }
-                    value={builderState.subjectCode}
-                  >
-                    {kaptenSubjects.map((subject) => (
-                      <option key={subject.code} value={subject.code}>
-                        {subject.code} - {subject.name}
-                      </option>
-                    ))}
+                  <select aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined} aria-invalid={Boolean(errors.subjectSlug)} className={`${fieldControlClassName} appearance-none pr-12`} id="materi-subject" onChange={(event) => updateSubject(event.target.value)} value={builderState.subjectSlug}>
+                    {materiSubjects.map((subject) => <option key={subject.slug} value={subject.slug}>{subject.code} · {subject.name}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
                 </div>
-                  </Field>
-
-                  <Field className="lg:col-span-2">
-                <FieldLabel htmlFor="materi-summary">Ringkasan</FieldLabel>
-                <FieldTextarea
-                  className="min-h-[118px]"
-                  id="materi-summary"
-                  onChange={(event) =>
-                    updateMetadata("description", event.target.value)
-                  }
-                  value={builderState.description}
-                />
-                  </Field>
+                <FieldError error={errors.subjectSlug} id="materi-subject-error" />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="materi-section">Section</FieldLabel>
+                <div className="relative">
+                  <select aria-describedby={errors.sectionId ? "materi-section-error" : undefined} aria-invalid={Boolean(errors.sectionId)} className={`${fieldControlClassName} appearance-none pr-12`} id="materi-section" onChange={(event) => updateSection(event.target.value)} value={builderState.sectionId}>
+                    <option value="">Pilih section kanonis</option>
+                    {canonicalSections.map((section) => <option key={section.sectionId} value={section.sectionId}>{section.title}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
                 </div>
-              </section>
+                <FieldError error={errors.sectionId} id="materi-section-error" />
+              </Field>
+              <Field className="md:max-w-xs">
+                <FieldLabel htmlFor="materi-position">Urutan lesson</FieldLabel>
+                <FieldInput aria-describedby={errors.position ? "materi-position-error" : undefined} aria-invalid={Boolean(errors.position)} id="materi-position" min="1" onChange={(event) => updateField("position", event.target.value)} type="number" value={builderState.position} />
+                <p className="text-sm leading-5 text-secondary-500">Gunakan urutan 1 untuk posisi paling awal.</p>
+                <FieldError error={errors.position} id="materi-position-error" />
+              </Field>
+            </div>
+          </section>
 
-              {activeSection ? (
-                <section className="pb-2">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-secondary-900">
-                    Section editor
-                  </p>
-                  <p className="mt-1 text-sm text-secondary-500">
-                    {sectionKindMeta[activeSection.kind].label}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    aria-label="Pindah section ke atas"
-                    onClick={() => moveSection(activeSection.id, "up")}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ArrowUp className="size-4" />
-                  </Button>
-                  <Button
-                    aria-label="Pindah section ke bawah"
-                    onClick={() => moveSection(activeSection.id, "down")}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ArrowDown className="size-4" />
-                  </Button>
-                  <Button
-                    aria-label="Hapus section"
-                    disabled={builderState.sections.length <= 1}
-                    onClick={() => removeSection(activeSection.id)}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
-                <Field>
-                  <FieldLabel htmlFor="section-title">Judul section</FieldLabel>
-                  <FieldInput
-                    id="section-title"
-                    onChange={(event) =>
-                      updateActiveSection({ title: event.target.value })
-                    }
-                    value={activeSection.title}
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel>Tipe</FieldLabel>
-                  <SectionTypeSelect
-                    onChange={(kind) => updateActiveSection({ kind })}
-                    value={activeSection.kind}
-                  />
-                </Field>
-
-                {activeSection.kind === "video" ? (
-                  <Field className="lg:col-span-2">
-                    <FieldLabel htmlFor="section-video-url">Video URL</FieldLabel>
-                    <FieldInput
-                      id="section-video-url"
-                      onChange={(event) =>
-                        updateActiveSection({ videoUrl: event.target.value })
-                      }
-                      placeholder="https://youtube.com/..."
-                      value={activeSection.videoUrl ?? ""}
-                    />
-                  </Field>
-                ) : null}
-
-                {activeSection.kind === "attachment" ? (
-                  <Field className="lg:col-span-2">
-                    <FieldLabel htmlFor="section-asset">Media asset</FieldLabel>
-                    <div className="relative">
-                      <select
-                        className={`${fieldControlClassName} appearance-none pr-12`}
-                        id="section-asset"
-                        onChange={(event) =>
-                          updateActiveSection({ assetId: event.target.value })
-                        }
-                        value={activeSection.assetId ?? ""}
-                      >
-                        <option value="">Pilih asset</option>
-                        {mediaAssets.map((asset) => (
-                          <option key={asset.id} value={asset.id}>
-                            {asset.title}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-                    </div>
-                  </Field>
-                ) : null}
-
-                <Field className="lg:col-span-2">
-                  <FieldLabel htmlFor="section-body">Konten</FieldLabel>
-                  <FieldTextarea
-                    id="section-body"
-                    onChange={(event) =>
-                      updateActiveSection({ body: event.target.value })
-                    }
-                    value={activeSection.body}
-                  />
-                </Field>
-
-                {activeSection.kind === "practice" ? (
-                  <Field className="lg:col-span-2">
-                    <FieldLabel htmlFor="section-prompt">Prompt latihan</FieldLabel>
-                    <FieldTextarea
-                      className="min-h-[120px]"
-                      id="section-prompt"
-                      onChange={(event) =>
-                        updateActiveSection({ prompt: event.target.value })
-                      }
-                      value={activeSection.prompt ?? ""}
-                    />
-                  </Field>
-                ) : null}
-              </div>
-                </section>
-              ) : null}
-            </>
-          )}
-        </div>
-      </section>
+          <section className="mt-8 space-y-5">
+            <div>
+              <h2 className="text-xl font-semibold text-secondary-900">Konten video</h2>
+              <p className="mt-1 text-sm leading-6 text-secondary-500">Satu Materi merepresentasikan satu video lesson.</p>
+            </div>
+            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_180px]">
+              <Field>
+                <FieldLabel htmlFor="materi-title">Judul lesson</FieldLabel>
+                <FieldInput aria-describedby={errors.title ? "materi-title-error" : undefined} aria-invalid={Boolean(errors.title)} id="materi-title" onChange={(event) => updateField("title", event.target.value)} value={builderState.title} />
+                <FieldError error={errors.title} id="materi-title-error" />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="materi-duration">Durasi</FieldLabel>
+                <FieldInput aria-describedby={errors.duration ? "materi-duration-error" : undefined} aria-invalid={Boolean(errors.duration)} id="materi-duration" onChange={(event) => updateField("duration", event.target.value)} placeholder="Contoh: 08:30" value={builderState.duration} />
+                <FieldError error={errors.duration} id="materi-duration-error" />
+              </Field>
+              <Field className="md:col-span-2">
+                <FieldLabel htmlFor="materi-video-url">URL video</FieldLabel>
+                <FieldInput aria-describedby={errors.videoUrl ? "materi-video-url-error" : undefined} aria-invalid={Boolean(errors.videoUrl)} id="materi-video-url" onChange={(event) => updateField("videoUrl", event.target.value)} placeholder="https://youtube.com/..." type="url" value={builderState.videoUrl} />
+                <FieldError error={errors.videoUrl} id="materi-video-url-error" />
+              </Field>
+            </div>
+            <p className={cn("text-sm font-medium", readiness === "ready" ? "text-primary-800" : "text-[#856300]")}>{readiness === "ready" ? "Lesson siap ditampilkan dalam katalog Kapten." : "Lesson belum siap sampai penempatan, judul, durasi, dan URL video lengkap."}</p>
+          </section>
+        </form>
+      )}
     </MentorWorkspaceShell>
   );
 }

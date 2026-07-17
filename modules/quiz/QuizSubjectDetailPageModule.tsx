@@ -68,7 +68,7 @@ function QuizSubjectDetailPageModule({
 
             <div className="relative grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.96fr)] lg:gap-12">
               <div className="max-w-2xl space-y-6">
-                <span className="inline-flex w-fit items-center rounded-full bg-primary-50 px-5 py-2 text-sm font-semibold tracking-[0.08em] text-primary-900 shadow-sm ring-1 ring-primary-100">
+                <span className="text-sm font-semibold tracking-[0.08em] text-primary-800 uppercase">
                   {subject.code}
                 </span>
                 <div className="space-y-3">

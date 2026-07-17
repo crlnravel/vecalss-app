@@ -73,6 +73,17 @@ function BrandMark() {
   );
 }
 
+function BrandLockup() {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <BrandMark />
+      <span className="font-logo shrink-0 text-[1.55rem] leading-none tracking-[0.08em] text-primary-700 group-data-[collapsible=icon]:hidden">
+        VECALSS
+      </span>
+    </div>
+  );
+}
+
 function NavigationDots({
   active = 0,
   count = 5,
@@ -179,6 +190,7 @@ function SocialIcon({ platform }: { platform: "facebook" | "linkedin" | "twitter
 
 export {
   ActionButtonLink,
+  BrandLockup,
   BrandLogo,
   BrandMark,
   NavigationDots,

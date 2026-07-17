@@ -11,8 +11,10 @@ export type MateriBuilderSection = {
 };
 
 export type MateriBuilderState = {
-  description: string;
-  sections: MateriBuilderSection[];
-  subjectCode: string;
+  duration: string;
+  position: string;
+  sectionId: string;
+  subjectSlug: string;
   title: string;
+  videoUrl: string;
 };

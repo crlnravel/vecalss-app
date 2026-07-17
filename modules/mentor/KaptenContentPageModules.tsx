@@ -12,9 +12,6 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  getMateriWithStoredDrafts,
-} from "@/modules/mentor/materi-draft-storage";
 import { getQuizWithStoredDrafts } from "@/modules/mentor/quiz-draft-storage";
 import { getQuestionBankCatalog } from "@/modules/mentor/question-bank-draft-storage";
 import {
@@ -26,7 +23,6 @@ import {
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import {
-  EmptyState,
   PageIntro,
   ResourceRow,
   SearchPanel,
@@ -37,15 +33,13 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 import {
   kaptenSubjects,
   mediaAssets,
-  materi,
   questionBanks,
   quizzes,
   tryouts,
   type KaptenMediaAsset,
-  type KaptenResource,
-  type KaptenSubject,
   type KaptenTryout,
 } from "@/modules/mentor/mock-data";
+import { KaptenMateriPageModule } from "@/modules/mentor/KaptenMateriCataloguePageModules";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 
 function CreateButton({ href, label }: { href: string; label: string }) {
@@ -54,76 +48,6 @@ function CreateButton({ href, label }: { href: string; label: string }) {
       <Plus />
       {label}
     </Button>
-  );
-}
-
-function SubjectResourceSection({
-  resources,
-  subject,
-}: {
-  resources: KaptenResource[];
-  subject: KaptenSubject;
-}) {
-  const subjectResources = resources.filter(
-    (resource) => resource.subjectCode === subject.code,
-  );
-
-  return (
-    <section className="space-y-3" id={subject.slug}>
-      <SectionHeading title={`${subject.code} · ${subject.name}`} />
-      <div className="space-y-2">
-        {subjectResources.length > 0 ? (
-          subjectResources.map((resource) => (
-            <ResourceRow key={resource.id} resource={resource} />
-          ))
-        ) : (
-          <EmptyState
-            actionLabel={`Buat ${subject.code}`}
-            description="Subject ini belum punya resource dalam mock data."
-            href="/mentor/materi/create"
-            title={`Belum ada konten ${subject.code}`}
-          />
-        )}
-      </div>
-    </section>
-  );
-}
-
-function KaptenMateriPageModule({ session }: { session: SessionContext }) {
-  const [displayMateri, setDisplayMateri] = useState(materi);
-
-  useEffect(() => {
-    const syncStoredDrafts = () => setDisplayMateri(getMateriWithStoredDrafts(materi));
-
-    syncStoredDrafts();
-    window.addEventListener("storage", syncStoredDrafts);
-    return () => window.removeEventListener("storage", syncStoredDrafts);
-  }, []);
-
-  return (
-    <MentorWorkspaceShell
-      activeLabel="Materi"
-      breadcrumbLabel="Materi"
-      searchPlaceholder="Cari materi, video, atau subject..."
-      session={session}
-    >
-      <PageIntro
-        action={<CreateButton href="/mentor/materi/create" label="Buat Materi" />}
-        description="Kelola materi berdasarkan subject."
-        title="Materi"
-      />
-
-      <div className="space-y-8">
-        <SearchPanel placeholder="Cari judul materi, video, atau topik..." />
-        {kaptenSubjects.map((subject) => (
-          <SubjectResourceSection
-            key={subject.code}
-            resources={displayMateri}
-            subject={subject}
-          />
-        ))}
-      </div>
-    </MentorWorkspaceShell>
   );
 }
 
@@ -196,7 +120,7 @@ function KaptenQuestionBankPageModule({
 
   return (
     <MentorWorkspaceShell
-      activeLabel="Question Bank"
+      activeLabel="Bank Soal"
       breadcrumbLabel="Question Bank"
       searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..."
       session={session}
@@ -251,14 +175,9 @@ function TryoutRow({ tryout }: { tryout: KaptenTryout }) {
         </div>
 
         <div className="flex items-center gap-5 lg:text-right">
-          <div>
-            <p className="text-sm font-semibold text-secondary-900">
-              {tryout.primaryMetric}
-            </p>
-            <p className="mt-1 text-xs text-secondary-500">
-              {tryout.progress}% siap
-            </p>
-          </div>
+          <p className="text-sm font-semibold text-secondary-900">
+            {tryout.primaryMetric}
+          </p>
           <Button render={<Link href={tryout.href} />} size="sm" variant="brandOutline">
             Buka
           </Button>
