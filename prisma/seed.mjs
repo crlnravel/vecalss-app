@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import bcrypt from "bcryptjs";
 import pg from "pg";
+import { seedMateriCatalogue } from "./materi-seed.mjs";
 
 const { Client } = pg;
 
@@ -574,6 +575,8 @@ async function main() {
       headline: "Tutor SNBT · Pendamping cohort",
       userId: tutorUserId,
     });
+
+    await seedMateriCatalogue(client, { authorUserId: tutorUserId });
 
     const cohortId = await upsertCohort(client, {
       endDate: new Date("2027-04-30"),

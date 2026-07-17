@@ -15,9 +15,13 @@ import {
   quickCreateItems,
   statusLabels,
   type KaptenContentStatus,
-  type KaptenMateri,
   type KaptenResource,
 } from "@/modules/mentor/mock-data";
+
+type MateriResource = KaptenResource & {
+  duration: string;
+  readiness: "ready" | "incomplete";
+};
 
 const statusClasses: Record<KaptenContentStatus, string> = {
   archived: "text-secondary-500",
@@ -110,7 +114,7 @@ function ResourceRow({
 }) {
   const meta = contentTypeMeta[resource.resourceType];
   const isMateri = resource.resourceType === "materi";
-  const lesson = resource as KaptenMateri;
+  const lesson = resource as MateriResource;
   const primaryMetric = isMateri
     ? `${lesson.duration || "Durasi belum diisi"} · ${lesson.readiness === "ready" ? "Siap" : "Belum siap"}`
     : resource.primaryMetric;

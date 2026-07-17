@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ChevronDown, Eye, Save, Video } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, Eye, Save, Send, Undo2, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,16 +10,8 @@ import { Field, FieldInput, FieldLabel, fieldControlClassName } from "@/componen
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import { getMateriWithStoredDrafts, saveMateriDraft } from "@/modules/mentor/materi-draft-storage";
-import {
-  getCanonicalMateriSection,
-  getCanonicalMateriSections,
-  getMateriReadiness,
-  getMateriSubject,
-  isValidHttpUrl,
-  materiSubjects,
-} from "@/modules/mentor/materi-model";
-import { materi, type KaptenMateri } from "@/modules/mentor/mock-data";
+import { publishMateriLessonAction, returnMateriLessonToDraftAction, saveMateriLessonAction, unpublishMateriLessonAction } from "@/modules/mentor/materi-actions";
+import type { KaptenMateriSubjectView, KaptenMateriView } from "@/modules/mentor/materi-view-model";
 import type { MateriBuilderState } from "@/modules/mentor/materi-builder-types";
 
 type BuilderErrors = Partial<Record<keyof MateriBuilderState, string>>;
@@ -29,58 +21,50 @@ type CreateContext = {
   subjectSlug: string;
 };
 
-function slugify(value: string) {
-  const slug = value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  return slug || "materi-baru";
+function getSubject(subjects: KaptenMateriSubjectView[], subjectSlug: string) {
+  return subjects.find((subject) => subject.slug === subjectSlug);
 }
 
-function getAppendOrder(subjectSlug: string, sectionId: string, currentId?: string) {
-  if (!getCanonicalMateriSection(subjectSlug, sectionId)) {
-    return "1";
+function getSection(subjects: KaptenMateriSubjectView[], subjectSlug: string, sectionId: string) {
+  return getSubject(subjects, subjectSlug)?.sections.find((section) => section.sectionId === sectionId);
+}
+
+function getAppendOrder(catalogue: KaptenMateriView[], subjectSlug: string, sectionId: string, currentCode?: string) {
+  return String(catalogue.filter((lesson) => lesson.code !== currentCode && lesson.subjectSlug === subjectSlug && lesson.sectionId === sectionId).length + 1);
+}
+
+function isValidHttpUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
   }
-
-  const siblings = getMateriWithStoredDrafts(materi).filter(
-    (lesson) =>
-      lesson.id !== currentId
-      && lesson.status !== "archived"
-      && lesson.migrationState !== "needs-review"
-      && lesson.subjectSlug === subjectSlug
-      && lesson.sectionId === sectionId,
-  );
-
-  return String(siblings.length + 1);
 }
 
 function getInitialState(
-  materiRecord?: KaptenMateri | null,
+  catalogue: KaptenMateriView[],
+  subjects: KaptenMateriSubjectView[],
+  materiRecord?: KaptenMateriView | null,
   createContext?: CreateContext,
 ): MateriBuilderState {
   if (materiRecord) {
-    const hasCanonicalPlacement = materiRecord.migrationState !== "needs-review" && Boolean(
-      getCanonicalMateriSection(materiRecord.subjectSlug, materiRecord.sectionId),
-    );
-
     return {
       duration: materiRecord.duration,
-      position: hasCanonicalPlacement ? String(materiRecord.position + 1) : "1",
-      sectionId: hasCanonicalPlacement ? materiRecord.sectionId ?? "" : "",
-      subjectSlug: getMateriSubject(materiRecord.subjectSlug)?.slug ?? materiSubjects[0]?.slug ?? "",
+      position: String(materiRecord.position),
+      sectionId: materiRecord.sectionId,
+      subjectSlug: getSubject(subjects, materiRecord.subjectSlug)?.slug ?? subjects[0]?.slug ?? "",
       title: materiRecord.title,
       videoUrl: materiRecord.videoUrl,
     };
   }
 
-  const subjectSlug = createContext?.subjectSlug ?? materiSubjects[0]?.slug ?? "";
+  const subjectSlug = createContext?.subjectSlug ?? subjects[0]?.slug ?? "";
   const sectionId = createContext?.sectionId ?? "";
 
   return {
     duration: "",
-    position: getAppendOrder(subjectSlug, sectionId),
+    position: getAppendOrder(catalogue, subjectSlug, sectionId),
     sectionId,
     subjectSlug,
     title: "",
@@ -88,10 +72,10 @@ function getInitialState(
   };
 }
 
-function getValidationErrors(state: MateriBuilderState): BuilderErrors {
+function getValidationErrors(state: MateriBuilderState, subjects: KaptenMateriSubjectView[]): BuilderErrors {
   const errors: BuilderErrors = {};
-  const subject = getMateriSubject(state.subjectSlug);
-  const canonicalSection = getCanonicalMateriSection(state.subjectSlug, state.sectionId);
+  const subject = getSubject(subjects, state.subjectSlug);
+  const canonicalSection = getSection(subjects, state.subjectSlug, state.sectionId);
 
   if (!subject) {
     errors.subjectSlug = "Pilih subject Materi yang tersedia.";
@@ -130,7 +114,7 @@ function FieldError({ error, id }: { error?: string; id: string }) {
   return error ? <p className="text-sm leading-5 text-red-700" id={id}>{error}</p> : null;
 }
 
-function LifecycleLabel({ status }: { status: KaptenMateri["status"] }) {
+function LifecycleLabel({ status }: { status: KaptenMateriView["status"] }) {
   const labels = {
     archived: "Diarsipkan",
     draft: "Draf",
@@ -142,6 +126,7 @@ function LifecycleLabel({ status }: { status: KaptenMateri["status"] }) {
 }
 
 function KaptenMateriBuilderPageModule({
+  catalogue,
   createContext,
   initialMateri = null,
   initialPreview = false,
@@ -149,40 +134,38 @@ function KaptenMateriBuilderPageModule({
   mode,
   returnTo,
   session,
+  subjects,
 }: {
+  catalogue: KaptenMateriView[];
   createContext?: CreateContext;
-  initialMateri?: KaptenMateri | null;
+  initialMateri?: KaptenMateriView | null;
   initialPreview?: boolean;
   materiId?: string;
   mode: "create" | "edit";
   returnTo?: string;
   session: SessionContext;
+  subjects: KaptenMateriSubjectView[];
 }) {
   const router = useRouter();
-  const [builderState, setBuilderState] = useState(() => getInitialState(initialMateri, createContext));
-  const [savedMateri, setSavedMateri] = useState<KaptenMateri | null>(initialMateri);
+  const [builderState, setBuilderState] = useState(() => getInitialState(catalogue, subjects, initialMateri, createContext));
+  const [savedMateri, setSavedMateri] = useState<KaptenMateriView | null>(initialMateri);
   const [errors, setErrors] = useState<BuilderErrors>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(initialPreview);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const canonicalSections = useMemo(
-    () => getCanonicalMateriSections(builderState.subjectSlug),
-    [builderState.subjectSlug],
+    () => getSubject(subjects, builderState.subjectSlug)?.sections ?? [],
+    [builderState.subjectSlug, subjects],
   );
-  const selectedSubject = getMateriSubject(builderState.subjectSlug);
-  const selectedSection = getCanonicalMateriSection(builderState.subjectSlug, builderState.sectionId);
+  const selectedSubject = getSubject(subjects, builderState.subjectSlug);
+  const selectedSection = getSection(subjects, builderState.subjectSlug, builderState.sectionId);
   const materiStatus = savedMateri?.status ?? "draft";
   const saveLabel = materiStatus === "draft" ? "Simpan draf" : "Simpan perubahan";
-  const readiness = getMateriReadiness({
-    duration: builderState.duration,
-    sectionId: builderState.sectionId || null,
-    subjectSlug: builderState.subjectSlug,
-    title: builderState.title,
-    videoUrl: builderState.videoUrl,
-  });
+  const readiness = builderState.title.trim() && builderState.duration.trim() && selectedSection && isValidHttpUrl(builderState.videoUrl) ? "ready" : "incomplete";
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -227,7 +210,7 @@ function KaptenMateriBuilderPageModule({
   function updateSubject(subjectSlug: string) {
     markChanged({
       ...builderState,
-      position: "1",
+      position: getAppendOrder(catalogue, subjectSlug, "", savedMateri?.code),
       sectionId: "",
       subjectSlug,
     });
@@ -236,13 +219,13 @@ function KaptenMateriBuilderPageModule({
   function updateSection(sectionId: string) {
     markChanged({
       ...builderState,
-      position: getAppendOrder(builderState.subjectSlug, sectionId, savedMateri?.id),
+      position: getAppendOrder(catalogue, builderState.subjectSlug, sectionId, savedMateri?.code),
       sectionId,
     });
   }
 
-  function saveLesson() {
-    const nextErrors = getValidationErrors(builderState);
+  async function saveLesson() {
+    const nextErrors = getValidationErrors(builderState, subjects);
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       setSaveError("Lengkapi field yang ditandai sebelum menyimpan lesson.");
@@ -250,59 +233,36 @@ function KaptenMateriBuilderPageModule({
       return;
     }
 
-    const subject = getMateriSubject(builderState.subjectSlug);
-    const section = getCanonicalMateriSection(builderState.subjectSlug, builderState.sectionId);
+    const subject = getSubject(subjects, builderState.subjectSlug);
+    const section = getSection(subjects, builderState.subjectSlug, builderState.sectionId);
     if (!subject || !section) {
       return;
     }
 
-    const currentMateri = savedMateri;
-    const id = currentMateri?.id ?? `draft-${slugify(builderState.title)}-${Date.now()}`;
-    const title = builderState.title.trim();
-    const duration = builderState.duration.trim();
-    const videoUrl = builderState.videoUrl.trim();
-    const requestedPosition = Number(builderState.position);
-    const nextReadiness = getMateriReadiness({
-      duration,
-      sectionId: section.sectionId,
-      subjectSlug: subject.slug,
-      title,
-      videoUrl,
-    });
-    const materiDraft: KaptenMateri = {
-      description: currentMateri?.description ?? `${subject.name} · ${section.title}`,
-      duration,
-      href: `/mentor/materi/${id}`,
-      id,
-      migrationState: currentMateri?.migrationState === "needs-review" ? "canonical" : currentMateri?.migrationState,
-      position: Math.max(0, requestedPosition - 1),
-      primaryMetric: `${duration} · ${nextReadiness === "ready" ? "Siap" : "Belum siap"}`,
-      progress: nextReadiness === "ready" ? 100 : 0,
-      readiness: nextReadiness,
-      resourceCount: currentMateri?.resourceCount ?? 1,
-      resourceType: "materi",
-      sections: currentMateri?.sections ?? [section.title],
-      sectionId: section.sectionId,
-      sectionTitle: section.title,
-      scheduledFor: currentMateri?.scheduledFor,
-      status: currentMateri?.status ?? "draft",
-      subjectCode: subject.code,
-      subjectName: subject.name,
-      subjectSlug: subject.slug,
-      title,
-      updatedAt: "Diedit baru saja",
-      videoUrl,
-    };
-
+    setIsSaving(true);
     try {
-      const savedDraft = saveMateriDraft({ materi: materiDraft, sections: [] }, { requestedPosition });
-      const saved = savedDraft.materi;
+      const result = await saveMateriLessonAction({
+        code: savedMateri?.code,
+        duration: builderState.duration,
+        position: Number(builderState.position),
+        subjectSlug: subject.slug,
+        title: builderState.title,
+        topicCode: section.sectionId,
+        videoUrl: builderState.videoUrl,
+      });
+      if (!result.ok) {
+        setErrors(result.fieldErrors ?? {});
+        setHasUnsavedChanges(true);
+        setSaveError(result.message);
+        return;
+      }
+      const saved = result.lesson;
       setSavedMateri(saved);
-      setBuilderState((current) => ({ ...current, position: String(saved.position + 1) }));
+      setBuilderState((current) => ({ ...current, position: String(saved.position) }));
       setErrors({});
       setHasUnsavedChanges(false);
       setSaveError(null);
-      setLastSavedAt(materiStatus === "draft" ? "Draf tersimpan." : "Perubahan tersimpan.");
+      setLastSavedAt(result.message);
 
       if (!materiId && !initialMateri) {
         setPendingRouteReplacement(
@@ -311,9 +271,43 @@ function KaptenMateriBuilderPageModule({
             : saved.href,
         );
       }
+      router.refresh();
     } catch (error) {
       setHasUnsavedChanges(true);
       setSaveError(error instanceof Error ? error.message : "Lesson tidak dapat disimpan. Coba lagi.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function changePublication(next: "publish" | "unpublish" | "returnToDraft") {
+    if (!savedMateri || isSaving) return;
+    const confirmation = next === "publish"
+      ? "Terbitkan lesson ini? Lesson yang lengkap akan langsung tersedia untuk siswa."
+      : next === "unpublish"
+        ? "Batalkan penerbitan lesson ini? Lesson akan kembali menjadi draf dan tidak lagi tersedia untuk siswa."
+        : "Kembalikan lesson ini ke draf? Kode lesson, konten video, penempatan, dan urutannya tetap dipertahankan.";
+    if (!window.confirm(confirmation)) return;
+
+    setIsSaving(true);
+    try {
+      const result = next === "publish"
+        ? await publishMateriLessonAction(savedMateri.code)
+        : next === "unpublish"
+          ? await unpublishMateriLessonAction(savedMateri.code)
+          : await returnMateriLessonToDraftAction(savedMateri.code);
+      if (!result.ok) {
+        setSaveError(result.message);
+        return;
+      }
+      setSavedMateri(result.lesson);
+      setLastSavedAt(result.message);
+      setSaveError(null);
+      router.refresh();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Status publikasi tidak dapat diubah. Coba lagi.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -344,7 +338,7 @@ function KaptenMateriBuilderPageModule({
             <LifecycleLabel status={materiStatus} />
           </div>
           <p className="mt-2 text-sm text-secondary-500">
-            Status lifecycle hanya sebagai konteks dan tidak berubah saat lesson disimpan.
+            Status lifecycle hanya berubah melalui aksi terbitkan, batalkan terbit, atau kembalikan ke draf. Menyimpan perubahan pada lesson terbit mempertahankan statusnya.
           </p>
         </div>
 
@@ -353,9 +347,12 @@ function KaptenMateriBuilderPageModule({
             <Eye />
             Preview
           </Button>
-          <Button onClick={saveLesson} type="button" variant="brand">
+          {materiStatus === "draft" ? <Button disabled={!savedMateri || savedMateri.readiness !== "ready" || isSaving} onClick={() => changePublication("publish")} type="button" variant="brandOutline"><Send />Terbitkan</Button> : null}
+          {materiStatus === "published" ? <Button disabled={isSaving} onClick={() => changePublication("unpublish")} type="button" variant="brandOutline"><Undo2 />Batalkan terbit</Button> : null}
+          {materiStatus === "scheduled" || materiStatus === "archived" ? <Button disabled={isSaving} onClick={() => changePublication("returnToDraft")} type="button" variant="brandOutline"><Undo2 />Kembalikan ke draf</Button> : null}
+          <Button disabled={isSaving} onClick={saveLesson} type="button" variant="brand">
             <Save />
-            {saveLabel}
+            {isSaving ? "Menyimpan..." : saveLabel}
           </Button>
         </div>
       </section>
@@ -418,7 +415,7 @@ function KaptenMateriBuilderPageModule({
                 <FieldLabel htmlFor="materi-subject">Subject</FieldLabel>
                 <div className="relative">
                   <select aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined} aria-invalid={Boolean(errors.subjectSlug)} className={`${fieldControlClassName} appearance-none pr-12`} id="materi-subject" onChange={(event) => updateSubject(event.target.value)} value={builderState.subjectSlug}>
-                    {materiSubjects.map((subject) => <option key={subject.slug} value={subject.slug}>{subject.code} · {subject.name}</option>)}
+                    {subjects.map((subject) => <option key={subject.slug} value={subject.slug}>{subject.code} · {subject.name}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
                 </div>

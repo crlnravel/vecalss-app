@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { PersistedMateriBuilderRoute } from "@/modules/mentor/PersistedMateriBuilderRoute";
-import { getValidatedMateriReturnTo } from "@/modules/mentor/materi-model";
-import { getMateriById } from "@/modules/mentor/mock-data";
+import { getMentorMateriByCode, getMentorMateriCatalogue } from "@/lib/materi/repository";
+import { KaptenMateriBuilderPageModule } from "@/modules/mentor/KaptenMateriBuilderPageModule";
+import { toKaptenMateriCatalogueView, toKaptenMateriEditorView } from "@/modules/mentor/materi-view-model";
 
 type MentorMateriBuilderPageProps = {
   params: Promise<{
@@ -23,20 +24,28 @@ export default async function MentorMateriBuilderPage({
   params,
   searchParams,
 }: MentorMateriBuilderPageProps) {
-  const [{ materiId }, session, query] = await Promise.all([
-    params,
-    requireTutorSession(),
+  const { materiId } = await params;
+  const session = await requireTutorSession();
+  const [query, catalogue, lesson] = await Promise.all([
     searchParams,
+    getMentorMateriCatalogue(),
+    getMentorMateriByCode(materiId),
   ]);
-  const initialMateri = getMateriById(materiId);
+  const view = toKaptenMateriCatalogueView(catalogue);
+  const initialMateri = toKaptenMateriEditorView(lesson);
+  if (!initialMateri) notFound();
+  const returnTo = typeof query.returnTo === "string" && view.subjects.some((subject) => query.returnTo === `/mentor/materi/subject/${subject.slug}`) ? query.returnTo : undefined;
 
   return (
-    <PersistedMateriBuilderRoute
+    <KaptenMateriBuilderPageModule
+      catalogue={view.lessons}
       initialMateri={initialMateri}
       initialPreview={query.preview === "1"}
       materiId={materiId}
-      returnTo={getValidatedMateriReturnTo(query.returnTo)}
+      mode="edit"
+      returnTo={returnTo}
       session={session}
+      subjects={view.subjects}
     />
   );
 }

@@ -3,9 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 
 import {
-  courseCatalogue,
   getCourseLesson,
-  getCourseLessons,
   getCourseProgressState,
   getSeedCourseProgress,
   type Course,
@@ -36,7 +34,7 @@ function getCourseMap(courses: readonly Course[]) {
 
 function parseStoredLearningProgress(
   value: string | null,
-  courses: readonly Course[] = courseCatalogue,
+  courses: readonly Course[],
 ): StoredLearningProgress | null {
   if (!value) {
     return {};
@@ -57,15 +55,11 @@ function parseStoredLearningProgress(
         return null;
       }
 
-      if (!Array.isArray(rawProgress.completedLessonIds)) {
-        return null;
-      }
-
-      const lessons = new Set(getCourseLessons(course).map((lesson) => lesson.id));
       const completedLessonIds = rawProgress.completedLessonIds;
       if (
-        completedLessonIds.some(
-          (lessonId) => typeof lessonId !== "string" || lessonId.length === 0 || !lessons.has(lessonId),
+        !Array.isArray(completedLessonIds)
+        || completedLessonIds.some(
+          (lessonId) => typeof lessonId !== "string" || lessonId.length === 0,
         )
         || new Set(completedLessonIds).size !== completedLessonIds.length
       ) {
@@ -75,7 +69,7 @@ function parseStoredLearningProgress(
       const skippedToLessonId = rawProgress.skippedToLessonId;
       if (
         skippedToLessonId !== undefined
-        && (typeof skippedToLessonId !== "string" || skippedToLessonId.length === 0 || !lessons.has(skippedToLessonId))
+        && (typeof skippedToLessonId !== "string" || skippedToLessonId.length === 0)
       ) {
         return null;
       }
@@ -92,13 +86,13 @@ function parseStoredLearningProgress(
   }
 }
 
-function getSeedLearningProgress(courses: readonly Course[] = courseCatalogue): StoredLearningProgress {
+function getSeedLearningProgress(courses: readonly Course[]): StoredLearningProgress {
   return Object.fromEntries(courses.map((course) => [course.slug, getSeedCourseProgress(course)]));
 }
 
 function mergeWithSeedProgress(
   stored: StoredLearningProgress | null,
-  courses: readonly Course[] = courseCatalogue,
+  courses: readonly Course[],
 ): StoredLearningProgress {
   const seed = getSeedLearningProgress(courses);
   const courseMap = getCourseMap(courses);
@@ -148,7 +142,7 @@ function readInMemoryProgress(courses: readonly Course[]) {
   }
 }
 
-function readLearningProgress(courses: readonly Course[] = courseCatalogue): StoredLearningProgress {
+function readLearningProgress(courses: readonly Course[]): StoredLearningProgress {
   if (storageUnavailable) {
     const memoryProgress = readInMemoryProgress(courses);
     if (memoryProgress) {
@@ -169,7 +163,7 @@ function notifyProgressChange() {
 
 function writeLearningProgress(
   progress: StoredLearningProgress,
-  courses: readonly Course[] = courseCatalogue,
+  courses: readonly Course[],
 ) {
   if (typeof window === "undefined") {
     return false;
@@ -204,7 +198,7 @@ function writeLearningProgress(
 function updateCourseProgress(
   courseSlug: string,
   update: (progress: CourseProgressSnapshot, course: Course) => CourseProgressSnapshot,
-  courses: readonly Course[] = courseCatalogue,
+  courses: readonly Course[],
 ) {
   const course = courses.find((candidate) => candidate.slug === courseSlug);
   const current = readLearningProgress(courses);
@@ -223,7 +217,7 @@ function updateCourseProgress(
 function completeCourseLesson(
   courseSlug: string,
   lessonId: string,
-  courses: readonly Course[] = courseCatalogue,
+  courses: readonly Course[],
 ) {
   return updateCourseProgress(courseSlug, (progress, course) => {
     if (!getCourseLesson(course, lessonId) || progress.completedLessonIds.includes(lessonId)) {
@@ -240,7 +234,7 @@ function completeCourseLesson(
 function skipToCourseLesson(
   courseSlug: string,
   lessonId: string,
-  courses: readonly Course[] = courseCatalogue,
+  courses: readonly Course[],
 ) {
   return updateCourseProgress(courseSlug, (progress, course) => {
     if (
@@ -255,11 +249,11 @@ function skipToCourseLesson(
   }, courses);
 }
 
-function getStoredCourseProgress(courseSlug: string, courses: readonly Course[] = courseCatalogue) {
+function getStoredCourseProgress(courseSlug: string, courses: readonly Course[]) {
   return readLearningProgress(courses)[courseSlug];
 }
 
-function useCourseProgress(course: Course) {
+function useCourseProgress(course: Course, courses: readonly Course[]) {
   const serializedProgress = useSyncExternalStore(
     (onStoreChange) => {
       window.addEventListener("storage", onStoreChange);
@@ -283,9 +277,9 @@ function useCourseProgress(course: Course) {
   return useMemo(() => {
     const stored = serializedProgress === serverStorageSnapshot
       ? null
-      : parseStoredLearningProgress(serializedProgress, courseCatalogue);
+      : parseStoredLearningProgress(serializedProgress, courses);
     return getCourseProgressState(course, stored?.[course.slug] ?? getSeedCourseProgress(course));
-  }, [course, serializedProgress]);
+  }, [course, courses, serializedProgress]);
 }
 
 export {

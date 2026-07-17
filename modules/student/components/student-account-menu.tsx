@@ -28,19 +28,25 @@ import { logoutAction } from "@/modules/auth/actions";
 import { getInitials } from "@/modules/student/components/student-sidebar";
 
 type StudentAccountMenuItem = "notifications";
+type AccountMenuAudience = "student" | "tutor";
 
 const studentAccountMenuItemClassName =
   "hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50";
 
 function StudentAccountMenu({
+  audience = "student",
   extraItem,
   session,
 }: {
+  audience?: AccountMenuAudience;
   extraItem?: StudentAccountMenuItem;
   session: SessionContext;
 }) {
   const initials = getInitials(session.user.fullName);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const isTutor = audience === "tutor";
+  const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
+  const settingsHref = isTutor ? "/mentor/settings" : "/settings";
 
   return (
     <>
@@ -48,7 +54,7 @@ function StudentAccountMenu({
         <DropdownMenuTrigger
           render={
             <Button
-              aria-label="Buka menu pengguna"
+              aria-label={isTutor ? "Buka menu Kapten" : "Buka menu pengguna"}
               className="rounded-full p-1"
               size="icon-sm"
               type="button"
@@ -73,14 +79,14 @@ function StudentAccountMenu({
           <DropdownMenuGroup>
             <DropdownMenuItem
               className={studentAccountMenuItemClassName}
-              render={<Link href="/settings#profil" />}
+              render={<Link href={profileHref} />}
             >
               <UserRound />
               Profil
             </DropdownMenuItem>
             <DropdownMenuItem
               className={studentAccountMenuItemClassName}
-              render={<Link href="/settings" />}
+              render={<Link href={settingsHref} />}
             >
               <Settings />
               Pengaturan
@@ -116,7 +122,7 @@ function StudentAccountMenu({
                 Keluar dari akun?
               </DialogTitle>
               <DialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
-                Kamu perlu masuk kembali untuk melanjutkan belajar di dashboard.
+                Kamu perlu masuk kembali untuk melanjutkan {isTutor ? "mengelola konten" : "belajar"} di dashboard.
               </DialogDescription>
             </div>
           </div>
@@ -130,7 +136,7 @@ function StudentAccountMenu({
               }
             />
             <form action={logoutAction}>
-              <input name="audience" type="hidden" value="student" />
+              <input name="audience" type="hidden" value={audience} />
               <Button
                 className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25"
                 type="submit"
@@ -147,4 +153,4 @@ function StudentAccountMenu({
 }
 
 export { StudentAccountMenu };
-export type { StudentAccountMenuItem };
+export type { AccountMenuAudience, StudentAccountMenuItem };

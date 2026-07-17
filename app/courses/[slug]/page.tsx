@@ -1,29 +1,26 @@
 import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
+import { getPublishedCourseCatalogue } from "@/lib/materi/repository";
 import { CourseDetailPageModule } from "@/modules/courses/CourseDetailPageModule";
-import { courseCatalogue, getCourseBySlug } from "@/modules/courses/data";
-
-export function generateStaticParams() {
-  return courseCatalogue.map((course) => ({
-    slug: course.slug,
-  }));
-}
+import { getCourseBySlug, toCourseCatalogue } from "@/modules/courses/data";
 
 export default async function CourseDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const [{ slug }, session] = await Promise.all([
+  const session = await requireStudentSession();
+  const [{ slug }, publishedCourses] = await Promise.all([
     params,
-    requireStudentSession(),
+    getPublishedCourseCatalogue(),
   ]);
-  const course = getCourseBySlug(slug);
+  const courses = toCourseCatalogue(publishedCourses);
+  const course = getCourseBySlug(courses, slug);
 
   if (!course) {
     notFound();
   }
 
-  return <CourseDetailPageModule courseSlug={course.slug} session={session} />;
+  return <CourseDetailPageModule course={course} courses={courses} session={session} />;
 }

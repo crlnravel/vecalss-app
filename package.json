@@ -12,6 +12,9 @@
     "build": "pnpm db:generate && pnpm tokens && next build",
     "start": "next start",
     "db:seed": "node prisma/seed.mjs",
+    "db:seed-materi": "node prisma/seed-materi.mjs",
+    "db:verify-materi": "node scripts/verify-materi-catalogue.mjs",
+    "db:verify-materi-cutover": "node scripts/verify-materi-catalogue.mjs",
     "verify": "pnpm lint && pnpm build"
   },
   "dependencies": {

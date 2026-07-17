@@ -29,8 +29,6 @@ import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import {
-  courseCatalogue,
-  getCourseBySlug,
   getCourseProgressState,
   getLessonProgressStatus,
   type Course,
@@ -40,21 +38,22 @@ import {
 import { skipToCourseLesson, useCourseProgress } from "./progress-storage";
 
 function CourseLearningPathPageModule({
-  courseSlug,
+  course,
+  courses,
   session,
 }: {
-  courseSlug: string;
+  course: Course;
+  courses: Course[];
   session: SessionContext;
 }) {
-  const course = getCourseBySlug(courseSlug) ?? courseCatalogue[0];
-  const progress = useCourseProgress(course);
+  const progress = useCourseProgress(course, courses);
   const state = getCourseProgressState(course, {
     completedLessonIds: progress.completedLessonIds,
     skippedToLessonId: progress.skippedToLessonId,
   });
 
   const handleSkip = (lesson: CourseLesson) => {
-    skipToCourseLesson(course.slug, lesson.id);
+    skipToCourseLesson(course.slug, lesson.id, courses);
   };
 
   return (
@@ -72,7 +71,7 @@ function CourseLearningPathPageModule({
         />
 
         <div className="sticky top-3 z-30 mx-auto w-full max-w-[48rem] px-4 pt-3 sm:px-6">
-          <SubjectSelector course={course} />
+          <SubjectSelector course={course} courses={courses} />
         </div>
 
         <div className="mx-auto mt-4 w-full max-w-[42rem] px-4 sm:mt-6 sm:px-6">
@@ -115,7 +114,13 @@ function CourseLearningPathPageModule({
   );
 }
 
-function SubjectSelector({ course }: { course: Course }) {
+function SubjectSelector({
+  course,
+  courses,
+}: {
+  course: Course;
+  courses: Course[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -168,7 +173,7 @@ function SubjectSelector({ course }: { course: Course }) {
         className="max-h-[min(34rem,var(--available-height))] rounded-[2rem] border border-[#e8ecf2] bg-white p-2 shadow-[0_30px_90px_-42px_rgba(28,39,61,0.5)]"
         sideOffset={10}
       >
-        {courseCatalogue.map((subject, index) => {
+        {courses.map((subject, index) => {
           const isActive = subject.slug === course.slug;
 
           return (
@@ -385,8 +390,8 @@ function PathNode({
           "relative z-10 col-span-3 col-start-1 row-start-1 mx-1 w-[min(21rem,calc(100%-1rem))] rounded-[1.8rem] border px-4 py-4 sm:mx-4 sm:w-[min(25rem,44vw)] sm:px-5 sm:py-5 lg:w-[28rem]",
           isActive && "max-sm:hidden",
           isEven
-            ? "justify-self-start pr-4 sm:mr-[5.5rem] sm:justify-self-end sm:pr-20"
-            : "justify-self-end pl-4 sm:ml-[5.5rem] sm:justify-self-start sm:pl-20",
+            ? "justify-self-start pl-2 sm:mr-[5.5rem] sm:justify-self-end sm:pl-12"
+            : "justify-self-end pr-2 sm:ml-[5.5rem] sm:justify-self-start sm:pr-16",
           isLocked
             ? "border-[#e9ecf1] bg-[#f5f6f8]/95 text-[#737d8f] shadow-[0_8px_0_#d8dce3,0_22px_45px_-30px_rgba(43,54,77,0.42)]"
             : isCompleted

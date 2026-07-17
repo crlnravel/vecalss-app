@@ -1,15 +1,18 @@
 import type { SessionContext } from "@/lib/auth/types";
 
 import { CourseLearningPathPageModule } from "./CourseLearningPathPageModule";
+import type { Course } from "./data";
 
 function CourseDetailPageModule({
-  courseSlug,
+  course,
+  courses,
   session,
 }: {
-  courseSlug: string;
+  course: Course;
+  courses: Course[];
   session: SessionContext;
 }) {
-  return <CourseLearningPathPageModule courseSlug={courseSlug} session={session} />;
+  return <CourseLearningPathPageModule course={course} courses={courses} session={session} />;
 }
 
 export { CourseDetailPageModule };

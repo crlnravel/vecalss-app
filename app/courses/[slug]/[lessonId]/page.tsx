@@ -1,43 +1,34 @@
 import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
+import { getPublishedCourseCatalogue, getPublishedLesson } from "@/lib/materi/repository";
 import { CourseLessonPageModule } from "@/modules/courses/CourseLessonPageModule";
-import {
-  courseCatalogue,
-  getCourseBySlug,
-  getCourseLesson,
-  getCourseLessons,
-} from "@/modules/courses/data";
-
-export function generateStaticParams() {
-  return courseCatalogue.flatMap((course) =>
-    getCourseLessons(course).map((lesson) => ({
-      lessonId: lesson.id,
-      slug: course.slug,
-    })),
-  );
-}
+import { getCourseBySlug, getCourseLesson, toCourseCatalogue } from "@/modules/courses/data";
 
 export default async function CourseLessonPage({
   params,
 }: {
   params: Promise<{ lessonId: string; slug: string }>;
 }) {
-  const [{ lessonId, slug }, session] = await Promise.all([
-    params,
-    requireStudentSession(),
+  const session = await requireStudentSession();
+  const { lessonId, slug } = await params;
+  const [publishedCourses, publishedLesson] = await Promise.all([
+    getPublishedCourseCatalogue(),
+    getPublishedLesson(slug, lessonId),
   ]);
-  const course = getCourseBySlug(slug);
+  const courses = toCourseCatalogue(publishedCourses);
+  const course = getCourseBySlug(courses, slug);
   const lesson = course ? getCourseLesson(course, lessonId) : undefined;
 
-  if (!course || !lesson) {
+  if (!course || !lesson || !publishedLesson) {
     notFound();
   }
 
   return (
     <CourseLessonPageModule
-      courseSlug={course.slug}
-      lessonId={lesson.id}
+      course={course}
+      courses={courses}
+      lesson={lesson}
       session={session}
     />
   );

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { getMentorMateriCatalogue } from "@/lib/materi/repository";
 import { KaptenMateriSubjectPageModule } from "@/modules/mentor/KaptenMateriCataloguePageModules";
-import { getMateriSubject } from "@/modules/mentor/materi-model";
+import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
 type MentorMateriSubjectPageProps = {
   params: Promise<{ subjectSlug: string }>;
@@ -16,12 +17,15 @@ export const metadata: Metadata = {
 export default async function MentorMateriSubjectPage({
   params,
 }: MentorMateriSubjectPageProps) {
-  const [{ subjectSlug }, session] = await Promise.all([params, requireTutorSession()]);
-  const subject = getMateriSubject(subjectSlug);
+  const { subjectSlug } = await params;
+  const session = await requireTutorSession();
+  const catalogue = await getMentorMateriCatalogue();
+  const view = toKaptenMateriCatalogueView(catalogue);
+  const subject = view.subjects.find((item) => item.slug === subjectSlug);
 
   if (!subject) {
     notFound();
   }
 
-  return <KaptenMateriSubjectPageModule session={session} subject={subject} />;
+  return <KaptenMateriSubjectPageModule catalogue={view.lessons} session={session} subject={subject} />;
 }

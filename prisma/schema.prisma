@@ -681,6 +681,7 @@ model ModuleAsset {
 
   module          Module          @relation(fields: [moduleId], references: [id])
 
+  @@unique([moduleId, sortOrder])
   @@map("module_assets")
 }
 

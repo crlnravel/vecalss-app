@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { getMentorMateriCatalogue } from "@/lib/materi/repository";
 import { KaptenMateriBuilderPageModule } from "@/modules/mentor/KaptenMateriBuilderPageModule";
-import {
-  getCanonicalMateriSection,
-  getMateriSubject,
-  getValidatedMateriReturnTo,
-} from "@/modules/mentor/materi-model";
+import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
 export const metadata: Metadata = {
   title: "Buat Materi Kapten | Vecalss LMS",
@@ -23,22 +20,26 @@ type CreateMentorMateriPageProps = {
 export default async function CreateMentorMateriPage({
   searchParams,
 }: CreateMentorMateriPageProps) {
-  const [session, query] = await Promise.all([requireTutorSession(), searchParams]);
+  const session = await requireTutorSession();
+  const [query, catalogue] = await Promise.all([searchParams, getMentorMateriCatalogue()]);
+  const view = toKaptenMateriCatalogueView(catalogue);
   const subjectSlug = typeof query.subject === "string" ? query.subject : undefined;
   const sectionId = typeof query.section === "string" ? query.section : undefined;
   const hasValidContext = Boolean(
     subjectSlug
     && sectionId
-    && getMateriSubject(subjectSlug)
-    && getCanonicalMateriSection(subjectSlug, sectionId),
+    && view.subjects.some((subject) => subject.slug === subjectSlug && subject.sections.some((section) => section.sectionId === sectionId)),
   );
+  const returnTo = typeof query.returnTo === "string" && view.subjects.some((subject) => query.returnTo === `/mentor/materi/subject/${subject.slug}`) ? query.returnTo : undefined;
 
   return (
     <KaptenMateriBuilderPageModule
+      catalogue={view.lessons}
       createContext={hasValidContext && subjectSlug && sectionId ? { sectionId, subjectSlug } : undefined}
       mode="create"
-      returnTo={getValidatedMateriReturnTo(query.returnTo)}
+      returnTo={returnTo}
       session={session}
+      subjects={view.subjects}
     />
   );
 }

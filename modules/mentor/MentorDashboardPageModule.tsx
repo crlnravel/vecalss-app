@@ -13,17 +13,16 @@ import {
   SectionHeading,
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import { getStoredMateriDrafts } from "@/modules/mentor/materi-draft-storage";
 import { getStoredQuizDrafts } from "@/modules/mentor/quiz-draft-storage";
 import {
   recentlyEdited,
   scheduledPublications,
+  type KaptenResource,
 } from "@/modules/mentor/mock-data";
-
-const materiChangeEvent = "vecalss-materi-drafts-change";
+import type { KaptenMateriView } from "@/modules/mentor/materi-view-model";
 
 type RecentlyEditedResource = {
-  resource: (typeof recentlyEdited)[number];
+  resource: KaptenResource;
   savedAt: number;
 };
 
@@ -38,14 +37,11 @@ function getFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] ?? "Kapten";
 }
 
-function MentorDashboardPageModule({ session }: { session: SessionContext }) {
+function MentorDashboardPageModule({ materiRecentlyEdited, session }: { materiRecentlyEdited: KaptenMateriView[]; session: SessionContext }) {
   const firstName = getFirstName(session.user.fullName);
   const [savedRecentlyEdited, setSavedRecentlyEdited] = useState(() =>
     [
-      ...getStoredMateriDrafts().map((draft) => ({
-        resource: draft.materi,
-        savedAt: draft.savedAt,
-      })),
+      ...materiRecentlyEdited.map((resource) => ({ resource, savedAt: resource.updatedAtEpoch })),
       ...getStoredQuizDrafts().map((draft) => ({
         resource: draft.quiz,
         savedAt: draft.savedAt,
@@ -57,10 +53,7 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
     const syncStoredDrafts = () => {
       setSavedRecentlyEdited(
         [
-          ...getStoredMateriDrafts().map((draft) => ({
-            resource: draft.materi,
-            savedAt: draft.savedAt,
-          })),
+          ...materiRecentlyEdited.map((resource) => ({ resource, savedAt: resource.updatedAtEpoch })),
           ...getStoredQuizDrafts().map((draft) => ({
             resource: draft.quiz,
             savedAt: draft.savedAt,
@@ -71,12 +64,10 @@ function MentorDashboardPageModule({ session }: { session: SessionContext }) {
 
     syncStoredDrafts();
     window.addEventListener("storage", syncStoredDrafts);
-    window.addEventListener(materiChangeEvent, syncStoredDrafts);
     return () => {
       window.removeEventListener("storage", syncStoredDrafts);
-      window.removeEventListener(materiChangeEvent, syncStoredDrafts);
     };
-  }, []);
+  }, [materiRecentlyEdited]);
 
   const savedResourceIds = new Set(savedRecentlyEdited.map(({ resource }) => resource.id));
   const updatedRecentlyEdited = [

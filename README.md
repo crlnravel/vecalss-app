@@ -34,6 +34,27 @@ pnpm exec prisma migrate status
 pnpm db:seed
 ```
 
+### Manual Materi cutover initialization
+
+Use this sequence only against the intended deployment database:
+
+```bash
+pnpm exec prisma migrate status
+pnpm exec prisma migrate deploy
+MATERI_SEED_TUTOR_EMAIL=tutor@example.com pnpm db:seed-materi
+pnpm db:verify-materi-cutover
+pnpm dev
+```
+
+`db:seed-materi` requires an existing active tutor with an active tutor role
+and active tutor profile;
+it never creates or updates users, roles, profiles, cohorts, exam data, or
+other demo records. It writes only the canonical Materi taxonomy and missing
+lesson/video rows in one transaction. Run the read-only exact parity verifier
+immediately after seeding and before any CMS edits: it intentionally fails
+after legitimate Kapten edits, reordering, lifecycle changes, or video
+replacements and is not an ongoing runtime health check.
+
 ## Current Routes
 
 - `/login`

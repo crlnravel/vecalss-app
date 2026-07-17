@@ -1,16 +1,25 @@
 import type { SessionContext } from "@/lib/auth/types";
 
 import { CourseLearningPathPageModule } from "./CourseLearningPathPageModule";
-import { courseCatalogue, getCourseBySlug } from "./data";
+import type { Course } from "./data";
 
-const defaultCourseSlug = (
-  getCourseBySlug("pemahaman-bacaan-menulis") ?? courseCatalogue[0]
-).slug;
+function CourseCataloguePageModule({
+  courses,
+  session,
+}: {
+  courses: Course[];
+  session: SessionContext;
+}) {
+  const defaultCourse = courses.find((course) => course.slug === "pemahaman-bacaan-menulis") ?? courses[0];
 
-function CourseCataloguePageModule({ session }: { session: SessionContext }) {
+  if (!defaultCourse) {
+    return null;
+  }
+
   return (
     <CourseLearningPathPageModule
-      courseSlug={defaultCourseSlug}
+      course={defaultCourse}
+      courses={courses}
       session={session}
     />
   );

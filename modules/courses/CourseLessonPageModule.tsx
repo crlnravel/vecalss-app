@@ -19,8 +19,6 @@ import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import {
-  getCourseBySlug,
-  getCourseLesson,
   getLessonProgressStatus,
   getNextAvailableLesson,
   type Course,
@@ -29,28 +27,59 @@ import {
 } from "./data";
 import { completeCourseLesson, useCourseProgress } from "./progress-storage";
 
-const YOUTUBE_VIDEO_ID = "4rPIpRTEhfY";
-const YOUTUBE_WATCH_URL = `https://www.youtube.com/watch?v=${YOUTUBE_VIDEO_ID}`;
+function getVideoUrls(mediaUrl: string) {
+  try {
+    const url = new URL(mediaUrl);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const isYoutube = host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com" || host === "youtu.be";
 
-function CourseLessonPageModule({
-  courseSlug,
-  lessonId,
-  session,
-}: {
-  courseSlug: string;
-  lessonId: string;
-  session: SessionContext;
-}) {
-  const course = getCourseBySlug(courseSlug);
-  const lesson = course ? getCourseLesson(course, lessonId) : undefined;
+    if (isYoutube) {
+      const videoId = host === "youtu.be"
+        ? pathParts[0]
+        : url.searchParams.get("v") ?? (pathParts[0] === "embed" || pathParts[0] === "shorts" || pathParts[0] === "live" ? pathParts[1] : undefined);
+      if (videoId) {
+        return {
+          embedUrl: `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?rel=0`,
+          openUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+          provider: "youtube" as const,
+        };
+      }
+    }
 
-  if (!course || !lesson) {
-    return null;
+    const isVimeo = host === "vimeo.com" || host === "player.vimeo.com";
+    if (isVimeo) {
+      const videoId = host === "player.vimeo.com" && pathParts[0] === "video" ? pathParts[1] : pathParts[0];
+      if (videoId) {
+        return {
+          embedUrl: `https://player.vimeo.com/video/${encodeURIComponent(videoId)}`,
+          openUrl: `https://vimeo.com/${encodeURIComponent(videoId)}`,
+          provider: "vimeo" as const,
+        };
+      }
+    }
+  } catch {
+    // The repository only exposes validated URLs. Keep a defensive fallback for existing records.
   }
 
+  return { embedUrl: mediaUrl, openUrl: mediaUrl, provider: "other" as const };
+}
+
+function CourseLessonPageModule({
+  course,
+  courses,
+  lesson,
+  session,
+}: {
+  course: Course;
+  courses: Course[];
+  lesson: CourseLesson;
+  session: SessionContext;
+}) {
   return (
     <CourseLessonPlayerModule
       course={course}
+      courses={courses}
       lesson={lesson}
       session={session}
     />
@@ -59,14 +88,16 @@ function CourseLessonPageModule({
 
 function CourseLessonPlayerModule({
   course,
+  courses,
   lesson,
   session,
 }: {
   course: Course;
+  courses: Course[];
   lesson: CourseLesson;
   session: SessionContext;
 }) {
-  const progress = useCourseProgress(course);
+  const progress = useCourseProgress(course, courses);
   const progressSnapshot = {
     completedLessonIds: progress.completedLessonIds,
     skippedToLessonId: progress.skippedToLessonId,
@@ -84,7 +115,7 @@ function CourseLessonPlayerModule({
       return;
     }
 
-    const updatedProgress = completeCourseLesson(course.slug, lesson.id);
+    const updatedProgress = completeCourseLesson(course.slug, lesson.id, courses);
     const nextAfterCompletion = getNextAvailableLesson(
       course,
       updatedProgress[course.slug],
@@ -145,6 +176,7 @@ function LessonPlayer({
   onFeedback: (feedback: Feedback | null) => void;
 }) {
   const isCompleted = lessonStatus === "completed";
+  const videoUrls = getVideoUrls(lesson.videoUrl);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -210,7 +242,7 @@ function LessonPlayer({
             allowFullScreen
             className="absolute inset-0 size-full border-0"
             loading="lazy"
-            src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?rel=0`}
+            src={videoUrls.embedUrl}
             title={`Video pembelajaran: ${lesson.title}`}
           />
         </div>
@@ -229,11 +261,15 @@ function LessonPlayer({
         </Button>
         <a
           className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl px-1 text-sm font-semibold text-[#778193] underline decoration-[#c9cfd8] underline-offset-4 outline-none hover:text-[#333f52] focus-visible:ring-3 focus-visible:ring-[#68cbe6]/30 sm:self-auto"
-          href={YOUTUBE_WATCH_URL}
+          href={videoUrls.openUrl}
           rel="noreferrer"
           target="_blank"
         >
-          Buka di YouTube <ExternalLink className="size-4" />
+          {videoUrls.provider === "youtube"
+            ? "Buka di YouTube"
+            : videoUrls.provider === "vimeo"
+              ? "Buka di Vimeo"
+              : "Buka video"} <ExternalLink className="size-4" />
         </a>
       </div>
 
