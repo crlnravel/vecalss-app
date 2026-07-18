@@ -74,7 +74,7 @@ function StudentSidebar({
     >
       <SidebarHeader className="gap-4 p-4 group-data-[collapsible=icon]:px-2">
         <Link
-          href="/"
+          href="/dashboard"
           className="flex w-full origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50"
         >
           <BrandLockup />

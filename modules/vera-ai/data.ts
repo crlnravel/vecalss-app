@@ -71,6 +71,16 @@ const veraContextSources: VeraContextSource[] = [
     type: "practice",
   },
   {
+    id: "tryout-03",
+    title: "Tryout SNBT 03",
+    type: "practice",
+  },
+  {
+    id: "quiz-pu-argumen",
+    title: "Quiz PU Struktur Argumen",
+    type: "practice",
+  },
+  {
     id: "module-ratio",
     title: "Modul Rasio Dasar",
     type: "material",
@@ -81,6 +91,26 @@ const veraContextSources: VeraContextSource[] = [
     type: "material",
   },
   {
+    id: "video-persentase",
+    title: "Video Trik Persentase",
+    type: "material",
+  },
+  {
+    id: "text-argument",
+    title: "Teks Struktur Argumen",
+    type: "material",
+  },
+  {
+    id: "implicit-conclusion",
+    title: "Contoh Soal Simpulan Implisit",
+    type: "material",
+  },
+  {
+    id: "graph-review",
+    title: "Pembahasan Konsep Grafik",
+    type: "material",
+  },
+  {
     id: "personal-summary",
     title: "Rangkuman PK Pribadi",
     type: "document",
@@ -88,6 +118,11 @@ const veraContextSources: VeraContextSource[] = [
   {
     id: "external-notes",
     title: "Catatan UTBK Mingguan",
+    type: "document",
+  },
+  {
+    id: "geometry-notes",
+    title: "Catatan Geometri UTBK",
     type: "document",
   },
 ];

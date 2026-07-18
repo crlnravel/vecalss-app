@@ -119,6 +119,24 @@ const kaptenSubjects: KaptenSubject[] = [
     name: "Pengetahuan Kuantitatif",
     slug: "pengetahuan-kuantitatif",
   },
+  {
+    code: "LBI",
+    description: "Literasi dalam Bahasa Indonesia.",
+    name: "Literasi Bahasa Indonesia",
+    slug: "literasi-bahasa-indonesia",
+  },
+  {
+    code: "LBE",
+    description: "Literasi dalam Bahasa Inggris.",
+    name: "Literasi Bahasa Inggris",
+    slug: "literasi-bahasa-inggris",
+  },
+  {
+    code: "PM",
+    description: "Penalaran matematika dan pemecahan masalah.",
+    name: "Penalaran Matematika",
+    slug: "penalaran-matematika",
+  },
 ];
 
 

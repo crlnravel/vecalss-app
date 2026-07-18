@@ -241,6 +241,45 @@ function getQuestionBankSourceCatalog() {
   }));
 }
 
+function updateQuestionBankLifecycle(
+  ids: string[],
+  operation: "publish" | "unpublish",
+) {
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length) throw new Error("Pilih minimal satu bank soal.");
+
+  const catalog = getQuestionBankCatalog();
+  const selected = catalog.filter(({ bank }) => uniqueIds.includes(bank.id));
+  if (selected.length !== uniqueIds.length) {
+    throw new Error("Sebagian bank soal tidak ditemukan. Muat ulang halaman lalu coba lagi.");
+  }
+
+  const requiredStatus = operation === "publish" ? "draft" : "published";
+  if (selected.some(({ bank }) => bank.status !== requiredStatus)) {
+    throw new Error(
+      operation === "publish"
+        ? "Pilih hanya bank soal draf yang siap diterbitkan."
+        : "Pilih hanya bank soal yang sudah diterbitkan.",
+    );
+  }
+  if (operation === "publish" && selected.some(({ questions }) => !questions.length || questions.some((question) => !isReadyBankQuestion(question)))) {
+    throw new Error("Lengkapi minimal satu soal di setiap bank sebelum menerbitkannya.");
+  }
+
+  const nextStatus = operation === "publish" ? "published" : "draft";
+  const stored = readDrafts();
+  const byId = new Map(stored.map((draft) => [draft.bank.id, draft]));
+  for (const { bank, questions } of selected) {
+    byId.set(bank.id, {
+      bank: { ...bank, status: nextStatus, updatedAt: "Diedit baru saja" },
+      questions,
+      savedAt: Date.now(),
+    });
+  }
+  writeDrafts([...byId.values()]);
+  return { banks: selected.map(({ bank }) => ({ ...bank, status: nextStatus, updatedAt: "Diedit baru saja" })), status: nextStatus };
+}
+
 function isReadyBankQuestion(question: BankQuestion) {
   return (
     question.prompt.trim().length > 0
@@ -266,6 +305,7 @@ export {
   getSubjectName,
   isReadyBankQuestion,
   saveQuestionBankDraft,
+  updateQuestionBankLifecycle,
   useStoredQuestionBankDraft,
 };
 

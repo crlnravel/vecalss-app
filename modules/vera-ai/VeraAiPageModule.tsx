@@ -1,40 +1,87 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent } from "react";
+import {
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import ReactMarkdown, { type Components } from "react-markdown";
 import {
   ArrowLeft,
+  ArrowUpRight,
   BookOpen,
-  Bot,
+  CalendarDays,
   ChartNoAxesColumnIncreasing,
-  CheckCircle2,
+  Check,
+  ChevronLeft,
   ChevronRight,
   Dumbbell,
+  Expand,
   FileQuestion,
   FileText,
+  Gauge,
   GraduationCap,
   ListChecks,
+  Maximize2,
+  MessageCircleMore,
   NotebookPen,
+  PanelLeft,
   Plus,
   Search,
   SendHorizontal,
-  Trash2,
+  Sparkles,
   Upload,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/components/ui/attachment";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Badge } from "@/components/ui/badge";
+import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -44,13 +91,11 @@ import { studentNotificationItems } from "@/modules/student/notification-data";
 
 import {
   veraContextSources,
-  veraContextTypes,
   veraMaterialHistory,
   veraPracticeHistory,
   veraStudioTools,
   veraToolModes,
   type VeraContextSource,
-  type VeraContextType,
   type VeraContextTypeId,
   type VeraMaterialHistory,
   type VeraPracticeHistory,
@@ -58,7 +103,7 @@ import {
   type VeraToolId,
 } from "./data";
 
-type SourceFilter = "all" | VeraContextTypeId;
+type WorkspaceView = "sessions" | "chat" | "studio";
 
 type VeraMessage = {
   id: string;
@@ -68,17 +113,27 @@ type VeraMessage = {
   citations?: string[];
 };
 
-type DeleteTarget =
-  | {
-      kind: "context";
-      sourceId: string;
-      label: string;
-    }
-  | {
-      kind: "artifact";
-      toolId: VeraToolId;
-      label: string;
-    };
+type StudySession = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  sourceIds: string[];
+  generatedTools: VeraToolId[];
+  messages: VeraMessage[];
+};
+
+const studioToolIds: VeraToolId[] = [
+  "analysis",
+  "route",
+  "review",
+  "summary",
+  "drill",
+];
+
+const MAX_CONTEXTS_PER_SESSION = 6;
+const CONTEXT_PAGE_SIZE = 3;
+const DAILY_TOKEN_USAGE = 3200;
+const DAILY_TOKEN_LIMIT = 10000;
 
 const toolIcons: Record<VeraToolId, LucideIcon> = {
   analysis: ChartNoAxesColumnIncreasing,
@@ -95,235 +150,246 @@ const contextTypeIcons: Record<VeraContextTypeId, LucideIcon> = {
   document: FileText,
 };
 
-const fallbackContextType = veraContextTypes[0];
-
-const initialSelectedSourceIds = [
-  "tryout-04",
-  "module-ratio",
-  "personal-summary",
-];
-
-const initialGeneratedTools: VeraToolId[] = ["analysis", "review", "summary"];
-
 const initialMessages: VeraMessage[] = [
   {
-    id: "msg-brief",
+    id: "ratio-welcome",
     role: "vera",
-    body: "Aku sudah membaca tryout terakhir, modul rasio, dan rangkuman PK pribadimu. Fokus yang paling dekat saat ini masih simpulan implisit dan rasio dua langkah, jadi chat ini kita pakai untuk ngobrol dan menyusun langkah belajarnya.",
+    body: "Aku sudah membaca Tryout SNBT 04, Modul Rasio Dasar, dan catatan pribadimu. Dari ketiganya, pola yang paling dekat untuk kita bereskan adalah rasio dua langkah dan simpulan implisit.",
     createdAt: "Baru saja",
     citations: ["Tryout SNBT 04", "Modul Rasio Dasar", "Rangkuman PK Pribadi"],
   },
   {
-    id: "msg-follow-up",
+    id: "ratio-next",
     role: "vera",
-    body: "Kalau kamu butuh output belajar yang rapi, bilang saja. Aku akan siapkan hasilnya di Studio Vera supaya chat tetap bersih.",
+    body: "Kita bisa membahas satu soal pelan-pelan di sini, atau aku bisa menyusun analisis dan drill yang tersimpan rapi di Vera Studio. Kamu ingin mulai dari yang mana?",
     createdAt: "Baru saja",
   },
 ];
 
-const toolRequestLabels: Record<VeraToolId, string> = {
-  analysis: "Analisis kelemahanku dari konteks ini.",
-  route: "Susun rute belajar mingguan dari konteks yang aktif.",
-  drill: "Buat drill adaptif dari soal salahku.",
-  review: "Bahas soal yang paling sering bikin aku meleset.",
-  ptn: "Bantu susun strategi PTN dari skor dan targetku.",
-  summary: "Ringkas keputusan belajar yang perlu aku bawa ke sesi berikutnya.",
-};
+const initialSessions: StudySession[] = [
+  {
+    id: "ratio-review",
+    title: "Review Rasio Hari Ini",
+    updatedAt: "Baru saja",
+    sourceIds: ["tryout-04", "module-ratio", "personal-summary"],
+    generatedTools: ["analysis", "summary"],
+    messages: initialMessages,
+  },
+  {
+    id: "wrong-answer-review",
+    title: "Review Jawaban Salah",
+    updatedAt: "Kemarin",
+    sourceIds: ["tryout-04", "quiz-pk-02"],
+    generatedTools: ["review"],
+    messages: [
+      {
+        id: "wrong-answer-welcome",
+        role: "vera",
+        body: "Aku sudah mengurutkan soal salah dari Tryout SNBT 04 dan Quiz PK Modul 02. Kita akan melihat pola berpikirmu, bukan sekadar mencari jawaban yang benar.",
+        createdAt: "Kemarin",
+        citations: ["Tryout SNBT 04", "Quiz PK Modul 02"],
+      },
+    ],
+  },
+  {
+    id: "snbt-analysis",
+    title: "Analisis SNBT 04",
+    updatedAt: "4 Jul",
+    sourceIds: ["tryout-04", "personal-summary"],
+    generatedTools: ["analysis", "route"],
+    messages: [
+      {
+        id: "snbt-welcome",
+        role: "vera",
+        body: "Skor 676 sudah memberi kita cukup data untuk memilih prioritas. Aku akan bantu memisahkan topik yang perlu dikejar dari topik yang cukup dipertahankan.",
+        createdAt: "4 Jul",
+        citations: ["Tryout SNBT 04", "Rangkuman PK Pribadi"],
+      },
+    ],
+  },
+  {
+    id: "geometry-practice",
+    title: "Latihan Geometri",
+    updatedAt: "2 Jul",
+    sourceIds: ["geometry-notes"],
+    generatedTools: ["drill"],
+    messages: [
+      {
+        id: "geometry-welcome",
+        role: "vera",
+        body: "Catatan geometri sudah terpasang. Kirim satu soal yang terasa membingungkan, lalu kita petakan konsep mana yang sebenarnya sedang diuji.",
+        createdAt: "2 Jul",
+        citations: ["Catatan Geometri UTBK"],
+      },
+    ],
+  },
+];
 
-function moveItemToFront<T extends string>(items: T[], nextItem: T) {
-  return [nextItem, ...items.filter((item) => item !== nextItem)];
-}
+const toolRequestLabels: Record<VeraToolId, string> = {
+  analysis: "Analisis kelemahanku dari konteks sesi ini.",
+  route: "Susun rute belajar dari konteks sesi ini.",
+  drill: "Buat drill adaptif dari kelemahanku.",
+  review: "Jelaskan jawaban salah yang paling penting.",
+  ptn: "Bantu susun strategi PTN dari progresku.",
+  summary: "Buat ringkasan sesi belajar ini.",
+};
 
 function isToolId(value: string | null): value is VeraToolId {
   return Boolean(
     value &&
-    ["analysis", "route", "drill", "review", "ptn", "summary"].includes(value),
+      ["analysis", "route", "drill", "review", "ptn", "summary"].includes(
+        value,
+      ),
   );
 }
 
-function getContextType(typeId: VeraContextTypeId): VeraContextType {
-  return (
-    veraContextTypes.find((contextType) => contextType.id === typeId) ??
-    fallbackContextType
-  );
+function moveItemToFront<T extends string>(items: T[], nextItem: T) {
+  return [nextItem, ...items.filter((item) => item !== nextItem)];
 }
 
 function buildGeneralReply(prompt: string, sourceTitles: string[]) {
   const sourceLine =
     sourceTitles.length > 0
       ? sourceTitles.join(", ")
-      : "konteks belajar yang sedang aktif";
+      : "konteks belajar di sesi ini";
   const loweredPrompt = prompt.toLowerCase();
 
   if (loweredPrompt.includes("rasio")) {
-    return `Aku membaca ${sourceLine}. Untuk rasio, pola yang paling sering bikin tempo melambat adalah ketika basis hitung berpindah di langkah kedua. Mulai dulu dari 3 soal pendek dengan urutan: tentukan basis, ubah perbandingan, lalu cek satuan hasil akhirnya.`;
+    return `Dari ${sourceLine}, kesulitannya bukan di konsep perbandingan awal, tetapi saat basis hitung berubah pada langkah kedua. Coba tulis dulu apa yang dianggap 100%, baru ubah rasionya. Setelah itu kita cek satuannya bersama.`;
   }
 
   if (
-    loweredPrompt.includes("ptn") ||
-    loweredPrompt.includes("ui") ||
-    loweredPrompt.includes("jurusan")
+    loweredPrompt.includes("salah") ||
+    loweredPrompt.includes("jawaban")
   ) {
-    return `Aku pakai ${sourceLine} sebagai pijakan. Dari konteks ini, langkah paling aman adalah menjaga topik yang sudah stabil tetap ringan, lalu mendorong PK dan PU sebagai sumber kenaikan skor yang paling realistis sebelum membahas target PTN lebih rinci.`;
+    return `Aku membaca ${sourceLine}. Pola kesalahan yang paling layak dibahas adalah memilih opsi yang benar secara umum tetapi tidak benar-benar didukung informasi pada soal. Kirim nomor soalnya, lalu kita bedah alasan setiap pilihan.`;
   }
 
-  return `Aku membaca ${sourceLine}. Pertanyaanmu paling dekat dengan dua kebutuhan: memperjelas konsep yang sedang lemah dan menjaga alur belajar tetap pendek. Kalau kamu butuh output yang lebih rapi, aku bisa siapkan versinya di Studio Vera tanpa memenuhi chat ini.`;
-}
-
-function buildStudioConfirmation(tool: VeraStudioTool) {
-  return `Siap, ${tool.title.toLowerCase()} sudah aku siapkan di Studio Vera. Buka panel kanan untuk melihat hasil lengkapnya.`;
+  return `Aku menggunakan ${sourceLine} untuk menjawab ini. Kita bisa memecahnya menjadi satu konsep inti, satu contoh singkat, lalu satu latihan untuk memastikan caramu berpikir sudah konsisten.`;
 }
 
 function VeraAiPageModule({ session }: { session: SessionContext }) {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
-  const requestedTool: VeraToolId | null = isToolId(requestedArtifact)
+  const requestedTool = isToolId(requestedArtifact)
     ? requestedArtifact
     : isToolId(requestedToolParam)
       ? requestedToolParam
       : null;
-  const [selectedSourceIds, setSelectedSourceIds] = useState(
-    initialSelectedSourceIds,
-  );
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-  const [draft, setDraft] = useState("");
-  const [generatedTools, setGeneratedTools] = useState<VeraToolId[]>(() =>
+
+  const [sessions, setSessions] = useState<StudySession[]>(() =>
     requestedTool
-      ? moveItemToFront(initialGeneratedTools, requestedTool)
-      : initialGeneratedTools,
+      ? initialSessions.map((item, index) =>
+          index === 0
+            ? {
+                ...item,
+                generatedTools: moveItemToFront(
+                  item.generatedTools,
+                  requestedTool,
+                ),
+              }
+            : item,
+        )
+      : initialSessions,
   );
-  const [messages, setMessages] = useState<VeraMessage[]>(initialMessages);
+  const [activeSessionId, setActiveSessionId] = useState(initialSessions[0].id);
   const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
-    null,
+    requestedTool,
   );
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [fullscreenArtifactId, setFullscreenArtifactId] =
+    useState<VeraToolId | null>(null);
+  const [draft, setDraft] = useState("");
+  const [contextDialogOpen, setContextDialogOpen] = useState(false);
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("chat");
+
+  const activeSession =
+    sessions.find((item) => item.id === activeSessionId) ?? sessions[0];
 
   const selectedSources = useMemo(
     () =>
       veraContextSources.filter((source) =>
-        selectedSourceIds.includes(source.id),
+        activeSession.sourceIds.includes(source.id),
       ),
-    [selectedSourceIds],
+    [activeSession.sourceIds],
   );
-
-  const activeVisibleSources = useMemo(() => {
-    return selectedSources.filter((source) => {
-      if (sourceFilter !== "all" && source.type !== sourceFilter) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [selectedSources, sourceFilter]);
 
   const generatedArtifacts = useMemo(
     () =>
-      generatedTools
+      activeSession.generatedTools
         .map((toolId) => veraStudioTools.find((tool) => tool.id === toolId))
         .filter((tool): tool is VeraStudioTool => Boolean(tool)),
-    [generatedTools],
+    [activeSession.generatedTools],
   );
 
-  const resolvedActiveArtifactId = useMemo(() => {
-    if (
-      activeArtifactId &&
-      generatedArtifacts.some((tool) => tool.id === activeArtifactId)
-    ) {
-      return activeArtifactId;
-    }
+  const activeArtifact =
+    generatedArtifacts.find((tool) => tool.id === activeArtifactId) ?? null;
+  const fullscreenArtifact =
+    generatedArtifacts.find((tool) => tool.id === fullscreenArtifactId) ?? null;
 
-    return null;
-  }, [activeArtifactId, generatedArtifacts]);
-
-  const activeArtifact = useMemo(
-    () =>
-      generatedArtifacts.find((tool) => tool.id === resolvedActiveArtifactId) ??
-      null,
-    [generatedArtifacts, resolvedActiveArtifactId],
-  );
-
-  function toggleSource(sourceId: string) {
-    setSelectedSourceIds((current) =>
-      current.includes(sourceId)
-        ? current.filter((id) => id !== sourceId)
-        : [...current, sourceId],
+  function updateActiveSession(
+    update: (current: StudySession) => StudySession,
+  ) {
+    setSessions((current) =>
+      current.map((item) =>
+        item.id === activeSession.id ? update(item) : item,
+      ),
     );
   }
 
-  function requestDeleteSource(source: VeraContextSource) {
-    setDeleteTarget({
-      kind: "context",
-      sourceId: source.id,
-      label: source.title,
-    });
+  function handleSelectSession(nextSessionId: string) {
+    setActiveSessionId(nextSessionId);
+    setActiveArtifactId(null);
+    setDraft("");
+    setWorkspaceView("chat");
   }
 
-  function requestDeleteArtifact(tool: VeraStudioTool) {
-    setDeleteTarget({
-      kind: "artifact",
-      toolId: tool.id,
-      label: tool.outputTitle,
-    });
+  function handleNewSession() {
+    const nextSession: StudySession = {
+      id: `session-${Date.now()}`,
+      title: "Sesi belajar baru",
+      updatedAt: "Baru saja",
+      sourceIds: [],
+      generatedTools: [],
+      messages: [
+        {
+          id: `new-session-${Date.now()}`,
+          role: "vera",
+          body: "Sesi baru sudah siap. Tambahkan hasil latihan, materi, atau dokumen supaya aku memahami apa yang sedang ingin kamu pelajari.",
+          createdAt: "Baru saja",
+        },
+      ],
+    };
+
+    setSessions((current) => [nextSession, ...current]);
+    setActiveSessionId(nextSession.id);
+    setActiveArtifactId(null);
+    setWorkspaceView("chat");
   }
 
-  function confirmDeleteTarget() {
-    if (!deleteTarget) {
-      return;
-    }
-
-    if (deleteTarget.kind === "context") {
-      toggleSource(deleteTarget.sourceId);
-      setDeleteTarget(null);
-      return;
-    }
-
-    setGeneratedTools((current) =>
-      current.filter((toolId) => toolId !== deleteTarget.toolId),
+  function handleSaveContext(nextSourceIds: string[]) {
+    const limitedSourceIds = nextSourceIds.slice(
+      0,
+      MAX_CONTEXTS_PER_SESSION,
     );
-    setActiveArtifactId((current) =>
-      current === deleteTarget.toolId ? null : current,
-    );
-    setDeleteTarget(null);
-  }
 
-  function openArtifact(toolId: VeraToolId) {
-    if (!generatedTools.includes(toolId)) {
-      return;
-    }
-
-    setGeneratedTools((current) => moveItemToFront(current, toolId));
-  }
-
-  function handleToolRequest(toolId: VeraToolId) {
-    const tool = veraStudioTools.find((item) => item.id === toolId);
-    const mode = veraToolModes[toolId];
-    const sourceTitles = selectedSources
-      .slice(0, 3)
-      .map((source) => source.title);
-
-    if (!tool) {
-      return;
-    }
-
-    setGeneratedTools((current) => moveItemToFront(current, toolId));
-    setActiveArtifactId(toolId);
-    setMessages((current) => [
+    updateActiveSession((current) => ({
       ...current,
-      {
-        id: `student-${toolId}-${current.length}`,
-        role: "student",
-        body: toolRequestLabels[toolId],
-        createdAt: "Sekarang",
-      },
-      {
-        id: `vera-${toolId}-${current.length}`,
-        role: "vera",
-        body: `${buildStudioConfirmation(tool)} ${mode.followUp}`,
-        createdAt: "Sekarang",
-        citations: sourceTitles,
-      },
-    ]);
+      sourceIds: limitedSourceIds,
+      updatedAt: "Baru saja",
+    }));
+    setContextDialogOpen(false);
+  }
+
+  function handleRemoveContext(sourceId: string) {
+    updateActiveSession((current) => {
+      const sourceIds = current.sourceIds.filter((id) => id !== sourceId);
+
+      return {
+        ...current,
+        sourceIds,
+      };
+    });
   }
 
   function handleSend() {
@@ -335,100 +401,215 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
 
     const citations = selectedSources.slice(0, 3).map((source) => source.title);
 
-    setMessages((current) => [
+    updateActiveSession((current) => ({
       ...current,
-      {
-        id: `student-free-${current.length}`,
-        role: "student",
-        body: nextDraft,
-        createdAt: "Sekarang",
-      },
-      {
-        id: `vera-free-${current.length}`,
-        role: "vera",
-        body: buildGeneralReply(nextDraft, citations),
-        createdAt: "Sekarang",
-        citations,
-      },
-    ]);
+      updatedAt: "Baru saja",
+      messages: [
+        ...current.messages,
+        {
+          id: `student-${Date.now()}`,
+          role: "student",
+          body: nextDraft,
+          createdAt: "Sekarang",
+        },
+        {
+          id: `vera-${Date.now()}`,
+          role: "vera",
+          body: buildGeneralReply(nextDraft, citations),
+          createdAt: "Sekarang",
+          citations,
+        },
+      ],
+    }));
     setDraft("");
   }
 
-  return (
-    <div className="min-h-svh bg-primary-50 text-secondary-900 lg:h-svh lg:overflow-hidden">
-      <div className="relative flex min-h-svh flex-col lg:h-svh">
-        <VeraTopBar session={session} />
+  function handleToolRequest(toolId: VeraToolId) {
+    const tool = veraStudioTools.find((item) => item.id === toolId);
 
-        <main
-          className={cn(
-            "grid flex-1 gap-2 px-2 pb-2 md:px-3 md:pb-3 lg:min-h-0",
-            activeArtifact
-              ? "lg:grid-cols-[272px_minmax(0,1fr)_minmax(420px,40vw)] xl:grid-cols-[292px_minmax(560px,1fr)_minmax(520px,44vw)]"
-              : "lg:grid-cols-[272px_minmax(0,1fr)_312px] xl:grid-cols-[292px_minmax(640px,1fr)_324px]",
-          )}
-        >
-          <ContextPanel
-            activeVisibleSources={activeVisibleSources}
-            sourceFilter={sourceFilter}
-            onFilterChange={setSourceFilter}
-            onRequestRemoveSource={requestDeleteSource}
-          />
-          <ChatWorkspace
-            draft={draft}
-            messages={messages}
-            onDraftChange={setDraft}
-            onSend={handleSend}
-          />
-          <StudioPanel
-            activeArtifact={activeArtifact}
-            activeArtifactId={resolvedActiveArtifactId}
-            generatedArtifacts={generatedArtifacts}
-            selectedSources={selectedSources}
-            onClosePreview={() => setActiveArtifactId(null)}
-            onGenerateTool={handleToolRequest}
-            onOpenArtifact={openArtifact}
-            onRequestDeleteArtifact={requestDeleteArtifact}
-          />
-        </main>
-        <DeleteConfirmationDialog
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={confirmDeleteTarget}
-          target={deleteTarget}
+    if (!tool) {
+      return;
+    }
+
+    const citations = selectedSources.slice(0, 3).map((source) => source.title);
+    updateActiveSession((current) => ({
+      ...current,
+      generatedTools: moveItemToFront(current.generatedTools, toolId),
+      updatedAt: "Baru saja",
+      messages: [
+        ...current.messages,
+        {
+          id: `student-tool-${Date.now()}`,
+          role: "student",
+          body: toolRequestLabels[toolId],
+          createdAt: "Sekarang",
+        },
+        {
+          id: `vera-tool-${Date.now()}`,
+          role: "vera",
+          body: `${tool.outputTitle} sudah aku siapkan di Vera Studio. Hasilnya tersimpan di sesi ini, jadi kamu bisa kembali membacanya kapan saja.`,
+          createdAt: "Sekarang",
+          citations,
+        },
+      ],
+    }));
+    setActiveArtifactId(toolId);
+    setWorkspaceView("studio");
+  }
+
+  function handleOpenArtifact(toolId: VeraToolId) {
+    setActiveArtifactId(toolId);
+    setWorkspaceView("studio");
+  }
+
+  return (
+    <div className="min-h-svh bg-primary-50 text-secondary-900 xl:h-svh xl:overflow-hidden">
+      <div className="flex min-h-svh flex-col xl:h-svh">
+        <VeraTopBar session={session} />
+        <MobileWorkspaceNavigation
+          activeView={workspaceView}
+          onViewChange={setWorkspaceView}
         />
+        <h1 className="sr-only">
+          Vera AI Workspace: {activeSession.title}
+        </h1>
+
+        <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
+          <div className="hidden h-full xl:block">
+            <ResizablePanelGroup orientation="horizontal">
+              <ResizablePanel defaultSize="20%" minSize="16%" maxSize="28%">
+                <div className="h-full pr-1.5">
+                  <SessionPanel
+                    activeSessionId={activeSession.id}
+                    className="flex"
+                    onNewSession={handleNewSession}
+                    onSelectSession={handleSelectSession}
+                    sessions={sessions}
+                  />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle className="bg-transparent" withHandle />
+              <ResizablePanel defaultSize="56%" minSize="42%">
+                <div className="h-full px-1.5">
+                  <ChatWorkspace
+                    activeSession={activeSession}
+                    className="flex"
+                    draft={draft}
+                    onDraftChange={setDraft}
+                    onOpenContextDialog={() => setContextDialogOpen(true)}
+                    onRemoveContext={handleRemoveContext}
+                    onSend={handleSend}
+                    selectedSources={selectedSources}
+                  />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle className="bg-transparent" withHandle />
+              <ResizablePanel defaultSize="24%" minSize="18%" maxSize="34%">
+                <div className="h-full pl-1.5">
+                  <StudioPanel
+                    activeArtifact={activeArtifact}
+                    className="flex"
+                    generatedArtifacts={generatedArtifacts}
+                    onCloseArtifact={() => setActiveArtifactId(null)}
+                    onExpandArtifact={(toolId) =>
+                      setFullscreenArtifactId(toolId)
+                    }
+                    onGenerateTool={handleToolRequest}
+                    onOpenArtifact={handleOpenArtifact}
+                    selectedSources={selectedSources}
+                  />
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
+
+          <div className="grid min-h-full xl:hidden">
+            <SessionPanel
+              activeSessionId={activeSession.id}
+              className={workspaceView === "sessions" ? "flex" : "hidden"}
+              onNewSession={handleNewSession}
+              onSelectSession={handleSelectSession}
+              sessions={sessions}
+            />
+            <ChatWorkspace
+              activeSession={activeSession}
+              className={workspaceView === "chat" ? "flex" : "hidden"}
+              draft={draft}
+              onDraftChange={setDraft}
+              onOpenContextDialog={() => setContextDialogOpen(true)}
+              onRemoveContext={handleRemoveContext}
+              onSend={handleSend}
+              selectedSources={selectedSources}
+            />
+            <StudioPanel
+              activeArtifact={activeArtifact}
+              className={workspaceView === "studio" ? "flex" : "hidden"}
+              generatedArtifacts={generatedArtifacts}
+              onCloseArtifact={() => setActiveArtifactId(null)}
+              onExpandArtifact={(toolId) => setFullscreenArtifactId(toolId)}
+              onGenerateTool={handleToolRequest}
+              onOpenArtifact={handleOpenArtifact}
+              selectedSources={selectedSources}
+            />
+          </div>
+        </main>
       </div>
+
+      {contextDialogOpen ? (
+        <AddContextDialog
+          onOpenChange={setContextDialogOpen}
+          onSave={handleSaveContext}
+          open
+          selectedSourceIds={activeSession.sourceIds}
+        />
+      ) : null}
+      <FullscreenArtifactDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setFullscreenArtifactId(null);
+          }
+        }}
+        open={Boolean(fullscreenArtifact)}
+        selectedSources={selectedSources}
+        tool={fullscreenArtifact}
+      />
     </div>
   );
 }
 
-function VeraTopBar({ session }: { session: SessionContext }) {
+function VeraTopBar({
+  session,
+}: {
+  session: SessionContext;
+}) {
   return (
-    <header className="relative z-20 flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
+    <header className="flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Button
           aria-label="Kembali ke dashboard"
-          className="rounded-full border-primary-100 bg-white/78 text-primary-900 shadow-sm hover:bg-white"
+          className="rounded-full border-0 bg-white text-primary-900 hover:bg-primary-50"
           nativeButton={false}
           render={<Link href="/dashboard" />}
           size="icon-sm"
-          variant="brandOutline"
+          variant="ghost"
         >
           <ArrowLeft />
         </Button>
         <Link
           aria-label="Vecalss dashboard"
-          className="flex min-w-0 items-center gap-2.5 p-0 transition-opacity hover:opacity-90"
+          className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-85"
           href="/dashboard"
         >
           <Image
-            alt="Vecalss logo"
-            className="h-[26px] w-auto object-contain md:h-[30px]"
+            alt="Vecalss"
+            className="h-7 w-auto object-contain md:h-8"
             height={42}
             priority
             src="/brand/logo-mark-cropped.png"
-            width={42}
+            width={52}
           />
           <span
-            className="text-[1.35rem] leading-none tracking-[0.04em] text-primary-800 md:text-[1.7rem]"
+            className="hidden text-[1.45rem] leading-none tracking-[0.04em] text-primary-800 sm:inline"
             style={{ fontFamily: "var(--font-sports-world)" }}
           >
             VECALSS
@@ -436,7 +617,8 @@ function VeraTopBar({ session }: { session: SessionContext }) {
         </Link>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5 rounded-full border border-primary-100 bg-white/72 px-1.5 py-1 shadow-sm backdrop-blur">
+      <div className="ml-auto flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
+        <VeraUsagePopover />
         <StudentNotificationPopover items={studentNotificationItems} />
         <StudentAccountMenu extraItem="notifications" session={session} />
       </div>
@@ -444,134 +626,747 @@ function VeraTopBar({ session }: { session: SessionContext }) {
   );
 }
 
-function ContextPanel({
-  activeVisibleSources,
-  sourceFilter,
-  onFilterChange,
-  onRequestRemoveSource,
+function VeraUsagePopover() {
+  const usagePercent = Math.round(
+    (DAILY_TOKEN_USAGE / DAILY_TOKEN_LIMIT) * 100,
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            aria-label={`Penggunaan Vera ${usagePercent} persen`}
+            className="rounded-full px-2.5"
+            size="sm"
+            variant="ghost"
+          />
+        }
+      >
+        <Gauge data-icon="inline-start" />
+        <span className="hidden text-xs tabular-nums sm:inline">
+          {usagePercent}%
+        </span>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80" sideOffset={10}>
+        <PopoverHeader>
+          <PopoverTitle>Penggunaan Vera</PopoverTitle>
+          <PopoverDescription>
+            Batas penggunaan diperbarui setiap hari.
+          </PopoverDescription>
+        </PopoverHeader>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold text-secondary-800">Token hari ini</span>
+            <span className="tabular-nums text-secondary-500">
+              {DAILY_TOKEN_USAGE.toLocaleString("id-ID")} /{" "}
+              {DAILY_TOKEN_LIMIT.toLocaleString("id-ID")}
+            </span>
+          </div>
+          <Progress aria-label="Penggunaan token Vera" value={usagePercent} />
+          <p className="text-xs text-secondary-400">Reset pukul 00.00 WIB</p>
+        </div>
+
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function MobileWorkspaceNavigation({
+  activeView,
+  onViewChange,
 }: {
-  activeVisibleSources: VeraContextSource[];
-  sourceFilter: SourceFilter;
-  onFilterChange: (filter: SourceFilter) => void;
-  onRequestRemoveSource: (source: VeraContextSource) => void;
+  activeView: WorkspaceView;
+  onViewChange: Dispatch<SetStateAction<WorkspaceView>>;
+}) {
+  const items: { id: WorkspaceView; label: string; icon: LucideIcon }[] = [
+    { id: "sessions", label: "Sesi", icon: PanelLeft },
+    { id: "chat", label: "Percakapan", icon: MessageCircleMore },
+    { id: "studio", label: "Studio", icon: Sparkles },
+  ];
+
+  return (
+    <nav
+      aria-label="Navigasi workspace"
+      className="mx-2 mb-2 grid grid-cols-3 rounded-2xl border border-primary-100 bg-white p-1 xl:hidden"
+    >
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = item.id === activeView;
+
+        return (
+          <Button
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "rounded-xl",
+              active && "bg-primary-50 text-primary-800",
+            )}
+            key={item.id}
+            onClick={() => onViewChange(item.id)}
+            size="sm"
+            variant="ghost"
+          >
+            <Icon data-icon="inline-start" />
+            {item.label}
+          </Button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function SessionPanel({
+  activeSessionId,
+  className,
+  onNewSession,
+  onSelectSession,
+  sessions,
+}: {
+  activeSessionId: string;
+  className?: string;
+  onNewSession: () => void;
+  onSelectSession: (sessionId: string) => void;
+  sessions: StudySession[];
 }) {
   return (
-    <WorkspacePanel className="order-2 lg:order-1 lg:min-h-0">
-      <PanelHeader title="Konteks Belajar" />
-
-      <div className="border-b border-primary-100/70 px-4 py-3">
-        <Dialog>
-          <DialogTrigger
-            render={
-              <Button className="w-full rounded-xl" size="sm" variant="brand" />
-            }
+    <WorkspacePanel className={className}>
+      <PanelHeader
+        action={
+          <Button
+            aria-label="Buat sesi belajar baru"
+            className="rounded-full"
+            onClick={onNewSession}
+            size="icon-sm"
+            variant="ghost"
           >
-            <Plus data-icon="inline-start" />
-            Tambah konteks
-          </DialogTrigger>
-          <AddContextDialog />
-        </Dialog>
+            <Plus />
+          </Button>
+        }
+        title="Sesi Belajar"
+      />
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <SourceFilterChip
-            active={sourceFilter === "all"}
-            label="Semua"
-            onClick={() => onFilterChange("all")}
-          />
-          {veraContextTypes.map((type) => (
-            <SourceFilterChip
-              active={sourceFilter === type.id}
-              key={type.id}
-              label={type.label}
-              onClick={() => onFilterChange(type.id)}
-            />
-          ))}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+        <div className="flex flex-col gap-1.5">
+          {sessions.map((item) => {
+            const active = item.id === activeSessionId;
+
+            return (
+              <button
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "group relative flex min-h-14 w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40",
+                  active
+                    ? "border-primary-200 bg-primary-50 text-primary-950"
+                    : "border-transparent bg-transparent hover:border-primary-100 hover:bg-white",
+                )}
+                key={item.id}
+                onClick={() => onSelectSession(item.id)}
+                type="button"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {item.title}
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs text-secondary-400">
+                  {item.updatedAt}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {activeVisibleSources.length > 0 ? (
-          <div className="grid gap-2">
-            {activeVisibleSources.map((source) => (
-              <ContextSourceRow
-                key={source.id}
-                source={source}
-                onRemove={() => onRequestRemoveSource(source)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-3xl border border-dashed border-primary-200 bg-white/76 px-4 py-5 text-sm text-secondary-500">
-            Tidak ada konteks aktif pada filter ini.
-          </div>
-        )}
       </div>
     </WorkspacePanel>
   );
 }
 
-function SourceFilterChip({
-  active,
-  label,
-  onClick,
+function ChatWorkspace({
+  activeSession,
+  className,
+  draft,
+  onDraftChange,
+  onOpenContextDialog,
+  onRemoveContext,
+  onSend,
+  selectedSources,
 }: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
+  activeSession: StudySession;
+  className?: string;
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onOpenContextDialog: () => void;
+  onRemoveContext: (sourceId: string) => void;
+  onSend: () => void;
+  selectedSources: VeraContextSource[];
 }) {
   return (
-    <button
-      className={cn(
-        "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
-        active
-          ? "border-primary-700 bg-primary-700 text-white"
-          : "border-primary-100 bg-white/84 text-secondary-600 hover:border-primary-300 hover:text-primary-800",
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      {label}
-    </button>
+    <WorkspacePanel className={className}>
+      <PanelHeader title={activeSession.title} />
+
+      <ContextStrip
+        onOpen={onOpenContextDialog}
+        onRemove={onRemoveContext}
+        sources={selectedSources}
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex w-full flex-col gap-7 px-4 py-7 md:px-5 md:py-8">
+          {activeSession.messages.map((message) => (
+            <MessageCard key={message.id} message={message} />
+          ))}
+        </div>
+      </div>
+
+      <ChatComposer
+        draft={draft}
+        onDraftChange={onDraftChange}
+        onSend={onSend}
+      />
+    </WorkspacePanel>
   );
 }
 
-function ContextSourceRow({
-  source,
+function ContextStrip({
+  onOpen,
   onRemove,
+  sources,
 }: {
-  source: VeraContextSource;
-  onRemove: () => void;
+  onOpen: () => void;
+  onRemove: (sourceId: string) => void;
+  sources: VeraContextSource[];
 }) {
-  const contextType = getContextType(source.type);
-  const Icon = contextTypeIcons[source.type];
-
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-white/86 px-3 py-3 transition-colors hover:border-primary-200 hover:bg-white">
-      <Icon className="size-4 shrink-0 text-primary-800" />
-
-      <div className="min-w-0 flex-1">
-        <span className="inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-800">
-          {contextType.label}
+    <div className="border-b border-primary-100 bg-primary-50/40 px-4 py-3 md:px-5">
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+        <span className="mr-1 shrink-0 text-xs font-semibold text-secondary-500">
+          Konteks {sources.length}/{MAX_CONTEXTS_PER_SESSION}
         </span>
-        <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
-          {source.title}
-        </p>
-      </div>
+        {sources.map((source) => {
+          const Icon = contextTypeIcons[source.type];
 
-      <button
-        aria-label={`Hapus konteks ${source.title}`}
-        className="flex size-8 shrink-0 items-center justify-center rounded-full text-secondary-400 transition-colors hover:bg-primary-50 hover:text-primary-800"
-        onClick={onRemove}
-        type="button"
-      >
-        <Trash2 className="size-4" />
-      </button>
+          return (
+            <span
+              className="group flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-primary-100 bg-white px-2.5 text-xs font-semibold text-primary-900 animate-in fade-in slide-in-from-left-1 duration-200"
+              key={source.id}
+            >
+              <Icon className="size-3.5" aria-hidden="true" />
+              {source.title}
+              <button
+                aria-label={`Lepas ${source.title} dari sesi`}
+                className="ml-0.5 flex size-5 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+                onClick={() => onRemove(source.id)}
+                type="button"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          );
+        })}
+        <Button
+          aria-label="Tambahkan konteks belajar"
+          className="shrink-0 rounded-full border-dashed"
+          onClick={onOpen}
+          size="icon-xs"
+          variant="outline"
+        >
+          <Plus />
+        </Button>
+      </div>
     </div>
   );
 }
 
-function AddContextDialog() {
+function MessageCard({ message }: { message: VeraMessage }) {
+  const isStudent = message.role === "student";
+
+  if (isStudent) {
+    return (
+      <Bubble align="end" className="max-w-[84%]">
+        <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_rgba(1,76,56,0.7)]">
+          <p>{message.body}</p>
+          <p className="mt-1.5 text-right text-[11px] text-white/60">
+            {message.createdAt}
+          </p>
+        </BubbleContent>
+      </Bubble>
+    );
+  }
+
+  return (
+    <article className="flex items-start gap-3.5">
+      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
+        <Image
+          alt=""
+          aria-hidden="true"
+          className="size-10 object-contain"
+          height={40}
+          src="/brand/mascot-vecalss.png"
+          width={40}
+        />
+      </span>
+      <Bubble className="max-w-full flex-1 pt-0.5" variant="ghost">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-secondary-950">Vera</p>
+          <p className="text-xs text-secondary-400">{message.createdAt}</p>
+        </div>
+        <BubbleContent className="mt-2 max-w-[68ch] text-[0.95rem] leading-7 text-secondary-700">
+          <p>{message.body}</p>
+        </BubbleContent>
+        {message.citations && message.citations.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {message.citations.map((citation) => (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/70 px-2.5 py-1 text-xs font-medium text-primary-800"
+                key={citation}
+              >
+                <FileText className="size-3" aria-hidden="true" />
+                {citation}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </Bubble>
+    </article>
+  );
+}
+
+function ChatComposer({
+  draft,
+  onDraftChange,
+  onSend,
+}: {
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
+}) {
+  return (
+    <div className="border-t border-primary-100 bg-white px-3 py-3 md:px-5">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSend();
+        }}
+      >
+        <div className="flex items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_rgba(1,76,56,0.65)] transition-shadow focus-within:shadow-[0_16px_38px_-28px_rgba(1,76,56,0.8)]">
+          <Input
+            aria-label="Tanyakan sesuatu kepada Vera"
+            className="h-10 min-w-0 flex-1 border-transparent bg-transparent px-2 text-base text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder="Tanyakan konsep, soal, atau langkah belajarmu..."
+            value={draft}
+          />
+          <Button
+            aria-label="Kirim pertanyaan ke Vera"
+            className="rounded-full"
+            disabled={!draft.trim()}
+            size="icon-sm"
+            type="submit"
+            variant="brand"
+          >
+            <SendHorizontal />
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function StudioPanel({
+  activeArtifact,
+  className,
+  generatedArtifacts,
+  onCloseArtifact,
+  onExpandArtifact,
+  onGenerateTool,
+  onOpenArtifact,
+  selectedSources,
+}: {
+  activeArtifact: VeraStudioTool | null;
+  className?: string;
+  generatedArtifacts: VeraStudioTool[];
+  onCloseArtifact: () => void;
+  onExpandArtifact: (toolId: VeraToolId) => void;
+  onGenerateTool: (toolId: VeraToolId) => void;
+  onOpenArtifact: (toolId: VeraToolId) => void;
+  selectedSources: VeraContextSource[];
+}) {
+  if (activeArtifact) {
+    return (
+      <WorkspacePanel className={className}>
+        <PanelHeader
+          action={
+            <Button
+              aria-label="Perbesar dokumen"
+              className="rounded-full"
+              onClick={() => onExpandArtifact(activeArtifact.id)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Maximize2 />
+            </Button>
+          }
+          backAction={onCloseArtifact}
+          title="Vera Studio"
+        />
+        <div className="min-h-0 flex-1 overflow-y-auto bg-primary-50/35 p-3">
+          <StudioArtifactDocument
+            compact
+            onExpand={() => onExpandArtifact(activeArtifact.id)}
+            selectedSources={selectedSources}
+            tool={activeArtifact}
+          />
+        </div>
+      </WorkspacePanel>
+    );
+  }
+
+  return (
+    <WorkspacePanel className={className}>
+      <PanelHeader title="Vera Studio" />
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        <section>
+          <SectionLabel label="Alat belajar" />
+          <div className="mt-2 flex flex-col gap-1.5">
+            {studioToolIds.map((toolId) => {
+              const tool = veraStudioTools.find((item) => item.id === toolId);
+
+              if (!tool) {
+                return null;
+              }
+
+              return (
+                <StudioToolRow
+                  key={tool.id}
+                  onGenerate={() => onGenerateTool(tool.id)}
+                  tool={tool}
+                />
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-6 border-t border-primary-100 pt-5">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <SectionLabel label="Hasil terbaru" />
+            <span className="text-[11px] text-secondary-400">
+              {generatedArtifacts.length} tersimpan
+            </span>
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
+            {generatedArtifacts.length > 0 ? (
+              generatedArtifacts.map((tool) => (
+                <StudioArtifactCard
+                  key={tool.id}
+                  onOpen={() => onOpenArtifact(tool.id)}
+                  tool={tool}
+                />
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/50 p-4 text-center">
+                <Sparkles className="mx-auto size-5 text-primary-600" />
+                <p className="mt-2 text-sm font-semibold text-secondary-800">
+                  Belum ada hasil
+                </p>
+                <p className="mt-1 text-xs leading-5 text-secondary-400">
+                  Pilih alat belajar di atas. Hasilnya akan tersimpan di sesi ini.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </WorkspacePanel>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p className="px-1 text-[11px] font-semibold tracking-[0.13em] text-secondary-500 uppercase">
+      {label}
+    </p>
+  );
+}
+
+function StudioToolRow({
+  onGenerate,
+  tool,
+}: {
+  onGenerate: () => void;
+  tool: VeraStudioTool;
+}) {
+  const Icon = toolIcons[tool.id];
+
+  return (
+    <button
+      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      onClick={onGenerate}
+      type="button"
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-700 transition-transform duration-200 group-hover:-translate-y-0.5">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-secondary-900">
+          {tool.title}
+        </span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-primary-400 transition-transform duration-200 group-hover:translate-x-0.5" />
+    </button>
+  );
+}
+
+function StudioArtifactCard({
+  onOpen,
+  tool,
+}: {
+  onOpen: () => void;
+  tool: VeraStudioTool;
+}) {
+  const Icon = toolIcons[tool.id];
+
+  return (
+    <button
+      className="group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      onClick={onOpen}
+      type="button"
+    >
+      <span className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold leading-5 text-secondary-900">
+            {tool.outputTitle}
+          </span>
+          <span className="mt-1 block line-clamp-2 text-xs leading-5 text-secondary-500">
+            {tool.outputBody}
+          </span>
+          <span className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary-700">
+            Buka dokumen
+            <ArrowUpRight className="size-3" />
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function StudioArtifactDocument({
+  compact = false,
+  onExpand,
+  selectedSources,
+  tool,
+}: {
+  compact?: boolean;
+  onExpand?: () => void;
+  selectedSources: VeraContextSource[];
+  tool: VeraStudioTool;
+}) {
+  const mode = veraToolModes[tool.id];
+  const Icon = toolIcons[tool.id];
+  const markdown = buildStudioArtifactMarkdown(tool, mode, selectedSources);
+
+  return (
+    <article
+      className={cn(
+        "mx-auto min-h-full bg-white",
+        compact
+          ? "rounded-[1.65rem] border border-primary-100 p-4 shadow-[0_20px_54px_-44px_rgba(1,76,56,0.7)]"
+          : "max-w-4xl py-2 md:py-4",
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+          <Icon className="size-5" aria-hidden="true" />
+        </span>
+        {compact && onExpand ? (
+          <Button
+            aria-label="Baca dalam layar penuh"
+            className="rounded-full"
+            onClick={onExpand}
+            size="icon-sm"
+            variant="outline"
+          >
+            <Expand />
+          </Button>
+        ) : null}
+      </div>
+
+      <StudioArtifactMarkdown compact={compact} content={markdown} />
+    </article>
+  );
+}
+
+function buildStudioArtifactMarkdown(
+  tool: VeraStudioTool,
+  mode: (typeof veraToolModes)[VeraToolId],
+  selectedSources: VeraContextSource[],
+) {
+  const metrics = mode.metrics
+    .map((metric) => {
+      const value =
+        metric.label === "Sumber" && metric.value.includes("konteks")
+          ? `${selectedSources.length} konteks`
+          : metric.value;
+
+      return `**${metric.label}:** ${value}`;
+    })
+    .join("  \n");
+  const highlights = mode.highlights.map((highlight) => `- ${highlight}`).join("\n");
+  const sources = selectedSources.length
+    ? selectedSources.map((source) => `- ${source.title}`).join("\n")
+    : "_Tanpa konteks terpasang_";
+
+  return [
+    `# ${tool.outputTitle}`,
+    tool.outputBody,
+    metrics,
+    "## Apa yang Vera lihat",
+    mode.description,
+    "## Temuan utama",
+    highlights,
+    "## Konteks yang digunakan",
+    sources,
+  ].join("\n\n");
+}
+
+function StudioArtifactMarkdown({
+  compact,
+  content,
+}: {
+  compact: boolean;
+  content: string;
+}) {
+  const components: Components = {
+    h1: ({ children }) => (
+      <h1
+        className={cn(
+          "mt-5 font-heading font-semibold tracking-[-0.025em] text-secondary-950",
+          compact ? "text-xl leading-7" : "text-3xl leading-tight",
+        )}
+      >
+        {children}
+      </h1>
+    ),
+    h2: ({ children }) => (
+      <h2 className="mt-8 text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
+        {children}
+      </h2>
+    ),
+    hr: () => <hr className="my-5 border-primary-100" />,
+    li: ({ children }) => (
+      <li className="leading-7 text-secondary-700">{children}</li>
+    ),
+    ol: ({ children }) => (
+      <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-secondary-700">
+        {children}
+      </ol>
+    ),
+    p: ({ children }) => (
+      <p
+        className={cn(
+          "mt-3 text-secondary-700",
+          compact ? "text-sm leading-6" : "text-base leading-7",
+        )}
+      >
+        {children}
+      </p>
+    ),
+    strong: ({ children }) => (
+      <strong className="font-semibold text-secondary-900">{children}</strong>
+    ),
+    ul: ({ children }) => (
+      <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-secondary-700">
+        {children}
+      </ul>
+    ),
+  };
+
+  return (
+    <ReactMarkdown components={components}>{content}</ReactMarkdown>
+  );
+}
+
+function FullscreenArtifactDialog({
+  onOpenChange,
+  open,
+  selectedSources,
+  tool,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  selectedSources: VeraContextSource[];
+  tool: VeraStudioTool | null;
+}) {
+  if (!tool) {
+    return null;
+  }
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        className="inset-3 left-3 top-3 h-[calc(100svh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-[2rem] border border-primary-100 bg-white p-0 sm:max-w-none"
+        showCloseButton={false}
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>{tool.outputTitle}</DialogTitle>
+          <DialogDescription>
+            Dokumen belajar yang dihasilkan Vera Studio.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex items-center justify-between gap-3 border-b border-primary-100 bg-white px-4 py-3 md:px-6">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-secondary-900">
+                {tool.outputTitle}
+              </p>
+            </div>
+            <Button
+              aria-label="Tutup Vera Studio"
+              className="rounded-full border-0"
+              onClick={() => onOpenChange(false)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <X />
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white px-3 py-4 md:px-8 md:py-8">
+            <StudioArtifactDocument
+              selectedSources={selectedSources}
+              tool={tool}
+            />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddContextDialog({
+  onOpenChange,
+  onSave,
+  open,
+  selectedSourceIds,
+}: {
+  onOpenChange: (open: boolean) => void;
+  onSave: (sourceIds: string[]) => void;
+  open: boolean;
+  selectedSourceIds: string[];
+}) {
+  const [draftSourceIds, setDraftSourceIds] = useState(selectedSourceIds);
+  const [activeTab, setActiveTab] =
+    useState<VeraContextTypeId>("practice");
   const [materialQuery, setMaterialQuery] = useState("");
+  const [practicePage, setPracticePage] = useState(1);
+  const [materialPage, setMaterialPage] = useState(1);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(
+    selectedSourceIds.includes("external-notes")
+      ? "Catatan UTBK Mingguan.pdf"
+      : null,
+  );
+
   const filteredMaterials = useMemo(() => {
     const query = materialQuery.trim().toLowerCase();
 
@@ -587,598 +1382,465 @@ function AddContextDialog() {
     );
   }, [materialQuery]);
 
-  return (
-    <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[760px] gap-0 overflow-hidden rounded-5xl border border-primary-100 bg-[#f8fffb] p-0 text-secondary-950 shadow-[0_34px_120px_-50px_rgba(1,76,56,0.55)] sm:max-w-[760px]">
-      <div className="border-b border-primary-100 px-5 py-5 md:px-6">
-        <DialogHeader className="gap-1">
-          <DialogTitle className="text-xl font-semibold text-secondary-950">
-            Tambahkan konteks
-          </DialogTitle>
-          <DialogDescription className="max-w-xl leading-6 text-secondary-500">
-            Pilih data belajar yang ingin Vera pakai untuk membaca progres,
-            menjawab pertanyaan, dan membuat rekomendasi.
-          </DialogDescription>
-        </DialogHeader>
-      </div>
-
-      <Tabs defaultValue="practice" className="min-h-0 gap-0">
-        <div className="border-b border-primary-100 px-5 py-3 md:px-6">
-          <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-primary-50 p-1">
-            <TabsTrigger
-              className="!h-auto !min-h-10 rounded-lg px-3 py-2 text-sm leading-5 data-[state=active]:shadow-sm"
-              value="practice"
-            >
-              Hasil Latihan
-            </TabsTrigger>
-            <TabsTrigger
-              className="!h-auto !min-h-10 rounded-lg px-3 py-2 text-sm leading-5 data-[state=active]:shadow-sm"
-              value="material"
-            >
-              Materi
-            </TabsTrigger>
-            <TabsTrigger
-              className="!h-auto !min-h-10 rounded-lg px-3 py-2 text-sm leading-5 data-[state=active]:shadow-sm"
-              value="document"
-            >
-              Dokumen
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <div className="max-h-[62vh] overflow-y-auto px-5 py-5 md:px-6">
-          <TabsContent className="m-0" value="practice">
-            <div className="grid gap-3">
-              {veraPracticeHistory.map((item) => (
-                <PracticeContextOption item={item} key={item.id} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent className="m-0" value="material">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-              <Input
-                className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
-                onChange={(event) => setMaterialQuery(event.target.value)}
-                placeholder="Cari materi Vecalss..."
-                value={materialQuery}
-              />
-            </div>
-            <div className="mt-4 grid gap-3">
-              {filteredMaterials.length > 0 ? (
-                filteredMaterials.map((item) => (
-                  <MaterialContextOption item={item} key={item.id} />
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-primary-200 bg-white/72 p-5 text-center text-sm leading-6 text-secondary-500">
-                  Materi tidak ditemukan.
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent className="m-0" value="document">
-            <label className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-4xl border border-dashed border-primary-300 bg-white/80 p-6 text-center transition-colors hover:border-primary-500 hover:bg-primary-50/70">
-              <input
-                accept=".pdf,.txt,text/plain,application/pdf"
-                className="sr-only"
-                multiple
-                type="file"
-              />
-              <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
-                <Upload className="size-5" />
-              </span>
-              <span className="mt-4 text-base font-semibold text-secondary-950">
-                Upload dokumen belajar
-              </span>
-              <span className="mt-2 max-w-sm text-sm leading-6 text-secondary-500">
-                Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
-                TXT untuk catatan, rangkuman, dan materi eksternal.
-              </span>
-              <span className="mt-5 inline-flex rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white">
-                Pilih file
-              </span>
-            </label>
-          </TabsContent>
-        </div>
-      </Tabs>
-    </DialogContent>
+  const practicePageCount = Math.max(
+    1,
+    Math.ceil(veraPracticeHistory.length / CONTEXT_PAGE_SIZE),
   );
-}
-
-function PracticeContextOption({ item }: { item: VeraPracticeHistory }) {
-  return (
-    <button
-      className="group flex w-full items-center gap-3 rounded-3xl border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
-      type="button"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
-        <ChartNoAxesColumnIncreasing className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-secondary-950">
-            {item.title}
-          </span>
-          <span className="rounded-full bg-[#f5c518]/18 px-2 py-0.5 text-xs font-semibold text-[#6a5300]">
-            {item.kind}
-          </span>
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-secondary-500">
-          {item.meta} • {item.result}
-        </span>
-      </span>
-      <CheckCircle2 className="size-4 shrink-0 text-primary-500 opacity-0 transition-opacity group-hover:opacity-100" />
-    </button>
+  const materialPageCount = Math.max(
+    1,
+    Math.ceil(filteredMaterials.length / CONTEXT_PAGE_SIZE),
   );
-}
-
-function MaterialContextOption({ item }: { item: VeraMaterialHistory }) {
-  return (
-    <button
-      className="group flex w-full items-center gap-3 rounded-3xl border border-primary-100 bg-white/84 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white"
-      type="button"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
-        <NotebookPen className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-secondary-950">
-            {item.title}
-          </span>
-          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-800">
-            {item.kind}
-          </span>
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-secondary-500">
-          {item.topic} • {item.lastAccessed}
-        </span>
-      </span>
-      <CheckCircle2 className="size-4 shrink-0 text-primary-500 opacity-0 transition-opacity group-hover:opacity-100" />
-    </button>
+  const visiblePracticeItems = veraPracticeHistory.slice(
+    (practicePage - 1) * CONTEXT_PAGE_SIZE,
+    practicePage * CONTEXT_PAGE_SIZE,
   );
-}
-
-function ChatWorkspace({
-  draft,
-  messages,
-  onDraftChange,
-  onSend,
-}: {
-  draft: string;
-  messages: VeraMessage[];
-  onDraftChange: (value: string) => void;
-  onSend: () => void;
-}) {
-  return (
-    <WorkspacePanel className="order-1 min-h-[720px] lg:order-2 lg:min-h-0">
-      <PanelHeader title="Chat" />
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-3 px-4 py-4 md:px-5">
-          {messages.map((message) => (
-            <MessageCard key={message.id} message={message} />
-          ))}
-        </div>
-      </div>
-
-      <ChatComposer
-        draft={draft}
-        onDraftChange={onDraftChange}
-        onSend={onSend}
-      />
-    </WorkspacePanel>
+  const visibleMaterialItems = filteredMaterials.slice(
+    (materialPage - 1) * CONTEXT_PAGE_SIZE,
+    materialPage * CONTEXT_PAGE_SIZE,
   );
-}
+  const limitReached = draftSourceIds.length >= MAX_CONTEXTS_PER_SESSION;
 
-function MessageCard({ message }: { message: VeraMessage }) {
-  const isStudent = message.role === "student";
+  function toggleSource(sourceId: string) {
+    setDraftSourceIds((current) => {
+      if (current.includes(sourceId)) {
+        return current.filter((id) => id !== sourceId);
+      }
+
+      if (current.length >= MAX_CONTEXTS_PER_SESSION) {
+        return current;
+      }
+
+      return [...current, sourceId];
+    });
+  }
+
+  function sourceForTitle(title: string) {
+    return veraContextSources.find((source) => source.title === title);
+  }
 
   return (
-    <div className={cn("flex", isStudent ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "max-w-3xl rounded-3xl border px-4 py-4",
-          isStudent
-            ? "border-primary-200 bg-primary-50/86"
-            : "border-primary-100 bg-white/88",
-        )}
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_rgba(1,76,56,0.5)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
+        showCloseButton={false}
       >
-        {!isStudent ? (
-          <div className="mb-2 flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
-              <Bot className="size-4" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-secondary-950">Vera</p>
-              <p className="text-xs text-secondary-400">{message.createdAt}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="mb-2 text-xs font-semibold text-secondary-500">
-            Kamu • {message.createdAt}
-          </p>
-        )}
-
-        <p className="text-sm leading-7 text-secondary-700">{message.body}</p>
-
-        {message.citations && message.citations.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {message.citations.map((citation) => (
-              <span
-                className="inline-flex rounded-full border border-primary-100 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800"
-                key={citation}
-              >
-                {citation}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function ChatComposer({
-  draft,
-  onDraftChange,
-  onSend,
-}: {
-  draft: string;
-  onDraftChange: (value: string) => void;
-  onSend: () => void;
-}) {
-  return (
-    <div className="border-t border-primary-100/80 bg-white/80 px-4 py-2.5 md:px-5">
-      <div className="rounded-3xl border border-primary-100 bg-white p-2.5">
-        <form
-          className="flex items-center gap-1.5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSend();
-          }}
-        >
-          <Input
-            className="h-10 flex-1 border-transparent bg-transparent px-1 text-sm text-secondary-900 placeholder:text-secondary-400 focus-visible:border-transparent focus-visible:ring-0"
-            onChange={(event) => onDraftChange(event.target.value)}
-            placeholder="Tanya Vera tentang materi, strategi, atau langkah berikutnya..."
-            value={draft}
-          />
-          <Button
-            aria-label="Kirim pertanyaan ke Vera"
-            className="rounded-full"
-            disabled={!draft.trim()}
-            size="icon-sm"
-            type="submit"
-            variant="brand"
+        <div className="flex min-h-24 shrink-0 items-center bg-background px-5 py-5 pr-16 md:min-h-28 md:px-8 md:py-6">
+          <DialogHeader className="gap-1.5">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-secondary-950 md:text-2xl">
+              Tambahkan konteks
+            </DialogTitle>
+            <DialogDescription className="max-w-2xl text-xs leading-5 text-secondary-500 md:text-sm">
+              Pilih sumber belajar yang ingin Vera gunakan untuk membantumu.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogClose
+            render={
+              <Button
+                aria-label="Tutup dialog tambah konteks"
+                className="absolute right-5 top-5 rounded-full shadow-sm md:right-6 md:top-6"
+                size="icon-sm"
+                variant="outline"
+              />
+            }
           >
-            <SendHorizontal />
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
-}
+            <X />
+            <span className="sr-only">Tutup</span>
+          </DialogClose>
+        </div>
 
-function StudioPanel({
-  activeArtifact,
-  activeArtifactId,
-  generatedArtifacts,
-  selectedSources,
-  onClosePreview,
-  onGenerateTool,
-  onOpenArtifact,
-  onRequestDeleteArtifact,
-}: {
-  activeArtifact: VeraStudioTool | null;
-  activeArtifactId: VeraToolId | null;
-  generatedArtifacts: VeraStudioTool[];
-  selectedSources: VeraContextSource[];
-  onClosePreview: () => void;
-  onGenerateTool: (toolId: VeraToolId) => void;
-  onOpenArtifact: (toolId: VeraToolId) => void;
-  onRequestDeleteArtifact: (tool: VeraStudioTool) => void;
-}) {
-  if (activeArtifact) {
-    return (
-      <WorkspacePanel className="order-3 lg:min-h-0">
-        <PanelHeader
-          action={
-            <Button
-              className="rounded-full"
-              onClick={onClosePreview}
-              size="sm"
-              variant="ghost"
-            >
-              Kembali
-            </Button>
+        <Tabs
+          className="min-h-0 flex-1 gap-0"
+          onValueChange={(value) =>
+            setActiveTab(value as VeraContextTypeId)
           }
-          title="Studio Vera"
-        />
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          <StudioArtifactPreview
-            selectedSources={selectedSources}
-            tool={activeArtifact}
-          />
-        </div>
-      </WorkspacePanel>
-    );
-  }
-
-  return (
-    <WorkspacePanel className="order-3 lg:min-h-0">
-      <PanelHeader title="Studio Vera" />
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className="grid grid-cols-2 gap-3">
-          {veraStudioTools.map((tool) => (
-            <StudioGenerateRow
-              key={tool.id}
-              tool={tool}
-              onGenerate={() => onGenerateTool(tool.id)}
-            />
-          ))}
-        </div>
-
-        <section className="mt-6 border-t border-primary-100 pt-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
-                Hasil
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-2">
-            {generatedArtifacts.map((tool) => (
-              <StudioArtifactCard
-                active={activeArtifactId === tool.id}
-                key={tool.id}
-                tool={tool}
-                onOpen={() => onOpenArtifact(tool.id)}
-                onRequestDelete={() => onRequestDeleteArtifact(tool)}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-    </WorkspacePanel>
-  );
-}
-
-function StudioArtifactPreview({
-  selectedSources,
-  tool,
-}: {
-  selectedSources: VeraContextSource[];
-  tool: VeraStudioTool | null;
-}) {
-  if (!tool) {
-    return (
-      <div className="text-sm leading-6 text-secondary-500">
-        Belum ada hasil yang dipilih. Generate output dari Studio Vera atau
-        minta Vera menyiapkannya lewat chat.
-      </div>
-    );
-  }
-
-  const mode = veraToolModes[tool.id];
-
-  return (
-    <div className="flex min-h-full flex-col">
-      <div className="border-b border-primary-100 pb-4">
-        <h3 className="text-xl font-semibold leading-tight text-secondary-950">
-          {tool.outputTitle}
-        </h3>
-        <p className="mt-2 text-sm leading-6 text-secondary-700">
-          {tool.outputBody}
-        </p>
-      </div>
-
-      <div className="space-y-6 py-5">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {mode.metrics.map((metric) => (
-            <div key={metric.label}>
-              <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-                {metric.label}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-secondary-950">
-                {metric.value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-            Ringkasan
-          </p>
-          <p className="mt-2 text-sm leading-7 text-secondary-700">
-            {mode.description}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-            Detail
-          </p>
-          <div className="mt-3 space-y-3">
-            {mode.highlights.map((highlight) => (
-              <p
-                className="text-sm leading-7 text-secondary-700"
-                key={highlight}
-              >
-                {highlight}
-              </p>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] text-secondary-500 uppercase">
-            Konteks Dipakai
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {selectedSources.map((source) => (
-              <span
-                className="inline-flex rounded-full border border-primary-100 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800"
-                key={source.id}
-              >
-                {source.title}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StudioGenerateRow({
-  tool,
-  onGenerate,
-}: {
-  tool: VeraStudioTool;
-  onGenerate: () => void;
-}) {
-  const ToolIcon = toolIcons[tool.id];
-
-  return (
-    <button
-      className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-white/84 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white hover:shadow-[0_18px_46px_-38px_rgba(1,76,56,0.32)]"
-      onClick={onGenerate}
-      type="button"
-    >
-      <span className="inline-flex size-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
-        <ToolIcon className="size-4" aria-hidden="true" />
-      </span>
-
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 text-sm font-semibold leading-5 text-secondary-950">
-          {tool.title}
-        </span>
-        <ChevronRight className="size-4 shrink-0 text-primary-700" />
-      </span>
-    </button>
-  );
-}
-
-function StudioArtifactCard({
-  active,
-  tool,
-  onOpen,
-  onRequestDelete,
-}: {
-  active: boolean;
-  tool: VeraStudioTool;
-  onOpen: () => void;
-  onRequestDelete: () => void;
-}) {
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onOpen();
-    }
-  };
-
-  return (
-    <div
-      aria-label={`Buka hasil ${tool.outputTitle}`}
-      className={cn(
-        "group rounded-2xl border p-3 text-left transition-all duration-300",
-        "cursor-pointer hover:-translate-y-1 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.42)]",
-        active
-          ? "border-primary-300 bg-white"
-          : "border-primary-100 bg-white/84 hover:border-primary-200 hover:bg-white",
-      )}
-      onClick={onOpen}
-      onKeyDown={handleKeyDown}
-      role="button"
-      tabIndex={0}
-    >
-      <div
-        className={cn(
-          "flex items-start justify-between gap-3 transition-transform duration-300",
-          active ? "translate-y-0" : "group-hover:-translate-y-0.5",
-        )}
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-secondary-950">
-            {tool.outputTitle}
-          </p>
-          <p className="mt-1 text-xs text-secondary-500">{tool.title}</p>
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-600">
-            {tool.outputBody}
-          </p>
-        </div>
-
-        <button
-          aria-label={`Hapus hasil ${tool.outputTitle}`}
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-secondary-400 transition-colors hover:bg-primary-50 hover:text-primary-800"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRequestDelete();
-          }}
-          type="button"
+          value={activeTab}
         >
-          <Trash2 className="size-4" />
-        </button>
-      </div>
+          <div className="shrink-0 border-b border-primary-100 bg-background px-4 md:px-10">
+            <TabsList
+              className="grid h-12 w-full grid-cols-3 justify-start gap-1 p-0 md:flex md:h-13 md:w-fit"
+              variant="line"
+            >
+              <TabsTrigger
+                className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-44 md:justify-start md:px-4 md:text-sm"
+                value="practice"
+              >
+                <ListChecks data-icon="inline-start" />
+                Hasil Latihan
+              </TabsTrigger>
+              <TabsTrigger
+                className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-34 md:justify-start md:px-4 md:text-sm"
+                value="material"
+              >
+                <BookOpen data-icon="inline-start" />
+                Materi
+              </TabsTrigger>
+              <TabsTrigger
+                className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-36 md:justify-start md:px-4 md:text-sm"
+                value="document"
+              >
+                <FileText data-icon="inline-start" />
+                Dokumen
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-    </div>
-  );
-}
+          <TabsContent className="min-h-0 overflow-hidden" value="practice">
+            <ScrollArea className="h-full">
+              <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+                <div className="flex flex-col gap-3">
+                  {visiblePracticeItems.map((item) => {
+                    const source = sourceForTitle(item.title);
+                    const selected = Boolean(
+                      source && draftSourceIds.includes(source.id),
+                    );
 
-function DeleteConfirmationDialog({
-  target,
-  onCancel,
-  onConfirm,
-}: {
-  target: DeleteTarget | null;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const title = target?.kind === "artifact" ? "Hapus hasil?" : "Hapus konteks?";
-  const description =
-    target?.kind === "artifact"
-      ? `Hasil "${target.label}" akan dihapus dari daftar hasil.`
-      : `Konteks "${target?.label ?? ""}" akan dihapus dari workspace belajar.`;
+                    return (
+                      <PracticeContextOption
+                        disabled={limitReached && !selected}
+                        item={item}
+                        key={item.id}
+                        onToggle={() => source && toggleSource(source.id)}
+                        selected={selected}
+                      />
+                    );
+                  })}
+                </div>
+                <ContextPagination
+                  className="mt-auto"
+                  onPageChange={setPracticePage}
+                  page={practicePage}
+                  pageCount={practicePageCount}
+                />
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-  return (
-    <Dialog
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          onCancel();
-        }
-      }}
-      open={target !== null}
-    >
-      <DialogContent className="max-w-[28rem] border border-primary-100 bg-[#fbfffd] shadow-[0_24px_80px_-30px_rgba(1,76,56,0.45)]">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-secondary-950">
-            {title}
-          </DialogTitle>
-          <DialogDescription className="mt-1 leading-6 text-secondary-600">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
+          <TabsContent className="min-h-0 overflow-hidden" value="material">
+            <ScrollArea className="h-full">
+              <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                  <Input
+                    aria-label="Cari materi Vecalss"
+                    className="h-10 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
+                    onChange={(event) => {
+                      setMaterialQuery(event.target.value);
+                      setMaterialPage(1);
+                    }}
+                    placeholder="Cari materi Vecalss..."
+                    value={materialQuery}
+                  />
+                </div>
+                <div className="mt-3 flex flex-col gap-3">
+                  {filteredMaterials.length > 0 ? (
+                    visibleMaterialItems.map((item) => {
+                      const source = sourceForTitle(item.title);
+                      const selected = Boolean(
+                        source && draftSourceIds.includes(source.id),
+                      );
 
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button className="rounded-full" onClick={onCancel} variant="ghost">
-            Batal
-          </Button>
-          <Button
-            className="rounded-full border-danger-200 bg-danger-50 text-danger-700 hover:bg-danger-100 hover:text-danger-800 focus-visible:border-danger-400 focus-visible:ring-danger-200"
-            onClick={onConfirm}
-            variant="destructive"
-          >
-            Hapus
-          </Button>
+                      return (
+                        <MaterialContextOption
+                          disabled={limitReached && !selected}
+                          item={item}
+                          key={item.id}
+                          onToggle={() => source && toggleSource(source.id)}
+                          selected={selected}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                      Materi tidak ditemukan.
+                    </div>
+                  )}
+                </div>
+                {filteredMaterials.length > 0 ? (
+                  <ContextPagination
+                    className="mt-auto"
+                    onPageChange={setMaterialPage}
+                    page={materialPage}
+                    pageCount={materialPageCount}
+                  />
+                ) : null}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent className="min-h-0 overflow-hidden" value="document">
+            <ScrollArea className="h-full">
+              <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+                <label
+                  className={cn(
+                    "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
+                    limitReached && !draftSourceIds.includes("external-notes")
+                      ? "cursor-not-allowed opacity-55"
+                      : "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
+                  )}
+                >
+                  <input
+                    accept=".pdf,.txt,text/plain,application/pdf"
+                    className="sr-only"
+                    disabled={
+                      limitReached && !draftSourceIds.includes("external-notes")
+                    }
+                    multiple
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+
+                      if (file) {
+                        setUploadedFileName(file.name);
+                        if (!draftSourceIds.includes("external-notes")) {
+                          toggleSource("external-notes");
+                        }
+                      }
+                    }}
+                    type="file"
+                  />
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
+                    <Upload className="size-4" />
+                  </span>
+                  <span className="mt-3 text-sm font-semibold text-secondary-950">
+                    Upload dokumen belajar
+                  </span>
+                  <span className="mt-1.5 max-w-sm text-xs leading-5 text-secondary-500">
+                    Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
+                    TXT untuk catatan, rangkuman, dan materi eksternal.
+                  </span>
+                  <span className="mt-4 inline-flex rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white">
+                    Pilih file
+                  </span>
+                </label>
+                {draftSourceIds.includes("external-notes") ? (
+                  <Attachment className="mt-3 w-full" state="done">
+                    <AttachmentMedia>
+                      <FileText />
+                    </AttachmentMedia>
+                    <AttachmentContent>
+                      <AttachmentTitle>
+                        {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
+                      </AttachmentTitle>
+                      <AttachmentDescription>
+                        Dokumen siap ditambahkan
+                      </AttachmentDescription>
+                    </AttachmentContent>
+                    <AttachmentActions>
+                      <AttachmentAction
+                        aria-label="Lepas dokumen"
+                        onClick={() => {
+                          toggleSource("external-notes");
+                          setUploadedFileName(null);
+                        }}
+                      >
+                        <X />
+                      </AttachmentAction>
+                    </AttachmentActions>
+                  </Attachment>
+                ) : null}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex shrink-0 flex-col gap-3 border-t border-primary-100 bg-background px-5 py-3 sm:flex-row sm:items-center sm:justify-between md:min-h-20 md:px-8 md:py-4">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p
+              className={cn(
+                "text-xs tabular-nums text-secondary-500",
+                limitReached && "font-medium",
+              )}
+            >
+              <span className="font-semibold text-primary-700">
+                {draftSourceIds.length} / {MAX_CONTEXTS_PER_SESSION}
+              </span>{" "}
+              konteks dipilih
+            </p>
+            {limitReached ? (
+              <p className="text-[11px] text-secondary-400">
+                Batas tercapai. Lepas satu pilihan untuk menggantinya.
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 gap-2 sm:gap-3">
+            <Button
+              className="flex-1 rounded-full sm:min-w-28 sm:flex-none"
+              onClick={() => onOpenChange(false)}
+              size="default"
+              variant="outline"
+            >
+              Batal
+            </Button>
+            <Button
+              className="flex-1 rounded-full sm:min-w-42 sm:flex-none"
+              onClick={() => onSave(draftSourceIds)}
+              size="default"
+              variant="brand"
+            >
+              Tambahkan
+              {draftSourceIds.length > 0 ? ` (${draftSourceIds.length})` : ""}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ContextPagination({
+  className,
+  onPageChange,
+  page,
+  pageCount,
+}: {
+  className?: string;
+  onPageChange: (page: number) => void;
+  page: number;
+  pageCount: number;
+}) {
+  if (pageCount <= 1) {
+    return null;
+  }
+
+  return (
+    <Pagination className={cn("pt-4 md:pt-5", className)}>
+      <PaginationContent className="gap-2">
+        <PaginationItem>
+          <PaginationPrevious
+            className="size-11 rounded-full border-0 bg-background p-0 shadow-sm hover:bg-primary-50"
+            disabled={page === 1}
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            text=""
+          />
+        </PaginationItem>
+        <PaginationItem>
+          <span className="flex h-9 min-w-16 items-center justify-center rounded-full bg-primary-50 px-3 text-xs font-medium tabular-nums text-secondary-800">
+            {page} / {pageCount}
+          </span>
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationNext
+            className="size-11 rounded-full border border-primary-100 bg-background p-0 shadow-sm hover:bg-primary-50"
+            disabled={page === pageCount}
+            onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+            text=""
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+
+function PracticeContextOption({
+  disabled,
+  item,
+  onToggle,
+  selected,
+}: {
+  disabled: boolean;
+  item: VeraPracticeHistory;
+  onToggle: () => void;
+  selected: boolean;
+}) {
+  return (
+    <ContextOption
+      disabled={disabled}
+      icon={ChartNoAxesColumnIncreasing}
+      meta={`${item.meta.replace(/^Selesai\s*/, "")} • ${item.result}`}
+      metaIcon={CalendarDays}
+      onToggle={onToggle}
+      selected={selected}
+      tag={item.kind}
+      title={item.title}
+    />
+  );
+}
+
+function MaterialContextOption({
+  disabled,
+  item,
+  onToggle,
+  selected,
+}: {
+  disabled: boolean;
+  item: VeraMaterialHistory;
+  onToggle: () => void;
+  selected: boolean;
+}) {
+  return (
+    <ContextOption
+      disabled={disabled}
+      icon={NotebookPen}
+      meta={item.lastAccessed}
+      onToggle={onToggle}
+      selected={selected}
+      tag={item.kind}
+      title={item.title}
+    />
+  );
+}
+
+function ContextOption({
+  disabled,
+  icon: Icon,
+  meta,
+  metaIcon: MetaIcon,
+  onToggle,
+  selected,
+  tag,
+  title,
+}: {
+  disabled: boolean;
+  icon: LucideIcon;
+  meta: string;
+  metaIcon?: LucideIcon;
+  onToggle: () => void;
+  selected: boolean;
+  tag: string;
+  title: string;
+}) {
+  return (
+    <Button
+      aria-pressed={selected}
+      className={cn(
+        "group h-auto min-h-20 w-full justify-start gap-3 rounded-[1.25rem] p-3 text-left whitespace-normal shadow-[0_10px_28px_-26px_rgba(1,76,56,0.4)] md:min-h-24 md:gap-4 md:px-5",
+        disabled && "cursor-not-allowed opacity-45",
+      )}
+      disabled={disabled}
+      onClick={onToggle}
+      variant={selected ? "contextSelected" : "context"}
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 md:size-12">
+        <Icon />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-secondary-950 md:text-base">
+            {title}
+          </span>
+          <Badge
+            className="rounded-full px-2 py-0.5"
+            size="ui"
+            variant="mint"
+          >
+            {tag}
+          </Badge>
+        </span>
+        <span className="mt-1 flex items-center gap-1.5 text-xs font-normal leading-5 text-secondary-500">
+          {MetaIcon ? <MetaIcon aria-hidden /> : null}
+          <span>{meta}</span>
+        </span>
+      </span>
+      <span
+        className={cn(
+          "flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors",
+          selected
+            ? "border-primary-700 bg-primary-700 text-white"
+            : "border-primary-200 bg-white text-transparent group-hover:border-primary-400",
+        )}
+      >
+        <Check />
+      </span>
+    </Button>
   );
 }
 
@@ -1192,7 +1854,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "flex min-h-[520px] flex-col overflow-hidden rounded-3xl border border-primary-100/90 bg-white/82 backdrop-blur-xl",
+        "min-h-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] xl:h-full",
         className,
       )}
     >
@@ -1203,15 +1865,28 @@ function WorkspacePanel({
 
 function PanelHeader({
   action,
+  backAction,
   title,
 }: {
   action?: React.ReactNode;
+  backAction?: () => void;
   title: string;
 }) {
   return (
-    <div className="flex min-h-14 items-center justify-between gap-3 border-b border-primary-100/80 px-4 py-3">
-      <div className="flex min-w-0 items-center">
-        <h2 className="truncate text-base font-semibold text-secondary-950">
+    <div className="flex min-h-17 items-center justify-between gap-3 border-b border-primary-100 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2">
+        {backAction ? (
+          <Button
+            aria-label="Kembali ke daftar hasil"
+            className="-ml-1 rounded-full border-0"
+            onClick={backAction}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ChevronLeft />
+          </Button>
+        ) : null}
+        <h2 className="truncate text-sm font-semibold text-secondary-950">
           {title}
         </h2>
       </div>

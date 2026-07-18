@@ -15,6 +15,7 @@ const badgeVariants = cva(
         section: "text-4xl md:text-5xl",
         card: "text-2xl md:text-4xl",
         footer: "text-ui-lg",
+        ui: "text-xs",
       },
     },
     defaultVariants: {

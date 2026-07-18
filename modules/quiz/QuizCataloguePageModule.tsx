@@ -1,6 +1,16 @@
 "use client";
 
-import { BookOpenCheck, ListChecks } from "lucide-react";
+import {
+  BookOpen,
+  BookOpenCheck,
+  Brain,
+  Calculator,
+  FileText,
+  Languages,
+  LibraryBig,
+  ListChecks,
+  PenTool,
+} from "lucide-react";
 
 import type { SessionContext } from "@/lib/auth/types";
 import { CatalogueCard } from "@/modules/courses/CatalogueCard";
@@ -10,6 +20,16 @@ import {
   getQuizSubjectStats,
   type QuizSubject,
 } from "./data";
+
+const subjectIcons = {
+  LBE: Languages,
+  LBI: FileText,
+  PBM: PenTool,
+  PK: Calculator,
+  PM: BookOpen,
+  PPU: LibraryBig,
+  PU: Brain,
+} as const;
 
 function QuizCataloguePageModule({ session, subjects }: { session: SessionContext; subjects: QuizSubject[] }) {
   return (
@@ -44,13 +64,14 @@ function QuizCataloguePageModule({ session, subjects }: { session: SessionContex
 
 function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
   const stats = getQuizSubjectStats(subject);
+  const Icon = subjectIcons[subject.title as keyof typeof subjectIcons] ?? ListChecks;
 
   return (
     <CatalogueCard
       code={subject.code}
       description={subject.description}
       href={`/quiz/${subject.slug}`}
-      icon={subject.icon}
+      icon={Icon}
       palette={subject.palette}
       stats={[
         { icon: ListChecks, label: "Kuis", value: `${stats.totalQuizzes} kuis` },

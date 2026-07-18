@@ -133,7 +133,7 @@ function SubjectSelector({
       <DropdownMenuTrigger
         render={
           <button
-            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#d6e5db] bg-white px-4 py-3 text-left shadow-[0_18px_42px_-32px_rgba(23,107,77,0.5)] outline-none transition-[transform,border-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 hover:border-[#9dcab0] hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
+            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#d6e5db] bg-white px-4 py-3 text-left shadow-[0_18px_42px_-32px_rgba(23,107,77,0.5)] outline-none transition-[transform,border-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 hover:border-[#9dcab0] hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus:border-[#9dcab0] focus:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] data-popup-open:-translate-y-0.5 data-popup-open:border-[#9dcab0] data-popup-open:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
             type="button"
           />
         }
@@ -170,7 +170,7 @@ function SubjectSelector({
           return (
             <DropdownMenuItem
               className={cn(
-                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#173c2d] transition-[transform,box-shadow] duration-150 ease-out motion-safe:hover:translate-x-1 hover:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] focus:bg-[#edf7f0] focus:text-[#173c2d] motion-safe:active:scale-[0.99] motion-reduce:transition-none sm:min-h-16",
+                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#173c2d] transition-[transform,box-shadow] duration-150 ease-out motion-safe:hover:translate-x-1 hover:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] focus:translate-x-1 focus:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] data-highlighted:translate-x-1 data-highlighted:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] focus:bg-[#edf7f0] focus:text-[#173c2d] motion-safe:active:scale-[0.99] motion-reduce:transition-none sm:min-h-16",
                 isActive && "bg-[#e8f5ec] ring-2 ring-[#b7ddc3]",
               )}
               key={subject.slug}
@@ -323,7 +323,10 @@ function PathNode({
 
   return (
     <li className="group/node relative min-h-[17.5rem] sm:min-h-[19rem]">
-      <div className="grid min-h-[17.5rem] grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center transition-transform duration-200 ease-out motion-safe:group-hover/node:-translate-y-1 motion-safe:group-focus-within/node:-translate-y-1 motion-reduce:transition-none sm:min-h-[19rem] lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]">
+      <div className={cn(
+        "grid min-h-[17.5rem] grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center transition-transform duration-200 ease-out motion-reduce:transition-none sm:min-h-[19rem] lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]",
+        !isLocked && "motion-safe:group-hover/node:-translate-y-1 motion-safe:group-focus-within/node:-translate-y-1",
+      )}>
         <div
           className={cn(
             "relative z-20 col-start-2 row-start-1 flex justify-center",
@@ -347,7 +350,8 @@ function PathNode({
           ) : (
             <span
               className={cn(
-                "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white transition-shadow duration-200 ease-out group-hover/node:shadow-[0_24px_38px_-22px_rgba(23,107,77,0.5)] motion-reduce:transition-none sm:size-20",
+                "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white transition-shadow duration-200 ease-out motion-reduce:transition-none sm:size-20",
+                !isLocked && "group-hover/node:shadow-[0_24px_38px_-22px_rgba(23,107,77,0.5)]",
                 isCompleted
                   ? "bg-[#25805a] text-white"
                   : "bg-[#f2f4f3] text-[#88948d]",
@@ -373,7 +377,8 @@ function PathNode({
         >
           <article
             className={cn(
-              "relative w-full rounded-[1.8rem] border px-4 py-4 transition-[box-shadow,border-color] duration-200 ease-out group-hover/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)] group-focus-within/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)] motion-reduce:transition-none sm:px-5 sm:py-5",
+              "relative w-full rounded-[1.8rem] border px-4 py-4 transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none sm:px-5 sm:py-5",
+              !isLocked && "group-hover/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)] group-focus-within/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)]",
               isLocked
                 ? "border-[#dce3df] bg-[#f5f7f6] text-[#6f7d75]"
                 : isCompleted
@@ -384,7 +389,8 @@ function PathNode({
             <div className="flex items-start gap-3">
               <span
                 className={cn(
-                  "flex size-14 shrink-0 flex-col items-center justify-center rounded-[1.25rem] text-center transition-transform duration-200 ease-out motion-safe:group-hover/node:-rotate-2 motion-safe:group-hover/node:scale-105 motion-reduce:transition-none sm:size-16",
+                  "flex size-14 shrink-0 flex-col items-center justify-center rounded-[1.25rem] text-center transition-transform duration-200 ease-out motion-reduce:transition-none sm:size-16",
+                  !isLocked && "motion-safe:group-hover/node:-rotate-2 motion-safe:group-hover/node:scale-105",
                   isLocked
                     ? "bg-[#e8ecea] text-[#87928c]"
                     : isCompleted
@@ -393,10 +399,10 @@ function PathNode({
                 )}
               >
                 <span className="text-[0.55rem] font-bold tracking-[0.12em] uppercase">
-                  Bagian
+                  Unit
                 </span>
                 <span className="text-xl leading-none font-extrabold">
-                  {index + 1}
+                  1
                 </span>
               </span>
               <div className="min-w-0 flex-1">
@@ -436,7 +442,7 @@ function PathNode({
               </div>
             </div>
             {isLocked ? (
-              <LockKeyhole className="absolute top-4 right-4 size-4 text-[#9aa59f] transition-transform duration-200 ease-out motion-safe:group-hover/node:-rotate-6 motion-safe:group-hover/node:scale-110 motion-reduce:transition-none" />
+              <LockKeyhole className="absolute top-4 right-4 size-4 text-[#9aa59f]" />
             ) : null}
           </article>
         </div>

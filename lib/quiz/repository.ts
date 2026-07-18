@@ -6,13 +6,13 @@ import type { KaptenQuiz } from "@/modules/mentor/mock-data";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 
 const subjectMetadata = [
-  { code: "PU", name: "Penalaran Umum", slug: "penalaran-umum" },
-  { code: "PPU", name: "Pengetahuan dan Pemahaman Umum", slug: "pengetahuan-pemahaman-umum" },
-  { code: "PBM", name: "Pemahaman Bacaan dan Menulis", slug: "pemahaman-bacaan-menulis" },
-  { code: "PK", name: "Pengetahuan Kuantitatif", slug: "pengetahuan-kuantitatif" },
-  { code: "LBI", name: "Literasi Bahasa Indonesia", slug: "literasi-bahasa-indonesia" },
-  { code: "LBE", name: "Literasi Bahasa Inggris", slug: "literasi-bahasa-inggris" },
-  { code: "PM", name: "Penalaran Matematika", slug: "penalaran-matematika" },
+  { code: "PU", description: "Penalaran umum dan logika argumen.", name: "Penalaran Umum", slug: "penalaran-umum" },
+  { code: "PPU", description: "Pengetahuan dan pemahaman umum.", name: "Pengetahuan dan Pemahaman Umum", slug: "pengetahuan-pemahaman-umum" },
+  { code: "PBM", description: "Pemahaman bacaan dan menulis.", name: "Pemahaman Bacaan dan Menulis", slug: "pemahaman-bacaan-menulis" },
+  { code: "PK", description: "Pengetahuan kuantitatif dan numerasi.", name: "Pengetahuan Kuantitatif", slug: "pengetahuan-kuantitatif" },
+  { code: "LBI", description: "Literasi dalam Bahasa Indonesia.", name: "Literasi Bahasa Indonesia", slug: "literasi-bahasa-indonesia" },
+  { code: "LBE", description: "Literasi dalam Bahasa Inggris.", name: "Literasi Bahasa Inggris", slug: "literasi-bahasa-inggris" },
+  { code: "PM", description: "Penalaran matematika dan pemecahan masalah.", name: "Penalaran Matematika", slug: "penalaran-matematika" },
 ] as const;
 
 type SaveStandaloneQuizInput = {
@@ -32,6 +32,14 @@ function getSubjectMetadata(code: string) {
   return subjectMetadata.find((subject) => subject.code === code) ?? null;
 }
 
+function getSubjectMetadataBySlug(slug: string) {
+  return subjectMetadata.find((subject) => subject.slug === slug) ?? null;
+}
+
+function getStandaloneQuizSubjects() {
+  return subjectMetadata;
+}
+
 function parseOptionalDate(value: string, fieldName: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -41,6 +49,10 @@ function parseOptionalDate(value: string, fieldName: string) {
 
 function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "quiz";
+}
+
+function isUuid(value: string | undefined): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function toKaptenQuiz(record: {
@@ -112,7 +124,7 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
   }));
 
   const record = await prisma.$transaction(async (tx) => {
-    if (input.id) {
+    if (isUuid(input.id)) {
       const owned = await tx.standaloneQuiz.findFirst({ where: { createdByUserId: tutorId, id: input.id }, select: { id: true } });
       if (!owned) throw new QuizValidationError("Quiz tidak ditemukan atau Anda tidak memiliki akses.");
       await tx.standaloneQuizItem.deleteMany({ where: { quizId: input.id } });
@@ -124,6 +136,9 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
 }
 
 async function getMentorStandaloneQuiz(id: string, tutorId: string) {
+  // Existing prototype routes use readable IDs such as `quiz-pu-simpulan`.
+  // Never send those strings to the UUID column while the old examples remain.
+  if (!isUuid(id)) return null;
   const record = await prisma.standaloneQuiz.findFirst({ where: { createdByUserId: tutorId, id }, include: { items: { orderBy: { sortOrder: "asc" }, select: { id: true, prompt: true, choices: true, correctKey: true, explanation: true, origin: true, sourceId: true } } } });
   if (!record) return null;
   return { questions: record.items.map(toSnapshot), quiz: toKaptenQuiz(record) };
@@ -132,6 +147,65 @@ async function getMentorStandaloneQuiz(id: string, tutorId: string) {
 async function getMentorStandaloneQuizzes(tutorId: string) {
   const records = await prisma.standaloneQuiz.findMany({ where: { createdByUserId: tutorId }, orderBy: { updatedAt: "desc" }, include: { items: { select: { id: true } } } });
   return records.map(toKaptenQuiz);
+}
+
+async function bulkUpdateStandaloneQuizLifecycle(
+  ids: string[],
+  tutorId: string,
+  operation: "publish" | "unpublish",
+) {
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length || uniqueIds.some((id) => !isUuid(id))) {
+    throw new QuizValidationError("Pilih minimal satu quiz yang valid.");
+  }
+
+  const requiredStatus = operation === "publish" ? ContentStatus.draft : ContentStatus.published;
+  const nextStatus = operation === "publish" ? ContentStatus.published : ContentStatus.draft;
+
+  await prisma.$transaction(async (tx) => {
+    const records = await tx.standaloneQuiz.findMany({
+      where: { createdByUserId: tutorId, id: { in: uniqueIds } },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (records.length !== uniqueIds.length) {
+      throw new QuizValidationError("Sebagian quiz tidak ditemukan atau bukan milik Anda. Muat ulang halaman lalu coba lagi.");
+    }
+    if (records.some((record) => record.status !== requiredStatus)) {
+      throw new QuizValidationError(operation === "publish"
+        ? "Pilih hanya quiz draf yang siap diterbitkan."
+        : "Pilih hanya quiz yang sudah diterbitkan.");
+    }
+    if (operation === "publish") {
+      for (const record of records) {
+        validateForPublication({
+          closesAt: record.closesAt?.toISOString() ?? "",
+          description: record.description ?? "",
+          opensAt: record.opensAt?.toISOString() ?? "",
+          questions: record.items.map(toSnapshot),
+          status: "published",
+          subjectCode: record.subjectCode,
+          title: record.title,
+        }, record.opensAt, record.closesAt);
+      }
+    }
+    const updated = await tx.standaloneQuiz.updateMany({
+      where: { createdByUserId: tutorId, id: { in: uniqueIds }, status: requiredStatus },
+      data: { status: nextStatus },
+    });
+    if (updated.count !== uniqueIds.length) {
+      throw new QuizValidationError("Status quiz berubah. Muat ulang halaman lalu coba lagi.");
+    }
+  });
+
+  return { ids: uniqueIds, status: nextStatus === ContentStatus.published ? "published" as const : "draft" as const };
+}
+
+async function bulkPublishStandaloneQuizzes(ids: string[], tutorId: string) {
+  return bulkUpdateStandaloneQuizLifecycle(ids, tutorId, "publish");
+}
+
+async function bulkUnpublishStandaloneQuizzes(ids: string[], tutorId: string) {
+  return bulkUpdateStandaloneQuizLifecycle(ids, tutorId, "unpublish");
 }
 
 function studentAvailabilityWhere(now = new Date()) {
@@ -157,5 +231,5 @@ async function getAvailableStandaloneQuizCatalogue(now = new Date()) {
   return prisma.standaloneQuiz.findMany({ where: studentAvailabilityWhere(now), orderBy: { updatedAt: "desc" }, include: { items: { select: { id: true } } } });
 }
 
-export { admitStudentToStandaloneQuiz, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizzes, getSubjectMetadata, saveStandaloneQuiz, studentAvailabilityWhere, QuizValidationError };
+export { admitStudentToStandaloneQuiz, bulkPublishStandaloneQuizzes, bulkUnpublishStandaloneQuizzes, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizzes, getStandaloneQuizSubjects, getSubjectMetadata, getSubjectMetadataBySlug, saveStandaloneQuiz, studentAvailabilityWhere, QuizValidationError };
 export type { SaveStandaloneQuizInput };

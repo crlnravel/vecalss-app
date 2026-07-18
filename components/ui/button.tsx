@@ -13,6 +13,10 @@ const buttonVariants = cva(
           "border-primary-700 bg-primary-700 text-white hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/25",
         brandOutline:
           "border-secondary-900 bg-white text-secondary-900 hover:bg-primary-50 focus-visible:border-secondary-900 focus-visible:ring-secondary-900/15",
+        context:
+          "border-primary-100 bg-white text-secondary-950 hover:border-primary-300 hover:bg-primary-50/40 focus-visible:border-primary-500 focus-visible:ring-primary-500/20",
+        contextSelected:
+          "border-primary-500 bg-primary-50 text-secondary-950 hover:border-primary-600 hover:bg-primary-50 focus-visible:border-primary-600 focus-visible:ring-primary-500/20",
         inverseOutline:
           "border-white/20 bg-transparent text-white hover:bg-white/10 focus-visible:border-white/35 focus-visible:ring-white/15",
         outline:

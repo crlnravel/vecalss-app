@@ -1,14 +1,3 @@
-import {
-  Brain,
-  Calculator,
-  FileText,
-  Languages,
-  LibraryBig,
-  PenTool,
-  BookOpen,
-  type LucideIcon,
-} from "lucide-react";
-
 type QuizDifficulty = "Dasar" | "Menengah" | "Lanjutan";
 type QuizStatus = "Siap dikerjakan" | "Perlu review" | "Baru ditambahkan";
 
@@ -62,7 +51,6 @@ type QuizAttempt = {
 type QuizSubject = {
   code: string;
   description: string;
-  icon: LucideIcon;
   palette: string;
   quizzes: QuizItem[];
   slug: string;
@@ -75,7 +63,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPS",
     description: "Penalaran Umum",
-    icon: Brain,
     palette: quizCardPalette,
     title: "PU",
     slug: "penalaran-umum",
@@ -112,7 +99,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPS",
     description: "Pengetahuan dan Pemahaman Umum",
-    icon: LibraryBig,
     palette: quizCardPalette,
     title: "PPU",
     slug: "pengetahuan-pemahaman-umum",
@@ -149,7 +135,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPS",
     description: "Pemahaman Bacaan dan Menulis",
-    icon: PenTool,
     palette: quizCardPalette,
     title: "PBM",
     slug: "pemahaman-bacaan-menulis",
@@ -177,7 +162,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPS",
     description: "Pengetahuan Kuantitatif",
-    icon: Calculator,
     palette: quizCardPalette,
     title: "PK",
     slug: "pengetahuan-kuantitatif",
@@ -205,7 +189,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPA",
     description: "Literasi Bahasa Indonesia",
-    icon: FileText,
     palette: quizCardPalette,
     title: "LBI",
     slug: "literasi-bahasa-indonesia",
@@ -242,7 +225,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPA",
     description: "Literasi Bahasa Inggris",
-    icon: Languages,
     palette: quizCardPalette,
     title: "LBE",
     slug: "literasi-bahasa-inggris",
@@ -270,7 +252,6 @@ const quizSubjects: QuizSubject[] = [
   {
     code: "TPA",
     description: "Penalaran Matematika",
-    icon: BookOpen,
     palette: quizCardPalette,
     title: "PM",
     slug: "penalaran-matematika",
