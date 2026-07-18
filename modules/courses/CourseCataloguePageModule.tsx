@@ -22,11 +22,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
-import {
-  getCourseProgressState,
-  type Course,
-  type SubjectIcon,
-} from "./data";
+import { getCourseProgressState, type Course, type SubjectIcon } from "./data";
 import { useCourseProgress } from "./progress-storage";
 
 const courseIcons = {
@@ -37,6 +33,11 @@ const courseIcons = {
   library: LibraryBig,
   "pen-tool": PenTool,
 } satisfies Record<SubjectIcon, LucideIcon>;
+
+const courseCategoryLabels: Record<string, string> = {
+  PU: "TPS",
+  PPU: "TPA",
+};
 
 function CourseCataloguePageModule({
   courses,
@@ -71,10 +72,7 @@ function CourseCataloguePageModule({
       <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-7">
         <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold tracking-[0.16em] text-[#477060] uppercase">
-              Ruang belajar
-            </p>
-            <h1 className="mt-2 text-4xl leading-tight font-extrabold tracking-[-0.045em] text-[#173c2d] md:text-5xl">
+            <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] text-[#173c2d] md:text-5xl">
               Materi
             </h1>
             <p className="mt-3 text-sm leading-7 text-[#5f776a] md:text-base">
@@ -95,22 +93,12 @@ function CourseCataloguePageModule({
           </label>
         </header>
 
-        <div className="flex items-center justify-between gap-4 border-b border-[#dce7e0] pb-4">
-          <p className="text-sm font-semibold text-[#5f776a]">
-            {visibleCourses.length} materi tersedia
-          </p>
-          <p className="hidden text-xs font-semibold text-[#7f9187] sm:block">
-            Pilih kartu untuk membuka jalur belajar
-          </p>
-        </div>
-
         {visibleCourses.length > 0 ? (
           <div className="flex flex-col gap-5">
-            {visibleCourses.map((course, index) => (
+            {visibleCourses.map((course) => (
               <CourseRowCard
                 course={course}
                 courses={courses}
-                index={index}
                 key={course.slug}
               />
             ))}
@@ -133,11 +121,9 @@ function CourseCataloguePageModule({
 function CourseRowCard({
   course,
   courses,
-  index,
 }: {
   course: Course;
   courses: Course[];
-  index: number;
 }) {
   const progress = useCourseProgress(course, courses);
   const state = getCourseProgressState(course, {
@@ -145,37 +131,38 @@ function CourseRowCard({
     skippedToLessonId: progress.skippedToLessonId,
   });
   const Icon = courseIcons[course.icon];
-  const isStarted = state.completedLessonIds.length > 0 || Boolean(state.skippedToLessonId);
+  const isStarted =
+    state.completedLessonIds.length > 0 || Boolean(state.skippedToLessonId);
 
   return (
     <Link
-      className="group relative grid min-h-[11rem] overflow-hidden rounded-[2rem] border border-[#c8dfd0] bg-white p-5 text-[#173c2d] shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] outline-none transition-[transform,border-color,box-shadow] duration-300 ease-out motion-safe:hover:-translate-y-1 hover:border-[#6aaa83] hover:shadow-[0_28px_58px_-32px_rgba(23,107,77,0.58)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none md:grid-cols-[5rem_minmax(0,1fr)_auto] md:items-center md:gap-6 md:p-7"
+      className="group relative grid min-h-[11rem] overflow-hidden rounded-[2rem] border border-[#c8dfd0] bg-white p-5 text-[#173c2d] shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] outline-none transition-transform duration-300 ease-out motion-safe:hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-reduce:transition-none md:grid-cols-[5rem_minmax(0,1fr)_auto] md:items-center md:gap-6 md:p-7"
       href={`/courses/${course.slug}`}
     >
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1.5 bg-[#176b4d] transition-[width] duration-300 ease-out group-hover:w-2 motion-reduce:transition-none"
+        className="absolute inset-y-0 left-0 w-1.5 bg-[#176b4d]"
       />
 
       <div className="flex items-start justify-between gap-4 md:contents">
-        <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[#e6f4eb] text-[#176b4d] transition-transform duration-250 ease-out motion-safe:group-hover:-rotate-3 motion-safe:group-hover:scale-105 motion-reduce:transition-none md:size-20 md:rounded-[1.6rem]">
+        <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[#e6f4eb] text-[#176b4d] transition-transform duration-250 ease-out motion-safe:group-hover:-rotate-3 motion-reduce:transition-none md:size-20 md:rounded-[1.6rem]">
           <Icon className="size-7 md:size-9" strokeWidth={2.2} />
-        </span>
-
-        <span className="inline-flex min-h-8 items-center rounded-full border border-[#d6e5db] bg-[#f7faf8] px-3 text-[0.68rem] font-extrabold tracking-[0.1em] text-[#477060] uppercase md:absolute md:top-5 md:right-5">
-          Materi {String(index + 1).padStart(2, "0")}
         </span>
       </div>
 
       <div className="mt-4 min-w-0 md:mt-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
-            {course.code}
+            {courseCategoryLabels[course.code] ?? course.code}
           </span>
-          <span className="size-1 rounded-full bg-[#9dcab0]" />
-          <span className="text-xs font-semibold text-[#718077]">
-            {course.difficulty}
-          </span>
+          {!courseCategoryLabels[course.code] ? (
+            <>
+              <span className="size-1 rounded-full bg-[#9dcab0]" />
+              <span className="text-xs font-semibold text-[#718077]">
+                {course.difficulty}
+              </span>
+            </>
+          ) : null}
         </div>
         <h2 className="mt-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance md:text-2xl lg:text-[1.7rem]">
           {course.description}
@@ -203,15 +190,7 @@ function CourseRowCard({
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#e2ece5] pt-4 md:mt-8 md:min-w-44 md:flex-col md:items-end md:border-t-0 md:pt-0">
-        <span
-          className={cn(
-            "text-xs font-bold",
-            isStarted ? "text-[#176b4d]" : "text-[#718077]",
-          )}
-        >
-          {isStarted ? "Lanjutkan belajar" : "Mulai belajar"}
-        </span>
-        <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)] transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-1 motion-safe:group-hover:scale-105 motion-reduce:transition-none">
+        <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
           <ChevronRight className="size-5" strokeWidth={2.6} />
         </span>
       </div>

@@ -409,7 +409,7 @@ function KaptenMateriSubjectPageModule({
         />
       </section>
       <section className="mt-5 space-y-3">
-        {visibleLessons.length ? (
+        {visibleLessons.length && selectedLessons.length ? (
           <div className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/35 px-4 py-3">
             <Checkbox
               aria-label="Pilih semua lesson yang terlihat"

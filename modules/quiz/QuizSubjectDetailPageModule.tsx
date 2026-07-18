@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Clock3, ListChecks } from "lucide-react";
 
@@ -48,7 +49,19 @@ function QuizSubjectDetailPageModule({
               <div className="absolute right-[20%] bottom-[18%] h-24 w-24 rounded-full bg-[#e4f0eb]/65 blur-2xl md:h-44 md:w-44" />
             </div>
 
-            <div className="relative z-10 space-y-3">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[48%] min-w-[22rem] lg:block">
+              <div className="absolute right-[12%] bottom-[9%] h-12 w-[64%] rounded-full bg-primary-900/12 blur-2xl" />
+              <Image
+                alt=""
+                className="absolute right-[-1.5rem] bottom-[-3.5rem] h-auto w-[24rem] max-w-none object-contain drop-shadow-[0_30px_48px_rgba(1,76,56,0.18)] lg:w-[29rem]"
+                height={464}
+                sizes="(min-width: 1024px) 464px, 384px"
+                src="/brand/mascot-vecalss.png"
+                width={464}
+              />
+            </div>
+
+            <div className="relative z-10 space-y-3 lg:max-w-[58%]">
               <CardTitle className="text-[clamp(2.8rem,7vw,5.6rem)] leading-[0.95] font-semibold text-primary-950">
                 {subject.description}
               </CardTitle>

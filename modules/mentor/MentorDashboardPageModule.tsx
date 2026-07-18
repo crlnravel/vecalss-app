@@ -37,11 +37,20 @@ function getFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] ?? "Kapten";
 }
 
-function MentorDashboardPageModule({ materiRecentlyEdited, session }: { materiRecentlyEdited: KaptenMateriView[]; session: SessionContext }) {
+function MentorDashboardPageModule({
+  materiRecentlyEdited,
+  session,
+}: {
+  materiRecentlyEdited: KaptenMateriView[];
+  session: SessionContext;
+}) {
   const firstName = getFirstName(session.user.fullName);
   const [savedRecentlyEdited, setSavedRecentlyEdited] = useState(() =>
     [
-      ...materiRecentlyEdited.map((resource) => ({ resource, savedAt: resource.updatedAtEpoch })),
+      ...materiRecentlyEdited.map((resource) => ({
+        resource,
+        savedAt: resource.updatedAtEpoch,
+      })),
       ...getStoredQuizDrafts().map((draft) => ({
         resource: draft.quiz,
         savedAt: draft.savedAt,
@@ -53,7 +62,10 @@ function MentorDashboardPageModule({ materiRecentlyEdited, session }: { materiRe
     const syncStoredDrafts = () => {
       setSavedRecentlyEdited(
         [
-          ...materiRecentlyEdited.map((resource) => ({ resource, savedAt: resource.updatedAtEpoch })),
+          ...materiRecentlyEdited.map((resource) => ({
+            resource,
+            savedAt: resource.updatedAtEpoch,
+          })),
           ...getStoredQuizDrafts().map((draft) => ({
             resource: draft.quiz,
             savedAt: draft.savedAt,
@@ -69,7 +81,9 @@ function MentorDashboardPageModule({ materiRecentlyEdited, session }: { materiRe
     };
   }, [materiRecentlyEdited]);
 
-  const savedResourceIds = new Set(savedRecentlyEdited.map(({ resource }) => resource.id));
+  const savedResourceIds = new Set(
+    savedRecentlyEdited.map(({ resource }) => resource.id),
+  );
   const updatedRecentlyEdited = [
     ...savedRecentlyEdited.map(({ resource }) => resource),
     ...recentlyEdited.filter((resource) => !savedResourceIds.has(resource.id)),
@@ -83,9 +97,7 @@ function MentorDashboardPageModule({ materiRecentlyEdited, session }: { materiRe
       searchPlaceholder="Cari konten, draft, jadwal, atau asset..."
       session={session}
     >
-      <PageIntro
-        title={`Selamat bekerja, ${firstName}.`}
-      />
+      <PageIntro title={`Selamat bekerja, ${firstName}.`} />
 
       <section className="grid gap-10 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
         <div className="space-y-4">
@@ -99,7 +111,7 @@ function MentorDashboardPageModule({ materiRecentlyEdited, session }: { materiRe
                 Lihat Semua Konten
               </Button>
             }
-            title="Lanjutkan Penyuntingan"
+            title="Lanjutkan Editing"
           />
           <div className="space-y-2">
             {updatedRecentlyEdited.slice(0, 3).map((resource, index) => (

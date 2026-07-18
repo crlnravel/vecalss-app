@@ -172,8 +172,19 @@ function DashboardPageModule({
     >
       <section>
         <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-100 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
-          <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10">
-            <div className="grid gap-10 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
+            <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
+            <Image
+              alt=""
+              className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(1,76,56,0.18)] xl:w-[26rem]"
+              height={416}
+              sizes="(min-width: 1280px) 416px, 352px"
+              src="/brand/mascot-vecalss.png"
+              width={416}
+            />
+          </div>
+          <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10 lg:pr-[32%]">
+            <div className="grid gap-10">
               <div>
                 <CardTitle className="max-w-3xl text-4xl leading-[1.08] font-semibold text-secondary-900 md:text-5xl xl:text-6xl">
                   Halo, {firstName}. Lanjutkan rute belajarmu.
@@ -182,7 +193,7 @@ function DashboardPageModule({
                   Semangat mengejar <span className="font-bold">Ilmu Komputer - UI </span>ya!
                 </CardDescription>
               </div>
-              <div className="flex flex-wrap gap-3 2xl:justify-end">
+              <div className="flex flex-wrap gap-3">
                 <HeroCountdownPill daysLeft={examDaysLeft} />
                 <HeroXpPill level={7} progress={68} total={100} xp="1.840" />
               </div>
