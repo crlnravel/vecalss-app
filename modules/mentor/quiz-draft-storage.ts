@@ -29,14 +29,17 @@ function isQuizQuestionSnapshot(value: unknown): value is QuizQuestionSnapshot {
     typeof value.id === "string"
     && (value.origin === "bank" || value.origin === "local")
     && typeof value.prompt === "string"
+    && (value.promptMediaAssetId === undefined || (typeof value.promptMediaAssetId === "string" && value.promptMediaAssetId.trim().length > 0))
     && typeof value.correctChoiceId === "string"
     && typeof value.explanation === "string"
+    && (value.explanationMediaAssetId === undefined || (typeof value.explanationMediaAssetId === "string" && value.explanationMediaAssetId.trim().length > 0))
     && (value.sourceQuestionId === undefined || typeof value.sourceQuestionId === "string")
     && (value.isReady === undefined || typeof value.isReady === "boolean")
     && value.choices.every(
       (choice) =>
         isRecord(choice)
         && typeof choice.id === "string"
+        && (choice.mediaAssetId === undefined || (typeof choice.mediaAssetId === "string" && choice.mediaAssetId.trim().length > 0))
         && typeof choice.text === "string",
     )
   );

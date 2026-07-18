@@ -1,0 +1,28 @@
+- generic [active] [ref=f2e1]:
+  - main [ref=f2e4]:
+    - generic [ref=f2e6]:
+      - button "Toggle Sidebar" [ref=f2e7]
+      - button "Buka menu Kapten" [ref=f2e9]:
+        - generic [ref=f2e10]: VT
+    - main [ref=f2e13]:
+      - generic [ref=f2e14]:
+        - heading "Media" [level=1] [ref=f2e15]
+        - paragraph [ref=f2e16]: Library gambar bersama untuk Bank Soal Kapten.
+      - generic [ref=f2e17]:
+        - generic [ref=f2e18]:
+          - generic [ref=f2e19]:
+            - button "Folder baru" [ref=f2e20]
+            - button "Upload gambar" [disabled]
+            - button "Choose File" [ref=f2e21]
+          - generic [ref=f2e22]:
+            - generic [ref=f2e23]: Cari gambar
+            - textbox "Cari gambar" [ref=f2e24]:
+              - /placeholder: Cari nama gambar...
+        - generic [ref=f2e26]:
+          - navigation "breadcrumb":
+            - list
+          - generic [ref=f2e27]:
+            - generic [ref=f2e28]: Seret gambar ke area ini untuk upload cepat
+            - generic [ref=f2e29]: Memuat library
+  - button "Open Next.js Dev Tools" [ref=f2e41] [cursor=pointer]
+  - alert [ref=f2e45]

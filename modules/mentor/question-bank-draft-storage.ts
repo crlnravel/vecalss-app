@@ -28,6 +28,7 @@ function isQuestionChoice(value: unknown): value is { id: string; text: string }
   return isRecord(value)
     && typeof value.id === "string"
     && value.id.trim().length > 0
+    && (value.mediaAssetId === undefined || (typeof value.mediaAssetId === "string" && value.mediaAssetId.trim().length > 0))
     && typeof value.text === "string";
 }
 
@@ -42,8 +43,10 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     && typeof value.id === "string"
     && value.id.trim().length > 0
     && typeof value.prompt === "string"
+    && (value.promptMediaAssetId === undefined || (typeof value.promptMediaAssetId === "string" && value.promptMediaAssetId.trim().length > 0))
     && typeof value.correctChoiceId === "string"
     && typeof value.explanation === "string"
+    && (value.explanationMediaAssetId === undefined || (typeof value.explanationMediaAssetId === "string" && value.explanationMediaAssetId.trim().length > 0))
     && ["easy", "medium", "hard"].includes(value.difficulty as string)
     && typeof value.subjectCode === "string"
     && value.choices.length === 4

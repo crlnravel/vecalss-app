@@ -31,6 +31,16 @@ Remaining approved phases:
 Remaining approved phases:
 - None
 
+2026-07-18 - Shared Kapten and admin media libraries implemented
+
+- Added a private R2-ready image domain with server-enforced Kapten/admin scopes, Postgres folder metadata, immutable object keys, signed direct uploads, server-side finalization, and reversible Trash.
+- Replaced the mentor mock Media surface with a responsive shared file manager and added the matching isolated `/admin/media` workspace plus admin navigation.
+- Added Bank Soal image selection for prompts, answer options, and explanations; Quiz snapshots now preserve the selected media asset IDs.
+- Applied the media migration to Neon and verified Prisma, TypeScript, ESLint, the production build, desktop/mobile UI states, folder mutations, and admin-to-Kapten API isolation.
+
+Remaining integration:
+- Add the four R2 server environment values and bucket CORS policy, then run one live upload/preview smoke test.
+
 2026-07-06 - Vera AI minimalist refinement implemented
 
 - Reduced the Vera AI workspace visual weight by removing the decorative background wash, tightening panel spacing, and simplifying shadows while preserving the existing green/secondary/accent palette.

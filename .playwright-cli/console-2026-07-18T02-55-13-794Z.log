@@ -1,0 +1,14 @@
+[     112ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:2477
+[     150ms] [LOG] [HMR] connected @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:2477
+[     265ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:2477
+[     273ms] [LOG] [Fast Refresh] done in 111ms @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:2477
+[     301ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:2477
+[     310ms] [LOG] [HMR] connected @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:2477
+[   14994ms] [ERROR] Base UI: A component that acts as a button expected a native <button> because the `nativeButton` prop is true. Rendering a non-<button> removes native button semantics, which can impact forms and accessibility. Use a real <button> in the `render` prop, or set `nativeButton` to `false`.
+    at Button (http://localhost:5023/_next/static/chunks/_16bdzuv._.js:276:375)
+    at MentorDashboardPageModule (http://localhost:5023/_next/static/chunks/_1cn-rr9._.js:5388:404)
+    at MentorDashboardPage (about://React/Server/file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/.next/dev/server/chunks/ssr/%5Broot-of-the-server%5D__1lpzr-s._.js?88:1085:424) @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:3318
+[   14995ms] [ERROR] Base UI: A component that acts as a button expected a native <button> because the `nativeButton` prop is true. Rendering a non-<button> removes native button semantics, which can impact forms and accessibility. Use a real <button> in the `render` prop, or set `nativeButton` to `false`.
+    at Button (http://localhost:5023/_next/static/chunks/_16bdzuv._.js:276:375)
+    at MentorDashboardPageModule (http://localhost:5023/_next/static/chunks/_1cn-rr9._.js:5462:396)
+    at MentorDashboardPage (about://React/Server/file:///Users/ravel/Work/Freelance/Vecalss/vecalss-app/.next/dev/server/chunks/ssr/%5Broot-of-the-server%5D__1lpzr-s._.js?88:1085:424) @ http://localhost:5023/_next/static/chunks/0k5d_next_dist_1qmvpb9._.js:3318

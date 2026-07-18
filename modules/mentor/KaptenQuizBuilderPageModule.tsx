@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
+import { MediaAssetPreview } from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
   bankQuestions,
@@ -106,9 +107,11 @@ function toSnapshot(question: BankQuestion, idPrefix: string): QuizQuestionSnaps
     choices: question.choices.map((choice) => ({ ...choice })),
     correctChoiceId: question.correctChoiceId,
     explanation: question.explanation,
+    explanationMediaAssetId: question.explanationMediaAssetId,
     id: `${idPrefix}-${question.id}`,
     origin: "bank",
     prompt: question.prompt,
+    promptMediaAssetId: question.promptMediaAssetId,
     sourceQuestionId: question.id,
   };
 }
@@ -573,6 +576,13 @@ function KaptenQuizBuilderPageModule({
                   <h3 className="mt-5 text-xl leading-8 font-semibold text-secondary-900 md:text-2xl">
                     {previewQuestion.prompt}
                   </h3>
+                  {previewQuestion.promptMediaAssetId ? (
+                    <MediaAssetPreview
+                      alt="Gambar pertanyaan"
+                      assetId={previewQuestion.promptMediaAssetId}
+                      className="mt-5"
+                    />
+                  ) : null}
                   <div className="mt-6 space-y-3">
                     {previewQuestion.choices.map((choice, index) => (
                       <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-primary-100 px-4 py-4 text-sm text-secondary-700 transition hover:border-primary-300 hover:bg-primary-50/50" key={`${previewQuestion.id}-${choice.id}`}>
@@ -580,7 +590,16 @@ function KaptenQuizBuilderPageModule({
                         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">
                           {String.fromCharCode(65 + index)}
                         </span>
-                        <span>{choice.text}</span>
+                        <span className="flex min-w-0 flex-1 flex-col gap-3">
+                          <span>{choice.text}</span>
+                          {choice.mediaAssetId ? (
+                            <MediaAssetPreview
+                              alt={`Gambar opsi ${String.fromCharCode(65 + index)}`}
+                              assetId={choice.mediaAssetId}
+                              className="max-h-44"
+                            />
+                          ) : null}
+                        </span>
                       </label>
                     ))}
                   </div>

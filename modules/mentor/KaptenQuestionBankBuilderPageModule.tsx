@@ -8,9 +8,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  ImagePlus,
   Plus,
   Save,
   Trash2,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -32,7 +34,12 @@ import {
 } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
+import type { MediaAssetDto } from "@/lib/media/types";
 import { cn } from "@/lib/utils";
+import {
+  MediaAssetPreview,
+  MediaPickerDialog,
+} from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
   kaptenSubjects,
@@ -53,6 +60,39 @@ type ConfirmationRequest = {
   onConfirm: () => void;
   title: string;
 };
+
+type MediaPickerTarget =
+  | { kind: "choice"; choiceId: string; label: string }
+  | { kind: "explanation"; label: string }
+  | { kind: "prompt"; label: string };
+
+function QuestionMediaAttachment({
+  assetId,
+  label,
+  onRemove,
+  onReplace,
+}: {
+  assetId: string;
+  label: string;
+  onRemove: () => void;
+  onReplace: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-primary-50/35 p-3">
+      <MediaAssetPreview alt={label} assetId={assetId} className="max-h-48 bg-white" />
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button onClick={onReplace} size="sm" type="button" variant="brandOutline">
+          <ImagePlus data-icon="inline-start" />
+          Ganti
+        </Button>
+        <Button onClick={onRemove} size="sm" type="button" variant="ghost">
+          <X data-icon="inline-start" />
+          Lepas
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 const emptyQuestion = (bankId: string, subjectCode: string): BankQuestion => ({
   bankId,
@@ -124,6 +164,7 @@ function KaptenQuestionBankBuilderPageModule({
   ));
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<MediaPickerTarget | null>(null);
 
   const builderState = useMemo(() => {
     if (!hasUnsavedChanges && storedDraft) {
@@ -156,6 +197,13 @@ function KaptenQuestionBankBuilderPageModule({
     (visibleInventoryPage - 1) * INVENTORY_QUESTIONS_PER_PAGE,
     visibleInventoryPage * INVENTORY_QUESTIONS_PER_PAGE,
   );
+  const selectedMediaAssetId = mediaPickerTarget?.kind === "prompt"
+    ? questionDraft.promptMediaAssetId
+    : mediaPickerTarget?.kind === "explanation"
+      ? questionDraft.explanationMediaAssetId
+      : mediaPickerTarget?.kind === "choice"
+        ? questionDraft.choices.find((choice) => choice.id === mediaPickerTarget.choiceId)?.mediaAssetId
+        : undefined;
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -221,6 +269,36 @@ function KaptenQuestionBankBuilderPageModule({
     markChanged({
       ...builderState,
       questions: builderState.questions.map((question) => question.id === activeQuestionId ? next : question),
+    });
+  }
+
+  function selectMediaAsset(asset: MediaAssetDto) {
+    if (!mediaPickerTarget) return;
+
+    if (mediaPickerTarget.kind === "prompt") {
+      updateQuestionDraft({ ...questionDraft, promptMediaAssetId: asset.id });
+      return;
+    }
+
+    if (mediaPickerTarget.kind === "explanation") {
+      updateQuestionDraft({ ...questionDraft, explanationMediaAssetId: asset.id });
+      return;
+    }
+
+    updateQuestionDraft({
+      ...questionDraft,
+      choices: questionDraft.choices.map((choice) => choice.id === mediaPickerTarget.choiceId
+        ? { ...choice, mediaAssetId: asset.id }
+        : choice),
+    });
+  }
+
+  function removeChoiceMedia(choiceId: string) {
+    updateQuestionDraft({
+      ...questionDraft,
+      choices: questionDraft.choices.map((choice) => choice.id === choiceId
+        ? { ...choice, mediaAssetId: undefined }
+        : choice),
     });
   }
 
@@ -346,10 +424,95 @@ function KaptenQuestionBankBuilderPageModule({
             <div className="order-1 xl:order-none">
               <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-secondary-900">{activeQuestion ? "Edit soal" : "Soal aktif"}</p><p className="mt-1 text-sm text-secondary-500">Simpan soal lengkap atau biarkan belum lengkap untuk dilanjutkan nanti.</p></div><Button onClick={addQuestion} type="button" variant="brandOutline"><Plus /> Tambah soal</Button></div>
               <div className="mt-5 grid gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm md:p-7">
-                <Field><FieldLabel htmlFor="question-prompt">Pertanyaan</FieldLabel><FieldTextarea id="question-prompt" onChange={(event) => updateQuestionDraft({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} /></Field>
-                <div className="grid gap-3 sm:grid-cols-2">{questionDraft.choices.map((choice, index) => <label className="flex items-center gap-3 rounded-2xl border border-primary-100 px-3 py-3" key={choice.id}><input aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" name="bank-correct-choice" onChange={() => updateQuestionDraft({ ...questionDraft, correctChoiceId: choice.id })} type="radio" /><span className="text-xs font-semibold text-primary-800">{String.fromCharCode(65 + index)}</span><input aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" onChange={(event) => updateQuestionDraft({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${String.fromCharCode(65 + index)}`} value={choice.text} /></label>)}</div>
+                <Field>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <FieldLabel htmlFor="question-prompt">Pertanyaan</FieldLabel>
+                    <Button disabled={!activeQuestionId} onClick={() => setMediaPickerTarget({ kind: "prompt", label: "Gambar pertanyaan" })} size="sm" type="button" variant="ghost">
+                      <ImagePlus data-icon="inline-start" />
+                      {questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}
+                    </Button>
+                  </div>
+                  <FieldTextarea id="question-prompt" onChange={(event) => updateQuestionDraft({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} />
+                  {questionDraft.promptMediaAssetId ? (
+                    <QuestionMediaAttachment
+                      assetId={questionDraft.promptMediaAssetId}
+                      label="Gambar pertanyaan"
+                      onRemove={() => updateQuestionDraft({ ...questionDraft, promptMediaAssetId: undefined })}
+                      onReplace={() => setMediaPickerTarget({ kind: "prompt", label: "Gambar pertanyaan" })}
+                    />
+                  ) : null}
+                </Field>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {questionDraft.choices.map((choice, index) => {
+                    const choiceLabel = String.fromCharCode(65 + index);
+                    const inputId = `bank-choice-${choice.id}`;
+
+                    return (
+                      <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-primary-100 px-3 py-3" key={choice.id}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <input
+                            aria-label={`Jawaban benar opsi ${index + 1}`}
+                            checked={choice.id === questionDraft.correctChoiceId}
+                            className="size-4 accent-primary-700"
+                            name="bank-correct-choice"
+                            onChange={() => updateQuestionDraft({ ...questionDraft, correctChoiceId: choice.id })}
+                            type="radio"
+                          />
+                          <label className="text-xs font-semibold text-primary-800" htmlFor={inputId}>{choiceLabel}</label>
+                          <input
+                            aria-label={`Opsi ${index + 1}`}
+                            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400"
+                            id={inputId}
+                            onChange={(event) => updateQuestionDraft({
+                              ...questionDraft,
+                              choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item),
+                            })}
+                            placeholder={`Opsi ${choiceLabel}`}
+                            value={choice.text}
+                          />
+                          <Button
+                            aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`}
+                            disabled={!activeQuestionId}
+                            onClick={() => setMediaPickerTarget({ kind: "choice", choiceId: choice.id, label: `Gambar opsi ${choiceLabel}` })}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <ImagePlus />
+                          </Button>
+                        </div>
+                        {choice.mediaAssetId ? (
+                          <QuestionMediaAttachment
+                            assetId={choice.mediaAssetId}
+                            label={`Gambar opsi ${choiceLabel}`}
+                            onRemove={() => removeChoiceMedia(choice.id)}
+                            onReplace={() => setMediaPickerTarget({ kind: "choice", choiceId: choice.id, label: `Gambar opsi ${choiceLabel}` })}
+                          />
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="grid gap-5 sm:grid-cols-2"><Field><FieldLabel htmlFor="question-difficulty">Tingkat kesulitan</FieldLabel><select className={fieldControlClassName} id="question-difficulty" onChange={(event) => updateQuestionDraft({ ...questionDraft, difficulty: event.target.value as BankQuestion["difficulty"] })} value={questionDraft.difficulty}><option value="easy">Mudah</option><option value="medium">Sedang</option><option value="hard">Sulit</option></select></Field><Field><FieldLabel htmlFor="question-tags">Tags <span className="font-normal text-secondary-400">(pisahkan koma)</span></FieldLabel><FieldInput id="question-tags" onChange={(event) => updateQuestionDraft({ ...questionDraft, tags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) })} value={questionDraft.tags.join(", ")} /></Field></div>
-                <Field><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><FieldTextarea id="question-explanation" onChange={(event) => updateQuestionDraft({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} /></Field>
+                <Field>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
+                    <Button disabled={!activeQuestionId} onClick={() => setMediaPickerTarget({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost">
+                      <ImagePlus data-icon="inline-start" />
+                      {questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}
+                    </Button>
+                  </div>
+                  <FieldTextarea id="question-explanation" onChange={(event) => updateQuestionDraft({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />
+                  {questionDraft.explanationMediaAssetId ? (
+                    <QuestionMediaAttachment
+                      assetId={questionDraft.explanationMediaAssetId}
+                      label="Gambar penjelasan"
+                      onRemove={() => updateQuestionDraft({ ...questionDraft, explanationMediaAssetId: undefined })}
+                      onReplace={() => setMediaPickerTarget({ kind: "explanation", label: "Gambar penjelasan" })}
+                    />
+                  ) : null}
+                </Field>
                 {activeQuestionId ? <Button onClick={() => requestQuestionRemoval(activeQuestionId)} type="button" variant="ghost"><Trash2 /> Hapus soal ini</Button> : <p className="text-sm text-secondary-500">Pilih soal di inventori atau tambah soal baru untuk mulai mengedit.</p>}
               </div>
             </div>
@@ -369,6 +532,14 @@ function KaptenQuestionBankBuilderPageModule({
           </section>
         </TabsContent>
       </Tabs>
+
+      <MediaPickerDialog
+        onOpenChange={(isOpen) => { if (!isOpen) setMediaPickerTarget(null); }}
+        onSelect={selectMediaAsset}
+        open={Boolean(mediaPickerTarget)}
+        selectedAssetId={selectedMediaAssetId}
+        title={mediaPickerTarget?.label ?? "Pilih gambar"}
+      />
 
       <Dialog onOpenChange={(isOpen) => { if (!isOpen) closeConfirmation(); }} open={Boolean(confirmationRequest)}>
         <DialogContent className="gap-5 border-red-100 bg-white p-6 sm:max-w-3xl" showCloseButton={false}>

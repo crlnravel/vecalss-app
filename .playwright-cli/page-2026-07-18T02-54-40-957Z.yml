@@ -1,0 +1,98 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e32] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e33]
+    - generic [ref=e40]:
+      - button "Open issues overlay" [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: "1"
+          - generic [ref=e44]: "2"
+        - generic [ref=e45]:
+          - text: Issue
+          - generic [ref=e46]: s
+      - button "Collapse issues badge" [ref=e47]
+  - alert [ref=e39]: Media Kapten | Vecalss LMS
+  - generic [ref=e280]:
+    - generic [ref=e283]:
+      - link "Vecalss Learning Academy VECALSS" [ref=e285] [cursor=pointer]:
+        - /url: /mentor/dashboard
+        - generic [ref=e286]:
+          - img "Vecalss Learning Academy" [ref=e288]
+          - generic [ref=e289]: VECALSS
+      - generic [ref=e290]:
+        - generic [ref=e291]:
+          - generic [ref=e292]: Konten Belajar
+          - list [ref=e294]:
+            - listitem [ref=e295]:
+              - link "Dashboard" [ref=e296] [cursor=pointer]:
+                - /url: /mentor/dashboard
+            - listitem [ref=e303]:
+              - link "Materi" [ref=e304] [cursor=pointer]:
+                - /url: /mentor/materi
+            - listitem [ref=e308]:
+              - link "Quiz" [ref=e309] [cursor=pointer]:
+                - /url: /mentor/quiz
+            - listitem [ref=e314]:
+              - link "Bank Soal" [ref=e315] [cursor=pointer]:
+                - /url: /mentor/quiz/question-bank
+            - listitem [ref=e320]:
+              - link "Tryout" [ref=e321] [cursor=pointer]:
+                - /url: /mentor/tryout
+        - generic [ref=e326]:
+          - generic [ref=e327]: Ruang Kerja
+          - list [ref=e329]:
+            - listitem [ref=e330]:
+              - link "Media" [ref=e331] [cursor=pointer]:
+                - /url: /mentor/media
+            - listitem [ref=e337]:
+              - link "Pengaturan" [ref=e338] [cursor=pointer]:
+                - /url: /mentor/settings
+      - generic [ref=e345]:
+        - generic [ref=e346]: VT
+        - generic [ref=e348]:
+          - paragraph [ref=e349]: Vecalss Tutor
+          - paragraph [ref=e350]: CMS Kapten
+    - main [ref=e351]:
+      - generic [ref=e353]:
+        - button "Toggle Sidebar" [ref=e354]
+        - navigation "breadcrumb" [ref=e357]:
+          - list [ref=e358]:
+            - listitem [ref=e359]:
+              - link "Vecalss CMS" [ref=e360] [cursor=pointer]:
+                - /url: /mentor/dashboard
+            - listitem [ref=e361]
+            - listitem [ref=e364]:
+              - link "Media" [disabled] [ref=e365]
+        - textbox "Cari gambar Bank Soal..." [ref=e367]
+        - button "Buka menu Kapten" [ref=e368]:
+          - generic [ref=e369]: VT
+      - main [ref=e372]:
+        - generic [ref=e373]:
+          - heading "Media" [level=1] [ref=e374]
+          - paragraph [ref=e375]: Library gambar bersama untuk Bank Soal Kapten.
+        - generic [ref=e376]:
+          - generic [ref=e377]:
+            - generic [ref=e378]:
+              - button "Folder baru" [ref=e379]
+              - button "Upload gambar" [disabled]
+              - button "Choose File" [ref=e380]
+            - generic [ref=e381]:
+              - generic [ref=e382]: Cari gambar
+              - textbox "Cari gambar" [ref=e383]:
+                - /placeholder: Cari nama gambar...
+          - status [ref=e384]: R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview gambar.
+          - alert [ref=e385]:
+            - generic [ref=e386]: Media belum dapat diproses. Coba lagi.
+            - button "Coba lagi" [ref=e387]
+          - generic [ref=e388]:
+            - generic [ref=e389]:
+              - navigation "breadcrumb":
+                - list
+              - generic [ref=e390]:
+                - generic [ref=e391]: Seret gambar ke area ini untuk upload cepat
+                - generic [ref=e392]: Memuat library
+            - generic [ref=e393]:
+              - generic [ref=e394]:
+                - generic [ref=e396]: Folder ini masih kosong
+                - generic [ref=e397]: Upload gambar atau buat folder untuk mulai menyusun library.
+              - generic [ref=e398]:
+                - button "Upload gambar" [disabled]

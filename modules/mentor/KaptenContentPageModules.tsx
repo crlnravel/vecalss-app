@@ -3,11 +3,7 @@
 import Link from "next/link";
 import {
   ChevronDown,
-  FileImage,
-  Folder,
-  MoreVertical,
   Plus,
-  Upload,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -26,17 +22,14 @@ import {
   PageIntro,
   ResourceRow,
   SearchPanel,
-  SectionHeading,
   StatusPill,
 } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
   kaptenSubjects,
-  mediaAssets,
   questionBanks,
   quizzes,
   tryouts,
-  type KaptenMediaAsset,
   type KaptenTryout,
 } from "@/modules/mentor/mock-data";
 import { KaptenMateriPageModule } from "@/modules/mentor/KaptenMateriCataloguePageModules";
@@ -71,7 +64,6 @@ function KaptenQuizPageModule({ session }: { session: SessionContext }) {
     >
       <PageIntro
         action={<CreateButton href="/mentor/quiz/create" label="Buat Quiz" />}
-        description="Kelola quiz dan hubungkan ke question bank."
         title="Quiz"
       />
 
@@ -132,7 +124,6 @@ function KaptenQuestionBankPageModule({
             label="Buat Bank Soal"
           />
         }
-        description="Soal reusable untuk quiz dan tryout."
         title="Question Bank"
       />
 
@@ -198,7 +189,6 @@ function KaptenTryoutPageModule({ session }: { session: SessionContext }) {
     >
       <PageIntro
         action={<CreateButton href="/mentor/tryout#create" label="Buat Tryout" />}
-        description="Susun paket tryout dan jadwal publikasi."
         title="Tryout"
       />
 
@@ -208,92 +198,6 @@ function KaptenTryoutPageModule({ session }: { session: SessionContext }) {
           {tryouts.map((tryout) => (
             <TryoutRow key={tryout.id} tryout={tryout} />
           ))}
-        </div>
-      </section>
-    </MentorWorkspaceShell>
-  );
-}
-
-function MediaFolderButton({ label, count }: { count: string; label: string }) {
-  return (
-    <button
-      className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 text-left text-sm transition-colors hover:border-primary-200 hover:bg-primary-50/40"
-      type="button"
-    >
-      <Folder className="size-5 text-primary-800" />
-      <span className="min-w-0 flex-1">
-        <span className="block font-semibold text-secondary-900">{label}</span>
-        <span className="block text-xs text-secondary-500">{count}</span>
-      </span>
-    </button>
-  );
-}
-
-function MediaFileRow({ asset }: { asset: KaptenMediaAsset }) {
-  return (
-    <Link
-      className="grid gap-3 border-t border-primary-100 px-4 py-3 text-sm transition-colors first:border-t-0 hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.45fr)_0.7fr_0.55fr_0.75fr_0.8fr_36px] md:items-center"
-      href={asset.href}
-      id={asset.id}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <FileImage className="size-5 shrink-0 text-primary-800" />
-        <span className="truncate font-semibold text-secondary-900">
-          {asset.title}
-        </span>
-      </div>
-      <span className="text-secondary-500">{asset.mimeType}</span>
-      <span className="text-secondary-500">{asset.fileSize}</span>
-      <span className="text-secondary-500">{asset.dimensions}</span>
-      <span className="text-secondary-500">{asset.updatedAt}</span>
-      <span className="hidden justify-self-end text-secondary-400 md:block">
-        <MoreVertical className="size-4" />
-      </span>
-    </Link>
-  );
-}
-
-function KaptenMediaPageModule({ session }: { session: SessionContext }) {
-  return (
-    <MentorWorkspaceShell
-      activeLabel="Media"
-      breadcrumbLabel="Media"
-      searchPlaceholder="Cari image asset..."
-      session={session}
-    >
-      <PageIntro
-        action={
-          <Button render={<Link href="/mentor/media#upload" />} variant="brand">
-            <Upload />
-            Upload
-          </Button>
-        }
-        title="Media"
-      />
-
-      <section className="space-y-6">
-        <SearchPanel placeholder="Cari nama file, format, atau pemakaian..." />
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <MediaFolderButton count="Materi thumbnails" label="Materi" />
-          <MediaFolderButton count="Tryout covers" label="Tryout" />
-          <MediaFolderButton count="Unused assets" label="Belum dipakai" />
-        </div>
-
-        <div className="overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-sm">
-          <div className="hidden grid-cols-[minmax(0,1.45fr)_0.7fr_0.55fr_0.75fr_0.8fr_36px] gap-3 border-b border-primary-100 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-secondary-400 md:grid">
-            <span>Nama</span>
-            <span>Format</span>
-            <span>Ukuran</span>
-            <span>Dimensi</span>
-            <span>Terakhir</span>
-            <span />
-          </div>
-          <div>
-            {mediaAssets.map((asset) => (
-              <MediaFileRow asset={asset} key={asset.id} />
-            ))}
-          </div>
         </div>
       </section>
     </MentorWorkspaceShell>
@@ -370,9 +274,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
         <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
           Pengaturan
         </h1>
-        <p className="mt-2 text-sm leading-6 text-secondary-500">
-          Atur akun dan preferensi workspace.
-        </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           {settingsTabs.map((tab) => (
@@ -546,7 +447,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
 
 export {
   KaptenMateriPageModule,
-  KaptenMediaPageModule,
   KaptenQuestionBankPageModule,
   KaptenQuizPageModule,
   KaptenSettingsPageModule,

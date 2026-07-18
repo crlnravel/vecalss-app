@@ -70,6 +70,22 @@ enum ContentStatus {
   @@map("content_status")
 }
 
+enum MediaLibraryScope {
+  kapten
+  admin
+
+  @@map("media_library_scope")
+}
+
+enum MediaAssetState {
+  pending
+  ready
+  trashed
+  failed
+
+  @@map("media_asset_state")
+}
+
 enum ModuleAssetType {
   text
   video
@@ -350,6 +366,7 @@ model User {
   adaptivePracticeSessions  AdaptivePracticeSession[]
   ptnStrategySessions       PtnStrategySession[]
   uploadedAssets            Asset[]                    @relation("UploadedBy")
+  createdMediaFolders       MediaFolder[]              @relation("MediaFolderCreatedBy")
   createdAnnouncements      Announcement[]             @relation("AnnouncementCreatedBy")
   updatedAnnouncements      Announcement[]             @relation("AnnouncementUpdatedBy")
   updatedLandingSections    LandingPageSection[]       @relation("LandingSectionUpdatedBy")
@@ -1407,20 +1424,51 @@ model PtnStrategySession {
 // ─────────────────────────────────────────────
 
 model Asset {
-  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  uploadedByUserId String?              @map("uploaded_by_user_id") @db.Uuid
-  url              String               @db.Text
-  mimeType         String               @map("mime_type") @db.VarChar(120)
-  sizeBytes        Int                  @map("size_bytes")
-  checksum         String?              @db.VarChar(128)
-  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  uploadedByUserId String?           @map("uploaded_by_user_id") @db.Uuid
+  folderId         String?           @map("folder_id") @db.Uuid
+  libraryScope     MediaLibraryScope @default(admin) @map("library_scope")
+  state            MediaAssetState   @default(ready)
+  objectKey        String?           @unique @map("object_key") @db.VarChar(512)
+  originalName     String?           @map("original_name") @db.VarChar(255)
+  url              String?           @db.Text
+  mimeType         String            @map("mime_type") @db.VarChar(120)
+  sizeBytes        Int               @map("size_bytes")
+  width            Int?
+  height           Int?
+  checksum         String?           @db.VarChar(128)
+  trashedAt        DateTime?         @map("trashed_at") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   uploadedBy       User?                @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  folder           MediaFolder?         @relation(fields: [folderId], references: [id], onDelete: Restrict)
   announcements    Announcement[]
   landingSections  LandingPageSection[]
 
   @@index([checksum])
+  @@index([libraryScope, folderId, state])
+  @@index([libraryScope, originalName])
   @@map("assets")
+}
+
+model MediaFolder {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  libraryScope    MediaLibraryScope @map("library_scope")
+  parentId        String?           @map("parent_id") @db.Uuid
+  name            String            @db.VarChar(160)
+  createdByUserId String?           @map("created_by_user_id") @db.Uuid
+  trashedAt       DateTime?         @map("trashed_at") @db.Timestamptz
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  parent          MediaFolder?      @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children        MediaFolder[]     @relation("MediaFolderTree")
+  assets          Asset[]
+  createdBy       User?             @relation("MediaFolderCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([libraryScope, parentId, trashedAt])
+  @@map("media_folders")
 }
 
 /// Unified system for banners and announcements to keep rendering pipelines clean.

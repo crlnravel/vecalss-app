@@ -53,13 +53,16 @@ type BankQuestion = {
   bankId: string;
   choices: {
     id: string;
+    mediaAssetId?: string;
     text: string;
   }[];
   correctChoiceId: string;
   difficulty: "easy" | "medium" | "hard";
   explanation: string;
+  explanationMediaAssetId?: string;
   id: string;
   prompt: string;
+  promptMediaAssetId?: string;
   subjectCode: string;
   tags: string[];
 };

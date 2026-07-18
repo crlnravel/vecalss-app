@@ -1,0 +1,118 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e32] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f1e33]
+    - generic [ref=f1e38]:
+      - button "Open issues overlay" [ref=f1e39]:
+        - generic [ref=f1e40]:
+          - generic [ref=f1e41]: "1"
+          - generic [ref=f1e42]: "2"
+        - generic [ref=f1e43]:
+          - text: Issue
+          - generic [ref=f1e44]: s
+      - button "Collapse issues badge" [ref=f1e45]
+  - alert [ref=f1e37]: Media Kapten | Vecalss LMS
+  - generic [ref=f1e278]:
+    - generic [ref=f1e281]:
+      - link [ref=f1e482] [cursor=pointer]:
+        - /url: /mentor/dashboard
+        - generic [ref=f1e284]: VECALSS
+      - generic [ref=f1e288]:
+        - generic [ref=f1e289]:
+          - generic [ref=f1e290]: Konten Belajar
+          - list [ref=f1e292]:
+            - listitem [ref=f1e293]:
+              - link [ref=f1e484] [cursor=pointer]:
+                - /url: /mentor/dashboard
+                - generic [ref=f1e300]: Dashboard
+            - listitem [ref=f1e301]:
+              - link [ref=f1e485] [cursor=pointer]:
+                - /url: /mentor/materi
+                - generic [ref=f1e305]: Materi
+            - listitem [ref=f1e306]:
+              - link [ref=f1e486] [cursor=pointer]:
+                - /url: /mentor/quiz
+                - generic [ref=f1e311]: Quiz
+            - listitem [ref=f1e312]:
+              - link [ref=f1e487] [cursor=pointer]:
+                - /url: /mentor/quiz/question-bank
+                - generic [ref=f1e317]: Bank Soal
+            - listitem [ref=f1e318]:
+              - link [ref=f1e488] [cursor=pointer]:
+                - /url: /mentor/tryout
+                - generic [ref=f1e323]: Tryout
+        - generic [ref=f1e324]:
+          - generic [ref=f1e325]: Ruang Kerja
+          - list [ref=f1e327]:
+            - listitem [ref=f1e328]:
+              - link [ref=f1e489] [cursor=pointer]:
+                - /url: /mentor/media
+                - generic [ref=f1e334]: Media
+            - listitem [ref=f1e335]:
+              - link [ref=f1e490] [cursor=pointer]:
+                - /url: /mentor/settings
+                - generic [ref=f1e340]: Pengaturan
+      - generic [ref=f1e343]:
+        - generic [ref=f1e344]: VT
+        - generic [ref=f1e346]:
+          - paragraph [ref=f1e347]: Vecalss Tutor
+          - paragraph [ref=f1e348]: CMS Kapten
+    - main [ref=f1e349]:
+      - generic [ref=f1e351]:
+        - button [ref=f1e491]:
+          - generic [ref=f1e353]: Toggle Sidebar
+        - navigation [ref=f1e492]:
+          - list [ref=f1e356]:
+            - listitem [ref=f1e357]:
+              - link [ref=f1e493] [cursor=pointer]:
+                - /url: /mentor/dashboard
+                - text: Vecalss CMS
+            - listitem [ref=f1e359]
+            - listitem [ref=f1e362]:
+              - link [disabled] [ref=f1e494]: Media
+        - textbox [ref=f1e495]:
+          - /placeholder: Cari gambar Bank Soal...
+        - button [ref=f1e496]:
+          - generic [ref=f1e367]: VT
+      - main [ref=f1e370]:
+        - generic [ref=f1e371]:
+          - heading [level=1] [ref=f1e497]: Media
+          - paragraph [ref=f1e373]: Library gambar bersama untuk Bank Soal Kapten.
+        - generic [ref=f1e374]:
+          - generic [ref=f1e375]:
+            - generic [ref=f1e376]:
+              - button [ref=f1e498]: Folder baru
+              - button [disabled]: Upload gambar
+              - button [ref=f1e499]
+            - generic [ref=f1e379]:
+              - generic [ref=f1e380]: Cari gambar
+              - textbox [ref=f1e500]:
+                - /placeholder: Cari nama gambar...
+          - status [ref=f1e456]: R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview gambar.
+          - status [ref=f1e457]: Folder baru dibuat.
+          - generic [ref=f1e383]:
+            - generic [ref=f1e384]:
+              - navigation [ref=f1e501]:
+                - list [ref=f1e386]:
+                  - listitem [ref=f1e387]:
+                    - link [disabled] [ref=f1e502]: Media Kapten
+              - generic [ref=f1e389]:
+                - generic [ref=f1e390]: Seret gambar ke area ini untuk upload cepat
+                - generic [ref=f1e391]: 1 folder · 0 gambar
+            - generic [ref=f1e461]:
+              - generic [ref=f1e462]: Folder
+              - generic [ref=f1e463]:
+                - button [ref=f1e503]:
+                  - generic [ref=f1e468]: QA Media Folder
+                - generic [ref=f1e469]: Diperbarui 18 Jul 2026
+                - button [ref=f1e504]
+  - dialog [ref=f1e508]:
+    - generic [ref=f1e509]:
+      - heading "Ganti nama" [level=2] [ref=f1e510]
+      - paragraph [ref=f1e511]: Nama baru tidak mengubah lokasi file di R2.
+    - generic [ref=f1e512]:
+      - generic [ref=f1e513]: Nama
+      - textbox "Nama" [active] [ref=f1e514]: QA Media Folder
+    - generic [ref=f1e515]:
+      - button "Batal" [ref=f1e516]
+      - button "Simpan" [ref=f1e517]
+    - button "Tutup" [ref=f1e518]

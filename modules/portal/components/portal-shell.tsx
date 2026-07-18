@@ -1,18 +1,21 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { LoginAudience } from "@/lib/auth/types";
+import { cn } from "@/lib/utils";
 import { logoutAction } from "@/modules/auth/actions";
 import { BrandLogo } from "@/modules/home/components/home-primitives";
 
 function PortalShell({
   audience,
+  activeAdminSection,
   children,
   description,
   title,
   userLabel,
 }: {
   audience: LoginAudience;
+  activeAdminSection?: "enrollment" | "media";
   children: React.ReactNode;
   description: string;
   title: string;
@@ -51,6 +54,22 @@ function PortalShell({
           <p className="mt-4 max-w-[72ch] text-sm leading-6 text-secondary-600 md:text-base">
             {description}
           </p>
+          {audience === "admin" ? (
+            <nav aria-label="Navigasi admin" className="mt-5 flex flex-wrap gap-2">
+              <Link
+                className={cn(buttonVariants({ size: "sm", variant: activeAdminSection === "enrollment" ? "brand" : "brandOutline" }))}
+                href="/admin/enrollment"
+              >
+                Enrollment
+              </Link>
+              <Link
+                className={cn(buttonVariants({ size: "sm", variant: activeAdminSection === "media" ? "brand" : "brandOutline" }))}
+                href="/admin/media"
+              >
+                Media
+              </Link>
+            </nav>
+          ) : null}
         </header>
 
         <div className="flex-1 py-6 md:py-8">{children}</div>

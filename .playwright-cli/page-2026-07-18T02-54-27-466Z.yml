@@ -1,0 +1,154 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e32] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e33]
+    - generic [ref=e40]:
+      - button "Open issues overlay" [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: "1"
+          - generic [ref=e44]: "2"
+        - generic [ref=e45]:
+          - text: Issue
+          - generic [ref=e46]: s
+      - button "Collapse issues badge" [ref=e47]
+  - alert [ref=e39]: Dashboard Kapten | Vecalss LMS
+  - generic [ref=e51]:
+    - generic [ref=e54]:
+      - link "Vecalss Learning Academy VECALSS" [ref=e56] [cursor=pointer]:
+        - /url: /mentor/dashboard
+        - generic [ref=e57]:
+          - img "Vecalss Learning Academy" [ref=e59]
+          - generic [ref=e60]: VECALSS
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]: Konten Belajar
+          - list [ref=e65]:
+            - listitem [ref=e66]:
+              - link "Dashboard" [ref=e67] [cursor=pointer]:
+                - /url: /mentor/dashboard
+            - listitem [ref=e74]:
+              - link "Materi" [ref=e75] [cursor=pointer]:
+                - /url: /mentor/materi
+            - listitem [ref=e79]:
+              - link "Quiz" [ref=e80] [cursor=pointer]:
+                - /url: /mentor/quiz
+            - listitem [ref=e85]:
+              - link "Bank Soal" [ref=e86] [cursor=pointer]:
+                - /url: /mentor/quiz/question-bank
+            - listitem [ref=e91]:
+              - link "Tryout" [ref=e92] [cursor=pointer]:
+                - /url: /mentor/tryout
+        - generic [ref=e97]:
+          - generic [ref=e98]: Ruang Kerja
+          - list [ref=e100]:
+            - listitem [ref=e101]:
+              - link "Media" [ref=e102] [cursor=pointer]:
+                - /url: /mentor/media
+            - listitem [ref=e108]:
+              - link "Pengaturan" [ref=e109] [cursor=pointer]:
+                - /url: /mentor/settings
+      - generic [ref=e116]:
+        - generic [ref=e117]: VT
+        - generic [ref=e119]:
+          - paragraph [ref=e120]: Vecalss Tutor
+          - paragraph [ref=e121]: CMS Kapten
+    - main [ref=e122]:
+      - generic [ref=e124]:
+        - button "Toggle Sidebar" [ref=e125]
+        - navigation "breadcrumb" [ref=e128]:
+          - list [ref=e129]:
+            - listitem [ref=e130]:
+              - link "Vecalss CMS" [ref=e131] [cursor=pointer]:
+                - /url: /mentor/dashboard
+            - listitem [ref=e132]
+            - listitem [ref=e135]:
+              - link "Dashboard" [disabled] [ref=e136]
+        - textbox "Cari konten, draft, jadwal, atau asset..." [ref=e138]
+        - button "Buka menu Kapten" [ref=e139]:
+          - generic [ref=e140]: VT
+      - main [ref=e143]:
+        - heading "Selamat bekerja, Vecalss." [level=1] [ref=e146]
+        - generic [ref=e147]:
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - heading "Lanjutkan Penyuntingan" [level=2] [ref=e151]
+              - link "Lihat Semua Konten" [ref=e152] [cursor=pointer]:
+                - /url: /mentor/materi
+            - generic [ref=e153]:
+              - 'link "Case Study: Set Argumen UTBK PU Penalaran Umum · Video Materi Diterbitkan Diedit 13 jam lalu 21:36" [ref=e154] [cursor=pointer]':
+                - /url: /mentor/materi/penalaran-umum-3-2
+                - generic [ref=e158]:
+                  - generic [ref=e159]:
+                    - paragraph [ref=e160]: "Case Study: Set Argumen UTBK"
+                    - generic [ref=e161]: PU
+                  - paragraph [ref=e162]: Penalaran Umum · Video Materi
+                  - generic [ref=e163]:
+                    - generic [ref=e164]: Diterbitkan
+                    - generic [ref=e165]: Diedit 13 jam lalu
+                - paragraph [ref=e167]: 21:36
+              - 'link "Guided Exercise: Argumen Pendek PU Penalaran Umum · Video Materi Diterbitkan Diedit 13 jam lalu 18:10" [ref=e170] [cursor=pointer]':
+                - /url: /mentor/materi/penalaran-umum-3-1
+                - generic [ref=e174]:
+                  - generic [ref=e175]:
+                    - paragraph [ref=e176]: "Guided Exercise: Argumen Pendek"
+                    - generic [ref=e177]: PU
+                  - paragraph [ref=e178]: Penalaran Umum · Video Materi
+                  - generic [ref=e179]:
+                    - generic [ref=e180]: Diterbitkan
+                    - generic [ref=e181]: Diedit 13 jam lalu
+                - paragraph [ref=e183]: 18:10
+              - link "Strategi Eliminasi Cepat PU Penalaran Umum · Video Materi Diterbitkan Diedit 13 jam lalu 12:56" [ref=e186] [cursor=pointer]:
+                - /url: /mentor/materi/penalaran-umum-2-3
+                - generic [ref=e190]:
+                  - generic [ref=e191]:
+                    - paragraph [ref=e192]: Strategi Eliminasi Cepat
+                    - generic [ref=e193]: PU
+                  - paragraph [ref=e194]: Penalaran Umum · Video Materi
+                  - generic [ref=e195]:
+                    - generic [ref=e196]: Diterbitkan
+                    - generic [ref=e197]: Diedit 13 jam lalu
+                - paragraph [ref=e199]: 12:56
+          - generic [ref=e202]:
+            - heading "Buat Cepat" [level=2] [ref=e205]
+            - generic [ref=e206]:
+              - link [ref=e207] [cursor=pointer]:
+                - /url: /mentor/materi/create
+                - paragraph [ref=e212]: Materi
+              - link [ref=e214] [cursor=pointer]:
+                - /url: /mentor/quiz/create
+                - paragraph [ref=e219]: Quiz
+              - link [ref=e221] [cursor=pointer]:
+                - /url: /mentor/tryout#create
+                - paragraph [ref=e226]: Tryout
+              - link [ref=e228] [cursor=pointer]:
+                - /url: /mentor/quiz/question-bank/create
+                - paragraph [ref=e233]: Bank Soal
+        - generic [ref=e235]:
+          - generic [ref=e236]:
+            - heading "Terjadwal" [level=2] [ref=e238]
+            - link "Review Jadwal" [ref=e239] [cursor=pointer]:
+              - /url: /mentor/tryout
+          - generic [ref=e240]:
+            - 'link "Quiz PK: Grafik dan Rasio PK Kuis penguatan untuk rasio, persentase, dan grafik dasar. Terjadwal Diedit kemarin Rabu, 17 Juli 2026 16 soal" [ref=e241] [cursor=pointer]':
+              - /url: /mentor/quiz/quiz-pk-rasio
+              - generic [ref=e246]:
+                - generic [ref=e247]:
+                  - paragraph [ref=e248]: "Quiz PK: Grafik dan Rasio"
+                  - generic [ref=e249]: PK
+                - paragraph [ref=e250]: Kuis penguatan untuk rasio, persentase, dan grafik dasar.
+                - generic [ref=e251]:
+                  - generic [ref=e252]: Terjadwal
+                  - generic [ref=e253]: Diedit kemarin
+                  - generic [ref=e254]: Rabu, 17 Juli 2026
+              - paragraph [ref=e256]: 16 soal
+            - link "Diagnostik Awal SNBT Tryout Tryout diagnostik untuk siswa baru sebelum masuk rute belajar. Terjadwal Diedit kemarin Jumat, 19 Juli 2026 60 soal" [ref=e259] [cursor=pointer]:
+              - /url: /mentor/tryout#diagnostik-awal
+              - generic [ref=e264]:
+                - generic [ref=e265]:
+                  - paragraph [ref=e266]: Diagnostik Awal SNBT
+                  - generic [ref=e267]: Tryout
+                - paragraph [ref=e268]: Tryout diagnostik untuk siswa baru sebelum masuk rute belajar.
+                - generic [ref=e269]:
+                  - generic [ref=e270]: Terjadwal
+                  - generic [ref=e271]: Diedit kemarin
+                  - generic [ref=e272]: Jumat, 19 Juli 2026
+              - paragraph [ref=e274]: 60 soal

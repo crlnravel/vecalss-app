@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  BookOpen,
   Check,
   ChevronDown,
   ChevronRight,
@@ -134,12 +133,11 @@ function SubjectSelector({
       <DropdownMenuTrigger
         render={
           <button
-            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#d6e5db] bg-white px-4 py-3 text-left outline-none transition duration-200 hover:border-[#9dcab0] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
+            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#d6e5db] bg-white px-4 py-3 text-left shadow-[0_18px_42px_-32px_rgba(23,107,77,0.5)] outline-none transition-[transform,border-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 hover:border-[#9dcab0] hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
             type="button"
           />
         }
       >
-        <BookOpen className="size-7 shrink-0 text-[#176b4d] sm:size-8" strokeWidth={2.4} />
         <span className="min-w-0 flex-1">
           <span className="block text-[0.68rem] font-bold tracking-[0.16em] text-[#98a1b1] uppercase sm:text-xs">
             Materi
@@ -172,7 +170,7 @@ function SubjectSelector({
           return (
             <DropdownMenuItem
               className={cn(
-                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#173c2d] focus:bg-[#edf7f0] focus:text-[#173c2d] sm:min-h-16",
+                "min-h-14 cursor-pointer rounded-[1.35rem] px-3 py-2.5 text-[#173c2d] transition-[transform,box-shadow] duration-150 ease-out motion-safe:hover:translate-x-1 hover:shadow-[0_10px_24px_-20px_rgba(23,107,77,0.55)] focus:bg-[#edf7f0] focus:text-[#173c2d] motion-safe:active:scale-[0.99] motion-reduce:transition-none sm:min-h-16",
                 isActive && "bg-[#e8f5ec] ring-2 ring-[#b7ddc3]",
               )}
               key={subject.slug}
@@ -324,114 +322,125 @@ function PathNode({
   const href = `/courses/${course.slug}/${lesson.id}`;
 
   return (
-    <li className="relative grid min-h-[17.5rem] grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center sm:min-h-[19rem] lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]">
-      <div
-        className={cn(
-          "relative z-20 col-start-2 row-start-1 flex justify-center",
-          !isActive && "max-sm:hidden",
-          isEven
-            ? "translate-x-5 sm:translate-x-10"
-            : "-translate-x-5 sm:-translate-x-10",
-        )}
-      >
-        {isActive ? (
-          <Link
-            aria-label={`Mulai ${lesson.title}`}
-            className="group relative grid size-[5.35rem] place-items-center rounded-[1.75rem] border-4 border-white bg-[#176b4d] text-white outline-none transition duration-200 hover:bg-[#0f563b] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none sm:size-24 sm:rounded-[2rem]"
-            href={href}
-          >
-            <Play className="size-9 fill-none sm:size-11" strokeWidth={2.5} />
-          </Link>
-        ) : (
-          <span
-            className={cn(
-              "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white sm:size-20",
-              isCompleted
-                ? "bg-[#25805a] text-white"
-                : "bg-[#f2f4f3] text-[#88948d]",
-            )}
-          >
-            {isCompleted ? (
-              <Check className="size-8" strokeWidth={3} />
-            ) : (
-              <Play className="size-8" strokeWidth={2.5} />
-            )}
-          </span>
-        )}
-      </div>
-
-      <article
-        className={cn(
-          "relative z-10 col-span-3 col-start-1 row-start-1 mx-1 w-[min(21rem,calc(100%-1rem))] rounded-[1.8rem] border px-4 py-4 sm:mx-4 sm:w-[min(25rem,44vw)] sm:px-5 sm:py-5 lg:w-[28rem]",
-          isActive && "max-sm:hidden",
-          isEven
-            ? "justify-self-start pl-2 sm:mr-[5.5rem] sm:justify-self-end sm:pl-12"
-            : "justify-self-end pr-2 sm:ml-[5.5rem] sm:justify-self-start sm:pr-16",
-          isLocked
-            ? "border-[#dce3df] bg-[#f5f7f6] text-[#6f7d75]"
-            : isCompleted
-              ? "border-[#b7ddc3] bg-white"
-              : "border-[#c8dfd0] bg-white",
-        )}
-      >
-        <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              "flex size-14 shrink-0 flex-col items-center justify-center rounded-[1.25rem] text-center sm:size-16",
-              isLocked
-                ? "bg-[#e8ecea] text-[#87928c]"
-                : isCompleted
-                  ? "bg-[#e6f4eb] text-[#176b4d]"
-                  : "bg-[#eaf5ed] text-[#176b4d]",
-            )}
-          >
-            <span className="text-[0.55rem] font-bold tracking-[0.12em] uppercase">
-              Bagian
-            </span>
-            <span className="text-xl leading-none font-extrabold">
-              {index + 1}
-            </span>
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="mt-1 line-clamp-2 text-base leading-snug font-extrabold tracking-[-0.025em] sm:text-lg lg:text-xl">
-              {lesson.title}
-            </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#718077]">
-                <Clock3 className="size-3.5" /> {lesson.duration}
-              </span>
+    <li className="group/node relative min-h-[17.5rem] sm:min-h-[19rem]">
+      <div className="grid min-h-[17.5rem] grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center transition-transform duration-200 ease-out motion-safe:group-hover/node:-translate-y-1 motion-safe:group-focus-within/node:-translate-y-1 motion-reduce:transition-none sm:min-h-[19rem] lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]">
+        <div
+          className={cn(
+            "relative z-20 col-start-2 row-start-1 flex justify-center",
+            !isActive && "max-sm:hidden",
+            isEven
+              ? "translate-x-5 sm:translate-x-10"
+              : "-translate-x-5 sm:-translate-x-10",
+          )}
+        >
+          {isActive ? (
+            <Link
+              aria-label={`Mulai ${lesson.title}`}
+              className="group relative grid size-[5.35rem] place-items-center rounded-[1.75rem] border-4 border-white bg-[#176b4d] text-white shadow-[0_10px_0_#0f563b,0_24px_38px_-20px_rgba(23,107,77,0.72)] outline-none transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-[#0f563b] group-hover/node:shadow-[0_12px_0_#0f563b,0_30px_46px_-20px_rgba(23,107,77,0.76)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:scale-[0.98] motion-reduce:transition-none sm:size-24 sm:rounded-[2rem]"
+              href={href}
+            >
+              <Play
+                className="size-9 fill-none transition-transform duration-200 ease-out motion-safe:group-hover:scale-110 motion-reduce:transition-none sm:size-11"
+                strokeWidth={2.5}
+              />
+            </Link>
+          ) : (
+            <span
+              className={cn(
+                "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white transition-shadow duration-200 ease-out group-hover/node:shadow-[0_24px_38px_-22px_rgba(23,107,77,0.5)] motion-reduce:transition-none sm:size-20",
+                isCompleted
+                  ? "bg-[#25805a] text-white"
+                  : "bg-[#f2f4f3] text-[#88948d]",
+              )}
+            >
               {isCompleted ? (
-                <Link
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#e6f4eb] px-3 text-[0.68rem] font-extrabold text-[#176b4d] outline-none transition hover:bg-[#d7eddf] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-                  href={href}
-                >
-                  <RotateCcw className="size-3.5" /> Ulangi
-                </Link>
-              ) : null}
-              {isLocked ? (
-                <button
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white outline-none transition hover:bg-[#0f563b] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
-                  onClick={onSkip}
-                  type="button"
-                >
-                  <SkipForward className="size-3.5" /> Skip ke sini
-                </button>
-              ) : null}
-              {isActive ? (
-                <Link
-                  className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white outline-none transition hover:bg-[#0f563b] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-                  href={href}
-                >
-                  <Play className="size-3.5 fill-current" /> Mulai
-                </Link>
-              ) : null}
-            </div>
-          </div>
+                <Check className="size-8" strokeWidth={3} />
+              ) : (
+                <Play className="size-8" strokeWidth={2.5} />
+              )}
+            </span>
+          )}
         </div>
-        {isLocked ? (
-          <LockKeyhole className="absolute top-4 right-4 size-4 text-[#9aa59f]" />
-        ) : null}
-      </article>
+
+        <div
+          className={cn(
+            "relative z-10 col-span-3 col-start-1 row-start-1 mx-1 w-[min(21rem,calc(100%-1rem))] sm:mx-4 sm:w-[min(25rem,44vw)] lg:w-[28rem]",
+            isActive && "max-sm:hidden",
+            isEven
+              ? "justify-self-start pl-2 sm:mr-[5.5rem] sm:justify-self-end sm:pl-12"
+              : "justify-self-end pr-2 sm:ml-[5.5rem] sm:justify-self-start sm:pr-16",
+          )}
+        >
+          <article
+            className={cn(
+              "relative w-full rounded-[1.8rem] border px-4 py-4 transition-[box-shadow,border-color] duration-200 ease-out group-hover/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)] group-focus-within/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)] motion-reduce:transition-none sm:px-5 sm:py-5",
+              isLocked
+                ? "border-[#dce3df] bg-[#f5f7f6] text-[#6f7d75]"
+                : isCompleted
+                  ? "border-[#b7ddc3] bg-white"
+                  : "border-[#c8dfd0] bg-white",
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={cn(
+                  "flex size-14 shrink-0 flex-col items-center justify-center rounded-[1.25rem] text-center transition-transform duration-200 ease-out motion-safe:group-hover/node:-rotate-2 motion-safe:group-hover/node:scale-105 motion-reduce:transition-none sm:size-16",
+                  isLocked
+                    ? "bg-[#e8ecea] text-[#87928c]"
+                    : isCompleted
+                      ? "bg-[#e6f4eb] text-[#176b4d]"
+                      : "bg-[#eaf5ed] text-[#176b4d]",
+                )}
+              >
+                <span className="text-[0.55rem] font-bold tracking-[0.12em] uppercase">
+                  Bagian
+                </span>
+                <span className="text-xl leading-none font-extrabold">
+                  {index + 1}
+                </span>
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="mt-1 line-clamp-2 text-base leading-snug font-extrabold tracking-[-0.025em] sm:text-lg lg:text-xl">
+                  {lesson.title}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#718077]">
+                    <Clock3 className="size-3.5" /> {lesson.duration}
+                  </span>
+                  {isCompleted ? (
+                    <Link
+                      className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#e6f4eb] px-3 text-[0.68rem] font-extrabold text-[#176b4d] shadow-[0_8px_18px_-15px_rgba(23,107,77,0.6)] outline-none transition-[transform,background-color,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:bg-[#d7eddf] hover:shadow-[0_12px_22px_-15px_rgba(23,107,77,0.7)] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.97] motion-reduce:transition-none"
+                      href={href}
+                    >
+                      <RotateCcw className="size-3.5" /> Ulangi
+                    </Link>
+                  ) : null}
+                  {isLocked ? (
+                    <button
+                      className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white shadow-[0_4px_0_#0f563b,0_10px_20px_-15px_rgba(23,107,77,0.7)] outline-none transition-[transform,background-color,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:bg-[#0f563b] hover:shadow-[0_5px_0_#0f563b,0_14px_24px_-15px_rgba(23,107,77,0.76)] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.97] motion-reduce:transition-none"
+                      onClick={onSkip}
+                      type="button"
+                    >
+                      <SkipForward className="size-3.5" /> Skip ke sini
+                    </button>
+                  ) : null}
+                  {isActive ? (
+                    <Link
+                      className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white shadow-[0_4px_0_#0f563b,0_10px_20px_-15px_rgba(23,107,77,0.7)] outline-none transition-[transform,background-color,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:bg-[#0f563b] hover:shadow-[0_5px_0_#0f563b,0_14px_24px_-15px_rgba(23,107,77,0.76)] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.97] motion-reduce:transition-none"
+                      href={href}
+                    >
+                      <Play className="size-3.5 fill-current" /> Mulai
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            {isLocked ? (
+              <LockKeyhole className="absolute top-4 right-4 size-4 text-[#9aa59f] transition-transform duration-200 ease-out motion-safe:group-hover/node:-rotate-6 motion-safe:group-hover/node:scale-110 motion-reduce:transition-none" />
+            ) : null}
+          </article>
+        </div>
+      </div>
     </li>
   );
 }
@@ -457,11 +466,11 @@ function StartLessonPrompt({
   return (
     <aside className="fixed bottom-5 left-1/2 z-40 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 md:left-[calc(50%+8rem)]">
       <Link
-        className="group flex min-h-20 w-full items-center gap-4 rounded-[1.8rem] border border-[#b7ddc3] bg-white px-4 py-3 text-[#173c2d] outline-none transition duration-200 hover:border-[#6aaa83] hover:bg-[#f3faf5] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
+        className="group flex min-h-20 w-full items-center gap-4 rounded-[1.8rem] border border-[#b7ddc3] bg-white px-4 py-3 text-[#173c2d] shadow-[0_20px_42px_-28px_rgba(23,107,77,0.62)] outline-none transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-1 hover:border-[#6aaa83] hover:bg-[#f3faf5] hover:shadow-[0_28px_52px_-28px_rgba(23,107,77,0.7)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.99] motion-reduce:transition-none"
         href={`/courses/${course.slug}/${lesson.id}`}
       >
-        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white sm:size-14">
-          <Play className="size-6 fill-current sm:size-7" />
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_8px_20px_-12px_rgba(23,107,77,0.75)] transition-transform duration-200 ease-out motion-safe:group-hover:scale-105 motion-reduce:transition-none sm:size-14">
+          <Play className="size-6 fill-current transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-0.5 motion-reduce:transition-none sm:size-7" />
         </span>
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[0.65rem] font-extrabold tracking-[0.14em] text-[#477060] uppercase">

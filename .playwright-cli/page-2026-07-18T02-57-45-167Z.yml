@@ -1,0 +1,227 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e32] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f1e33]
+    - generic [ref=f1e38]:
+      - button "Open issues overlay" [ref=f1e39]:
+        - generic [ref=f1e710]:
+          - generic [ref=f1e711]: "3"
+          - generic [ref=f1e712]: "4"
+        - generic [ref=f1e43]:
+          - text: Issue
+          - generic [ref=f1e44]: s
+      - button "Collapse issues badge" [ref=f1e45]
+  - alert [ref=f1e37]: Edit Question Bank Kapten | Vecalss LMS
+  - generic [ref=f1e714]:
+    - generic [ref=f1e717]:
+      - link [ref=f1e942] [cursor=pointer]:
+        - /url: /mentor/dashboard
+        - generic [ref=f1e720]: VECALSS
+      - generic [ref=f1e724]:
+        - generic [ref=f1e725]:
+          - generic [ref=f1e726]: Konten Belajar
+          - list [ref=f1e728]:
+            - listitem [ref=f1e729]:
+              - link [ref=f1e944] [cursor=pointer]:
+                - /url: /mentor/dashboard
+                - generic [ref=f1e736]: Dashboard
+            - listitem [ref=f1e737]:
+              - link [ref=f1e945] [cursor=pointer]:
+                - /url: /mentor/materi
+                - generic [ref=f1e741]: Materi
+            - listitem [ref=f1e742]:
+              - link [ref=f1e946] [cursor=pointer]:
+                - /url: /mentor/quiz
+                - generic [ref=f1e747]: Quiz
+            - listitem [ref=f1e748]:
+              - link [ref=f1e947] [cursor=pointer]:
+                - /url: /mentor/quiz/question-bank
+                - generic [ref=f1e753]: Bank Soal
+            - listitem [ref=f1e754]:
+              - link [ref=f1e948] [cursor=pointer]:
+                - /url: /mentor/tryout
+                - generic [ref=f1e759]: Tryout
+        - generic [ref=f1e760]:
+          - generic [ref=f1e761]: Ruang Kerja
+          - list [ref=f1e763]:
+            - listitem [ref=f1e764]:
+              - link [ref=f1e949] [cursor=pointer]:
+                - /url: /mentor/media
+                - generic [ref=f1e770]: Media
+            - listitem [ref=f1e771]:
+              - link [ref=f1e950] [cursor=pointer]:
+                - /url: /mentor/settings
+                - generic [ref=f1e776]: Pengaturan
+      - generic [ref=f1e779]:
+        - generic [ref=f1e780]: VT
+        - generic [ref=f1e782]:
+          - paragraph [ref=f1e783]: Vecalss Tutor
+          - paragraph [ref=f1e784]: CMS Kapten
+    - main [ref=f1e785]:
+      - generic [ref=f1e787]:
+        - button [ref=f1e951]:
+          - generic [ref=f1e789]: Toggle Sidebar
+        - navigation [ref=f1e952]:
+          - list [ref=f1e792]:
+            - listitem [ref=f1e793]:
+              - link [ref=f1e953] [cursor=pointer]:
+                - /url: /mentor/dashboard
+                - text: Vecalss CMS
+            - listitem [ref=f1e795]
+            - listitem [ref=f1e798]:
+              - link [disabled] [ref=f1e954]: Edit Bank Soal
+        - textbox [ref=f1e955]:
+          - /placeholder: Cari bank soal, topik, atau tingkat kesulitan...
+        - button [ref=f1e956]:
+          - generic [ref=f1e803]: VT
+      - main [ref=f1e806]:
+        - generic [ref=f1e807]:
+          - generic [ref=f1e808]:
+            - link [ref=f1e957] [cursor=pointer]:
+              - /url: /mentor/quiz/question-bank
+              - text: Question Bank
+            - generic [ref=f1e810]:
+              - heading [level=1] [ref=f1e958]: Bank Soal PU Inferensi
+              - generic [ref=f1e812]: Tersimpan
+            - paragraph [ref=f1e814]: 15/15 soal siap
+          - button [ref=f1e959]: Simpan Draft
+        - generic [ref=f1e816]:
+          - tablist [ref=f1e818]:
+            - tab [ref=f1e960]: Informasi bank
+            - tab [selected] [ref=f1e961]:
+              - text: Isi bank
+              - generic [ref=f1e821]: "15"
+          - tabpanel [ref=f1e962]:
+            - generic [ref=f1e840]:
+              - generic [ref=f1e841]:
+                - generic [ref=f1e842]:
+                  - generic [ref=f1e843]:
+                    - paragraph [ref=f1e844]: Soal aktif
+                    - paragraph [ref=f1e845]: Simpan soal lengkap atau biarkan belum lengkap untuk dilanjutkan nanti.
+                  - button [ref=f1e963]: Tambah soal
+                - generic [ref=f1e847]:
+                  - generic [ref=f1e848]:
+                    - generic [ref=f1e849]:
+                      - generic [ref=f1e850]: Pertanyaan
+                      - button [ref=f1e964]: Tambah gambar
+                    - textbox [ref=f1e965]
+                  - generic [ref=f1e853]:
+                    - generic [ref=f1e855]:
+                      - radio [checked] [ref=f1e966]
+                      - generic [ref=f1e857]: A
+                      - textbox [ref=f1e967]:
+                        - /placeholder: Opsi A
+                      - button [ref=f1e968]
+                    - generic [ref=f1e861]:
+                      - radio [ref=f1e969]
+                      - generic [ref=f1e863]: B
+                      - textbox [ref=f1e970]:
+                        - /placeholder: Opsi B
+                      - button [ref=f1e971]
+                    - generic [ref=f1e867]:
+                      - radio [ref=f1e972]
+                      - generic [ref=f1e869]: C
+                      - textbox [ref=f1e973]:
+                        - /placeholder: Opsi C
+                      - button [ref=f1e974]
+                    - generic [ref=f1e873]:
+                      - radio [ref=f1e975]
+                      - generic [ref=f1e875]: D
+                      - textbox [ref=f1e976]:
+                        - /placeholder: Opsi D
+                      - button [ref=f1e977]
+                  - generic [ref=f1e878]:
+                    - generic [ref=f1e879]:
+                      - generic [ref=f1e880]: Tingkat kesulitan
+                      - combobox [ref=f1e978]
+                    - generic [ref=f1e882]:
+                      - generic [ref=f1e883]: Tags (pisahkan koma)
+                      - textbox [ref=f1e979]
+                  - generic [ref=f1e885]:
+                    - generic [ref=f1e886]:
+                      - generic [ref=f1e887]: Penjelasan (opsional)
+                      - button [ref=f1e980]: Tambah gambar
+                    - textbox [ref=f1e981]
+                  - paragraph [ref=f1e890]: Pilih soal di inventori atau tambah soal baru untuk mulai mengedit.
+              - complementary [ref=f1e891]:
+                - generic [ref=f1e892]:
+                  - generic [ref=f1e893]:
+                    - paragraph [ref=f1e894]: Inventori soal
+                    - paragraph [ref=f1e895]: 15 soal · 15 siap
+                  - button [ref=f1e896]
+                - generic [ref=f1e897]:
+                  - generic [ref=f1e898]:
+                    - button [ref=f1e982]:
+                      - generic [ref=f1e900]: 01. Jumlah pengguna transportasi umum meningkat tahun ini. Simpulan yang paling tepat adalah...
+                      - generic [ref=f1e901]: Siap dipakai Quiz
+                    - button [ref=f1e983]
+                  - generic [ref=f1e903]:
+                    - button [ref=f1e984]:
+                      - generic [ref=f1e905]: 02. Jika data baru tidak selaras dengan kesimpulan awal, tindakan paling logis adalah...
+                      - generic [ref=f1e906]: Siap dipakai Quiz
+                    - button [ref=f1e985]
+                  - generic [ref=f1e908]:
+                    - button [ref=f1e986]:
+                      - generic [ref=f1e910]: 03. Manakah pernyataan yang merupakan inferensi wajar dari jalan yang basah dan licin?
+                      - generic [ref=f1e911]: Siap dipakai Quiz
+                    - button [ref=f1e987]
+                  - generic [ref=f1e913]:
+                    - button [ref=f1e988]:
+                      - generic [ref=f1e915]: 04. Semua peserta yang lulus latihan rutin mengikuti evaluasi. Raka mengikuti evaluasi. Simpulan yang tepat adalah...
+                      - generic [ref=f1e916]: Siap dipakai Quiz
+                    - button [ref=f1e989]
+                  - generic [ref=f1e918]:
+                    - button [ref=f1e990]:
+                      - generic [ref=f1e920]: 05. Data menunjukkan waktu baca meningkat setelah ruang baca diperpanjang. Kesimpulan paling hati-hati adalah...
+                      - generic [ref=f1e921]: Siap dipakai Quiz
+                    - button [ref=f1e991]
+                  - generic [ref=f1e923]:
+                    - button [ref=f1e992]:
+                      - generic [ref=f1e925]: 06. Jika sebuah argumen memakai satu contoh untuk menyimpulkan semua kasus, kelemahan utamanya adalah...
+                      - generic [ref=f1e926]: Siap dipakai Quiz
+                    - button [ref=f1e993]
+                  - generic [ref=f1e928]:
+                    - button [ref=f1e994]:
+                      - generic [ref=f1e930]: 07. Pernyataan yang paling memperkuat klaim bahwa diskusi kelompok meningkatkan pemahaman adalah...
+                      - generic [ref=f1e931]: Siap dipakai Quiz
+                    - button [ref=f1e995]
+                  - generic [ref=f1e933]:
+                    - button [ref=f1e996]:
+                      - generic [ref=f1e935]: 08. Manakah informasi yang paling relevan untuk menguji simpulan tentang kebiasaan belajar siswa?
+                      - generic [ref=f1e936]: Siap dipakai Quiz
+                    - button [ref=f1e997]
+                - generic [ref=f1e938]:
+                  - paragraph [ref=f1e939]: Halaman 1 dari 2
+                  - generic [ref=f1e940]:
+                    - button [disabled]: Sebelumnya
+                    - button [ref=f1e998]: Berikutnya
+  - dialog [ref=f1e1002]:
+    - generic [ref=f1e1003]:
+      - heading "Gambar pertanyaan" [level=2] [ref=f1e1004]
+      - paragraph [ref=f1e1005]: Pilih dari library Kapten atau upload gambar baru.
+    - generic [ref=f1e1006]:
+      - generic [ref=f1e1007]:
+        - generic [ref=f1e1008]:
+          - button "Folder baru" [active] [ref=f1e1009]
+          - button "Upload gambar" [disabled]
+          - button "Choose File" [ref=f1e1010]
+        - generic [ref=f1e1011]:
+          - generic [ref=f1e1012]: Cari gambar
+          - textbox "Cari gambar" [ref=f1e1013]:
+            - /placeholder: Cari nama gambar...
+      - status [ref=f1e1014]: R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview gambar.
+      - generic [ref=f1e1015]:
+        - generic [ref=f1e1016]:
+          - navigation "breadcrumb" [ref=f1e1017]:
+            - list [ref=f1e1018]:
+              - listitem [ref=f1e1019]:
+                - link "Media Kapten" [disabled] [ref=f1e1020]
+          - generic [ref=f1e1021]:
+            - generic [ref=f1e1022]: Seret gambar ke area ini untuk upload cepat
+            - generic [ref=f1e1023]: 1 folder · 0 gambar
+        - generic [ref=f1e1025]:
+          - generic [ref=f1e1026]: Folder
+          - generic [ref=f1e1027]:
+            - button "QA Media Folder Renamed" [ref=f1e1028]
+            - generic [ref=f1e1033]: Diperbarui 18 Jul 2026
+            - button "Aksi untuk QA Media Folder Renamed" [ref=f1e1034]
+    - button "Tutup" [ref=f1e1035]
