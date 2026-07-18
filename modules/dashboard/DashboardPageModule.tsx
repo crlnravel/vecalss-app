@@ -168,7 +168,6 @@ function DashboardPageModule({
       mainClassName="gap-8 lg:gap-9"
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
-      sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
     >
       <section>
         <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-100 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">

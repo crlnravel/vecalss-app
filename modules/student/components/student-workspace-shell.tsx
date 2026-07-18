@@ -39,7 +39,6 @@ function StudentWorkspaceShell({
   notificationItems = studentNotificationItems,
   searchPlaceholder = "Cari materi, video, atau topik...",
   session,
-  sidebarFooterLabel,
 }: {
   accountMenuExtraItem?: StudentAccountMenuItem;
   activeLabel: string;
@@ -49,7 +48,6 @@ function StudentWorkspaceShell({
   notificationItems?: StudentNotificationItem[];
   searchPlaceholder?: string;
   session: SessionContext;
-  sidebarFooterLabel: string;
 }) {
   const unreadNotificationCount = notificationItems?.filter(
     (item) => item.unread,
@@ -60,8 +58,6 @@ function StudentWorkspaceShell({
       <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
         <StudentSidebar
           activeLabel={activeLabel}
-          footerLabel={sidebarFooterLabel}
-          fullName={session.user.fullName}
           notificationBadge={
             unreadNotificationCount === undefined || unreadNotificationCount === 0
               ? undefined

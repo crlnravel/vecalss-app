@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
-  ArrowLeft,
+  ChevronLeft,
   ArrowUp,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   CircleHelp,
   Eye,
@@ -488,9 +487,8 @@ function KaptenQuizBuilderPageModule({
     >
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <Button render={<Link href="/mentor/quiz" />} size="sm" variant="ghost">
-            <ArrowLeft />
-            Quiz
+          <Button aria-label="Kembali ke quiz" render={<Link href="/mentor/quiz" />} size="icon-sm" title="Kembali ke quiz" variant="ghost">
+            <ChevronLeft />
           </Button>
           <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">

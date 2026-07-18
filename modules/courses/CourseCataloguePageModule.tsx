@@ -145,7 +145,7 @@ function CourseRowCard({
       />
 
       <div className="flex items-start justify-between gap-4 md:contents">
-        <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[#e6f4eb] text-[#176b4d] transition-transform duration-250 ease-out motion-safe:group-hover:-rotate-3 motion-reduce:transition-none md:size-20 md:rounded-[1.6rem]">
+        <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] transition-transform duration-250 ease-out motion-safe:group-hover:-rotate-3 motion-reduce:transition-none md:size-20 md:rounded-[1.6rem]">
           <Icon className="size-7 md:size-9" strokeWidth={2.2} />
         </span>
       </div>

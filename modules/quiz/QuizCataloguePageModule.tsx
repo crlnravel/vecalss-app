@@ -82,6 +82,8 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
         },
       ]}
       title={subject.title}
+      className="border border-primary-200 bg-white text-primary-900 hover:border-primary-300 hover:bg-white"
+      leftAccent
     />
   );
 }

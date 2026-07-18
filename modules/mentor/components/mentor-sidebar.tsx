@@ -12,11 +12,9 @@ import {
   Settings,
 } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -49,16 +47,6 @@ const kaptenUtilityNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/media", icon: ImageIcon, label: "Media" },
   { href: "/mentor/settings", icon: Settings, label: "Pengaturan" },
 ];
-
-function getInitials(fullName: string) {
-  return fullName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
 
 function NavigationGroup({
   activeLabel,
@@ -94,15 +82,9 @@ function NavigationGroup({
 
 function MentorSidebar({
   activeLabel,
-  footerLabel,
-  fullName,
 }: {
   activeLabel: string;
-  footerLabel: string;
-  fullName: string;
 }) {
-  const initials = getInitials(fullName);
-
   return (
     <Sidebar
       collapsible="icon"
@@ -130,27 +112,8 @@ function MentorSidebar({
         />
       </SidebarContent>
 
-      <SidebarFooter className="p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-2">
-        <div className="w-full overflow-hidden rounded-3xl border border-primary-100 bg-white p-3 shadow-sm transition-all duration-300 ease-out group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none">
-          <div className="flex items-center gap-3 transition-[gap] duration-300 ease-out group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-            <Avatar className="size-10 origin-center border border-primary-100 shadow-sm transition-transform duration-300 ease-out group-data-[collapsible=icon]:scale-[0.8]">
-              <AvatarFallback className="bg-primary-700 text-sm font-semibold text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-              <p className="truncate text-sm font-semibold text-secondary-900">
-                {fullName}
-              </p>
-              <p className="truncate text-xs text-secondary-500">
-                {footerLabel}
-              </p>
-            </div>
-          </div>
-        </div>
-      </SidebarFooter>
     </Sidebar>
   );
 }
 
-export { MentorSidebar, getInitials };
+export { MentorSidebar };

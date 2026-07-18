@@ -22,7 +22,6 @@ function NotificationsPageModule({
       breadcrumbLabel="Notifikasi"
       searchPlaceholder="Cari notifikasi atau update belajar..."
       session={session}
-      sidebarFooterLabel="Ruang kerja siswa"
     >
       <section className="flex flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-3">

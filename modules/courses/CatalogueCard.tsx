@@ -17,6 +17,8 @@ type CatalogueCardProps = {
   palette: string;
   stats: CatalogueCardStat[];
   title: string;
+  className?: string;
+  leftAccent?: boolean;
 };
 
 function CatalogueCard({
@@ -27,15 +29,24 @@ function CatalogueCard({
   palette,
   stats,
   title,
+  className,
+  leftAccent = false,
 }: CatalogueCardProps) {
   return (
     <Link
       className={cn(
         "group relative flex min-h-[200px] overflow-hidden rounded-6xl p-6 outline-none transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_-50px_rgba(1,76,56,0.42)] focus-visible:ring-3 focus-visible:ring-primary-400/25 md:min-h-[230px] md:p-8",
         palette,
+        className,
       )}
       href={href}
     >
+      {leftAccent ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-2 bg-primary-700"
+        />
+      ) : null}
       <div className="flex w-full flex-col gap-3">
         <div className="mb-3 flex items-start gap-4">
           <div className="inline-flex items-center gap-2 text-sm font-semibold md:text-base">

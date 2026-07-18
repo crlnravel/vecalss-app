@@ -113,7 +113,6 @@ function SettingsPageModule({
       mainClassName="max-w-[1460px] gap-6 px-3 py-6 md:px-6 lg:px-8"
       searchPlaceholder="Cari pengaturan akun atau preferensi..."
       session={session}
-      sidebarFooterLabel={profile.targetUniversity?.name ?? "Atur target PTN"}
     >
       <div>
         <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">

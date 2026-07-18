@@ -220,8 +220,6 @@ function MentorWorkspaceShell({
         <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
           <MentorSidebar
             activeLabel={activeLabel}
-            footerLabel="CMS Kapten"
-            fullName={session.user.fullName}
           />
 
           <SidebarInset className="bg-transparent">

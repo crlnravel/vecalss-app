@@ -25,7 +25,6 @@ function CourseWorkspaceShell({
       mainClassName={mainClassName}
       searchPlaceholder={searchPlaceholder}
       session={session}
-      sidebarFooterLabel="Ruang kerja siswa"
     >
       {children}
     </StudentWorkspaceShell>

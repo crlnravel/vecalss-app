@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
-  ChevronDown,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   CircleHelp,
   ImagePlus,
@@ -459,11 +458,12 @@ function KaptenQuestionBankBuilderPageModule({
         <div className="min-w-0">
           <Button
             render={<Link href="/mentor/quiz/question-bank" />}
-            size="sm"
+            aria-label="Kembali ke bank soal"
+            size="icon-sm"
+            title="Kembali ke bank soal"
             variant="ghost"
           >
-            <ArrowLeft />
-            Question Bank
+            <ChevronLeft />
           </Button>
           <div className="mt-5 flex flex-col gap-x-3 gap-y-2">
             <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
