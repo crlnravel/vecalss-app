@@ -13,7 +13,6 @@ type StoredQuizDraft = {
   questions: QuizQuestionSnapshot[];
   savedAt: number;
   sourceBankId: string;
-  targetQuestionCount?: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,6 +62,8 @@ function isKaptenQuiz(value: unknown): value is KaptenQuiz {
     && Number.isFinite(value.questionCount)
     && typeof value.sourceBank === "string"
     && (value.sourceBankId === undefined || typeof value.sourceBankId === "string")
+    && (value.opensAt === undefined || typeof value.opensAt === "string")
+    && (value.closesAt === undefined || typeof value.closesAt === "string")
     && ["draft", "scheduled", "published", "archived"].includes(value.status as string)
     && (value.subjectCode === undefined || typeof value.subjectCode === "string")
     && (value.subjectName === undefined || typeof value.subjectName === "string")
@@ -83,8 +84,6 @@ function isStoredQuizDraft(value: unknown): value is StoredQuizDraft {
     && typeof value.sourceBankId === "string"
     && typeof value.savedAt === "number"
     && Number.isFinite(value.savedAt)
-    && (value.targetQuestionCount === undefined
-      || (typeof value.targetQuestionCount === "number" && Number.isFinite(value.targetQuestionCount)))
   );
 }
 

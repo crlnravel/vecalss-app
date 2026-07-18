@@ -18,10 +18,11 @@ export type QuizQuestionSnapshot = {
 };
 
 export type QuizBuilderState = {
+  closesAt: string;
   description: string;
+  opensAt: string;
   questions: QuizQuestionSnapshot[];
   sourceBankId: string;
   subjectCode: string;
-  targetQuestionCount: string;
   title: string;
 };

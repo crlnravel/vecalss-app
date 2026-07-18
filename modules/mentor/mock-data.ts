@@ -22,9 +22,11 @@ type KaptenSubject = {
 };
 
 type KaptenResource = {
+  closesAt?: string;
   description: string;
   href: string;
   id: string;
+  opensAt?: string;
   primaryMetric: string;
   progress: number;
   resourceType: KaptenResourceType;
@@ -145,10 +147,11 @@ const quizzes: KaptenQuiz[] = [
     progress: 88,
     questionCount: 16,
     resourceType: "quiz",
-    scheduledFor: "Rabu, 17 Juli 2026",
+    closesAt: "2026-07-20T20:00",
+    opensAt: "2026-07-19T08:00",
     sourceBank: "Bank Soal PK Grafik",
     sourceBankId: "bank-pk-grafik",
-    status: "scheduled",
+    status: "published",
     subjectCode: "PK",
     subjectName: "Pengetahuan Kuantitatif",
     title: "Quiz PK: Grafik dan Rasio",
@@ -505,7 +508,7 @@ function createSeedQuizSnapshots(
 
 const seedQuizContent: Record<
   string,
-  { questions: QuizQuestionSnapshot[]; targetQuestionCount: number }
+  { questions: QuizQuestionSnapshot[] }
 > = {
   "quiz-pu-simpulan": {
     questions: createSeedQuizSnapshots(
@@ -513,7 +516,6 @@ const seedQuizContent: Record<
       "bank-pu-inferensi",
       seedQuizQuestions["quiz-pu-simpulan"],
     ),
-    targetQuestionCount: 12,
   },
   "quiz-pk-rasio": {
     questions: createSeedQuizSnapshots(
@@ -521,7 +523,6 @@ const seedQuizContent: Record<
       "bank-pk-grafik",
       seedQuizQuestions["quiz-pk-rasio"],
     ),
-    targetQuestionCount: 16,
   },
   "quiz-pbm-paragraf": {
     questions: createSeedQuizSnapshots(
@@ -529,7 +530,6 @@ const seedQuizContent: Record<
       "bank-pbm-paragraf",
       seedQuizQuestions["quiz-pbm-paragraf"],
     ),
-    targetQuestionCount: 10,
   },
 };
 

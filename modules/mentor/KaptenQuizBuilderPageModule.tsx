@@ -129,15 +129,12 @@ function getInitialState(quiz?: KaptenQuiz | null): QuizBuilderState {
     : []);
 
   return {
+    closesAt: quiz?.closesAt ?? "",
     description: quiz?.description ?? "",
+    opensAt: quiz?.opensAt ?? "",
     questions: seedQuestions,
     sourceBankId,
     subjectCode: quiz?.subjectCode ?? "PU",
-    targetQuestionCount: seedContent
-      ? String(seedContent.targetQuestionCount)
-      : quiz?.questionCount
-        ? String(quiz.questionCount)
-        : "10",
     title: quiz?.title ?? "Draft Quiz Baru",
   };
 }
@@ -171,12 +168,11 @@ function KaptenQuizBuilderPageModule({
     if (initialStoredDraft) {
       return {
         description: initialStoredDraft.quiz.description,
+        closesAt: initialStoredDraft.quiz.closesAt ?? "",
+        opensAt: initialStoredDraft.quiz.opensAt ?? "",
         questions: initialStoredDraft.questions,
         sourceBankId: initialStoredDraft.sourceBankId,
         subjectCode: initialStoredDraft.quiz.subjectCode ?? "PU",
-        targetQuestionCount: initialStoredDraft.targetQuestionCount
-          ? String(initialStoredDraft.targetQuestionCount)
-          : "",
         title: initialStoredDraft.quiz.title,
       };
     }
@@ -250,12 +246,22 @@ function KaptenQuizBuilderPageModule({
   );
   const visibleQuestionPage = Math.min(questionPage, questionPageCount);
   const readyQuestionCount = getReadiness(builderState.questions);
-  const targetQuestionCount = Number.parseInt(builderState.targetQuestionCount, 10);
-  const hasTarget = Number.isFinite(targetQuestionCount) && targetQuestionCount > 0;
-  const quizStatus = savedQuiz?.status ?? "draft";
+  const quizStatus = savedQuiz?.status === "published" ? "published" : "draft";
   const isDraft = quizStatus === "draft";
   const saveLabel = isDraft ? "Simpan Draft" : "Simpan perubahan";
   const previewQuestion = builderState.questions[previewQuestionIndex];
+  const scheduleError = builderState.opensAt && builderState.closesAt
+    && new Date(builderState.closesAt) <= new Date(builderState.opensAt)
+    ? "Waktu tutup harus setelah waktu buka."
+    : null;
+  const publishError = scheduleError
+    ?? (!builderState.title.trim()
+      ? "Isi judul quiz sebelum menerbitkan."
+      : builderState.questions.length === 0
+        ? "Tambahkan minimal satu soal sebelum menerbitkan."
+        : readyQuestionCount !== builderState.questions.length
+          ? "Lengkapi semua soal sebelum menerbitkan."
+          : null);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -446,7 +452,7 @@ function KaptenQuizBuilderPageModule({
     setIsAddingLocalQuestion(false);
   }
 
-  function saveDraft() {
+  function saveQuiz(status: "draft" | "published" = quizStatus) {
     const currentQuiz = savedQuiz;
     const id = currentQuiz?.id ?? `draft-quiz-${slugify(builderState.title)}-${Date.now()}`;
     const sourceBank = sourceCatalog.find(({ bank }) => bank.id === builderState.sourceBankId)?.bank;
@@ -461,10 +467,12 @@ function KaptenQuizBuilderPageModule({
           : 0,
       questionCount: builderState.questions.length,
       resourceType: "quiz",
+      closesAt: builderState.closesAt || undefined,
+      opensAt: builderState.opensAt || undefined,
       scheduledFor: currentQuiz?.scheduledFor,
       sourceBank: sourceBank?.title ?? "Belum memilih Question Bank",
       sourceBankId: builderState.sourceBankId || undefined,
-      status: currentQuiz?.status ?? "draft",
+      status,
       subjectCode: builderState.subjectCode,
       subjectName: getSubjectName(builderState.subjectCode),
       title: builderState.title || "Draft Quiz Baru",
@@ -475,7 +483,6 @@ function KaptenQuizBuilderPageModule({
       quiz,
       questions: builderState.questions,
       sourceBankId: builderState.sourceBankId,
-      targetQuestionCount: hasTarget ? targetQuestionCount : undefined,
     });
     setSavedQuiz(quiz);
     setHasUnsavedChanges(false);
@@ -483,6 +490,19 @@ function KaptenQuizBuilderPageModule({
     if (!quizId && !initialQuiz) {
       setPendingRouteReplacement(quiz.href);
     }
+  }
+
+  function publishQuiz() {
+    if (publishError) {
+      setActiveTab(scheduleError ? "settings" : "information");
+      return;
+    }
+
+    saveQuiz("published");
+  }
+
+  function unpublishQuiz() {
+    saveQuiz("draft");
   }
 
   return (
@@ -543,10 +563,28 @@ function KaptenQuizBuilderPageModule({
             <Eye />
             Preview
           </Button>
-          <Button onClick={saveDraft} type="button" variant="brand">
+          <Button onClick={() => saveQuiz()} type="button" variant="brand">
             <Save />
             {saveLabel}
           </Button>
+          {isDraft ? (
+            <Button disabled={Boolean(publishError)} onClick={publishQuiz} type="button" variant="brandOutline">
+              Terbitkan
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setConfirmationRequest({
+                confirmLabel: "Batalkan publikasi",
+                description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.",
+                onConfirm: unpublishQuiz,
+                title: "Batalkan publikasi quiz?",
+              })}
+              type="button"
+              variant="brandOutline"
+            >
+              Batalkan publikasi
+            </Button>
+          )}
         </div>
       </section>
 
@@ -642,19 +680,18 @@ function KaptenQuizBuilderPageModule({
                   {builderState.questions.length}
                 </span>
               </TabsTrigger>
+              <TabsTrigger className="h-11 rounded-none px-1 text-sm" value="settings">
+                Pengaturan
+              </TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent className="m-0" value="information">
             <section className="w-full">
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="grid gap-5 lg:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="quiz-title">Judul quiz</FieldLabel>
                     <FieldInput id="quiz-title" onChange={(event) => updateMetadata("title", event.target.value)} value={builderState.title} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="quiz-target">Target soal <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
-                    <FieldInput id="quiz-target" min="1" onChange={(event) => updateMetadata("targetQuestionCount", event.target.value)} type="number" value={builderState.targetQuestionCount} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="quiz-subject">Subject</FieldLabel>
@@ -684,6 +721,33 @@ function KaptenQuizBuilderPageModule({
                     <FieldTextarea className="min-h-[100px]" id="quiz-summary" onChange={(event) => updateMetadata("description", event.target.value)} value={builderState.description} />
                   </Field>
                 </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent className="m-0" value="settings">
+            <section className="max-w-3xl rounded-3xl border border-primary-100 bg-white p-5 md:p-6">
+              <div>
+                <h2 className="text-lg font-semibold text-secondary-900">Ketersediaan untuk siswa</h2>
+                <p className="mt-1 text-sm leading-6 text-secondary-500">
+                  Pengaturan ini opsional. Jika keduanya kosong, quiz yang diterbitkan langsung dapat diakses siswa.
+                </p>
+              </div>
+              <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="quiz-opens-at">Mulai dibuka</FieldLabel>
+                  <FieldInput id="quiz-opens-at" onChange={(event) => updateMetadata("opensAt", event.target.value)} type="datetime-local" value={builderState.opensAt} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="quiz-closes-at">Tutup akses</FieldLabel>
+                  <FieldInput id="quiz-closes-at" onChange={(event) => updateMetadata("closesAt", event.target.value)} type="datetime-local" value={builderState.closesAt} />
+                </Field>
+              </div>
+              {scheduleError ? (
+                <p className="mt-4 text-sm font-medium text-red-700">{scheduleError}</p>
+              ) : null}
+              {isDraft && publishError && !scheduleError ? (
+                <p className="mt-4 text-sm text-secondary-500">Quiz perlu memiliki judul dan semua soal siap sebelum diterbitkan.</p>
+              ) : null}
             </section>
           </TabsContent>
 

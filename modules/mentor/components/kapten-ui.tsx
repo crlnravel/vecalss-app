@@ -43,6 +43,16 @@ function StatusPill({ status }: { status: KaptenContentStatus }) {
   );
 }
 
+function formatAvailability(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 function PageIntro({
   action,
   description,
@@ -148,6 +158,12 @@ function ResourceRow({
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
           <StatusPill status={resource.status} />
           <span>{resource.updatedAt}</span>
+          {resource.resourceType === "quiz" && resource.opensAt ? (
+            <span>Buka {formatAvailability(resource.opensAt)}</span>
+          ) : null}
+          {resource.resourceType === "quiz" && resource.closesAt ? (
+            <span>Tutup {formatAvailability(resource.closesAt)}</span>
+          ) : null}
           {resource.scheduledFor ? <span>{resource.scheduledFor}</span> : null}
         </div>
       </div>
