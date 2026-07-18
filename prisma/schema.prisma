@@ -348,6 +348,8 @@ model User {
   updatedQuestionBanks      QuestionBank[]             @relation("QuestionBankUpdatedBy")
   createdQuestions          Question[]                 @relation("QuestionCreatedBy")
   updatedQuestions          Question[]                 @relation("QuestionUpdatedBy")
+  authoredStandaloneQuizzes StandaloneQuiz[]           @relation("StandaloneQuizAuthor")
+  standaloneQuizAttempts   StandaloneQuizAttempt[]
   quizAttempts              QuizAttempt[]
   createdTryoutPackages     TryoutPackage[]            @relation("TryoutCreatedBy")
   tryoutSessions            TryoutSession[]
@@ -828,6 +830,64 @@ model ModuleQuiz {
   attempts     QuizAttempt[]
 
   @@map("module_quizzes")
+}
+
+// Standalone quizzes authored by tutors. These are intentionally independent
+// from ModuleQuiz, which remains the one-to-one assessment for a learning module.
+model StandaloneQuiz {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug            String        @unique @db.VarChar(240)
+  title           String        @db.VarChar(220)
+  description     String?       @db.Text
+  subjectCode     String        @map("subject_code") @db.VarChar(24)
+  status          ContentStatus @default(draft)
+  opensAt         DateTime?     @map("opens_at") @db.Timestamptz
+  closesAt        DateTime?     @map("closes_at") @db.Timestamptz
+  createdByUserId String?       @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  createdBy       User?         @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id])
+  items           StandaloneQuizItem[]
+  attempts        StandaloneQuizAttempt[]
+
+  @@index([status, opensAt, closesAt])
+  @@index([subjectCode, status])
+  @@map("standalone_quizzes")
+}
+
+model StandaloneQuizItem {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId      String         @map("quiz_id") @db.Uuid
+  sortOrder   Int            @map("sort_order")
+  prompt      String         @db.Text
+  choices     Json
+  correctKey  String         @map("correct_key") @db.VarChar(64)
+  explanation String?        @db.Text
+  origin      String         @db.VarChar(24)
+  sourceId    String?        @map("source_id") @db.VarChar(240)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  quiz        StandaloneQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([quizId, sortOrder])
+  @@map("standalone_quiz_items")
+}
+
+model StandaloneQuizAttempt {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId    String         @map("quiz_id") @db.Uuid
+  studentId String         @map("student_id") @db.Uuid
+  status    AttemptStatus  @default(in_progress)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  quiz      StandaloneQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student   User           @relation(fields: [studentId], references: [id])
+
+  @@unique([quizId, studentId])
+  @@index([studentId, status])
+  @@map("standalone_quiz_attempts")
 }
 
 model QuizItem {

@@ -8,11 +8,10 @@ import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 import {
   getQuizSubjectStats,
-  quizSubjects,
   type QuizSubject,
 } from "./data";
 
-function QuizCataloguePageModule({ session }: { session: SessionContext }) {
+function QuizCataloguePageModule({ session, subjects }: { session: SessionContext; subjects: QuizSubject[] }) {
   return (
     <CourseWorkspaceShell
       activeLabel="Kuis"
@@ -34,7 +33,7 @@ function QuizCataloguePageModule({ session }: { session: SessionContext }) {
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {quizSubjects.map((subject) => (
+          {subjects.map((subject) => (
             <QuizSubjectCard key={subject.slug} subject={subject} />
           ))}
         </div>

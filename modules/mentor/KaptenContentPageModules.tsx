@@ -5,7 +5,7 @@ import {
   ChevronDown,
   Plus,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { getQuizWithStoredDrafts } from "@/modules/mentor/quiz-draft-storage";
@@ -30,6 +30,7 @@ import {
   questionBanks,
   quizzes,
   tryouts,
+  type KaptenQuiz,
   type KaptenTryout,
 } from "@/modules/mentor/mock-data";
 import { KaptenMateriPageModule } from "@/modules/mentor/KaptenMateriCataloguePageModules";
@@ -44,16 +45,17 @@ function CreateButton({ href, label }: { href: string; label: string }) {
   );
 }
 
-function KaptenQuizPageModule({ session }: { session: SessionContext }) {
-  const [displayQuizzes, setDisplayQuizzes] = useState(quizzes);
+function KaptenQuizPageModule({ persistedQuizzes, session }: { persistedQuizzes: KaptenQuiz[]; session: SessionContext }) {
+  const baseQuizzes = useMemo(() => [...persistedQuizzes, ...quizzes], [persistedQuizzes]);
+  const [displayQuizzes, setDisplayQuizzes] = useState(baseQuizzes);
 
   useEffect(() => {
-    const syncStoredDrafts = () => setDisplayQuizzes(getQuizWithStoredDrafts(quizzes));
+    const syncStoredDrafts = () => setDisplayQuizzes(getQuizWithStoredDrafts(baseQuizzes));
 
     syncStoredDrafts();
     window.addEventListener("storage", syncStoredDrafts);
     return () => window.removeEventListener("storage", syncStoredDrafts);
-  }, []);
+  }, [baseQuizzes]);
 
   return (
     <MentorWorkspaceShell

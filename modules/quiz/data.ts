@@ -319,6 +319,22 @@ function getQuizSubjectBySlug(slug: string) {
   return quizSubjects.find((subject) => subject.slug === slug);
 }
 
+function getQuizSubjectByCode(code: string) {
+  return quizSubjects.find((subject) => subject.title === code);
+}
+
+function toDatabaseQuizItem(record: { items: { id: string }[]; slug: string; title: string }): QuizItem {
+  return {
+    completionRate: 0,
+    difficulty: "Menengah",
+    duration: "Latihan mandiri",
+    questionCount: record.items.length,
+    slug: record.slug,
+    status: "Baru ditambahkan",
+    title: record.title,
+  };
+}
+
 function getQuizBySlugs(subjectSlug: string, quizSlug: string) {
   return getQuizSubjectBySlug(subjectSlug)?.quizzes.find(
     (quiz) => quiz.slug === quizSlug,
@@ -411,8 +427,10 @@ export {
   getQuizAttemptBySlugs,
   getQuizBySlugs,
   getQuizSubjectBySlug,
+  getQuizSubjectByCode,
   getQuizSubjectStats,
   quizSubjects,
+  toDatabaseQuizItem,
 };
 export type {
   QuizAttempt,

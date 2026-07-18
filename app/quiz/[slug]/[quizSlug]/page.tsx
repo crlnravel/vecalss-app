@@ -2,28 +2,19 @@ import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import { QuizOngoingPageModule } from "@/modules/quiz/QuizOngoingPageModule";
-import { getQuizAttemptBySlugs, quizSubjects } from "@/modules/quiz/data";
-
-export function generateStaticParams() {
-  return quizSubjects.flatMap((subject) =>
-    subject.quizzes.map((quiz) => ({
-      quizSlug: quiz.slug,
-      slug: subject.slug,
-    })),
-  );
-}
+import { getAvailableQuizAttempt } from "@/modules/quiz/server-data";
 
 export default async function QuizOngoingPage({
   params,
 }: {
   params: Promise<{ quizSlug: string; slug: string }>;
 }) {
-  const [{ quizSlug, slug }] = await Promise.all([
+  const [{ quizSlug, slug }, session] = await Promise.all([
     params,
     requireStudentSession(),
   ]);
 
-  const quizContext = getQuizAttemptBySlugs(slug, quizSlug);
+  const quizContext = await getAvailableQuizAttempt(slug, quizSlug, session.user.id);
 
   if (!quizContext) {
     notFound();

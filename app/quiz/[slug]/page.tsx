@@ -2,13 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import { QuizSubjectDetailPageModule } from "@/modules/quiz/QuizSubjectDetailPageModule";
-import { getQuizSubjectBySlug, quizSubjects } from "@/modules/quiz/data";
-
-export function generateStaticParams() {
-  return quizSubjects.map((subject) => ({
-    slug: subject.slug,
-  }));
-}
+import { getAvailableQuizSubjects } from "@/modules/quiz/server-data";
 
 export default async function QuizSubjectPage({
   params,
@@ -19,7 +13,8 @@ export default async function QuizSubjectPage({
     params,
     requireStudentSession(),
   ]);
-  const subject = getQuizSubjectBySlug(slug);
+  const subjects = await getAvailableQuizSubjects();
+  const subject = subjects.find((item) => item.slug === slug);
 
   if (!subject) {
     notFound();

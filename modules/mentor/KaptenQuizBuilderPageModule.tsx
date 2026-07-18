@@ -50,10 +50,8 @@ import {
   type KaptenQuiz,
 } from "@/modules/mentor/mock-data";
 import { getQuestionBankSourceCatalog } from "@/modules/mentor/question-bank-draft-storage";
-import {
-  getStoredQuizDraft,
-  saveQuizDraft,
-} from "@/modules/mentor/quiz-draft-storage";
+import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
+import { getStoredQuizDraft } from "@/modules/mentor/quiz-draft-storage";
 import type {
   QuizBuilderState,
   QuizChoice,
@@ -87,16 +85,6 @@ const emptyLocalQuestion: LocalQuestionForm = {
 };
 
 const QUESTIONS_PER_PAGE = 6;
-
-function slugify(value: string) {
-  const slug = value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  return slug || "quiz-baru";
-}
 
 function getSubjectName(subjectCode: string) {
   return kaptenSubjects.find((subject) => subject.code === subjectCode)?.name ?? subjectCode;
@@ -153,17 +141,19 @@ function getReadiness(questions: QuizQuestionSnapshot[]) {
 
 function KaptenQuizBuilderPageModule({
   initialQuiz = null,
+  initialQuestions,
   mode,
   quizId,
   session,
 }: {
   initialQuiz?: KaptenQuiz | null;
+  initialQuestions?: QuizQuestionSnapshot[];
   mode: "create" | "edit";
   quizId?: string;
   session: SessionContext;
 }) {
   const router = useRouter();
-  const initialStoredDraft = getStoredQuizDraft(quizId ?? initialQuiz?.id);
+  const initialStoredDraft = initialQuiz ? null : getStoredQuizDraft(quizId);
   const [builderState, setBuilderState] = useState<QuizBuilderState>(() => {
     if (initialStoredDraft) {
       return {
@@ -177,7 +167,7 @@ function KaptenQuizBuilderPageModule({
       };
     }
 
-    return getInitialState(initialQuiz);
+    return { ...getInitialState(initialQuiz), questions: initialQuestions ?? getInitialState(initialQuiz).questions };
   });
   const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(
     () => initialStoredDraft?.quiz ?? initialQuiz,
@@ -452,43 +442,24 @@ function KaptenQuizBuilderPageModule({
     setIsAddingLocalQuestion(false);
   }
 
-  function saveQuiz(status: "draft" | "published" = quizStatus) {
+  async function saveQuiz(status: "draft" | "published" = quizStatus) {
     const currentQuiz = savedQuiz;
-    const id = currentQuiz?.id ?? `draft-quiz-${slugify(builderState.title)}-${Date.now()}`;
-    const sourceBank = sourceCatalog.find(({ bank }) => bank.id === builderState.sourceBankId)?.bank;
-    const quiz: KaptenQuiz = {
+    const result = await saveStandaloneQuizAction({
+      closesAt: builderState.closesAt,
       description: builderState.description,
-      href: `/mentor/quiz/${id}`,
-      id,
-      primaryMetric: `${builderState.questions.length} soal`,
-      progress:
-        builderState.questions.length > 0
-          ? Math.round((readyQuestionCount / builderState.questions.length) * 100)
-          : 0,
-      questionCount: builderState.questions.length,
-      resourceType: "quiz",
-      closesAt: builderState.closesAt || undefined,
-      opensAt: builderState.opensAt || undefined,
-      scheduledFor: currentQuiz?.scheduledFor,
-      sourceBank: sourceBank?.title ?? "Belum memilih Question Bank",
-      sourceBankId: builderState.sourceBankId || undefined,
+      id: currentQuiz?.id,
+      opensAt: builderState.opensAt,
+      questions: builderState.questions,
       status,
       subjectCode: builderState.subjectCode,
-      subjectName: getSubjectName(builderState.subjectCode),
-      title: builderState.title || "Draft Quiz Baru",
-      updatedAt: "Diedit baru saja",
-    };
-
-    saveQuizDraft({
-      quiz,
-      questions: builderState.questions,
-      sourceBankId: builderState.sourceBankId,
+      title: builderState.title,
     });
-    setSavedQuiz(quiz);
+    if (!result.ok) return;
+    setSavedQuiz(result.quiz);
     setHasUnsavedChanges(false);
 
-    if (!quizId && !initialQuiz) {
-      setPendingRouteReplacement(quiz.href);
+    if (!quizId) {
+      setPendingRouteReplacement(result.quiz.href);
     }
   }
 
