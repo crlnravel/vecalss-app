@@ -8,6 +8,7 @@ import {
   bulkUnpublishStandaloneQuizzes,
   QuizValidationError,
   saveStandaloneQuiz,
+  updateStandaloneQuizLifecycle,
   type SaveStandaloneQuizInput,
 } from "@/lib/quiz/repository";
 
@@ -59,8 +60,23 @@ async function bulkUnpublishStandaloneQuizzesAction(ids: string[]) {
   }
 }
 
+async function updateStandaloneQuizLifecycleAction(id: string, operation: "archive" | "restore") {
+  const session = await requireTutorSession();
+  try {
+    const quiz = await updateStandaloneQuizLifecycle(id, session.user.id, operation);
+    revalidateQuizPaths();
+    revalidatePath(`/mentor/quiz/${quiz.id}`);
+    return { ok: true as const, quiz };
+  } catch (error) {
+    if (error instanceof QuizValidationError) return { message: error.message, ok: false as const };
+    console.error("Standalone quiz lifecycle mutation failed", error);
+    return { message: "Status Quiz tidak dapat diubah saat ini. Coba lagi.", ok: false as const };
+  }
+}
+
 export {
   bulkPublishStandaloneQuizzesAction,
   bulkUnpublishStandaloneQuizzesAction,
   saveStandaloneQuizAction,
+  updateStandaloneQuizLifecycleAction,
 };

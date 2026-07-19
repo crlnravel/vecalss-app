@@ -15,6 +15,7 @@ type MediaAssetDto = {
   name: string;
   parentId: string | null;
   previewUrl: string | null;
+  thumbnailUrl: string | null;
   sizeBytes: number;
   state: "failed" | "pending" | "ready" | "trashed";
   updatedAt: string;

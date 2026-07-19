@@ -178,5 +178,51 @@ async function updateQuestionBankLifecycle(id: string, operation: "publish" | "u
   });
 }
 
-export { getQuestionBankForEdit, listQuestionBanks, listQuestionBankSources, QuestionBankError, saveQuestionBank, updateQuestionBankLifecycle };
+async function deleteQuestionBank(id: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
+    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true } });
+    if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.");
+
+    const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount] = await Promise.all([
+      tx.standaloneQuiz.count({ where: { sourceBankId: id } }),
+      tx.adaptivePracticeSession.count({ where: { fallbackQuestionBankId: id } }),
+      tx.question.count({
+        where: {
+          questionBankId: id,
+          OR: [
+            { quizItems: { some: {} } },
+            { standaloneQuizItems: { some: {} } },
+            { tryoutItems: { some: {} } },
+            { quizAnswers: { some: {} } },
+            { dailyMissionQuestion: { some: {} } },
+            { adaptivePracticeAnswers: { some: {} } },
+          ],
+        },
+      }),
+      tx.questionOption.count({
+        where: {
+          question: { questionBankId: id },
+          OR: [
+            { quizAnswers: { some: {} } },
+            { standaloneQuizItemOptions: { some: {} } },
+            { tryoutItemOptions: { some: {} } },
+          ],
+        },
+      }),
+    ]);
+
+    if (sourceQuizCount || adaptiveSessionCount || referencedQuestionCount || referencedOptionCount) {
+      throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan oleh Quiz, Tryout, atau sesi belajar.");
+    }
+
+    await tx.questionOption.deleteMany({ where: { question: { questionBankId: id } } });
+    await tx.question.deleteMany({ where: { questionBankId: id } });
+    await tx.questionBankTag.deleteMany({ where: { questionBankId: id } });
+    await tx.questionBank.delete({ where: { id } });
+    return { id };
+  });
+}
+
+export { deleteQuestionBank, getQuestionBankForEdit, listQuestionBanks, listQuestionBankSources, QuestionBankError, saveQuestionBank, updateQuestionBankLifecycle };
 export type { SaveBankInput };

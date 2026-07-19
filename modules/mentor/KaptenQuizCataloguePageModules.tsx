@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Eye, ListChecks, Pencil, Plus, Search } from "lucide-react";
+import { Archive, ChevronLeft, Ellipsis, Eye, ListChecks, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogClose,
@@ -24,6 +25,7 @@ import type { KaptenQuiz, KaptenSubject } from "@/modules/mentor/mock-data";
 import {
   bulkPublishStandaloneQuizzesAction,
   bulkUnpublishStandaloneQuizzesAction,
+  updateStandaloneQuizLifecycleAction,
 } from "@/modules/mentor/quiz-actions";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
 
@@ -66,7 +68,7 @@ function QuizStatus({ status }: { status: KaptenQuiz["status"] }) {
   return <span className={cn("text-sm font-semibold", status === "published" ? "text-primary-900" : "text-primary-800")}>{status === "published" ? "Diterbitkan" : "Draf"}</span>;
 }
 
-function QuizRow({ quiz, onSelectedChange, selected }: { quiz: KaptenQuiz; onSelectedChange: (checked: boolean) => void; selected: boolean }) {
+function QuizRow({ quiz, onAction, onSelectedChange, selected }: { quiz: KaptenQuiz; onAction: (action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void; onSelectedChange: (checked: boolean) => void; selected: boolean }) {
   return (
     <article className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-4 shadow-sm sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
       <Checkbox aria-label={`Pilih ${quiz.title}`} checked={selected} onCheckedChange={(checked) => onSelectedChange(checked === true)} />
@@ -79,8 +81,9 @@ function QuizRow({ quiz, onSelectedChange, selected }: { quiz: KaptenQuiz; onSel
         </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:justify-end">
-        <Button render={<Link href={quiz.href} />} size="sm" variant="brandOutline"><Eye />Preview</Button>
+        <Button aria-label="Preview Quiz" render={<Link href={quiz.href} />} size="icon-sm" title="Preview" variant="brandOutline"><Eye /></Button>
         <Button render={<Link href={quiz.href} />} size="sm" variant="brand"><Pencil />Edit</Button>
+        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${quiz.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{quiz.status === "draft" ? <DropdownMenuItem disabled={quiz.questionCount === 0} onClick={() => onAction("publish")}>Terbitkan</DropdownMenuItem> : null}{quiz.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{quiz.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
       </div>
     </article>
   );
@@ -117,6 +120,24 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
     } catch (caughtError) { setError(caughtError instanceof Error ? caughtError.message : "Status quiz tidak dapat diubah saat ini. Coba lagi."); }
     finally { setIsPending(false); }
   };
+  const applyQuizAction = async (quiz: KaptenQuiz, action: "archive" | "delete" | "publish" | "restore" | "unpublish") => {
+    if (isPending) return;
+    if (action === "delete") { setNotice("Hapus Quiz belum tersedia."); return; }
+    setIsPending(true); setError(null);
+    try {
+      if (action === "publish" || action === "unpublish") {
+        const result = action === "publish" ? await bulkPublishStandaloneQuizzesAction([quiz.id]) : await bulkUnpublishStandaloneQuizzesAction([quiz.id]);
+        if (!result.ok) { setError(result.message); return; }
+        setQuizzes((current) => current.map((item) => item.id === quiz.id ? { ...item, status: result.status } : item)); setNotice(result.message);
+      } else {
+        const result = await updateStandaloneQuizLifecycleAction(quiz.id, action);
+        if (!result.ok) { setError(result.message); return; }
+        setQuizzes((current) => current.map((item) => item.id === quiz.id ? result.quiz : item)); setNotice(action === "archive" ? "Quiz telah diarsipkan." : "Quiz dipulihkan sebagai draf.");
+      }
+      router.refresh();
+    } catch (caughtError) { setError(caughtError instanceof Error ? caughtError.message : "Status Quiz tidak dapat diubah saat ini. Coba lagi."); }
+    finally { setIsPending(false); }
+  };
 
   return (
     <MentorWorkspaceShell activeLabel="Quiz" breadcrumbLabel={`${subject.code} · Quiz`} searchPlaceholder="Cari quiz..." session={session}>
@@ -129,7 +150,7 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
         {visibleQuizzes.length && selectedQuizzes.length ? <div className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/35 px-4 py-3"><Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => toggleAllVisible(checked === true)} /><span className="text-sm font-semibold text-secondary-700">Pilih semua hasil</span></div> : null}
         {selectedQuizzes.length ? <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-200 bg-white px-4 py-3"><span className="text-sm font-semibold text-secondary-900">{selectedQuizzes.length} dipilih</span><Button disabled={!canPublish || isPending} onClick={() => { setError(null); setIntent("publish"); }} size="sm" type="button" variant="brand">Terbitkan</Button><Button disabled={!canUnpublish || isPending} onClick={() => { setError(null); setIntent("unpublish"); }} size="sm" type="button" variant="brandOutline">Batalkan terbit</Button><Button disabled={isPending} onClick={() => setSelectedIds(new Set())} size="sm" type="button" variant="ghost">Hapus pilihan</Button>{eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}</div> : null}
         {notice ? <p className="rounded-2xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-sm font-medium text-primary-900" role="status">{notice}</p> : null}
-        {visibleQuizzes.length ? visibleQuizzes.map((quiz) => <QuizRow key={quiz.id} quiz={quiz} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} selected={selectedIds.has(quiz.id)} />) : <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-10 text-center text-sm text-secondary-600">Tidak ada quiz yang cocok dengan pencarian ini.</div>}
+        {visibleQuizzes.length ? visibleQuizzes.map((quiz) => <QuizRow key={quiz.id} quiz={quiz} onAction={(action) => { void applyQuizAction(quiz, action); }} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} selected={selectedIds.has(quiz.id)} />) : <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-10 text-center text-sm text-secondary-600">Tidak ada quiz yang cocok dengan pencarian ini.</div>}
       </section>
       <Dialog onOpenChange={(open) => { if (!open && !isPending) { setError(null); setIntent(null); } }} open={Boolean(intent)}>
         <DialogContent showCloseButton={!isPending}><DialogHeader><DialogTitle>{confirmation.title}</DialogTitle><DialogDescription>{confirmation.description}</DialogDescription></DialogHeader>{error ? <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{error}</div> : null}<DialogFooter><DialogClose disabled={isPending} render={<Button type="button" variant="brandOutline" />}>Batal</DialogClose><Button disabled={isPending || (intent === "publish" ? !canPublish : !canUnpublish)} onClick={confirmLifecycle} type="button" variant="brand">{isPending ? "Memproses..." : confirmation.confirm}</Button></DialogFooter></DialogContent>

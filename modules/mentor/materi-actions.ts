@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import {
+  archiveMateriLesson,
   bulkPublishMateriLessons,
   bulkUnpublishMateriLessons,
   MateriValidationError,
@@ -96,6 +97,19 @@ async function unpublishMateriLessonAction(code: string): Promise<MateriActionRe
   }
 }
 
+async function archiveMateriLessonAction(code: string): Promise<MateriActionResult> {
+  const session = await requireTutorSession();
+  try {
+    const lesson = await archiveMateriLesson(code, session.user.id);
+    const view = toKaptenMateriEditorView(lesson);
+    if (!view) throw new Error("Lesson diarsipkan tetapi tidak dapat dimuat ulang.");
+    revalidateMateriPaths(view.subjectSlug, view.code);
+    return { lesson: view, message: "Lesson telah diarsipkan.", ok: true };
+  } catch (error) {
+    return failedResult(error);
+  }
+}
+
 async function returnMateriLessonToDraftAction(code: string): Promise<MateriActionResult> {
   const session = await requireTutorSession();
   try {
@@ -132,6 +146,7 @@ async function bulkUnpublishMateriLessonsAction(subjectSlug: string, codes: stri
 }
 
 export {
+  archiveMateriLessonAction,
   bulkPublishMateriLessonsAction,
   bulkUnpublishMateriLessonsAction,
   publishMateriLessonAction,

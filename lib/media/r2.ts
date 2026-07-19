@@ -89,6 +89,19 @@ const createMediaPreviewUrl = async (objectKey: string) => {
   );
 };
 
+const readMediaObject = async (objectKey: string) => {
+  const { client, configuration } = getR2Client();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: configuration.bucketName,
+      Key: objectKey,
+    }),
+  );
+
+  if (!response.Body) throw new Error("Objek gambar tidak memiliki isi.");
+  return response.Body.transformToByteArray();
+};
+
 const headMediaObject = async (objectKey: string) => {
   const { client, configuration } = getR2Client();
 
@@ -106,4 +119,5 @@ export {
   createMediaUploadUrl,
   headMediaObject,
   isR2Configured,
+  readMediaObject,
 };

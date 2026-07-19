@@ -520,6 +520,19 @@ async function unpublishMateriLesson(code: string, tutorId: string) {
   return getMentorMateriByCode(code);
 }
 
+async function archiveMateriLesson(code: string, tutorId: string) {
+  const lesson = await getMentorMateriByCode(code);
+  if (!lesson) throw new MateriValidationError("Lesson tidak ditemukan.", { code: "Lesson tidak ditemukan." });
+  if (lesson.lifecycleStatus === ContentStatus.archived) throw new MateriValidationError("Lesson sudah diarsipkan.");
+
+  const updated = await prisma.module.updateMany({
+    where: { code, status: { not: ContentStatus.archived } },
+    data: { status: ContentStatus.archived, updatedByUserId: tutorId },
+  });
+  if (updated.count !== 1) throw new MateriValidationError("Status lesson berubah. Muat ulang halaman lalu coba lagi.");
+  return getMentorMateriByCode(code);
+}
+
 function validateBulkMateriInput(input: BulkMateriLifecycleInput) {
   const subject = getSubjectBySlug(input.subjectSlug);
   if (!subject || !Array.isArray(input.codes) || input.codes.length === 0) {
@@ -636,6 +649,7 @@ async function returnMateriLessonToDraft(code: string, tutorId: string) {
 }
 
 export {
+  archiveMateriLesson,
   bulkPublishMateriLessons,
   bulkUnpublishMateriLessons,
   getMentorMateriByCode,

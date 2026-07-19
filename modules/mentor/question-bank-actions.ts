@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTutorSession } from "@/lib/auth/access";
-import { QuestionBankError, saveQuestionBank, updateQuestionBankLifecycle, type SaveBankInput } from "@/lib/question-bank/repository";
+import { deleteQuestionBank, QuestionBankError, saveQuestionBank, updateQuestionBankLifecycle, type SaveBankInput } from "@/lib/question-bank/repository";
 
 function refresh() {
   revalidatePath("/mentor/quiz/question-bank");
@@ -22,4 +22,10 @@ async function updateQuestionBankLifecycleAction(id: string, operation: "publish
   catch (error) { return { ok: false as const, message: error instanceof QuestionBankError ? error.message : "Status Bank Soal tidak dapat diubah saat ini." }; }
 }
 
-export { saveQuestionBankAction, updateQuestionBankLifecycleAction };
+async function deleteQuestionBankAction(id: string) {
+  await requireTutorSession();
+  try { const result = await deleteQuestionBank(id); refresh(); return { ok: true as const, result }; }
+  catch (error) { return { ok: false as const, message: error instanceof QuestionBankError ? error.message : "Bank Soal tidak dapat dihapus saat ini." }; }
+}
+
+export { deleteQuestionBankAction, saveQuestionBankAction, updateQuestionBankLifecycleAction };

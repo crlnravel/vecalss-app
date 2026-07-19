@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
+  Archive,
   ChevronLeft,
   ArrowUp,
   ChevronDown,
   ChevronRight,
   CircleHelp,
+  Ellipsis,
   Eye,
   GripVertical,
   Plus,
@@ -20,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +52,7 @@ import {
   type KaptenQuestionBank,
   type KaptenQuiz,
 } from "@/modules/mentor/mock-data";
-import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
+import { saveStandaloneQuizAction, updateStandaloneQuizLifecycleAction } from "@/modules/mentor/quiz-actions";
 import type {
   QuizBuilderState,
   QuizChoice,
@@ -212,9 +215,9 @@ function KaptenQuizBuilderPageModule({
   );
   const visibleQuestionPage = Math.min(questionPage, questionPageCount);
   const readyQuestionCount = getReadiness(builderState.questions);
-  const quizStatus = savedQuiz?.status === "published" ? "published" : "draft";
+  const quizStatus = savedQuiz?.status ?? "draft";
   const isDraft = quizStatus === "draft";
-  const saveLabel = isDraft ? "Simpan Draft" : "Simpan perubahan";
+  const saveLabel = isDraft ? "Simpan Draft" : quizStatus === "published" ? "Simpan perubahan" : "Diarsipkan";
   const previewQuestion = builderState.questions[previewQuestionIndex];
   const scheduleError = builderState.opensAt && builderState.closesAt
     && new Date(builderState.closesAt) <= new Date(builderState.opensAt)
@@ -418,7 +421,7 @@ function KaptenQuizBuilderPageModule({
     setIsAddingLocalQuestion(false);
   }
 
-  async function saveQuiz(status: "draft" | "published" = quizStatus) {
+  async function saveQuiz(status: "draft" | "published" = quizStatus === "published" ? "published" : "draft") {
     setIsSaving(true); setSaveError(null);
     const result = await saveStandaloneQuizAction({ closesAt: builderState.closesAt, description: builderState.description, id: savedQuiz?.id ?? quizId, opensAt: builderState.opensAt, questions: builderState.questions, sourceBankId: builderState.sourceBankId || undefined, status, subjectCode: builderState.subjectCode, title: builderState.title });
     setIsSaving(false);
@@ -442,6 +445,15 @@ function KaptenQuizBuilderPageModule({
 
   function unpublishQuiz() {
     saveQuiz("draft");
+  }
+
+  async function updateQuizLifecycle(operation: "archive" | "restore") {
+    if (!savedQuiz || isSaving) return;
+    setIsSaving(true); setSaveError(null);
+    const result = await updateStandaloneQuizLifecycleAction(savedQuiz.id, operation);
+    setIsSaving(false);
+    if (!result.ok) { setSaveError(result.message); return; }
+    setSavedQuiz(result.quiz); setHasUnsavedChanges(false);
   }
 
   return (
@@ -490,39 +502,45 @@ function KaptenQuizBuilderPageModule({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            aria-label="Preview Quiz"
             disabled={builderState.questions.length === 0}
             onClick={() => {
               setPreviewQuestionIndex(0);
               setIsPreviewOpen(true);
             }}
+            size="icon-sm"
+            title="Preview"
             type="button"
             variant="brandOutline"
           >
             <Eye />
-            Preview
           </Button>
-          <Button disabled={isSaving} onClick={() => saveQuiz()} type="button" variant="brand">
+          <Button disabled={isSaving || quizStatus === "archived"} onClick={() => saveQuiz()} type="button" variant="brand">
             <Save />
             {isSaving ? "Menyimpan..." : saveLabel}
           </Button>
-          {isDraft ? (
-            <Button disabled={Boolean(publishError)} onClick={publishQuiz} type="button" variant="brandOutline">
-              Terbitkan
-            </Button>
-          ) : (
-            <Button
-              onClick={() => setConfirmationRequest({
-                confirmLabel: "Batalkan publikasi",
-                description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.",
-                onConfirm: unpublishQuiz,
-                title: "Batalkan publikasi quiz?",
-              })}
-              type="button"
-              variant="brandOutline"
-            >
-              Batalkan publikasi
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button aria-label="Aksi Quiz" size="icon-sm" type="button" variant="ghost" />}>
+              <Ellipsis />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuGroup>
+                {isDraft ? (
+                  <DropdownMenuItem disabled={Boolean(publishError)} onClick={publishQuiz}>Terbitkan</DropdownMenuItem>
+                ) : quizStatus === "published" ? (
+                  <DropdownMenuItem onClick={() => setConfirmationRequest({
+                    confirmLabel: "Batalkan publikasi",
+                    description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.",
+                    onConfirm: unpublishQuiz,
+                    title: "Batalkan publikasi quiz?",
+                  })}>Batalkan publikasi</DropdownMenuItem>
+                ) : null}
+                {quizStatus !== "archived" ? <DropdownMenuItem disabled={isSaving} onClick={() => { void updateQuizLifecycle("archive"); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem disabled={isSaving} onClick={() => { void updateQuizLifecycle("restore"); }}>Pulihkan</DropdownMenuItem>}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setSaveError("Hapus Quiz belum tersedia.")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </section>
       {saveError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{saveError}</p> : null}

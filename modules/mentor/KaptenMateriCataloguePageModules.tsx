@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Eye, Pencil, Plus, Search, Video } from "lucide-react";
+import { Archive, ChevronLeft, Ellipsis, Eye, Pencil, Plus, Search, Trash2, Video } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogClose,
@@ -24,6 +25,8 @@ import { getSubjectCategory } from "@/modules/mentor/subject-category";
 import {
   bulkPublishMateriLessonsAction,
   bulkUnpublishMateriLessonsAction,
+  archiveMateriLessonAction,
+  returnMateriLessonToDraftAction,
 } from "@/modules/mentor/materi-actions";
 import type {
   KaptenMateriSubjectView,
@@ -148,11 +151,13 @@ function KaptenMateriPageModule({
 
 function MateriLessonRow({
   lesson,
+  onAction,
   onSelectedChange,
   returnTo,
   selected,
 }: {
   lesson: KaptenMateriView;
+  onAction: (action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void;
   onSelectedChange: (checked: boolean) => void;
   returnTo: string;
   selected: boolean;
@@ -175,16 +180,7 @@ function MateriLessonRow({
         </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:justify-end">
-        <Button
-          render={<Link href={buildEditorHref(lesson, returnTo, true)} />}
-          aria-label="Kembali ke semua materi"
-          size="icon-sm"
-          title="Kembali ke semua materi"
-          variant="brandOutline"
-        >
-          <Eye />
-          Preview
-        </Button>
+        <Button render={<Link href={buildEditorHref(lesson, returnTo, true)} />} aria-label="Preview lesson" size="icon-sm" title="Preview" variant="brandOutline"><Eye /></Button>
         <Button
           render={<Link href={buildEditorHref(lesson, returnTo)} />}
           size="sm"
@@ -193,6 +189,7 @@ function MateriLessonRow({
           <Pencil />
           Edit
         </Button>
+        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{lesson.status === "draft" ? <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => onAction("publish")}>Terbitkan</DropdownMenuItem> : null}{lesson.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{lesson.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
       </div>
     </article>
   );
@@ -349,6 +346,28 @@ function KaptenMateriSubjectPageModule({
     }
   }
 
+  async function applyLessonAction(lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") {
+    if (isBulkPending) return;
+    if (action === "delete") { setBulkNotice("Hapus lesson belum tersedia."); return; }
+    setIsBulkPending(true); setBulkError(null);
+    try {
+      if (action === "publish" || action === "unpublish") {
+        const result = action === "publish" ? await bulkPublishMateriLessonsAction(subject.slug, [lesson.code]) : await bulkUnpublishMateriLessonsAction(subject.slug, [lesson.code]);
+        if (!result.ok) { setBulkError(result.message); return; }
+        setLessons((current) => current.map((item) => item.code === lesson.code ? { ...item, lifecycleStatus: result.status, status: result.status } : item));
+        setBulkNotice(result.message);
+      } else {
+        const result = action === "archive" ? await archiveMateriLessonAction(lesson.code) : await returnMateriLessonToDraftAction(lesson.code);
+        if (!result.ok) { setBulkError(result.message); return; }
+        setLessons((current) => current.map((item) => item.code === lesson.code ? result.lesson : item));
+        setBulkNotice(result.message);
+      }
+      router.refresh();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : "Status lesson tidak dapat diubah saat ini. Coba lagi.");
+    } finally { setIsBulkPending(false); }
+  }
+
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
@@ -459,6 +478,7 @@ function KaptenMateriSubjectPageModule({
             <MateriLessonRow
               key={lesson.code}
               lesson={lesson}
+              onAction={(action) => { void applyLessonAction(lesson, action); }}
               onSelectedChange={(checked) =>
                 toggleSelected(lesson.code, checked)
               }

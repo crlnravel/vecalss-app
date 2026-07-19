@@ -1,5 +1,7 @@
 import "server-only";
 
+import sharp from "sharp";
+
 import {
   MediaAssetState,
   MediaLibraryScope,
@@ -22,6 +24,7 @@ import {
   createMediaUploadUrl,
   headMediaObject,
   isR2Configured,
+  readMediaObject,
 } from "./r2";
 import type {
   MediaAssetDto,
@@ -159,11 +162,13 @@ const toAssetDto = async (asset: {
   uploadedBy: { fullName: string } | null;
   url: string | null;
   width: number | null;
-}): Promise<MediaAssetDto> => {
+}, scope: MediaScope): Promise<MediaAssetDto> => {
   let previewUrl = asset.url;
+  let thumbnailUrl = asset.url;
 
   if (asset.objectKey && isR2Configured()) {
-    previewUrl = await createMediaPreviewUrl(asset.objectKey);
+    previewUrl = null;
+    thumbnailUrl = `/api/media/${scope}/assets/${asset.id}/thumbnail`;
   }
 
   return {
@@ -174,6 +179,7 @@ const toAssetDto = async (asset: {
     name: asset.originalName || "Gambar tanpa nama",
     parentId: asset.folderId,
     previewUrl,
+    thumbnailUrl,
     sizeBytes: asset.sizeBytes,
     state: asset.state,
     updatedAt: asset.updatedAt.toISOString(),
@@ -224,7 +230,7 @@ const listMediaLibrary = async ({
   ]);
 
   return {
-    assets: await Promise.all(assets.map(toAssetDto)),
+    assets: await Promise.all(assets.map((asset) => toAssetDto(asset, scope))),
     breadcrumbs,
     currentFolderId: folderId,
     folders: folders.map(toFolderDto),
@@ -558,11 +564,30 @@ const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
   }
 };
 
+const getMediaAssetThumbnail = async (scope: MediaScope, assetId: string) => {
+  const asset = await assertAsset(scope, assetId, [MediaAssetState.ready, MediaAssetState.trashed]);
+  if (asset.url) return { body: null, contentType: asset.mimeType, fallbackUrl: asset.url };
+  if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 404);
+
+  try {
+    const source = await readMediaObject(asset.objectKey);
+    const body = await sharp(source)
+      .resize({ fit: "inside", height: 360, withoutEnlargement: true, width: 480 })
+      .webp({ effort: 3, quality: 72 })
+      .toBuffer();
+    return { body, contentType: "image/webp", fallbackUrl: null };
+  } catch (error) {
+    if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
+    throw error;
+  }
+};
+
 export {
   MediaServiceError,
   createMediaFolder,
   finalizeMediaUpload,
   getMediaAssetPreview,
+  getMediaAssetThumbnail,
   listMediaLibrary,
   moveMediaAsset,
   moveMediaFolder,

@@ -7,7 +7,9 @@ import {
   FolderInput,
   FolderPlus,
   ImageOff,
+  LayoutGrid,
   LoaderCircle,
+  List,
   MoreHorizontal,
   Pencil,
   RefreshCw,
@@ -165,12 +167,14 @@ const putFile = (
 const getItemDate = (value: string) => dateFormatter.format(new Date(value));
 
 function MediaLibrary({
+  appearance = "default",
   className,
   onSelect,
   scope,
   selectedAssetId,
   variant = "manage",
 }: {
+  appearance?: "default" | "drive";
   className?: string;
   onSelect?: (asset: MediaAssetDto) => void;
   scope: MediaScope;
@@ -195,7 +199,9 @@ function MediaLibrary({
   const [moveTargetId, setMoveTargetId] = useState<string>("");
   const [trashRequest, setTrashRequest] = useState<TrashRequest | null>(null);
   const [previewAsset, setPreviewAsset] = useState<MediaAssetDto | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const isPicker = variant === "picker";
+  const isDrive = appearance === "drive" && !isPicker;
 
   const loadLibrary = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -386,7 +392,7 @@ function MediaLibrary({
 
   return (
     <section className={cn("flex min-w-0 flex-col gap-5", className)}>
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className={cn("flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between", isDrive && "rounded-[1.75rem] border border-primary-100 bg-white p-3 shadow-sm md:p-4")}>
         <div className="flex flex-wrap items-center gap-2">
           {!isPicker ? (
             <Button onClick={() => setFolderDialogOpen(true)} variant="brandOutline">
@@ -408,11 +414,11 @@ function MediaLibrary({
           />
         </div>
 
-        <label className="relative block w-full xl:max-w-md">
+        <label className={cn("relative block w-full xl:max-w-md", isDrive && "xl:order-first xl:max-w-2xl xl:flex-1")}>
           <span className="sr-only">Cari gambar</span>
           <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" />
           <Input
-            className="h-11 border-primary-100 bg-white pl-11"
+            className={cn("h-11 border-primary-100 bg-white pl-11", isDrive && "rounded-full bg-primary-50/55 shadow-none")}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Cari nama gambar..."
             value={query}
@@ -439,6 +445,7 @@ function MediaLibrary({
       <div
         className={cn(
           "relative min-h-[28rem] overflow-hidden rounded-[2rem] border border-primary-100 bg-white transition-[border-color,background-color] duration-150",
+          isDrive && "min-h-[42rem] rounded-[1.75rem] bg-white/95 shadow-sm",
           isDragging && "border-primary-500 bg-primary-50/70",
         )}
         onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
@@ -458,32 +465,48 @@ function MediaLibrary({
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-4 border-b border-primary-100 px-5 py-4 md:px-6">
-          <Breadcrumb>
-            <BreadcrumbList>
-              {snapshot?.breadcrumbs.map((breadcrumb, index) => (
-                <Fragment key={breadcrumb.id ?? "root"}>
-                  {index > 0 ? <BreadcrumbSeparator /> : null}
-                  <BreadcrumbItem>
-                    {index === (snapshot?.breadcrumbs.length ?? 0) - 1 ? (
-                      <BreadcrumbPage>{breadcrumb.name}</BreadcrumbPage>
-                    ) : (
-                      <button
-                        className="min-h-11 rounded-xl px-2 text-sm font-medium text-secondary-600 transition-colors hover:bg-primary-50 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
-                        onClick={() => setFolderId(breadcrumb.id)}
-                        type="button"
-                      >
-                        {breadcrumb.name}
-                      </button>
-                    )}
-                  </BreadcrumbItem>
-                </Fragment>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
+        <div className={cn("flex flex-col gap-4 border-b border-primary-100 px-5 py-4 md:px-6", isDrive && "gap-5 px-5 py-5 md:px-7 md:py-6")}>
+          {isDrive ? (
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <p className="text-xs font-semibold tracking-[0.12em] text-primary-700 uppercase">Library Kapten</p>
+                <h1 className="text-2xl leading-tight font-semibold tracking-[-0.02em] text-secondary-900 md:text-3xl">Media</h1>
+                <p className="text-sm text-secondary-500">Kelola gambar bersama untuk Bank Soal Kapten.</p>
+              </div>
+              <div aria-label="Tampilan media" className="flex items-center rounded-full border border-primary-100 bg-primary-50/60 p-1" role="group">
+                <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} className="rounded-full" onClick={() => setViewMode("list")} size="icon-sm" variant={viewMode === "list" ? "brand" : "ghost"}><List /></Button>
+                <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} className="rounded-full" onClick={() => setViewMode("grid")} size="icon-sm" variant={viewMode === "grid" ? "brand" : "ghost"}><LayoutGrid /></Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Breadcrumb>
+              <BreadcrumbList>
+                {snapshot?.breadcrumbs.map((breadcrumb, index) => (
+                  <Fragment key={breadcrumb.id ?? "root"}>
+                    {index > 0 ? <BreadcrumbSeparator /> : null}
+                    <BreadcrumbItem>
+                      {index === (snapshot?.breadcrumbs.length ?? 0) - 1 ? (
+                        <BreadcrumbPage>{breadcrumb.name}</BreadcrumbPage>
+                      ) : (
+                        <button
+                          className="min-h-11 rounded-xl px-2 text-sm font-medium text-secondary-600 transition-colors hover:bg-primary-50 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+                          onClick={() => setFolderId(breadcrumb.id)}
+                          type="button"
+                        >
+                          {breadcrumb.name}
+                        </button>
+                      )}
+                    </BreadcrumbItem>
+                  </Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+            <span className="text-xs font-medium text-secondary-500">{snapshot ? `${snapshot.folders.length} folder · ${snapshot.assets.length} gambar` : "Memuat library"}</span>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-secondary-500">
             <span>{query ? `Hasil untuk “${query}”` : "Seret gambar ke area ini untuk upload cepat"}</span>
-            <span>{snapshot ? `${snapshot.folders.length} folder · ${snapshot.assets.length} gambar` : "Memuat library"}</span>
+            {isDrive ? <span>JPG, PNG, WebP, atau GIF · maks. 15 MB</span> : null}
           </div>
         </div>
 
@@ -502,59 +525,65 @@ function MediaLibrary({
         ) : null}
 
         {isLoading ? (
-          <div className="flex flex-col gap-3 p-5 md:p-6">
+          <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && viewMode === "grid" && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4")}>
             {Array.from({ length: 5 }, (_, index) => (
-              <Skeleton className="h-16 w-full rounded-2xl" key={index} />
+              <Skeleton className={cn("h-16 w-full rounded-2xl", isDrive && viewMode === "grid" && "h-56")} key={index} />
             ))}
           </div>
         ) : snapshot && (snapshot.folders.length > 0 || snapshot.assets.length > 0) ? (
-          <div className="flex flex-col">
+          <div className={cn("flex flex-col", isDrive && "gap-7 p-5 md:p-7")}>
             {snapshot.folders.length > 0 ? (
-              <div className="flex flex-col">
-                <div className="px-5 pt-5 pb-2 text-xs font-semibold tracking-[0.1em] text-secondary-500 uppercase md:px-6">Folder</div>
+              <div className={cn("flex flex-col", isDrive && "gap-3")}>
+                <div className={cn("px-5 pt-5 pb-2 text-xs font-semibold tracking-[0.1em] text-secondary-500 uppercase md:px-6", isDrive && "px-0 pt-0 pb-0 md:px-0")}>Folder</div>
+                <div className={cn(isDrive && "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4")}>
                 {snapshot.folders.map((folderItem) => (
-                  <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.7fr_44px] md:px-6" key={folderItem.id}>
+                  <div className={cn("grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.7fr_44px] md:px-6", isDrive && "min-h-[4.5rem] rounded-2xl border border-primary-100 bg-primary-50/40 px-3 hover:border-primary-200 hover:bg-primary-50 md:grid-cols-[minmax(0,1fr)_auto] md:px-3")} key={folderItem.id}>
                     <button className="flex min-h-16 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20" onClick={() => setFolderId(folderItem.id)} type="button">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800"><Folder className="size-5" /></span>
-                      <span className="truncate font-semibold text-secondary-900">{folderItem.name}</span>
+                      <span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{folderItem.name}</span>{isDrive ? <span className="mt-0.5 block text-xs text-secondary-500">{getItemDate(folderItem.updatedAt)}</span> : null}</span>
                     </button>
-                    <span className="hidden text-sm text-secondary-500 md:block">Diperbarui {getItemDate(folderItem.updatedAt)}</span>
+                    <span className={cn("hidden text-sm text-secondary-500 md:block", isDrive && "md:hidden")}>Diperbarui {getItemDate(folderItem.updatedAt)}</span>
                     {isPicker ? <ChevronRight className="size-4 text-secondary-400" /> : renderItemMenu({ id: folderItem.id, kind: "folder", name: folderItem.name, parentId: folderItem.parentId })}
                   </div>
                 ))}
+                </div>
               </div>
             ) : null}
 
-            {snapshot.folders.length > 0 && snapshot.assets.length > 0 ? <Separator /> : null}
+            {snapshot.folders.length > 0 && snapshot.assets.length > 0 && !isDrive ? <Separator /> : null}
 
             {snapshot.assets.length > 0 ? (
-              <div className="flex flex-col">
-                <div className="hidden grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] gap-3 px-6 py-3 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase md:grid">
+              <div className={cn("flex flex-col", isDrive && "gap-3")}>
+                <div className={cn("hidden grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] gap-3 px-6 py-3 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase md:grid", isDrive && viewMode === "grid" && "flex px-0 py-0", isDrive && viewMode === "list" && "px-4")}>{isDrive && viewMode === "grid" ? "Gambar" : (
+                  <>
                   <span>Nama</span><span>Ukuran</span><span>Dimensi</span><span>Diperbarui</span><span />
-                </div>
+                  </>
+                )}</div>
+                <div className={cn(isDrive && viewMode === "grid" && "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4")}>
                 {snapshot.assets.map((asset) => (
-                  <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
-                    <button className="flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20" onClick={() => setPreviewAsset(asset)} type="button">
-                      <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800">
+                  <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", isDrive && viewMode === "list" && "rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", isDrive && viewMode === "grid" && "group relative block overflow-hidden rounded-2xl border border-primary-100 bg-primary-50/35 p-2 hover:border-primary-200 hover:bg-primary-50/70", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
+                    <button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "grid" && "flex w-full flex-col items-stretch gap-0 rounded-xl")} onClick={() => setPreviewAsset(asset)} type="button">
+                      <span className={cn("flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800", isDrive && viewMode === "grid" && "aspect-[4/3] size-auto w-full rounded-xl bg-white")}>
                         {asset.previewUrl ? (
                           // Signed R2 URLs are intentionally dynamic and cannot be declared in next/image remotePatterns.
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img alt="" className="size-full object-cover" loading="lazy" src={asset.previewUrl} />
+                          <img alt="" className={cn("size-full object-cover", isDrive && viewMode === "grid" && "object-contain p-2")} loading="lazy" src={asset.previewUrl} />
                         ) : <FileImage className="size-5" />}
                       </span>
-                      <span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className="mt-1 block text-xs text-secondary-500 md:hidden">{formatMediaBytes(asset.sizeBytes)} · {asset.width && asset.height ? `${asset.width} × ${asset.height}` : "Dimensi belum tersedia"}</span></span>
+                      <span className={cn("min-w-0", isDrive && viewMode === "grid" && "w-full px-2 pt-3 pb-1")}><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className={cn("mt-1 block text-xs text-secondary-500 md:hidden", isDrive && viewMode === "grid" && "md:block")}>{formatMediaBytes(asset.sizeBytes)} · {getItemDate(asset.updatedAt)}</span></span>
                     </button>
-                    <span className="hidden text-sm text-secondary-500 md:block">{formatMediaBytes(asset.sizeBytes)}</span>
-                    <span className="hidden text-sm text-secondary-500 md:block">{asset.width && asset.height ? `${asset.width} × ${asset.height}` : "—"}</span>
-                    <div className="hidden items-center gap-2 text-sm text-secondary-500 md:flex">
+                    <span className={cn("hidden text-sm text-secondary-500 md:block", isDrive && viewMode === "grid" && "md:hidden")}>{formatMediaBytes(asset.sizeBytes)}</span>
+                    <span className={cn("hidden text-sm text-secondary-500 md:block", isDrive && viewMode === "grid" && "md:hidden")}>{asset.width && asset.height ? `${asset.width} × ${asset.height}` : "—"}</span>
+                    <div className={cn("hidden items-center gap-2 text-sm text-secondary-500 md:flex", isDrive && viewMode === "grid" && "md:hidden")}>
                       <span>{getItemDate(asset.updatedAt)}</span>
                       {isPicker ? <Button onClick={() => onSelect?.(asset)} size="sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}>{selectedAssetId === asset.id ? "Dipilih" : "Pilih"}<ChevronRight data-icon="inline-end" /></Button> : null}
                     </div>
                     {isPicker ? (
                       <Button aria-label={`Pilih ${asset.name}`} className="md:hidden" onClick={() => onSelect?.(asset)} size="icon-sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}><ChevronRight /></Button>
-                    ) : renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}
+                    ) : <div className={cn(isDrive && viewMode === "grid" && "absolute top-3 right-3 rounded-full bg-white/95 shadow-sm")}>{renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}</div>}
                   </div>
                 ))}
+                </div>
               </div>
             ) : null}
           </div>

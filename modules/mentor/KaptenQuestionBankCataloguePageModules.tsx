@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Archive, LibraryBig, Pencil, Plus, Search } from "lucide-react";
+import { Archive, Ellipsis, LibraryBig, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
 import { PageIntro } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { kaptenSubjects, type BankQuestion, type KaptenQuestionBank } from "@/modules/mentor/mock-data";
-import { updateQuestionBankLifecycleAction } from "@/modules/mentor/question-bank-actions";
+import { deleteQuestionBankAction, updateQuestionBankLifecycleAction } from "@/modules/mentor/question-bank-actions";
 
 type BankEntry = { bank: KaptenQuestionBank; questions: BankQuestion[] };
 
@@ -29,7 +30,7 @@ function KaptenQuestionBankPageModule({ initialEntries, initialSubtest = "", ses
   const [query, setQuery] = useState("");
   const [subtest, setSubtest] = useState(initialSubtest);
   const [tag, setTag] = useState("");
-  const [pending, setPending] = useState<{ bank: KaptenQuestionBank; action: "publish" | "unpublish" | "archive" | "restore" } | null>(null);
+  const [pending, setPending] = useState<{ bank: KaptenQuestionBank; action: "publish" | "unpublish" | "archive" | "restore" | "delete" } | null>(null);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const banks = entries.map(({ bank }) => bank);
   const tags = useMemo(() => kaptenSubjects.filter((subject) => banks.some((bank) => subjectTags(entries, bank).includes(subject.code))), [banks, entries]);
@@ -43,13 +44,21 @@ function KaptenQuestionBankPageModule({ initialEntries, initialSubtest = "", ses
   async function apply() {
     if (!pending) return;
     const { action, bank } = pending;
+    if (action === "delete") {
+      const result = await deleteQuestionBankAction(bank.id);
+      if (!result.ok) { setLifecycleError(result.message); return; }
+      setEntries((current) => current.filter((entry) => entry.bank.id !== bank.id));
+      setLifecycleError(null); setPending(null);
+      return;
+    }
     const result = await updateQuestionBankLifecycleAction(bank.id, action);
     if (!result.ok) { setLifecycleError(result.message); return; }
     setEntries((current) => current.map((entry) => entry.bank.id === bank.id ? { ...entry, bank: { ...entry.bank, status: result.result.status } } : entry));
     setLifecycleError(null); setPending(null);
   }
 
-  const actionCopy = pending?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan muncul sebagai sumber Quiz dan Tryout.", "Terbitkan"]
+  const actionCopy = pending?.action === "delete" ? ["Hapus Bank Soal?", "Bank dan semua soalnya akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.", "Hapus permanen"]
+    : pending?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan muncul sebagai sumber Quiz dan Tryout.", "Terbitkan"]
     : pending?.action === "unpublish" ? ["Kembalikan ke draf?", "Bank tidak lagi muncul sebagai sumber baru.", "Batalkan terbit"]
       : pending?.action === "archive" ? ["Arsipkan bank?", "Bank hilang dari pencarian sumber, tanpa menghapus soalnya.", "Arsipkan"]
         : ["Pulihkan bank?", "Bank kembali sebagai draf dan perlu diterbitkan lagi.", "Pulihkan"];
@@ -62,10 +71,10 @@ function KaptenQuestionBankPageModule({ initialEntries, initialSubtest = "", ses
       <select aria-label="Filter tag bank" className="h-11 rounded-xl border border-primary-100 bg-white px-3 text-sm" onChange={(event) => setTag(event.target.value)} value={tag}><option value="">Semua tag subject</option>{tags.map((subject) => <option key={subject.code} value={subject.code}>{subject.code} · {subject.name}</option>)}</select>
     </div>
     <section className="mt-5 grid gap-3">
-      {filtered.length ? filtered.map((bank) => { const covered = coverage(entries, bank.id); return <article className="flex flex-col gap-4 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between" key={bank.id}>
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><LibraryBig className="size-4 text-primary-800" /><h2 className="font-semibold text-secondary-900">{bank.title}</h2><span className="text-xs font-semibold text-primary-800">{bank.status === "published" ? "Diterbitkan" : bank.status === "archived" ? "Diarsipkan" : "Draf"}</span></div><p className="mt-1 text-sm text-secondary-500">{bank.questionCount} soal · {covered.length ? covered.join(" · ") : "Belum ada Subtest"}</p><div className="mt-2 flex flex-wrap gap-2">{subjectTags(entries, bank).map((item) => <span className="rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-800" key={item}>#{item} · {kaptenSubjects.find((subject) => subject.code === item)?.name}</span>)}</div></div>
-        <div className="flex flex-wrap gap-2"><Button render={<Link href={`/mentor/quiz/question-bank/${bank.id}`} />} size="sm" variant="brand"><Pencil />Buka</Button>{bank.status === "draft" && <Button onClick={() => { setLifecycleError(null); setPending({ bank, action: "publish" }); }} size="sm" type="button" variant="brandOutline">Terbitkan</Button>}{bank.status === "published" && <Button onClick={() => { setLifecycleError(null); setPending({ bank, action: "unpublish" }); }} size="sm" type="button" variant="brandOutline">Jadikan draf</Button>}{bank.status !== "archived" ? <Button onClick={() => { setLifecycleError(null); setPending({ bank, action: "archive" }); }} size="sm" type="button" variant="ghost"><Archive />Arsipkan</Button> : <Button onClick={() => { setLifecycleError(null); setPending({ bank, action: "restore" }); }} size="sm" type="button" variant="brandOutline">Pulihkan</Button>}</div>
-      </article>; }) : <div className="rounded-3xl border border-dashed border-primary-200 px-5 py-12 text-center text-sm text-secondary-500">Tidak ada bank sesuai filter. Buat bank bersama pertama untuk memulai.</div>}
+      {filtered.length ? filtered.map((bank) => <article className="flex flex-col gap-4 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between" key={bank.id}>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><LibraryBig className="size-4 text-primary-800" /><h2 className="font-semibold text-secondary-900">{bank.title}</h2><span className="text-xs font-semibold text-primary-800">{bank.status === "published" ? "Diterbitkan" : bank.status === "archived" ? "Diarsipkan" : "Draf"}</span></div><p className="mt-1 text-sm text-secondary-500">{bank.questionCount} soal</p><div className="mt-2 flex flex-wrap gap-2">{subjectTags(entries, bank).map((item) => <span className="rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-800" key={item}>#{item}</span>)}</div></div>
+        <div className="flex items-center gap-2"><Button render={<Link href={`/mentor/quiz/question-bank/${bank.id}`} />} size="sm" variant="brand"><Pencil />Buka</Button><DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{bank.status === "draft" && <DropdownMenuItem onClick={() => { setLifecycleError(null); setPending({ bank, action: "publish" }); }}>Terbitkan</DropdownMenuItem>}{bank.status === "published" && <DropdownMenuItem onClick={() => { setLifecycleError(null); setPending({ bank, action: "unpublish" }); }}>Jadikan draf</DropdownMenuItem>}{bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPending({ bank, action: "archive" }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPending({ bank, action: "restore" }); }}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => { setLifecycleError(null); setPending({ bank, action: "delete" }); }} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>
+      </article>) : <div className="rounded-3xl border border-dashed border-primary-200 px-5 py-12 text-center text-sm text-secondary-500">Tidak ada bank sesuai filter. Buat bank bersama pertama untuk memulai.</div>}
     </section>
     <Dialog onOpenChange={(open) => { if (!open) { setLifecycleError(null); setPending(null); } }} open={Boolean(pending)}><DialogContent><DialogHeader><DialogTitle>{actionCopy[0]}</DialogTitle><DialogDescription>{actionCopy[1]}</DialogDescription></DialogHeader>{lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{lifecycleError}</p> : null}<DialogFooter><Button onClick={() => { setLifecycleError(null); setPending(null); }} type="button" variant="brandOutline">Batal</Button><Button onClick={apply} type="button" variant="brand">{actionCopy[2]}</Button></DialogFooter></DialogContent></Dialog>
   </MentorWorkspaceShell>;
