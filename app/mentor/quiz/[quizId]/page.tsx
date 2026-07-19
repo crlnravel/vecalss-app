@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { listQuestionBankSources } from "@/lib/question-bank/repository";
+import { getMentorStandaloneQuiz } from "@/lib/quiz/repository";
 import { KaptenQuizBuilderPageModule } from "@/modules/mentor/KaptenQuizBuilderPageModule";
-import { PersistedQuizBuilderRoute } from "@/modules/mentor/PersistedQuizBuilderRoute";
-import { getQuizById } from "@/modules/mentor/mock-data";
 
 type MentorQuizBuilderPageProps = {
   params: Promise<{
@@ -19,18 +20,17 @@ export default async function MentorQuizBuilderPage({
   params,
 }: MentorQuizBuilderPageProps) {
   const [{ quizId }, session] = await Promise.all([params, requireTutorSession()]);
-  const initialQuiz = getQuizById(quizId);
-
-  if (!initialQuiz) {
-    return <PersistedQuizBuilderRoute quizId={quizId} session={session} />;
-  }
+  const [initial, sourceCatalog] = await Promise.all([getMentorStandaloneQuiz(quizId, session.user.id), listQuestionBankSources()]);
+  if (!initial) notFound();
 
   return (
     <KaptenQuizBuilderPageModule
-      initialQuiz={initialQuiz}
+      initialQuiz={initial.quiz}
+      initialQuestions={initial.questions}
       mode="edit"
       quizId={quizId}
       session={session}
+      sourceCatalog={sourceCatalog}
     />
   );
 }

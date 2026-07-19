@@ -45,9 +45,9 @@ import {
   type KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 import {
-  saveQuestionBankDraft,
-  useStoredQuestionBankDraft,
-} from "@/modules/mentor/question-bank-draft-storage";
+  saveQuestionBankAction,
+  updateQuestionBankLifecycleAction,
+} from "@/modules/mentor/question-bank-actions";
 
 const INVENTORY_QUESTIONS_PER_PAGE = 8;
 
@@ -105,8 +105,6 @@ const emptyQuestion = (bankId: string, subjectCode: string): BankQuestion => ({
   choices: [
     { id: "a", text: "" },
     { id: "b", text: "" },
-    { id: "c", text: "" },
-    { id: "d", text: "" },
   ],
   correctChoiceId: "a",
   difficulty: "medium",
@@ -147,7 +145,8 @@ function difficultyMix(questions: BankQuestion[]) {
 function isReady(question: BankQuestion) {
   return (
     question.prompt.trim() &&
-    question.choices.length === 4 &&
+    question.choices.length >= 2 &&
+    question.choices.length <= 5 &&
     question.choices.every((choice) => choice.text.trim()) &&
     question.choices.some((choice) => choice.id === question.correctChoiceId)
   );
@@ -167,15 +166,12 @@ function KaptenQuestionBankBuilderPageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
-  const storedDraft = useStoredQuestionBankDraft(
-    bankId ?? initialBank?.id ?? "",
-  );
   const [localBuilderState, setLocalBuilderState] = useState(() => ({
     description: initialBank?.description ?? "",
     questions: initialQuestions,
     subjectCode: initialBank?.subjectCode ?? "PU",
     title: initialBank?.title ?? "Bank Soal Baru",
-    tags: initialBank?.tags ?? (initialBank?.topic ? [initialBank.topic] : []),
+    tags: (initialBank?.tags?.length ? initialBank.tags : [initialBank?.subjectCode ?? "PU"]).filter((tag) => kaptenSubjects.some((subject) => subject.code === tag)),
   }));
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("information");
@@ -194,20 +190,12 @@ function KaptenQuestionBankBuilderPageModule({
   >(null);
   const [mediaPickerTarget, setMediaPickerTarget] =
     useState<MediaPickerTarget | null>(null);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [lifecycleStatus, setLifecycleStatus] = useState(initialBank?.status ?? "draft");
+  const [revision, setRevision] = useState(initialBank?.revision);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const builderState = useMemo(() => {
-    if (!hasUnsavedChanges && storedDraft) {
-      return {
-        description: storedDraft.bank.description,
-        questions: storedDraft.questions,
-        subjectCode: "PU",
-        title: storedDraft.bank.title,
-        tags: storedDraft.bank.tags ?? (storedDraft.bank.topic ? [storedDraft.bank.topic] : []),
-      };
-    }
-
-    return localBuilderState;
-  }, [hasUnsavedChanges, localBuilderState, storedDraft]);
+  const builderState = localBuilderState;
 
   const activeQuestion = activeQuestionId
     ? (builderState.questions.find(
@@ -215,8 +203,6 @@ function KaptenQuestionBankBuilderPageModule({
       ) ?? null)
     : null;
   const readyCount = builderState.questions.filter(isReady).length;
-  const lifecycleStatus =
-    storedDraft?.bank.status ?? initialBank?.status ?? "draft";
   const isQuestionContentLocked = lifecycleStatus === "published";
   const isDraftLifecycle = lifecycleStatus === "draft";
   const saveLabel = isDraftLifecycle ? "Simpan Draft" : "Simpan perubahan";
@@ -267,6 +253,12 @@ function KaptenQuestionBankBuilderPageModule({
     return () => window.cancelAnimationFrame(frame);
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 
+  useEffect(() => {
+    if (builderState.questions.length > 0 || activeQuestionId || isQuestionContentLocked) return;
+    const frame = window.requestAnimationFrame(() => addQuestion());
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeQuestionId, bankId, builderState.questions.length, isQuestionContentLocked]);
+
   function markChanged(nextState: typeof builderState) {
     setLocalBuilderState(nextState);
     setHasUnsavedChanges(true);
@@ -295,7 +287,7 @@ function KaptenQuestionBankBuilderPageModule({
     setQuestionDraft({
       ...question,
       choices: question.choices.map((choice) => ({ ...choice })),
-      tags: [...question.tags],
+      tags: [],
     });
   }
 
@@ -348,13 +340,26 @@ function KaptenQuestionBankBuilderPageModule({
     });
   }
 
+  function addChoice() {
+    if (isQuestionContentLocked || questionDraft.choices.length >= 5) return;
+    const id = String.fromCharCode(97 + questionDraft.choices.length);
+    updateQuestionDraft({ ...questionDraft, choices: [...questionDraft.choices, { id, text: "" }] });
+  }
+
+  function removeChoice(choiceId: string) {
+    if (isQuestionContentLocked || questionDraft.choices.length <= 2) return;
+    const choices = questionDraft.choices.filter((choice) => choice.id !== choiceId);
+    updateQuestionDraft({ ...questionDraft, choices, correctChoiceId: questionDraft.correctChoiceId === choiceId ? choices[0]?.id ?? "a" : questionDraft.correctChoiceId });
+  }
+
   function addQuestion() {
     if (isQuestionContentLocked) return;
-    const id = `${builderState.subjectCode.toLowerCase()}-question-${Date.now()}`;
+    const subjectCode = builderState.tags[0] ?? "PU";
+    const id = `${subjectCode.toLowerCase()}-question-${Date.now()}`;
     const nextQuestion = {
       ...emptyQuestion(
         bankId ?? initialBank?.id ?? id,
-        builderState.subjectCode,
+        subjectCode,
       ),
       id,
     };
@@ -400,41 +405,26 @@ function KaptenQuestionBankBuilderPageModule({
     });
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     const id =
       initialBank?.id ??
       bankId ??
       `bank-${slugify(builderState.title)}-${Date.now()}`;
-    const bank: KaptenQuestionBank = {
-      description: builderState.description,
-      difficultyMix: difficultyMix(builderState.questions),
-      href: `/mentor/quiz/question-bank/${id}`,
-      id,
-      primaryMetric: `${builderState.questions.length} soal`,
-      progress: builderState.questions.length
-        ? Math.round((readyCount / builderState.questions.length) * 100)
-        : 0,
-      questionCount: builderState.questions.length,
-      resourceType: "question-bank",
-      reusableIn: ["Quiz"],
-      status: lifecycleStatus,
-      tags: builderState.tags,
-      title: builderState.title || "Bank Soal Baru",
-      updatedAt: "Diedit baru saja",
-    };
-    const questions = builderState.questions.map((question) => ({
-      ...question,
-      bankId: id,
-      subjectCode: question.subjectCode,
-      choices: question.choices.map((choice) => ({ ...choice })),
-      tags: [...question.tags],
-    }));
+    setIsSaving(true); setLifecycleError(null);
+    const result = await saveQuestionBankAction({ description: builderState.description, id: mode === "edit" ? id : undefined, questions: builderState.questions, revision, tags: builderState.tags, title: builderState.title });
+    setIsSaving(false);
+    if (!result.ok) { setLifecycleError(result.message); return; }
+    setLocalBuilderState({ description: result.result.bank.description, questions: result.result.questions, subjectCode: "PU", tags: result.result.bank.tags, title: result.result.bank.title });
+    setRevision(result.result.bank.revision); setLifecycleStatus(result.result.bank.status); setHasUnsavedChanges(false);
+    if (mode === "create") setPendingRouteReplacement(`/mentor/quiz/question-bank/${result.result.bank.id}`);
+  }
 
-    saveQuestionBankDraft({ bank, questions });
-    setLocalBuilderState({ ...builderState, questions });
-    setHasUnsavedChanges(false);
-    if (mode === "create")
-      setPendingRouteReplacement(`/mentor/quiz/question-bank/${id}`);
+  async function updateLifecycle(operation: "publish" | "unpublish") {
+    const id = initialBank?.id ?? bankId;
+    if (!id) return;
+    const result = await updateQuestionBankLifecycleAction(id, operation);
+    if (!result.ok) { setLifecycleError(result.message); return; }
+    setLifecycleStatus(result.result.status); setLifecycleError(null);
   }
 
   return (
@@ -479,13 +469,16 @@ function KaptenQuestionBankBuilderPageModule({
             </span>
           </div>
         </div>
-        <Button onClick={saveDraft} type="button" variant="brand">
-          <Save /> {saveLabel}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={isSaving} onClick={saveDraft} type="button" variant="brand"><Save /> {isSaving ? "Menyimpan..." : saveLabel}</Button>
+          {isDraftLifecycle ? <Button onClick={() => setConfirmationRequest({ confirmLabel: "Terbitkan", description: "Bank lengkap akan tersedia sebagai sumber mock.", onConfirm: () => updateLifecycle("publish"), title: "Terbitkan bank?" })} type="button" variant="brandOutline">Terbitkan</Button> : <Button onClick={() => setConfirmationRequest({ confirmLabel: "Batalkan terbit", description: "Bank kembali menjadi draf dan isi soal dapat diedit.", onConfirm: () => updateLifecycle("unpublish"), title: "Batalkan penerbitan bank?" })} type="button" variant="brandOutline">Jadikan draf</Button>}
+        </div>
       </section>
 
+      {lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{lifecycleError}</p> : null}
+
       <Tabs className="gap-8" onValueChange={setActiveTab} value={activeTab}>
-        {isQuestionContentLocked ? <Alert><AlertTitle>Bank diterbitkan</AlertTitle><AlertDescription>Untuk validasi ini, isi soal dikunci sampai bank dikembalikan ke draf dari katalog. Metadata dan tag tetap dapat diperbarui.</AlertDescription></Alert> : null}
+        {isQuestionContentLocked ? <Alert><AlertTitle className="text-secondary-900">Bank diterbitkan</AlertTitle><AlertDescription className="text-secondary-900">Untuk validasi ini, isi soal dikunci sampai bank dikembalikan ke draf dari katalog. Metadata dan tag tetap dapat diperbarui.</AlertDescription></Alert> : null}
         <div className="border-b border-primary-100">
           <TabsList
             className="h-auto gap-4 rounded-none bg-transparent p-0"
@@ -523,9 +516,18 @@ function KaptenQuestionBankBuilderPageModule({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="bank-tags">Tag bank <span className="font-normal text-secondary-400">(pisahkan koma)</span></FieldLabel>
-                <FieldInput id="bank-tags" onChange={(event) => markChanged({ ...builderState, tags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) })} value={builderState.tags.join(", ")} />
-                <p className="text-xs text-secondary-500">Tag untuk pencarian; kecocokan quiz dan tryout mengikuti Subtest pada setiap soal.</p>
+                <FieldLabel>Tag subject</FieldLabel>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {kaptenSubjects.map((subject) => {
+                    const selected = builderState.tags.includes(subject.code);
+                    const used = builderState.questions.some((question) => question.subjectCode === subject.code);
+                    return <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-2 text-sm text-secondary-700" key={subject.code}>
+                      <input checked={selected} className="size-4 accent-primary-700" disabled={selected && used} onChange={() => markChanged({ ...builderState, tags: selected ? builderState.tags.filter((tag) => tag !== subject.code) : [...builderState.tags, subject.code] })} type="checkbox" />
+                      <span><span className="font-semibold text-primary-800">{subject.code}</span> · {subject.name}</span>
+                    </label>;
+                  })}
+                </div>
+                <p className="text-xs text-secondary-500">Pilih subject untuk pencarian. Kecocokan quiz dan tryout tetap mengikuti Subtest pada setiap soal.</p>
               </Field>
               <Field className="lg:col-span-2">
                 <FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel>
@@ -682,6 +684,7 @@ function KaptenQuestionBankBuilderPageModule({
                           >
                             <ImagePlus />
                           </Button>
+                          <Button aria-label={`Hapus opsi ${choiceLabel}`} disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked} onClick={() => removeChoice(choice.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
                         </div>
                         {choice.mediaAssetId ? (
                           <QuestionMediaAttachment
@@ -701,12 +704,14 @@ function KaptenQuestionBankBuilderPageModule({
                     );
                   })}
                 </div>
+                <div className="flex justify-end"><Button disabled={questionDraft.choices.length >= 5 || isQuestionContentLocked} onClick={addChoice} size="sm" type="button" variant="brandOutline"><Plus />Tambah opsi</Button></div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field>
-                    <FieldLabel htmlFor="question-subtest">Subtest</FieldLabel>
-                    <select className={fieldControlClassName} id="question-subtest" onChange={(event) => updateQuestionDraft({ ...questionDraft, subjectCode: event.target.value })} value={questionDraft.subjectCode}>
-                      {kaptenSubjects.map((subject) => <option key={subject.code} value={subject.code}>{subject.code} - {subject.name}</option>)}
+                    <FieldLabel htmlFor="question-subtest">Tag subject / Topik</FieldLabel>
+                    <select aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : undefined} className={fieldControlClassName} disabled={isQuestionContentLocked} id="question-subtest" onChange={(event) => updateQuestionDraft({ ...questionDraft, subjectCode: event.target.value })} value={questionDraft.subjectCode}>
+                      {kaptenSubjects.filter((subject) => builderState.tags.includes(subject.code)).map((subject) => <option key={subject.code} value={subject.code}>{subject.code} - {subject.name}</option>)}
                     </select>
+                    {isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="question-difficulty">
@@ -728,31 +733,6 @@ function KaptenQuestionBankBuilderPageModule({
                       <option value="medium">Sedang</option>
                       <option value="hard">Sulit</option>
                     </select>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="question-topic">Topik <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
-                    <FieldInput id="question-topic" onChange={(event) => updateQuestionDraft({ ...questionDraft, topic: event.target.value })} value={questionDraft.topic ?? ""} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="question-tags">
-                      Tags{" "}
-                      <span className="font-normal text-secondary-400">
-                        (pisahkan koma)
-                      </span>
-                    </FieldLabel>
-                    <FieldInput
-                      id="question-tags"
-                      onChange={(event) =>
-                        updateQuestionDraft({
-                          ...questionDraft,
-                          tags: event.target.value
-                            .split(",")
-                            .map((tag) => tag.trim())
-                            .filter(Boolean),
-                        })
-                      }
-                      value={questionDraft.tags.join(", ")}
-                    />
                   </Field>
                 </div>
                 <Field>

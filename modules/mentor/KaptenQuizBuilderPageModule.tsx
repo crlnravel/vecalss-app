@@ -46,10 +46,10 @@ import {
   kaptenSubjects,
   questionBanks,
   type BankQuestion,
+  type KaptenQuestionBank,
   type KaptenQuiz,
 } from "@/modules/mentor/mock-data";
-import { getQuestionBankSourceCatalog } from "@/modules/mentor/question-bank-draft-storage";
-import { getStoredQuizDraft, saveQuizDraft } from "@/modules/mentor/quiz-draft-storage";
+import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
 import type {
   QuizBuilderState,
   QuizChoice,
@@ -140,35 +140,24 @@ function getReadiness(questions: QuizQuestionSnapshot[]) {
 function KaptenQuizBuilderPageModule({
   initialQuiz = null,
   initialQuestions,
+  sourceCatalog,
   mode,
   quizId,
   session,
 }: {
   initialQuiz?: KaptenQuiz | null;
   initialQuestions?: QuizQuestionSnapshot[];
+  sourceCatalog: { bank: KaptenQuestionBank; questions: BankQuestion[] }[];
   mode: "create" | "edit";
   quizId?: string;
   session: SessionContext;
 }) {
   const router = useRouter();
-  const initialStoredDraft = initialQuiz ? null : getStoredQuizDraft(quizId);
   const [builderState, setBuilderState] = useState<QuizBuilderState>(() => {
-    if (initialStoredDraft) {
-      return {
-        description: initialStoredDraft.quiz.description,
-        closesAt: initialStoredDraft.quiz.closesAt ?? "",
-        opensAt: initialStoredDraft.quiz.opensAt ?? "",
-        questions: initialStoredDraft.questions,
-        sourceBankId: initialStoredDraft.sourceBankId,
-        subjectCode: initialStoredDraft.quiz.subjectCode ?? "PU",
-        title: initialStoredDraft.quiz.title,
-      };
-    }
-
     return { ...getInitialState(initialQuiz), questions: initialQuestions ?? getInitialState(initialQuiz).questions };
   });
   const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(
-    () => initialStoredDraft?.quiz ?? initialQuiz,
+    () => initialQuiz,
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingRouteReplacement, setPendingRouteReplacement] = useState<string | null>(null);
@@ -181,19 +170,8 @@ function KaptenQuizBuilderPageModule({
   const [questionSearchQuery, setQuestionSearchQuery] = useState("");
   const [questionPage, setQuestionPage] = useState(1);
   const questionSequenceRef = useRef(0);
-  const [sourceCatalog, setSourceCatalog] = useState(() => getQuestionBankSourceCatalog());
-
-  useEffect(() => {
-    const syncSourceCatalog = () => setSourceCatalog(getQuestionBankSourceCatalog());
-
-    syncSourceCatalog();
-    window.addEventListener("storage", syncSourceCatalog);
-    window.addEventListener("vecalss-question-bank-drafts-change", syncSourceCatalog);
-    return () => {
-      window.removeEventListener("storage", syncSourceCatalog);
-      window.removeEventListener("vecalss-question-bank-drafts-change", syncSourceCatalog);
-    };
-  }, []);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const compatibleBanks = useMemo(
     () => sourceCatalog.filter(
@@ -440,33 +418,16 @@ function KaptenQuizBuilderPageModule({
     setIsAddingLocalQuestion(false);
   }
 
-  function saveQuiz(status: "draft" | "published" = quizStatus) {
-    const id = savedQuiz?.id ?? quizId ?? `quiz-${Date.now()}`;
-    const sourceBank = selectedBank?.title ?? "Soal lokal";
-    const quiz: KaptenQuiz = {
-      closesAt: builderState.closesAt || undefined,
-      description: builderState.description,
-      href: `/mentor/quiz/${id}`,
-      id,
-      opensAt: builderState.opensAt || undefined,
-      primaryMetric: `${builderState.questions.length} soal`,
-      progress: builderState.questions.length ? Math.round((readyQuestionCount / builderState.questions.length) * 100) : 0,
-      questionCount: builderState.questions.length,
-      resourceType: "quiz",
-      sourceBank,
-      sourceBankId: builderState.sourceBankId || undefined,
-      status,
-      subjectCode: builderState.subjectCode,
-      subjectName: getSubjectName(builderState.subjectCode),
-      title: builderState.title || "Draft Quiz Baru",
-      updatedAt: "Diedit baru saja",
-    };
-    saveQuizDraft({ quiz, questions: builderState.questions, sourceBankId: builderState.sourceBankId });
-    setSavedQuiz(quiz);
+  async function saveQuiz(status: "draft" | "published" = quizStatus) {
+    setIsSaving(true); setSaveError(null);
+    const result = await saveStandaloneQuizAction({ closesAt: builderState.closesAt, description: builderState.description, id: savedQuiz?.id ?? quizId, opensAt: builderState.opensAt, questions: builderState.questions, sourceBankId: builderState.sourceBankId || undefined, status, subjectCode: builderState.subjectCode, title: builderState.title });
+    setIsSaving(false);
+    if (!result.ok) { setSaveError(result.message); return; }
+    setSavedQuiz(result.quiz);
     setHasUnsavedChanges(false);
 
     if (!quizId) {
-      setPendingRouteReplacement(quiz.href);
+      setPendingRouteReplacement(result.quiz.href);
     }
   }
 
@@ -540,9 +501,9 @@ function KaptenQuizBuilderPageModule({
             <Eye />
             Preview
           </Button>
-          <Button onClick={() => saveQuiz()} type="button" variant="brand">
+          <Button disabled={isSaving} onClick={() => saveQuiz()} type="button" variant="brand">
             <Save />
-            {saveLabel}
+            {isSaving ? "Menyimpan..." : saveLabel}
           </Button>
           {isDraft ? (
             <Button disabled={Boolean(publishError)} onClick={publishQuiz} type="button" variant="brandOutline">
@@ -564,6 +525,7 @@ function KaptenQuizBuilderPageModule({
           )}
         </div>
       </section>
+      {saveError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{saveError}</p> : null}
 
       {isPreviewOpen ? (
             <section aria-live="polite" className="rounded-3xl border border-primary-100 bg-white px-5 py-6 shadow-sm md:px-7">

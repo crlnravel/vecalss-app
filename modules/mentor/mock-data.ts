@@ -47,6 +47,7 @@ type KaptenQuiz = KaptenResource & {
 type KaptenQuestionBank = KaptenResource & {
   difficultyMix: string;
   questionCount: number;
+  revision?: number;
   reusableIn: string[];
   /** Discovery only. Question subtests are the compatibility authority. */
   tags?: string[];

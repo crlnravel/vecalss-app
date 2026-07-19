@@ -3,9 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 
 import {
-  bankQuestions,
   kaptenSubjects,
-  questionBanks,
   type BankQuestion,
   type KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
@@ -14,6 +12,7 @@ const storageKey = "vecalss.kapten.question-bank-drafts.v2";
 const legacyStorageKey = "vecalss.kapten.question-bank-drafts.v1";
 const changeEvent = "vecalss-question-bank-drafts-change";
 const serverStorageSnapshot = "__vecalss_server_question_bank_storage_snapshot__";
+const subjectCodes = new Set(kaptenSubjects.map((subject) => subject.code));
 
 type StoredQuestionBankDraft = {
   bank: KaptenQuestionBank;
@@ -50,8 +49,8 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     && (value.explanationMediaAssetId === undefined || (typeof value.explanationMediaAssetId === "string" && value.explanationMediaAssetId.trim().length > 0))
     && ["easy", "medium", "hard"].includes(value.difficulty as string)
     && typeof value.subjectCode === "string"
-    && (value.topic === undefined || typeof value.topic === "string")
-    && value.choices.length === 4
+    && value.choices.length >= 2
+    && value.choices.length <= 5
     && value.choices.every(isQuestionChoice)
     && new Set(value.choices.map((choice) => choice.id)).size === value.choices.length
     && value.choices.filter((choice) => choice.id === value.correctChoiceId).length === 1
@@ -137,10 +136,36 @@ function parseDrafts(value: string | null): StoredQuestionBankDraft[] {
       counts.set(draft.bank.id, (counts.get(draft.bank.id) ?? 0) + 1);
     }
 
-    return validDrafts.filter((draft) => counts.get(draft.bank.id) === 1);
+    return validDrafts
+      .filter((draft) => counts.get(draft.bank.id) === 1)
+      .map(sanitizeDraft);
   } catch {
     return [];
   }
+}
+
+function sanitizeDraft(draft: StoredQuestionBankDraft): StoredQuestionBankDraft {
+  const questions = draft.questions.map((question) => ({
+    ...question,
+    subjectCode: subjectCodes.has(question.subjectCode) ? question.subjectCode : subjectCodes.has(draft.bank.subjectCode ?? "") ? draft.bank.subjectCode! : "PU",
+    // Free-form question tags were a prototype-only field. Subtest is now the
+    // complete question classification shown to Kapten.
+    tags: [],
+    topic: undefined,
+  }));
+  const originalTags = draft.bank.tags;
+  const validTags = originalTags?.filter((tag) => subjectCodes.has(tag)) ?? [];
+  const containsLegacyTag = Boolean(originalTags?.some((tag) => !subjectCodes.has(tag))) || (!originalTags && Boolean(draft.bank.topic));
+  const derivedTags = [...new Set(questions.map((question) => question.subjectCode))];
+
+  return {
+    ...draft,
+    bank: {
+      ...draft.bank,
+      tags: containsLegacyTag || originalTags === undefined ? derivedTags : [...new Set(validTags)],
+    },
+    questions,
+  };
 }
 
 function readDrafts() {
@@ -153,7 +178,7 @@ function readDrafts() {
 
   // The v1 prototype treated bank.subjectCode as authoritative. Keep the
   // draft readable, but move its classification onto every question instead.
-  const migrated = parseDrafts(window.localStorage.getItem(legacyStorageKey)).map((draft) => ({
+  const migrated = parseDrafts(window.localStorage.getItem(legacyStorageKey)).map((draft) => sanitizeDraft({
     ...draft,
     bank: { ...draft.bank, tags: draft.bank.tags ?? (draft.bank.topic ? [draft.bank.topic] : []) },
     questions: draft.questions.map((question) => ({
@@ -202,13 +227,14 @@ function useStoredQuestionBankDraft(id: string) {
 }
 
 function saveQuestionBankDraft(draft: Omit<StoredQuestionBankDraft, "savedAt">) {
-  if (!isStoredQuestionBankDraft({ ...draft, savedAt: 0 })) {
+  const sanitizedDraft = sanitizeDraft({ ...draft, savedAt: 0 });
+  if (!isStoredQuestionBankDraft(sanitizedDraft)) {
     throw new Error("Question Bank draft is not structurally valid");
   }
 
   const drafts = readDrafts();
-  const savedDraft: StoredQuestionBankDraft = { ...draft, savedAt: Date.now() };
-  const existingIndex = drafts.findIndex((item) => item.bank.id === draft.bank.id);
+  const savedDraft: StoredQuestionBankDraft = { ...sanitizedDraft, savedAt: Date.now() };
+  const existingIndex = drafts.findIndex((item) => item.bank.id === sanitizedDraft.bank.id);
 
   if (existingIndex >= 0) {
     drafts[existingIndex] = savedDraft;
@@ -220,34 +246,9 @@ function saveQuestionBankDraft(draft: Omit<StoredQuestionBankDraft, "savedAt">) 
   return savedDraft;
 }
 
-function getQuestionBankCatalog(
-  baseBanks: KaptenQuestionBank[] = questionBanks,
-  baseQuestions: BankQuestion[] = bankQuestions,
-) {
+function getQuestionBankCatalog() {
   const drafts = readDrafts().sort((a, b) => b.savedAt - a.savedAt);
-  const storedById = new Map(drafts.map((draft) => [draft.bank.id, draft]));
-  const seedByBankId = new Map(baseQuestions.map((question) => [question.bankId, [] as BankQuestion[]]));
-
-  for (const question of baseQuestions) {
-    seedByBankId.get(question.bankId)?.push(question);
-  }
-
-  const composed = baseBanks.map((bank) => {
-    const override = storedById.get(bank.id);
-    return {
-      bank: override?.bank ?? bank,
-      questions: override?.questions ?? seedByBankId.get(bank.id) ?? [],
-    };
-  });
-  const seedIds = new Set(baseBanks.map((bank) => bank.id));
-
-  for (const draft of drafts) {
-    if (!seedIds.has(draft.bank.id)) {
-      composed.unshift({ bank: draft.bank, questions: draft.questions });
-    }
-  }
-
-  return composed;
+  return drafts.map((draft) => ({ bank: draft.bank, questions: draft.questions }));
 }
 
 function getQuestionBankSourceCatalog() {
@@ -299,7 +300,8 @@ function updateQuestionBankLifecycle(
 function isReadyBankQuestion(question: BankQuestion) {
   return (
     question.prompt.trim().length > 0
-    && question.choices.length === 4
+    && question.choices.length >= 2
+    && question.choices.length <= 5
     && question.choices.every((choice) => choice.text.trim().length > 0)
     && question.choices.some((choice) => choice.id === question.correctChoiceId)
   );

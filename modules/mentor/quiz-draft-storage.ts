@@ -145,6 +145,23 @@ function useStoredQuizDraft(id: string) {
   }, [id, serializedDrafts]);
 }
 
+function useStoredQuizDrafts() {
+  const serializedDrafts = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener("storage", onStoreChange);
+      window.addEventListener(changeEvent, onStoreChange);
+      return () => {
+        window.removeEventListener("storage", onStoreChange);
+        window.removeEventListener(changeEvent, onStoreChange);
+      };
+    },
+    () => window.localStorage.getItem(storageKey) ?? serverStorageSnapshot,
+    () => serverStorageSnapshot,
+  );
+
+  return useMemo(() => serializedDrafts === serverStorageSnapshot ? undefined : parseDrafts(serializedDrafts), [serializedDrafts]);
+}
+
 function saveQuizDraft(draft: Omit<StoredQuizDraft, "savedAt">) {
   const drafts = readDrafts();
   const savedDraft: StoredQuizDraft = { ...draft, savedAt: Date.now() };
@@ -192,6 +209,7 @@ export {
   getStoredQuizDraft,
   saveQuizDraft,
   useStoredQuizDraft,
+  useStoredQuizDrafts,
 };
 
 export type { StoredQuizDraft };
