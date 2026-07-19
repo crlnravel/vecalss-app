@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
-  ChevronDown,
   ChevronRight,
   CircleHelp,
   ImagePlus,
@@ -46,7 +45,6 @@ import {
   type KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 import {
-  getSubjectName,
   saveQuestionBankDraft,
   useStoredQuestionBankDraft,
 } from "@/modules/mentor/question-bank-draft-storage";
@@ -177,7 +175,7 @@ function KaptenQuestionBankBuilderPageModule({
     questions: initialQuestions,
     subjectCode: initialBank?.subjectCode ?? "PU",
     title: initialBank?.title ?? "Bank Soal Baru",
-    topic: initialBank?.topic ?? "",
+    tags: initialBank?.tags ?? (initialBank?.topic ? [initialBank.topic] : []),
   }));
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("information");
@@ -202,9 +200,9 @@ function KaptenQuestionBankBuilderPageModule({
       return {
         description: storedDraft.bank.description,
         questions: storedDraft.questions,
-        subjectCode: storedDraft.bank.subjectCode ?? "PU",
+        subjectCode: "PU",
         title: storedDraft.bank.title,
-        topic: storedDraft.bank.topic ?? "",
+        tags: storedDraft.bank.tags ?? (storedDraft.bank.topic ? [storedDraft.bank.topic] : []),
       };
     }
 
@@ -217,9 +215,9 @@ function KaptenQuestionBankBuilderPageModule({
       ) ?? null)
     : null;
   const readyCount = builderState.questions.filter(isReady).length;
-  const subjectLocked = builderState.questions.length > 0;
   const lifecycleStatus =
     storedDraft?.bank.status ?? initialBank?.status ?? "draft";
+  const isQuestionContentLocked = lifecycleStatus === "published";
   const isDraftLifecycle = lifecycleStatus === "draft";
   const saveLabel = isDraftLifecycle ? "Simpan Draft" : "Simpan perubahan";
   const inventoryPageCount = Math.max(
@@ -275,7 +273,7 @@ function KaptenQuestionBankBuilderPageModule({
   }
 
   function updateMetadata(
-    field: "title" | "description" | "topic",
+    field: "title" | "description",
     value: string,
   ) {
     markChanged({ ...builderState, [field]: value });
@@ -292,12 +290,6 @@ function KaptenQuestionBankBuilderPageModule({
     pendingRequest?.onConfirm();
   }
 
-  function selectSubject(subjectCode: string) {
-    if (subjectLocked || subjectCode === builderState.subjectCode) return;
-    setQuestionDraft((question) => ({ ...question, subjectCode }));
-    markChanged({ ...builderState, subjectCode });
-  }
-
   function openQuestion(question: BankQuestion) {
     setActiveQuestionId(question.id);
     setQuestionDraft({
@@ -308,6 +300,7 @@ function KaptenQuestionBankBuilderPageModule({
   }
 
   function updateQuestionDraft(next: BankQuestion) {
+    if (isQuestionContentLocked) return;
     setQuestionDraft(next);
     if (!activeQuestionId) return;
     markChanged({
@@ -356,6 +349,7 @@ function KaptenQuestionBankBuilderPageModule({
   }
 
   function addQuestion() {
+    if (isQuestionContentLocked) return;
     const id = `${builderState.subjectCode.toLowerCase()}-question-${Date.now()}`;
     const nextQuestion = {
       ...emptyQuestion(
@@ -378,6 +372,7 @@ function KaptenQuestionBankBuilderPageModule({
   }
 
   function removeQuestion(id: string) {
+    if (isQuestionContentLocked) return;
     const questions = builderState.questions.filter(
       (question) => question.id !== id,
     );
@@ -423,16 +418,14 @@ function KaptenQuestionBankBuilderPageModule({
       resourceType: "question-bank",
       reusableIn: ["Quiz"],
       status: lifecycleStatus,
-      subjectCode: builderState.subjectCode,
-      subjectName: getSubjectName(builderState.subjectCode),
+      tags: builderState.tags,
       title: builderState.title || "Bank Soal Baru",
-      topic: builderState.topic,
       updatedAt: "Diedit baru saja",
     };
     const questions = builderState.questions.map((question) => ({
       ...question,
       bankId: id,
-      subjectCode: builderState.subjectCode,
+      subjectCode: question.subjectCode,
       choices: question.choices.map((choice) => ({ ...choice })),
       tags: [...question.tags],
     }));
@@ -492,6 +485,7 @@ function KaptenQuestionBankBuilderPageModule({
       </section>
 
       <Tabs className="gap-8" onValueChange={setActiveTab} value={activeTab}>
+        {isQuestionContentLocked ? <Alert><AlertTitle>Bank diterbitkan</AlertTitle><AlertDescription>Untuk validasi ini, isi soal dikunci sampai bank dikembalikan ke draf dari katalog. Metadata dan tag tetap dapat diperbarui.</AlertDescription></Alert> : null}
         <div className="border-b border-primary-100">
           <TabsList
             className="h-auto gap-4 rounded-none bg-transparent p-0"
@@ -529,43 +523,9 @@ function KaptenQuestionBankBuilderPageModule({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="bank-topic">
-                  Topik{" "}
-                  <span className="font-normal text-secondary-400">
-                    (opsional)
-                  </span>
-                </FieldLabel>
-                <FieldInput
-                  id="bank-topic"
-                  onChange={(event) =>
-                    updateMetadata("topic", event.target.value)
-                  }
-                  value={builderState.topic}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bank-subject">Subject</FieldLabel>
-                <div className="relative">
-                  <select
-                    className={`${fieldControlClassName} appearance-none pr-12`}
-                    disabled={subjectLocked}
-                    id="bank-subject"
-                    onChange={(event) => selectSubject(event.target.value)}
-                    value={builderState.subjectCode}
-                  >
-                    {kaptenSubjects.map((subject) => (
-                      <option key={subject.code} value={subject.code}>
-                        {subject.code} - {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-                </div>
-                {subjectLocked ? (
-                  <p className="mt-2 text-xs text-secondary-500">
-                    Subject terkunci setelah soal pertama ditambahkan.
-                  </p>
-                ) : null}
+                <FieldLabel htmlFor="bank-tags">Tag bank <span className="font-normal text-secondary-400">(pisahkan koma)</span></FieldLabel>
+                <FieldInput id="bank-tags" onChange={(event) => markChanged({ ...builderState, tags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) })} value={builderState.tags.join(", ")} />
+                <p className="text-xs text-secondary-500">Tag untuk pencarian; kecocokan quiz dan tryout mengikuti Subtest pada setiap soal.</p>
               </Field>
               <Field className="lg:col-span-2">
                 <FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel>
@@ -743,6 +703,12 @@ function KaptenQuestionBankBuilderPageModule({
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field>
+                    <FieldLabel htmlFor="question-subtest">Subtest</FieldLabel>
+                    <select className={fieldControlClassName} id="question-subtest" onChange={(event) => updateQuestionDraft({ ...questionDraft, subjectCode: event.target.value })} value={questionDraft.subjectCode}>
+                      {kaptenSubjects.map((subject) => <option key={subject.code} value={subject.code}>{subject.code} - {subject.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field>
                     <FieldLabel htmlFor="question-difficulty">
                       Tingkat kesulitan
                     </FieldLabel>
@@ -762,6 +728,10 @@ function KaptenQuestionBankBuilderPageModule({
                       <option value="medium">Sedang</option>
                       <option value="hard">Sulit</option>
                     </select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="question-topic">Topik <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel>
+                    <FieldInput id="question-topic" onChange={(event) => updateQuestionDraft({ ...questionDraft, topic: event.target.value })} value={questionDraft.topic ?? ""} />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="question-tags">
@@ -921,8 +891,7 @@ function KaptenQuestionBankBuilderPageModule({
                   ))
                 ) : (
                   <p className="px-2 py-4 text-sm leading-6 text-secondary-500">
-                    Belum ada soal. Tambahkan soal pertama untuk mengunci
-                    subject.
+                    Belum ada soal. Tambahkan soal pertama dan pilih Subtest-nya.
                   </p>
                 )}
               </div>

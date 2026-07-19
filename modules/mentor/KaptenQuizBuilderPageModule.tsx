@@ -49,8 +49,7 @@ import {
   type KaptenQuiz,
 } from "@/modules/mentor/mock-data";
 import { getQuestionBankSourceCatalog } from "@/modules/mentor/question-bank-draft-storage";
-import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
-import { getStoredQuizDraft } from "@/modules/mentor/quiz-draft-storage";
+import { getStoredQuizDraft, saveQuizDraft } from "@/modules/mentor/quiz-draft-storage";
 import type {
   QuizBuilderState,
   QuizChoice,
@@ -198,7 +197,7 @@ function KaptenQuizBuilderPageModule({
 
   const compatibleBanks = useMemo(
     () => sourceCatalog.filter(
-      ({ bank, questions }) => bank.subjectCode === builderState.subjectCode && questions.length > 0,
+      ({ questions }) => questions.some((question) => question.subjectCode === builderState.subjectCode),
     ),
     [builderState.subjectCode, sourceCatalog],
   );
@@ -212,7 +211,7 @@ function KaptenQuizBuilderPageModule({
     ),
   );
   const availableBankQuestions = (selectedBankEntry?.questions ?? []).filter(
-    (question) => !selectedSourceQuestionIds.has(question.id),
+    (question) => question.subjectCode === builderState.subjectCode && !selectedSourceQuestionIds.has(question.id),
   );
   const filteredBankQuestions = useMemo(() => {
     const normalizedQuery = questionSearchQuery.trim().toLowerCase();
@@ -419,7 +418,7 @@ function KaptenQuizBuilderPageModule({
       && localQuestion.choices.every((choice) => choice.text.trim())
       && localQuestion.choices.some((choice) => choice.id === localQuestion.correctChoiceId);
 
-    if (!isValid || !builderState.sourceBankId) {
+    if (!isValid) {
       return;
     }
 
@@ -441,24 +440,33 @@ function KaptenQuizBuilderPageModule({
     setIsAddingLocalQuestion(false);
   }
 
-  async function saveQuiz(status: "draft" | "published" = quizStatus) {
-    const currentQuiz = savedQuiz;
-    const result = await saveStandaloneQuizAction({
-      closesAt: builderState.closesAt,
+  function saveQuiz(status: "draft" | "published" = quizStatus) {
+    const id = savedQuiz?.id ?? quizId ?? `quiz-${Date.now()}`;
+    const sourceBank = selectedBank?.title ?? "Soal lokal";
+    const quiz: KaptenQuiz = {
+      closesAt: builderState.closesAt || undefined,
       description: builderState.description,
-      id: currentQuiz?.id,
-      opensAt: builderState.opensAt,
-      questions: builderState.questions,
+      href: `/mentor/quiz/${id}`,
+      id,
+      opensAt: builderState.opensAt || undefined,
+      primaryMetric: `${builderState.questions.length} soal`,
+      progress: builderState.questions.length ? Math.round((readyQuestionCount / builderState.questions.length) * 100) : 0,
+      questionCount: builderState.questions.length,
+      resourceType: "quiz",
+      sourceBank,
+      sourceBankId: builderState.sourceBankId || undefined,
       status,
       subjectCode: builderState.subjectCode,
-      title: builderState.title,
-    });
-    if (!result.ok) return;
-    setSavedQuiz(result.quiz);
+      subjectName: getSubjectName(builderState.subjectCode),
+      title: builderState.title || "Draft Quiz Baru",
+      updatedAt: "Diedit baru saja",
+    };
+    saveQuizDraft({ quiz, questions: builderState.questions, sourceBankId: builderState.sourceBankId });
+    setSavedQuiz(quiz);
     setHasUnsavedChanges(false);
 
     if (!quizId) {
-      setPendingRouteReplacement(result.quiz.href);
+      setPendingRouteReplacement(quiz.href);
     }
   }
 
@@ -757,7 +765,7 @@ function KaptenQuizBuilderPageModule({
                       {selectedBank ? `Soal dari ${selectedBank.title} akan disalin ke quiz ini.` : "Pilih Question Bank yang sesuai dengan subject terlebih dahulu."}
                     </p>
                   </div>
-                  <Button disabled={!selectedBank} onClick={() => setIsAddingLocalQuestion((current) => !current)} type="button" variant="brandOutline">
+                  <Button onClick={() => setIsAddingLocalQuestion((current) => !current)} type="button" variant="brandOutline">
                     <Plus />
                     Soal lokal
                   </Button>
@@ -824,7 +832,7 @@ function KaptenQuizBuilderPageModule({
                   </div>
                 )}
 
-                {isAddingLocalQuestion && selectedBank ? (
+                {isAddingLocalQuestion ? (
                   <div className="mt-5 rounded-3xl border border-primary-200 bg-primary-50/45 p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>

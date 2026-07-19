@@ -10,7 +10,8 @@ import {
   type KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 
-const storageKey = "vecalss.kapten.question-bank-drafts.v1";
+const storageKey = "vecalss.kapten.question-bank-drafts.v2";
+const legacyStorageKey = "vecalss.kapten.question-bank-drafts.v1";
 const changeEvent = "vecalss-question-bank-drafts-change";
 const serverStorageSnapshot = "__vecalss_server_question_bank_storage_snapshot__";
 
@@ -49,6 +50,7 @@ function isBankQuestion(value: unknown): value is BankQuestion {
     && (value.explanationMediaAssetId === undefined || (typeof value.explanationMediaAssetId === "string" && value.explanationMediaAssetId.trim().length > 0))
     && ["easy", "medium", "hard"].includes(value.difficulty as string)
     && typeof value.subjectCode === "string"
+    && (value.topic === undefined || typeof value.topic === "string")
     && value.choices.length === 4
     && value.choices.every(isQuestionChoice)
     && new Set(value.choices.map((choice) => choice.id)).size === value.choices.length
@@ -81,9 +83,10 @@ function isKaptenQuestionBank(value: unknown): value is KaptenQuestionBank {
     && Array.isArray(value.reusableIn)
     && value.reusableIn.every((item) => typeof item === "string")
     && ["draft", "scheduled", "published", "archived"].includes(value.status as string)
-    && typeof value.subjectCode === "string"
+    && (value.subjectCode === undefined || typeof value.subjectCode === "string")
     && (value.subjectName === undefined || typeof value.subjectName === "string")
     && (value.topic === undefined || typeof value.topic === "string")
+    && (value.tags === undefined || (Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === "string")))
     && (value.scheduledFor === undefined || typeof value.scheduledFor === "string")
     && typeof value.updatedAt === "string"
   );
@@ -106,7 +109,6 @@ function isStoredQuestionBankDraft(value: unknown): value is StoredQuestionBankD
       if (
         !isBankQuestion(question)
         || question.bankId !== bank.id
-        || question.subjectCode !== bank.subjectCode
         || ids.has(question.id)
       ) {
         return false;
@@ -146,7 +148,21 @@ function readDrafts() {
     return [];
   }
 
-  return parseDrafts(window.localStorage.getItem(storageKey));
+  const current = parseDrafts(window.localStorage.getItem(storageKey));
+  if (current.length || !window.localStorage.getItem(legacyStorageKey)) return current;
+
+  // The v1 prototype treated bank.subjectCode as authoritative. Keep the
+  // draft readable, but move its classification onto every question instead.
+  const migrated = parseDrafts(window.localStorage.getItem(legacyStorageKey)).map((draft) => ({
+    ...draft,
+    bank: { ...draft.bank, tags: draft.bank.tags ?? (draft.bank.topic ? [draft.bank.topic] : []) },
+    questions: draft.questions.map((question) => ({
+      ...question,
+      subjectCode: question.subjectCode || draft.bank.subjectCode || "PU",
+    })),
+  }));
+  if (migrated.length) writeDrafts(migrated);
+  return migrated;
 }
 
 function writeDrafts(drafts: StoredQuestionBankDraft[]) {
@@ -237,8 +253,8 @@ function getQuestionBankCatalog(
 function getQuestionBankSourceCatalog() {
   return getQuestionBankCatalog().map(({ bank, questions }) => ({
     bank,
-    questions: questions.filter(isReadyBankQuestion),
-  }));
+    questions: bank.status === "published" ? questions.filter(isReadyBankQuestion) : [],
+  })).filter(({ questions }) => questions.length > 0);
 }
 
 function updateQuestionBankLifecycle(

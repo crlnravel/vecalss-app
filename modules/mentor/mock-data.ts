@@ -48,6 +48,8 @@ type KaptenQuestionBank = KaptenResource & {
   difficultyMix: string;
   questionCount: number;
   reusableIn: string[];
+  /** Discovery only. Question subtests are the compatibility authority. */
+  tags?: string[];
   topic?: string;
 };
 
@@ -67,6 +69,7 @@ type BankQuestion = {
   promptMediaAssetId?: string;
   subjectCode: string;
   tags: string[];
+  topic?: string;
 };
 
 type KaptenTryout = KaptenResource & {

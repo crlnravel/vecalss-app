@@ -54,7 +54,7 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
 function KaptenQuizPageModule({ session, subjects }: { session: SessionContext; subjects: KaptenSubject[] }) {
   return (
     <MentorWorkspaceShell activeLabel="Quiz" breadcrumbLabel="Quiz" searchPlaceholder="Cari quiz atau subject..." session={session}>
-      <PageIntro title="Quiz" />
+      <PageIntro action={<Button render={<Link href="/mentor/quiz/create" />} variant="brand"><Plus />Buat Quiz</Button>} title="Quiz" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {subjects.map((subject) => <SubjectCard key={subject.slug} subject={subject} />)}
       </div>

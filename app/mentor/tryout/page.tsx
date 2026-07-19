@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { KaptenTryoutPageModule } from "@/modules/mentor/KaptenContentPageModules";
+import { KaptenTryoutPageModule } from "@/modules/mentor/KaptenTryoutModules";
 
 export const metadata: Metadata = {
   title: "Tryout Kapten | Vecalss LMS",

@@ -17,6 +17,9 @@
     "test:media-domain": "tsx scripts/test-media-domain.ts",
     "db:verify-materi": "node scripts/verify-materi-catalogue.mjs",
     "db:verify-materi-cutover": "node scripts/verify-materi-catalogue.mjs",
+    "db:guard-assessment-prototype-reset": "node scripts/guard-assessment-prototype-reset.mjs",
+    "db:apply-assessment-prototype-reset": "node scripts/guard-assessment-prototype-reset.mjs --apply",
+    "test:guard-assessment-prototype-reset": "node scripts/test-guard-assessment-prototype-reset.mjs",
     "verify": "pnpm lint && pnpm build"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ import type { KaptenQuiz, KaptenResource } from "@/modules/mentor/mock-data";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 
 const storageKey = "vecalss-kapten-quiz-drafts";
+const changeEvent = "vecalss-quiz-drafts-change";
 const serverStorageSnapshot = "__vecalss_server_storage_snapshot__";
 
 type StoredQuizDraft = {
@@ -110,6 +111,7 @@ function readDrafts() {
 
 function writeDrafts(drafts: StoredQuizDraft[]) {
   window.localStorage.setItem(storageKey, JSON.stringify(drafts));
+  window.dispatchEvent(new Event(changeEvent));
 }
 
 function getStoredQuizDraft(id: string | undefined) {
@@ -124,7 +126,11 @@ function useStoredQuizDraft(id: string) {
   const serializedDrafts = useSyncExternalStore(
     (onStoreChange) => {
       window.addEventListener("storage", onStoreChange);
-      return () => window.removeEventListener("storage", onStoreChange);
+      window.addEventListener(changeEvent, onStoreChange);
+      return () => {
+        window.removeEventListener("storage", onStoreChange);
+        window.removeEventListener(changeEvent, onStoreChange);
+      };
     },
     () => window.localStorage.getItem(storageKey) ?? serverStorageSnapshot,
     () => serverStorageSnapshot,
