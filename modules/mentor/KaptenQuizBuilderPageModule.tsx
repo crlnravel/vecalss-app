@@ -17,6 +17,7 @@ import {
   Save,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -526,7 +527,7 @@ function KaptenQuizBuilderPageModule({
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuGroup>
                 {isDraft ? (
-                  <DropdownMenuItem disabled={Boolean(publishError)} onClick={publishQuiz}>Terbitkan</DropdownMenuItem>
+                  <DropdownMenuItem disabled={Boolean(publishError)} onClick={publishQuiz}><Upload />Terbitkan</DropdownMenuItem>
                 ) : quizStatus === "published" ? (
                   <DropdownMenuItem onClick={() => setConfirmationRequest({
                     confirmLabel: "Batalkan publikasi",

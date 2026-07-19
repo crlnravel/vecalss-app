@@ -296,11 +296,11 @@ function MediaLibrary({
           action: trashRequest.kind === "asset" ? "trash-asset" : "trash-folder",
           [`${trashRequest.kind}Id`]: trashRequest.id,
         },
-        "Item dipindahkan ke Trash.",
+        "Item dimasukkan ke Sampah.",
       );
       setTrashRequest(null);
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dipindahkan ke Trash.");
+      setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dimasukkan ke Sampah.");
     }
   };
 
@@ -356,6 +356,17 @@ function MediaLibrary({
     void handleFiles(Array.from(event.dataTransfer.files));
   };
 
+  const handlePreview = async (asset: MediaAssetDto) => {
+    setPreviewAsset({ ...asset, previewUrl: null });
+    try {
+      const response = await fetch(`/api/media/${scope}/assets/${asset.id}/preview`, { cache: "no-store" });
+      const payload = await readJson<{ previewUrl: string }>(response);
+      setPreviewAsset((current) => current?.id === asset.id ? { ...asset, previewUrl: payload.previewUrl } : current);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Preview gambar belum tersedia.");
+    }
+  };
+
   const openRename = (item: EditableItem) => {
     setEditingItem(item);
     setEditingName(item.name);
@@ -383,7 +394,7 @@ function MediaLibrary({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setTrashRequest(item)} variant="destructive">
             <Trash2 />
-            Pindahkan ke Trash
+            Masukkan Sampah
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
@@ -392,17 +403,17 @@ function MediaLibrary({
 
   return (
     <section className={cn("flex min-w-0 flex-col gap-5", className)}>
-      <div className={cn("flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between", isDrive && "rounded-[1.75rem] border border-primary-100 bg-white p-3 shadow-sm md:p-4")}>
+      <div className={cn("flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between", isDrive && "p-0")}>
         <div className="flex flex-wrap items-center gap-2">
           {!isPicker ? (
-            <Button onClick={() => setFolderDialogOpen(true)} variant="brandOutline">
-              <FolderPlus data-icon="inline-start" />
-              Folder baru
+            <Button aria-label="Buat folder baru" onClick={() => setFolderDialogOpen(true)} size={isDrive ? "icon" : "default"} variant="brandOutline">
+              <FolderPlus />
+              {!isDrive ? "Folder baru" : null}
             </Button>
           ) : null}
-          <Button disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} variant="brand">
-            {uploadStatus ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <Upload data-icon="inline-start" />}
-            {uploadStatus ? "Mengupload" : "Upload gambar"}
+          <Button aria-label={uploadStatus ? "Mengupload gambar" : "Upload gambar"} disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} size={isDrive ? "icon" : "default"} variant="brand">
+            {uploadStatus ? <LoaderCircle className="animate-spin" /> : <Upload />}
+            {!isDrive ? (uploadStatus ? "Mengupload" : "Upload gambar") : null}
           </Button>
           <input
             accept="image/jpeg,image/png,image/webp,image/gif"
@@ -445,7 +456,7 @@ function MediaLibrary({
       <div
         className={cn(
           "relative min-h-[28rem] overflow-hidden rounded-[2rem] border border-primary-100 bg-white transition-[border-color,background-color] duration-150",
-          isDrive && "min-h-[42rem] rounded-[1.75rem] bg-white/95 shadow-sm",
+          isDrive && "flex h-[calc(100svh-10rem)] min-h-0 flex-col rounded-[1.5rem] bg-white/95 shadow-sm",
           isDragging && "border-primary-500 bg-primary-50/70",
         )}
         onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
@@ -465,13 +476,11 @@ function MediaLibrary({
           </div>
         ) : null}
 
-        <div className={cn("flex flex-col gap-4 border-b border-primary-100 px-5 py-4 md:px-6", isDrive && "gap-5 px-5 py-5 md:px-7 md:py-6")}>
+        <div className={cn("flex flex-col gap-4 border-b border-primary-100 px-5 py-4 md:px-6", isDrive && "gap-3 px-5 py-3 md:px-6 md:py-4")}>
           {isDrive ? (
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-1.5">
-                <p className="text-xs font-semibold tracking-[0.12em] text-primary-700 uppercase">Library Kapten</p>
-                <h1 className="text-2xl leading-tight font-semibold tracking-[-0.02em] text-secondary-900 md:text-3xl">Media</h1>
-                <p className="text-sm text-secondary-500">Kelola gambar bersama untuk Bank Soal Kapten.</p>
+                <h1 className="text-xl leading-tight font-semibold tracking-[-0.02em] text-secondary-900 md:text-2xl">Media</h1>
               </div>
               <div aria-label="Tampilan media" className="flex items-center rounded-full border border-primary-100 bg-primary-50/60 p-1" role="group">
                 <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} className="rounded-full" onClick={() => setViewMode("list")} size="icon-sm" variant={viewMode === "list" ? "brand" : "ghost"}><List /></Button>
@@ -479,7 +488,7 @@ function MediaLibrary({
               </div>
             </div>
           ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className={cn("flex flex-wrap items-center justify-between gap-3", isDrive && snapshot?.breadcrumbs.length === 1 && "hidden")}>
             <Breadcrumb>
               <BreadcrumbList>
                 {snapshot?.breadcrumbs.map((breadcrumb, index) => (
@@ -502,11 +511,6 @@ function MediaLibrary({
                 ))}
               </BreadcrumbList>
             </Breadcrumb>
-            <span className="text-xs font-medium text-secondary-500">{snapshot ? `${snapshot.folders.length} folder · ${snapshot.assets.length} gambar` : "Memuat library"}</span>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-secondary-500">
-            <span>{query ? `Hasil untuk “${query}”` : "Seret gambar ke area ini untuk upload cepat"}</span>
-            {isDrive ? <span>JPG, PNG, WebP, atau GIF · maks. 15 MB</span> : null}
           </div>
         </div>
 
@@ -524,8 +528,9 @@ function MediaLibrary({
           </div>
         ) : null}
 
+        <div className={cn("min-h-0", isDrive && "flex-1 overflow-y-auto") }>
         {isLoading ? (
-          <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && viewMode === "grid" && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4")}>
+          <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && viewMode === "grid" && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6")}>
             {Array.from({ length: 5 }, (_, index) => (
               <Skeleton className={cn("h-16 w-full rounded-2xl", isDrive && viewMode === "grid" && "h-56")} key={index} />
             ))}
@@ -535,9 +540,9 @@ function MediaLibrary({
             {snapshot.folders.length > 0 ? (
               <div className={cn("flex flex-col", isDrive && "gap-3")}>
                 <div className={cn("px-5 pt-5 pb-2 text-xs font-semibold tracking-[0.1em] text-secondary-500 uppercase md:px-6", isDrive && "px-0 pt-0 pb-0 md:px-0")}>Folder</div>
-                <div className={cn(isDrive && "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4")}>
+                <div className={cn(isDrive && "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6")}>
                 {snapshot.folders.map((folderItem) => (
-                  <div className={cn("grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.7fr_44px] md:px-6", isDrive && "min-h-[4.5rem] rounded-2xl border border-primary-100 bg-primary-50/40 px-3 hover:border-primary-200 hover:bg-primary-50 md:grid-cols-[minmax(0,1fr)_auto] md:px-3")} key={folderItem.id}>
+                  <div className={cn("grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.7fr_44px] md:px-6", isDrive && "min-h-16 rounded-2xl border border-primary-100 bg-primary-50/40 px-3 hover:border-primary-200 hover:bg-primary-50 md:grid-cols-[minmax(0,1fr)_auto] md:px-3")} key={folderItem.id}>
                     <button className="flex min-h-16 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20" onClick={() => setFolderId(folderItem.id)} type="button">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800"><Folder className="size-5" /></span>
                       <span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{folderItem.name}</span>{isDrive ? <span className="mt-0.5 block text-xs text-secondary-500">{getItemDate(folderItem.updatedAt)}</span> : null}</span>
@@ -554,20 +559,20 @@ function MediaLibrary({
 
             {snapshot.assets.length > 0 ? (
               <div className={cn("flex flex-col", isDrive && "gap-3")}>
-                <div className={cn("hidden grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] gap-3 px-6 py-3 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase md:grid", isDrive && viewMode === "grid" && "flex px-0 py-0", isDrive && viewMode === "list" && "px-4")}>{isDrive && viewMode === "grid" ? "Gambar" : (
+                {!(isDrive && viewMode === "grid") ? <div className={cn("hidden grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] gap-3 px-6 py-3 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase md:grid", isDrive && viewMode === "list" && "px-4")}>
                   <>
                   <span>Nama</span><span>Ukuran</span><span>Dimensi</span><span>Diperbarui</span><span />
                   </>
-                )}</div>
-                <div className={cn(isDrive && viewMode === "grid" && "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4")}>
+                </div> : null}
+                <div className={cn(isDrive && viewMode === "grid" && "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6")}>
                 {snapshot.assets.map((asset) => (
-                  <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", isDrive && viewMode === "list" && "rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", isDrive && viewMode === "grid" && "group relative block overflow-hidden rounded-2xl border border-primary-100 bg-primary-50/35 p-2 hover:border-primary-200 hover:bg-primary-50/70", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
-                    <button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "grid" && "flex w-full flex-col items-stretch gap-0 rounded-xl")} onClick={() => setPreviewAsset(asset)} type="button">
-                      <span className={cn("flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800", isDrive && viewMode === "grid" && "aspect-[4/3] size-auto w-full rounded-xl bg-white")}>
-                        {asset.previewUrl ? (
+                  <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", isDrive && viewMode === "list" && "min-h-16 rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", isDrive && viewMode === "grid" && "group relative block overflow-hidden rounded-2xl border border-primary-100 bg-primary-50/35 p-1.5 hover:border-primary-200 hover:bg-primary-50/70", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
+                    <button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "list" && "min-h-16", isDrive && viewMode === "grid" && "flex w-full flex-col items-stretch gap-0 rounded-xl")} onClick={() => void handlePreview(asset)} type="button">
+                      <span className={cn("flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800", isDrive && viewMode === "list" && "size-10", isDrive && viewMode === "grid" && "aspect-[5/3] size-auto w-full rounded-xl bg-white")}>
+                        {(asset.thumbnailUrl ?? asset.previewUrl) ? (
                           // Signed R2 URLs are intentionally dynamic and cannot be declared in next/image remotePatterns.
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img alt="" className={cn("size-full object-cover", isDrive && viewMode === "grid" && "object-contain p-2")} loading="lazy" src={asset.previewUrl} />
+                          <img alt="" className={cn("size-full object-cover", isDrive && viewMode === "grid" && "object-contain p-2")} loading="lazy" src={asset.thumbnailUrl ?? asset.previewUrl ?? undefined} />
                         ) : <FileImage className="size-5" />}
                       </span>
                       <span className={cn("min-w-0", isDrive && viewMode === "grid" && "w-full px-2 pt-3 pb-1")}><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className={cn("mt-1 block text-xs text-secondary-500 md:hidden", isDrive && viewMode === "grid" && "md:block")}>{formatMediaBytes(asset.sizeBytes)} · {getItemDate(asset.updatedAt)}</span></span>
@@ -597,6 +602,7 @@ function MediaLibrary({
             {!query ? <EmptyContent><Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload gambar</Button></EmptyContent> : null}
           </Empty>
         )}
+        </div>
       </div>
 
       <Dialog onOpenChange={setFolderDialogOpen} open={folderDialogOpen}>
@@ -625,8 +631,8 @@ function MediaLibrary({
 
       <Dialog onOpenChange={(open) => { if (!open) setTrashRequest(null); }} open={Boolean(trashRequest)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Pindahkan ke Trash?</DialogTitle><DialogDescription>“{trashRequest?.name}” tidak akan muncul di library atau picker baru. Referensi Bank Soal yang sudah ada tetap dapat membacanya.</DialogDescription></DialogHeader>
-          <DialogFooter><Button onClick={() => setTrashRequest(null)} variant="brandOutline">Batal</Button><Button onClick={() => void handleTrash()} variant="destructive"><Trash2 data-icon="inline-start" />Pindahkan ke Trash</Button></DialogFooter>
+          <DialogHeader><DialogTitle>Masukkan ke Sampah?</DialogTitle><DialogDescription>“{trashRequest?.name}” tidak akan muncul di library atau picker baru. Referensi Bank Soal yang sudah ada tetap dapat membacanya.</DialogDescription></DialogHeader>
+          <DialogFooter><Button onClick={() => setTrashRequest(null)} variant="brandOutline">Batal</Button><Button onClick={() => void handleTrash()} variant="destructive"><Trash2 data-icon="inline-start" />Masukkan Sampah</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

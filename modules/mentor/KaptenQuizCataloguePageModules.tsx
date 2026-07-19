@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ChevronLeft, Ellipsis, Eye, ListChecks, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, ChevronLeft, Ellipsis, Eye, ListChecks, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ function QuizRow({ quiz, onAction, onSelectedChange, selected }: { quiz: KaptenQ
       <div className="flex flex-wrap gap-2 sm:justify-end">
         <Button aria-label="Preview Quiz" render={<Link href={quiz.href} />} size="icon-sm" title="Preview" variant="brandOutline"><Eye /></Button>
         <Button render={<Link href={quiz.href} />} size="sm" variant="brand"><Pencil />Edit</Button>
-        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${quiz.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{quiz.status === "draft" ? <DropdownMenuItem disabled={quiz.questionCount === 0} onClick={() => onAction("publish")}>Terbitkan</DropdownMenuItem> : null}{quiz.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{quiz.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${quiz.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{quiz.status === "draft" ? <DropdownMenuItem disabled={quiz.questionCount === 0} onClick={() => onAction("publish")}><Upload />Terbitkan</DropdownMenuItem> : null}{quiz.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{quiz.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
       </div>
     </article>
   );

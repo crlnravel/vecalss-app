@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ChevronLeft, Ellipsis, Eye, Pencil, Plus, Search, Trash2, Video } from "lucide-react";
+import { Archive, ChevronLeft, Ellipsis, Eye, Pencil, Plus, Search, Trash2, Upload, Video } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -189,7 +189,7 @@ function MateriLessonRow({
           <Pencil />
           Edit
         </Button>
-        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{lesson.status === "draft" ? <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => onAction("publish")}>Terbitkan</DropdownMenuItem> : null}{lesson.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{lesson.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{lesson.status === "draft" ? <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => onAction("publish")}><Upload />Terbitkan</DropdownMenuItem> : null}{lesson.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{lesson.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
       </div>
     </article>
   );
