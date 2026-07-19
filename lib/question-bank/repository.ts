@@ -29,6 +29,12 @@ type SaveBankInput = {
 
 class QuestionBankError extends Error {}
 
+function toBankDifficulty(value: DifficultyLevel): "easy" | "medium" | "hard" {
+  if (value === DifficultyLevel.easy) return "easy";
+  if (value === DifficultyLevel.hard) return "hard";
+  return "medium";
+}
+
 function codeFromTitle(title: string) {
   return `${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "bank-soal"}-${Date.now()}`.slice(0, 100);
 }
@@ -55,7 +61,7 @@ function toDto(bank: Prisma.QuestionBankGetPayload<{ include: typeof bankInclude
     bankId: bank.id,
     choices: question.options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, text: option.content })),
     correctChoiceId: question.options.find((option) => option.isCorrect)?.id ?? question.options[0]?.id ?? "",
-    difficulty: question.difficulty,
+    difficulty: toBankDifficulty(question.difficulty),
     explanation: question.explanation ?? "",
     explanationMediaAssetId: question.explanationAssetId ?? undefined,
     id: question.id,
@@ -108,7 +114,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
   const tags = validate(input);
   return prisma.$transaction(async (tx) => {
     let bankId = input.id;
-    let status = ContentStatus.draft;
+    let status: ContentStatus = ContentStatus.draft;
     if (bankId) {
       await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
       const current = await tx.questionBank.findUnique({ where: { id: bankId } });
