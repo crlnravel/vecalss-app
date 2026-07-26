@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ChevronLeft, Ellipsis, Eye, Pencil, Plus, Search, Trash2, Upload, Video } from "lucide-react";
+import { Archive, ChevronLeft, Ellipsis, Eye, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, Video, X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogClose,
@@ -17,10 +17,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import { PageIntro } from "@/modules/mentor/components/kapten-ui";
+import {
+  CatalogueFilter,
+  CatalogueSearchInput,
+  PageIntro,
+  PaginationControls,
+  StatusPill,
+} from "@/modules/mentor/components/kapten-ui";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
 import {
   bulkPublishMateriLessonsAction,
@@ -49,50 +60,6 @@ function buildEditorHref(
   return `/mentor/materi/${lesson.code}?${query.toString()}`;
 }
 
-function SearchInput({
-  onChange,
-  placeholder,
-  value,
-}: {
-  onChange: (value: string) => void;
-  placeholder: string;
-  value: string;
-}) {
-  return (
-    <label className="relative block">
-      <span className="sr-only">{placeholder}</span>
-      <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
-      <input
-        className="h-12 w-full rounded-2xl border border-primary-200 bg-white px-11 text-sm text-secondary-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-3 focus:ring-primary-300/35"
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        type="search"
-        value={value}
-      />
-    </label>
-  );
-}
-
-function LifecycleStatus({ status }: { status: KaptenMateriView["status"] }) {
-  const labels = {
-    archived: "Diarsipkan",
-    draft: "Draf",
-    published: "Diterbitkan",
-    scheduled: "Terjadwal",
-  } as const;
-  const colors = {
-    archived: "text-secondary-500",
-    draft: "text-primary-800",
-    published: "text-primary-900",
-    scheduled: "text-secondary-600",
-  } as const;
-  return (
-    <span className={cn("text-sm font-semibold", colors[status])}>
-      {labels[status]}
-    </span>
-  );
-}
-
 function ReadinessWarning({
   readiness,
 }: {
@@ -108,7 +75,7 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
 
   return (
     <Link
-      className="group flex min-h-32 flex-col rounded-3xl border border-primary-200 bg-white p-5 shadow-sm transition hover:border-primary-500 hover:bg-primary-50/40"
+      className="group flex min-h-32 flex-col rounded-3xl border border-primary-200 bg-white p-5 shadow-sm transition-[transform,border-color,background-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-500 hover:bg-primary-50/40 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.42)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
       href={`/mentor/materi/subject/${subject.slug}`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -154,42 +121,48 @@ function MateriLessonRow({
   onAction,
   onSelectedChange,
   returnTo,
+  selectionMode,
   selected,
 }: {
   lesson: KaptenMateriView;
   onAction: (action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void;
   onSelectedChange: (checked: boolean) => void;
   returnTo: string;
+  selectionMode: boolean;
   selected: boolean;
 }) {
   return (
-    <article className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-4 shadow-sm sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-      <Checkbox
+    <article className={`grid gap-4 rounded-3xl border border-primary-100 bg-white p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] ${selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)_auto]" : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-center`}>
+      {selectionMode ? <Checkbox
         aria-label={`Pilih ${lesson.title}`}
         checked={selected}
         onCheckedChange={(checked) => onSelectedChange(checked === true)}
-      />
+      /> : null}
       <div className="min-w-0">
-        <h2 className="text-base font-semibold text-secondary-900">
-          {lesson.title}
-        </h2>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
-          <span>{lesson.duration || "Durasi belum diisi"}</span>
-          <LifecycleStatus status={lesson.status} />
-          <ReadinessWarning readiness={lesson.readiness} />
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold text-secondary-900">
+            {lesson.title}
+          </h2>
+          <StatusPill status={lesson.status} />
         </div>
+        {lesson.readiness === "incomplete" ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
+            <ReadinessWarning readiness={lesson.readiness} />
+          </div>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-2 sm:justify-end">
         <Button render={<Link href={buildEditorHref(lesson, returnTo, true)} />} aria-label="Preview lesson" size="icon-sm" title="Preview" variant="brandOutline"><Eye /></Button>
         <Button
+          aria-label="Edit materi"
           render={<Link href={buildEditorHref(lesson, returnTo)} />}
-          size="sm"
+          size="icon-sm"
+          title="Edit materi"
           variant="brand"
         >
           <Pencil />
-          Edit
         </Button>
-        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{lesson.status === "draft" ? <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => onAction("publish")}><Upload />Terbitkan</DropdownMenuItem> : null}{lesson.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}>Batalkan terbit</DropdownMenuItem> : null}{lesson.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem onClick={() => onAction("delete")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{lesson.status === "draft" ? <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => onAction("publish")}><Upload />Terbitkan</DropdownMenuItem> : null}{lesson.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}><FilePenLine />Batalkan terbit</DropdownMenuItem> : null}{lesson.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
       </div>
     </article>
   );
@@ -206,6 +179,7 @@ function KaptenMateriSubjectPageModule({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [lessons, setLessons] = useState(() =>
     catalogue
       .filter((lesson) => lesson.subjectSlug === subject.slug)
@@ -220,25 +194,36 @@ function KaptenMateriSubjectPageModule({
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [isBulkPending, setIsBulkPending] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [readinessFilter, setReadinessFilter] = useState("");
   const returnTo = `/mentor/materi/subject/${subject.slug}`;
 
   function filterVisibleLessons(value: string) {
     const normalizedValue = value.trim().toLocaleLowerCase();
     return lessons.filter(
       (lesson) =>
-        !normalizedValue ||
-        [
-          lesson.title,
-          lesson.duration,
-          lesson.status,
-          lesson.readiness === "incomplete" ? "belum siap" : "",
-        ].some((candidate) =>
-          candidate.toLocaleLowerCase().includes(normalizedValue),
-        ),
+        (!normalizedValue ||
+          [
+            lesson.title,
+            lesson.duration,
+            lesson.status,
+            lesson.readiness === "incomplete" ? "belum siap" : "",
+          ].some((candidate) =>
+            candidate.toLocaleLowerCase().includes(normalizedValue),
+          )) &&
+        (!statusFilter || lesson.status === statusFilter) &&
+        (!readinessFilter || lesson.readiness === readinessFilter),
     );
   }
 
   const visibleLessons = filterVisibleLessons(query);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(visibleLessons.length / pageSize));
+  const pagedLessons = visibleLessons.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
   const selectedLessons = lessons.filter((lesson) =>
     selectedCodes.has(lesson.code),
   );
@@ -271,16 +256,9 @@ function KaptenMateriSubjectPageModule({
         };
 
   function changeQuery(value: string) {
-    const visibleCodes = new Set(
-      filterVisibleLessons(value).map((lesson) => lesson.code),
-    );
     setQuery(value);
-    setSelectedCodes((current) => {
-      const next = new Set(
-        [...current].filter((code) => visibleCodes.has(code)),
-      );
-      return next.size === current.size ? current : next;
-    });
+    setPage(1);
+    setSelectedCodes(new Set());
   }
 
   function toggleSelected(code: string, checked: boolean) {
@@ -332,6 +310,7 @@ function KaptenMateriSubjectPageModule({
         ),
       );
       setSelectedCodes(new Set());
+      setSelectionMode(false);
       setBulkNotice(result.message);
       setBulkIntent(null);
       router.refresh();
@@ -348,7 +327,7 @@ function KaptenMateriSubjectPageModule({
 
   async function applyLessonAction(lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") {
     if (isBulkPending) return;
-    if (action === "delete") { setBulkNotice("Hapus lesson belum tersedia."); return; }
+    if (action === "delete") return;
     setIsBulkPending(true); setBulkError(null);
     try {
       if (action === "publish" || action === "unpublish") {
@@ -375,7 +354,8 @@ function KaptenMateriSubjectPageModule({
       searchPlaceholder="Cari lesson..."
       session={session}
     >
-      <section className="space-y-5">
+      <div className="space-y-3">
+      <section className="space-y-3">
         <Button
           aria-label="Kembali ke semua materi"
           render={<Link href="/mentor/materi" />}
@@ -387,74 +367,117 @@ function KaptenMateriSubjectPageModule({
         </Button>
         <PageIntro
           action={
-            <Button
-              render={<Link href={buildCreateHref(subject.slug)} />}
-              variant="brand"
-            >
-              <Plus />
-              Buat Materi
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      aria-label="Buat materi baru"
+                      render={<Link href={buildCreateHref(subject.slug)} />}
+                      size="icon"
+                      variant="brand"
+                    />
+                  }
+                >
+                  <Plus />
+                </TooltipTrigger>
+                <TooltipContent>Buat materi baru</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           }
-          eyebrow={getSubjectCategory(subject.code)}
           title={subject.name}
         />
-        <SearchInput
+        <CatalogueSearchInput
           onChange={changeQuery}
           placeholder="Cari judul, durasi, atau status..."
           value={query}
         />
+        <div className="flex flex-wrap items-center gap-2">
+          <CatalogueFilter
+            label="Filter status"
+            onValueChange={(value) => { setStatusFilter(value); setPage(1); setSelectedCodes(new Set()); }}
+            options={[
+              { label: "Semua status", value: "" },
+              { label: "Draf", value: "draft" },
+              { label: "Diterbitkan", value: "published" },
+              { label: "Diarsipkan", value: "archived" },
+              { label: "Terjadwal", value: "scheduled" },
+            ]}
+            value={statusFilter}
+          />
+          <CatalogueFilter
+            label="Filter kesiapan"
+            onValueChange={(value) => { setReadinessFilter(value); setPage(1); setSelectedCodes(new Set()); }}
+            options={[
+              { label: "Semua kesiapan", value: "" },
+              { label: "Siap", value: "ready" },
+              { label: "Belum siap", value: "incomplete" },
+            ]}
+            value={readinessFilter}
+          />
+          {!selectionMode ? (
+            <Button
+              aria-label="Pilih beberapa lesson"
+              className="ml-auto"
+              onClick={() => setSelectionMode(true)}
+              size="icon-sm"
+              title="Pilih beberapa lesson"
+              type="button"
+              variant="brandOutline"
+            >
+              <ListChecks />
+            </Button>
+          ) : null}
+        </div>
       </section>
-      <section className="mt-5 space-y-3">
-        {visibleLessons.length && selectedLessons.length ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/35 px-4 py-3">
+      <section className="space-y-3">
+        {selectionMode ? (
+          <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-primary-100 bg-primary-50/35 px-6 py-4">
+            <Button aria-label="Keluar dari mode pilih" onClick={() => { setSelectionMode(false); setSelectedCodes(new Set()); }} size="icon-xs" type="button" variant="ghost"><X /></Button>
+            <span className="text-sm font-semibold text-secondary-900">{selectedLessons.length} dipilih</span>
             <Checkbox
               aria-label="Pilih semua lesson yang terlihat"
               checked={selectAllVisible}
               onCheckedChange={(checked) => toggleAllVisible(checked === true)}
             />
             <span className="text-sm font-semibold text-secondary-700">
-              Pilih semua hasil
+              Semua hasil
             </span>
-          </div>
-        ) : null}
-        {selectedLessons.length ? (
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-200 bg-white px-4 py-3">
-            <span className="text-sm font-semibold text-secondary-900">
-              {selectedLessons.length} dipilih
-            </span>
-            <Button
-              disabled={!publishEligible || isBulkPending}
-              onClick={() => {
-                setBulkError(null);
-                setBulkIntent("publish");
-              }}
-              size="sm"
-              type="button"
-              variant="brand"
-            >
-              Terbitkan
-            </Button>
-            <Button
-              disabled={!unpublishEligible || isBulkPending}
-              onClick={() => {
-                setBulkError(null);
-                setBulkIntent("unpublish");
-              }}
-              size="sm"
-              type="button"
-              variant="brandOutline"
-            >
-              Batalkan terbit
-            </Button>
-            <Button
-              disabled={isBulkPending}
-              onClick={() => setSelectedCodes(new Set())}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Hapus pilihan
-            </Button>
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+              <Button
+                disabled={!publishEligible || isBulkPending}
+                onClick={() => {
+                  setBulkError(null);
+                  setBulkIntent("publish");
+                }}
+                size="sm"
+                type="button"
+                variant="brand"
+              >
+                Terbitkan
+              </Button>
+              <Button
+                disabled={!unpublishEligible || isBulkPending}
+                onClick={() => {
+                  setBulkError(null);
+                  setBulkIntent("unpublish");
+                }}
+                size="sm"
+                type="button"
+                variant="brandOutline"
+              >
+                Batalkan terbit
+              </Button>
+              <Button
+                disabled={isBulkPending}
+                onClick={() => setSelectedCodes(new Set())}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Hapus pilihan
+              </Button>
+            </div>
             {eligibilityReason ? (
               <p
                 className="basis-full text-sm text-secondary-600"
@@ -473,8 +496,8 @@ function KaptenMateriSubjectPageModule({
             {bulkNotice}
           </p>
         ) : null}
-        {visibleLessons.length ? (
-          visibleLessons.map((lesson) => (
+        {pagedLessons.length ? (
+          pagedLessons.map((lesson) => (
             <MateriLessonRow
               key={lesson.code}
               lesson={lesson}
@@ -483,6 +506,7 @@ function KaptenMateriSubjectPageModule({
                 toggleSelected(lesson.code, checked)
               }
               returnTo={returnTo}
+              selectionMode={selectionMode}
               selected={selectedCodes.has(lesson.code)}
             />
           ))
@@ -491,7 +515,13 @@ function KaptenMateriSubjectPageModule({
             Tidak ada lesson yang cocok dengan pencarian ini.
           </div>
         )}
+        <PaginationControls
+          onPageChange={setPage}
+          page={page}
+          pageCount={pageCount}
+        />
       </section>
+      </div>
       <Dialog
         onOpenChange={(open) => {
           if (!open && !isBulkPending) {

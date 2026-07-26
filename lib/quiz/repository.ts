@@ -75,6 +75,77 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
 
 async function getMentorStandaloneQuiz(id: string, tutorId: string) { const record = await prisma.standaloneQuiz.findFirst({ where: { id, createdByUserId: tutorId }, include: quizInclude }); return record ? { questions: record.items.map(toSnapshot), quiz: toKaptenQuiz(record) } : null; }
 async function getMentorStandaloneQuizzes(tutorId: string) { return (await prisma.standaloneQuiz.findMany({ where: { createdByUserId: tutorId }, include: quizInclude, orderBy: { updatedAt: "desc" } })).map(toKaptenQuiz); }
+async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
+  const quiz = await prisma.standaloneQuiz.findFirst({
+    where: { id: quizId, createdByUserId: tutorId },
+    include: {
+      attempts: {
+        select: {
+          correctCount: true,
+          createdAt: true,
+          id: true,
+          score: true,
+          status: true,
+          student: { select: { fullName: true } },
+          submittedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      items: { select: { id: true } },
+      subtest: { select: { code: true } },
+    },
+  });
+  if (!quiz) return null;
+  return {
+    attempts: quiz.attempts.map((attempt) => {
+      return {
+        correctCount: attempt.correctCount,
+        createdAt: attempt.createdAt.toISOString(),
+        id: attempt.id,
+        score: attempt.score,
+        status: attempt.status,
+        student: { name: attempt.student.fullName?.trim() || "Siswa tanpa nama" },
+        submittedAt: attempt.submittedAt?.toISOString() ?? null,
+      };
+    }),
+    quiz: { id: quiz.id, questionCount: quiz.items.length, subject: quiz.subtest.code, title: quiz.title },
+  };
+}
+
+async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: string, tutorId: string) {
+  const attempt = await prisma.standaloneQuizAttempt.findFirst({
+    where: { id: attemptId, quizId, quiz: { createdByUserId: tutorId } },
+    include: {
+      answers: true,
+      quiz: {
+        include: {
+          items: { include: { options: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } },
+          subtest: { select: { code: true } },
+        },
+      },
+      student: { select: { fullName: true } },
+    },
+  });
+  if (!attempt) return null;
+  const selectedOptionByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
+  return {
+    answeredCount: attempt.answers.length,
+    correctCount: attempt.correctCount,
+    createdAt: attempt.createdAt.toISOString(),
+    id: attempt.id,
+    questions: attempt.quiz.items.map((item) => ({
+      explanation: item.explanation,
+      options: item.options.map((option) => ({ correct: option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })),
+      prompt: item.prompt,
+      selectedOptionId: selectedOptionByItem.get(item.id) ?? null,
+    })),
+    score: attempt.score,
+    status: attempt.status,
+    student: { name: attempt.student.fullName?.trim() || "Siswa tanpa nama" },
+    submittedAt: attempt.submittedAt?.toISOString() ?? null,
+    quiz: { id: attempt.quiz.id, questionCount: attempt.quiz.items.length, subject: attempt.quiz.subtest.code, title: attempt.quiz.title },
+  };
+}
 async function bulkUpdateStandaloneQuizLifecycle(ids: string[], tutorId: string, operation: "publish" | "unpublish") { const records = await prisma.standaloneQuiz.findMany({ where: { id: { in: ids }, createdByUserId: tutorId }, include: quizInclude }); if (records.length !== new Set(ids).size) throw new QuizValidationError("Sebagian Quiz tidak ditemukan."); if (operation === "publish") records.forEach((record) => validateForPublication({ closesAt: record.closesAt?.toISOString() ?? "", description: record.description ?? "", id: record.id, opensAt: record.opensAt?.toISOString() ?? "", questions: record.items.map(toSnapshot), sourceBankId: record.sourceBankId ?? undefined, status: "published", subjectCode: record.subtest.code, title: record.title }, record.opensAt, record.closesAt)); const status = operation === "publish" ? ContentStatus.published : ContentStatus.draft; await prisma.standaloneQuiz.updateMany({ where: { id: { in: ids }, createdByUserId: tutorId }, data: { status } }); return { ids, status: status === ContentStatus.published ? "published" as const : "draft" as const }; }
 async function bulkPublishStandaloneQuizzes(ids: string[], tutorId: string) { return bulkUpdateStandaloneQuizLifecycle(ids, tutorId, "publish"); }
 async function bulkUnpublishStandaloneQuizzes(ids: string[], tutorId: string) { return bulkUpdateStandaloneQuizLifecycle(ids, tutorId, "unpublish"); }
@@ -88,8 +159,80 @@ async function updateStandaloneQuizLifecycle(id: string, tutorId: string, operat
 }
 function studentAvailabilityWhere(now = new Date()) { return { status: ContentStatus.published, AND: [{ OR: [{ opensAt: null }, { opensAt: { lte: now } }] }, { OR: [{ closesAt: null }, { closesAt: { gt: now } }] }] } satisfies Prisma.StandaloneQuizWhereInput; }
 async function getAvailableStandaloneQuiz(subjectCode: string, slug: string, now = new Date()) { return prisma.standaloneQuiz.findFirst({ where: { ...studentAvailabilityWhere(now), slug, subtest: { code: subjectCode } }, include: quizInclude }); }
-async function admitStudentToStandaloneQuiz(subjectCode: string, slug: string, studentId: string) { const quiz = await getAvailableStandaloneQuiz(subjectCode, slug); if (!quiz) return null; await prisma.standaloneQuizAttempt.upsert({ where: { quizId_studentId: { quizId: quiz.id, studentId } }, create: { quizId: quiz.id, studentId }, update: {} }); return quiz; }
+class QuizAttemptValidationError extends Error {}
+
+async function admitStudentToStandaloneQuiz(subjectCode: string, slug: string, studentId: string) {
+  const quiz = await getAvailableStandaloneQuiz(subjectCode, slug);
+  if (!quiz) return null;
+  const attempt = await prisma.standaloneQuizAttempt.upsert({
+    where: { quizId_studentId: { quizId: quiz.id, studentId } },
+    create: { quizId: quiz.id, studentId },
+    update: {},
+    include: { answers: true },
+  });
+  return { attempt, quiz };
+}
+
+async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, selectedOptionId: string, studentId: string) {
+  return prisma.$transaction(async (tx) => {
+    const attempt = await tx.standaloneQuizAttempt.findFirst({ where: { id: attemptId, studentId }, select: { id: true, quizId: true, status: true } });
+    if (!attempt) throw new QuizAttemptValidationError("Sesi quiz tidak ditemukan.");
+    if (attempt.status !== "in_progress") throw new QuizAttemptValidationError("Quiz ini sudah dikirim dan jawabannya tidak dapat diubah.");
+    const option = await tx.standaloneQuizItemOption.findFirst({ where: { id: selectedOptionId, quizItemId, quizItem: { quizId: attempt.quizId } }, select: { id: true } });
+    if (!option) throw new QuizAttemptValidationError("Pilihan jawaban tidak valid untuk soal ini.");
+    await tx.standaloneQuizAnswer.upsert({ where: { attemptId_quizItemId: { attemptId, quizItemId } }, create: { attemptId, quizItemId, selectedOptionId }, update: { selectedOptionId } });
+    return { quizItemId, selectedOptionId };
+  });
+}
+
+async function submitStandaloneQuiz(attemptId: string, studentId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quiz_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
+    const attempt = await tx.standaloneQuizAttempt.findFirst({ where: { id: attemptId, studentId }, include: { answers: { include: { selectedOption: { select: { isCorrect: true } } } }, quiz: { include: { items: { select: { id: true } } } } } });
+    if (!attempt) throw new QuizAttemptValidationError("Sesi quiz tidak ditemukan.");
+    if (attempt.status !== "in_progress") return { attemptId: attempt.id, state: "already_submitted" as const };
+    const totalQuestions = attempt.quiz.items.length;
+    const correctCount = attempt.answers.filter((answer) => answer.selectedOption.isCorrect).length;
+    const score = totalQuestions ? Math.round((correctCount / totalQuestions) * 100) : 0;
+    await tx.standaloneQuizAttempt.update({ where: { id: attempt.id }, data: { correctCount, score, status: "submitted", submittedAt: new Date() } });
+    return { attemptId: attempt.id, state: "submitted" as const };
+  });
+}
+
+async function getStandaloneQuizResult(attemptId: string, studentId: string) {
+  const attempt = await prisma.standaloneQuizAttempt.findFirst({
+    where: { id: attemptId, studentId },
+    include: { answers: true, quiz: { include: { items: { include: { options: { orderBy: { sortOrder: "asc" } } }, orderBy: { sortOrder: "asc" } } } } },
+  });
+  if (!attempt) return null;
+  const totalQuestions = attempt.quiz.items.length;
+  const answersByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
+  return {
+    answeredCount: attempt.answers.length,
+    correctCount: attempt.correctCount,
+    isSubmitted: attempt.status !== "in_progress",
+    questions: attempt.quiz.items.map((item) => ({ explanation: item.explanation, options: item.options.map((option) => ({ correct: option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })), prompt: item.prompt, selectedOptionId: answersByItem.get(item.id) ?? null })),
+    score: attempt.score,
+    title: attempt.quiz.title,
+    totalQuestions,
+  };
+}
+
+async function getStandaloneQuizAttemptId(subjectCode: string, slug: string, studentId: string) {
+  const attempt = await prisma.standaloneQuizAttempt.findFirst({
+    where: { studentId, quiz: { slug, subtest: { code: subjectCode } } },
+    select: { id: true },
+  });
+  return attempt?.id ?? null;
+}
+async function getStandaloneQuizAttemptStatuses(studentId: string, quizIds: string[]) {
+  if (!quizIds.length) return [];
+  return prisma.standaloneQuizAttempt.findMany({
+    where: { quizId: { in: quizIds }, studentId },
+    select: { quizId: true, status: true },
+  });
+}
 async function getAvailableStandaloneQuizCatalogue(now = new Date()) { return prisma.standaloneQuiz.findMany({ where: studentAvailabilityWhere(now), include: quizInclude, orderBy: { updatedAt: "desc" } }); }
 
-export { admitStudentToStandaloneQuiz, bulkPublishStandaloneQuizzes, bulkUnpublishStandaloneQuizzes, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizzes, getStandaloneQuizSubjects, getSubjectMetadata, getSubjectMetadataBySlug, saveStandaloneQuiz, studentAvailabilityWhere, updateStandaloneQuizLifecycle, QuizValidationError };
+export { admitStudentToStandaloneQuiz, bulkPublishStandaloneQuizzes, bulkUnpublishStandaloneQuizzes, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getMentorStandaloneQuiz, getMentorStandaloneQuizResults, getMentorStandaloneQuizSubmission, getMentorStandaloneQuizzes, getStandaloneQuizAttemptId, getStandaloneQuizAttemptStatuses, getStandaloneQuizResult, getStandaloneQuizSubjects, getSubjectMetadata, getSubjectMetadataBySlug, saveStandaloneQuiz, saveStandaloneQuizAnswer, studentAvailabilityWhere, submitStandaloneQuiz, updateStandaloneQuizLifecycle, QuizAttemptValidationError, QuizValidationError };
 export type { SaveStandaloneQuizInput };

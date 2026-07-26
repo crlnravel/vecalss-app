@@ -7,7 +7,6 @@ import {
   Archive,
   ChevronLeft,
   ArrowUp,
-  ChevronDown,
   ChevronRight,
   CircleHelp,
   Ellipsis,
@@ -38,11 +37,11 @@ import {
   FieldInput,
   FieldLabel,
   FieldTextarea,
-  fieldControlClassName,
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
+import { DropdownField } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
   bankQuestions,
@@ -459,11 +458,11 @@ function KaptenQuizBuilderPageModule({
 
   return (
     <MentorWorkspaceShell
-      activeLabel="Quiz"
-      breadcrumbLabel={mode === "create" ? "Buat Quiz" : "Edit Quiz"}
+      activeLabel="Kuis"
+      breadcrumbLabel={mode === "create" ? "Buat Kuis" : "Edit Kuis"}
       mainClassName="max-w-[1500px] gap-7"
       onNavigateAway={() => !hasUnsavedChanges}
-      searchPlaceholder="Cari quiz atau question bank..."
+      searchPlaceholder="Cari kuis atau bank soal..."
       session={session}
       shouldGuardNavigation={hasUnsavedChanges}
     >
@@ -538,7 +537,7 @@ function KaptenQuizBuilderPageModule({
                 ) : null}
                 {quizStatus !== "archived" ? <DropdownMenuItem disabled={isSaving} onClick={() => { void updateQuizLifecycle("archive"); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem disabled={isSaving} onClick={() => { void updateQuizLifecycle("restore"); }}>Pulihkan</DropdownMenuItem>}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setSaveError("Hapus Quiz belum tersedia.")} variant="destructive"><Trash2 />Hapus</DropdownMenuItem>
+                <DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -627,18 +626,18 @@ function KaptenQuizBuilderPageModule({
             </section>
       ) : (
         <Tabs className="gap-8" onValueChange={setActiveTab} value={activeTab}>
-          <div className="border-b border-primary-100">
-            <TabsList className="h-auto gap-4 rounded-none bg-transparent p-0" variant="line">
-              <TabsTrigger className="h-11 rounded-none px-1 text-sm" value="information">
+          <div className="max-w-full overflow-x-auto pb-1">
+            <TabsList className="w-max min-w-full sm:min-w-0">
+              <TabsTrigger className="h-11 rounded-full px-4 text-sm" value="information">
                 Informasi quiz
               </TabsTrigger>
-              <TabsTrigger className="h-11 rounded-none px-1 text-sm" value="content">
+              <TabsTrigger className="h-11 rounded-full px-4 text-sm" value="content">
                 Isi quiz
                 <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">
                   {builderState.questions.length}
                 </span>
               </TabsTrigger>
-              <TabsTrigger className="h-11 rounded-none px-1 text-sm" value="settings">
+              <TabsTrigger className="h-11 rounded-full px-4 text-sm" value="settings">
                 Pengaturan
               </TabsTrigger>
             </TabsList>
@@ -652,27 +651,12 @@ function KaptenQuizBuilderPageModule({
                     <FieldInput id="quiz-title" onChange={(event) => updateMetadata("title", event.target.value)} value={builderState.title} />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="quiz-subject">Subject</FieldLabel>
-                    <div className="relative">
-                      <select className={`${fieldControlClassName} appearance-none pr-12`} id="quiz-subject" onChange={(event) => selectSubject(event.target.value)} value={builderState.subjectCode}>
-                        {kaptenSubjects.map((subject) => (
-                          <option key={subject.code} value={subject.code}>{subject.code} - {subject.name}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-                    </div>
+                    <FieldLabel htmlFor="quiz-subject">Subjek</FieldLabel>
+                    <DropdownField id="quiz-subject" onValueChange={selectSubject} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value={builderState.subjectCode} />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="quiz-bank">Question Bank</FieldLabel>
-                    <div className="relative">
-                      <select className={`${fieldControlClassName} appearance-none pr-12`} id="quiz-bank" onChange={(event) => selectSourceBank(event.target.value)} value={builderState.sourceBankId}>
-                        <option value="">Pilih Question Bank</option>
-                        {compatibleBanks.map(({ bank }) => (
-                          <option key={bank.id} value={bank.id}>{bank.title} · {bank.questionCount} soal</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-                    </div>
+                    <FieldLabel htmlFor="quiz-bank">Bank Soal</FieldLabel>
+                    <DropdownField id="quiz-bank" onValueChange={selectSourceBank} options={compatibleBanks.map(({ bank }) => ({ label: `${bank.title} · ${bank.questionCount} soal`, value: bank.id }))} placeholder="Pilih bank soal" value={builderState.sourceBankId} />
                   </Field>
                   <Field className="lg:col-span-2">
                     <FieldLabel htmlFor="quiz-summary">Ringkasan</FieldLabel>

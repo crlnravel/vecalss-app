@@ -112,14 +112,12 @@ export type CampusCrewMark = {
 export const marketingNavItems: NavItem[] = [
   { label: "About Us", href: "/#about" },
   { label: "Program", href: "/#program" },
-  { label: "Tryout", href: "/tryout" },
   { label: "Login", href: "/login" },
 ];
 
 export const footerItems: NavItem[] = [
   { label: "About Us", href: "/#about" },
   { label: "Program", href: "/#program" },
-  { label: "Tryout", href: "/tryout" },
   { label: "Login", href: "/login" },
 ];
 

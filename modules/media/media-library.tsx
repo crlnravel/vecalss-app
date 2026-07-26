@@ -184,6 +184,7 @@ function MediaLibrary({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [snapshot, setSnapshot] = useState<MediaLibrarySnapshot | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -402,9 +403,9 @@ function MediaLibrary({
   );
 
   return (
-    <section className={cn("flex min-w-0 flex-col gap-5", className)}>
-      <div className={cn("flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between", isDrive && "p-0")}>
-        <div className="flex flex-wrap items-center gap-2">
+    <section className={cn("flex min-w-0 flex-col gap-5", isDrive && "min-h-0 flex-1", className)}>
+      <div className={cn("flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between", isDrive && "flex-row items-center p-0")}>
+        <div className={cn("flex flex-wrap items-center gap-2", isDrive && "order-2 shrink-0")}>
           {!isPicker ? (
             <Button aria-label="Buat folder baru" onClick={() => setFolderDialogOpen(true)} size={isDrive ? "icon" : "default"} variant="brandOutline">
               <FolderPlus />
@@ -425,14 +426,20 @@ function MediaLibrary({
           />
         </div>
 
-        <label className={cn("relative block w-full xl:max-w-md", isDrive && "xl:order-first xl:max-w-2xl xl:flex-1")}>
+        <label className={cn("relative block w-full xl:max-w-md", isDrive && "order-1 min-w-0 flex-1 xl:w-auto xl:max-w-none")}>
           <span className="sr-only">Cari gambar</span>
           <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" />
           <Input
             className={cn("h-11 border-primary-100 bg-white pl-11", isDrive && "rounded-full bg-primary-50/55 shadow-none")}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                setQuery(searchInput.trim());
+              }
+            }}
             placeholder="Cari nama gambar..."
-            value={query}
+            value={searchInput}
           />
         </label>
       </div>
@@ -456,7 +463,7 @@ function MediaLibrary({
       <div
         className={cn(
           "relative min-h-[28rem] overflow-hidden rounded-[2rem] border border-primary-100 bg-white transition-[border-color,background-color] duration-150",
-          isDrive && "flex h-[calc(100svh-10rem)] min-h-0 flex-col rounded-[1.5rem] bg-white/95 shadow-sm",
+          isDrive && "flex min-h-0 flex-1 flex-col rounded-[1.5rem] bg-white/95 shadow-sm",
           isDragging && "border-primary-500 bg-primary-50/70",
         )}
         onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
@@ -478,11 +485,11 @@ function MediaLibrary({
 
         <div className={cn("flex flex-col gap-4 border-b border-primary-100 px-5 py-4 md:px-6", isDrive && "gap-3 px-5 py-3 md:px-6 md:py-4")}>
           {isDrive ? (
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-col justify-center gap-1.5">
                 <h1 className="text-xl leading-tight font-semibold tracking-[-0.02em] text-secondary-900 md:text-2xl">Media</h1>
               </div>
-              <div aria-label="Tampilan media" className="flex items-center rounded-full border border-primary-100 bg-primary-50/60 p-1" role="group">
+              <div aria-label="Tampilan media" className="flex items-center rounded-full border border-primary-100 bg-primary-50/60 p-0.5" role="group">
                 <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} className="rounded-full" onClick={() => setViewMode("list")} size="icon-sm" variant={viewMode === "list" ? "brand" : "ghost"}><List /></Button>
                 <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} className="rounded-full" onClick={() => setViewMode("grid")} size="icon-sm" variant={viewMode === "grid" ? "brand" : "ghost"}><LayoutGrid /></Button>
               </div>

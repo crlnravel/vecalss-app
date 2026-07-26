@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { listQuestionBankSources } from "@/lib/question-bank/repository";
-import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutModules";
+import { listReadyPackageVersions } from "@/lib/tryout/repository";
+import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
+import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = { title: "Buat Tryout Kapten | Vecalss LMS" };
 
 export default async function CreateTryoutPage() {
-  const [session, sourceCatalog] = await Promise.all([requireTutorSession(), listQuestionBankSources()]);
-  return <KaptenTryoutBuilderPageModule session={session} sourceCatalog={sourceCatalog} />;
+  const session = await requireTutorSession();
+  const readyVersions = await listReadyPackageVersions(session.user.id);
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }

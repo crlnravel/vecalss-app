@@ -3,6 +3,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 import { seedMateriCatalogue } from "./materi-seed.mjs";
+import { seedAssessmentDemo } from "./seed-assessment.mjs";
 
 const { Client } = pg;
 
@@ -26,9 +27,17 @@ const DEFAULT_TEMP_STUDENT = {
 
 const DEFAULT_TUTOR = {
   email: process.env.SEED_TUTOR_EMAIL?.trim() || "tutor@vecalss.local",
-  fullName: "Vecalss Tutor",
+  fullName: "Nadia Prameswari",
   password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
 };
+
+const DEMO_STUDENTS = [
+  { email: "dimas@vecalss.local", fullName: "Dimas Saputra", key: "completed" },
+  { email: "leila@vecalss.local", fullName: "Leila Maheswari", key: "secondCompleted" },
+  { email: "nabila@vecalss.local", fullName: "Nabila Putri", key: "pending" },
+  { email: "fajar@vecalss.local", fullName: "Fajar Nugroho", key: "rejected" },
+  { email: "salma@vecalss.local", fullName: "Salma Maharani", key: "revoked" },
+];
 
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -432,6 +441,166 @@ async function ensureNotificationPreference(client, userId) {
   );
 }
 
+async function seedLearningProgress(client, { completedStudentId, primaryStudentId }) {
+  await client.query(
+    `UPDATE student_profiles
+        SET current_streak = 6, longest_streak = 11, last_streak_date = CURRENT_DATE, updated_at = NOW()
+      WHERE user_id = $1`,
+    [primaryStudentId],
+  );
+  await client.query(
+    `UPDATE student_profiles
+        SET current_streak = 3, longest_streak = 8, last_streak_date = CURRENT_DATE - 1, updated_at = NOW()
+      WHERE user_id = $1`,
+    [completedStudentId],
+  );
+  const modules = await client.query(
+    `SELECT modules.id
+       FROM modules
+       JOIN topics ON topics.id = modules.topic_id
+       JOIN subtests ON subtests.id = topics.subtest_id
+      WHERE modules.status = 'published'
+      ORDER BY subtests.sort_order, modules.sequence_no
+      LIMIT 12`,
+  );
+  for (const [index, module] of modules.rows.entries()) {
+    const status = index < 5 ? "completed" : index < 8 ? "in_progress" : index === 8 ? "not_started" : "locked";
+    const percent = status === "completed" ? 100 : status === "in_progress" ? 45 + (index % 3) * 15 : 0;
+    await client.query(
+      `INSERT INTO module_progress (
+         student_id, module_id, status, percent_complete, video_position_seconds,
+         unlocked_at, completed_at, last_opened_at
+       ) VALUES (
+         $1, $2, $3::progress_status, $4, $5,
+         CASE WHEN $3 <> 'locked' THEN NOW() - INTERVAL '14 days' ELSE NULL END,
+         CASE WHEN $3 = 'completed' THEN NOW() - (($6::int + 2) * INTERVAL '1 day') ELSE NULL END,
+         CASE WHEN $3 IN ('completed', 'in_progress') THEN NOW() - ($6::int * INTERVAL '1 day') ELSE NULL END
+       )
+       ON CONFLICT (student_id, module_id) DO UPDATE
+         SET status = EXCLUDED.status,
+             percent_complete = EXCLUDED.percent_complete,
+             video_position_seconds = EXCLUDED.video_position_seconds,
+             unlocked_at = EXCLUDED.unlocked_at,
+             completed_at = EXCLUDED.completed_at,
+             last_opened_at = EXCLUDED.last_opened_at,
+             updated_at = NOW()`,
+      [primaryStudentId, module.id, status, percent, status === "in_progress" ? 180 + index * 12 : 0, index],
+    );
+  }
+}
+
+async function seedOperationalContext(client, { adminUserId, cohortId, completedStudentId, primaryStudentId, tryoutId, tutorUserId }) {
+  for (const studentId of [primaryStudentId, completedStudentId]) {
+    await client.query(
+      `INSERT INTO billing_accounts (
+         student_id, status, plan_code, access_starts_at, access_expires_at, extended_by_user_id
+       ) VALUES ($1, 'active', 'SNBT-INTENSIF-2027', NOW() - INTERVAL '45 days', NOW() + INTERVAL '240 days', $2)
+       ON CONFLICT (student_id) DO UPDATE
+         SET status = 'active',
+             plan_code = EXCLUDED.plan_code,
+             access_starts_at = EXCLUDED.access_starts_at,
+             access_expires_at = EXCLUDED.access_expires_at,
+             extended_by_user_id = EXCLUDED.extended_by_user_id,
+             updated_at = NOW()`,
+      [studentId, adminUserId],
+    );
+  }
+
+  const moduleResult = await client.query(
+    `SELECT modules.id
+       FROM modules
+       JOIN topics ON topics.id = modules.topic_id
+       JOIN subtests ON subtests.id = topics.subtest_id
+      WHERE subtests.code = 'PK' AND modules.status = 'published'
+      ORDER BY modules.sequence_no
+      LIMIT 1`,
+  );
+  const flagResult = await client.query(
+    `SELECT id FROM risk_flags
+      WHERE student_id = $1 AND cohort_id = $2 AND flag_type = 'practice_consistency'
+      LIMIT 1`,
+    [completedStudentId, cohortId],
+  );
+  let riskFlagId = flagResult.rows[0]?.id;
+  if (!riskFlagId) {
+    const createdFlag = await client.query(
+      `INSERT INTO risk_flags (student_id, cohort_id, flag_type, severity, reason, status)
+       VALUES ($1, $2, 'practice_consistency', 2, $3, 'acknowledged')
+       RETURNING id`,
+      [completedStudentId, cohortId, "Frekuensi latihan kuantitatif menurun selama dua pekan terakhir."],
+    );
+    riskFlagId = createdFlag.rows[0].id;
+  }
+  const intervention = await client.query(
+    "SELECT id FROM interventions WHERE tutor_id = $1 AND student_id = $2 AND risk_flag_id = $3 LIMIT 1",
+    [tutorUserId, completedStudentId, riskFlagId],
+  );
+  if (!intervention.rowCount) {
+    await client.query(
+      `INSERT INTO interventions (
+         tutor_id, student_id, cohort_id, risk_flag_id, recommended_module_id,
+         message, status, sent_at, read_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'read', NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days')`,
+      [tutorUserId, completedStudentId, cohortId, riskFlagId, moduleResult.rows[0]?.id ?? null, "Dimas, hasil evaluasimu sudah menunjukkan kemajuan. Pekan ini, luangkan dua sesi untuk meninjau kembali rasio dan persentase sebelum latihan berikutnya."],
+    );
+  }
+
+  const notificationRows = [
+    {
+      body: "Sesi Reguler Pekan Ini sudah tersedia. Pastikan perangkat dan koneksi siap sebelum memulai.",
+      deepLink: "/tryout",
+      eventType: "announcement",
+      readAt: null,
+      title: "Sesi simulasi sudah dibuka",
+    },
+    {
+      body: "Hasil Sesi Evaluasi Sebelumnya telah diterbitkan dan dapat ditinjau bersama pembahasan setiap subtes.",
+      deepLink: "/tryout",
+      eventType: "tryout_graded",
+      readAt: new Date(),
+      title: "Hasil evaluasi telah tersedia",
+    },
+  ];
+  for (const notification of notificationRows) {
+    const existing = await client.query(
+      "SELECT id FROM notifications WHERE recipient_user_id = $1 AND title = $2 LIMIT 1",
+      [primaryStudentId, notification.title],
+    );
+    if (existing.rowCount) {
+      await client.query(
+        `UPDATE notifications
+            SET body = $2, deep_link = $3, read_at = $4, source_entity_id = $5, created_at = NOW()
+          WHERE id = $1`,
+        [existing.rows[0].id, notification.body, notification.deepLink, notification.readAt, tryoutId],
+      );
+      continue;
+    }
+    const created = await client.query(
+      `INSERT INTO notifications (
+         recipient_user_id, event_type, title, body, deep_link, priority,
+         source_entity_type, source_entity_id, read_at
+       ) VALUES ($1, $2::notification_event_type, $3, $4, $5, 1, 'tryout', $6, $7)
+       RETURNING id`,
+      [primaryStudentId, notification.eventType, notification.title, notification.body, notification.deepLink, tryoutId, notification.readAt],
+    );
+    await client.query(
+      `INSERT INTO notification_deliveries (notification_id, channel, status, delivered_at)
+       VALUES ($1, 'in_app', 'delivered', NOW())`,
+      [created.rows[0].id],
+    );
+  }
+
+  await client.query(
+    `INSERT INTO system_configs (config_key, config_value, updated_by_user_id)
+     VALUES ('demo.usability_context', $1::jsonb, $2)
+     ON CONFLICT (config_key) DO UPDATE
+       SET config_value = EXCLUDED.config_value,
+           updated_by_user_id = EXCLUDED.updated_by_user_id,
+           updated_at = NOW()`,
+    [JSON.stringify({ cohort: "Kelas Persiapan SNBT 2027", purpose: "Demonstrasi produk dan pengujian kegunaan", seededAt: new Date().toISOString() }), adminUserId],
+  );
+}
+
 async function main() {
   const client = new Client({
     connectionString: requireDatabaseUrl(),
@@ -444,7 +613,7 @@ async function main() {
 
     const examProgramId = await upsertExamProgram(client, {
       code: "UTBK-SNBT",
-      description: "Seeded UTBK practice context for onboarding and enrollment demos.",
+      description: "Program persiapan UTBK SNBT untuk pembelajaran, latihan, dan evaluasi kemajuan siswa.",
       name: "UTBK SNBT",
     });
 
@@ -571,17 +740,45 @@ async function main() {
     });
     await ensureNotificationPreference(client, tutorUserId);
     await upsertTutorProfile(client, {
-      bio: "Tutor demo untuk cohort SNBT. Akun ini dipakai untuk memverifikasi alur mentor/kapten dan relasi cohort di seed data.",
-      headline: "Tutor SNBT · Pendamping cohort",
+      bio: "Pendamping kelas persiapan SNBT dengan fokus pada penalaran, literasi, dan evaluasi kemajuan belajar.",
+      headline: "Tutor SNBT · Pendamping kelas intensif",
       userId: tutorUserId,
     });
 
     await seedMateriCatalogue(client, { authorUserId: tutorUserId });
 
+    const demoPasswordHash = await hashPassword("Student12345!");
+    const demoStudentIds = {};
+    for (const demoStudent of DEMO_STUDENTS) {
+      const demoStudentId = await upsertUser(client, {
+        email: demoStudent.email,
+        fullName: demoStudent.fullName,
+        mustChangePassword: false,
+        passwordHash: demoPasswordHash,
+        passwordUpdatedAt: new Date(),
+      });
+      demoStudentIds[demoStudent.key] = demoStudentId;
+      await ensureRoleAssignment(client, {
+        assignedByUserId: adminUserId,
+        role: "student",
+        userId: demoStudentId,
+      });
+      await ensureNotificationPreference(client, demoStudentId);
+      await upsertStudentProfile(client, {
+        displayName: demoStudent.fullName,
+        enrolledByUserId: adminUserId,
+        onboardingStatus: "completed",
+        targetExamEventId: upcomingExamEventId,
+        targetMajorId: uiInformaticsId,
+        targetUniversityId: uiId,
+        userId: demoStudentId,
+      });
+    }
+
     const cohortId = await upsertCohort(client, {
       endDate: new Date("2027-04-30"),
       examEventId: upcomingExamEventId,
-      name: "Cohort SNBT 2027 - Utama",
+      name: "Kelas Persiapan SNBT 2027",
       startDate: new Date("2027-01-15"),
     });
 
@@ -593,15 +790,43 @@ async function main() {
       cohortId,
       studentId: tempStudentUserId,
     });
+    for (const demoStudentId of Object.values(demoStudentIds)) {
+      await ensureCohortStudent(client, {
+        cohortId,
+        studentId: demoStudentId,
+      });
+    }
     await ensureTutorCohortAssignment(client, {
       assignedByUserId: adminUserId,
       cohortId,
       tutorId: tutorUserId,
     });
 
+    await seedLearningProgress(client, {
+      completedStudentId: demoStudentIds.completed,
+      primaryStudentId: studentUserId,
+    });
+    const assessmentSummary = await seedAssessmentDemo(client, {
+      examEventId: upcomingExamEventId,
+      studentIds: {
+        ...demoStudentIds,
+        primary: studentUserId,
+      },
+      tutorId: tutorUserId,
+    });
+    await seedOperationalContext(client, {
+      adminUserId,
+      cohortId,
+      completedStudentId: demoStudentIds.completed,
+      primaryStudentId: studentUserId,
+      tryoutId: assessmentSummary.tryoutId,
+      tutorUserId,
+    });
+
     await client.query("COMMIT");
 
     console.log("Vecalss seed completed.\n");
+    console.log(`Demonstration content: ${assessmentSummary.questionCount} questions, ${assessmentSummary.quizCount} quizzes, ${assessmentSummary.versionCount} reusable packages, 2 delivery sessions, and 6 participant states.\n`);
     console.table([
       {
         email: DEFAULT_ADMIN.email,

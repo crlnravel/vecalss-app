@@ -23,15 +23,19 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+import { saveQuizAnswerAction, submitQuizAction } from "./actions";
+
 import type { QuizAttempt, QuizAttemptNavState, QuizItem } from "./data";
 
 function QuizOngoingPageModule({
   attempt,
+  attemptId,
   quiz,
   subjectSlug,
   subjectTitle,
 }: {
   attempt: QuizAttempt;
+  attemptId: string;
   quiz: QuizItem;
   subjectSlug: string;
   subjectTitle: string;
@@ -42,9 +46,11 @@ function QuizOngoingPageModule({
   );
   const [currentQuestion, setCurrentQuestion] = useState(attempt.currentNumber);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>(
-    attempt.question.selectedOptionKey
-      ? { [attempt.currentNumber]: attempt.question.selectedOptionKey }
-      : {},
+    Object.fromEntries(
+      attempt.questions.flatMap((question, index) =>
+        question.selectedOptionKey ? [[index + 1, question.selectedOptionKey]] : [],
+      ),
+    ),
   );
   const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>(
     attempt.markers
@@ -53,6 +59,9 @@ function QuizOngoingPageModule({
   );
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
+  const [savingQuestions, setSavingQuestions] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const readingTextClass =
     textScale === "large"
@@ -75,6 +84,7 @@ function QuizOngoingPageModule({
   );
 
   const currentSelectedOptionKey = selectedAnswers[currentQuestion] ?? null;
+  const currentQuizQuestion = attempt.questions[currentQuestion - 1];
   const isCurrentQuestionFlagged = flaggedQuestions.includes(currentQuestion);
   const isCurrentQuestionReported = reportedQuestions.includes(currentQuestion);
 
@@ -116,57 +126,90 @@ function QuizOngoingPageModule({
     );
   }
 
-  function selectAnswer(optionKey: string) {
+  async function selectAnswer(optionId: string) {
+    if (!currentQuizQuestion || savingQuestions.includes(currentQuestion) || isSubmitting) {
+      return;
+    }
+    const previousOptionId = selectedAnswers[currentQuestion];
     setSelectedAnswers((current) => ({
       ...current,
-      [currentQuestion]: optionKey,
+      [currentQuestion]: optionId,
     }));
+    setSavingQuestions((current) => [...current, currentQuestion]);
+    setMessage(null);
+    const response = await saveQuizAnswerAction(attemptId, currentQuizQuestion.id, optionId);
+    setSavingQuestions((current) => current.filter((number) => number !== currentQuestion));
+    if (!response.ok) {
+      setSelectedAnswers((current) => {
+        const next = { ...current };
+        if (previousOptionId) next[currentQuestion] = previousOptionId;
+        else delete next[currentQuestion];
+        return next;
+      });
+      setMessage(response.message);
+    }
+  }
+
+  async function submitQuiz() {
+    if (savingQuestions.length) {
+      setMessage("Tunggu sampai jawaban tersimpan sebelum mengirim quiz.");
+      return;
+    }
+    setIsSubmitting(true);
+    setMessage(null);
+    const response = await submitQuizAction(attemptId);
+    if (!response.ok) {
+      setIsSubmitting(false);
+      setMessage(response.message);
+      return;
+    }
+    router.push(`/quiz/${subjectSlug}/${quiz.slug}/result`);
   }
 
   return (
     <div className="min-h-svh bg-white text-secondary-900">
       <Dialog onOpenChange={setIsExitDialogOpen} open={isExitDialogOpen}>
         <DialogContent
-          className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-4xl bg-white p-0 shadow-[0_32px_90px_-40px_rgba(15,23,42,0.32)] sm:max-w-[620px]"
+          className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-3xl bg-white p-0 shadow-xl sm:max-w-md"
           showCloseButton={false}
         >
-          <div className="flex items-start gap-3 px-5 py-5 md:px-6 md:py-6">
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444] md:size-16">
-              <AlertTriangle className="size-7 md:size-8" strokeWidth={2.2} />
+          <div className="flex items-start gap-3 px-5 py-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444]">
+              <AlertTriangle className="size-6" strokeWidth={2.2} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-4">
-                <DialogTitle className="text-xl leading-tight font-semibold text-secondary-900 md:text-3xl">
+                <DialogTitle className="text-2xl leading-tight font-semibold text-secondary-900">
                   Keluar dari Latihan?
                 </DialogTitle>
                 <button
                   aria-label="Tutup modal"
-                  className="inline-flex size-10 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-secondary-50 hover:text-secondary-500"
+                  className="inline-flex size-8 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-secondary-50 hover:text-secondary-500"
                   onClick={() => setIsExitDialogOpen(false)}
                   type="button"
                 >
-                  <span className="text-3xl leading-none">×</span>
+                  <span className="text-2xl leading-none">×</span>
                 </button>
               </div>
 
-              <DialogDescription className="mt-2 max-w-[30ch] text-base leading-[1.5] font-medium text-secondary-500 md:text-xl">
+              <DialogDescription className="mt-2 text-base leading-[1.5] font-medium text-secondary-500">
                 Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
                 Sayang banget kan!🥲
               </DialogDescription>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-primary-100 bg-[#fbfbfb] px-5 py-4 md:px-6 md:py-5">
+          <div className="flex items-center justify-end gap-2 border-t border-primary-100 bg-[#fbfbfb] px-5 py-4">
             <button
-              className="inline-flex h-10 min-w-[100px] items-center justify-center rounded-full px-5 text-base font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700 md:h-11 md:min-w-[120px] md:text-lg"
+              className="inline-flex h-10 min-w-[96px] items-center justify-center rounded-full px-5 text-base font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
               onClick={() => setIsExitDialogOpen(false)}
               type="button"
             >
               Batal
             </button>
             <button
-              className="inline-flex h-10 min-w-[140px] items-center justify-center rounded-full bg-[#ff0008] px-6 text-base font-semibold text-white transition-colors hover:bg-[#e10007] md:h-11 md:min-w-[160px] md:text-lg"
+              className="inline-flex h-10 min-w-[132px] items-center justify-center rounded-full bg-[#ff0008] px-5 text-base font-semibold text-white transition-colors hover:bg-[#e10007]"
               onClick={() => router.push(`/quiz/${subjectSlug}`)}
               type="button"
             >
@@ -274,7 +317,7 @@ function QuizOngoingPageModule({
                     readingTextClass,
                   )}
                 >
-                  {attempt.question.passage.map((paragraph) => (
+                  {currentQuizQuestion?.passage.map((paragraph) => (
                     <p key={paragraph}>{paragraph}</p>
                   ))}
                 </div>
@@ -286,24 +329,26 @@ function QuizOngoingPageModule({
                       readingTextClass,
                     )}
                   >
-                    {attempt.question.prompt}
+                    {currentQuizQuestion?.prompt}
                   </p>
                   <p className={cn("mt-3 font-medium text-secondary-500", uiTextClass)}>
-                    {attempt.question.hint}
+                    {currentQuizQuestion?.hint}
                   </p>
                 </div>
 
                 <div className="grid gap-4">
-                  {attempt.question.options.map((option) => (
+                  {currentQuizQuestion?.options.map((option) => (
                     <AnswerOption
-                      onClick={() => selectAnswer(option.key)}
+                      onClick={() => void selectAnswer(option.id)}
                       key={option.key}
                       option={option}
-                      selected={option.key === currentSelectedOptionKey}
+                      selected={option.id === currentSelectedOptionKey}
+                      disabled={savingQuestions.includes(currentQuestion) || isSubmitting}
                     />
                   ))}
                 </div>
               </div>
+              {message ? <p className="mt-3 text-sm font-medium text-red-600">{message}</p> : null}
             </div>
           </div>
 
@@ -318,15 +363,17 @@ function QuizOngoingPageModule({
                 <ChevronLeft data-icon="inline-start" />
                 Soal Sebelumnya
               </Button>
-              <Button
-                className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35"
-                disabled={currentQuestion === quiz.questionCount}
-                onClick={() => goToQuestion(currentQuestion + 1)}
-                size="lg"
-              >
-                Soal Selanjutnya
-                <ChevronRight data-icon="inline-end" />
-              </Button>
+              {currentQuestion === quiz.questionCount ? (
+                <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" disabled={isSubmitting || savingQuestions.length > 0} onClick={() => void submitQuiz()} size="lg">
+                  {isSubmitting ? "Mengirim quiz…" : "Kirim Quiz"}
+                  <ChevronRight data-icon="inline-end" />
+                </Button>
+              ) : (
+                <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" onClick={() => goToQuestion(currentQuestion + 1)} size="lg">
+                  Soal Selanjutnya
+                  <ChevronRight data-icon="inline-end" />
+                </Button>
+              )}
             </div>
           </div>
         </main>
@@ -421,12 +468,14 @@ function UtilityPill({
 }
 
 function AnswerOption({
+  disabled,
   onClick,
   option,
   selected,
 }: {
+  disabled: boolean;
   onClick: () => void;
-  option: { key: string; text: string };
+  option: { id: string; key: string; text: string };
   selected: boolean;
 }) {
   return (
@@ -435,6 +484,7 @@ function AnswerOption({
         "group flex w-full items-start gap-4 rounded-4xl border bg-white px-5 py-5 text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-6",
         selected ? "border-primary-300 bg-primary-50" : "border-primary-100",
       )}
+      disabled={disabled}
       onClick={onClick}
       type="button"
     >

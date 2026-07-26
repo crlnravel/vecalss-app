@@ -13,7 +13,7 @@ export default async function QuizSubjectPage({
     params,
     requireStudentSession(),
   ]);
-  const subjects = await getAvailableQuizSubjects();
+  const subjects = await getAvailableQuizSubjects(session.user.id);
   const subject = subjects.find((item) => item.slug === slug);
 
   if (!subject) {

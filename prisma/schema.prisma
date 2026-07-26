@@ -128,6 +128,93 @@ enum TryoutPackageType {
   @@map("tryout_package_type")
 }
 
+enum TryoutTestType {
+  cbt
+  cat
+
+  @@map("tryout_test_type")
+}
+
+enum TryoutAdmissionMode {
+  open
+  approval_required
+  invitation_only
+
+  @@map("tryout_admission_mode")
+}
+
+enum TryoutAdmissionStatus {
+  pending
+  active
+  rejected
+  revoked
+
+  @@map("tryout_admission_status")
+}
+
+enum TryoutDeliverySessionStatus {
+  draft
+  active
+  closed
+  archived
+
+  @@map("tryout_delivery_session_status")
+}
+
+enum TryoutResultReleasePolicy {
+  inherit
+  immediate
+  manual
+  automatic_at_end
+  scheduled
+
+  @@map("tryout_result_release_policy")
+}
+
+enum TryoutRankingRule {
+  none
+  national
+  cohort
+
+  @@map("tryout_ranking_rule")
+}
+
+enum TryoutAssignmentStatus {
+  active
+  revoked
+
+  @@map("tryout_assignment_status")
+}
+
+enum TryoutAttemptTestRunStatus {
+  pending
+  active
+  sealed
+  expired
+
+  @@map("tryout_attempt_test_run_status")
+}
+
+enum TryoutCatRunState {
+  not_applicable
+  ready
+  failed
+  voided
+
+  @@map("tryout_cat_run_state")
+}
+
+enum TryoutIntegrityEventType {
+  focus_lost
+  focus_returned
+  visibility_hidden
+  visibility_visible
+  fullscreen_entered
+  fullscreen_exited
+
+  @@map("tryout_integrity_event_type")
+}
+
 enum MissionTaskType {
   daily_mission
   smart_drill
@@ -316,73 +403,85 @@ enum InterventionStatus {
 
 /// Unified account table. Credential fields folded directly here to eliminate auth_identities table bloat.
 model User {
-  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                String      @unique
-  fullName             String      @map("full_name") @db.VarChar(160)
-  passwordHash         String      @map("password_hash") @db.Text
-  passwordUpdatedAt    DateTime?   @map("password_updated_at") @db.Timestamptz
-  mustChangePassword   Boolean     @default(false) @map("must_change_password")
-  avatarUrl            String?     @map("avatar_url") @db.Text
-  phone                String?     @db.VarChar(40)
-  status               UserStatus  @default(active)
-  lastLoginAt          DateTime?   @map("last_login_at") @db.Timestamptz
-  failedLoginCount     Int         @default(0) @map("failed_login_count")
-  lockedUntil          DateTime?   @map("locked_until") @db.Timestamptz
-  softDeletedAt        DateTime?   @map("soft_deleted_at") @db.Timestamptz
-  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String     @unique
+  fullName           String     @map("full_name") @db.VarChar(160)
+  passwordHash       String     @map("password_hash") @db.Text
+  passwordUpdatedAt  DateTime?  @map("password_updated_at") @db.Timestamptz
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  avatarUrl          String?    @map("avatar_url") @db.Text
+  phone              String?    @db.VarChar(40)
+  status             UserStatus @default(active)
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz
+  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?  @map("locked_until") @db.Timestamptz
+  softDeletedAt      DateTime?  @map("soft_deleted_at") @db.Timestamptz
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  authSessions              AuthSession[]
-  passwordResetTokens       PasswordResetToken[]
-  loginAttempts             LoginAttempt[]
-  roleAssignments           RoleAssignment[]           @relation("UserRoles")
-  assignedRolesBy           RoleAssignment[]           @relation("RolesAssignedBy")
-  studentProfile            StudentProfile?            @relation("StudentProfileAccount")
-  enrolledStudents          StudentProfile[]           @relation("EnrolledBy")
-  tutorProfile              TutorProfile?
-  createdModules            Module[]                   @relation("ModuleCreatedBy")
-  updatedModules            Module[]                   @relation("ModuleUpdatedBy")
-  moduleProgressions        ModuleProgress[]
-  createdQuestionBanks      QuestionBank[]             @relation("QuestionBankCreatedBy")
-  updatedQuestionBanks      QuestionBank[]             @relation("QuestionBankUpdatedBy")
-  createdQuestions          Question[]                 @relation("QuestionCreatedBy")
-  updatedQuestions          Question[]                 @relation("QuestionUpdatedBy")
-  authoredStandaloneQuizzes StandaloneQuiz[]           @relation("StandaloneQuizAuthor")
-  standaloneQuizAttempts   StandaloneQuizAttempt[]
-  quizAttempts              QuizAttempt[]
-  createdTryoutPackages     TryoutPackage[]            @relation("TryoutCreatedBy")
-  tryoutSessions            TryoutSession[]
-  topicPerformances         StudentTopicPerformance[]
-  subtestPerformances       StudentSubtestPerformance[]
-  learningRecommendations   LearningRecommendation[]
-  analyticsEvents           AnalyticsEvent[]
-  missionAssignments        DailyMissionAssignment[]
-  streakFreezes             StreakFreeze[]
-  badges                    StudentBadge[]
-  aiConversations           AiConversation[]
-  aiRequests                AiRequest[]
-  aiUsageDaily              AiUsageDaily[]
-  weaknessAnalyses          WeaknessAnalysis[]
-  adaptivePracticeSessions  AdaptivePracticeSession[]
-  ptnStrategySessions       PtnStrategySession[]
-  uploadedAssets            Asset[]                    @relation("UploadedBy")
-  createdMediaFolders       MediaFolder[]              @relation("MediaFolderCreatedBy")
-  createdAnnouncements      Announcement[]             @relation("AnnouncementCreatedBy")
-  updatedAnnouncements      Announcement[]             @relation("AnnouncementUpdatedBy")
-  updatedLandingSections    LandingPageSection[]       @relation("LandingSectionUpdatedBy")
-  cohortMemberships         CohortStudent[]
-  assignedTutorCohorts      TutorCohortAssignment[]    @relation("TutorAssigned")
-  assignedCohortsBy         TutorCohortAssignment[]    @relation("CohortAssignedBy")
-  riskFlags                 RiskFlag[]
-  tutorInterventions        Intervention[]             @relation("TutorIntervention")
-  studentInterventions      Intervention[]             @relation("StudentIntervention")
-  notificationPreferences   NotificationPreference?
-  notificationsReceived     Notification[]
-  billingAccounts           BillingAccount[]           @relation("StudentBilling")
-  extendedBillingAccounts   BillingAccount[]           @relation("BillingExtendedBy")
-  updatedSystemConfigs      SystemConfig[]
-  auditLogs                 AuditLog[]
+  authSessions                           AuthSession[]
+  passwordResetTokens                    PasswordResetToken[]
+  loginAttempts                          LoginAttempt[]
+  roleAssignments                        RoleAssignment[]                 @relation("UserRoles")
+  assignedRolesBy                        RoleAssignment[]                 @relation("RolesAssignedBy")
+  studentProfile                         StudentProfile?                  @relation("StudentProfileAccount")
+  enrolledStudents                       StudentProfile[]                 @relation("EnrolledBy")
+  tutorProfile                           TutorProfile?
+  createdModules                         Module[]                         @relation("ModuleCreatedBy")
+  updatedModules                         Module[]                         @relation("ModuleUpdatedBy")
+  moduleProgressions                     ModuleProgress[]
+  createdQuestionBanks                   QuestionBank[]                   @relation("QuestionBankCreatedBy")
+  updatedQuestionBanks                   QuestionBank[]                   @relation("QuestionBankUpdatedBy")
+  createdQuestions                       Question[]                       @relation("QuestionCreatedBy")
+  updatedQuestions                       Question[]                       @relation("QuestionUpdatedBy")
+  authoredStandaloneQuizzes              StandaloneQuiz[]                 @relation("StandaloneQuizAuthor")
+  standaloneQuizAttempts                 StandaloneQuizAttempt[]
+  quizAttempts                           QuizAttempt[]
+  createdTryoutPackages                  TryoutPackage[]                  @relation("TryoutCreatedBy")
+  createdReusableQuestionPackages        ReusableQuestionPackage[]        @relation("ReusableQuestionPackageCreatedBy")
+  updatedReusableQuestionPackages        ReusableQuestionPackage[]        @relation("ReusableQuestionPackageUpdatedBy")
+  createdReusableQuestionPackageVersions ReusableQuestionPackageVersion[] @relation("ReusableQuestionPackageVersionCreatedBy")
+  tryoutAttempts                         TryoutAttempt[]
+  tryoutAdmissions                       TryoutAdmission[]
+  tryoutDeliveryAssignmentsCreated       TryoutDeliveryAssignment[]       @relation("TryoutAssignmentCreatedBy")
+  tryoutDeliverySessionsCreated          TryoutDeliverySession[]          @relation("TryoutDeliverySessionCreatedBy")
+  tryoutDeliverySessionsUpdated          TryoutDeliverySession[]          @relation("TryoutDeliverySessionUpdatedBy")
+  tryoutDeliverySessionsReleased         TryoutDeliverySession[]          @relation("TryoutDeliverySessionReleasedBy")
+  tryoutDeliveryAudits                   TryoutDeliveryAudit[]
+  recordedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationRecordedBy")
+  approvedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationApprovedBy")
+  catResolutionAudits                    TryoutCatResolutionAudit[]
+  topicPerformances                      StudentTopicPerformance[]
+  subtestPerformances                    StudentSubtestPerformance[]
+  learningRecommendations                LearningRecommendation[]
+  analyticsEvents                        AnalyticsEvent[]
+  missionAssignments                     DailyMissionAssignment[]
+  streakFreezes                          StreakFreeze[]
+  badges                                 StudentBadge[]
+  aiConversations                        AiConversation[]
+  aiRequests                             AiRequest[]
+  aiUsageDaily                           AiUsageDaily[]
+  weaknessAnalyses                       WeaknessAnalysis[]
+  adaptivePracticeSessions               AdaptivePracticeSession[]
+  ptnStrategySessions                    PtnStrategySession[]
+  uploadedAssets                         Asset[]                          @relation("UploadedBy")
+  createdMediaFolders                    MediaFolder[]                    @relation("MediaFolderCreatedBy")
+  createdAnnouncements                   Announcement[]                   @relation("AnnouncementCreatedBy")
+  updatedAnnouncements                   Announcement[]                   @relation("AnnouncementUpdatedBy")
+  updatedLandingSections                 LandingPageSection[]             @relation("LandingSectionUpdatedBy")
+  cohortMemberships                      CohortStudent[]
+  assignedTutorCohorts                   TutorCohortAssignment[]          @relation("TutorAssigned")
+  assignedCohortsBy                      TutorCohortAssignment[]          @relation("CohortAssignedBy")
+  riskFlags                              RiskFlag[]
+  tutorInterventions                     Intervention[]                   @relation("TutorIntervention")
+  studentInterventions                   Intervention[]                   @relation("StudentIntervention")
+  notificationPreferences                NotificationPreference?
+  notificationsReceived                  Notification[]
+  billingAccounts                        BillingAccount[]                 @relation("StudentBilling")
+  extendedBillingAccounts                BillingAccount[]                 @relation("BillingExtendedBy")
+  updatedSystemConfigs                   SystemConfig[]
+  auditLogs                              AuditLog[]
 
   @@map("users")
 }
@@ -399,7 +498,7 @@ model AuthSession {
   ipAddress        String?       @map("ip_address") @db.Inet
   userAgent        String?       @map("user_agent") @db.Text
 
-  user             User          @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([refreshTokenHash])
   @@index([userId])
@@ -416,7 +515,7 @@ model PasswordResetToken {
   usedAt      DateTime? @map("used_at") @db.Timestamptz
   ipAddress   String?   @map("ip_address") @db.Inet
 
-  user        User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@map("password_reset_tokens")
 }
@@ -431,7 +530,7 @@ model LoginAttempt {
   ipAddress     String?            @map("ip_address") @db.Inet
   userAgent     String?            @map("user_agent") @db.Text
 
-  user          User?              @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([email])
   @@index([userId])
@@ -447,8 +546,8 @@ model RoleAssignment {
   assignedAt       DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
 
-  user             User      @relation("UserRoles", fields: [userId], references: [id])
-  assignedBy       User?     @relation("RolesAssignedBy", fields: [assignedByUserId], references: [id])
+  user       User  @relation("UserRoles", fields: [userId], references: [id])
+  assignedBy User? @relation("RolesAssignedBy", fields: [assignedByUserId], references: [id])
 
   @@index([userId, role])
   @@map("role_assignments")
@@ -474,11 +573,11 @@ model StudentProfile {
   createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  user               User             @relation("StudentProfileAccount", fields: [userId], references: [id])
-  targetExamEvent    ExamEvent?       @relation(fields: [targetExamEventId], references: [id])
-  targetUniversity   University?      @relation(fields: [targetUniversityId], references: [id])
-  targetMajor        Major?           @relation(fields: [targetMajorId], references: [id])
-  enrolledBy         User?            @relation("EnrolledBy", fields: [enrolledByUserId], references: [id])
+  user             User        @relation("StudentProfileAccount", fields: [userId], references: [id])
+  targetExamEvent  ExamEvent?  @relation(fields: [targetExamEventId], references: [id])
+  targetUniversity University? @relation(fields: [targetUniversityId], references: [id])
+  targetMajor      Major?      @relation(fields: [targetMajorId], references: [id])
+  enrolledBy       User?       @relation("EnrolledBy", fields: [enrolledByUserId], references: [id])
 
   @@map("student_profiles")
 }
@@ -491,7 +590,7 @@ model TutorProfile {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@map("tutor_profiles")
 }
@@ -501,34 +600,34 @@ model TutorProfile {
 // ─────────────────────────────────────────────
 
 model ExamProgram {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code        String      @unique @db.VarChar(40)
-  name        String      @db.VarChar(160)
-  description String?     @db.Text
-  isActive    Boolean     @default(true) @map("is_active")
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(40)
+  name        String   @db.VarChar(160)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  examEvents  ExamEvent[]
+  examEvents ExamEvent[]
 
   @@map("exam_programs")
 }
 
 model ExamEvent {
-  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  examProgramId String           @map("exam_program_id") @db.Uuid
-  name          String           @db.VarChar(160)
-  examDate      DateTime?        @map("exam_date") @db.Date
-  registrationUrl String?        @map("registration_url") @db.Text
-  isActive      Boolean          @default(true) @map("is_active")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examProgramId   String    @map("exam_program_id") @db.Uuid
+  name            String    @db.VarChar(160)
+  examDate        DateTime? @map("exam_date") @db.Date
+  registrationUrl String?   @map("registration_url") @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  examProgram   ExamProgram      @relation(fields: [examProgramId], references: [id])
+  examProgram     ExamProgram      @relation(fields: [examProgramId], references: [id])
   studentProfiles StudentProfile[]
-  admissionStats AdmissionStat[]
-  tryoutPackages TryoutPackage[]
-  cohorts        Cohort[]
+  admissionStats  AdmissionStat[]
+  tryoutPackages  TryoutPackage[]
+  cohorts         Cohort[]
 
   @@index([examProgramId])
   @@index([examDate])
@@ -536,18 +635,18 @@ model ExamEvent {
 }
 
 model University {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String           @db.VarChar(200)
-  shortName       String?          @map("short_name") @db.VarChar(40)
-  type            UniversityType   @default(ptn)
-  city            String?          @db.VarChar(120)
-  province        String?          @db.VarChar(120)
-  officialUrl     String?          @map("official_url") @db.Text
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String         @db.VarChar(200)
+  shortName   String?        @map("short_name") @db.VarChar(40)
+  type        UniversityType @default(ptn)
+  city        String?        @db.VarChar(120)
+  province    String?        @db.VarChar(120)
+  officialUrl String?        @map("official_url") @db.Text
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  studentProfiles StudentProfile[]
-  majors          Major[]
+  studentProfiles     StudentProfile[]
+  majors              Major[]
   ptnStrategySessions PtnStrategySession[]
 
   @@index([name])
@@ -555,18 +654,18 @@ model University {
 }
 
 model Major {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  universityId String         @map("university_id") @db.Uuid
-  name         String         @db.VarChar(200)
-  faculty      String?        @db.VarChar(160)
-  degreeLevel  String?        @map("degree_level") @db.VarChar(40)
-  isActive     Boolean        @default(true) @map("is_active")
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  universityId String   @map("university_id") @db.Uuid
+  name         String   @db.VarChar(200)
+  faculty      String?  @db.VarChar(160)
+  degreeLevel  String?  @map("degree_level") @db.VarChar(40)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  university   University     @relation(fields: [universityId], references: [id])
-  studentProfiles StudentProfile[]
-  admissionStats AdmissionStat[]
+  university          University           @relation(fields: [universityId], references: [id])
+  studentProfiles     StudentProfile[]
+  admissionStats      AdmissionStat[]
   ptnStrategySessions PtnStrategySession[]
 
   @@unique([universityId, name])
@@ -574,20 +673,20 @@ model Major {
 }
 
 model AdmissionStat {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  majorId     String    @map("major_id") @db.Uuid
-  examEventId String?   @map("exam_event_id") @db.Uuid
-  year        Int
-  passingGrade Decimal? @map("passing_grade") @db.Decimal(6, 2)
-  quota       Int?
-  applicants  Int?
-  accepted    Int?
-  sourceUrl   String?   @map("source_url") @db.Text
-  auditedAt   DateTime? @map("audited_at") @db.Timestamptz
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  majorId      String    @map("major_id") @db.Uuid
+  examEventId  String?   @map("exam_event_id") @db.Uuid
+  year         Int
+  passingGrade Decimal?  @map("passing_grade") @db.Decimal(6, 2)
+  quota        Int?
+  applicants   Int?
+  accepted     Int?
+  sourceUrl    String?   @map("source_url") @db.Text
+  auditedAt    DateTime? @map("audited_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
-  major       Major     @relation(fields: [majorId], references: [id])
-  examEvent   ExamEvent? @relation(fields: [examEventId], references: [id])
+  major     Major      @relation(fields: [majorId], references: [id])
+  examEvent ExamEvent? @relation(fields: [examEventId], references: [id])
 
   @@unique([majorId, year])
   @@index([examEventId])
@@ -599,49 +698,51 @@ model AdmissionStat {
 // ─────────────────────────────────────────────
 
 model Subtest {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code        String      @unique @db.VarChar(40)
-  name        String      @db.VarChar(160)
-  description String?     @db.Text
-  sortOrder   Int         @default(0) @map("sort_order")
-  isActive    Boolean     @default(true) @map("is_active")
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(40)
+  name        String   @db.VarChar(160)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  topics      Topic[]
-  questions     Question[]
-  standaloneQuizzes StandaloneQuiz[]
-  standaloneQuizItems StandaloneQuizItem[]
-  tryoutItems TryoutItem[]
-  tryoutSections TryoutSection[]
-  tryoutScoreBreakdowns TryoutScoreBreakdown[]
-  subtestPerformances StudentSubtestPerformance[]
+  topics                              Topic[]
+  questions                           Question[]
+  standaloneQuizzes                   StandaloneQuiz[]
+  standaloneQuizItems                 StandaloneQuizItem[]
+  tryoutItems                         TryoutItem[]
+  tryoutSections                      TryoutSection[]
+  reusableQuestionPackages            ReusableQuestionPackage[]
+  reusableQuestionPackageVersionItems ReusableQuestionPackageVersionItem[]
+  tryoutScoreBreakdowns               TryoutScoreBreakdown[]
+  subtestPerformances                 StudentSubtestPerformance[]
 
   @@map("subtests")
 }
 
 model Topic {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  subtestId     String    @map("subtest_id") @db.Uuid
-  parentTopicId String?   @map("parent_topic_id") @db.Uuid
-  code          String    @db.VarChar(80)
-  name          String    @db.VarChar(200)
-  description   String?   @db.Text
-  sortOrder     Int       @default(0) @map("sort_order")
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subtestId     String   @map("subtest_id") @db.Uuid
+  parentTopicId String?  @map("parent_topic_id") @db.Uuid
+  code          String   @db.VarChar(80)
+  name          String   @db.VarChar(200)
+  description   String?  @db.Text
+  sortOrder     Int      @default(0) @map("sort_order")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  subtest       Subtest   @relation(fields: [subtestId], references: [id])
-  parentTopic   Topic?    @relation("TopicHierarchy", fields: [parentTopicId], references: [id])
-  childTopics   Topic[]   @relation("TopicHierarchy")
-  modules       Module[]
-  questions     Question[]
-  tryoutScoreBreakdowns TryoutScoreBreakdown[]
-  topicPerformances StudentTopicPerformance[]
-  learningRecommendations LearningRecommendation[]
-  missionTemplates MissionTemplate[]
-  weaknessAnalysisTopics WeaknessAnalysisTopic[]
+  subtest                  Subtest                   @relation(fields: [subtestId], references: [id])
+  parentTopic              Topic?                    @relation("TopicHierarchy", fields: [parentTopicId], references: [id])
+  childTopics              Topic[]                   @relation("TopicHierarchy")
+  modules                  Module[]
+  questions                Question[]
+  tryoutScoreBreakdowns    TryoutScoreBreakdown[]
+  topicPerformances        StudentTopicPerformance[]
+  learningRecommendations  LearningRecommendation[]
+  missionTemplates         MissionTemplate[]
+  weaknessAnalysisTopics   WeaknessAnalysisTopic[]
   adaptivePracticeSessions AdaptivePracticeSession[]
 
   @@unique([subtestId, code])
@@ -668,20 +769,20 @@ model Module {
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  topic            Topic         @relation(fields: [topicId], references: [id])
-  createdBy        User?         @relation("ModuleCreatedBy", fields: [createdByUserId], references: [id])
-  updatedBy        User?         @relation("ModuleUpdatedBy", fields: [updatedByUserId], references: [id])
-  assets           ModuleAsset[]
-  
+  topic     Topic         @relation(fields: [topicId], references: [id])
+  createdBy User?         @relation("ModuleCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy User?         @relation("ModuleUpdatedBy", fields: [updatedByUserId], references: [id])
+  assets    ModuleAsset[]
+
   // Explicit self many-to-many configurations
-  prerequisites    ModulePrerequisite[] @relation("DependentModules")
-  requiredBy       ModulePrerequisite[] @relation("PrerequisiteModules")
-  
-  progressions     ModuleProgress[]
-  quiz             ModuleQuiz?
+  prerequisites ModulePrerequisite[] @relation("DependentModules")
+  requiredBy    ModulePrerequisite[] @relation("PrerequisiteModules")
+
+  progressions            ModuleProgress[]
+  quiz                    ModuleQuiz?
   learningRecommendations LearningRecommendation[]
-  weaknessAnalysisTopics WeaknessAnalysisTopic[]
-  interventions    Intervention[]
+  weaknessAnalysisTopics  WeaknessAnalysisTopic[]
+  interventions           Intervention[]
 
   @@unique([topicId, sequenceNo])
   @@index([status])
@@ -699,39 +800,39 @@ model ModuleAsset {
   sortOrder       Int             @default(0) @map("sort_order")
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
-  module          Module          @relation(fields: [moduleId], references: [id])
+  module Module @relation(fields: [moduleId], references: [id])
 
   @@unique([moduleId, sortOrder])
   @@map("module_assets")
 }
 
 model ModulePrerequisite {
-  moduleId               String @map("module_id") @db.Uuid
-  prerequisiteModuleId   String @map("prerequisite_module_id") @db.Uuid
+  moduleId             String @map("module_id") @db.Uuid
+  prerequisiteModuleId String @map("prerequisite_module_id") @db.Uuid
 
-  module                 Module @relation("DependentModules", fields: [moduleId], references: [id])
-  prerequisiteModule     Module @relation("PrerequisiteModules", fields: [prerequisiteModuleId], references: [id])
+  module             Module @relation("DependentModules", fields: [moduleId], references: [id])
+  prerequisiteModule Module @relation("PrerequisiteModules", fields: [prerequisiteModuleId], references: [id])
 
   @@id([moduleId, prerequisiteModuleId])
   @@map("module_prerequisites")
 }
 
 model ModuleProgress {
-  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId           String         @map("student_id") @db.Uuid
-  moduleId            String         @map("module_id") @db.Uuid
-  status              ProgressStatus @default(locked)
-  percentComplete     Decimal        @default(0) @map("percent_complete") @db.Decimal(5, 2)
-  videoPositionSeconds Int           @default(0) @map("video_position_seconds")
-  scrollPosition      Int            @default(0) @map("scroll_position")
-  unlockedAt          DateTime?      @map("unlocked_at") @db.Timestamptz
-  completedAt         DateTime?      @map("completed_at") @db.Timestamptz
-  lastOpenedAt        DateTime?      @map("last_opened_at") @db.Timestamptz
-  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId            String         @map("student_id") @db.Uuid
+  moduleId             String         @map("module_id") @db.Uuid
+  status               ProgressStatus @default(locked)
+  percentComplete      Decimal        @default(0) @map("percent_complete") @db.Decimal(5, 2)
+  videoPositionSeconds Int            @default(0) @map("video_position_seconds")
+  scrollPosition       Int            @default(0) @map("scroll_position")
+  unlockedAt           DateTime?      @map("unlocked_at") @db.Timestamptz
+  completedAt          DateTime?      @map("completed_at") @db.Timestamptz
+  lastOpenedAt         DateTime?      @map("last_opened_at") @db.Timestamptz
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  student             User           @relation(fields: [studentId], references: [id])
-  module              Module         @relation(fields: [moduleId], references: [id])
+  student User   @relation(fields: [studentId], references: [id])
+  module  Module @relation(fields: [moduleId], references: [id])
 
   @@unique([studentId, moduleId])
   @@index([status])
@@ -754,50 +855,55 @@ model QuestionBank {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  createdBy       User          @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy       User          @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  tags            QuestionBankTag[]
-  questions       Question[]
-  sourceQuizzes   StandaloneQuiz[]
+  createdBy                User                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                User                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  tags                     QuestionBankTag[]
+  questions                Question[]
+  sourceQuizzes            StandaloneQuiz[]
   adaptivePracticeSessions AdaptivePracticeSession[]
+  reusableQuestionPackages ReusableQuestionPackage[] @relation("ReusablePackageSourceBank")
+  reusableQuestionPackageVersions ReusableQuestionPackageVersion[] @relation("ReusablePackageVersionSourceBank")
 
   @@map("question_banks")
 }
 
 model Question {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code            String          @unique @db.VarChar(120)
-  questionBankId  String?         @map("question_bank_id") @db.Uuid
-  subtestId       String?         @map("subtest_id") @db.Uuid
-  topicId         String?         @map("topic_id") @db.Uuid
-  stem            String          @db.Text
-  questionType    QuestionType    @default(single_choice) @map("question_type")
-  difficulty      DifficultyLevel @default(medium)
-  explanation     String?         @db.Text
-  promptAssetId   String?         @map("prompt_asset_id") @db.Uuid
-  explanationAssetId String?      @map("explanation_asset_id") @db.Uuid
-  status          ContentStatus   @default(draft)
-  source          String?         @db.VarChar(120)
-  revision        Int             @default(1)
-  createdByUserId String          @map("created_by_user_id") @db.Uuid
-  updatedByUserId String          @map("updated_by_user_id") @db.Uuid
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code               String          @unique @db.VarChar(120)
+  questionBankId     String?         @map("question_bank_id") @db.Uuid
+  subtestId          String?         @map("subtest_id") @db.Uuid
+  topicId            String?         @map("topic_id") @db.Uuid
+  stem               String          @db.Text
+  questionType       QuestionType    @default(single_choice) @map("question_type")
+  difficulty         DifficultyLevel @default(medium)
+  explanation        String?         @db.Text
+  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
+  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
+  status             ContentStatus   @default(draft)
+  source             String?         @db.VarChar(120)
+  revision           Int             @default(1)
+  createdByUserId    String          @map("created_by_user_id") @db.Uuid
+  updatedByUserId    String          @map("updated_by_user_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  questionBank    QuestionBank?   @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
-  subtest         Subtest?        @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  topic           Topic?          @relation(fields: [topicId], references: [id])
-  promptAsset     Asset?          @relation("QuestionPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset Asset?         @relation("QuestionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  createdBy       User            @relation("QuestionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy       User            @relation("QuestionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  options         QuestionOption[]
-  quizItems       QuizItem[]
-  standaloneQuizItems StandaloneQuizItem[] @relation("StandaloneQuizItemSourceQuestion")
-  tryoutItems     TryoutItem[]
-  quizAnswers     QuizAttemptAnswer[]
-  dailyMissionQuestion DailyMissionQuestion[]
-  adaptivePracticeAnswers AdaptivePracticeAnswer[]
+  questionBank                QuestionBank?                        @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
+  subtest                     Subtest?                             @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  topic                       Topic?                               @relation(fields: [topicId], references: [id])
+  promptAsset                 Asset?                               @relation("QuestionPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset            Asset?                               @relation("QuestionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  createdBy                   User                                 @relation("QuestionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                   User                                 @relation("QuestionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  options                     QuestionOption[]
+  quizItems                   QuizItem[]
+  standaloneQuizItems         StandaloneQuizItem[]                 @relation("StandaloneQuizItemSourceQuestion")
+  tryoutItems                 TryoutItem[]
+  quizAnswers                 QuizAttemptAnswer[]
+  dailyMissionQuestion        DailyMissionQuestion[]
+  adaptivePracticeAnswers     AdaptivePracticeAnswer[]
+  reusablePackageItems        ReusableQuestionPackageItem[]        @relation("ReusablePackageItemSourceQuestion")
+  reusablePackageVersionItems ReusableQuestionPackageVersionItem[] @relation("ReusablePackageVersionItemSourceQuestion")
+  twoPlCalibrations           TwoPlQuestionCalibration[]
 
   @@index([topicId])
   @@index([questionBankId])
@@ -806,20 +912,43 @@ model Question {
   @@map("questions")
 }
 
-model QuestionOption {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  questionId String   @map("question_id") @db.Uuid
-  label      String   @db.VarChar(8)
-  content    String   @db.Text
-  isCorrect  Boolean  @default(false) @map("is_correct")
-  sortOrder  Int      @default(0) @map("sort_order")
-  assetId    String?  @map("asset_id") @db.Uuid
+model TwoPlQuestionCalibration {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId         String   @map("question_id") @db.Uuid
+  modelVersion       String   @map("model_version") @db.VarChar(120)
+  discrimination     Decimal  @db.Decimal(10, 6)
+  difficulty         Decimal  @db.Decimal(10, 6)
+  approvalState      String   @default("approved") @map("approval_state") @db.VarChar(24)
+  recordedByUserId   String   @map("recorded_by_user_id") @db.Uuid
+  approvedByUserId   String   @map("approved_by_user_id") @db.Uuid
+  approvedAt         DateTime @default(now()) @map("approved_at") @db.Timestamptz
+  auditReason        String   @map("audit_reason") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  question   Question @relation(fields: [questionId], references: [id])
-  asset      Asset?   @relation("QuestionOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
-  quizAnswers QuizAttemptAnswer[]
-  standaloneQuizItemOptions StandaloneQuizItemOption[]
-  tryoutItemOptions TryoutItemOption[]
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  recordedBy User     @relation("TwoPlCalibrationRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  approvedBy User     @relation("TwoPlCalibrationApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([questionId, modelVersion])
+  @@index([modelVersion, approvalState])
+  @@map("two_pl_question_calibrations")
+}
+
+model QuestionOption {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  label      String  @db.VarChar(8)
+  content    String  @db.Text
+  isCorrect  Boolean @default(false) @map("is_correct")
+  sortOrder  Int     @default(0) @map("sort_order")
+  assetId    String? @map("asset_id") @db.Uuid
+
+  question                      Question                                   @relation(fields: [questionId], references: [id])
+  asset                         Asset?                                     @relation("QuestionOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  quizAnswers                   QuizAttemptAnswer[]
+  standaloneQuizItemOptions     StandaloneQuizItemOption[]
+  tryoutItemOptions             TryoutItemOption[]
+  reusablePackageVersionOptions ReusableQuestionPackageVersionItemOption[]
 
   @@unique([questionId, label])
   @@unique([questionId, sortOrder])
@@ -827,19 +956,21 @@ model QuestionOption {
 }
 
 model Tag {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code String @unique @db.VarChar(40)
-  slug String @unique @db.VarChar(60)
-  label String @db.VarChar(120)
+  id    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code  String            @unique @db.VarChar(40)
+  slug  String            @unique @db.VarChar(60)
+  label String            @db.VarChar(120)
   banks QuestionBankTag[]
+
   @@map("tags")
 }
 
 model QuestionBankTag {
-  questionBankId String @map("question_bank_id") @db.Uuid
-  tagId String @map("tag_id") @db.Uuid
-  questionBank QuestionBank @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
-  tag Tag @relation(fields: [tagId], references: [id], onDelete: Restrict)
+  questionBankId String       @map("question_bank_id") @db.Uuid
+  tagId          String       @map("tag_id") @db.Uuid
+  questionBank   QuestionBank @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
+  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
   @@id([questionBankId, tagId])
   @@index([tagId, questionBankId])
   @@map("question_bank_tags")
@@ -858,9 +989,9 @@ model ModuleQuiz {
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  module       Module        @relation(fields: [moduleId], references: [id])
-  items        QuizItem[]
-  attempts     QuizAttempt[]
+  module   Module        @relation(fields: [moduleId], references: [id])
+  items    QuizItem[]
+  attempts QuizAttempt[]
 
   @@map("module_quizzes")
 }
@@ -883,11 +1014,11 @@ model StandaloneQuiz {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  createdBy       User          @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  subtest         Subtest       @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  sourceBank      QuestionBank? @relation(fields: [sourceBankId], references: [id], onDelete: Restrict)
-  items           StandaloneQuizItem[]
-  attempts        StandaloneQuizAttempt[]
+  createdBy  User                    @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  subtest    Subtest                 @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  sourceBank QuestionBank?           @relation(fields: [sourceBankId], references: [id], onDelete: Restrict)
+  items      StandaloneQuizItem[]
+  attempts   StandaloneQuizAttempt[]
 
   @@index([status, opensAt, closesAt])
   @@index([subtestId, status])
@@ -895,25 +1026,26 @@ model StandaloneQuiz {
 }
 
 model StandaloneQuizItem {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizId      String         @map("quiz_id") @db.Uuid
-  sortOrder   Int            @map("sort_order")
-  prompt      String         @db.Text
-  explanation String?        @db.Text
-  difficulty  DifficultyLevel @default(medium)
-  subtestId   String         @map("subtest_id") @db.Uuid
-  sourceQuestionId String?   @map("source_question_id") @db.Uuid
-  promptAssetId String?      @map("prompt_asset_id") @db.Uuid
-  explanationAssetId String? @map("explanation_asset_id") @db.Uuid
-  idempotencyKey String?     @map("idempotency_key") @db.VarChar(120)
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId             String          @map("quiz_id") @db.Uuid
+  sortOrder          Int             @map("sort_order")
+  prompt             String          @db.Text
+  explanation        String?         @db.Text
+  difficulty         DifficultyLevel @default(medium)
+  subtestId          String          @map("subtest_id") @db.Uuid
+  sourceQuestionId   String?         @map("source_question_id") @db.Uuid
+  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
+  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
+  idempotencyKey     String?         @map("idempotency_key") @db.VarChar(120)
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
-  quiz        StandaloneQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  subtest     Subtest @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  sourceQuestion Question? @relation("StandaloneQuizItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
-  promptAsset Asset? @relation("StandaloneQuizItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset Asset? @relation("StandaloneQuizItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  options StandaloneQuizItemOption[]
+  quiz             StandaloneQuiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  subtest          Subtest                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  sourceQuestion   Question?                  @relation("StandaloneQuizItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  promptAsset      Asset?                     @relation("StandaloneQuizItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset Asset?                     @relation("StandaloneQuizItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  options          StandaloneQuizItemOption[]
+  answers          StandaloneQuizAnswer[]
 
   @@unique([quizId, sortOrder])
   @@unique([quizId, idempotencyKey])
@@ -921,47 +1053,70 @@ model StandaloneQuizItem {
 }
 
 model StandaloneQuizItemOption {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizItemId String @map("quiz_item_id") @db.Uuid
-  choiceKey String @map("choice_key") @db.VarChar(64)
-  content String @db.Text
-  isCorrect Boolean @default(false) @map("is_correct")
-  sortOrder Int @map("sort_order")
-  sourceQuestionOptionId String? @map("source_question_option_id") @db.Uuid
-  assetId String? @map("asset_id") @db.Uuid
-  quizItem StandaloneQuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
-  sourceQuestionOption QuestionOption? @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
-  asset Asset? @relation("StandaloneQuizItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  id                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizItemId             String             @map("quiz_item_id") @db.Uuid
+  choiceKey              String             @map("choice_key") @db.VarChar(64)
+  content                String             @db.Text
+  isCorrect              Boolean            @default(false) @map("is_correct")
+  sortOrder              Int                @map("sort_order")
+  sourceQuestionOptionId String?            @map("source_question_option_id") @db.Uuid
+  assetId                String?            @map("asset_id") @db.Uuid
+  quizItem               StandaloneQuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
+  sourceQuestionOption   QuestionOption?    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  asset                  Asset?             @relation("StandaloneQuizItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  selectedInAnswers      StandaloneQuizAnswer[]
+
   @@unique([quizItemId, choiceKey])
   @@unique([quizItemId, sortOrder])
   @@map("standalone_quiz_item_options")
 }
 
 model StandaloneQuizAttempt {
-  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizId    String         @map("quiz_id") @db.Uuid
-  studentId String         @map("student_id") @db.Uuid
-  status    AttemptStatus  @default(in_progress)
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId       String        @map("quiz_id") @db.Uuid
+  studentId    String        @map("student_id") @db.Uuid
+  status       AttemptStatus @default(in_progress)
+  correctCount Int?          @map("correct_count")
+  score        Int?
+  submittedAt  DateTime?     @map("submitted_at") @db.Timestamptz
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  quiz      StandaloneQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  student   User           @relation(fields: [studentId], references: [id])
+  quiz    StandaloneQuiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student User                   @relation(fields: [studentId], references: [id])
+  answers StandaloneQuizAnswer[]
 
   @@unique([quizId, studentId])
   @@index([studentId, status])
   @@map("standalone_quiz_attempts")
 }
 
-model QuizItem {
-  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizId     String     @map("quiz_id") @db.Uuid
-  questionId String     @map("question_id") @db.Uuid
-  sortOrder  Int        @map("sort_order")
-  points     Decimal    @default(1) @db.Decimal(6, 2)
+model StandaloneQuizAnswer {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String                @map("attempt_id") @db.Uuid
+  quizItemId       String                @map("quiz_item_id") @db.Uuid
+  selectedOptionId String                @map("selected_option_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  quiz       ModuleQuiz @relation(fields: [quizId], references: [id])
-  question   Question  @relation(fields: [questionId], references: [id])
+  attempt        StandaloneQuizAttempt    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  quizItem       StandaloneQuizItem       @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
+  selectedOption StandaloneQuizItemOption @relation(fields: [selectedOptionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, quizItemId])
+  @@index([attemptId])
+  @@map("standalone_quiz_answers")
+}
+
+model QuizItem {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId     String  @map("quiz_id") @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  sortOrder  Int     @map("sort_order")
+  points     Decimal @default(1) @db.Decimal(6, 2)
+
+  quiz     ModuleQuiz @relation(fields: [quizId], references: [id])
+  question Question   @relation(fields: [questionId], references: [id])
 
   @@unique([quizId, questionId])
   @@unique([quizId, sortOrder])
@@ -982,9 +1137,9 @@ model QuizAttempt {
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  quiz         ModuleQuiz    @relation(fields: [quizId], references: [id])
-  student      User          @relation(fields: [studentId], references: [id])
-  answers      QuizAttemptAnswer[]
+  quiz    ModuleQuiz          @relation(fields: [quizId], references: [id])
+  student User                @relation(fields: [studentId], references: [id])
+  answers QuizAttemptAnswer[]
 
   @@index([quizId])
   @@index([studentId])
@@ -993,18 +1148,18 @@ model QuizAttempt {
 }
 
 model QuizAttemptAnswer {
-  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  attemptId        String          @map("attempt_id") @db.Uuid
-  questionId       String          @map("question_id") @db.Uuid
-  selectedOptionId String?         @map("selected_option_id") @db.Uuid
-  answerText       String?         @map("answer_text") @db.Text
-  isCorrect        Boolean?        @map("is_correct")
-  pointsAwarded    Decimal?        @map("points_awarded") @db.Decimal(6, 2)
-  answeredAt       DateTime        @default(now()) @map("answered_at") @db.Timestamptz
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String   @map("attempt_id") @db.Uuid
+  questionId       String   @map("question_id") @db.Uuid
+  selectedOptionId String?  @map("selected_option_id") @db.Uuid
+  answerText       String?  @map("answer_text") @db.Text
+  isCorrect        Boolean? @map("is_correct")
+  pointsAwarded    Decimal? @map("points_awarded") @db.Decimal(6, 2)
+  answeredAt       DateTime @default(now()) @map("answered_at") @db.Timestamptz
 
-  attempt          QuizAttempt     @relation(fields: [attemptId], references: [id])
-  question         Question       @relation(fields: [questionId], references: [id])
-  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+  attempt        QuizAttempt     @relation(fields: [attemptId], references: [id])
+  question       Question        @relation(fields: [questionId], references: [id])
+  selectedOption QuestionOption? @relation(fields: [selectedOptionId], references: [id])
 
   @@unique([attemptId, questionId])
   @@map("quiz_attempt_answers")
@@ -1014,42 +1169,258 @@ model QuizAttemptAnswer {
 // TRYOUTS
 // ─────────────────────────────────────────────
 
-model TryoutPackage {
-  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  examEventId    String?           @map("exam_event_id") @db.Uuid
-  code           String            @unique @db.VarChar(80)
-  title          String            @db.VarChar(220)
-  description    String?           @db.Text
-  assessmentType TryoutPackageType @default(tryout) @map("assessment_type")
-  status         ContentStatus     @default(draft)
-  publishedAt    DateTime?         @map("published_at") @db.Timestamptz
-  revision         Int             @default(1)
-  idempotencyKey   String?         @unique @map("idempotency_key") @db.VarChar(120)
-  createdByUserId String            @map("created_by_user_id") @db.Uuid
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+model ReusableQuestionPackage {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String        @unique @db.VarChar(100)
+  title           String        @db.VarChar(220)
+  description     String?       @db.Text
+  sourceBankId    String        @map("source_bank_id") @db.Uuid
+  subtestId       String        @map("subtest_id") @db.Uuid
+  status          ContentStatus @default(draft)
+  revision        Int           @default(1)
+  createdByUserId String        @map("created_by_user_id") @db.Uuid
+  updatedByUserId String        @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  examEvent      ExamEvent?        @relation(fields: [examEventId], references: [id])
-  createdBy      User              @relation("TryoutCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  sections       TryoutSection[]
-  items          TryoutItem[]
-  sessions       TryoutSession[]
+  subtest   Subtest                          @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  sourceBank QuestionBank                    @relation("ReusablePackageSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
+  createdBy User                             @relation("ReusableQuestionPackageCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy User                             @relation("ReusableQuestionPackageUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  items     ReusableQuestionPackageItem[]
+  versions  ReusableQuestionPackageVersion[]
+
+  @@index([subtestId, status])
+  @@map("reusable_question_packages")
+}
+
+model ReusableQuestionPackageItem {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageId        String   @map("package_id") @db.Uuid
+  sourceQuestionId String   @map("source_question_id") @db.Uuid
+  sortOrder        Int      @map("sort_order")
+  pointValue       Decimal  @map("point_value") @db.Decimal(6, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  package        ReusableQuestionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  sourceQuestion Question                @relation("ReusablePackageItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+
+  @@unique([packageId, sourceQuestionId])
+  @@unique([packageId, sortOrder])
+  @@map("reusable_question_package_items")
+}
+
+model ReusableQuestionPackageVersion {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageId       String        @map("package_id") @db.Uuid
+  sourceBankId    String        @map("source_bank_id") @db.Uuid
+  versionNo       Int           @map("version_no")
+  status          ContentStatus @default(draft)
+  readyAt         DateTime?     @map("ready_at") @db.Timestamptz
+  createdByUserId String        @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  package        ReusableQuestionPackage              @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  sourceBank     QuestionBank                         @relation("ReusablePackageVersionSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
+  createdBy      User                                 @relation("ReusableQuestionPackageVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items          ReusableQuestionPackageVersionItem[]
+  tryoutSections TryoutSection[]
+  tryoutItems    TryoutItem[]
+
+  @@unique([packageId, versionNo])
+  @@index([packageId, status])
+  @@map("reusable_question_package_versions")
+}
+
+model ReusableQuestionPackageVersionItem {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageVersionId   String          @map("package_version_id") @db.Uuid
+  sourceQuestionId   String          @map("source_question_id") @db.Uuid
+  sortOrder          Int             @map("sort_order")
+  pointValue         Decimal         @map("point_value") @db.Decimal(6, 2)
+  prompt             String          @db.Text
+  explanation        String?         @db.Text
+  difficulty         DifficultyLevel @default(medium)
+  subtestId          String          @map("subtest_id") @db.Uuid
+  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
+  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
+
+  packageVersion   ReusableQuestionPackageVersion             @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  sourceQuestion   Question                                   @relation("ReusablePackageVersionItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  subtest          Subtest                                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  promptAsset      Asset?                                     @relation("ReusablePackageVersionItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset Asset?                                     @relation("ReusablePackageVersionItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  options          ReusableQuestionPackageVersionItemOption[]
+
+  @@unique([packageVersionId, sourceQuestionId], map: "reusable_package_version_item_source_key")
+  @@unique([packageVersionId, sortOrder], map: "reusable_package_version_item_order_key")
+  @@map("reusable_question_package_version_items")
+}
+
+model ReusableQuestionPackageVersionItemOption {
+  id                     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageVersionItemId   String  @map("package_version_item_id") @db.Uuid
+  choiceKey              String  @map("choice_key") @db.VarChar(64)
+  content                String  @db.Text
+  isCorrect              Boolean @default(false) @map("is_correct")
+  sortOrder              Int     @map("sort_order")
+  sourceQuestionOptionId String? @map("source_question_option_id") @db.Uuid
+  assetId                String? @map("asset_id") @db.Uuid
+
+  item                 ReusableQuestionPackageVersionItem @relation(fields: [packageVersionItemId], references: [id], onDelete: Cascade)
+  sourceQuestionOption QuestionOption?                    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  asset                Asset?                             @relation("ReusablePackageVersionItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([packageVersionItemId, choiceKey], map: "reusable_package_version_option_key")
+  @@unique([packageVersionItemId, sortOrder], map: "reusable_package_version_option_order_key")
+  @@map("reusable_question_package_version_item_options")
+}
+
+model TryoutPackage {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examEventId     String?             @map("exam_event_id") @db.Uuid
+  code            String              @unique @db.VarChar(80)
+  title           String              @db.VarChar(220)
+  description     String?             @db.Text
+  assessmentType  TryoutPackageType   @default(tryout) @map("assessment_type")
+  status          ContentStatus       @default(draft)
+  publishedAt     DateTime?           @map("published_at") @db.Timestamptz
+  revision        Int                 @default(1)
+  idempotencyKey  String?             @unique @map("idempotency_key") @db.VarChar(120)
+  admissionMode   TryoutAdmissionMode @default(open) @map("admission_mode")
+  defaultResultReleasePolicy TryoutResultReleasePolicy @default(automatic_at_end) @map("default_result_release_policy")
+  createdByUserId String              @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  examEvent            ExamEvent?              @relation(fields: [examEventId], references: [id])
+  createdBy            User                    @relation("TryoutCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  sections             TryoutSection[]
+  items                TryoutItem[]
+  attempts             TryoutAttempt[]
+  deliverySessions     TryoutDeliverySession[]
+  admissions           TryoutAdmission[]
+  tryoutDeliveryAudits TryoutDeliveryAudit[]
 
   @@map("tryout_packages")
 }
 
-model TryoutSection {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId        String        @map("tryout_id") @db.Uuid
-  subtestId       String        @map("subtest_id") @db.Uuid
-  title           String        @db.VarChar(180)
-  sequenceNo      Int           @map("sequence_no")
-  durationSeconds Int           @map("duration_seconds")
-  questionCount   Int           @map("question_count")
+model TryoutDeliverySession {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId                  String                      @map("tryout_id") @db.Uuid
+  name                      String                      @db.VarChar(180)
+  availableFrom             DateTime                    @map("available_from") @db.Timestamptz
+  availableUntil            DateTime                    @map("available_until") @db.Timestamptz
+  resultReleasePolicy       TryoutResultReleasePolicy   @default(inherit) @map("result_release_policy")
+  scheduledReleaseAt        DateTime?                   @map("scheduled_release_at") @db.Timestamptz
+  rankingRule               TryoutRankingRule           @default(none) @map("ranking_rule")
+  isDefaultOpenRegistration Boolean                     @default(false) @map("is_default_open_registration")
+  fullscreenPrompt          Boolean                     @default(false) @map("fullscreen_prompt")
+  status                    TryoutDeliverySessionStatus @default(draft)
+  createdByUserId           String                      @map("created_by_user_id") @db.Uuid
+  updatedByUserId           String                      @map("updated_by_user_id") @db.Uuid
+  createdAt                 DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  releasedAt                DateTime?                   @map("released_at") @db.Timestamptz
+  releasedByUserId          String?                     @map("released_by_user_id") @db.Uuid
 
-  tryout          TryoutPackage @relation(fields: [tryoutId], references: [id])
-  subtest         Subtest       @relation(fields: [subtestId], references: [id])
-  items           TryoutItem[]
+  tryout      TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  createdBy   User                       @relation("TryoutDeliverySessionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy   User                       @relation("TryoutDeliverySessionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  releasedBy  User?                      @relation("TryoutDeliverySessionReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
+  assignments TryoutDeliveryAssignment[]
+  audits      TryoutDeliveryAudit[]
+  attempts    TryoutAttempt[]
+
+  @@unique([tryoutId, name])
+  @@index([tryoutId, status, availableFrom, availableUntil])
+  @@index([scheduledReleaseAt])
+  @@map("tryout_delivery_sessions")
+}
+
+model TryoutAdmission {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId        String                @map("tryout_id") @db.Uuid
+  studentId       String                @map("student_id") @db.Uuid
+  status          TryoutAdmissionStatus @default(pending)
+  requestedAt     DateTime              @default(now()) @map("requested_at") @db.Timestamptz
+  decidedAt       DateTime?             @map("decided_at") @db.Timestamptz
+  decidedByUserId String?               @map("decided_by_user_id") @db.Uuid
+  revokeReason    String?               @map("revoke_reason") @db.Text
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tryout      TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  student     User                       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  assignments TryoutDeliveryAssignment[]
+  attempts    TryoutAttempt[]
+
+  @@unique([tryoutId, studentId])
+  @@index([studentId, status])
+  @@map("tryout_admissions")
+}
+
+model TryoutDeliveryAssignment {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  admissionId       String                 @map("admission_id") @db.Uuid
+  deliverySessionId String                 @map("delivery_session_id") @db.Uuid
+  status            TryoutAssignmentStatus @default(active)
+  assignedByUserId  String                 @map("assigned_by_user_id") @db.Uuid
+  assignedAt        DateTime               @default(now()) @map("assigned_at") @db.Timestamptz
+  revokedAt         DateTime?              @map("revoked_at") @db.Timestamptz
+  revokeReason      String?                @map("revoke_reason") @db.Text
+
+  admission       TryoutAdmission       @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  deliverySession TryoutDeliverySession @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  assignedBy      User                  @relation("TryoutAssignmentCreatedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([admissionId, deliverySessionId])
+  @@index([deliverySessionId, status])
+  @@map("tryout_delivery_assignments")
+}
+
+model TryoutDeliveryAudit {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId          String   @map("tryout_id") @db.Uuid
+  deliverySessionId String?  @map("delivery_session_id") @db.Uuid
+  admissionId       String?  @map("admission_id") @db.Uuid
+  actorUserId       String   @map("actor_user_id") @db.Uuid
+  action            String   @db.VarChar(100)
+  reason            String   @db.Text
+  before            Json?    @db.JsonB
+  after             Json?    @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tryout          TryoutPackage          @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  deliverySession TryoutDeliverySession? @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  actor           User                   @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([tryoutId, createdAt])
+  @@index([admissionId, createdAt])
+  @@map("tryout_delivery_audits")
+}
+
+model TryoutSection {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId         String         @map("tryout_id") @db.Uuid
+  subtestId        String         @map("subtest_id") @db.Uuid
+  title            String         @db.VarChar(180)
+  sequenceNo       Int            @map("sequence_no")
+  durationSeconds  Int            @map("duration_seconds")
+  questionCount    Int            @map("question_count")
+  packageVersionId String?        @map("package_version_id") @db.Uuid
+  instructions     String?        @db.Text
+  testType         TryoutTestType @default(cbt) @map("test_type")
+  scoringConfig    Json?          @map("scoring_config") @db.JsonB
+  shuffleItems     Boolean        @default(false) @map("shuffle_items")
+  catItemCount     Int?           @map("cat_item_count")
+  catModelVersion  String?        @map("cat_model_version") @db.VarChar(120)
+
+  tryout         TryoutPackage                   @relation(fields: [tryoutId], references: [id])
+  subtest        Subtest                         @relation(fields: [subtestId], references: [id])
+  items          TryoutItem[]
+  attemptRuns    TryoutAttemptTestRun[]
+  packageVersion ReusableQuestionPackageVersion? @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
 
   @@unique([tryoutId, sequenceNo])
   @@unique([tryoutId, subtestId])
@@ -1057,29 +1428,31 @@ model TryoutSection {
 }
 
 model TryoutItem {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId        String        @map("tryout_id") @db.Uuid
-  tryoutSectionId String        @map("tryout_section_id") @db.Uuid
-  sourceQuestionId String?      @map("source_question_id") @db.Uuid
-  sortOrder       Int           @map("sort_order")
-  points          Decimal       @default(1) @db.Decimal(6, 2)
-  prompt          String        @db.Text
-  explanation     String?       @db.Text
-  difficulty      DifficultyLevel @default(medium)
-  subtestId       String        @map("subtest_id") @db.Uuid
-  packageCode     String        @map("package_code") @db.VarChar(80)
-  promptAssetId   String?       @map("prompt_asset_id") @db.Uuid
-  explanationAssetId String?    @map("explanation_asset_id") @db.Uuid
-  idempotencyKey  String?       @map("idempotency_key") @db.VarChar(120)
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId           String          @map("tryout_id") @db.Uuid
+  tryoutSectionId    String          @map("tryout_section_id") @db.Uuid
+  sourceQuestionId   String?         @map("source_question_id") @db.Uuid
+  sortOrder          Int             @map("sort_order")
+  points             Decimal         @default(1) @db.Decimal(6, 2)
+  prompt             String          @db.Text
+  explanation        String?         @db.Text
+  difficulty         DifficultyLevel @default(medium)
+  subtestId          String          @map("subtest_id") @db.Uuid
+  packageCode        String          @map("package_code") @db.VarChar(80)
+  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
+  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
+  idempotencyKey     String?         @map("idempotency_key") @db.VarChar(120)
+  packageVersionId   String?         @map("package_version_id") @db.Uuid
 
-  tryoutSection   TryoutSection @relation(fields: [tryoutSectionId], references: [id])
-  tryout          TryoutPackage @relation(fields: [tryoutId], references: [id])
-  sourceQuestion  Question?    @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
-  subtest         Subtest      @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  promptAsset     Asset?       @relation("TryoutItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset Asset?      @relation("TryoutItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  options         TryoutItemOption[]
-  answers         TryoutAnswer[]
+  tryoutSection    TryoutSection                   @relation(fields: [tryoutSectionId], references: [id])
+  tryout           TryoutPackage                   @relation(fields: [tryoutId], references: [id])
+  sourceQuestion   Question?                       @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  subtest          Subtest                         @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  promptAsset      Asset?                          @relation("TryoutItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset Asset?                          @relation("TryoutItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  options          TryoutItemOption[]
+  answers          TryoutAnswer[]
+  packageVersion   ReusableQuestionPackageVersion? @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
 
   @@unique([tryoutSectionId, sortOrder])
   @@unique([tryoutId, sourceQuestionId])
@@ -1089,80 +1462,154 @@ model TryoutItem {
 }
 
 model TryoutItemOption {
-  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutItemId String @map("tryout_item_id") @db.Uuid
-  choiceKey String @map("choice_key") @db.VarChar(64)
-  content String @db.Text
-  isCorrect Boolean @default(false) @map("is_correct")
-  sortOrder Int @map("sort_order")
-  sourceQuestionOptionId String? @map("source_question_option_id") @db.Uuid
-  assetId String? @map("asset_id") @db.Uuid
-  item TryoutItem @relation(fields: [tryoutItemId], references: [id], onDelete: Cascade)
-  sourceQuestionOption QuestionOption? @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
-  asset Asset? @relation("TryoutItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
-  answers TryoutAnswer[]
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutItemId           String          @map("tryout_item_id") @db.Uuid
+  choiceKey              String          @map("choice_key") @db.VarChar(64)
+  content                String          @db.Text
+  isCorrect              Boolean         @default(false) @map("is_correct")
+  sortOrder              Int             @map("sort_order")
+  sourceQuestionOptionId String?         @map("source_question_option_id") @db.Uuid
+  assetId                String?         @map("asset_id") @db.Uuid
+  item                   TryoutItem      @relation(fields: [tryoutItemId], references: [id], onDelete: Cascade)
+  sourceQuestionOption   QuestionOption? @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  asset                  Asset?          @relation("TryoutItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  answers                TryoutAnswer[]
+
   @@unique([tryoutItemId, choiceKey])
   @@unique([tryoutItemId, sortOrder])
   @@unique([id, tryoutItemId])
   @@map("tryout_item_options")
 }
 
-model TryoutSession {
-  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId               String          @map("tryout_id") @db.Uuid
-  studentId              String          @map("student_id") @db.Uuid
-  status                 AttemptStatus   @default(in_progress)
-  serverStartedAt        DateTime        @map("server_started_at") @db.Timestamptz
-  serverDeadlineAt       DateTime        @map("server_deadline_at") @db.Timestamptz
-  submittedAt            DateTime?       @map("submitted_at") @db.Timestamptz
-  autoSubmittedAt        DateTime?       @map("auto_submitted_at") @db.Timestamptz
-  score                  Decimal?        @db.Decimal(7, 2)
-  percentileNational     Decimal?        @map("percentile_national") @db.Decimal(5, 2)
-  percentileCohort       Decimal?        @map("percentile_cohort") @db.Decimal(5, 2)
-  disconnectStartedAt    DateTime?       @map("disconnect_started_at") @db.Timestamptz
-  totalDisconnectSeconds Int             @default(0) @map("total_disconnect_seconds")
-  reconciledAt           DateTime?       @map("reconciled_at") @db.Timestamptz
-  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+model TryoutAttempt {
+  id                     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId               String        @map("tryout_id") @db.Uuid
+  deliverySessionId      String        @map("delivery_session_id") @db.Uuid
+  admissionId            String        @map("admission_id") @db.Uuid
+  studentId              String        @map("student_id") @db.Uuid
+  status                 AttemptStatus @default(in_progress)
+  serverStartedAt        DateTime      @map("server_started_at") @db.Timestamptz
+  serverDeadlineAt       DateTime      @map("server_deadline_at") @db.Timestamptz
+  submittedAt            DateTime?     @map("submitted_at") @db.Timestamptz
+  autoSubmittedAt        DateTime?     @map("auto_submitted_at") @db.Timestamptz
+  score                  Decimal?      @db.Decimal(7, 2)
+  percentileNational     Decimal?      @map("percentile_national") @db.Decimal(5, 2)
+  percentileCohort       Decimal?      @map("percentile_cohort") @db.Decimal(5, 2)
+  disconnectStartedAt    DateTime?     @map("disconnect_started_at") @db.Timestamptz
+  totalDisconnectSeconds Int           @default(0) @map("total_disconnect_seconds")
+  reconciledAt           DateTime?     @map("reconciled_at") @db.Timestamptz
+  releasePolicySnapshot  Json          @map("release_policy_snapshot") @db.JsonB
+  contentSnapshot        Json          @map("content_snapshot") @db.JsonB
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  tryout                 TryoutPackage   @relation(fields: [tryoutId], references: [id])
-  student                User            @relation(fields: [studentId], references: [id])
-  answers                TryoutAnswer[]
-  scoreBreakdowns        TryoutScoreBreakdown[]
-  subtestPerformances    StudentSubtestPerformance[]
+  tryout              TryoutPackage               @relation(fields: [tryoutId], references: [id])
+  deliverySession     TryoutDeliverySession       @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  admission           TryoutAdmission             @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  student             User                        @relation(fields: [studentId], references: [id])
+  runs                TryoutAttemptTestRun[]
+  answers             TryoutAnswer[]
+  scoreBreakdowns     TryoutScoreBreakdown[]
+  subtestPerformances StudentSubtestPerformance[]
 
-  @@unique([tryoutId, studentId])
+  @@unique([deliverySessionId, studentId])
   @@unique([id, tryoutId])
+  @@index([deliverySessionId, status])
   @@index([tryoutId])
   @@index([studentId])
   @@index([status])
   @@index([serverDeadlineAt])
-  @@map("tryout_sessions")
+  @@map("tryout_attempts")
+}
+
+model TryoutAttemptTestRun {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId          String                     @map("attempt_id") @db.Uuid
+  tryoutSectionId    String                     @map("tryout_section_id") @db.Uuid
+  sequenceNo         Int                        @map("sequence_no")
+  status             TryoutAttemptTestRunStatus @default(pending)
+  serverStartedAt    DateTime?                  @map("server_started_at") @db.Timestamptz
+  serverDeadlineAt   DateTime?                  @map("server_deadline_at") @db.Timestamptz
+  sealedAt           DateTime?                  @map("sealed_at") @db.Timestamptz
+  contentSnapshot    Json                       @map("content_snapshot") @db.JsonB
+  calculationInput   Json?                      @map("calculation_input") @db.JsonB
+  calculationResult  Json?                      @map("calculation_result") @db.JsonB
+  calculationVersion String?                    @map("calculation_version") @db.VarChar(120)
+  catState           TryoutCatRunState           @default(not_applicable) @map("cat_state")
+  catSnapshot        Json?                       @map("cat_snapshot") @db.JsonB
+  catFailureReason   String?                     @map("cat_failure_reason") @db.Text
+  calculationReleaseable Boolean                 @default(false) @map("calculation_releaseable")
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  attempt TryoutAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  section TryoutSection  @relation(fields: [tryoutSectionId], references: [id], onDelete: Restrict)
+  answers TryoutAnswer[]
+  catResolutionAudits TryoutCatResolutionAudit[]
+  integrityEvents TryoutIntegrityEvent[]
+
+  @@unique([attemptId, tryoutSectionId])
+  @@unique([attemptId, sequenceNo])
+  @@index([attemptId, status])
+  @@map("tryout_attempt_test_runs")
+}
+
+model TryoutIntegrityEvent {
+  id          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId       String                    @map("run_id") @db.Uuid
+  eventType   TryoutIntegrityEventType  @map("event_type")
+  serverSequence Int                    @map("server_sequence")
+  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+
+  run TryoutAttemptTestRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, serverSequence])
+  @@index([runId, createdAt])
+  @@map("tryout_integrity_events")
+}
+
+model TryoutCatResolutionAudit {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId       String   @map("run_id") @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(32)
+  reason      String   @db.Text
+  before      Json?    @db.JsonB
+  after       Json?    @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  run   TryoutAttemptTestRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  actor User                 @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([runId, createdAt])
+  @@map("tryout_cat_resolution_audits")
 }
 
 model TryoutAnswer {
-  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId        String          @map("session_id") @db.Uuid
-  tryoutId        String           @map("tryout_id") @db.Uuid
-  tryoutItemId    String           @map("tryout_item_id") @db.Uuid
-  selectedOptionId String?         @map("selected_option_id") @db.Uuid
-  answerText       String?         @map("answer_text") @db.Text
-  isCorrect        Boolean?        @map("is_correct")
-  pointsAwarded    Decimal?        @map("points_awarded") @db.Decimal(6, 2)
-  answeredAt       DateTime?       @map("answered_at") @db.Timestamptz
-  syncedAt         DateTime?       @map("synced_at") @db.Timestamptz
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String    @map("attempt_id") @db.Uuid
+  attemptTestRunId String    @map("attempt_test_run_id") @db.Uuid
+  tryoutId         String    @map("tryout_id") @db.Uuid
+  tryoutItemId     String    @map("tryout_item_id") @db.Uuid
+  selectedOptionId String?   @map("selected_option_id") @db.Uuid
+  answerText       String?   @map("answer_text") @db.Text
+  isCorrect        Boolean?  @map("is_correct")
+  pointsAwarded    Decimal?  @map("points_awarded") @db.Decimal(6, 2)
+  answeredAt       DateTime? @map("answered_at") @db.Timestamptz
+  syncedAt         DateTime? @map("synced_at") @db.Timestamptz
 
-  session          TryoutSession   @relation(fields: [sessionId, tryoutId], references: [id, tryoutId])
-  item             TryoutItem     @relation(fields: [tryoutItemId, tryoutId], references: [id, tryoutId])
-  selectedOption   TryoutItemOption? @relation(fields: [selectedOptionId, tryoutItemId], references: [id, tryoutItemId])
+  attempt        TryoutAttempt        @relation(fields: [attemptId, tryoutId], references: [id, tryoutId])
+  run            TryoutAttemptTestRun @relation(fields: [attemptTestRunId], references: [id], onDelete: Restrict)
+  item           TryoutItem           @relation(fields: [tryoutItemId, tryoutId], references: [id, tryoutId])
+  selectedOption TryoutItemOption?    @relation(fields: [selectedOptionId, tryoutItemId], references: [id, tryoutItemId])
 
-  @@unique([sessionId, tryoutItemId])
+  @@unique([attemptTestRunId, tryoutItemId])
   @@map("tryout_answers")
 }
 
 model TryoutScoreBreakdown {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId       String   @map("session_id") @db.Uuid
+  attemptId       String   @map("attempt_id") @db.Uuid
   subtestId       String   @map("subtest_id") @db.Uuid
   topicId         String?  @map("topic_id") @db.Uuid
   correctCount    Int      @default(0) @map("correct_count")
@@ -1171,11 +1618,11 @@ model TryoutScoreBreakdown {
   rawScore        Decimal? @map("raw_score") @db.Decimal(7, 2)
   scaledScore     Decimal? @map("scaled_score") @db.Decimal(7, 2)
 
-  session         TryoutSession @relation(fields: [sessionId], references: [id])
-  subtest         Subtest       @relation(fields: [subtestId], references: [id])
-  topic           Topic?        @relation(fields: [topicId], references: [id])
+  attempt TryoutAttempt @relation(fields: [attemptId], references: [id])
+  subtest Subtest       @relation(fields: [subtestId], references: [id])
+  topic   Topic?        @relation(fields: [topicId], references: [id])
 
-  @@unique([sessionId, subtestId, topicId])
+  @@unique([attemptId, subtestId, topicId])
   @@map("tryout_score_breakdowns")
 }
 
@@ -1196,8 +1643,8 @@ model StudentTopicPerformance {
   lastActivityAt DateTime? @map("last_activity_at") @db.Timestamptz
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
-  student        User      @relation(fields: [studentId], references: [id])
-  topic          Topic     @relation(fields: [topicId], references: [id])
+  student User  @relation(fields: [studentId], references: [id])
+  topic   Topic @relation(fields: [topicId], references: [id])
 
   @@unique([studentId, topicId])
   @@index([weaknessScore])
@@ -1205,18 +1652,18 @@ model StudentTopicPerformance {
 }
 
 model StudentSubtestPerformance {
-  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId           String         @map("student_id") @db.Uuid
-  subtestId           String         @map("subtest_id") @db.Uuid
-  latestScore         Decimal?       @map("latest_score") @db.Decimal(6, 2)
-  averageScore        Decimal?       @map("average_score") @db.Decimal(6, 2)
-  weakFlag            Boolean        @default(false) @map("weak_flag")
-  lastTryoutSessionId String?        @map("last_tryout_session_id") @db.Uuid
-  updatedAt           DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String   @map("student_id") @db.Uuid
+  subtestId           String   @map("subtest_id") @db.Uuid
+  latestScore         Decimal? @map("latest_score") @db.Decimal(6, 2)
+  averageScore        Decimal? @map("average_score") @db.Decimal(6, 2)
+  weakFlag            Boolean  @default(false) @map("weak_flag")
+  lastTryoutSessionId String?  @map("last_tryout_session_id") @db.Uuid
+  updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  student             User           @relation(fields: [studentId], references: [id])
-  subtest             Subtest        @relation(fields: [subtestId], references: [id])
-  lastTryoutSession   TryoutSession? @relation(fields: [lastTryoutSessionId], references: [id])
+  student           User           @relation(fields: [studentId], references: [id])
+  subtest           Subtest        @relation(fields: [subtestId], references: [id])
+  lastTryoutSession TryoutAttempt? @relation(fields: [lastTryoutSessionId], references: [id])
 
   @@unique([studentId, subtestId])
   @@index([weakFlag])
@@ -1224,22 +1671,22 @@ model StudentSubtestPerformance {
 }
 
 model LearningRecommendation {
-  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId      String                @map("student_id") @db.Uuid
-  topicId        String?               @map("topic_id") @db.Uuid
-  moduleId       String?               @map("module_id") @db.Uuid
-  source         String                @db.VarChar(80)
-  reason         String?               @db.Text
-  priority       Int                   @default(0)
-  status         RecommendationStatus  @default(active)
-  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  clickedAt      DateTime?             @map("clicked_at") @db.Timestamptz
-  completedAt    DateTime?             @map("completed_at") @db.Timestamptz
-  expiresAt      DateTime?             @map("expires_at") @db.Timestamptz
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId   String               @map("student_id") @db.Uuid
+  topicId     String?              @map("topic_id") @db.Uuid
+  moduleId    String?              @map("module_id") @db.Uuid
+  source      String               @db.VarChar(80)
+  reason      String?              @db.Text
+  priority    Int                  @default(0)
+  status      RecommendationStatus @default(active)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  clickedAt   DateTime?            @map("clicked_at") @db.Timestamptz
+  completedAt DateTime?            @map("completed_at") @db.Timestamptz
+  expiresAt   DateTime?            @map("expires_at") @db.Timestamptz
 
-  student        User                  @relation(fields: [studentId], references: [id])
-  topic          Topic?                @relation(fields: [topicId], references: [id])
-  module         Module?               @relation(fields: [moduleId], references: [id])
+  student User    @relation(fields: [studentId], references: [id])
+  topic   Topic?  @relation(fields: [topicId], references: [id])
+  module  Module? @relation(fields: [moduleId], references: [id])
 
   @@index([studentId])
   @@index([status])
@@ -1248,15 +1695,15 @@ model LearningRecommendation {
 }
 
 model AnalyticsEvent {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String?            @map("user_id") @db.Uuid
-  eventType      AnalyticsEventType @map("event_type")
-  entityType     String?            @map("entity_type") @db.VarChar(80)
-  entityId       String?            @map("entity_id") @db.Uuid
-  metadata       Json?              @db.JsonB
-  occurredAt     DateTime           @default(now()) @map("occurred_at") @db.Timestamptz
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?            @map("user_id") @db.Uuid
+  eventType  AnalyticsEventType @map("event_type")
+  entityType String?            @map("entity_type") @db.VarChar(80)
+  entityId   String?            @map("entity_id") @db.Uuid
+  metadata   Json?              @db.JsonB
+  occurredAt DateTime           @default(now()) @map("occurred_at") @db.Timestamptz
 
-  user           User?              @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([eventType])
@@ -1280,23 +1727,23 @@ model MissionTemplate {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  topic          Topic?          @relation(fields: [topicId], references: [id])
-  dailyMissions  DailyMission[]
+  topic         Topic?         @relation(fields: [topicId], references: [id])
+  dailyMissions DailyMission[]
 
   @@map("mission_templates")
 }
 
 model DailyMission {
-  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  missionTemplateId String       @map("mission_template_id") @db.Uuid
-  missionDate       DateTime     @map("mission_date") @db.Date
-  title             String       @db.VarChar(180)
-  description       String?      @db.Text
-  generatedAt       DateTime     @default(now()) @map("generated_at") @db.Timestamptz
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  missionTemplateId String   @map("mission_template_id") @db.Uuid
+  missionDate       DateTime @map("mission_date") @db.Date
+  title             String   @db.VarChar(180)
+  description       String?  @db.Text
+  generatedAt       DateTime @default(now()) @map("generated_at") @db.Timestamptz
 
-  missionTemplate   MissionTemplate @relation(fields: [missionTemplateId], references: [id])
-  questions         DailyMissionQuestion[]
-  assignments       DailyMissionAssignment[]
+  missionTemplate MissionTemplate          @relation(fields: [missionTemplateId], references: [id])
+  questions       DailyMissionQuestion[]
+  assignments     DailyMissionAssignment[]
 
   @@unique([missionTemplateId, missionDate])
   @@index([missionDate])
@@ -1304,13 +1751,13 @@ model DailyMission {
 }
 
 model DailyMissionQuestion {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dailyMissionId String       @map("daily_mission_id") @db.Uuid
-  questionId     String       @map("question_id") @db.Uuid
-  sortOrder      Int          @map("sort_order")
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dailyMissionId String @map("daily_mission_id") @db.Uuid
+  questionId     String @map("question_id") @db.Uuid
+  sortOrder      Int    @map("sort_order")
 
-  dailyMission   DailyMission @relation(fields: [dailyMissionId], references: [id])
-  question       Question    @relation(fields: [questionId], references: [id])
+  dailyMission DailyMission @relation(fields: [dailyMissionId], references: [id])
+  question     Question     @relation(fields: [questionId], references: [id])
 
   @@unique([dailyMissionId, questionId])
   @@unique([dailyMissionId, sortOrder])
@@ -1318,17 +1765,17 @@ model DailyMissionQuestion {
 }
 
 model DailyMissionAssignment {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dailyMissionId String        @map("daily_mission_id") @db.Uuid
-  studentId      String        @map("student_id") @db.Uuid
-  status         MissionStatus @default(assigned)
-  assignedAt     DateTime      @default(now()) @map("assigned_at") @db.Timestamptz
-  startedAt      DateTime?     @map("started_at") @db.Timestamptz
-  completedAt    DateTime?     @map("completed_at") @db.Timestamptz
-  verificationKey String?      @map("verification_key") @db.VarChar(160)
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dailyMissionId  String        @map("daily_mission_id") @db.Uuid
+  studentId       String        @map("student_id") @db.Uuid
+  status          MissionStatus @default(assigned)
+  assignedAt      DateTime      @default(now()) @map("assigned_at") @db.Timestamptz
+  startedAt       DateTime?     @map("started_at") @db.Timestamptz
+  completedAt     DateTime?     @map("completed_at") @db.Timestamptz
+  verificationKey String?       @map("verification_key") @db.VarChar(160)
 
-  dailyMission   DailyMission  @relation(fields: [dailyMissionId], references: [id])
-  student        User          @relation(fields: [studentId], references: [id])
+  dailyMission DailyMission @relation(fields: [dailyMissionId], references: [id])
+  student      User         @relation(fields: [studentId], references: [id])
 
   @@unique([dailyMissionId, studentId])
   @@index([status])
@@ -1336,15 +1783,15 @@ model DailyMissionAssignment {
 }
 
 model StreakFreeze {
-  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId   String             @map("student_id") @db.Uuid
-  status      StreakFreezeStatus @default(available)
-  source      String?            @db.VarChar(80)
-  earnedAt    DateTime           @default(now()) @map("earned_at") @db.Timestamptz
-  consumedAt  DateTime?          @map("consumed_at") @db.Timestamptz
-  expiresAt   DateTime?          @map("expires_at") @db.Timestamptz
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId  String             @map("student_id") @db.Uuid
+  status     StreakFreezeStatus @default(available)
+  source     String?            @db.VarChar(80)
+  earnedAt   DateTime           @default(now()) @map("earned_at") @db.Timestamptz
+  consumedAt DateTime?          @map("consumed_at") @db.Timestamptz
+  expiresAt  DateTime?          @map("expires_at") @db.Timestamptz
 
-  student     User               @relation(fields: [studentId], references: [id])
+  student User @relation(fields: [studentId], references: [id])
 
   @@index([studentId])
   @@index([status])
@@ -1352,14 +1799,14 @@ model StreakFreeze {
 }
 
 model Badge {
-  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code         String         @unique @db.VarChar(80)
-  name         String         @db.VarChar(160)
-  description  String?        @db.Text
-  criteria     Json           @db.JsonB
-  iconUrl      String?        @map("icon_url") @db.Text
-  isActive     Boolean        @default(true) @map("is_active")
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(80)
+  name        String   @db.VarChar(160)
+  description String?  @db.Text
+  criteria    Json     @db.JsonB
+  iconUrl     String?  @map("icon_url") @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   studentBadges StudentBadge[]
 
@@ -1375,8 +1822,8 @@ model StudentBadge {
   sourceEntityType String?     @map("source_entity_type") @db.VarChar(80)
   sourceEntityId   String?     @map("source_entity_id") @db.Uuid
 
-  student          User        @relation(fields: [studentId], references: [id])
-  badge            Badge       @relation(fields: [badgeId], references: [id])
+  student User  @relation(fields: [studentId], references: [id])
+  badge   Badge @relation(fields: [badgeId], references: [id])
 
   @@unique([studentId, badgeId])
   @@map("student_badges")
@@ -1397,11 +1844,11 @@ model AiConversation {
   updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   expiresAt         DateTime?          @map("expires_at") @db.Timestamptz
 
-  student           User               @relation(fields: [studentId], references: [id])
-  messages          AiMessage[]
-  requests          AiRequest[]
-  weaknessAnalyses  WeaknessAnalysis[]
-  adaptivePractice  AdaptivePracticeSession[]
+  student             User                      @relation(fields: [studentId], references: [id])
+  messages            AiMessage[]
+  requests            AiRequest[]
+  weaknessAnalyses    WeaknessAnalysis[]
+  adaptivePractice    AdaptivePracticeSession[]
   ptnStrategySessions PtnStrategySession[]
 
   @@index([studentId])
@@ -1411,15 +1858,15 @@ model AiConversation {
 }
 
 model AiMessage {
-  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String         @map("conversation_id") @db.Uuid
-  role           AiMessageRole
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String        @map("conversation_id") @db.Uuid
+  role            AiMessageRole
   contentMarkdown String        @map("content_markdown") @db.Text
-  tokenCount     Int            @default(0) @map("token_count")
-  metadata       Json?          @db.JsonB
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  tokenCount      Int           @default(0) @map("token_count")
+  metadata        Json?         @db.JsonB
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
-  conversation   AiConversation @relation(fields: [conversationId], references: [id])
+  conversation AiConversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId])
   @@index([createdAt])
@@ -1427,21 +1874,21 @@ model AiMessage {
 }
 
 model AiRequest {
-  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId       String             @map("student_id") @db.Uuid
-  conversationId  String?            @map("conversation_id") @db.Uuid
-  requestType     AiConversationType @map("request_type")
-  promptTemplate  String?            @map("prompt_template") @db.VarChar(120)
-  model           String?            @db.VarChar(120)
-  inputTokens     Int                @default(0) @map("input_tokens")
-  outputTokens    Int                @default(0) @map("output_tokens")
-  status          AiRequestStatus    @default(pending)
-  latencyMs       Int?               @map("latency_ms")
-  errorCode       String?            @map("error_code") @db.VarChar(80)
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String             @map("student_id") @db.Uuid
+  conversationId String?            @map("conversation_id") @db.Uuid
+  requestType    AiConversationType @map("request_type")
+  promptTemplate String?            @map("prompt_template") @db.VarChar(120)
+  model          String?            @db.VarChar(120)
+  inputTokens    Int                @default(0) @map("input_tokens")
+  outputTokens   Int                @default(0) @map("output_tokens")
+  status         AiRequestStatus    @default(pending)
+  latencyMs      Int?               @map("latency_ms")
+  errorCode      String?            @map("error_code") @db.VarChar(80)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
 
-  student         User               @relation(fields: [studentId], references: [id])
-  conversation    AiConversation?    @relation(fields: [conversationId], references: [id])
+  student      User            @relation(fields: [studentId], references: [id])
+  conversation AiConversation? @relation(fields: [conversationId], references: [id])
 
   @@index([studentId])
   @@index([conversationId])
@@ -1460,25 +1907,25 @@ model AiUsageDaily {
   limitTokens      Int      @map("limit_tokens")
   updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  student          User     @relation(fields: [studentId], references: [id])
+  student User @relation(fields: [studentId], references: [id])
 
   @@unique([studentId, usageDate])
   @@map("ai_usage_daily")
 }
 
 model WeaknessAnalysis {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId         String          @map("student_id") @db.Uuid
-  conversationId    String?         @map("conversation_id") @db.Uuid
-  status            AiRequestStatus @default(pending)
-  summaryMarkdown   String?         @map("summary_markdown") @db.Text
-  tryoutSessionIds  Json?           @map("tryout_session_ids") @db.JsonB
-  fallbackUsed      Boolean         @default(false) @map("fallback_used")
-  generatedAt       DateTime        @default(now()) @map("generated_at") @db.Timestamptz
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String          @map("student_id") @db.Uuid
+  conversationId   String?         @map("conversation_id") @db.Uuid
+  status           AiRequestStatus @default(pending)
+  summaryMarkdown  String?         @map("summary_markdown") @db.Text
+  tryoutSessionIds Json?           @map("tryout_session_ids") @db.JsonB
+  fallbackUsed     Boolean         @default(false) @map("fallback_used")
+  generatedAt      DateTime        @default(now()) @map("generated_at") @db.Timestamptz
 
-  student           User            @relation(fields: [studentId], references: [id])
-  conversation      AiConversation? @relation(fields: [conversationId], references: [id])
-  topics            WeaknessAnalysisTopic[]
+  student      User                    @relation(fields: [studentId], references: [id])
+  conversation AiConversation?         @relation(fields: [conversationId], references: [id])
+  topics       WeaknessAnalysisTopic[]
 
   @@index([studentId])
   @@index([generatedAt])
@@ -1486,17 +1933,17 @@ model WeaknessAnalysis {
 }
 
 model WeaknessAnalysisTopic {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  weaknessAnalysisId String    @map("weakness_analysis_id") @db.Uuid
-  topicId            String    @map("topic_id") @db.Uuid
-  moduleId           String?   @map("module_id") @db.Uuid
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  weaknessAnalysisId String   @map("weakness_analysis_id") @db.Uuid
+  topicId            String   @map("topic_id") @db.Uuid
+  moduleId           String?  @map("module_id") @db.Uuid
   rank               Int
-  weaknessScore      Decimal?  @map("weakness_score") @db.Decimal(6, 2)
-  recommendationText String?   @map("recommendation_text") @db.Text
+  weaknessScore      Decimal? @map("weakness_score") @db.Decimal(6, 2)
+  recommendationText String?  @map("recommendation_text") @db.Text
 
-  weaknessAnalysis   WeaknessAnalysis @relation(fields: [weaknessAnalysisId], references: [id])
-  topic              Topic            @relation(fields: [topicId], references: [id])
-  module             Module?          @relation(fields: [moduleId], references: [id])
+  weaknessAnalysis WeaknessAnalysis @relation(fields: [weaknessAnalysisId], references: [id])
+  topic            Topic            @relation(fields: [topicId], references: [id])
+  module           Module?          @relation(fields: [moduleId], references: [id])
 
   @@unique([weaknessAnalysisId, topicId])
   @@index([rank])
@@ -1516,11 +1963,11 @@ model AdaptivePracticeSession {
   submittedAt             DateTime?       @map("submitted_at") @db.Timestamptz
   score                   Decimal?        @db.Decimal(6, 2)
 
-  student                 User            @relation(fields: [studentId], references: [id])
-  topic                   Topic           @relation(fields: [topicId], references: [id])
-  sourceConversation      AiConversation? @relation(fields: [sourceConversationId], references: [id])
-  fallbackQuestionBank    QuestionBank?   @relation(fields: [fallbackQuestionBankId], references: [id])
-  answers                 AdaptivePracticeAnswer[]
+  student              User                     @relation(fields: [studentId], references: [id])
+  topic                Topic                    @relation(fields: [topicId], references: [id])
+  sourceConversation   AiConversation?          @relation(fields: [sourceConversationId], references: [id])
+  fallbackQuestionBank QuestionBank?            @relation(fields: [fallbackQuestionBankId], references: [id])
+  answers              AdaptivePracticeAnswer[]
 
   @@index([studentId])
   @@index([topicId])
@@ -1529,34 +1976,34 @@ model AdaptivePracticeSession {
 }
 
 model AdaptivePracticeAnswer {
-  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  adaptiveSessionId String                  @map("adaptive_session_id") @db.Uuid
-  questionId        String?                 @map("question_id") @db.Uuid
-  generatedItemRef  String?                 @map("generated_item_ref") @db.VarChar(80)
-  answerText        String?                 @map("answer_text") @db.Text
-  isCorrect         Boolean?                @map("is_correct")
-  answeredAt        DateTime                @default(now()) @map("answered_at") @db.Timestamptz
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adaptiveSessionId String   @map("adaptive_session_id") @db.Uuid
+  questionId        String?  @map("question_id") @db.Uuid
+  generatedItemRef  String?  @map("generated_item_ref") @db.VarChar(80)
+  answerText        String?  @map("answer_text") @db.Text
+  isCorrect         Boolean? @map("is_correct")
+  answeredAt        DateTime @default(now()) @map("answered_at") @db.Timestamptz
 
-  adaptiveSession   AdaptivePracticeSession @relation(fields: [adaptiveSessionId], references: [id])
-  question          Question?              @relation(fields: [questionId], references: [id])
+  adaptiveSession AdaptivePracticeSession @relation(fields: [adaptiveSessionId], references: [id])
+  question        Question?               @relation(fields: [questionId], references: [id])
 
   @@map("adaptive_practice_answers")
 }
 
 model PtnStrategySession {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId          String          @map("student_id") @db.Uuid
-  universityId       String?         @map("university_id") @db.Uuid
-  majorId            String?         @map("major_id") @db.Uuid
-  conversationId     String?         @map("conversation_id") @db.Uuid
-  tryoutAverageScore Decimal?        @map("tryout_average_score") @db.Decimal(7, 2)
-  disclaimerShown    Boolean         @default(false) @map("disclaimer_shown")
-  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId          String   @map("student_id") @db.Uuid
+  universityId       String?  @map("university_id") @db.Uuid
+  majorId            String?  @map("major_id") @db.Uuid
+  conversationId     String?  @map("conversation_id") @db.Uuid
+  tryoutAverageScore Decimal? @map("tryout_average_score") @db.Decimal(7, 2)
+  disclaimerShown    Boolean  @default(false) @map("disclaimer_shown")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  student            User            @relation(fields: [studentId], references: [id])
-  university         University?     @relation(fields: [universityId], references: [id])
-  major              Major?          @relation(fields: [majorId], references: [id])
-  conversation       AiConversation? @relation(fields: [conversationId], references: [id])
+  student      User            @relation(fields: [studentId], references: [id])
+  university   University?     @relation(fields: [universityId], references: [id])
+  major        Major?          @relation(fields: [majorId], references: [id])
+  conversation AiConversation? @relation(fields: [conversationId], references: [id])
 
   @@map("ptn_strategy_sessions")
 }
@@ -1583,19 +2030,22 @@ model Asset {
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  uploadedBy       User?                @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
-  folder           MediaFolder?         @relation(fields: [folderId], references: [id], onDelete: Restrict)
-  announcements    Announcement[]
-  landingSections  LandingPageSection[]
-  questionPromptAssets Question[] @relation("QuestionPromptAsset")
-  questionExplanationAssets Question[] @relation("QuestionExplanationAsset")
-  questionOptionAssets QuestionOption[] @relation("QuestionOptionAsset")
-  standaloneQuizItemPromptAssets StandaloneQuizItem[] @relation("StandaloneQuizItemPromptAsset")
-  standaloneQuizItemExplanationAssets StandaloneQuizItem[] @relation("StandaloneQuizItemExplanationAsset")
-  standaloneQuizItemOptionAssets StandaloneQuizItemOption[] @relation("StandaloneQuizItemOptionAsset")
-  tryoutItemPromptAssets TryoutItem[] @relation("TryoutItemPromptAsset")
-  tryoutItemExplanationAssets TryoutItem[] @relation("TryoutItemExplanationAsset")
-  tryoutItemOptionAssets TryoutItemOption[] @relation("TryoutItemOptionAsset")
+  uploadedBy                                  User?                                      @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  folder                                      MediaFolder?                               @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  announcements                               Announcement[]
+  landingSections                             LandingPageSection[]
+  questionPromptAssets                        Question[]                                 @relation("QuestionPromptAsset")
+  questionExplanationAssets                   Question[]                                 @relation("QuestionExplanationAsset")
+  questionOptionAssets                        QuestionOption[]                           @relation("QuestionOptionAsset")
+  standaloneQuizItemPromptAssets              StandaloneQuizItem[]                       @relation("StandaloneQuizItemPromptAsset")
+  standaloneQuizItemExplanationAssets         StandaloneQuizItem[]                       @relation("StandaloneQuizItemExplanationAsset")
+  standaloneQuizItemOptionAssets              StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionAsset")
+  tryoutItemPromptAssets                      TryoutItem[]                               @relation("TryoutItemPromptAsset")
+  tryoutItemExplanationAssets                 TryoutItem[]                               @relation("TryoutItemExplanationAsset")
+  tryoutItemOptionAssets                      TryoutItemOption[]                         @relation("TryoutItemOptionAsset")
+  reusablePackageVersionItemPromptAssets      ReusableQuestionPackageVersionItem[]       @relation("ReusablePackageVersionItemPromptAsset")
+  reusablePackageVersionItemExplanationAssets ReusableQuestionPackageVersionItem[]       @relation("ReusablePackageVersionItemExplanationAsset")
+  reusablePackageVersionItemOptionAssets      ReusableQuestionPackageVersionItemOption[] @relation("ReusablePackageVersionItemOptionAsset")
 
   @@index([checksum])
   @@index([libraryScope, folderId, state])
@@ -1613,10 +2063,10 @@ model MediaFolder {
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  parent          MediaFolder?      @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
-  children        MediaFolder[]     @relation("MediaFolderTree")
-  assets          Asset[]
-  createdBy       User?             @relation("MediaFolderCreatedBy", fields: [createdByUserId], references: [id])
+  parent    MediaFolder?  @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  MediaFolder[] @relation("MediaFolderTree")
+  assets    Asset[]
+  createdBy User?         @relation("MediaFolderCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([libraryScope, parentId, trashedAt])
   @@map("media_folders")
@@ -1639,9 +2089,9 @@ model Announcement {
   createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  imageAsset      Asset?                @relation(fields: [imageAssetId], references: [id])
-  createdBy       User?                 @relation("AnnouncementCreatedBy", fields: [createdByUserId], references: [id])
-  updatedBy       User?                 @relation("AnnouncementUpdatedBy", fields: [updatedByUserId], references: [id])
+  imageAsset Asset? @relation(fields: [imageAssetId], references: [id])
+  createdBy  User?  @relation("AnnouncementCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy  User?  @relation("AnnouncementUpdatedBy", fields: [updatedByUserId], references: [id])
 
   @@map("announcements")
 }
@@ -1659,8 +2109,8 @@ model LandingPageSection {
   updatedByUserId String?       @map("updated_by_user_id") @db.Uuid
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  imageAsset      Asset?        @relation(fields: [imageAssetId], references: [id])
-  updatedBy       User?         @relation("LandingSectionUpdatedBy", fields: [updatedByUserId], references: [id])
+  imageAsset Asset? @relation(fields: [imageAssetId], references: [id])
+  updatedBy  User?  @relation("LandingSectionUpdatedBy", fields: [updatedByUserId], references: [id])
 
   @@map("landing_page_sections")
 }
@@ -1670,20 +2120,20 @@ model LandingPageSection {
 // ─────────────────────────────────────────────
 
 model Cohort {
-  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  examEventId          String?                 @map("exam_event_id") @db.Uuid
-  name                 String                  @db.VarChar(180)
-  startDate            DateTime?               @map("start_date") @db.Date
-  endDate              DateTime?               @map("end_date") @db.Date
-  isActive             Boolean                 @default(true) @map("is_active")
-  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examEventId String?   @map("exam_event_id") @db.Uuid
+  name        String    @db.VarChar(180)
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  examEvent            ExamEvent?              @relation(fields: [examEventId], references: [id])
-  students             CohortStudent[]
-  tutorAssignments     TutorCohortAssignment[]
-  riskFlags            RiskFlag[]
-  interventions        Intervention[]
+  examEvent        ExamEvent?              @relation(fields: [examEventId], references: [id])
+  students         CohortStudent[]
+  tutorAssignments TutorCohortAssignment[]
+  riskFlags        RiskFlag[]
+  interventions    Intervention[]
 
   @@map("cohorts")
 }
@@ -1695,8 +2145,8 @@ model CohortStudent {
   joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz
   leftAt    DateTime? @map("left_at") @db.Timestamptz
 
-  cohort    Cohort    @relation(fields: [cohortId], references: [id])
-  student   User      @relation(fields: [studentId], references: [id])
+  cohort  Cohort @relation(fields: [cohortId], references: [id])
+  student User   @relation(fields: [studentId], references: [id])
 
   @@index([cohortId, studentId])
   @@index([studentId])
@@ -1711,24 +2161,24 @@ model TutorCohortAssignment {
   assignedAt       DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
 
-  tutor            User      @relation("TutorAssigned", fields: [tutorId], references: [id])
-  cohort           Cohort    @relation(fields: [cohortId], references: [id])
-  assignedBy       User?     @relation("CohortAssignedBy", fields: [assignedByUserId], references: [id])
+  tutor      User   @relation("TutorAssigned", fields: [tutorId], references: [id])
+  cohort     Cohort @relation(fields: [cohortId], references: [id])
+  assignedBy User?  @relation("CohortAssignedBy", fields: [assignedByUserId], references: [id])
 
   @@index([tutorId, cohortId])
   @@map("tutor_cohort_assignments")
 }
 
 model RiskFlag {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId     String         @map("student_id") @db.Uuid
-  cohortId      String?        @map("cohort_id") @db.Uuid
-  flagType      String         @map("flag_type") @db.VarChar(80)
-  severity      Int            @default(1)
-  reason        String?        @db.Text
-  status        RiskFlagStatus @default(open)
-  detectedAt    DateTime       @default(now()) @map("detected_at") @db.Timestamptz
-  resolvedAt    DateTime?      @map("resolved_at") @db.Timestamptz
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId  String         @map("student_id") @db.Uuid
+  cohortId   String?        @map("cohort_id") @db.Uuid
+  flagType   String         @map("flag_type") @db.VarChar(80)
+  severity   Int            @default(1)
+  reason     String?        @db.Text
+  status     RiskFlagStatus @default(open)
+  detectedAt DateTime       @default(now()) @map("detected_at") @db.Timestamptz
+  resolvedAt DateTime?      @map("resolved_at") @db.Timestamptz
 
   student       User           @relation(fields: [studentId], references: [id])
   cohort        Cohort?        @relation(fields: [cohortId], references: [id])
@@ -1742,23 +2192,23 @@ model RiskFlag {
 }
 
 model Intervention {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tutorId              String             @map("tutor_id") @db.Uuid
-  studentId            String             @map("student_id") @db.Uuid
-  cohortId             String?            @map("cohort_id") @db.Uuid
-  riskFlagId           String?            @map("risk_flag_id") @db.Uuid
-  recommendedModuleId  String?            @map("recommended_module_id") @db.Uuid
-  message              String             @db.Text
-  status               InterventionStatus @default(drafted)
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  sentAt               DateTime?          @map("sent_at") @db.Timestamptz
-  readAt               DateTime?          @map("read_at") @db.Timestamptz
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tutorId             String             @map("tutor_id") @db.Uuid
+  studentId           String             @map("student_id") @db.Uuid
+  cohortId            String?            @map("cohort_id") @db.Uuid
+  riskFlagId          String?            @map("risk_flag_id") @db.Uuid
+  recommendedModuleId String?            @map("recommended_module_id") @db.Uuid
+  message             String             @db.Text
+  status              InterventionStatus @default(drafted)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  sentAt              DateTime?          @map("sent_at") @db.Timestamptz
+  readAt              DateTime?          @map("read_at") @db.Timestamptz
 
-  tutor                User               @relation("TutorIntervention", fields: [tutorId], references: [id])
-  student              User               @relation("StudentIntervention", fields: [studentId], references: [id])
-  cohort               Cohort?            @relation(fields: [cohortId], references: [id])
-  riskFlag             RiskFlag?          @relation(fields: [riskFlagId], references: [id])
-  recommendedModule    Module?            @relation(fields: [recommendedModuleId], references: [id])
+  tutor             User      @relation("TutorIntervention", fields: [tutorId], references: [id])
+  student           User      @relation("StudentIntervention", fields: [studentId], references: [id])
+  cohort            Cohort?   @relation(fields: [cohortId], references: [id])
+  riskFlag          RiskFlag? @relation(fields: [riskFlagId], references: [id])
+  recommendedModule Module?   @relation(fields: [recommendedModuleId], references: [id])
 
   @@index([tutorId])
   @@index([studentId])
@@ -1780,7 +2230,7 @@ model NotificationPreference {
   smsAlertsEnabled      Boolean  @default(false) @map("sms_alerts_enabled")
   updatedAt             DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  user                  User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@map("notification_preferences")
 }
@@ -1799,8 +2249,8 @@ model Notification {
   createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
   expiresAt        DateTime?             @map("expires_at") @db.Timestamptz
 
-  recipient        User                  @relation(fields: [recipientUserId], references: [id])
-  deliveries       NotificationDelivery[]
+  recipient  User                   @relation(fields: [recipientUserId], references: [id])
+  deliveries NotificationDelivery[]
 
   @@index([recipientUserId])
   @@index([eventType])
@@ -1811,18 +2261,18 @@ model Notification {
 }
 
 model NotificationDelivery {
-  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  notificationId    String               @map("notification_id") @db.Uuid
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId    String              @map("notification_id") @db.Uuid
   channel           NotificationChannel
-  status            NotificationStatus   @default(queued)
-  providerMessageId String?              @map("provider_message_id") @db.VarChar(255)
-  queuedAt          DateTime             @default(now()) @map("queued_at") @db.Timestamptz
-  deliveredAt       DateTime?            @map("delivered_at") @db.Timestamptz
-  failedAt          DateTime?            @map("failed_at") @db.Timestamptz
-  retryCount        Int                  @default(0) @map("retry_count")
-  lastError         String?              @map("last_error") @db.Text
+  status            NotificationStatus  @default(queued)
+  providerMessageId String?             @map("provider_message_id") @db.VarChar(255)
+  queuedAt          DateTime            @default(now()) @map("queued_at") @db.Timestamptz
+  deliveredAt       DateTime?           @map("delivered_at") @db.Timestamptz
+  failedAt          DateTime?           @map("failed_at") @db.Timestamptz
+  retryCount        Int                 @default(0) @map("retry_count")
+  lastError         String?             @map("last_error") @db.Text
 
-  notification      Notification         @relation(fields: [notificationId], references: [id])
+  notification Notification @relation(fields: [notificationId], references: [id])
 
   @@index([notificationId])
   @@index([channel])
@@ -1835,17 +2285,17 @@ model NotificationDelivery {
 // ─────────────────────────────────────────────
 
 model BillingAccount {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId       String        @unique @map("student_id") @db.Uuid
-  status          BillingStatus @default(trial)
-  planCode        String?       @map("plan_code") @db.VarChar(80)
-  accessStartsAt  DateTime?     @map("access_starts_at") @db.Timestamptz
-  accessExpiresAt DateTime?     @map("access_expires_at") @db.Timestamptz
-  extendedByUserId String?      @map("extended_by_user_id") @db.Uuid
-  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId        String        @unique @map("student_id") @db.Uuid
+  status           BillingStatus @default(trial)
+  planCode         String?       @map("plan_code") @db.VarChar(80)
+  accessStartsAt   DateTime?     @map("access_starts_at") @db.Timestamptz
+  accessExpiresAt  DateTime?     @map("access_expires_at") @db.Timestamptz
+  extendedByUserId String?       @map("extended_by_user_id") @db.Uuid
+  updatedAt        DateTime      @default(now()) @map("updated_at") @db.Timestamptz
 
-  student         User          @relation("StudentBilling", fields: [studentId], references: [id])
-  extendedBy      User?         @relation("BillingExtendedBy", fields: [extendedByUserId], references: [id])
+  student    User  @relation("StudentBilling", fields: [studentId], references: [id])
+  extendedBy User? @relation("BillingExtendedBy", fields: [extendedByUserId], references: [id])
 
   @@map("billing_accounts")
 }
@@ -1857,23 +2307,23 @@ model SystemConfig {
   updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
   updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  updatedBy       User?    @relation(fields: [updatedByUserId], references: [id])
+  updatedBy User? @relation(fields: [updatedByUserId], references: [id])
 
   @@map("system_configs")
 }
 
 model AuditLog {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorUserId  String?   @map("actor_user_id") @db.Uuid
-  action       String    @db.VarChar(120)
-  targetType   String?   @map("target_type") @db.VarChar(80)
-  targetId     String?   @map("target_id") @db.Uuid
-  metadata     Json?     @db.JsonB
-  ipAddress    String?   @map("ip_address") @db.Inet
-  userAgent    String?   @map("user_agent") @db.Text
-  occurredAt   DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(120)
+  targetType  String?  @map("target_type") @db.VarChar(80)
+  targetId    String?  @map("target_id") @db.Uuid
+  metadata    Json?    @db.JsonB
+  ipAddress   String?  @map("ip_address") @db.Inet
+  userAgent   String?  @map("user_agent") @db.Text
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
 
-  actor        User?     @relation(fields: [actorUserId], references: [id])
+  actor User? @relation(fields: [actorUserId], references: [id])
 
   @@index([actorUserId])
   @@index([action])

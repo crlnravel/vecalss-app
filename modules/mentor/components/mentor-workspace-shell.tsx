@@ -40,6 +40,7 @@ function MentorWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
   children,
+  contentElement: ContentElement = "main",
   mainClassName,
   onNavigateAway,
   searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
@@ -50,6 +51,7 @@ function MentorWorkspaceShell({
   activeLabel: string;
   breadcrumbLabel: string;
   children: ReactNode;
+  contentElement?: "div" | "main";
   mainClassName?: string;
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
@@ -264,14 +266,14 @@ function MentorWorkspaceShell({
             </header>
 
             <ScrollArea className="h-[calc(100svh-4rem)]">
-              <main
+              <ContentElement
                 className={cn(
                   "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
                   mainClassName,
                 )}
               >
                 {children}
-              </main>
+              </ContentElement>
             </ScrollArea>
           </SidebarInset>
         </div>
@@ -300,19 +302,19 @@ function MentorWorkspaceShell({
           </div>
           <DialogFooter>
             <Button
-              onClick={dismissConfirmation}
-              type="button"
-              variant="brandOutline"
-            >
-              Batal
-            </Button>
-            <Button
               className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25"
               onClick={confirmPendingNavigation}
               type="button"
               variant="destructive"
             >
-              Keluar tanpa menyimpan
+              Keluar
+            </Button>
+            <Button
+              onClick={dismissConfirmation}
+              type="button"
+              variant="brandOutline"
+            >
+              Batal
             </Button>
           </DialogFooter>
         </DialogContent>

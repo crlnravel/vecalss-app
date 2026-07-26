@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
-import { getSessionContext, hasRole } from "@/lib/auth/session";
+import { requireStudentSession } from "@/lib/auth/access";
+import {
+  participantTargetProfile,
+  participantTryoutCatalogue,
+} from "@/lib/tryout/participant-repository";
 
-import TryoutPageModule from "@/modules/tryout/TryoutPageModule";
-import { TryoutWorkspacePageModule } from "@/modules/tryout/TryoutWorkspacePageModule";
+import { ParticipantTryoutWorkspace } from "@/modules/tryout/ParticipantTryoutWorkspace";
 
 export const metadata: Metadata = {
   title: "Tryout | Vecalss LMS",
@@ -12,19 +14,17 @@ export const metadata: Metadata = {
 };
 
 export default async function TryoutPage() {
-  const session = await getSessionContext();
+  const session = await requireStudentSession();
+  const [initialTryouts, targetProfile] = await Promise.all([
+    participantTryoutCatalogue(session.user.id),
+    participantTargetProfile(session.user.id),
+  ]);
 
-  const shouldShowWorkspace = Boolean(
-    session
-      && hasRole(session, RoleName.student)
-      && !session.user.mustChangePassword
-      && session.user.onboardingStatus !== null
-      && session.user.onboardingStatus !== OnboardingStatus.not_started,
+  return (
+    <ParticipantTryoutWorkspace
+      initialTryouts={initialTryouts}
+      session={session}
+      targetProfile={targetProfile}
+    />
   );
-
-  if (shouldShowWorkspace && session) {
-    return <TryoutWorkspacePageModule session={session} />;
-  }
-
-  return <TryoutPageModule />;
 }

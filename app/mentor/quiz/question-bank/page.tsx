@@ -8,9 +8,8 @@ export const metadata: Metadata = {
   title: "Question Bank Kapten | Vecalss LMS",
 };
 
-export default async function MentorQuestionBankPage({ searchParams }: PageProps<"/mentor/quiz/question-bank">) {
-  const [session, query, banks] = await Promise.all([requireTutorSession(), searchParams, listQuestionBanks()]);
-  const subtest = typeof query.subtest === "string" ? query.subtest : undefined;
+export default async function MentorQuestionBankPage() {
+  const [session, banks] = await Promise.all([requireTutorSession(), listQuestionBanks()]);
 
-  return <KaptenQuestionBankPageModule initialEntries={banks} initialSubtest={subtest} session={session} />;
+  return <KaptenQuestionBankPageModule initialEntries={banks} session={session} />;
 }

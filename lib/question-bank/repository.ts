@@ -23,7 +23,6 @@ type SaveBankInput = {
   id?: string;
   questions: BankQuestionInput[];
   revision?: number;
-  tags: string[];
   title: string;
 };
 
@@ -40,11 +39,13 @@ function codeFromTitle(title: string) {
 }
 
 function validate(input: SaveBankInput) {
-  const tags = [...new Set(input.tags)];
+  // A bank's subject tags are a discovery aid, not a separate source of
+  // truth. Derive them from its questions so a tutor cannot accidentally
+  // create a mismatch between a question's subtest and its Bank Soal tags.
+  const tags = [...new Set(input.questions.map((question) => question.subjectCode))];
   if (!input.title.trim()) throw new QuestionBankError("Judul Bank Soal wajib diisi.");
-  if (!tags.length || tags.some((tag) => !SUBJECT_CODES.includes(tag as (typeof SUBJECT_CODES)[number]))) throw new QuestionBankError("Pilih minimal satu tag subject yang valid.");
+  if (!tags.length || tags.some((tag) => !SUBJECT_CODES.includes(tag as (typeof SUBJECT_CODES)[number]))) throw new QuestionBankError("Tambahkan minimal satu soal dengan subject yang valid.");
   for (const question of input.questions) {
-    if (!tags.includes(question.subjectCode)) throw new QuestionBankError("Topik soal harus termasuk tag subject Bank Soal.");
     if (question.choices.length < 2 || question.choices.length > 5) throw new QuestionBankError("Setiap soal harus memiliki 2 sampai 5 opsi.");
     if (new Set(question.choices.map((choice) => choice.id)).size !== question.choices.length || !question.choices.some((choice) => choice.id === question.correctChoiceId)) throw new QuestionBankError("Opsi jawaban soal tidak valid.");
   }

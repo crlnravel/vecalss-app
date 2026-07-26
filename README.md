@@ -15,6 +15,34 @@ first coherent account lifecycle slice for:
 4. Start the app with `pnpm dev`.
 5. Seed demo data with `pnpm db:seed`.
 
+## Demonstration Data
+
+Run the complete seed before a product demonstration or usability session:
+
+```bash
+pnpm db:seed
+pnpm db:verify-demo
+```
+
+The seed is safe to run repeatedly. It prepares all seven UTBK subjects, the
+Materi catalogue, 21 reviewed questions, seven quizzes, seven reusable question
+packages, a published seven-test tryout, an open delivery session, released
+historical results, and participant records in active, pending, rejected, and
+revoked states.
+
+Use these accounts for the principal test journeys:
+
+| Journey | Account | Password | Start page |
+| --- | --- | --- | --- |
+| Administrator enrollment | `admin@vecalss.local` | `Admin12345!` | `/admin/login` |
+| Returning student with learning history | `student@vecalss.local` | `Student12345!` | `/login` |
+| New student completing first login | `newstudent@vecalss.local` | `TempStudent123!` | `/login` |
+| Tutor authoring and tryout operations | `tutor@vecalss.local` | `Tutor12345!` | `/mentor/login` |
+
+The assessment-only command expects the accounts and Materi taxonomy to exist.
+Use `pnpm db:seed-assessment` only when refreshing assessment data in an already
+prepared demonstration database.
+
 ## Required Environment Variables
 
 - `DATABASE_URL`: PostgreSQL connection string used by Prisma.
@@ -25,7 +53,7 @@ first coherent account lifecycle slice for:
 
 ## Verification
 
-Use this baseline to verify the current auth/onboarding/enrollment slice:
+Use this sequence to verify the current auth/onboarding/enrollment slice:
 
 ```bash
 pnpm lint

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   PageIntro,
-  QuickCreateGrid,
+  QuickCreateMenu,
   ResourceRow,
   SectionHeading,
 } from "@/modules/mentor/components/kapten-ui";
@@ -99,34 +99,30 @@ function MentorDashboardPageModule({
     >
       <PageIntro title={`Selamat bekerja, ${firstName}.`} />
 
-      <section className="grid gap-10 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
-        <div className="space-y-4">
-          <SectionHeading
-            action={
+      <section className="space-y-4">
+        <SectionHeading
+          action={
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 render={<Link href="/mentor/materi" />}
                 size="sm"
                 variant="brandOutline"
               >
-                Lihat Semua Konten
+                Lihat Semua
               </Button>
-            }
-            title="Lanjutkan Editing"
-          />
-          <div className="space-y-2">
-            {updatedRecentlyEdited.slice(0, 3).map((resource, index) => (
-              <ResourceRow
-                emphasis={index === 0}
-                key={resource.id}
-                resource={resource}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <SectionHeading title="Buat Cepat" />
-          <QuickCreateGrid />
+              <QuickCreateMenu />
+            </div>
+          }
+          title="Lanjutkan Editing"
+        />
+        <div className="space-y-2">
+          {updatedRecentlyEdited.slice(0, 3).map((resource, index) => (
+            <ResourceRow
+              emphasis={index === 0}
+              key={resource.id}
+              resource={resource}
+            />
+          ))}
         </div>
       </section>
 

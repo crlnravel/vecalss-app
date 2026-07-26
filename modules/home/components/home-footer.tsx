@@ -5,7 +5,6 @@ import { AtSign, BriefcaseBusiness, X } from "lucide-react";
 const quickLinks = [
   { label: "About Us", href: "/#about" },
   { label: "Programs", href: "/#program" },
-  { label: "Tryout", href: "/tryout" },
   { label: "Login", href: "/login" },
 ];
 

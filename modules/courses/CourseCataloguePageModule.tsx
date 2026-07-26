@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import {
   Brain,
   Calculator,
@@ -13,13 +12,10 @@ import {
   LibraryBig,
   PenTool,
   PlayCircle,
-  Search,
   type LucideIcon,
 } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
 import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import { getCourseProgressState, type Course, type SubjectIcon } from "./data";
@@ -46,27 +42,11 @@ function CourseCataloguePageModule({
   courses: Course[];
   session: SessionContext;
 }) {
-  const [query, setQuery] = useState("");
-  const visibleCourses = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return courses;
-    }
-
-    return courses.filter((course) =>
-      [course.code, course.title, course.description]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery),
-    );
-  }, [courses, query]);
-
   return (
     <CourseWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel="Materi"
-      searchPlaceholder="Cari materi atau topik..."
+      showSearch={false}
       session={session}
     >
       <section className="mx-auto flex w-full max-w-[78rem] flex-col gap-7">
@@ -80,22 +60,11 @@ function CourseCataloguePageModule({
               berurutan sampai selesai.
             </p>
           </div>
-
-          <label className="relative block w-full md:max-w-sm">
-            <span className="sr-only">Cari materi</span>
-            <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#5f776a]" />
-            <Input
-              className="h-12 rounded-full border-[#d6e5db] bg-white pl-12 text-[#173c2d] shadow-[0_16px_36px_-30px_rgba(23,107,77,0.5)] transition-[border-color,box-shadow] duration-200 placeholder:text-[#8da096] hover:border-[#9dcab0] focus-visible:border-[#6aaa83] focus-visible:ring-[#2f8a5d]/20"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari materi..."
-              value={query}
-            />
-          </label>
         </header>
 
-        {visibleCourses.length > 0 ? (
+        {courses.length > 0 ? (
           <div className="flex flex-col gap-5">
-            {visibleCourses.map((course) => (
+            {courses.map((course) => (
               <CourseRowCard
                 course={course}
                 courses={courses}
@@ -106,10 +75,10 @@ function CourseCataloguePageModule({
         ) : (
           <div className="rounded-[2rem] border border-[#d6e5db] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_rgba(23,107,77,0.45)]">
             <p className="text-base font-extrabold text-[#173c2d]">
-              Materi tidak ditemukan
+              Belum ada materi
             </p>
             <p className="mt-2 text-sm text-[#5f776a]">
-              Coba cari dengan kode seperti PU, PPU, PBM, PK, LBI, LBE, atau PM.
+              Materi yang tersedia akan muncul di sini.
             </p>
           </div>
         )}
@@ -131,9 +100,6 @@ function CourseRowCard({
     skippedToLessonId: progress.skippedToLessonId,
   });
   const Icon = courseIcons[course.icon];
-  const isStarted =
-    state.completedLessonIds.length > 0 || Boolean(state.skippedToLessonId);
-
   return (
     <Link
       className="group relative grid min-h-[11rem] overflow-hidden rounded-[2rem] border border-[#c8dfd0] bg-white p-5 text-[#173c2d] shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] outline-none transition-transform duration-300 ease-out motion-safe:hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-reduce:transition-none md:grid-cols-[5rem_minmax(0,1fr)_auto] md:items-center md:gap-6 md:p-7"

@@ -1,10 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ChevronDown,
-  Plus,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,10 +12,10 @@ import {
   FieldInput,
   FieldLabel,
   FieldTextarea,
-  fieldControlClassName,
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import {
+  DropdownField,
   PageIntro,
   ResourceRow,
   SearchPanel,
@@ -59,9 +56,9 @@ function KaptenQuizPageModule({ persistedQuizzes, session }: { persistedQuizzes:
 
   return (
     <MentorWorkspaceShell
-      activeLabel="Quiz"
-      breadcrumbLabel="Quiz"
-      searchPlaceholder="Cari quiz, subject, atau question bank..."
+      activeLabel="Kuis"
+      breadcrumbLabel="Kuis"
+      searchPlaceholder="Cari kuis, subjek, atau bank soal..."
       session={session}
     >
       <PageIntro
@@ -70,7 +67,7 @@ function KaptenQuizPageModule({ persistedQuizzes, session }: { persistedQuizzes:
       />
 
       <section className="space-y-4">
-        <SearchPanel placeholder="Cari quiz atau subject..." />
+        <SearchPanel placeholder="Cari kuis atau subjek..." />
         <div className="space-y-2">
           {displayQuizzes.map((quiz) => (
             <ResourceRow key={quiz.id} resource={quiz} />
@@ -115,7 +112,7 @@ function KaptenQuestionBankPageModule({
   return (
     <MentorWorkspaceShell
       activeLabel="Bank Soal"
-      breadcrumbLabel="Question Bank"
+      breadcrumbLabel="Bank Soal"
       searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..."
       session={session}
     >
@@ -126,11 +123,11 @@ function KaptenQuestionBankPageModule({
             label="Buat Bank Soal"
           />
         }
-        title="Question Bank"
+        title="Bank Soal"
       />
 
       <section className="space-y-4">
-        <SearchPanel placeholder="Cari question bank, topic, atau source..." />
+        <SearchPanel placeholder="Cari bank soal, topik, atau sumber..." />
         <div className="space-y-2">
           {displayBanks.map((bank) => (
             <ResourceRow key={bank.id} resource={bank} />
@@ -277,14 +274,14 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           Pengaturan
         </h1>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-6 flex w-fit max-w-full flex-wrap gap-1 rounded-full bg-primary-50 p-1">
           {settingsTabs.map((tab) => (
             <button
               className={[
                 "inline-flex rounded-full px-4 py-2 text-sm font-medium transition-colors",
                 tab.active
-                  ? "bg-primary-700 text-white"
-                  : "bg-secondary-100 text-secondary-700 hover:bg-primary-50 hover:text-primary-800",
+                  ? "bg-white text-secondary-900 shadow-sm"
+                  : "text-secondary-500 hover:text-secondary-900",
               ].join(" ")}
               key={tab.label}
               type="button"
@@ -335,52 +332,18 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
         >
           <div className="grid gap-5 lg:grid-cols-3">
             <Field>
-              <FieldLabel htmlFor="kapten-default-subject">Subject utama</FieldLabel>
-              <div className="relative">
-                <select
-                  className={`${fieldControlClassName} appearance-none pr-12`}
-                  defaultValue="PU"
-                  id="kapten-default-subject"
-                >
-                  {kaptenSubjects.map((subject) => (
-                    <option key={subject.code} value={subject.code}>
-                      {subject.code} - {subject.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-              </div>
+              <FieldLabel htmlFor="kapten-default-subject">Subjek utama</FieldLabel>
+              <DropdownField id="kapten-default-subject" onValueChange={() => undefined} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value="PU" />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="kapten-timezone">Zona waktu</FieldLabel>
-              <div className="relative">
-                <select
-                  className={`${fieldControlClassName} appearance-none pr-12`}
-                  defaultValue="Asia/Jakarta"
-                  id="kapten-timezone"
-                >
-                  <option value="Asia/Jakarta">Asia/Jakarta</option>
-                  <option value="Asia/Makassar">Asia/Makassar</option>
-                  <option value="Asia/Jayapura">Asia/Jayapura</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-              </div>
+              <DropdownField id="kapten-timezone" onValueChange={() => undefined} options={["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"].map((value) => ({ label: value, value }))} placeholder="Pilih zona waktu" value="Asia/Jakarta" />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="kapten-language">Bahasa konten</FieldLabel>
-              <div className="relative">
-                <select
-                  className={`${fieldControlClassName} appearance-none pr-12`}
-                  defaultValue="id"
-                  id="kapten-language"
-                >
-                  <option value="id">Indonesia</option>
-                  <option value="en">English</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-              </div>
+              <DropdownField id="kapten-language" onValueChange={() => undefined} options={[{ label: "Indonesia", value: "id" }, { label: "Inggris", value: "en" }]} placeholder="Pilih bahasa" value="id" />
             </Field>
           </div>
         </SettingsSection>

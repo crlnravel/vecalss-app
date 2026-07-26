@@ -26,6 +26,7 @@ function QuizSubjectDetailPageModule({
     >
       <div>
         <Button
+          nativeButton={false}
           render={
             <Link href="/quiz">
               <ArrowLeft data-icon="inline-start" />
@@ -73,11 +74,28 @@ function QuizSubjectDetailPageModule({
         </Card>
       </section>
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {subject.quizzes.map((quiz) => (
-          <QuizCard key={quiz.slug} quiz={quiz} subject={subject} />
-        ))}
-      </section>
+      {subject.quizzes.length ? (
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {subject.quizzes.map((quiz) => (
+            <QuizCard key={quiz.slug} quiz={quiz} subject={subject} />
+          ))}
+        </section>
+      ) : (
+        <section className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/35 px-6 py-14 text-center shadow-[0_12px_38px_-30px_rgba(1,76,56,0.35)]">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-100 text-primary-800">
+            <ListChecks className="size-7" />
+          </div>
+          <h2 className="mt-5 text-xl font-semibold text-secondary-900">
+            Belum ada kuis tersedia
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-secondary-500">
+            Kuis untuk subjek ini belum dipublikasikan. Coba cek kembali nanti atau pilih subjek lain untuk mulai berlatih.
+          </p>
+          <Button className="mt-6" render={<Link href="/quiz" />} size="sm" variant="brandOutline">
+            Lihat subjek lain
+          </Button>
+        </section>
+      )}
     </CourseWorkspaceShell>
   );
 }
@@ -108,11 +126,12 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
 
         <Button
           className="mt-5 w-full justify-center sm:w-fit"
-          render={<Link href={`/quiz/${subject.slug}/${quiz.slug}`} />}
+          nativeButton={false}
+          render={<Link href={`/quiz/${subject.slug}/${quiz.slug}${quiz.isCompleted ? "/result" : ""}`} />}
           size="sm"
           variant="brand"
         >
-          Kerjakan
+          {quiz.isCompleted ? "Cek hasil" : "Kerjakan"}
         </Button>
       </div>
     </article>

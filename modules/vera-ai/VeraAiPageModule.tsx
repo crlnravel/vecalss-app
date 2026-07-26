@@ -3,15 +3,12 @@
 import {
   useMemo,
   useState,
-  type Dispatch,
-  type SetStateAction,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import {
-  ArrowLeft,
   ArrowUpRight,
   BookOpen,
   CalendarDays,
@@ -25,11 +22,14 @@ import {
   FileText,
   Gauge,
   GraduationCap,
+  House,
   ListChecks,
   Maximize2,
   MessageCircleMore,
   NotebookPen,
-  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
   Plus,
   Search,
   SendHorizontal,
@@ -76,11 +76,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
@@ -103,7 +98,7 @@ import {
   type VeraToolId,
 } from "./data";
 
-type WorkspaceView = "sessions" | "chat" | "studio";
+type WorkspaceTab = "chat" | "studio";
 
 type VeraMessage = {
   id: string;
@@ -301,7 +296,9 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
     useState<VeraToolId | null>(null);
   const [draft, setDraft] = useState("");
   const [contextDialogOpen, setContextDialogOpen] = useState(false);
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("chat");
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("chat");
+  const [sessionSidebarCollapsed, setSessionSidebarCollapsed] =
+    useState(true);
 
   const activeSession =
     sessions.find((item) => item.id === activeSessionId) ?? sessions[0];
@@ -341,7 +338,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
     setActiveSessionId(nextSessionId);
     setActiveArtifactId(null);
     setDraft("");
-    setWorkspaceView("chat");
+    setWorkspaceTab("chat");
   }
 
   function handleNewSession() {
@@ -364,7 +361,21 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
     setSessions((current) => [nextSession, ...current]);
     setActiveSessionId(nextSession.id);
     setActiveArtifactId(null);
-    setWorkspaceView("chat");
+    setWorkspaceTab("chat");
+  }
+
+  function handleRenameSession(nextTitle: string) {
+    const title = nextTitle.trim();
+
+    if (!title || title === activeSession.title) {
+      return;
+    }
+
+    updateActiveSession((current) => ({
+      ...current,
+      title,
+      updatedAt: "Baru saja",
+    }));
   }
 
   function handleSaveContext(nextSourceIds: string[]) {
@@ -454,104 +465,75 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       ],
     }));
     setActiveArtifactId(toolId);
-    setWorkspaceView("studio");
+    setWorkspaceTab("studio");
   }
 
   function handleOpenArtifact(toolId: VeraToolId) {
     setActiveArtifactId(toolId);
-    setWorkspaceView("studio");
+    setWorkspaceTab("studio");
   }
 
   return (
-    <div className="min-h-svh bg-primary-50 text-secondary-900 xl:h-svh xl:overflow-hidden">
-      <div className="flex min-h-svh flex-col xl:h-svh">
+    <div className="min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
+      <div className="flex min-h-svh flex-col md:h-svh">
         <VeraTopBar session={session} />
-        <MobileWorkspaceNavigation
-          activeView={workspaceView}
-          onViewChange={setWorkspaceView}
-        />
         <h1 className="sr-only">
           Vera AI Workspace: {activeSession.title}
         </h1>
 
         <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
-          <div className="hidden h-full xl:block">
-            <ResizablePanelGroup orientation="horizontal">
-              <ResizablePanel defaultSize="20%" minSize="16%" maxSize="28%">
-                <div className="h-full pr-1.5">
-                  <SessionPanel
-                    activeSessionId={activeSession.id}
-                    className="flex"
-                    onNewSession={handleNewSession}
-                    onSelectSession={handleSelectSession}
-                    sessions={sessions}
-                  />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle className="bg-transparent" withHandle />
-              <ResizablePanel defaultSize="56%" minSize="42%">
-                <div className="h-full px-1.5">
-                  <ChatWorkspace
-                    activeSession={activeSession}
-                    className="flex"
-                    draft={draft}
-                    onDraftChange={setDraft}
-                    onOpenContextDialog={() => setContextDialogOpen(true)}
-                    onRemoveContext={handleRemoveContext}
-                    onSend={handleSend}
-                    selectedSources={selectedSources}
-                  />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle className="bg-transparent" withHandle />
-              <ResizablePanel defaultSize="24%" minSize="18%" maxSize="34%">
-                <div className="h-full pl-1.5">
-                  <StudioPanel
-                    activeArtifact={activeArtifact}
-                    className="flex"
-                    generatedArtifacts={generatedArtifacts}
-                    onCloseArtifact={() => setActiveArtifactId(null)}
-                    onExpandArtifact={(toolId) =>
-                      setFullscreenArtifactId(toolId)
-                    }
-                    onGenerateTool={handleToolRequest}
-                    onOpenArtifact={handleOpenArtifact}
-                    selectedSources={selectedSources}
-                  />
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+          <div className="flex h-full min-h-0 gap-3">
+            <aside
+              className={cn(
+                "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
+                sessionSidebarCollapsed ? "w-16" : "w-72",
+              )}
+            >
+              <SessionSidebar
+                activeSessionId={activeSession.id}
+                collapsed={sessionSidebarCollapsed}
+                onNewSession={handleNewSession}
+                onSetCollapsed={setSessionSidebarCollapsed}
+                onSelectSession={handleSelectSession}
+                sessions={sessions}
+              />
+            </aside>
+            <Tabs
+              className="min-h-0 flex-1 gap-0"
+              onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)}
+              value={workspaceTab}
+            >
+              <WorkspaceTabs
+                activeTab={workspaceTab}
+              />
+              <TabsContent className="min-h-0 overflow-hidden" value="chat">
+                <ChatWorkspace
+                  activeSession={activeSession}
+                  className="flex"
+                  draft={draft}
+                  onDraftChange={setDraft}
+                  onOpenContextDialog={() => setContextDialogOpen(true)}
+                  onRenameSession={handleRenameSession}
+                  onRemoveContext={handleRemoveContext}
+                  onSend={handleSend}
+                  selectedSources={selectedSources}
+                />
+              </TabsContent>
+              <TabsContent className="min-h-0 overflow-hidden" value="studio">
+                <StudioPanel
+                  activeArtifact={activeArtifact}
+                  className="flex"
+                  generatedArtifacts={generatedArtifacts}
+                  onCloseArtifact={() => setActiveArtifactId(null)}
+                  onExpandArtifact={(toolId) => setFullscreenArtifactId(toolId)}
+                  onGenerateTool={handleToolRequest}
+                  onOpenArtifact={handleOpenArtifact}
+                  selectedSources={selectedSources}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
 
-          <div className="grid min-h-full xl:hidden">
-            <SessionPanel
-              activeSessionId={activeSession.id}
-              className={workspaceView === "sessions" ? "flex" : "hidden"}
-              onNewSession={handleNewSession}
-              onSelectSession={handleSelectSession}
-              sessions={sessions}
-            />
-            <ChatWorkspace
-              activeSession={activeSession}
-              className={workspaceView === "chat" ? "flex" : "hidden"}
-              draft={draft}
-              onDraftChange={setDraft}
-              onOpenContextDialog={() => setContextDialogOpen(true)}
-              onRemoveContext={handleRemoveContext}
-              onSend={handleSend}
-              selectedSources={selectedSources}
-            />
-            <StudioPanel
-              activeArtifact={activeArtifact}
-              className={workspaceView === "studio" ? "flex" : "hidden"}
-              generatedArtifacts={generatedArtifacts}
-              onCloseArtifact={() => setActiveArtifactId(null)}
-              onExpandArtifact={(toolId) => setFullscreenArtifactId(toolId)}
-              onGenerateTool={handleToolRequest}
-              onOpenArtifact={handleOpenArtifact}
-              selectedSources={selectedSources}
-            />
-          </div>
         </main>
       </div>
 
@@ -585,16 +567,6 @@ function VeraTopBar({
   return (
     <header className="flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <Button
-          aria-label="Kembali ke dashboard"
-          className="rounded-full border-0 bg-white text-primary-900 hover:bg-primary-50"
-          nativeButton={false}
-          render={<Link href="/dashboard" />}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <ArrowLeft />
-        </Button>
         <Link
           aria-label="Vecalss dashboard"
           className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-85"
@@ -617,10 +589,22 @@ function VeraTopBar({
         </Link>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
-        <VeraUsagePopover />
-        <StudentNotificationPopover items={studentNotificationItems} />
-        <StudentAccountMenu extraItem="notifications" session={session} />
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          aria-label="Ke dashboard"
+          className="rounded-full border border-primary-100 bg-white shadow-sm"
+          nativeButton={false}
+          render={<Link href="/dashboard" />}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <House />
+        </Button>
+        <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
+          <VeraUsagePopover />
+          <StudentNotificationPopover items={studentNotificationItems} />
+          <StudentAccountMenu extraItem="notifications" session={session} />
+        </div>
       </div>
     </header>
   );
@@ -673,45 +657,104 @@ function VeraUsagePopover() {
   );
 }
 
-function MobileWorkspaceNavigation({
-  activeView,
-  onViewChange,
+function WorkspaceTabs({
+  activeTab,
 }: {
-  activeView: WorkspaceView;
-  onViewChange: Dispatch<SetStateAction<WorkspaceView>>;
+  activeTab: WorkspaceTab;
 }) {
-  const items: { id: WorkspaceView; label: string; icon: LucideIcon }[] = [
-    { id: "sessions", label: "Sesi", icon: PanelLeft },
-    { id: "chat", label: "Percakapan", icon: MessageCircleMore },
-    { id: "studio", label: "Studio", icon: Sparkles },
-  ];
+  return (
+    <div className="mb-2 md:mb-3">
+      <TabsList
+        aria-label="Area kerja Vera"
+        className="grid h-10 w-full grid-cols-2 rounded-none bg-transparent p-0"
+        variant="line"
+      >
+        <TabsTrigger
+          aria-current={activeTab === "chat" ? "page" : undefined}
+          className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+          value="chat"
+        >
+          <MessageCircleMore data-icon="inline-start" />
+          Percakapan
+        </TabsTrigger>
+        <TabsTrigger
+          aria-current={activeTab === "studio" ? "page" : undefined}
+          className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+          value="studio"
+        >
+          <Sparkles data-icon="inline-start" />
+          Studio
+        </TabsTrigger>
+      </TabsList>
+    </div>
+  );
+}
+
+function SessionSidebar({
+  activeSessionId,
+  collapsed,
+  onNewSession,
+  onSelectSession,
+  onSetCollapsed,
+  sessions,
+}: {
+  activeSessionId: string;
+  collapsed: boolean;
+  onNewSession: () => void;
+  onSelectSession: (sessionId: string) => void;
+  onSetCollapsed: (collapsed: boolean) => void;
+  sessions: StudySession[];
+}) {
+  if (!collapsed) {
+    return (
+      <SessionPanel
+        activeSessionId={activeSessionId}
+        className="flex"
+        onCollapse={() => onSetCollapsed(true)}
+        onNewSession={onNewSession}
+        onSelectSession={onSelectSession}
+        sessions={sessions}
+      />
+    );
+  }
 
   return (
     <nav
-      aria-label="Navigasi workspace"
-      className="mx-2 mb-2 grid grid-cols-3 rounded-2xl border border-primary-100 bg-white p-1 xl:hidden"
+      aria-label="Sidebar sesi Vera"
+      className="flex h-full flex-col items-center rounded-[1.65rem] border border-primary-100 bg-white py-3 shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)]"
     >
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active = item.id === activeView;
+      <button
+        aria-label="Buka sidebar sesi"
+        className="flex size-10 items-center justify-center rounded-xl transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+        onClick={() => onSetCollapsed(false)}
+        title="Buka sidebar sesi"
+        type="button"
+      >
+        <PanelLeftOpen className="size-4" />
+      </button>
 
-        return (
-          <Button
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "rounded-xl",
-              active && "bg-primary-50 text-primary-800",
-            )}
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            size="sm"
-            variant="ghost"
-          >
-            <Icon data-icon="inline-start" />
-            {item.label}
-          </Button>
-        );
-      })}
+      <div className="mt-7 flex flex-col items-center gap-2">
+        <Button
+          aria-label="Buat sesi belajar baru"
+          className="rounded-xl"
+          onClick={onNewSession}
+          size="icon-sm"
+          title="Sesi baru"
+          variant="ghost"
+        >
+          <Plus />
+        </Button>
+        <Button
+          aria-label="Buka percakapan"
+          className="rounded-xl"
+          onClick={() => onSetCollapsed(false)}
+          size="icon-sm"
+          title="Daftar percakapan"
+          variant="ghost"
+        >
+          <MessageCircleMore />
+        </Button>
+      </div>
     </nav>
   );
 }
@@ -719,12 +762,14 @@ function MobileWorkspaceNavigation({
 function SessionPanel({
   activeSessionId,
   className,
+  onCollapse,
   onNewSession,
   onSelectSession,
   sessions,
 }: {
   activeSessionId: string;
   className?: string;
+  onCollapse?: () => void;
   onNewSession: () => void;
   onSelectSession: (sessionId: string) => void;
   sessions: StudySession[];
@@ -733,15 +778,28 @@ function SessionPanel({
     <WorkspacePanel className={className}>
       <PanelHeader
         action={
-          <Button
-            aria-label="Buat sesi belajar baru"
-            className="rounded-full"
-            onClick={onNewSession}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Plus />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              aria-label="Buat sesi belajar baru"
+              className="rounded-full"
+              onClick={onNewSession}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Plus />
+            </Button>
+            {onCollapse ? (
+              <Button
+                aria-label="Minimalkan sidebar sesi"
+                className="rounded-full"
+                onClick={onCollapse}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <PanelLeftClose />
+              </Button>
+            ) : null}
+          </div>
         }
         title="Sesi Belajar"
       />
@@ -787,6 +845,7 @@ function ChatWorkspace({
   draft,
   onDraftChange,
   onOpenContextDialog,
+  onRenameSession,
   onRemoveContext,
   onSend,
   selectedSources,
@@ -796,13 +855,22 @@ function ChatWorkspace({
   draft: string;
   onDraftChange: (value: string) => void;
   onOpenContextDialog: () => void;
+  onRenameSession: (title: string) => void;
   onRemoveContext: (sourceId: string) => void;
   onSend: () => void;
   selectedSources: VeraContextSource[];
 }) {
   return (
     <WorkspacePanel className={className}>
-      <PanelHeader title={activeSession.title} />
+      <PanelHeader
+        title={
+          <EditableSessionTitle
+            key={activeSession.id}
+            onSave={onRenameSession}
+            title={activeSession.title}
+          />
+        }
+      />
 
       <ContextStrip
         onOpen={onOpenContextDialog}
@@ -824,6 +892,60 @@ function ChatWorkspace({
         onSend={onSend}
       />
     </WorkspacePanel>
+  );
+}
+
+function EditableSessionTitle({
+  onSave,
+  title,
+}: {
+  onSave: (title: string) => void;
+  title: string;
+}) {
+  const [draftTitle, setDraftTitle] = useState(title);
+  const [editing, setEditing] = useState(false);
+
+  function save() {
+    onSave(draftTitle);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <span
+        className="flex min-w-0 items-center"
+      >
+        <Input
+          aria-label="Judul sesi belajar"
+          autoFocus
+          className="h-8 min-w-40 px-2 text-sm font-semibold"
+          onBlur={save}
+          onChange={(event) => setDraftTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              save();
+            }
+          }}
+          value={draftTitle}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <span className="truncate">{title}</span>
+      <Button
+        aria-label={`Ubah judul sesi ${title}`}
+        className="shrink-0 rounded-full"
+        onClick={() => setEditing(true)}
+        size="icon-xs"
+        variant="ghost"
+      >
+        <Pencil />
+      </Button>
+    </span>
   );
 }
 
@@ -1854,7 +1976,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] xl:h-full",
+        "min-h-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:h-full",
         className,
       )}
     >
@@ -1870,7 +1992,7 @@ function PanelHeader({
 }: {
   action?: React.ReactNode;
   backAction?: () => void;
-  title: string;
+  title: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-17 items-center justify-between gap-3 border-b border-primary-100 px-4 py-3">

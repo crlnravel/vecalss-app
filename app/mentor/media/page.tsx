@@ -15,7 +15,7 @@ export default async function MentorMediaPage() {
     <MentorWorkspaceShell
       activeLabel="Media"
       breadcrumbLabel="Media"
-      mainClassName="max-w-[1500px] gap-5"
+      mainClassName="max-w-[1500px] gap-5 min-h-[calc(100svh-4rem)]"
       session={session}
       showSearch={false}
     >

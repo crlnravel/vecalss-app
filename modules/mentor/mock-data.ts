@@ -678,10 +678,10 @@ const quickCreateItems = [
     label: "Materi",
   },
   {
-    description: "Kuis singkat dari question bank",
+    description: "Kuis singkat dari bank soal",
     href: "/mentor/quiz/create",
     icon: ListChecks,
-    label: "Quiz",
+    label: "Kuis",
   },
   {
     description: "Assessment bertahap dan terjadwal",
@@ -690,7 +690,7 @@ const quickCreateItems = [
     label: "Tryout",
   },
   {
-    description: "Soal reusable untuk quiz dan tryout",
+    description: "Soal yang dapat dipakai ulang untuk kuis dan tryout",
     href: "/mentor/quiz/question-bank/create",
     icon: FileQuestion,
     label: "Bank Soal",
@@ -703,7 +703,7 @@ const contentTypeMeta: Record<
 > = {
   materi: { icon: BookOpenText, label: "Materi" },
   media: { icon: ImageIcon, label: "Media" },
-  quiz: { icon: ListChecks, label: "Quiz" },
+  quiz: { icon: ListChecks, label: "Kuis" },
   "question-bank": { icon: LibraryBig, label: "Bank Soal" },
   tryout: { icon: Gauge, label: "Tryout" },
 };

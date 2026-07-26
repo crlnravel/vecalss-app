@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LibraryBig,
   ListChecks,
+  PackageCheck,
   Settings,
 } from "lucide-react";
 
@@ -34,13 +35,17 @@ type KaptenNavigationItem = {
 const kaptenMainNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/mentor/materi", icon: BookOpenText, label: "Materi" },
-  { href: "/mentor/quiz", icon: ListChecks, label: "Quiz" },
+  { href: "/mentor/quiz", icon: ListChecks, label: "Kuis" },
   {
     href: "/mentor/quiz/question-bank",
     icon: LibraryBig,
     label: "Bank Soal",
   },
+];
+
+const kaptenTryoutNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/tryout", icon: Gauge, label: "Tryout" },
+  { href: "/mentor/packages", icon: PackageCheck, label: "Paket Soal" },
 ];
 
 const kaptenUtilityNavigation: KaptenNavigationItem[] = [
@@ -104,6 +109,11 @@ function MentorSidebar({
           activeLabel={activeLabel}
           items={kaptenMainNavigation}
           label="Konten Belajar"
+        />
+        <NavigationGroup
+          activeLabel={activeLabel}
+          items={kaptenTryoutNavigation}
+          label="Tryout"
         />
         <NavigationGroup
           activeLabel={activeLabel}

@@ -15,9 +15,7 @@ function MarketingHeader({
 }: MarketingHeaderProps) {
   const showLandingCta = layout === "landing";
   const navItems = showLandingCta
-    ? marketingNavItems.filter(
-        (item) => item.href !== "/tryout" && item.href !== "/login",
-      )
+    ? marketingNavItems.filter((item) => item.href !== "/login")
     : marketingNavItems;
   const loginItem = marketingNavItems.find((item) => item.href === "/login");
 

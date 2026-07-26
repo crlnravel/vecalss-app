@@ -61,6 +61,7 @@ function MateriLessonPresentation({
   action,
   duration,
   position,
+  showSectionLabel = true,
   showDuration = false,
   subject,
   title,
@@ -69,6 +70,7 @@ function MateriLessonPresentation({
   action?: ReactNode;
   duration?: string;
   position?: number;
+  showSectionLabel?: boolean;
   showDuration?: boolean;
   subject: string;
   title: string;
@@ -90,10 +92,12 @@ function MateriLessonPresentation({
   return (
     <>
       <header className="mt-2">
-        <p className="text-xs font-bold tracking-[0.14em] text-[#698078] uppercase">
-          Bagian{position === undefined ? "" : ` ${position + 1}`}
-        </p>
-        <h1 className="mt-2 max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[#121a29] text-balance md:text-4xl lg:text-[2.8rem]">
+        {showSectionLabel ? (
+          <p className="text-xs font-bold tracking-[0.14em] text-[#698078] uppercase">
+            Bagian{position === undefined ? "" : ` ${position + 1}`}
+          </p>
+        ) : null}
+        <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[#121a29] text-balance md:text-4xl lg:text-[2.8rem]`}>
           {title.trim() || "Materi tanpa judul"}
         </h1>
         <p className="mt-2 text-base text-[#66766e] md:text-lg">{subjectDetails}</p>

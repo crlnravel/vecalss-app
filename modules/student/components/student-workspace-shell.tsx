@@ -38,6 +38,7 @@ function StudentWorkspaceShell({
   mainClassName,
   notificationItems = studentNotificationItems,
   searchPlaceholder = "Cari materi, video, atau topik...",
+  showSearch = true,
   session,
 }: {
   accountMenuExtraItem?: StudentAccountMenuItem;
@@ -47,6 +48,7 @@ function StudentWorkspaceShell({
   mainClassName?: string;
   notificationItems?: StudentNotificationItem[];
   searchPlaceholder?: string;
+  showSearch?: boolean;
   session: SessionContext;
 }) {
   const unreadNotificationCount = notificationItems?.filter(
@@ -86,14 +88,16 @@ function StudentWorkspaceShell({
                 </Breadcrumb>
               </div>
 
-              <div className="relative ml-auto hidden w-full max-w-sm md:block">
-                <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
-                <Input
-                  aria-label={searchPlaceholder}
-                  className="h-10 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
-                  placeholder={searchPlaceholder}
-                />
-              </div>
+              {showSearch ? (
+                <div className="relative ml-auto hidden w-full max-w-sm md:block">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
+                  <Input
+                    aria-label={searchPlaceholder}
+                    className="h-10 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
+                    placeholder={searchPlaceholder}
+                  />
+                </div>
+              ) : null}
 
               <StudentNotificationPopover items={notificationItems} />
 

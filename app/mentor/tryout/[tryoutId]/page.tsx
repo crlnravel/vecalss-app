@@ -2,15 +2,23 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { listQuestionBankSources } from "@/lib/question-bank/repository";
-import { getTryoutForEdit } from "@/lib/tryout/repository";
-import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutModules";
+import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
+import { serializeTryoutOperations } from "@/lib/tryout/operations-view";
+import { getTryoutForEdit, listReadyPackageVersions } from "@/lib/tryout/repository";
+import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
+import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
 export const metadata: Metadata = { title: "Edit Tryout Kapten | Vecalss LMS" };
 
-export default async function TryoutPage({ params }: { params: Promise<{ tryoutId: string }> }) {
-  const [{ tryoutId }, session] = await Promise.all([params, requireTutorSession()]);
-  const [initialDraft, sourceCatalog] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), listQuestionBankSources()]);
+export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<{ workspace?: string }> }) {
+  const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
+  const [initialDraft, operations, readyVersions] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getTryoutDeliveryOperations(tryoutId), listReadyPackageVersions(session.user.id)]);
   if (!initialDraft) notFound();
-  return <KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} session={session} sourceCatalog={sourceCatalog} />;
+  const operationsInitial = operations ? serializeTryoutOperations(operations) : undefined;
+  const initialWorkspace = query.workspace === "policy" || query.workspace === "participants" || query.workspace === "sessions"
+    ? query.workspace
+    : query.workspace === "operations"
+      ? "sessions"
+      : "authoring";
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }

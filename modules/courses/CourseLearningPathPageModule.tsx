@@ -1,17 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   Clock3,
   LoaderCircle,
   LockKeyhole,
   Play,
-  RotateCcw,
   SkipForward,
-  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -49,6 +47,8 @@ function CourseLearningPathPageModule({
     completedLessonIds: progress.completedLessonIds,
     skippedToLessonId: progress.skippedToLessonId,
   });
+  const currentPositionLessonId =
+    state.nextLesson?.id ?? state.lessons[state.lessons.length - 1]?.id;
 
   const handleSkip = (lesson: CourseLesson) => {
     skipToCourseLesson(course.slug, lesson.id, courses);
@@ -62,47 +62,43 @@ function CourseLearningPathPageModule({
       searchPlaceholder="Cari video di materi ini..."
       session={session}
     >
-      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#f7faf8] pb-40 text-[#173c2d]">
+      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#f7faf8] pb-24 text-[#173c2d]">
 
-        <div className="sticky top-3 z-30 mx-auto w-full max-w-[48rem] px-4 pt-3 sm:px-6">
-          <SubjectSelector course={course} courses={courses} />
-        </div>
-
-        <div className="mx-auto mt-4 w-full max-w-[42rem] px-4 sm:mt-6 sm:px-6">
-          <ActiveMateriBanner
-            completionPercentage={state.completionPercentage}
-            lesson={state.nextLesson}
-          />
+        <div className="pointer-events-none sticky top-3 z-30 mx-auto h-0 w-full max-w-[48rem] px-4 pt-3 sm:px-6">
+          <div className="pointer-events-auto">
+            <SubjectSelector course={course} courses={courses} />
+          </div>
         </div>
 
         <section
           aria-label={`Jalur belajar ${course.description}`}
-          className="relative mx-auto mt-2 w-full max-w-[78rem] px-3 sm:mt-5 sm:px-6 lg:px-10"
+          className="mx-auto w-full max-w-[78rem] px-3 pt-32 sm:px-6 sm:pt-36 lg:px-10"
         >
-          <LearningRoad lessonCount={state.lessons.length} />
+          <div className="relative">
+            <LearningRoad lessonCount={state.lessons.length} />
 
-          <ol className="relative z-10 m-0 list-none p-0 space-y-40">
-            {state.lessons.map((lesson, index) => {
-              const status = getLessonProgressStatus(course, lesson.id, {
-                completedLessonIds: progress.completedLessonIds,
-                skippedToLessonId: progress.skippedToLessonId,
-              });
+            <ol className="relative z-10 m-0 list-none p-0">
+              {state.lessons.map((lesson, index) => {
+                const status = getLessonProgressStatus(course, lesson.id, {
+                  completedLessonIds: progress.completedLessonIds,
+                  skippedToLessonId: progress.skippedToLessonId,
+                });
 
-              return (
-                <PathNode
-                  course={course}
-                  index={index}
-                  key={lesson.id}
-                  lesson={lesson}
-                  onSkip={() => handleSkip(lesson)}
-                  status={status}
-                />
-              );
-            })}
-          </ol>
+                return (
+                  <LearningPathStage
+                    course={course}
+                    index={index}
+                    isCurrentPosition={lesson.id === currentPositionLessonId}
+                    key={lesson.id}
+                    lesson={lesson}
+                    onSkip={() => handleSkip(lesson)}
+                    status={status}
+                  />
+                );
+              })}
+            </ol>
+          </div>
         </section>
-
-        <StartLessonPrompt course={course} lesson={state.nextLesson} />
       </div>
     </CourseWorkspaceShell>
   );
@@ -206,63 +202,31 @@ function SubjectSelector({
   );
 }
 
-function ActiveMateriBanner({
-  completionPercentage,
-  lesson,
-}: {
-  completionPercentage: number;
-  lesson?: CourseLesson;
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-[2rem] bg-[#176b4d] px-5 py-5 text-white sm:rounded-[2.35rem] sm:px-7 sm:py-6 z-10">
-      <div className="relative flex items-center gap-4 sm:gap-6">
-        <span className="flex size-16 shrink-0 flex-col items-center justify-center rounded-[1.45rem] border border-white/35 bg-white/10 sm:size-20">
-          <span className="text-[0.62rem] font-bold tracking-[0.13em] uppercase sm:text-xs">
-            Bagian
-          </span>
-          <span className="text-2xl leading-none font-extrabold sm:text-3xl">
-            {lesson ? lesson.position + 1 : "✓"}
-          </span>
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[0.65rem] font-bold tracking-[0.14em] text-white/75 uppercase sm:text-xs">
-            {completionPercentage}% perjalanan selesai
-          </p>
-          <h1 className="mt-1 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl md:text-3xl">
-            {lesson?.title ?? "Semua Bagian sudah selesai"}
-          </h1>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const LEARNING_ROAD_ROW_HEIGHT = 100;
-const LEARNING_ROAD_GAP_HEIGHT = 53;
+const LEARNING_PATH_STAGE_HEIGHT = 432;
 const LEARNING_ROAD_CENTER_X = 500;
-const LEARNING_ROAD_LEFT_X = 0;
-const LEARNING_ROAD_RIGHT_X = 1000;
+const LEARNING_ROAD_LEFT_X = 360;
+const LEARNING_ROAD_RIGHT_X = 640;
 
 function getLearningRoadGeometry(lessonCount: number) {
   const safeLessonCount = Math.max(lessonCount, 1);
-  const rowStride = LEARNING_ROAD_ROW_HEIGHT + LEARNING_ROAD_GAP_HEIGHT;
-  const contentHeight =
-    safeLessonCount * LEARNING_ROAD_ROW_HEIGHT +
-    (safeLessonCount - 1) * LEARNING_ROAD_GAP_HEIGHT;
-  const viewBoxHeight = contentHeight + 30;
-  let currentX = LEARNING_ROAD_CENTER_X;
-  let currentY = -30;
+  const viewBoxHeight = safeLessonCount * LEARNING_PATH_STAGE_HEIGHT;
+  const firstCardX = LEARNING_ROAD_LEFT_X;
+  let currentX = firstCardX;
+  let currentY = -24;
   let path = `M ${currentX} ${currentY}`;
 
   for (let index = 0; index < safeLessonCount; index += 1) {
-    const targetX =
-      index % 2 === 0 ? LEARNING_ROAD_RIGHT_X : LEARNING_ROAD_LEFT_X;
-    const targetY = index * rowStride + LEARNING_ROAD_ROW_HEIGHT / 2;
-    const controlY = currentY + (targetY - currentY) / 2;
+    const cardX = index % 2 === 0 ? LEARNING_ROAD_LEFT_X : LEARNING_ROAD_RIGHT_X;
+    const cardY = index * LEARNING_PATH_STAGE_HEIGHT + 64;
+    const playX = index % 2 === 0 ? LEARNING_ROAD_RIGHT_X : LEARNING_ROAD_LEFT_X;
+    const playY = index * LEARNING_PATH_STAGE_HEIGHT + 292;
 
-    path += ` C ${currentX} ${controlY} ${targetX} ${controlY} ${targetX} ${targetY}`;
-    currentX = targetX;
-    currentY = targetY;
+    for (const [targetX, targetY] of [[cardX, cardY], [playX, playY]]) {
+      const controlY = currentY + (targetY - currentY) / 2;
+      path += ` C ${currentX} ${controlY} ${targetX} ${controlY} ${targetX} ${targetY}`;
+      currentX = targetX;
+      currentY = targetY;
+    }
   }
 
   const finalControlY = currentY + (viewBoxHeight - currentY) / 2;
@@ -277,221 +241,161 @@ function LearningRoad({ lessonCount }: { lessonCount: number }) {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-1/2 h-full w-10 -translate-x-1/2 overflow-visible sm:w-20"
+      className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
       preserveAspectRatio="none"
       viewBox={`0 0 1000 ${viewBoxHeight}`}
     >
       <path
         d={path}
         fill="none"
-        stroke="#e2ece5"
+        stroke="#e0eee5"
         strokeLinecap="round"
-        strokeWidth="52"
+        strokeWidth="64"
         vectorEffect="non-scaling-stroke"
       />
       <path
         d={path}
         fill="none"
         stroke="#4c9a70"
-        strokeDasharray="18 34"
+        strokeDasharray="22 38"
         strokeLinecap="round"
-        strokeWidth="9"
+        strokeWidth="10"
         vectorEffect="non-scaling-stroke"
       />
     </svg>
   );
 }
 
-function PathNode({
+function LearningPathStage({
   course,
   index,
+  isCurrentPosition,
   lesson,
   onSkip,
   status,
 }: {
   course: Course;
   index: number;
+  isCurrentPosition: boolean;
   lesson: CourseLesson;
   onSkip: () => void;
   status: LessonProgressStatus | undefined;
 }) {
   const isCompleted = status === "completed";
-  const isActive = status === "active" || status === "available";
   const isLocked = status === "locked";
   const isEven = index % 2 === 0;
   const href = `/courses/${course.slug}/${lesson.id}`;
 
   return (
-    <li className="group/node relative min-h-[17.5rem] sm:min-h-[19rem]">
-      <div className={cn(
-        "grid min-h-[17.5rem] grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] items-center transition-transform duration-200 ease-out motion-reduce:transition-none sm:min-h-[19rem] lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]",
-        !isLocked && "motion-safe:group-hover/node:-translate-y-1 motion-safe:group-focus-within/node:-translate-y-1",
-      )}>
-        <div
+    <li className="relative grid min-h-[27rem] grid-rows-[9rem_1fr] sm:min-h-[32rem] sm:grid-rows-[11rem_1fr]">
+      <article
+        className={cn(
+          "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
+          isEven
+            ? "justify-self-start sm:ml-[8%] lg:ml-[12%]"
+            : "justify-self-end sm:mr-[8%] lg:mr-[12%]",
+          isLocked
+            ? "border-[#d9e0dc] bg-[#f0f3f1] text-[#7b8780] shadow-[0_9px_0_#d5dcd8,0_24px_44px_-32px_rgba(39,62,51,0.45)]"
+            : isCompleted
+              ? "border-[#b7ddc3] bg-white text-[#173c2d] shadow-[0_9px_0_#b7ddc3,0_24px_44px_-32px_rgba(23,107,77,0.5)]"
+              : "border-[#176b4d] bg-[#176b4d] text-white shadow-[0_9px_0_#0f563b,0_26px_48px_-30px_rgba(23,107,77,0.68)]",
+        )}
+      >
+        <span
           className={cn(
-            "relative z-20 col-start-2 row-start-1 flex justify-center",
-            !isActive && "max-sm:hidden",
-            isEven
-              ? "translate-x-5 sm:translate-x-10"
-              : "-translate-x-5 sm:-translate-x-10",
+            "flex size-16 shrink-0 flex-col items-center justify-center rounded-[1.35rem] border text-center sm:size-20 sm:rounded-[1.6rem]",
+            isLocked
+              ? "border-[#cfd7d2] bg-[#e5e9e7]"
+              : isCompleted
+                ? "border-[#cbe5d3] bg-[#e8f5ec] text-[#176b4d]"
+                : "border-white/35 bg-white/10",
           )}
         >
-          {isActive ? (
-            <Link
-              aria-label={`Mulai ${lesson.title}`}
-              className="group relative grid size-[5.35rem] place-items-center rounded-[1.75rem] border-4 border-white bg-[#176b4d] text-white shadow-[0_10px_0_#0f563b,0_24px_38px_-20px_rgba(23,107,77,0.72)] outline-none transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-[#0f563b] group-hover/node:shadow-[0_12px_0_#0f563b,0_30px_46px_-20px_rgba(23,107,77,0.76)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:scale-[0.98] motion-reduce:transition-none sm:size-24 sm:rounded-[2rem]"
-              href={href}
-            >
-              <Play
-                className="size-9 fill-none transition-transform duration-200 ease-out motion-safe:group-hover:scale-110 motion-reduce:transition-none sm:size-11"
-                strokeWidth={2.5}
-              />
-            </Link>
-          ) : (
-            <span
-              className={cn(
-                "grid size-[4.5rem] place-items-center rounded-[1.55rem] border-4 border-white transition-shadow duration-200 ease-out motion-reduce:transition-none sm:size-20",
-                !isLocked && "group-hover/node:shadow-[0_24px_38px_-22px_rgba(23,107,77,0.5)]",
-                isCompleted
-                  ? "bg-[#25805a] text-white"
-                  : "bg-[#f2f4f3] text-[#88948d]",
-              )}
-            >
-              {isCompleted ? (
-                <Check className="size-8" strokeWidth={3} />
-              ) : (
-                <Play className="size-8" strokeWidth={2.5} />
-              )}
-            </span>
-          )}
-        </div>
+          <span className="text-[0.6rem] font-bold tracking-[0.14em] uppercase sm:text-xs">
+            Unit
+          </span>
+          <span className="text-2xl leading-none font-extrabold sm:text-3xl">
+            {index + 1}
+          </span>
+        </span>
 
-        <div
-          className={cn(
-            "relative z-10 col-span-3 col-start-1 row-start-1 mx-1 w-[min(21rem,calc(100%-1rem))] sm:mx-4 sm:w-[min(25rem,44vw)] lg:w-[28rem]",
-            isActive && "max-sm:hidden",
-            isEven
-              ? "justify-self-start pl-2 sm:mr-[5.5rem] sm:justify-self-end sm:pl-12"
-              : "justify-self-end pr-2 sm:ml-[5.5rem] sm:justify-self-start sm:pr-16",
-          )}
-        >
-          <article
-            className={cn(
-              "relative w-full rounded-[1.8rem] border px-4 py-4 transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none sm:px-5 sm:py-5",
-              !isLocked && "group-hover/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)] group-focus-within/node:shadow-[0_24px_48px_-34px_rgba(23,107,77,0.52)]",
-              isLocked
-                ? "border-[#dce3df] bg-[#f5f7f6] text-[#6f7d75]"
-                : isCompleted
-                  ? "border-[#b7ddc3] bg-white"
-                  : "border-[#c8dfd0] bg-white",
-            )}
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className={cn(
-                  "flex size-14 shrink-0 flex-col items-center justify-center rounded-[1.25rem] text-center transition-transform duration-200 ease-out motion-reduce:transition-none sm:size-16",
-                  !isLocked && "motion-safe:group-hover/node:-rotate-2 motion-safe:group-hover/node:scale-105",
-                  isLocked
-                    ? "bg-[#e8ecea] text-[#87928c]"
-                    : isCompleted
-                      ? "bg-[#e6f4eb] text-[#176b4d]"
-                      : "bg-[#eaf5ed] text-[#176b4d]",
-                )}
-              >
-                <span className="text-[0.55rem] font-bold tracking-[0.12em] uppercase">
-                  Unit
-                </span>
-                <span className="text-xl leading-none font-extrabold">
-                  1
-                </span>
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="mt-1 line-clamp-2 text-base leading-snug font-extrabold tracking-[-0.025em] sm:text-lg lg:text-xl">
-                  {lesson.title}
-                </h2>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-[#718077]">
-                    <Clock3 className="size-3.5" /> {lesson.duration}
-                  </span>
-                  {isCompleted ? (
-                    <Link
-                      className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#e6f4eb] px-3 text-[0.68rem] font-extrabold text-[#176b4d] shadow-[0_8px_18px_-15px_rgba(23,107,77,0.6)] outline-none transition-[transform,background-color,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:bg-[#d7eddf] hover:shadow-[0_12px_22px_-15px_rgba(23,107,77,0.7)] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.97] motion-reduce:transition-none"
-                      href={href}
-                    >
-                      <RotateCcw className="size-3.5" /> Ulangi
-                    </Link>
-                  ) : null}
-                  {isLocked ? (
-                    <button
-                      className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white shadow-[0_4px_0_#0f563b,0_10px_20px_-15px_rgba(23,107,77,0.7)] outline-none transition-[transform,background-color,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:bg-[#0f563b] hover:shadow-[0_5px_0_#0f563b,0_14px_24px_-15px_rgba(23,107,77,0.76)] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.97] motion-reduce:transition-none"
-                      onClick={onSkip}
-                      type="button"
-                    >
-                      <SkipForward className="size-3.5" /> Skip ke sini
-                    </button>
-                  ) : null}
-                  {isActive ? (
-                    <Link
-                      className="inline-flex min-h-9 items-center gap-1 rounded-xl bg-[#176b4d] px-3 text-[0.68rem] font-extrabold text-white shadow-[0_4px_0_#0f563b,0_10px_20px_-15px_rgba(23,107,77,0.7)] outline-none transition-[transform,background-color,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:bg-[#0f563b] hover:shadow-[0_5px_0_#0f563b,0_14px_24px_-15px_rgba(23,107,77,0.76)] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.97] motion-reduce:transition-none"
-                      href={href}
-                    >
-                      <Play className="size-3.5 fill-current" /> Mulai
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-            {isLocked ? (
-              <LockKeyhole className="absolute top-4 right-4 size-4 text-[#9aa59f]" />
-            ) : null}
-          </article>
+        <div className="min-w-0 flex-1">
+          <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl">
+            {lesson.title}
+          </h2>
+          {isLocked ? (
+            <button
+              className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#ffd766] px-4 text-xs font-extrabold text-[#5b4b18] shadow-[0_4px_0_#d9ad32] outline-none transition-[transform,background-color,box-shadow] duration-150 hover:bg-[#ffe28c] focus-visible:ring-4 focus-visible:ring-[#d9ad32]/30 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transition-none sm:text-sm"
+              onClick={onSkip}
+              type="button"
+            >
+              <SkipForward className="size-4" /> Lewati ke sini
+            </button>
+          ) : null}
         </div>
+      </article>
+
+      <div
+        className={cn(
+          "relative z-20 flex w-fit flex-col items-center self-center justify-self-center",
+          isEven
+            ? "translate-x-12 sm:translate-x-28 lg:translate-x-36"
+            : "-translate-x-12 sm:-translate-x-28 lg:-translate-x-36",
+        )}
+      >
+        {isCurrentPosition ? (
+          <span
+            aria-label="Posisi belajar saat ini"
+            className="pointer-events-none absolute -top-20 -left-14 z-30 block size-24 sm:-top-24 sm:-left-20 sm:size-28"
+            role="img"
+          >
+            <span className="absolute right-1 bottom-1 left-1 h-5 rounded-[50%] bg-[#bfe9dd]/65 blur-[1px]" />
+            <Image
+              alt=""
+              className="absolute top-1/2 left-1/2 h-28 w-auto max-w-none -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_10px_10px_rgba(20,75,55,0.24)] sm:h-36"
+              height={338}
+              priority={index < 2}
+              src="/brand/voyage-assets/kapal-bajak-laut-vecalss.png"
+              width={600}
+            />
+          </span>
+        ) : null}
+
+        {isLocked ? (
+          <span
+            aria-label={`${lesson.title} terkunci`}
+            className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[#eef1ef] text-[#9aa49f] shadow-[0_9px_0_#d4dad6,0_24px_42px_-24px_rgba(61,78,69,0.44)] sm:size-28 sm:rounded-[2.35rem]"
+          >
+            <Play className="size-10 sm:size-12" strokeWidth={2.4} />
+            <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#dfe5e1]">
+              <LockKeyhole className="size-4" />
+            </span>
+          </span>
+        ) : (
+          <Link
+            aria-label={`${isCompleted ? "Putar ulang" : "Putar"} ${lesson.title}`}
+            className={cn(
+              "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white text-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
+              isCompleted
+                ? "bg-[#2f8a5d] shadow-[0_9px_0_#176b4d,0_28px_46px_-24px_rgba(23,107,77,0.65)] hover:bg-[#267a52] motion-safe:active:shadow-[0_3px_0_#176b4d]"
+                : "bg-[#176b4d] shadow-[0_10px_0_#0f563b,0_30px_50px_-22px_rgba(23,107,77,0.72)] hover:bg-[#0f563b] motion-safe:active:shadow-[0_3px_0_#0f563b]",
+            )}
+            href={href}
+          >
+            <Play className="size-10 translate-x-0.5 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.4} />
+            {isCompleted ? (
+              <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#e6f4eb] text-[#176b4d]">
+                <Check className="size-4" strokeWidth={3} />
+              </span>
+            ) : null}
+          </Link>
+        )}
+
+        <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#d8e6dc] bg-white px-3 py-1.5 text-xs font-bold text-[#65756c] shadow-[0_10px_24px_-20px_rgba(23,107,77,0.5)]">
+          <Clock3 className="size-3.5" /> {lesson.duration}
+        </span>
       </div>
     </li>
-  );
-}
-
-function StartLessonPrompt({
-  course,
-  lesson,
-}: {
-  course: Course;
-  lesson?: CourseLesson;
-}) {
-  if (!lesson) {
-    return (
-      <aside className="fixed bottom-5 left-1/2 z-40 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 md:left-[calc(50%+8rem)]">
-        <div className="flex min-h-20 items-center justify-center gap-3 rounded-[1.8rem] border border-[#b7ddc3] bg-[#176b4d] px-5 text-white">
-          <Sparkles className="size-6" />
-          <span className="text-base font-extrabold">Semua Bagian selesai!</span>
-        </div>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="fixed bottom-5 left-1/2 z-40 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 md:left-[calc(50%+8rem)]">
-      <Link
-        className="group flex min-h-20 w-full items-center gap-4 rounded-[1.8rem] border border-[#b7ddc3] bg-white px-4 py-3 text-[#173c2d] shadow-[0_20px_42px_-28px_rgba(23,107,77,0.62)] outline-none transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-1 hover:border-[#6aaa83] hover:bg-[#f3faf5] hover:shadow-[0_28px_52px_-28px_rgba(23,107,77,0.7)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.99] motion-reduce:transition-none"
-        href={`/courses/${course.slug}/${lesson.id}`}
-      >
-        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_8px_20px_-12px_rgba(23,107,77,0.75)] transition-transform duration-200 ease-out motion-safe:group-hover:scale-105 motion-reduce:transition-none sm:size-14">
-          <Play className="size-6 fill-current transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-0.5 motion-reduce:transition-none sm:size-7" />
-        </span>
-        <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[0.65rem] font-extrabold tracking-[0.14em] text-[#477060] uppercase">
-            Mulai Bagian
-          </span>
-          <span className="mt-0.5 block truncate text-base font-extrabold tracking-[-0.02em] sm:text-lg">
-            {lesson.title}
-          </span>
-        </span>
-        <ChevronRight
-          className="size-6 shrink-0 transition-transform group-hover:translate-x-1"
-          strokeWidth={2.6}
-        />
-      </Link>
-    </aside>
   );
 }
 

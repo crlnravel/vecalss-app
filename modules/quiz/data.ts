@@ -5,6 +5,7 @@ type QuizItem = {
   completionRate: number;
   difficulty: QuizDifficulty;
   duration: string;
+  isCompleted?: boolean;
   questionCount: number;
   slug: string;
   status: QuizStatus;
@@ -19,17 +20,18 @@ type QuizAttemptNavState =
   | "empty";
 
 type QuizAttemptQuestionOption = {
+  id: string;
   key: string;
   text: string;
 };
 
 type QuizAttemptQuestion = {
   hint: string;
+  id: string;
   options: QuizAttemptQuestionOption[];
   passage: string[];
   prompt: string;
   selectedOptionKey: string | null;
-  supportCount: number;
 };
 
 type QuizAttemptQuestionMarker = {
@@ -43,8 +45,9 @@ type QuizAttempt = {
   estimatedFinish: string;
   flaggedCount: number;
   focusLabel: string;
+  isSubmitted: boolean;
   markers: QuizAttemptQuestionMarker[];
-  question: QuizAttemptQuestion;
+  questions: QuizAttemptQuestion[];
   remainingTime: string;
 };
 
@@ -304,11 +307,12 @@ function getQuizSubjectByCode(code: string) {
   return quizSubjects.find((subject) => subject.title === code);
 }
 
-function toDatabaseQuizItem(record: { items: { id: string }[]; slug: string; title: string }): QuizItem {
+function toDatabaseQuizItem(record: { items: { id: string }[]; slug: string; title: string }, isCompleted = false): QuizItem {
   return {
     completionRate: 0,
     difficulty: "Menengah",
     duration: "Latihan mandiri",
+    isCompleted,
     questionCount: record.items.length,
     slug: record.slug,
     status: "Baru ditambahkan",
@@ -358,27 +362,34 @@ function getQuizAttemptBySlugs(subjectSlug: string, quizSlug: string) {
     estimatedFinish: "11:35 WIB",
     flaggedCount: 1,
     focusLabel: `Latihan ${subject.title}`,
+    isSubmitted: false,
     markers,
-    question: {
+    questions: [{
       hint: "Kalimat (3) menampilkan relasi sebab-akibat sebagai pola utama.",
+      id: "preview-question-1",
       options: [
         {
+          id: "preview-option-a",
           key: "A",
           text: "Pemerintah menaikkan harga BBM bersubsidi kemarin malam.",
         },
         {
+          id: "preview-option-b",
           key: "B",
           text: "Mahasiswa berprestasi itu mendapatkan beasiswa penuh ke luar negeri.",
         },
         {
+          id: "preview-option-c",
           key: "C",
           text: "Ayah membelikan adik sepeda baru di toko olahraga.",
         },
         {
+          id: "preview-option-d",
           key: "D",
           text: "Buku sejarah yang tebal itu sangat membosankan bagi sebagian siswa.",
         },
         {
+          id: "preview-option-e",
           key: "E",
           text: "Mereka bermain bola di lapangan sekolah saat hujan deras.",
         },
@@ -392,8 +403,7 @@ function getQuizAttemptBySlugs(subjectSlug: string, quizSlug: string) {
       ],
       prompt: "Kalimat (3) memiliki pola dasar yang sama dengan kalimat...",
       selectedOptionKey: "B",
-      supportCount: 5,
-    },
+    }],
     remainingTime: "12:48",
   };
 
