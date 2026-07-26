@@ -63,12 +63,11 @@ function KaptenTryoutSessionsPageModule({
                     <ChevronRight aria-hidden="true" className="text-secondary-400" />
                   </CardAction>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-secondary-600">
-                  <span>{session.attempts.length} attempt</span>
-                  <span>Peringkat {session.rankingRule}</span>
-                  <span>{session.fullscreenPrompt ? "Layar penuh" : "Layar penuh tidak diminta"}</span>
-                  {session.releasedAt ? <span>Hasil dirilis</span> : null}
-                </CardContent>
+                {session.releasedAt ? (
+                  <CardContent className="text-sm text-secondary-600">
+                    Hasil dirilis
+                  </CardContent>
+                ) : null}
               </Card>
             </Link>
           ))}

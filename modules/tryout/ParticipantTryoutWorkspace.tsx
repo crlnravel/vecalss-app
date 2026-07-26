@@ -5,14 +5,10 @@ import {
   BookOpenText,
   Buildings,
   CalendarBlank,
-  CheckCircle,
   Clock,
-  ClockCountdown,
-  GridFour,
   MagnifyingGlass,
   Sparkle,
   Target,
-  UsersThree,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -28,12 +24,12 @@ import type {
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 const filters = [
-  { icon: GridFour, id: "all", label: "Semua" },
-  { icon: UsersThree, id: "mine", label: "Tryout saya" },
-  { icon: ClockCountdown, id: "ongoing", label: "Berlangsung" },
-  { icon: CalendarBlank, id: "upcoming", label: "Akan datang" },
-  { icon: CheckCircle, id: "finished", label: "Selesai" },
-  { icon: BookOpenText, id: "practice", label: "Latihan" },
+  { id: "all", label: "Semua" },
+  { id: "mine", label: "Tryout saya" },
+  { id: "ongoing", label: "Berlangsung" },
+  { id: "upcoming", label: "Akan datang" },
+  { id: "finished", label: "Selesai" },
+  { id: "practice", label: "Latihan" },
 ] as const;
 
 type CatalogueFilter = (typeof filters)[number]["id"];
@@ -94,22 +90,6 @@ function ParticipantTryoutWorkspace({
   const [query, setQuery] = useState("");
   const [referenceTime] = useState(() => Date.now());
 
-  const filterCounts = useMemo(() => {
-    const counts: Record<CatalogueFilter, number> = {
-      all: initialTryouts.length,
-      finished: 0,
-      mine: 0,
-      ongoing: 0,
-      practice: 0,
-      upcoming: 0,
-    };
-    initialTryouts.forEach((tryout) => {
-      counts[getTryoutState(tryout, referenceTime)] += 1;
-      if (tryout.admissionStatus !== null) counts.mine += 1;
-    });
-    return counts;
-  }, [initialTryouts, referenceTime]);
-
   const visibleTryouts = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("id-ID");
     return initialTryouts.filter((tryout) => {
@@ -127,8 +107,6 @@ function ParticipantTryoutWorkspace({
   const targetLabel = targetProfile.university
     ? `${targetProfile.university.shortName ?? targetProfile.university.name}${targetProfile.major ? ` · ${targetProfile.major.name}` : ""}`
     : "Target kampus belum dipilih";
-  const activeFilterLabel = filters.find((item) => item.id === filter)?.label ?? "Semua";
-
   return (
     <CourseWorkspaceShell
       activeLabel="Tryout"
@@ -169,46 +147,34 @@ function ParticipantTryoutWorkspace({
         </div>
       </section>
 
-      <section aria-label="Kategori tryout" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        {filters.map((item) => {
-          const Icon = item.icon;
-          const isSelected = filter === item.id;
-          return (
+      <section aria-label="Cari dan filter tryout" className="grid gap-5">
+        <label className="relative block w-full">
+          <span className="sr-only">Cari tryout</span>
+          <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
+          <Input
+            className="h-12 rounded-2xl border-primary-100 bg-white pl-11 shadow-[0_16px_40px_-34px_rgba(1,76,56,0.58)]"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Cari tryout..."
+            value={query}
+          />
+        </label>
+
+        <div aria-label="Filter tryout" className="flex gap-2 overflow-x-auto pb-1" role="group">
+          {filters.map((item) => (
             <Button
-              aria-pressed={isSelected}
-              className={`h-auto min-h-28 flex-col items-start rounded-3xl p-4 text-left ${isSelected ? "border-primary-500 bg-primary-50" : "border-primary-100 bg-white"}`}
+              aria-pressed={filter === item.id}
+              className="shrink-0 rounded-full"
               key={item.id}
               onClick={() => setFilter(item.id)}
-              variant={isSelected ? "contextSelected" : "context"}
+              variant={filter === item.id ? "brand" : "context"}
             >
-              <span className={`flex size-10 items-center justify-center rounded-2xl ${isSelected ? "bg-primary-700 text-white" : "bg-primary-50 text-primary-700"}`}><Icon className="text-xl" /></span>
-              <span className="mt-3 text-sm font-semibold text-secondary-900">{item.label}</span>
-              <span className="mt-1 text-xs text-secondary-500">{filterCounts[item.id]} tryout</span>
+              {item.label}
             </Button>
-          );
-        })}
-      </section>
-
-      <section aria-labelledby="catalogue-heading" className="grid gap-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Katalog</p>
-            <h2 id="catalogue-heading" className="mt-2 font-heading text-2xl font-semibold tracking-[-0.025em] text-secondary-900">{activeFilterLabel}</h2>
-          </div>
-          <label className="relative block w-full sm:max-w-xs">
-            <span className="sr-only">Cari tryout</span>
-            <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
-            <Input
-              className="h-11 rounded-2xl border-primary-100 bg-white pl-11 shadow-[0_16px_40px_-34px_rgba(1,76,56,0.58)]"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari tryout..."
-              value={query}
-            />
-          </label>
+          ))}
         </div>
 
         {visibleTryouts.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {visibleTryouts.map((tryout) => {
               const totalQuestions = tryout.sections.reduce((sum, section) => sum + section.questionCount, 0);
               const totalDuration = tryout.sections.reduce((sum, section) => sum + section.durationSeconds, 0);
@@ -230,27 +196,27 @@ function ParticipantTryoutWorkspace({
 
               return (
                 <article className="group flex min-w-0 flex-col overflow-hidden rounded-3xl border border-primary-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-primary-300 hover:shadow-[0_20px_45px_-34px_rgba(1,76,56,0.45)]" key={tryout.id}>
-                  <div className="relative aspect-[16/9] overflow-hidden bg-primary-50">
+                  <div className="relative aspect-[16/10] overflow-hidden bg-primary-50">
                     <Image
                       alt=""
                       className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.04]"
                       fill
-                      sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                      sizes="(min-width: 1536px) 16.67vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
                       src="/brand/tryout-placeholder-banner.jpg"
                     />
                     <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.28)_0%,rgba(1,76,56,0.03)_60%,rgba(1,76,56,0.2)_100%)]" />
                     <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-primary-800">Vecalss</span>
                   </div>
 
-                  <div className="flex flex-1 flex-col p-4">
+                  <div className="flex flex-1 flex-col p-3.5">
                     <span className={`w-fit rounded-full border px-2.5 py-1 text-[11px] font-semibold ${stateClassName(state)}`}>{stateLabel(state)}</span>
-                    <h3 className="mt-3 line-clamp-2 font-heading text-lg leading-tight font-semibold tracking-[-0.02em] text-secondary-900">{tryout.title}</h3>
-                    <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-600">
+                    <h3 className="mt-3 line-clamp-2 font-heading text-base leading-tight font-semibold tracking-[-0.02em] text-secondary-900">{tryout.title}</h3>
+                    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-600">
                       <span className="flex items-center gap-1.5"><Clock className="text-primary-700" />{formatDuration(totalDuration)}</span>
                       <span className="flex items-center gap-1.5"><BookOpenText className="text-primary-700" />{totalQuestions || "—"} soal</span>
                     </div>
-                    <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-secondary-500"><CalendarBlank className="mt-0.5 shrink-0 text-primary-700" />{formatSchedule(primarySession?.availableFrom)}</p>
-                    <Button className="mt-5 w-full" render={<Link href={href} />} size="sm" variant="brand">
+                    <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-secondary-500"><CalendarBlank className="mt-0.5 shrink-0 text-primary-700" />{formatSchedule(primarySession?.availableFrom)}</p>
+                    <Button className="mt-4 w-full" render={<Link href={href} />} size="sm" variant="brand">
                       {actionLabel} <ArrowRight />
                     </Button>
                   </div>

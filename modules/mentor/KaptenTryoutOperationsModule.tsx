@@ -56,7 +56,7 @@ function StatusBadge({ status }: { status: string }) {
     revoked: "Dicabut",
     sealed: "Selesai",
   };
-  const label = labels[status] ?? status;
+  const label = labels[status] ?? status.replace(/(^|[_\s-])(\p{L})/gu, (_, prefix: string, character: string) => `${prefix}${character.toLocaleUpperCase()}`);
 
   return (
     <Badge

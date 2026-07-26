@@ -223,7 +223,7 @@ function KaptenTryoutSessionCreatePageModule({
           </div>
 
           <Field>
-            <HelpFieldLabel htmlFor="session-audit-reason" label="Alasan audit" required tooltip="Alasan ini disimpan pada jejak audit untuk menjelaskan pembuatan dan konfigurasi sesi." />
+            <HelpFieldLabel htmlFor="session-audit-reason" label="Alasan perubahan" required tooltip="Alasan ini disimpan pada jejak audit untuk menjelaskan pembuatan dan konfigurasi sesi." />
             <FieldInput
               aria-required="true"
               id="session-audit-reason"

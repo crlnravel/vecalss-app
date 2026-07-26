@@ -31,6 +31,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import {
   Policy,
@@ -92,128 +93,138 @@ function KaptenTryoutSessionDetailPageModule({
       <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}?workspace=sessions`}
         description={initial.title}
+        divider={false}
         title={delivery.name}
         trailing={<StatusBadge status={delivery.status} />}
       />
       <OperationNotice message={notice} />
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)]">
-        <section aria-labelledby="session-attempts-title">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="session-attempts-title" className="text-xl font-semibold">
-              Attempt peserta
-            </h2>
-            <span className="text-sm text-secondary-600">
-              {delivery.attempts.length} attempt
-            </span>
-          </div>
-          {delivery.attempts.length ? (
-            <div className="mt-3 grid gap-3">
-              {delivery.attempts.map((attempt) => (
-                <Link
-                  className="group focus-visible:outline-none"
-                  href={`/mentor/tryout/${initial.id}/operations/attempts/${attempt.id}`}
-                  key={attempt.id}
-                >
-                  <Card className="shadow-none ring-primary-100 transition-colors group-hover:bg-secondary-50 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
-                    <CardHeader>
-                      <CardTitle className="font-semibold">{attempt.student}</CardTitle>
-                      <CardDescription>
-                        {attempt.runs.filter((run) => run.status === "sealed").length}/7 Test selesai
-                      </CardDescription>
-                      <CardAction className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-secondary-700">
-                          {attempt.score ?? "Belum dihitung"}
-                        </span>
-                        <ChevronRight aria-hidden="true" className="text-secondary-400" />
-                      </CardAction>
-                    </CardHeader>
-                  </Card>
-                </Link>
-              ))}
+      <Tabs className="mt-5" defaultValue="attempts">
+        <TabsList aria-label="Informasi sesi">
+          <TabsTrigger value="attempts">Attempt peserta</TabsTrigger>
+          <TabsTrigger value="details">Detail &amp; tindakan</TabsTrigger>
+        </TabsList>
+
+        <TabsContent className="mt-5" value="attempts">
+          <section aria-labelledby="session-attempts-title">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="session-attempts-title" className="text-xl font-semibold">
+                Attempt peserta
+              </h2>
+              <span className="text-sm text-secondary-600">
+                {delivery.attempts.length} attempt
+              </span>
             </div>
-          ) : (
-            <Empty className="mt-3 border border-dashed border-primary-100 bg-white">
-              <EmptyHeader>
-                <EmptyTitle>Belum ada attempt</EmptyTitle>
-                <EmptyDescription>
-                  Attempt muncul setelah peserta memulai sesi ini.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-        </section>
-
-        <aside className="grid content-start gap-4">
-          <Card className="shadow-none ring-primary-100">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 text-sm">
-              <div>
-                <p className="text-secondary-500">Jadwal</p>
-                <p className="mt-1 font-medium text-secondary-900">
-                  {new Date(delivery.availableFrom).toLocaleString("id-ID")} — {new Date(delivery.availableUntil).toLocaleString("id-ID")}
-                </p>
-              </div>
-              <div>
-                <p className="text-secondary-500">Rilis hasil</p>
-                <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
-                {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? <p className="mt-1 text-secondary-600">{new Date(delivery.scheduledReleaseAt).toLocaleString("id-ID")}</p> : null}
-              </div>
-              <div>
-                <p className="text-secondary-500">Peringkat</p>
-                <p className="mt-1 font-medium text-secondary-900">{delivery.rankingRule}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none ring-primary-100">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Tindakan sesi</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <Field>
-                <FieldLabel htmlFor="session-action-reason">Alasan audit</FieldLabel>
-                <FieldInput
-                  id="session-action-reason"
-                  onChange={(event) => setAuditReason(event.target.value)}
-                  placeholder="Jelaskan alasan tindakan"
-                  value={auditReason}
-                />
-              </Field>
-              <div className="grid gap-2">
-                {delivery.status === "draft" ? (
-                  <Button
-                    disabled={!auditReason.trim()}
-                    onClick={() => setConfirmation("open")}
-                    variant="brand"
+            {delivery.attempts.length ? (
+              <div className="mt-3 grid gap-3">
+                {delivery.attempts.map((attempt) => (
+                  <Link
+                    className="group focus-visible:outline-none"
+                    href={`/mentor/tryout/${initial.id}/operations/attempts/${attempt.id}`}
+                    key={attempt.id}
                   >
-                    <LockOpen data-icon="inline-start" />
-                    Buka sesi
-                  </Button>
-                ) : null}
-                {effectivePolicy === "manual" && !delivery.releasedAt ? (
-                  <Button
-                    disabled={!auditReason.trim()}
-                    onClick={() => setConfirmation("release")}
-                    variant="brandOutline"
-                  >
-                    <Upload data-icon="inline-start" />
-                    Rilis hasil
-                  </Button>
-                ) : null}
-                {delivery.status !== "draft" &&
-                (effectivePolicy !== "manual" || delivery.releasedAt) ? (
-                  <p className="text-sm text-secondary-600">
-                    Tidak ada tindakan sesi yang tersedia saat ini.
+                    <Card className="shadow-none ring-primary-100 transition-colors group-hover:bg-secondary-50 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
+                      <CardHeader>
+                        <CardTitle className="font-semibold">{attempt.student}</CardTitle>
+                        <CardDescription>
+                          {attempt.runs.filter((run) => run.status === "sealed").length}/7 Test selesai
+                        </CardDescription>
+                        <CardAction className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-secondary-700">
+                            {attempt.score ?? "Belum dihitung"}
+                          </span>
+                          <ChevronRight aria-hidden="true" className="text-secondary-400" />
+                        </CardAction>
+                      </CardHeader>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Empty className="mt-3 border border-dashed border-primary-100 bg-white">
+                <EmptyHeader>
+                  <EmptyTitle>Belum ada attempt</EmptyTitle>
+                  <EmptyDescription>
+                    Attempt muncul setelah peserta memulai sesi ini.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </section>
+        </TabsContent>
+
+        <TabsContent className="mt-5" value="details">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)]">
+            <Card className="shadow-none ring-primary-100">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 text-sm">
+                <div>
+                  <p className="text-secondary-500">Jadwal</p>
+                  <p className="mt-1 font-medium text-secondary-900">
+                    {new Date(delivery.availableFrom).toLocaleString("id-ID")} — {new Date(delivery.availableUntil).toLocaleString("id-ID")}
                   </p>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-        </aside>
-      </div>
+                </div>
+                <div>
+                  <p className="text-secondary-500">Rilis hasil</p>
+                  <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
+                  {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? <p className="mt-1 text-secondary-600">{new Date(delivery.scheduledReleaseAt).toLocaleString("id-ID")}</p> : null}
+                </div>
+                <div>
+                  <p className="text-secondary-500">Peringkat</p>
+                  <p className="mt-1 font-medium text-secondary-900">{delivery.rankingRule}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-none ring-primary-100">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Tindakan sesi</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <Field>
+                  <FieldLabel htmlFor="session-action-reason">Alasan perubahan</FieldLabel>
+                  <FieldInput
+                    id="session-action-reason"
+                    onChange={(event) => setAuditReason(event.target.value)}
+                    placeholder="Jelaskan alasan tindakan"
+                    value={auditReason}
+                  />
+                </Field>
+                <div className="grid gap-2">
+                  {delivery.status === "draft" ? (
+                    <Button
+                      disabled={!auditReason.trim()}
+                      onClick={() => setConfirmation("open")}
+                      variant="brand"
+                    >
+                      <LockOpen data-icon="inline-start" />
+                      Buka sesi
+                    </Button>
+                  ) : null}
+                  {effectivePolicy === "manual" && !delivery.releasedAt ? (
+                    <Button
+                      disabled={!auditReason.trim()}
+                      onClick={() => setConfirmation("release")}
+                      variant="brandOutline"
+                    >
+                      <Upload data-icon="inline-start" />
+                      Rilis hasil
+                    </Button>
+                  ) : null}
+                  {delivery.status !== "draft" &&
+                  (effectivePolicy !== "manual" || delivery.releasedAt) ? (
+                    <p className="text-sm text-secondary-600">
+                      Tidak ada tindakan sesi yang tersedia saat ini.
+                    </p>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog
         onOpenChange={(open) => {
