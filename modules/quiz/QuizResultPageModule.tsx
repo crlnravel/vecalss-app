@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleX,
-  Lightbulb,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -184,22 +183,17 @@ function QuizResultPageModule({
                   ))}
                 </div>
 
-                <section aria-label="Pembahasan" className="rounded-3xl border border-primary-100 bg-primary-50/60 p-5 md:p-6">
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-primary-700 shadow-sm">
-                      <Lightbulb className="size-5" />
-                    </div>
-                    <div>
-                      <h2 className="font-semibold text-secondary-900">Pembahasan</h2>
-                      <p className={cn("mt-1.5 text-secondary-700", explanationTextClass)}>
-                        {question.explanation || "Pembahasan untuk soal ini belum tersedia."}
-                      </p>
-                      <p className="mt-3 text-sm font-medium text-secondary-600">
-                        {selectedOption
-                          ? `Pilihan: ${selectedOption.key}. Kunci: ${correctOption?.key ?? "—"}.`
-                          : `Kunci: ${correctOption?.key ?? "—"}.`}
-                      </p>
-                    </div>
+                <section aria-label="Pembahasan" className="rounded-3xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
+                  <div className="min-w-0">
+                    <h2 className="font-semibold text-amber-950">Pembahasan</h2>
+                    <p className={cn("mt-1.5 text-secondary-700", explanationTextClass)}>
+                      {question.explanation || "Pembahasan untuk soal ini belum tersedia."}
+                    </p>
+                    <p className="mt-3 border-t border-amber-200 pt-3 text-sm font-medium text-secondary-700">
+                      {selectedOption
+                        ? `Pilihan: ${selectedOption.key}. Kunci: ${correctOption?.key ?? "—"}.`
+                        : `Kunci: ${correctOption?.key ?? "—"}.`}
+                    </p>
                   </div>
                 </section>
               </div>

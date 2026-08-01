@@ -5,10 +5,14 @@ import { cn } from "@/lib/utils";
 function FormNotice({
   children,
   compact = false,
+  label,
+  showLabel = true,
   tone = "neutral",
 }: {
   children: React.ReactNode;
   compact?: boolean;
+  label?: string;
+  showLabel?: boolean;
   tone?: "danger" | "neutral" | "success";
 }) {
   const Icon =
@@ -17,8 +21,8 @@ function FormNotice({
       : tone === "success"
         ? CircleCheckBig
         : Info;
-  const label =
-    tone === "danger" ? "We're sorry" : tone === "success" ? "Saved" : "Note";
+  const resolvedLabel =
+    label ?? (tone === "danger" ? "We're sorry" : tone === "success" ? "Saved" : "Note");
 
   return (
     <div
@@ -33,14 +37,15 @@ function FormNotice({
           "border-primary-200 bg-[linear-gradient(180deg,#f7fbf8_0%,#edf6ef_100%)] text-primary-800",
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className={cn("flex gap-3", compact ? "items-center justify-center" : "items-start")}>
         <span
           className={cn(
-            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border",
+            "flex size-9 shrink-0 items-center justify-center rounded-full border",
+            compact ? "mt-0" : "mt-0.5",
             compact && "border-transparent bg-transparent text-primary-700",
             !compact &&
               tone === "danger" &&
-              "border-danger-200/80 bg-white/72 text-danger-600",
+              `border-danger-200/80 text-danger-600 ${showLabel ? "bg-white/72" : "bg-transparent"}`,
             !compact &&
               tone === "neutral" &&
               "border-primary-100/90 bg-white/80 text-primary-700",
@@ -52,12 +57,12 @@ function FormNotice({
           <Icon className="size-4" />
         </span>
         <div className="min-w-0">
-          {compact ? null : (
+          {compact || !showLabel ? null : (
             <p className="text-sm font-medium tracking-[0.16em] uppercase opacity-80">
-              {label}
+              {resolvedLabel}
             </p>
           )}
-          <div className="mt-1">{children}</div>
+          <div className={showLabel && !compact ? "mt-1" : undefined}>{children}</div>
         </div>
       </div>
     </div>

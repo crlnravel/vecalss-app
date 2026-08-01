@@ -62,11 +62,9 @@ function AuthShell({
           <div className="w-full max-w-[520px]">
             <div className="mb-9">
               <h2 className="font-heading text-5xl leading-none font-semibold text-secondary-900 md:text-6xl">
-                Selamat Datang
+                Ganti Password
               </h2>
-              <p className="mt-4 text-lg leading-7 text-secondary-600">
-                {description}
-              </p>
+              <p className="mt-4 text-lg leading-7 text-secondary-600"></p>
             </div>
 
             <div className="rounded-5xl bg-white px-5 py-6 shadow-[0_22px_68px_-48px_rgba(1,76,56,0.48)] md:px-8 md:py-8">

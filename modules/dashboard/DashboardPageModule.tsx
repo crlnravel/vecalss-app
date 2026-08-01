@@ -23,7 +23,7 @@ import {
   Gauge,
   History,
   ListChecks,
-  Settings,
+  UserRound,
   Target,
   Zap,
 } from "lucide-react";
@@ -75,7 +75,7 @@ const quickAccessItems: Array<{
   { description: "Uji kesiapan UTBK", href: "/tryout", icon: Gauge, label: "Tryout" },
   { description: "Tanya dan susun strategi belajar", href: "/vera-ai", icon: Bot, label: "Vera AI" },
   { description: "Cek update dan pengingat belajar", href: "/notifications", icon: Bell, label: "Notifikasi" },
-  { description: "Atur profil, jadwal, dan target", href: "/settings", icon: Settings, label: "Pengaturan" },
+  { description: "Atur data diri, zona waktu, dan target", href: "/settings", icon: UserRound, label: "Profil" },
   { description: "Kelola jurusan dan kampus tujuan", href: "/settings#target-belajar", icon: Target, label: "Target Belajar" },
   { description: "Selesaikan tugas belajar hari ini", href: "#daily-mission", icon: CalendarCheck, label: "Misi Harian" },
   { description: "Lihat performa dan latihanmu", href: "#progress", icon: Activity, label: "Progress Belajar" },
@@ -170,7 +170,7 @@ function DashboardPageModule({
       session={session}
     >
       <section>
-        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-100 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
+        <Card className="relative min-h-[330px] overflow-hidden rounded-5xl border border-primary-200 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)]">
           <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] min-w-[20rem] lg:block">
             <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-primary-900/12 blur-2xl" />
             <Image
@@ -268,7 +268,7 @@ function QuickAccessSection() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
           <Link className="group block min-w-0" href={item.href} key={item.label}>
-            <Card className="gap-0 rounded-3xl border border-secondary-200 bg-white py-0 shadow-none ring-0 transition-colors hover:border-primary-300 hover:bg-primary-50/35">
+            <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0 transition-colors hover:border-primary-300 hover:bg-primary-50/35">
               <CardContent className="flex min-h-20 items-center gap-4 px-4 py-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-transparent text-primary-700">
                   <item.icon className="size-5" />
@@ -295,7 +295,7 @@ function DailyMissionSection() {
   return (
     <section className="flex flex-col gap-4" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian Day 1" />
-      <Card className="gap-0 rounded-3xl border border-secondary-200 bg-white py-0 shadow-none ring-0">
+      <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
         <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
           <CardDescription className="text-sm text-secondary-500">
             Yuk, selesaikan tugas harian kamu!
@@ -308,7 +308,7 @@ function DailyMissionSection() {
         <CardContent className="flex flex-col gap-2 px-5 pb-5">
           {dailyMissionItems.map((mission) => (
             <label
-              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-secondary-200 bg-white px-3.5 py-2.5 transition-colors hover:border-primary-200 hover:bg-primary-50/25"
+              className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-secondary-300 bg-white px-3.5 py-2.5 transition-colors hover:border-primary-200 hover:bg-primary-50/25"
               key={mission}
             >
               <Checkbox aria-label={mission} className="size-5 rounded-full border-secondary-300 bg-white" />
@@ -333,7 +333,7 @@ function AnalyticsSection() {
 
 function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
   return (
-    <Card className="gap-0 min-h-[310px] rounded-3xl border border-secondary-200 bg-white py-0 shadow-none ring-0">
+    <Card className="gap-0 min-h-[310px] rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
       <CardHeader className="gap-1 px-5 pb-0 pt-5">
         <CardTitle className="text-[15px] font-semibold text-secondary-900">{title}</CardTitle>
         <CardDescription className="text-xs text-secondary-500">{description}</CardDescription>
@@ -354,7 +354,7 @@ function AccuracyCard() {
             <Radar dataKey="value" fill="var(--color-value)" fillOpacity={0.16} stroke="var(--color-value)" strokeWidth={2} />
           </RadarChart>
         </ChartContainer>
-        <span className="pointer-events-none absolute rounded-full border border-secondary-200 bg-white px-2.5 py-1 text-xs font-semibold text-secondary-700">
+        <span className="pointer-events-none absolute rounded-full border border-secondary-300 bg-white px-2.5 py-1 text-xs font-semibold text-secondary-700">
           0%
         </span>
       </div>
@@ -393,7 +393,7 @@ function ChapterSkillsSection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
-      <Card className="gap-0 rounded-3xl border border-secondary-200 bg-white py-0 shadow-none ring-0">
+      <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
         <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
           <Tabs defaultValue="PU">
             <TabsList className="flex w-full gap-2 overflow-x-auto bg-transparent p-0">
@@ -438,9 +438,9 @@ function RecentActivitySection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
-      <Card className="gap-0 rounded-3xl border border-secondary-200 bg-white py-0 shadow-none ring-0">
+      <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
         <CardContent className="p-4 md:p-5">
-          <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-200 bg-transparent p-5">
+          <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-300 bg-transparent p-5">
             <EmptyMedia className="mb-1" variant="default">
               <Image alt="" className="size-16 object-contain opacity-45 grayscale" height={64} src="/brand/mascot-vecalss.png" width={64} />
             </EmptyMedia>

@@ -9,7 +9,7 @@ import {
   Gauge,
   LayoutDashboard,
   ListChecks,
-  Settings,
+  UserRound,
 } from "lucide-react";
 
 import {
@@ -39,7 +39,7 @@ const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/tryout", icon: Gauge, label: "Tryout" },
   { href: "/vera-ai", icon: Bot, label: "Vera AI" },
   { href: "/notifications", icon: Bell, label: "Notifikasi" },
-  { href: "/settings", icon: Settings, label: "Pengaturan" },
+  { href: "/settings", icon: UserRound, label: "Profil" },
 ];
 
 function getInitials(fullName: string) {

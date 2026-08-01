@@ -38,7 +38,6 @@ export default async function OnboardingPage() {
     <OnboardingPageModule
       examEvents={examEvents}
       majors={majors}
-      session={session}
       universities={universities}
     />
   );

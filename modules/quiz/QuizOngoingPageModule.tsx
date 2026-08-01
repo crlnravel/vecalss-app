@@ -173,12 +173,8 @@ function QuizOngoingPageModule({
           className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-3xl bg-white p-0 shadow-xl sm:max-w-md"
           showCloseButton={false}
         >
-          <div className="flex items-start gap-3 px-5 py-5">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#fff1f1] text-[#ef4444]">
-              <AlertTriangle className="size-6" strokeWidth={2.2} />
-            </div>
-
-            <div className="min-w-0 flex-1">
+          <div className="px-5 py-5">
+            <div className="min-w-0">
               <div className="flex items-start justify-between gap-4">
                 <DialogTitle className="text-2xl leading-tight font-semibold text-secondary-900">
                   Keluar dari Latihan?

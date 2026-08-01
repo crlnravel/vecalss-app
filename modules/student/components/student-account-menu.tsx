@@ -46,7 +46,7 @@ function StudentAccountMenu({
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const isTutor = audience === "tutor";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
-  const settingsHref = isTutor ? "/mentor/settings" : "/settings";
+  const settingsHref = "/mentor/settings";
 
   return (
     <>
@@ -84,13 +84,15 @@ function StudentAccountMenu({
               <UserRound />
               Profil
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className={studentAccountMenuItemClassName}
-              render={<Link href={settingsHref} />}
-            >
-              <Settings />
-              Pengaturan
-            </DropdownMenuItem>
+            {isTutor ? (
+              <DropdownMenuItem
+                className={studentAccountMenuItemClassName}
+                render={<Link href={settingsHref} />}
+              >
+                <Settings />
+                Pengaturan
+              </DropdownMenuItem>
+            ) : null}
             {extraItem === "notifications" ? (
               <DropdownMenuItem
                 className={studentAccountMenuItemClassName}

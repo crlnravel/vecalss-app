@@ -7,8 +7,6 @@ import {
   CalendarBlank,
   Clock,
   MagnifyingGlass,
-  Sparkle,
-  Target,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,23 +15,18 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SessionContext } from "@/lib/auth/types";
-import type {
-  ParticipantTargetProfile,
-  ParticipantTryout,
-} from "@/lib/tryout/participant-repository";
+import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 const filters = [
   { id: "all", label: "Semua" },
   { id: "mine", label: "Tryout saya" },
-  { id: "ongoing", label: "Berlangsung" },
-  { id: "upcoming", label: "Akan datang" },
   { id: "finished", label: "Selesai" },
   { id: "practice", label: "Latihan" },
 ] as const;
 
 type CatalogueFilter = (typeof filters)[number]["id"];
-type TryoutState = Exclude<CatalogueFilter, "all" | "mine">;
+type TryoutState = "finished" | "ongoing" | "practice" | "upcoming";
 
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -80,11 +73,9 @@ function stateClassName(state: TryoutState) {
 function ParticipantTryoutWorkspace({
   initialTryouts,
   session,
-  targetProfile,
 }: {
   initialTryouts: ParticipantTryout[];
   session: SessionContext;
-  targetProfile: ParticipantTargetProfile;
 }) {
   const [filter, setFilter] = useState<CatalogueFilter>("all");
   const [query, setQuery] = useState("");
@@ -104,9 +95,6 @@ function ParticipantTryoutWorkspace({
     });
   }, [filter, initialTryouts, query, referenceTime]);
 
-  const targetLabel = targetProfile.university
-    ? `${targetProfile.university.shortName ?? targetProfile.university.name}${targetProfile.major ? ` · ${targetProfile.major.name}` : ""}`
-    : "Target kampus belum dipilih";
   return (
     <CourseWorkspaceShell
       activeLabel="Tryout"
@@ -129,21 +117,12 @@ function ParticipantTryoutWorkspace({
           />
         </div>
         <div className="relative max-w-3xl">
-          <p className="flex items-center gap-2 text-xs font-bold tracking-[0.16em] text-primary-700 uppercase"><Sparkle /> Ruang Tryout</p>
-          <h1 className="mt-4 max-w-[15ch] font-heading text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance text-secondary-900 sm:text-5xl">
+          <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance text-secondary-900 sm:text-5xl">
             Bersiap menghadapi ujian dengan pengalaman yang terasa nyata.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-secondary-600 sm:text-base sm:leading-7">
             Pilih tryout sesuai kebutuhanmu, tetapkan target kampus, lalu mulai mengerjakan. Semua progres akan tersimpan otomatis.
           </p>
-          <Link
-            className="mt-6 inline-flex min-h-10 items-center gap-2.5 rounded-full border border-white/80 bg-white/90 px-4 py-2 text-secondary-700 shadow-[0_14px_30px_-22px_rgba(1,76,56,0.5)] transition hover:bg-white"
-            href="/settings#target-belajar"
-          >
-            <Target className="text-primary-700" />
-            <span className="text-sm font-bold leading-none text-primary-700">Target</span>
-            <span className="text-sm font-semibold leading-none">{targetLabel}</span>
-          </Link>
         </div>
       </section>
 

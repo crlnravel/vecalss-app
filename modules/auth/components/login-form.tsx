@@ -51,7 +51,11 @@ function LoginForm({
           {notice.text}
         </FormNotice>
       ) : null}
-      {state.message ? <FormNotice tone="danger">{state.message}</FormNotice> : null}
+      {state.message ? (
+        <FormNotice showLabel={false} tone="danger">
+          {state.message}
+        </FormNotice>
+      ) : null}
 
       <Field>
         <FieldLabel htmlFor="login-email">Email</FieldLabel>

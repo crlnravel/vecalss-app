@@ -4,9 +4,9 @@ import { ChangePasswordForm } from "./components/change-password-form";
 function ChangePasswordPageModule() {
   return (
     <AuthShell
-      description="This first login still uses an admin-issued temporary password. Set a new one now so the account can move into onboarding and the student dashboard."
-      eyebrow="First access"
-      title="Secure your account before continuing"
+      description="Tolong ubah kata sandi sementara Anda dengan kata sandi baru yaTolong ubah kata sandi sementara Anda dengan kata sandi baru."
+      eyebrow="Akses pertama"
+      title="Amankan akun Anda sebelum melanjutkan"
     >
       <ChangePasswordForm />
     </AuthShell>

@@ -1,12 +1,16 @@
-import { ChevronDown } from "lucide-react";
+"use client";
+
+import { useActionState, useMemo, useState } from "react";
+import { CheckCircle2, ChevronDown, Target, UserRound } from "lucide-react";
 
 import {
   Field,
   FieldInput,
   FieldLabel,
-  FieldTextarea,
   fieldControlClassName,
 } from "@/components/ui/field";
+import { FormNotice } from "@/modules/auth/components/form-notice";
+import { SubmitButton } from "@/modules/auth/components/submit-button";
 import type {
   ExamEvent,
   Major,
@@ -14,32 +18,28 @@ import type {
   University,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import { saveProfileAction } from "@/modules/student/actions";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
+import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
-type SettingsProfile = StudentProfile & {
+type ProfileData = StudentProfile & {
   targetExamEvent: ExamEvent | null;
   targetMajor: Major | null;
   targetUniversity: University | null;
 };
 
-const topTabs = [
-  { label: "Akun", active: true },
-  { label: "Notifikasi" },
-  { label: "Berbagi" },
-  { label: "Jadwal belajar" },
-  { label: "Tagihan" },
-  { label: "Pertanyaan" },
-];
+type ProfileOptionData = {
+  examEvents: ExamEvent[];
+  majors: Array<Major & { university: University }>;
+  universities: University[];
+};
 
-function splitName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-
-  return {
-    firstName: parts[0] ?? "",
-    lastName: parts.slice(1).join(" ") || "",
-  };
-}
+const onboardingStatusLabel: Record<StudentProfile["onboardingStatus"], string> = {
+  completed: "Profil lengkap",
+  not_started: "Belum dimulai",
+  skipped: "Dilanjutkan nanti",
+};
 
 function getInitials(fullName: string) {
   return fullName
@@ -51,11 +51,7 @@ function getInitials(fullName: string) {
     .toUpperCase();
 }
 
-function formatValue(value: string | null | undefined, fallback: string) {
-  return value && value.trim().length > 0 ? value : fallback;
-}
-
-function SettingsSection({
+function ProfileSection({
   children,
   description,
   id,
@@ -68,13 +64,11 @@ function SettingsSection({
 }) {
   return (
     <section
+      className="grid gap-6 border-t border-primary-100 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"
       id={id}
-      className="grid gap-6 border-t border-primary-100 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10"
     >
       <div>
-        <h2 className="text-xl leading-tight font-semibold text-secondary-900">
-          {title}
-        </h2>
+        <h2 className="text-xl leading-tight font-semibold text-secondary-900">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p>
       </div>
       <div>{children}</div>
@@ -82,232 +76,225 @@ function SettingsSection({
   );
 }
 
+function SelectField({
+  children,
+  id,
+  label,
+  name,
+  onChange,
+  value,
+}: {
+  children: React.ReactNode;
+  id: string;
+  label: string;
+  name?: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <div className="relative">
+        <select
+          className={`${fieldControlClassName} appearance-none pr-12`}
+          id={id}
+          name={name ?? id}
+          onChange={(event) => onChange(event.target.value)}
+          value={value}
+        >
+          {children}
+        </select>
+        <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
+      </div>
+    </Field>
+  );
+}
+
 function SettingsPageModule({
+  examEvents,
+  majors,
   profile,
   session,
-}: {
-  profile: SettingsProfile;
+  universities,
+}: ProfileOptionData & {
+  profile: ProfileData;
   session: SessionContext;
 }) {
+  const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
+  const [targetExamEventId, setTargetExamEventId] = useState(profile.targetExamEventId ?? "");
+  const [targetUniversityId, setTargetUniversityId] = useState(profile.targetUniversityId ?? "");
+  const [targetMajorId, setTargetMajorId] = useState(profile.targetMajorId ?? "");
+  const [timezone, setTimezone] = useState(profile.timezone);
+
+  const availableMajors = useMemo(
+    () => (targetUniversityId ? majors.filter((major) => major.universityId === targetUniversityId) : majors),
+    [majors, targetUniversityId],
+  );
+
+  function handleUniversityChange(nextUniversityId: string) {
+    setTargetUniversityId(nextUniversityId);
+
+    const selectedMajor = majors.find((major) => major.id === targetMajorId);
+    if (selectedMajor && selectedMajor.universityId !== nextUniversityId) {
+      setTargetMajorId("");
+    }
+  }
+
+  const statusLabel = onboardingStatusLabel[profile.onboardingStatus];
   const initials = getInitials(session.user.fullName);
-  const { firstName, lastName } = splitName(session.user.fullName);
-  const city = formatValue(profile.targetUniversity?.city, "Jakarta");
-  const timezone = formatValue(profile.timezone, "Asia/Jakarta");
-  const targetUniversity = formatValue(
-    profile.targetUniversity?.name,
-    "Belum memilih PTN",
-  );
-  const targetMajor = formatValue(
-    profile.targetMajor?.name,
-    "Belum memilih jurusan",
-  );
-  const targetExam = formatValue(
-    profile.targetExamEvent?.name,
-    "Belum memilih ujian",
-  );
 
   return (
     <StudentWorkspaceShell
-      activeLabel="Pengaturan"
-      breadcrumbLabel="Pengaturan"
-      mainClassName="max-w-[1460px] gap-6 px-3 py-6 md:px-6 lg:px-8"
-      searchPlaceholder="Cari pengaturan akun atau preferensi..."
+      activeLabel="Profil"
+      breadcrumbLabel="Profil"
+      mainClassName="max-w-[1240px] gap-6 px-3 py-6 md:px-6 lg:px-8"
+      searchPlaceholder="Cari di profil..."
       session={session}
     >
-      <div>
-        <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
-          Pengaturan
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-secondary-500 md:text-sm">
-          Atur akun dan preferensi belajarmu.
-        </p>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          {topTabs.map((tab) => (
-            <button
-              key={tab.label}
-              className={[
-                "inline-flex rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                tab.active
-                  ? "bg-primary-700 text-white"
-                  : "bg-secondary-100 text-secondary-700 hover:bg-primary-50 hover:text-primary-800",
-              ].join(" ")}
-              type="button"
-            >
-              {tab.label}
-            </button>
-          ))}
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.18em] text-primary-700 uppercase">Ruang belajarmu</p>
+          <h1 className="mt-2 text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">Profil</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary-500 md:text-base">
+            Kelola identitas akun dan target belajar yang kamu pilih saat onboarding.
+          </p>
         </div>
-      </div>
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-100 bg-white px-4 py-2 text-sm font-medium text-secondary-700 shadow-sm">
+          <CheckCircle2 className="size-4 text-primary-700" />
+          {statusLabel}
+        </div>
+      </header>
 
-      <div className="mt-10">
-        <SettingsSection
-          description="Atur detail akunmu."
-          id="akun"
-          title="Profil"
+      <form action={formAction} className="mt-5 space-y-8">
+        {state.message ? (
+          <FormNotice tone={state.status === "error" ? "danger" : "success"}>{state.message}</FormNotice>
+        ) : null}
+
+        <ProfileSection
+          description="Informasi ini digunakan untuk menyapa kamu di ruang belajar."
+          id="profil"
+          title="Data diri"
         >
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_180px]">
-            <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-6 rounded-4xl border border-primary-100 bg-white p-5 shadow-[0_18px_54px_-42px_rgba(1,76,56,0.45)] md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
+            <div className="grid gap-5">
               <Field>
-                <FieldLabel htmlFor="settings-first-name">Nama depan</FieldLabel>
-                <FieldInput defaultValue={firstName} id="settings-first-name" />
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="settings-last-name">Nama belakang</FieldLabel>
-                <FieldInput defaultValue={lastName} id="settings-last-name" />
-              </Field>
-
-              <Field className="md:col-span-2">
-                <FieldLabel htmlFor="settings-email">Email</FieldLabel>
+                <FieldLabel htmlFor="profile-full-name">Nama lengkap</FieldLabel>
                 <FieldInput
-                  className="border-primary-300/60 shadow-[0_0_0_2px_rgba(122,189,168,0.16)]"
+                  aria-invalid={Boolean(state.fieldErrors?.fullName)}
+                  defaultValue={state.fields?.fullName ?? session.user.fullName}
+                  id="profile-full-name"
+                  name="fullName"
+                  required
+                />
+                {state.fieldErrors?.fullName ? <p className="text-sm text-danger-700">{state.fieldErrors.fullName}</p> : null}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="profile-email">Email</FieldLabel>
+                <FieldInput
+                  aria-describedby="profile-email-note"
+                  className="bg-secondary-50 text-secondary-500"
                   defaultValue={session.user.email}
-                  id="settings-email"
+                  id="profile-email"
+                  readOnly
                   type="email"
                 />
+                <p className="text-sm leading-5 text-secondary-500" id="profile-email-note">
+                  Email dikelola oleh admin dan belum bisa diubah dari sini.
+                </p>
               </Field>
             </div>
-
             <ProfilePhotoEditor initials={initials} />
           </div>
-        </SettingsSection>
+        </ProfileSection>
 
-        <SettingsSection
-          description="Sesuaikan zona waktu dan formatmu."
-          id="jadwal"
-          title="Zona waktu & preferensi"
-        >
-          <div className="grid gap-5 lg:grid-cols-3">
-            <Field>
-              <FieldLabel htmlFor="settings-city">Kota</FieldLabel>
-              <FieldInput defaultValue={city} id="settings-city" />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="settings-timezone">Zona waktu</FieldLabel>
-              <div className="relative">
-                <select
-                  className={`${fieldControlClassName} appearance-none pr-12`}
-                  defaultValue={timezone}
-                  id="settings-timezone"
-                >
-                  <option value="Asia/Jakarta">Asia/Jakarta</option>
-                  <option value="Asia/Makassar">Asia/Makassar</option>
-                  <option value="Asia/Jayapura">Asia/Jayapura</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-              </div>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="settings-format">Format tanggal & waktu</FieldLabel>
-              <div className="relative">
-                <select
-                  className={`${fieldControlClassName} appearance-none pr-12`}
-                  defaultValue="24h"
-                  id="settings-format"
-                >
-                  <option value="24h">dd/mm/yyyy 00:00</option>
-                  <option value="12h">dd/mm/yyyy 12:00 AM</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-              </div>
-            </Field>
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          description="Kalibrasi ritme belajar yang kamu inginkan."
-          id="ritme-belajar"
-          title="Motivasi & performa belajar"
-        >
-          <div className="grid gap-6 xl:grid-cols-2">
-            <div className="px-1 py-1">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-secondary-900">
-                  Durasi belajar harian yang diinginkan
-                </p>
-                <span className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-secondary-900 shadow-sm ring-1 ring-primary-100">
-                  2 jam
-                </span>
-              </div>
-              <input
-                className="mt-6 h-2 w-full cursor-pointer appearance-none rounded-full bg-primary-100 accent-[#075f46]"
-                defaultValue="58"
-                max="100"
-                min="0"
-                type="range"
-              />
-              <p className="mt-4 text-sm leading-6 text-secondary-500">
-                Bantu kami menjaga alokasi belajar harianmu tetap realistis dan
-                konsisten.
-              </p>
-            </div>
-
-            <div className="px-1 py-1">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-secondary-900">
-                  Rentang fokus inti per hari
-                </p>
-                <span className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-secondary-900 shadow-sm ring-1 ring-primary-100">
-                  90 menit
-                </span>
-              </div>
-              <input
-                className="mt-6 h-2 w-full cursor-pointer appearance-none rounded-full bg-primary-100 accent-[#075f46]"
-                defaultValue="44"
-                max="100"
-                min="0"
-                type="range"
-              />
-              <p className="mt-4 text-sm leading-6 text-secondary-500">
-                Prioritaskan jam paling fokus untuk materi yang paling menantang.
-              </p>
-            </div>
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          description="Tambahkan info tentang target belajarmu."
+        <ProfileSection
+          description="Target ini berasal dari onboarding dan bisa kamu sesuaikan kapan saja."
           id="target-belajar"
           title="Target belajar"
         >
-          <div className="grid gap-5 md:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="settings-target-university">
-                PTN tujuan
-              </FieldLabel>
-              <FieldInput defaultValue={targetUniversity} id="settings-target-university" />
-            </Field>
+          <div className="rounded-4xl border border-primary-100 bg-white p-5 shadow-[0_18px_54px_-42px_rgba(1,76,56,0.45)] md:p-6">
+            <div className="grid gap-5 md:grid-cols-2">
+              <SelectField
+                id="profile-target-exam"
+                label="Ujian target"
+                name="targetExamEventId"
+                onChange={setTargetExamEventId}
+                value={targetExamEventId}
+              >
+                <option value="">Pilih nanti</option>
+                {examEvents.map((examEvent) => (
+                  <option key={examEvent.id} value={examEvent.id}>{examEvent.name}</option>
+                ))}
+              </SelectField>
 
-            <Field>
-              <FieldLabel htmlFor="settings-target-major">
-                Jurusan tujuan
-              </FieldLabel>
-              <FieldInput defaultValue={targetMajor} id="settings-target-major" />
-            </Field>
+              <SelectField
+                id="profile-target-university"
+                label="Kampus tujuan"
+                name="targetUniversityId"
+                onChange={handleUniversityChange}
+                value={targetUniversityId}
+              >
+                <option value="">Pilih nanti</option>
+                {universities.map((university) => (
+                  <option key={university.id} value={university.id}>
+                    {university.shortName ? `${university.shortName} — ${university.name}` : university.name}
+                  </option>
+                ))}
+              </SelectField>
 
-            <Field className="md:col-span-2">
-              <FieldLabel htmlFor="settings-target-exam">Ujian target</FieldLabel>
-              <FieldInput defaultValue={targetExam} id="settings-target-exam" />
-            </Field>
+              <SelectField
+                id="profile-target-major"
+                label="Jurusan tujuan"
+                name="targetMajorId"
+                onChange={setTargetMajorId}
+                value={targetMajorId}
+              >
+                <option value="">Pilih nanti</option>
+                {availableMajors.map((major) => (
+                  <option key={major.id} value={major.id}>
+                    {major.name}{!targetUniversityId ? ` · ${major.university.shortName ?? major.university.name}` : ""}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
 
-            <Field className="md:col-span-2">
-              <FieldLabel htmlFor="settings-target-note">
-                Catatan fokus
-              </FieldLabel>
-              <FieldTextarea
-                className="min-h-[170px]"
-                defaultValue={`Target utama: ${targetUniversity}${
-                  targetMajor !== "Belum memilih jurusan" ? ` - ${targetMajor}` : ""
-                }.\nFokus minggu ini: jaga progres belajar tetap stabil.`}
-                id="settings-target-note"
-              />
-            </Field>
+            <div className="mt-6 flex items-start gap-3 rounded-3xl border border-primary-100 bg-primary-50/45 p-4 text-sm leading-6 text-secondary-600">
+              <Target className="mt-0.5 size-5 shrink-0 text-primary-700" />
+              <p>Perubahan target akan dipakai untuk menyesuaikan rekomendasi materi, kuis, dan tryout di dashboard.</p>
+            </div>
           </div>
-        </SettingsSection>
-      </div>
+        </ProfileSection>
+
+        <ProfileSection
+          description="Preferensi yang digunakan untuk menampilkan waktu dan jadwal belajarmu."
+          id="preferensi"
+          title="Preferensi belajar"
+        >
+          <div className="rounded-4xl border border-primary-100 bg-white p-5 shadow-[0_18px_54px_-42px_rgba(1,76,56,0.45)] md:p-6">
+            <SelectField
+              id="profile-timezone"
+              label="Zona waktu"
+              name="timezone"
+              onChange={setTimezone}
+              value={timezone}
+            >
+              <option value="Asia/Jakarta">WIB — Asia/Jakarta</option>
+              <option value="Asia/Makassar">WITA — Asia/Makassar</option>
+              <option value="Asia/Jayapura">WIT — Asia/Jayapura</option>
+            </SelectField>
+          </div>
+        </ProfileSection>
+
+        <div className="flex flex-col gap-3 border-t border-primary-100 pt-6 sm:flex-row sm:items-center sm:justify-end">
+          <p className="flex items-center gap-2 text-sm text-secondary-500 sm:mr-auto">
+            <UserRound className="size-4 text-primary-700" /> Data profil tersimpan aman di akunmu.
+          </p>
+          <SubmitButton pendingLabel="Menyimpan profil..." size="lg" type="submit" variant="brand">
+            Simpan profil
+          </SubmitButton>
+        </div>
+      </form>
     </StudentWorkspaceShell>
   );
 }

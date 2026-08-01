@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { RoleName } from "@/generated/prisma/client";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
 import {
   getDefaultHomePath,
   getLoginPathForAudience,
@@ -45,6 +46,18 @@ function readAudience(formData: FormData): LoginAudience {
   }
 
   return "student";
+}
+
+function getChangePasswordErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message === "Password must include uppercase, lowercase, and number characters.") {
+    return "Kata sandi harus mengandung huruf besar, huruf kecil, dan angka.";
+  }
+
+  if (error instanceof Error && error.message === `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`) {
+    return `Kata sandi harus terdiri dari minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+  }
+
+  return "Maaf, kata sandi tidak dapat diperbarui. Silakan coba lagi.";
 }
 
 async function handleLoginAction(
@@ -94,8 +107,8 @@ async function handleLoginAction(
         requiredRole === RoleName.admin
           ? "Invalid admin credentials. Please confirm your admin access is active and try again."
           : requiredRole === RoleName.tutor
-            ? "Invalid Kapten credentials. Please confirm your Kapten access is active and try again."
-          : "Invalid credentials. If you have not been enrolled yet, please complete the registration flow first.",
+          ? "Invalid Kapten credentials. Please confirm your Kapten access is active and try again."
+          : "Kredensial tidak valid. Jika Anda belum terdaftar, silakan selesaikan proses pendaftaran terlebih dahulu.",
       status: "error",
     };
   }
@@ -188,7 +201,6 @@ async function resetPasswordAction(
 
   try {
     await completePasswordReset(token, password);
-    redirect(`${getLoginPathForAudience(audience)}?notice=password-reset`);
   } catch (error) {
     return {
       message:
@@ -198,6 +210,8 @@ async function resetPasswordAction(
       status: "error",
     };
   }
+
+  redirect(`${getLoginPathForAudience(audience)}?notice=password-reset`);
 }
 
 async function changePasswordAction(
@@ -211,10 +225,10 @@ async function changePasswordAction(
   if (!password || !confirmPassword) {
     return withFieldError(
       {},
-      "Set and confirm a strong password before continuing.",
+      "Buat dan konfirmasi kata sandi yang kuat sebelum melanjutkan.",
       {
-        ...(password ? {} : { password: "New password is required." }),
-        ...(confirmPassword ? {} : { confirmPassword: "Confirm your new password." }),
+        ...(password ? {} : { password: "Kata sandi baru wajib diisi." }),
+        ...(confirmPassword ? {} : { confirmPassword: "Konfirmasi kata sandi wajib diisi." }),
       },
     );
   }
@@ -222,27 +236,24 @@ async function changePasswordAction(
   if (password !== confirmPassword) {
     return withFieldError(
       {},
-      "The confirmation does not match your new password.",
-      { confirmPassword: "Passwords do not match." },
+      "Konfirmasi tidak cocok dengan kata sandi baru.",
+      { confirmPassword: "Kata sandi tidak cocok." },
     );
   }
 
   try {
     await changePasswordForUser(session.user.id, password);
-
-    redirect(getDefaultHomePath({
-      ...session.user,
-      mustChangePassword: false,
-    }));
   } catch (error) {
     return {
-      message:
-        error instanceof Error
-          ? error.message
-          : "We're sorry, we couldn't update your password. Please try again.",
+      message: getChangePasswordErrorMessage(error),
       status: "error",
     };
   }
+
+  redirect(getDefaultHomePath({
+    ...session.user,
+    mustChangePassword: false,
+  }));
 }
 
 async function logoutAction(formData: FormData) {
