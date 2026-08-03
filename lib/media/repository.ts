@@ -13,6 +13,9 @@ import { prisma } from "@/lib/prisma";
 
 import {
   buildMediaObjectKey,
+  imageMediaMimeTypes,
+  isImageMimeType,
+  isPdfMimeType,
   isSupportedMediaMimeType,
   normalizeMediaFileName,
   validateMediaUpload,
@@ -164,11 +167,13 @@ const toAssetDto = async (asset: {
   width: number | null;
 }, scope: MediaScope): Promise<MediaAssetDto> => {
   let previewUrl = asset.url;
-  let thumbnailUrl = asset.url;
+  let thumbnailUrl = isImageMimeType(asset.mimeType) ? asset.url : null;
 
   if (asset.objectKey && isR2Configured()) {
     previewUrl = null;
-    thumbnailUrl = `/api/media/${scope}/assets/${asset.id}/thumbnail`;
+    thumbnailUrl = isImageMimeType(asset.mimeType)
+      ? `/api/media/${scope}/assets/${asset.id}/thumbnail`
+      : null;
   }
 
   return {
@@ -176,7 +181,7 @@ const toAssetDto = async (asset: {
     height: asset.height,
     id: asset.id,
     mimeType: asset.mimeType,
-    name: asset.originalName || "Gambar tanpa nama",
+    name: asset.originalName || (isPdfMimeType(asset.mimeType) ? "Dokumen PDF tanpa nama" : "Gambar tanpa nama"),
     parentId: asset.folderId,
     previewUrl,
     thumbnailUrl,
@@ -190,10 +195,12 @@ const toAssetDto = async (asset: {
 
 const listMediaLibrary = async ({
   folderId,
+  mimeTypes,
   query,
   scope,
 }: {
   folderId: string | null;
+  mimeTypes?: readonly string[];
   query: string;
   scope: MediaScope;
 }): Promise<MediaLibrarySnapshot> => {
@@ -201,9 +208,14 @@ const listMediaLibrary = async ({
   const databaseScope = scopeToDatabase(scope);
   const normalizedQuery = query.trim();
   const isSearching = normalizedQuery.length > 0;
+  const scopedMimeTypes = scope === "admin"
+    ? mimeTypes?.filter((mimeType) => isImageMimeType(mimeType))
+      ?? imageMediaMimeTypes
+    : mimeTypes;
   const assetWhere: Prisma.AssetWhereInput = {
     libraryScope: databaseScope,
     state: MediaAssetState.ready,
+    ...(scopedMimeTypes ? { mimeType: { in: [...scopedMimeTypes] } } : {}),
     ...(isSearching
       ? { originalName: { contains: normalizedQuery, mode: "insensitive" } }
       : { folderId }),
@@ -478,16 +490,20 @@ const requestMediaUpload = async ({
   }
   const validation = validateMediaUpload({ fileName, mimeType, sizeBytes });
   if (!validation.isValid) throw new MediaServiceError(validation.error);
-  if (!isSupportedMediaMimeType(mimeType)) throw new MediaServiceError("Format gambar tidak didukung.");
+  const normalizedMimeType = mimeType.trim().toLowerCase();
+  if (!isSupportedMediaMimeType(normalizedMimeType)) throw new MediaServiceError("Format media tidak didukung.");
+  if (scope === "admin" && isPdfMimeType(normalizedMimeType)) {
+    throw new MediaServiceError("Dokumen PDF hanya dapat diupload ke Media Kapten.", 403);
+  }
 
   const safeFolderId = normalizeNullableId(folderId);
   await assertFolder(scope, safeFolderId);
   const assetId = crypto.randomUUID();
-  const objectKey = buildMediaObjectKey(scope, assetId, mimeType);
+  const objectKey = buildMediaObjectKey(scope, assetId, normalizedMimeType);
 
   let signedUpload: Awaited<ReturnType<typeof createMediaUploadUrl>>;
   try {
-    signedUpload = await createMediaUploadUrl(objectKey, mimeType);
+    signedUpload = await createMediaUploadUrl(objectKey, normalizedMimeType);
   } catch (error) {
     if (error instanceof R2ConfigurationError) {
       throw new MediaServiceError(error.message, 503);
@@ -500,7 +516,7 @@ const requestMediaUpload = async ({
       folderId: safeFolderId,
       id: assetId,
       libraryScope: scopeToDatabase(scope),
-      mimeType,
+      mimeType: normalizedMimeType,
       objectKey,
       originalName: normalizeMediaFileName(fileName),
       sizeBytes,
@@ -533,8 +549,9 @@ const finalizeMediaUpload = async ({
       throw new MediaServiceError("File yang diterima tidak sesuai dengan permintaan upload.", 409);
     }
 
-    const safeWidth = typeof width === "number" && Number.isInteger(width) && width > 0 && width <= 50_000 ? width : null;
-    const safeHeight = typeof height === "number" && Number.isInteger(height) && height > 0 && height <= 50_000 ? height : null;
+    const isPdf = isPdfMimeType(asset.mimeType);
+    const safeWidth = !isPdf && typeof width === "number" && Number.isInteger(width) && width > 0 && width <= 50_000 ? width : null;
+    const safeHeight = !isPdf && typeof height === "number" && Number.isInteger(height) && height > 0 && height <= 50_000 ? height : null;
     await prisma.asset.update({
       data: {
         checksum: head.ETag?.replaceAll('"', "") ?? null,
@@ -553,11 +570,16 @@ const finalizeMediaUpload = async ({
 
 const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
   const asset = await assertAsset(scope, assetId, [MediaAssetState.ready, MediaAssetState.trashed]);
-  if (asset.url) return { previewUrl: asset.url };
-  if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 404);
+  if (asset.url) return { mimeType: asset.mimeType, originalName: asset.originalName, previewUrl: asset.url };
+  if (!asset.objectKey) {
+    throw new MediaServiceError(
+      isPdfMimeType(asset.mimeType) ? "Lokasi dokumen PDF tidak tersedia." : "Lokasi gambar tidak tersedia.",
+      404,
+    );
+  }
 
   try {
-    return { previewUrl: await createMediaPreviewUrl(asset.objectKey) };
+    return { mimeType: asset.mimeType, originalName: asset.originalName, previewUrl: await createMediaPreviewUrl(asset.objectKey) };
   } catch (error) {
     if (error instanceof R2ConfigurationError) throw new MediaServiceError(error.message, 503);
     throw error;
@@ -566,6 +588,9 @@ const getMediaAssetPreview = async (scope: MediaScope, assetId: string) => {
 
 const getMediaAssetThumbnail = async (scope: MediaScope, assetId: string) => {
   const asset = await assertAsset(scope, assetId, [MediaAssetState.ready, MediaAssetState.trashed]);
+  if (!isImageMimeType(asset.mimeType)) {
+    throw new MediaServiceError("Thumbnail hanya tersedia untuk gambar.", 415);
+  }
   if (asset.url) return { body: null, contentType: asset.mimeType, fallbackUrl: asset.url };
   if (!asset.objectKey) throw new MediaServiceError("Lokasi gambar tidak tersedia.", 404);
 

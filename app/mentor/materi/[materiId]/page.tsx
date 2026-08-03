@@ -24,7 +24,13 @@ export default async function MentorMateriBuilderPage({
   params,
   searchParams,
 }: MentorMateriBuilderPageProps) {
-  const { materiId } = await params;
+  const { materiId: encodedMateriId } = await params;
+  let materiId: string;
+  try {
+    materiId = decodeURIComponent(encodedMateriId);
+  } catch {
+    notFound();
+  }
   const session = await requireTutorSession();
   const [query, catalogue, lesson] = await Promise.all([
     searchParams,

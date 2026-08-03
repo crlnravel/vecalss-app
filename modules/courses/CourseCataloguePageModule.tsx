@@ -3,22 +3,27 @@
 import Link from "next/link";
 import {
   Brain,
+  BookOpen,
   Calculator,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   FileText,
   Languages,
   LibraryBig,
   PenTool,
-  PlayCircle,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 
 import type { SessionContext } from "@/lib/auth/types";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
-import { getCourseProgressState, type Course, type SubjectIcon } from "./data";
+import {
+  getCourseProgressState,
+  type Course,
+  type CourseProgressSnapshot,
+  type SubjectIcon,
+} from "./data";
 import { useCourseProgress } from "./progress-storage";
 
 const courseIcons = {
@@ -37,9 +42,11 @@ const courseCategoryLabels: Record<string, string> = {
 
 function CourseCataloguePageModule({
   courses,
+  progress,
   session,
 }: {
   courses: Course[];
+  progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
   return (
@@ -68,6 +75,8 @@ function CourseCataloguePageModule({
               <CourseRowCard
                 course={course}
                 courses={courses}
+                serverProgress={progress[course.slug]}
+                serverIdentity={session.user.id}
                 key={course.slug}
               />
             ))}
@@ -75,10 +84,10 @@ function CourseCataloguePageModule({
         ) : (
           <div className="rounded-[2rem] border border-[#d6e5db] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_rgba(23,107,77,0.45)]">
             <p className="text-base font-extrabold text-[#173c2d]">
-              Belum ada materi
+              Belum ada bacaan terbit
             </p>
             <p className="mt-2 text-sm text-[#5f776a]">
-              Materi yang tersedia akan muncul di sini.
+              Bacaan yang tersedia akan muncul di sini.
             </p>
           </div>
         )}
@@ -90,11 +99,15 @@ function CourseCataloguePageModule({
 function CourseRowCard({
   course,
   courses,
+  serverIdentity,
+  serverProgress,
 }: {
   course: Course;
   courses: Course[];
+  serverIdentity: string;
+  serverProgress?: CourseProgressSnapshot;
 }) {
-  const progress = useCourseProgress(course, courses);
+  const progress = useCourseProgress(course, courses, serverProgress, serverIdentity);
   const state = getCourseProgressState(course, {
     completedLessonIds: progress.completedLessonIds,
     skippedToLessonId: progress.skippedToLessonId,
@@ -136,11 +149,13 @@ function CourseRowCard({
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[#5f776a] sm:text-sm">
           <span className="inline-flex items-center gap-1.5">
-            <Clock3 className="size-4" /> {course.duration}
+            <BookOpen className="size-4" /> {course.lessons.length} bacaan
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <PlayCircle className="size-4" /> {course.lessons.length} video
-          </span>
+          {course.lessons.some((lesson) => lesson.optionalVideo) ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Video className="size-4" /> video opsional
+            </span>
+          ) : null}
           <span className="inline-flex items-center gap-1.5">
             <CheckCircle2 className="size-4" /> {state.completionPercentage}%
           </span>

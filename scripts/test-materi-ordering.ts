@@ -19,6 +19,7 @@ const SUBJECTS = [
 const PU = "penalaran-umum";
 const PPU = "pengetahuan-pemahaman-umum";
 const HARNESS_TITLE = "Harness Ordering Sentinel";
+const ORDERING_DOCUMENT_URL = "https://cdn.example.test/materi/ordering-fixture.pdf";
 const FAILURE_TITLE = "Harness Forced Asset Failure";
 const FAILURE_TRIGGER = "materi_ordering_harness_asset_failure";
 const FAILURE_FUNCTION = "materi_ordering_harness_fail_asset";
@@ -31,14 +32,18 @@ type AssetSnapshot = {
   createdAt: string;
   durationSeconds: number | null;
   id: string;
+  managedAssetId: string | null;
   mediaUrl: string | null;
   moduleId: string;
+  mimeType: string | null;
+  originalName: string | null;
   sortOrder: number;
+  sourceKind: string | null;
   title: string | null;
 };
 
 type ModuleSnapshot = {
-  asset: AssetSnapshot | null;
+  assets: AssetSnapshot[];
   code: string;
   createdAt: string;
   createdByUserId: string | null;
@@ -75,36 +80,12 @@ type TargetSnapshot = {
   topics: TopicSnapshot[];
 };
 
-const EVIDENCE_ORDER: Record<SubjectCode, string[]> = {
-  PU: [
-    "penalaran-umum-1-1", "penalaran-umum-1-2", "penalaran-umum-1-3", "materi-jud-25d2f433",
-    "penalaran-umum-2-1", "penalaran-umum-2-2", "penalaran-umum-2-3", "penalaran-umum-3-1", "penalaran-umum-3-2",
-  ],
-  PPU: [
-    "pengetahuan-pemahaman-umum-1-1", "pengetahuan-pemahaman-umum-1-2", "pengetahuan-pemahaman-umum-2-1",
-    "pengetahuan-pemahaman-umum-2-2", "pengetahuan-pemahaman-umum-2-3", "pengetahuan-pemahaman-umum-3-1", "pengetahuan-pemahaman-umum-3-2",
-  ],
-  PBM: [
-    "pemahaman-bacaan-menulis-1-1", "pemahaman-bacaan-menulis-1-2", "pemahaman-bacaan-menulis-2-1",
-    "pemahaman-bacaan-menulis-2-2", "pemahaman-bacaan-menulis-2-3", "pemahaman-bacaan-menulis-3-1", "pemahaman-bacaan-menulis-3-2",
-  ],
-  PK: [
-    "pengetahuan-kuantitatif-1-1", "pengetahuan-kuantitatif-1-2", "pengetahuan-kuantitatif-1-3",
-    "pengetahuan-kuantitatif-2-1", "pengetahuan-kuantitatif-2-2", "pengetahuan-kuantitatif-2-3", "pengetahuan-kuantitatif-3-1", "pengetahuan-kuantitatif-3-2",
-  ],
-  LBI: [
-    "literasi-bahasa-indonesia-1-1", "literasi-bahasa-indonesia-1-2", "literasi-bahasa-indonesia-2-1",
-    "literasi-bahasa-indonesia-2-2", "literasi-bahasa-indonesia-2-3", "literasi-bahasa-indonesia-3-1", "literasi-bahasa-indonesia-3-2",
-  ],
-  LBE: [
-    "literasi-bahasa-inggris-1-1", "literasi-bahasa-inggris-1-2", "literasi-bahasa-inggris-1-3",
-    "literasi-bahasa-inggris-2-1", "literasi-bahasa-inggris-2-2", "literasi-bahasa-inggris-2-3", "literasi-bahasa-inggris-3-1", "literasi-bahasa-inggris-3-2",
-  ],
-  PM: [
-    "penalaran-matematika-1-1", "penalaran-matematika-1-2", "penalaran-matematika-1-3",
-    "penalaran-matematika-2-1", "penalaran-matematika-2-2", "penalaran-matematika-2-3", "penalaran-matematika-3-1", "penalaran-matematika-3-2",
-  ],
-};
+const EVIDENCE_ORDER: Record<SubjectCode, string[]> = Object.fromEntries(
+  SUBJECTS.map((subject) => [
+    subject.code,
+    [1, 2, 3].map((sectionNo) => `demo:materi:${subject.slug}:unit-${sectionNo}`),
+  ]),
+) as Record<SubjectCode, string[]>;
 
 function canonicalTopicCodes(subjectCode: SubjectCode) {
   const subject = SUBJECTS.find((candidate) => candidate.code === subjectCode);
@@ -131,7 +112,7 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
 }
 
 function formatDuration(seconds: number) {
-  assert(Number.isInteger(seconds) && seconds > 0, "A selected lesson needs a positive primary-video duration.");
+  assert(Number.isInteger(seconds) && seconds > 0, "A selected lesson needs a positive optional-video duration.");
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
@@ -145,6 +126,14 @@ function move<T>(values: T[], from: number, to: number) {
 
 function modulesFor(snapshot: TargetSnapshot, subjectCode: SubjectCode) {
   return snapshot.modules.filter((module) => module.subjectCode === subjectCode);
+}
+
+function firstAssetByRole(module: ModuleSnapshot, assetType: "attachment" | "video") {
+  return module.assets.find((asset) => asset.assetType === assetType);
+}
+
+function videoAsset(module: ModuleSnapshot) {
+  return firstAssetByRole(module, "video");
 }
 
 function orderFor(snapshot: TargetSnapshot, subjectCode: SubjectCode) {
@@ -162,7 +151,11 @@ async function snapshotTarget(client: pg.Client): Promise<TargetSnapshot> {
     asset_id: string | null;
     asset_media_url: string | null;
     asset_module_id: string | null;
+    asset_managed_asset_id: string | null;
+    asset_mime_type: string | null;
+    asset_original_name: string | null;
     asset_sort_order: number | null;
+    asset_source_kind: string | null;
     asset_title: string | null;
     code: string;
     created_at: string;
@@ -185,13 +178,15 @@ async function snapshotTarget(client: pg.Client): Promise<TargetSnapshot> {
        s.code AS subject_code, t.code AS topic_code,
        a.id AS asset_id, a.module_id AS asset_module_id, a.asset_type::text AS asset_asset_type,
        a.title AS asset_title, a.body_text AS asset_body_text, a.media_url AS asset_media_url,
-       a.duration_seconds AS asset_duration_seconds, a.sort_order AS asset_sort_order, a.created_at::text AS asset_created_at
+       a.duration_seconds AS asset_duration_seconds, a.sort_order AS asset_sort_order, a.created_at::text AS asset_created_at,
+       a.source_kind::text AS asset_source_kind, a.managed_asset_id AS asset_managed_asset_id,
+       a.mime_type AS asset_mime_type, a.original_name AS asset_original_name
      FROM modules m
      JOIN topics t ON t.id = m.topic_id
      JOIN subtests s ON s.id = t.subtest_id
-     LEFT JOIN module_assets a ON a.module_id = m.id AND a.sort_order = 0
+     LEFT JOIN module_assets a ON a.module_id = m.id
      WHERE s.code = ANY($1::text[]) AND t.code = ANY($2::text[]) AND t.parent_topic_id IS NULL
-     ORDER BY s.code, m.sequence_no, m.code`,
+     ORDER BY s.code, m.sequence_no, m.code, a.sort_order, a.id`,
     [subjectCodes, topicCodes],
   );
   const topicRows = await client.query<{ code: string; id: string; subject_code: SubjectCode; updated_at: string }>(
@@ -214,20 +209,48 @@ async function snapshotTarget(client: pg.Client): Promise<TargetSnapshot> {
     [subjectCodes, topicCodes],
   );
 
+  const modulesById = new Map<string, ModuleSnapshot>();
+  for (const row of moduleRows.rows) {
+    const snapshotModule = modulesById.get(row.id) ?? {
+      assets: [],
+      code: row.code,
+      createdAt: row.created_at,
+      createdByUserId: row.created_by_user_id,
+      estimatedMinutes: row.estimated_minutes,
+      id: row.id,
+      publishedAt: row.published_at,
+      sequenceNo: row.sequence_no,
+      status: row.status,
+      subjectCode: row.subject_code,
+      title: row.title,
+      topicCode: row.topic_code,
+      topicId: row.topic_id,
+      updatedAt: row.updated_at,
+      updatedByUserId: row.updated_by_user_id,
+    };
+    if (row.asset_id) {
+      snapshotModule.assets.push({
+        assetType: row.asset_asset_type!,
+        bodyText: row.asset_body_text,
+        createdAt: row.asset_created_at!,
+        durationSeconds: row.asset_duration_seconds,
+        id: row.asset_id,
+        managedAssetId: row.asset_managed_asset_id,
+        mediaUrl: row.asset_media_url,
+        mimeType: row.asset_mime_type,
+        moduleId: row.asset_module_id!,
+        originalName: row.asset_original_name,
+        sortOrder: row.asset_sort_order!,
+        sourceKind: row.asset_source_kind,
+        title: row.asset_title,
+      });
+    }
+    modulesById.set(row.id, snapshotModule);
+  }
+
   return {
     counts: countRows.rows[0],
-    modules: moduleRows.rows.map((row) => ({
-      asset: row.asset_id ? {
-        assetType: row.asset_asset_type!, bodyText: row.asset_body_text, createdAt: row.asset_created_at!,
-        durationSeconds: row.asset_duration_seconds, id: row.asset_id, mediaUrl: row.asset_media_url,
-        moduleId: row.asset_module_id!, sortOrder: row.asset_sort_order!, title: row.asset_title,
-      } : null,
-      code: row.code, createdAt: row.created_at, createdByUserId: row.created_by_user_id,
-      estimatedMinutes: row.estimated_minutes, id: row.id, publishedAt: row.published_at,
-      sequenceNo: row.sequence_no, status: row.status, subjectCode: row.subject_code,
-      title: row.title, topicCode: row.topic_code, topicId: row.topic_id, updatedAt: row.updated_at,
-      updatedByUserId: row.updated_by_user_id,
-    })),
+    modules: [...modulesById.values()],
     topics: topicRows.rows.map((row) => ({ code: row.code, id: row.id, subjectCode: row.subject_code, updatedAt: row.updated_at })),
   };
 }
@@ -311,18 +334,19 @@ async function cleanup(client: pg.Client, initial: TargetSnapshot, generatedModu
     }
 
     for (const lesson of initial.modules) {
-      if (!lesson.asset) {
-        await client.query("DELETE FROM module_assets WHERE module_id = $1 AND sort_order = 0", [lesson.id]);
-        continue;
+      await client.query("DELETE FROM module_assets WHERE module_id = $1", [lesson.id]);
+      for (const asset of lesson.assets) {
+        await client.query(
+          `INSERT INTO module_assets
+             (id, module_id, asset_type, source_kind, managed_asset_id, title, body_text,
+              media_url, mime_type, original_name, duration_seconds, sort_order, created_at)
+           VALUES ($1, $2, $3::module_asset_type, $4::module_asset_source_kind, $5, $6, $7,
+                   $8, $9, $10, $11, $12, $13::timestamptz)`,
+          [asset.id, asset.moduleId, asset.assetType, asset.sourceKind, asset.managedAssetId,
+            asset.title, asset.bodyText, asset.mediaUrl, asset.mimeType, asset.originalName,
+            asset.durationSeconds, asset.sortOrder, asset.createdAt],
+        );
       }
-      await client.query(
-        `UPDATE module_assets SET
-           module_id = $1, asset_type = $2::module_asset_type, title = $3, body_text = $4,
-           media_url = $5, duration_seconds = $6, sort_order = $7, created_at = $8::timestamptz
-         WHERE id = $9`,
-        [lesson.asset.moduleId, lesson.asset.assetType, lesson.asset.title, lesson.asset.bodyText,
-          lesson.asset.mediaUrl, lesson.asset.durationSeconds, lesson.asset.sortOrder, lesson.asset.createdAt, lesson.asset.id],
-      );
     }
 
     for (const topic of initial.topics) {
@@ -338,7 +362,6 @@ async function cleanup(client: pg.Client, initial: TargetSnapshot, generatedModu
 async function assertCleanDatabase(client: pg.Client, initial: TargetSnapshot, generatedCodes: string[]) {
   assertEqual(await snapshotTarget(client), initial, "PU/PPU snapshot differs from its pre-harness state after cleanup.");
   assertEqual(await evidenceOrder(client), EVIDENCE_ORDER, "The seven-subject evidence order differs after cleanup.");
-  assert(EVIDENCE_ORDER.PU[3] === "materi-jud-25d2f433", "The committed evidence contract must keep Jud at PU position 4.");
   const leftovers = await client.query<{ count: number }>(
     `SELECT COUNT(*)::int AS count FROM modules m LEFT JOIN module_assets a ON a.module_id = m.id
      WHERE m.code = ANY($1::text[]) OR m.title = $2 OR a.title = $2`,
@@ -389,7 +412,7 @@ async function main() {
 
     const puOrder = orderFor(initial, "PU");
     const ppuOrder = orderFor(initial, "PPU");
-    assert(puOrder.length > 4 && ppuOrder.length > 0, "PU and PPU must contain the approved evidence modules.");
+    assert(puOrder.length > 2 && ppuOrder.length > 2, "PU and PPU must contain the three approved demo units.");
 
     const firstMove = move(puOrder, 0, puOrder.length - 1);
     await reorderMateriSubject(PU, firstMove, tutorId);
@@ -433,36 +456,63 @@ async function main() {
     );
     await reorderMateriSubject(PU, puOrder, tutorId);
 
-    const overlapLesson = modulesFor(initial, "PU").find((module) => module.asset?.mediaUrl && module.asset.durationSeconds) ?? initial.modules[0];
-    assert(overlapLesson.asset?.mediaUrl && overlapLesson.asset.durationSeconds, "A PU lesson with a usable slot-0 asset is required.");
+    const overlapLesson = modulesFor(initial, "PU").find((module) => videoAsset(module)?.mediaUrl && videoAsset(module)?.durationSeconds) ?? initial.modules[0];
+    const overlapVideo = videoAsset(overlapLesson);
+    assert(overlapVideo?.mediaUrl && overlapVideo.durationSeconds, "A PU lesson with a usable video resource is required.");
     const saveOverlapTitle = `${overlapLesson.title} [harness save overlap]`;
     const saveOverlapOrder = [...puOrder].reverse();
     await Promise.all([
       saveMateriLesson({
-        code: overlapLesson.code, subjectSlug: PU, title: saveOverlapTitle, duration: formatDuration(overlapLesson.asset.durationSeconds),
-        videoUrl: overlapLesson.asset.mediaUrl,
+        code: overlapLesson.code,
+        document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+        subjectSlug: PU,
+        title: saveOverlapTitle,
+        videoDuration: formatDuration(overlapVideo.durationSeconds),
+        videoUrl: overlapVideo.mediaUrl,
       }, tutorId),
       reorderMateriSubject(PU, saveOverlapOrder, tutorId),
     ]);
     await assertSubjectOrder(client, PU, saveOverlapOrder, "Save/reorder overlap did not retain the submitted reorder order.");
     const overlapResult = await client.query<{ media_url: string | null; title: string }>(
-      "SELECT m.title, a.media_url FROM modules m LEFT JOIN module_assets a ON a.module_id = m.id AND a.sort_order = 0 WHERE m.id = $1",
+      `SELECT m.title,
+              (SELECT a.media_url FROM module_assets a
+               WHERE a.module_id = m.id AND a.asset_type = 'video'
+               ORDER BY a.id LIMIT 1) AS media_url
+       FROM modules m WHERE m.id = $1`,
       [overlapLesson.id],
     );
-    assert(overlapResult.rows[0]?.title === saveOverlapTitle && overlapResult.rows[0]?.media_url === overlapLesson.asset.mediaUrl, "Save/reorder overlap did not retain the saved content and asset.");
+    assert(overlapResult.rows[0]?.title === saveOverlapTitle && overlapResult.rows[0]?.media_url === overlapVideo.mediaUrl, "Save/reorder overlap did not retain the saved content and video resource.");
     await reorderMateriSubject(PU, puOrder, tutorId);
 
     const created = await saveMateriLesson({
-      subjectSlug: PU, title: HARNESS_TITLE, duration: "01:01", videoUrl: "https://example.test/harness.mp4",
+      document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+      subjectSlug: PU,
+      title: HARNESS_TITLE,
+      videoDuration: "01:01",
+      videoUrl: "https://example.test/harness.mp4",
     }, tutorId);
     generatedCodes.push(created.code);
     const createdRow = await client.query<{
-      asset_type: string | null; code: string; duration_seconds: number | null; id: string; media_url: string | null;
+      code: string; document_asset_type: string | null; document_media_url: string | null; id: string;
+      video_asset_type: string | null; video_duration_seconds: number | null; video_media_url: string | null;
       sequence_no: number; status: string; title: string; topic_code: string;
     }>(
       `SELECT m.id, m.code, m.sequence_no, m.status::text, t.code AS topic_code,
-              a.asset_type::text, a.title, a.media_url, a.duration_seconds
-       FROM modules m JOIN topics t ON t.id = m.topic_id LEFT JOIN module_assets a ON a.module_id = m.id AND a.sort_order = 0
+              m.title,
+              d.asset_type::text AS document_asset_type, d.media_url AS document_media_url,
+              v.asset_type::text AS video_asset_type, v.media_url AS video_media_url,
+              v.duration_seconds AS video_duration_seconds
+       FROM modules m JOIN topics t ON t.id = m.topic_id
+       LEFT JOIN LATERAL (
+         SELECT asset_type, media_url FROM module_assets
+         WHERE module_id = m.id AND asset_type = 'attachment'
+         ORDER BY id LIMIT 1
+       ) d ON true
+       LEFT JOIN LATERAL (
+         SELECT asset_type, media_url, duration_seconds FROM module_assets
+         WHERE module_id = m.id AND asset_type = 'video'
+         ORDER BY id LIMIT 1
+       ) v ON true
        WHERE m.code = $1`,
       [created.code],
     );
@@ -472,16 +522,22 @@ async function main() {
     assert(
       createdModule.sequence_no === puOrder.length + 1 && createdModule.topic_code === canonicalTopicCodes("PU")[0]
         && createdModule.status === "draft" && createdModule.title === HARNESS_TITLE
-        && createdModule.asset_type === "video" && createdModule.media_url === "https://example.test/harness.mp4"
-        && createdModule.duration_seconds === 61,
-      "Create must append a draft to the deterministic PU topic with its primary video asset.",
+        && createdModule.document_asset_type === "attachment" && createdModule.document_media_url === ORDERING_DOCUMENT_URL
+        && createdModule.video_asset_type === "video" && createdModule.video_media_url === "https://example.test/harness.mp4"
+        && createdModule.video_duration_seconds === 61,
+      "Create must append a draft with explicit document and optional video resources.",
     );
 
-    const movable = modulesFor(initial, "PU").find((module) => module.asset?.mediaUrl && module.asset.durationSeconds) ?? initial.modules[0];
-    assert(movable.asset?.mediaUrl && movable.asset.durationSeconds, "A PU lesson with a usable primary video is required for the subject move.");
+    const movable = modulesFor(initial, "PU").find((module) => videoAsset(module)?.mediaUrl && videoAsset(module)?.durationSeconds) ?? initial.modules[0];
+    const movableVideo = videoAsset(movable);
+    assert(movableVideo?.mediaUrl && movableVideo.durationSeconds, "A PU lesson with a usable video resource is required for the subject move.");
     await saveMateriLesson({
-      code: movable.code, subjectSlug: PPU, title: movable.title, duration: formatDuration(movable.asset.durationSeconds),
-      videoUrl: movable.asset.mediaUrl,
+      code: movable.code,
+      document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+      subjectSlug: PPU,
+      title: movable.title,
+      videoDuration: formatDuration(movableVideo.durationSeconds),
+      videoUrl: movableVideo.mediaUrl,
     }, tutorId);
     const moved = await client.query<{
       asset_id: string | null; asset_type: string | null; code: string; duration_seconds: number | null; media_url: string | null;
@@ -490,27 +546,36 @@ async function main() {
       `SELECT m.code, m.sequence_no, m.status::text, m.published_at::text, s.code AS subject_code, t.code AS topic_code,
               a.id AS asset_id, a.asset_type::text, a.media_url, a.duration_seconds
        FROM modules m JOIN topics t ON t.id = m.topic_id JOIN subtests s ON s.id = t.subtest_id
-       LEFT JOIN module_assets a ON a.module_id = m.id AND a.sort_order = 0 WHERE m.id = $1`,
+       LEFT JOIN LATERAL (
+         SELECT id, asset_type, media_url, duration_seconds FROM module_assets
+         WHERE module_id = m.id AND asset_type = 'video'
+         ORDER BY id LIMIT 1
+       ) a ON true WHERE m.id = $1`,
       [movable.id],
     );
     const movedModule = moved.rows[0];
     assert(
       movedModule?.code === movable.code && movedModule.subject_code === "PPU" && movedModule.topic_code === canonicalTopicCodes("PPU")[0]
         && movedModule.sequence_no === ppuOrder.length + 1 && movedModule.status === movable.status && movedModule.published_at === movable.publishedAt
-        && movedModule.asset_id === movable.asset.id && movedModule.asset_type === movable.asset.assetType
-        && movedModule.media_url === movable.asset.mediaUrl && movedModule.duration_seconds === movable.asset.durationSeconds,
-      "Cross-subject save must preserve code, asset, and lifecycle while appending to deterministic PPU placement.",
+        && movedModule.asset_id === movableVideo.id && movedModule.asset_type === movableVideo.assetType
+        && movedModule.media_url === movableVideo.mediaUrl && movedModule.duration_seconds === movableVideo.durationSeconds,
+      "Cross-subject save must preserve code, video resource, and lifecycle while appending to deterministic PPU placement.",
     );
 
-    const forcedTarget = modulesFor(initial, "PPU").find((module) => module.asset?.mediaUrl && module.asset.durationSeconds) ?? initial.modules[0];
-    assert(forcedTarget.asset?.mediaUrl && forcedTarget.asset.durationSeconds, "A PPU lesson with a usable primary video is required for forced rollback.");
-    const forcedVideoUrl = forcedTarget.asset.mediaUrl;
-    const forcedDuration = forcedTarget.asset.durationSeconds;
+    const forcedTarget = modulesFor(initial, "PPU").find((module) => videoAsset(module)?.mediaUrl && videoAsset(module)?.durationSeconds) ?? initial.modules[0];
+    const forcedVideo = videoAsset(forcedTarget);
+    assert(forcedVideo?.mediaUrl && forcedVideo.durationSeconds, "A PPU lesson with a usable video resource is required for forced rollback.");
+    const forcedVideoUrl = forcedVideo.mediaUrl;
+    const forcedDuration = forcedVideo.durationSeconds;
     const rollbackBefore = await snapshotTarget(client);
     await installFailureTrigger(client);
     await expectReject(
       () => saveMateriLesson({
-        code: forcedTarget.code, subjectSlug: PPU, title: FAILURE_TITLE, duration: formatDuration(forcedDuration),
+        code: forcedTarget.code,
+        document: { hostedUrl: ORDERING_DOCUMENT_URL, originalName: "ordering-fixture.pdf" },
+        subjectSlug: PPU,
+        title: FAILURE_TITLE,
+        videoDuration: formatDuration(forcedDuration),
         videoUrl: forcedVideoUrl,
       }, tutorId),
       "Forced asset failure unexpectedly succeeded.",

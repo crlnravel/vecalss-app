@@ -70,18 +70,31 @@ Use this sequence only against the intended deployment database:
 pnpm exec prisma migrate status
 pnpm exec prisma migrate deploy
 MATERI_SEED_TUTOR_EMAIL=tutor@example.com pnpm db:seed-materi
+MATERI_DEMO_PDF_URL=http://localhost:5023/api/materi-demo/test.pdf \
+MATERI_ALLOW_LOCAL_PDF_URL=1 \
+MATERI_SEED_TUTOR_EMAIL=tutor@example.com \
+pnpm db:seed-materi -- --apply --confirm=RESET_CANONICAL_MATERI_DEMO_ONLY
 pnpm db:verify-materi-cutover
 pnpm dev
 ```
 
-`db:seed-materi` requires an existing active tutor with an active tutor role
-and active tutor profile;
-it never creates or updates users, roles, profiles, cohorts, exam data, or
-other demo records. It writes only the canonical Materi taxonomy and missing
-lesson/video rows in one transaction. Run the read-only exact parity verifier
-immediately after seeding and before any CMS edits: it intentionally fails
-after legitimate Kapten edits, reordering, lifecycle changes, or video
-replacements and is not an ongoing runtime health check.
+`db:seed-materi` is a read-only preflight by default. The second command is the
+only form that can execute the deliberate reset, and it requires both
+`--apply` and the unmistakable confirmation token. The operation locks the
+module scope, checks quiz/tryout/operational dependencies, deletes only
+canonical Materi modules/assets/progress/prerequisites, and reseeds exactly 21
+clearly marked document-first demo units in one transaction. Any failure rolls
+back the database. Users, shared subjects/topics, quiz/tryout data, non-Materi
+modules, and shared Media Assets are not targeted.
+
+The local PDF fixture is the supplied `tmp/test.pdf`. The guarded apply stores
+an explicitly supplied absolute URL; for local development the route reads the
+fixture without modifying it. Set `MATERI_DEMO_PDF_BASE_URL` for read-only
+preflight or a complete `MATERI_DEMO_PDF_URL` for apply when the app uses
+another origin. Run the
+read-only verifier immediately after the cutover; it checks seven subjects,
+21 sections, 21 stable demo modules, explicit PDF attachment metadata, and
+both document-only and document-plus-video coverage.
 
 ## Current Routes
 

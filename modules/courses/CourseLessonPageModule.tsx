@@ -19,23 +19,27 @@ import { cn } from "@/lib/utils";
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import { MateriLessonPresentation } from "./MateriLessonPresentation";
 import {
+  getCourseProgressState,
   getLessonProgressStatus,
   getNextAvailableLesson,
   type Course,
+  type CourseProgressSnapshot,
   type CourseLesson,
   type LessonProgressStatus,
 } from "./data";
-import { completeCourseLesson, useCourseProgress } from "./progress-storage";
+import { hydrateCourseProgress, useCourseProgress } from "./progress-storage";
 
 function CourseLessonPageModule({
   course,
   courses,
   lesson,
+  progress,
   session,
 }: {
   course: Course;
   courses: Course[];
   lesson: CourseLesson;
+  progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
   return (
@@ -43,6 +47,7 @@ function CourseLessonPageModule({
       course={course}
       courses={courses}
       lesson={lesson}
+      progress={progress}
       session={session}
     />
   );
@@ -52,18 +57,21 @@ function CourseLessonPlayerModule({
   course,
   courses,
   lesson,
+  progress,
   session,
 }: {
   course: Course;
   courses: Course[];
   lesson: CourseLesson;
+  progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
-  const progress = useCourseProgress(course, courses);
+  const serverProgress = progress[course.slug] ?? { completedLessonIds: [] };
+  const localProgress = useCourseProgress(course, courses, serverProgress, session.user.id);
   const progressSnapshot = {
-    completedLessonIds: progress.completedLessonIds,
-    skippedToLessonId: progress.skippedToLessonId,
-  };
+    completedLessonIds: localProgress.completedLessonIds,
+    skippedToLessonId: localProgress.skippedToLessonId,
+  } satisfies CourseProgressSnapshot;
   const lessonStatus = getLessonProgressStatus(
     course,
     lesson.id,
@@ -71,24 +79,52 @@ function CourseLessonPlayerModule({
   );
   const nextLesson = getNextAvailableLesson(course, progressSnapshot);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
-  const handleComplete = () => {
-    if (lessonStatus === "completed") {
+  const handleComplete = async () => {
+    if (lessonStatus === "completed" || isPending) {
       return;
     }
 
-    const updatedProgress = completeCourseLesson(course.slug, lesson.id, courses);
-    const nextAfterCompletion = getNextAvailableLesson(
-      course,
-      updatedProgress[course.slug],
-    );
+    setIsPending(true);
+    setFeedback(null);
+    try {
+      const response = await fetch(`/api/courses/${encodeURIComponent(course.slug)}/${encodeURIComponent(lesson.id)}/progress`, {
+        body: JSON.stringify({ action: "complete" }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => null) as {
+        error?: unknown;
+        snapshot?: CourseProgressSnapshot;
+      } | null;
+      if (
+        !response.ok
+        || !payload?.snapshot
+        || !hydrateCourseProgress(course.slug, payload.snapshot, courses, session.user.id)
+      ) {
+        throw new Error(typeof payload?.error === "string" ? payload.error : "Progress belum tersimpan. Coba lagi.");
+      }
 
-    setFeedback({
-      tone: "success",
-      text: nextAfterCompletion
-        ? `Progress tersimpan. Selanjutnya: ${nextAfterCompletion.title}.`
-        : "Progress tersimpan. Kamu sudah mencapai akhir jalur belajar ini.",
-    });
+      const nextAfterCompletion = getNextAvailableLesson(course, payload.snapshot);
+      const updatedState = getCourseProgressState(course, payload.snapshot);
+      setFeedback({
+        tone: "success",
+        text: nextAfterCompletion
+          ? `Progress tersimpan. Selanjutnya: ${nextAfterCompletion.title}.`
+          : updatedState.completionPercentage === 100
+            ? "Progress tersimpan. Semua bacaan di jalur ini sudah selesai."
+            : "Progress tersimpan. Bacaan berikutnya belum tersedia.",
+      });
+    } catch (error) {
+      setFeedback({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Progress belum tersimpan. Coba lagi.",
+      });
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -96,10 +132,10 @@ function CourseLessonPlayerModule({
       activeLabel="Materi"
       breadcrumbLabel={`${course.title} · ${lesson.title}`}
       mainClassName="max-w-[112rem] gap-0 bg-white px-4 py-7 md:px-8 lg:px-10 lg:py-9"
-      searchPlaceholder="Cari video di materi ini..."
+      searchPlaceholder="Cari bacaan di materi ini..."
       session={session}
     >
-      {lessonStatus === "locked" ? (
+      {!lessonStatus || lessonStatus === "locked" ? (
         <LockedLessonState
           course={course}
           lesson={lesson}
@@ -114,6 +150,7 @@ function CourseLessonPlayerModule({
           nextLesson={nextLesson}
           onComplete={handleComplete}
           onFeedback={setFeedback}
+          pending={isPending}
         />
       )}
     </CourseWorkspaceShell>
@@ -128,6 +165,7 @@ function LessonPlayer({
   nextLesson,
   onComplete,
   onFeedback,
+  pending,
 }: {
   course: Course;
   feedback: Feedback | null;
@@ -136,6 +174,7 @@ function LessonPlayer({
   nextLesson?: CourseLesson;
   onComplete: () => void;
   onFeedback: (feedback: Feedback | null) => void;
+  pending: boolean;
 }) {
   const isCompleted = lessonStatus === "completed";
 
@@ -197,15 +236,17 @@ function LessonPlayer({
           Bagikan
           </Button>
         )}
+        document={lesson.document}
+        documentDeliveryUrl={getStudentDocumentDeliveryUrl(course.slug, lesson.id, lesson.document)}
         position={lesson.position}
         subject={course.description}
         title={lesson.title}
-        videoUrl={lesson.videoUrl}
+        videoUrl={lesson.optionalVideo?.mediaUrl}
       />
 
       <section className="mt-8 rounded-[1.8rem] border border-[#d9e5de] bg-white px-5 py-7 text-center md:mt-10 md:px-8 md:py-9">
         <p className="text-xs font-bold tracking-[0.14em] text-[#718077] uppercase">
-          Tandai progresmu
+          Tandai progres membaca
         </p>
         <Button
           className={cn(
@@ -214,7 +255,7 @@ function LessonPlayer({
               ? "bg-[#e6f4eb] text-[#176b4d] hover:bg-[#e6f4eb]"
               : "bg-[#176b4d] text-white hover:bg-[#0f563b]",
           )}
-          disabled={isCompleted}
+          disabled={isCompleted || pending}
           onClick={onComplete}
           size="lg"
           type="button"
@@ -224,11 +265,8 @@ function LessonPlayer({
           ) : (
             <Check className="size-5" data-icon="inline-start" />
           )}
-          {isCompleted ? "Sudah Selesai" : "Selesai Menonton"}
+          {isCompleted ? "Sudah selesai membaca" : pending ? "Menyimpan…" : "Selesai membaca"}
         </Button>
-        <p className="mt-4 text-sm italic text-[#8a9790]">
-          Transkrip tidak tersedia
-        </p>
 
         <FeedbackNotice feedback={feedback} />
 
@@ -237,20 +275,33 @@ function LessonPlayer({
             className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#e6f4eb] px-4 text-sm font-bold text-[#176b4d] outline-none transition hover:bg-[#d7eddf] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
             href={`/courses/${course.slug}/${nextLesson.id}`}
           >
-            Lanjut ke Bagian berikutnya
+            Lanjut ke bacaan berikutnya
             <ArrowLeft className="size-4 rotate-180" />
           </Link>
         ) : null}
       </section>
 
       <a
-        className="fixed right-4 bottom-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#b7ddc3] bg-white px-4 text-sm font-semibold text-[#176b4d] outline-none transition hover:bg-[#f3faf5] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none md:right-7"
+        className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#b7ddc3] bg-white px-4 text-sm font-semibold text-[#176b4d] outline-none transition hover:bg-[#f3faf5] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
         href="/vera-ai"
       >
         <MessageCircle className="size-5" /> Tanya Vera
       </a>
     </article>
   );
+}
+
+function getStudentDocumentDeliveryUrl(
+  courseSlug: string,
+  lessonId: string,
+  document: CourseLesson["document"],
+) {
+  const slug = encodeURIComponent(courseSlug);
+  const code = encodeURIComponent(lessonId);
+  const assetId = document.sourceKind === "managed" && document.managedAssetId
+    ? `?assetId=${encodeURIComponent(document.managedAssetId)}`
+    : "";
+  return `/api/courses/${slug}/${code}/document${assetId}`;
 }
 
 function LockedLessonState({
@@ -279,6 +330,7 @@ function LockedLessonState({
       </p>
       <Button
         className="mt-7 rounded-[1.1rem] bg-[#176b4d] font-extrabold text-white hover:bg-[#0f563b]"
+        nativeButton={false}
         render={
           <Link
             href={

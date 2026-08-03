@@ -95,10 +95,18 @@ enum ModuleAssetType {
   @@map("module_asset_type")
 }
 
+enum ModuleAssetSourceKind {
+  hosted
+  managed
+
+  @@map("module_asset_source_kind")
+}
+
 enum ProgressStatus {
   locked
   not_started
   in_progress
+  skipped
   completed
 
   @@map("progress_status")
@@ -790,19 +798,26 @@ model Module {
 }
 
 model ModuleAsset {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  moduleId        String          @map("module_id") @db.Uuid
-  assetType       ModuleAssetType @map("asset_type")
-  title           String?         @db.VarChar(220)
-  bodyText        String?         @map("body_text") @db.Text
-  mediaUrl        String?         @map("media_url") @db.Text
-  durationSeconds Int?            @map("duration_seconds")
-  sortOrder       Int             @default(0) @map("sort_order")
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId        String                 @map("module_id") @db.Uuid
+  assetType       ModuleAssetType        @map("asset_type")
+  sourceKind      ModuleAssetSourceKind? @map("source_kind")
+  managedAssetId  String?                @map("managed_asset_id") @db.Uuid
+  title           String?                @db.VarChar(220)
+  bodyText        String?                @map("body_text") @db.Text
+  mediaUrl        String?                @map("media_url") @db.Text
+  mimeType        String?                @map("mime_type") @db.VarChar(120)
+  originalName    String?                @map("original_name") @db.VarChar(255)
+  durationSeconds Int?                   @map("duration_seconds")
+  sortOrder       Int                    @default(0) @map("sort_order")
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz
 
-  module Module @relation(fields: [moduleId], references: [id])
+  module       Module @relation(fields: [moduleId], references: [id])
+  managedAsset Asset? @relation("ModuleAssetManagedAsset", fields: [managedAssetId], references: [id], onDelete: Restrict)
 
   @@unique([moduleId, sortOrder])
+  @@index([managedAssetId])
+  @@index([moduleId, assetType])
   @@map("module_assets")
 }
 
@@ -2046,6 +2061,7 @@ model Asset {
   reusablePackageVersionItemPromptAssets      ReusableQuestionPackageVersionItem[]       @relation("ReusablePackageVersionItemPromptAsset")
   reusablePackageVersionItemExplanationAssets ReusableQuestionPackageVersionItem[]       @relation("ReusablePackageVersionItemExplanationAsset")
   reusablePackageVersionItemOptionAssets      ReusableQuestionPackageVersionItemOption[] @relation("ReusablePackageVersionItemOptionAsset")
+  moduleAssets                                ModuleAsset[]                               @relation("ModuleAssetManagedAsset")
 
   @@index([checksum])
   @@index([libraryScope, folderId, state])

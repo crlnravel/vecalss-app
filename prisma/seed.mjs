@@ -456,10 +456,11 @@ async function seedLearningProgress(client, { completedStudentId, primaryStudent
   );
   const modules = await client.query(
     `SELECT modules.id
-       FROM modules
-       JOIN topics ON topics.id = modules.topic_id
-       JOIN subtests ON subtests.id = topics.subtest_id
+      FROM modules
+      JOIN topics ON topics.id = modules.topic_id
+      JOIN subtests ON subtests.id = topics.subtest_id
       WHERE modules.status = 'published'
+        AND topics.code NOT LIKE 'materi:%'
       ORDER BY subtests.sort_order, modules.sequence_no
       LIMIT 12`,
   );
@@ -484,7 +485,10 @@ async function seedLearningProgress(client, { completedStudentId, primaryStudent
              completed_at = EXCLUDED.completed_at,
              last_opened_at = EXCLUDED.last_opened_at,
              updated_at = NOW()`,
-      [primaryStudentId, module.id, status, percent, status === "in_progress" ? 180 + index * 12 : 0, index],
+      // The current Materi experience is document-first. Keep the legacy
+      // progress column at zero for compatibility; video playback is never a
+      // prerequisite for completion of the demo readings.
+      [primaryStudentId, module.id, status, percent, 0, index],
     );
   }
 }
@@ -508,10 +512,12 @@ async function seedOperationalContext(client, { adminUserId, cohortId, completed
 
   const moduleResult = await client.query(
     `SELECT modules.id
-       FROM modules
-       JOIN topics ON topics.id = modules.topic_id
-       JOIN subtests ON subtests.id = topics.subtest_id
-      WHERE subtests.code = 'PK' AND modules.status = 'published'
+      FROM modules
+      JOIN topics ON topics.id = modules.topic_id
+      JOIN subtests ON subtests.id = topics.subtest_id
+      WHERE subtests.code = 'PK'
+        AND modules.status = 'published'
+        AND topics.code NOT LIKE 'materi:%'
       ORDER BY modules.sequence_no
       LIMIT 1`,
   );

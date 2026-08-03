@@ -17,7 +17,7 @@ import {
 import { toKaptenMateriEditorView } from "@/modules/mentor/materi-view-model";
 
 type MateriActionResult =
-  | { fieldErrors?: Partial<Record<"duration" | "subjectSlug" | "title" | "videoUrl", string>>; message: string; ok: false }
+  | { fieldErrors?: Partial<Record<"document" | "documentMimeType" | "documentUrl" | "duration" | "managedAssetId" | "subjectSlug" | "title" | "videoDuration" | "videoUrl", string>>; message: string; ok: false }
   | { lesson: NonNullable<ReturnType<typeof toKaptenMateriEditorView>>; message: string; ok: true };
 
 type MateriBulkActionResult =

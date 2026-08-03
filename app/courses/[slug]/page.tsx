@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import { getPublishedCourseCatalogue } from "@/lib/materi/repository";
+import { getCourseProgressSnapshots } from "@/lib/materi/progress";
 import { CourseDetailPageModule } from "@/modules/courses/CourseDetailPageModule";
 import { getCourseBySlug, toCourseCatalogue } from "@/modules/courses/data";
 
@@ -22,5 +23,7 @@ export default async function CourseDetailPage({
     notFound();
   }
 
-  return <CourseDetailPageModule course={course} courses={courses} session={session} />;
+  const progress = await getCourseProgressSnapshots(session.user.id, publishedCourses);
+
+  return <CourseDetailPageModule course={course} courses={courses} progress={progress} session={session} />;
 }

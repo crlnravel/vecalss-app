@@ -672,7 +672,7 @@ const kaptenNotificationItems: KaptenNotificationItem[] = [
 
 const quickCreateItems = [
   {
-    description: "Satu video lesson untuk setiap Materi.",
+    description: "Satu bacaan PDF untuk setiap Materi, dengan video pendamping opsional.",
     href: "/mentor/materi/create",
     icon: Video,
     label: "Materi",

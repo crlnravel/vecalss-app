@@ -1,4 +1,4 @@
-import { studentMateriProgressBaseline } from "./progress-baseline";
+import type { MateriDocument, MateriVideo } from "@/lib/materi/contract";
 
 type CourseDifficulty = "Dasar" | "Menengah" | "Lanjutan";
 type CourseProgressStatus = "Belum mulai" | "Sedang dipelajari" | "Selesai";
@@ -6,8 +6,8 @@ type SubjectIcon = "brain" | "calculator" | "file-text" | "languages" | "library
 
 type PublishedLessonContent = {
   code: string;
-  durationSeconds: number;
-  mediaUrl: string;
+  document: MateriDocument;
+  optionalVideo: MateriVideo | null;
   sequenceNo: number;
   title: string;
 };
@@ -20,17 +20,15 @@ type PublishedCourseContent = {
   sortOrder: number;
 };
 
-type VideoTutorial = {
-  completed: boolean;
-  duration: string;
+type CourseLessonResource = {
+  document: MateriDocument;
   id: string;
+  optionalVideo: MateriVideo | null;
   title: string;
-  videoUrl: string;
 };
 
-type CourseLesson = VideoTutorial & {
+type CourseLesson = CourseLessonResource & {
   courseSlug: string;
-  id: string;
   position: number;
 };
 
@@ -45,14 +43,13 @@ type Course = {
   code: string;
   description: string;
   difficulty: CourseDifficulty;
-  duration: string;
   icon: SubjectIcon;
   palette: string;
   progress: number;
   slug: string;
   status: CourseProgressStatus;
   title: string;
-  lessons: VideoTutorial[];
+  lessons: CourseLessonResource[];
 };
 
 type SubjectUiMetadata = {
@@ -75,19 +72,6 @@ const subjectUiMetadata: Record<string, SubjectUiMetadata> = {
   PM: { difficulty: "Lanjutan", icon: "calculator", palette: courseCardPalette },
 };
 
-function formatDuration(durationSeconds: number) {
-  const minutes = Math.floor(durationSeconds / 60);
-  const seconds = durationSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function formatCourseDuration(durationSeconds: number) {
-  const totalMinutes = Math.round(durationSeconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}j ${minutes}m` : `${minutes}m`;
-}
-
 function toCourseCatalogue(content: readonly PublishedCourseContent[]): Course[] {
   const byCode = new Map(content.map((course) => [course.code, course]));
   if (
@@ -108,20 +92,19 @@ function toCourseCatalogue(content: readonly PublishedCourseContent[]): Course[]
       const lessons = [...publishedCourse.lessons]
         .sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code))
         .map((lesson) => ({
-          completed: false,
-          duration: formatDuration(lesson.durationSeconds),
+          // Student delivery is always resolved through the authenticated
+          // same-origin route. Never put a raw hosted PDF URL in client props,
+          // where a locked unit could bypass server admission.
+          document: { ...lesson.document, url: null },
           id: lesson.code,
+          optionalVideo: lesson.optionalVideo,
           title: lesson.title,
-          videoUrl: lesson.mediaUrl,
         }));
-      const durationSeconds = publishedCourse.lessons
-        .reduce((total, lesson) => total + lesson.durationSeconds, 0);
 
       return {
         code: publishedCourse.code,
         description: publishedCourse.name,
         difficulty: metadata.difficulty,
-        duration: formatCourseDuration(durationSeconds),
         icon: metadata.icon,
         palette: metadata.palette,
         progress: 0,
@@ -150,8 +133,11 @@ function getCourseLesson(course: Course, lessonId: string) {
 }
 
 function getSeedCourseProgress(course: Course): CourseProgressSnapshot {
+  void course;
   return {
-    completedLessonIds: [...(studentMateriProgressBaseline[course.slug as keyof typeof studentMateriProgressBaseline] ?? [])],
+    // The ebook-first curriculum has a new browser-local progress generation.
+    // Never carry the historical video-first baseline into this namespace.
+    completedLessonIds: [],
   };
 }
 
@@ -173,9 +159,14 @@ function getCourseProgressState(
   const skippedLesson = progress.skippedToLessonId
     ? lessonsById.get(progress.skippedToLessonId)
     : undefined;
-  const minimumPosition = skippedLesson?.position ?? 0;
-  const nextLesson = lessons.find(
-    (lesson) => lesson.position >= minimumPosition && !completedLessonIds.has(lesson.id),
+  const activeSkippedLesson = skippedLesson && !completedLessonIds.has(skippedLesson.id)
+    ? skippedLesson
+    : undefined;
+  // A skipped target is a temporary continuation point. Once that target is
+  // completed, resume the earliest incomplete unit (including earlier units
+  // that were skipped) instead of stranding them behind a permanent cutoff.
+  const nextLesson = activeSkippedLesson ?? lessons.find(
+    (lesson) => !completedLessonIds.has(lesson.id),
   );
   const completedCount = completedLessonIds.size;
 
@@ -184,7 +175,7 @@ function getCourseProgressState(
     completionPercentage: lessons.length === 0 ? 0 : Math.round((completedCount / lessons.length) * 100),
     lessons,
     nextLesson,
-    skippedToLessonId: skippedLesson?.id,
+    skippedToLessonId: activeSkippedLesson?.id,
   };
 }
 
@@ -227,8 +218,8 @@ export type {
   CourseLesson,
   CourseProgressSnapshot,
   CourseProgressStatus,
+  CourseLessonResource,
   LessonProgressStatus,
   PublishedCourseContent,
   SubjectIcon,
-  VideoTutorial,
 };

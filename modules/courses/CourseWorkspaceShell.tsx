@@ -8,7 +8,7 @@ function CourseWorkspaceShell({
   breadcrumbLabel,
   children,
   mainClassName,
-  searchPlaceholder = "Cari materi, video, atau topik...",
+  searchPlaceholder = "Cari materi, bacaan, atau topik...",
   showSearch = true,
   session,
 }: {

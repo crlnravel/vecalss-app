@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ChevronLeft, Ellipsis, Eye, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, Video, X } from "lucide-react";
+import { Archive, ChevronLeft, Ellipsis, Eye, FilePenLine, FileText, ListChecks, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,7 @@ function ReadinessWarning({
   readiness: KaptenMateriView["readiness"];
 }) {
   return readiness === "incomplete" ? (
-    <span className="text-sm font-semibold text-secondary-600">Belum siap</span>
+    <span className="text-sm font-semibold text-secondary-600">PDF belum siap</span>
   ) : null;
 }
 
@@ -82,7 +82,7 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
         <span className="inline-flex rounded-xl bg-primary-100 px-3 py-1.5 text-sm font-bold text-primary-900">
           {subjectCategory}
         </span>
-        <Video className="size-5 text-primary-800" />
+        <FileText className="size-5 text-primary-800" />
       </div>
       <h2 className="mt-5 text-xl font-semibold text-secondary-900">
         {subject.name}
@@ -106,7 +106,7 @@ function KaptenMateriPageModule({
       searchPlaceholder="Cari materi..."
       session={session}
     >
-      <PageIntro title="Materi" />
+      <PageIntro description="Susun bacaan PDF untuk siswa, lalu tambahkan video pendamping bila diperlukan." title="Materi" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {subjects.map((subject) => (
           <SubjectCard key={subject.slug} subject={subject} />
@@ -145,11 +145,10 @@ function MateriLessonRow({
           </h2>
           <StatusPill status={lesson.status} />
         </div>
-        {lesson.readiness === "incomplete" ? (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
-            <ReadinessWarning readiness={lesson.readiness} />
-          </div>
-        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
+          <span>{lesson.primaryMetric}</span>
+          <ReadinessWarning readiness={lesson.readiness} />
+        </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:justify-end">
         <Button render={<Link href={buildEditorHref(lesson, returnTo, true)} />} aria-label="Preview lesson" size="icon-sm" title="Preview" variant="brandOutline"><Eye /></Button>
@@ -197,6 +196,7 @@ function KaptenMateriSubjectPageModule({
   const [selectionMode, setSelectionMode] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [readinessFilter, setReadinessFilter] = useState("");
+  const [videoFilter, setVideoFilter] = useState("");
   const returnTo = `/mentor/materi/subject/${subject.slug}`;
 
   function filterVisibleLessons(value: string) {
@@ -206,14 +206,17 @@ function KaptenMateriSubjectPageModule({
         (!normalizedValue ||
           [
             lesson.title,
-            lesson.duration,
+            lesson.primaryMetric,
+            lesson.documentName,
+            lesson.hasOptionalVideo ? "video opsional" : "tanpa video",
             lesson.status,
             lesson.readiness === "incomplete" ? "belum siap" : "",
           ].some((candidate) =>
             candidate.toLocaleLowerCase().includes(normalizedValue),
-          )) &&
+        )) &&
         (!statusFilter || lesson.status === statusFilter) &&
-        (!readinessFilter || lesson.readiness === readinessFilter),
+        (!readinessFilter || lesson.readiness === readinessFilter) &&
+        (!videoFilter || (videoFilter === "with-video" ? lesson.hasOptionalVideo : !lesson.hasOptionalVideo)),
     );
   }
 
@@ -237,7 +240,7 @@ function KaptenMateriSubjectPageModule({
     selectedLessons.every((lesson) => lesson.status === "published");
   const eligibilityReason =
     selectedLessons.length > 0 && !publishEligible && !unpublishEligible
-      ? "Pilih hanya lesson draf yang siap diterbitkan atau lesson yang sudah diterbitkan."
+      ? "Pilih hanya lesson draf dengan PDF siap atau lesson yang sudah diterbitkan."
       : null;
   const selectAllVisible =
     visibleLessons.length > 0 &&
@@ -389,7 +392,7 @@ function KaptenMateriSubjectPageModule({
         />
         <CatalogueSearchInput
           onChange={changeQuery}
-          placeholder="Cari judul, durasi, atau status..."
+          placeholder="Cari judul, PDF, video, atau status..."
           value={query}
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -406,14 +409,24 @@ function KaptenMateriSubjectPageModule({
             value={statusFilter}
           />
           <CatalogueFilter
-            label="Filter kesiapan"
+            label="Filter kesiapan PDF"
             onValueChange={(value) => { setReadinessFilter(value); setPage(1); setSelectedCodes(new Set()); }}
             options={[
-              { label: "Semua kesiapan", value: "" },
-              { label: "Siap", value: "ready" },
-              { label: "Belum siap", value: "incomplete" },
+              { label: "Semua kesiapan PDF", value: "" },
+              { label: "PDF siap", value: "ready" },
+              { label: "PDF belum siap", value: "incomplete" },
             ]}
             value={readinessFilter}
+          />
+          <CatalogueFilter
+            label="Filter video opsional"
+            onValueChange={(value) => { setVideoFilter(value); setPage(1); setSelectedCodes(new Set()); }}
+            options={[
+              { label: "Semua video", value: "" },
+              { label: "Dengan video opsional", value: "with-video" },
+              { label: "Tanpa video", value: "without-video" },
+            ]}
+            value={videoFilter}
           />
           {!selectionMode ? (
             <Button

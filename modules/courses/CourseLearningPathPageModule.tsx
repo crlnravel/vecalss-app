@@ -3,16 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BookOpen,
   Check,
   ChevronDown,
-  Clock3,
+  ExternalLink,
+  FileText,
   LoaderCircle,
   LockKeyhole,
-  Play,
   SkipForward,
+  Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import {
   DropdownMenu,
@@ -28,30 +30,63 @@ import {
   getCourseProgressState,
   getLessonProgressStatus,
   type Course,
+  type CourseProgressSnapshot,
   type CourseLesson,
   type LessonProgressStatus,
 } from "./data";
-import { skipToCourseLesson, useCourseProgress } from "./progress-storage";
+import { hydrateCourseProgress, useCourseProgress } from "./progress-storage";
 
 function CourseLearningPathPageModule({
   course,
   courses,
+  progress,
   session,
 }: {
   course: Course;
   courses: Course[];
+  progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
-  const progress = useCourseProgress(course, courses);
+  const serverProgress = progress[course.slug] ?? { completedLessonIds: [] };
+  const localProgress = useCourseProgress(course, courses, serverProgress, session.user.id);
   const state = getCourseProgressState(course, {
-    completedLessonIds: progress.completedLessonIds,
-    skippedToLessonId: progress.skippedToLessonId,
+    completedLessonIds: localProgress.completedLessonIds,
+    skippedToLessonId: localProgress.skippedToLessonId,
   });
   const currentPositionLessonId =
     state.nextLesson?.id ?? state.lessons[state.lessons.length - 1]?.id;
 
-  const handleSkip = (lesson: CourseLesson) => {
-    skipToCourseLesson(course.slug, lesson.id, courses);
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const handleSkip = async (lesson: CourseLesson) => {
+    if (pendingLessonId) return;
+    setPendingLessonId(lesson.id);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/courses/${encodeURIComponent(course.slug)}/${encodeURIComponent(lesson.id)}/progress`, {
+        body: JSON.stringify({ action: "skip" }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => null) as {
+        error?: unknown;
+        snapshot?: CourseProgressSnapshot;
+      } | null;
+      if (
+        !response.ok
+        || !payload?.snapshot
+        || !hydrateCourseProgress(course.slug, payload.snapshot, courses, session.user.id)
+      ) {
+        throw new Error(typeof payload?.error === "string" ? payload.error : "Progress belum tersimpan. Coba lagi.");
+      }
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Progress belum tersimpan. Coba lagi.");
+    } finally {
+      setPendingLessonId(null);
+    }
   };
 
   return (
@@ -59,10 +94,10 @@ function CourseLearningPathPageModule({
       activeLabel="Materi"
       breadcrumbLabel={course.title}
       mainClassName="max-w-none gap-0 p-0 lg:p-0"
-      searchPlaceholder="Cari video di materi ini..."
+      searchPlaceholder="Cari bacaan di materi ini..."
       session={session}
     >
-      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#f7faf8] pb-24 text-[#173c2d]">
+      <div className="relative isolate min-h-[calc(100svh-4rem)] overflow-hidden bg-[#f7faf8] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[#173c2d]">
 
         <div className="pointer-events-none sticky top-3 z-30 mx-auto h-0 w-full max-w-[48rem] px-4 pt-3 sm:px-6">
           <div className="pointer-events-auto">
@@ -74,30 +109,49 @@ function CourseLearningPathPageModule({
           aria-label={`Jalur belajar ${course.description}`}
           className="mx-auto w-full max-w-[78rem] px-3 pt-32 sm:px-6 sm:pt-36 lg:px-10"
         >
-          <div className="relative">
-            <LearningRoad lessonCount={state.lessons.length} />
+          {state.lessons.length > 0 ? (
+            <div className="relative">
+              <LearningRoad lessonCount={state.lessons.length} />
 
-            <ol className="relative z-10 m-0 list-none p-0">
-              {state.lessons.map((lesson, index) => {
-                const status = getLessonProgressStatus(course, lesson.id, {
-                  completedLessonIds: progress.completedLessonIds,
-                  skippedToLessonId: progress.skippedToLessonId,
-                });
+              {feedback ? (
+                <p
+                  aria-live="polite"
+                  className="relative z-20 mx-auto mb-4 max-w-xl rounded-2xl bg-red-50 px-4 py-3 text-center text-sm font-semibold leading-6 text-red-800"
+                  role="status"
+                >
+                  {feedback}
+                </p>
+              ) : null}
 
-                return (
-                  <LearningPathStage
-                    course={course}
-                    index={index}
-                    isCurrentPosition={lesson.id === currentPositionLessonId}
-                    key={lesson.id}
-                    lesson={lesson}
-                    onSkip={() => handleSkip(lesson)}
-                    status={status}
-                  />
-                );
-              })}
-            </ol>
-          </div>
+              <ol className="relative z-10 m-0 list-none p-0">
+                {state.lessons.map((lesson, index) => {
+                  const status = getLessonProgressStatus(course, lesson.id, {
+                    completedLessonIds: localProgress.completedLessonIds,
+                    skippedToLessonId: localProgress.skippedToLessonId,
+                  });
+
+                  return (
+                    <LearningPathStage
+                      course={course}
+                      index={index}
+                      isCurrentPosition={lesson.id === currentPositionLessonId}
+                      key={lesson.id}
+                      lesson={lesson}
+                      onSkip={() => void handleSkip(lesson)}
+                      pending={pendingLessonId === lesson.id}
+                      status={status}
+                    />
+                  );
+                })}
+              </ol>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-2xl rounded-[2rem] border border-[#d6e5db] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_rgba(23,107,77,0.45)]">
+              <BookOpen className="mx-auto size-10 text-[#9ab4a4]" />
+              <p className="mt-4 text-base font-extrabold text-[#173c2d]">Belum ada bacaan terbit</p>
+              <p className="mt-2 text-sm leading-6 text-[#5f776a]">Bacaan untuk subtes ini akan muncul setelah diterbitkan.</p>
+            </div>
+          )}
         </section>
       </div>
     </CourseWorkspaceShell>
@@ -185,7 +239,8 @@ function SubjectSelector({
                   {subject.description}
                 </span>
                 <span className="mt-0.5 block text-xs font-semibold text-[#98a1b1]">
-                  {subject.title} · {subject.duration}
+                  {subject.title} · {subject.lessons.length} bacaan
+                  {subject.lessons.some((lesson) => lesson.optionalVideo) ? " · video opsional" : ""}
                 </span>
               </span>
               {isActive ? (
@@ -218,10 +273,10 @@ function getLearningRoadGeometry(lessonCount: number) {
   for (let index = 0; index < safeLessonCount; index += 1) {
     const cardX = index % 2 === 0 ? LEARNING_ROAD_LEFT_X : LEARNING_ROAD_RIGHT_X;
     const cardY = index * LEARNING_PATH_STAGE_HEIGHT + 64;
-    const playX = index % 2 === 0 ? LEARNING_ROAD_RIGHT_X : LEARNING_ROAD_LEFT_X;
-    const playY = index * LEARNING_PATH_STAGE_HEIGHT + 292;
+    const readX = index % 2 === 0 ? LEARNING_ROAD_RIGHT_X : LEARNING_ROAD_LEFT_X;
+    const readY = index * LEARNING_PATH_STAGE_HEIGHT + 292;
 
-    for (const [targetX, targetY] of [[cardX, cardY], [playX, playY]]) {
+    for (const [targetX, targetY] of [[cardX, cardY], [readX, readY]]) {
       const controlY = currentY + (targetY - currentY) / 2;
       path += ` C ${currentX} ${controlY} ${targetX} ${controlY} ${targetX} ${targetY}`;
       currentX = targetX;
@@ -272,6 +327,7 @@ function LearningPathStage({
   isCurrentPosition,
   lesson,
   onSkip,
+  pending,
   status,
 }: {
   course: Course;
@@ -279,6 +335,7 @@ function LearningPathStage({
   isCurrentPosition: boolean;
   lesson: CourseLesson;
   onSkip: () => void;
+  pending: boolean;
   status: LessonProgressStatus | undefined;
 }) {
   const isCompleted = status === "completed";
@@ -287,10 +344,10 @@ function LearningPathStage({
   const href = `/courses/${course.slug}/${lesson.id}`;
 
   return (
-    <li className="relative grid min-h-[27rem] grid-rows-[9rem_1fr] sm:min-h-[32rem] sm:grid-rows-[11rem_1fr]">
+    <li className="group/stage relative grid min-h-[27rem] grid-rows-[9rem_1fr] sm:min-h-[32rem] sm:grid-rows-[11rem_1fr]">
       <article
         className={cn(
-          "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
+          "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 transition-[transform,border-color,box-shadow] duration-200 ease-out motion-safe:group-hover/stage:-translate-y-0.5 motion-safe:group-focus-within/stage:-translate-y-0.5 motion-reduce:transition-none sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
           isEven
             ? "justify-self-start sm:ml-[8%] lg:ml-[12%]"
             : "justify-self-end sm:mr-[8%] lg:mr-[12%]",
@@ -312,7 +369,7 @@ function LearningPathStage({
           )}
         >
           <span className="text-[0.6rem] font-bold tracking-[0.14em] uppercase sm:text-xs">
-            Unit
+            Bagian
           </span>
           <span className="text-2xl leading-none font-extrabold sm:text-3xl">
             {index + 1}
@@ -320,16 +377,51 @@ function LearningPathStage({
         </span>
 
         <div className="min-w-0 flex-1">
-          <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl">
-            {lesson.title}
-          </h2>
+          {isLocked ? (
+            <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl">
+              {lesson.title}
+            </h2>
+          ) : (
+            <Link
+              className="group/card-reading block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+              href={href}
+            >
+              <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance underline decoration-white/35 underline-offset-4 sm:text-2xl">
+                {lesson.title}
+              </h2>
+              <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
+                <FileText className="size-3.5" /> Bacaan PDF
+              </span>
+            </Link>
+          )}
+          {isLocked ? (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[#89958e] sm:text-sm">
+              <span className="inline-flex items-center gap-1.5">
+                <FileText className="size-3.5" /> Bacaan PDF
+              </span>
+            </div>
+          ) : null}
+          {lesson.optionalVideo && !isLocked ? (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm">
+              <a
+                className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 underline decoration-current/40 underline-offset-4 outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+                href={lesson.optionalVideo.mediaUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <Video className="size-3.5" /> Video opsional
+                <ExternalLink className="size-3" />
+              </a>
+            </div>
+          ) : null}
           {isLocked ? (
             <button
               className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#ffd766] px-4 text-xs font-extrabold text-[#5b4b18] shadow-[0_4px_0_#d9ad32] outline-none transition-[transform,background-color,box-shadow] duration-150 hover:bg-[#ffe28c] focus-visible:ring-4 focus-visible:ring-[#d9ad32]/30 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transition-none sm:text-sm"
+              disabled={pending}
               onClick={onSkip}
               type="button"
             >
-              <SkipForward className="size-4" /> Lewati ke sini
+              {pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}
             </button>
           ) : null}
         </div>
@@ -366,14 +458,14 @@ function LearningPathStage({
             aria-label={`${lesson.title} terkunci`}
             className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[#eef1ef] text-[#9aa49f] shadow-[0_9px_0_#d4dad6,0_24px_42px_-24px_rgba(61,78,69,0.44)] sm:size-28 sm:rounded-[2.35rem]"
           >
-            <Play className="size-10 sm:size-12" strokeWidth={2.4} />
+            <BookOpen className="size-10 sm:size-12" strokeWidth={2.2} />
             <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#dfe5e1]">
               <LockKeyhole className="size-4" />
             </span>
           </span>
         ) : (
           <Link
-            aria-label={`${isCompleted ? "Putar ulang" : "Putar"} ${lesson.title}`}
+            aria-label={`${isCompleted ? "Baca ulang" : "Baca"} ${lesson.title}`}
             className={cn(
               "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white text-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
               isCompleted
@@ -382,7 +474,7 @@ function LearningPathStage({
             )}
             href={href}
           >
-            <Play className="size-10 translate-x-0.5 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.4} />
+            <BookOpen className="size-10 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.2} />
             {isCompleted ? (
               <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#e6f4eb] text-[#176b4d]">
                 <Check className="size-4" strokeWidth={3} />
@@ -392,7 +484,7 @@ function LearningPathStage({
         )}
 
         <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#d8e6dc] bg-white px-3 py-1.5 text-xs font-bold text-[#65756c] shadow-[0_10px_24px_-20px_rgba(23,107,77,0.5)]">
-          <Clock3 className="size-3.5" /> {lesson.duration}
+          <BookOpen className="size-3.5" /> Baca PDF
         </span>
       </div>
     </li>

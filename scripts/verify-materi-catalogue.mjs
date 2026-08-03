@@ -2,218 +2,257 @@ import "dotenv/config";
 
 import pg from "pg";
 
+import {
+  MATERI_CATALOGUE,
+  MATERI_DEMO_MODULES,
+  MATERI_DEMO_PDF_FILENAME,
+  MATERI_DEMO_VIDEO_URL,
+  MATERI_DEMO_VIDEO_DURATION_SECONDS,
+  MATERI_DOCUMENT_MIME_TYPE,
+} from "../prisma/materi-seed.mjs";
+
 const { Client } = pg;
 
-const INITIAL_PLACEHOLDER_MEDIA_URL = "https://www.youtube.com/embed/4rPIpRTEhfY?rel=0";
-
-// This contract captures the static student catalogue at the migration point.
-// It is intentionally stricter than runtime reads and is only for cutover.
-const CATALOGUE = [
-  { code: "PU", name: "Penalaran Umum", slug: "penalaran-umum", sections: [
-    ["Pengenalan PU", [["06:12", "Apa yang Diuji di Penalaran Umum"], ["08:24", "Cara Menggunakan Modul Ini"], ["10:08", "Pemetaan Kemampuan Awal"]]],
-    ["Konsep Inti", [["14:30", "Premis, Klaim, dan Simpulan"], ["17:42", "Kesalahan Umum Membaca Argumen"], ["12:56", "Strategi Eliminasi Cepat"]]],
-    ["Latihan", [["18:10", "Guided Exercise: Argumen Pendek"], ["21:36", "Case Study: Set Argumen UTBK"]]],
-  ] },
-  { code: "PPU", name: "Pengetahuan dan Pemahaman Umum", slug: "pengetahuan-pemahaman-umum", sections: [
-    ["Pengenalan PPU", [["07:16", "Ruang Lingkup PPU"], ["09:44", "Membaca Informasi Secara Presisi"]]],
-    ["Konsep Inti", [["15:18", "Relasi Ide dalam Teks"], ["16:05", "Makna Kata dan Konteks"], ["13:40", "Menghindari Distraktor Umum"]]],
-    ["Latihan", [["19:24", "Guided Exercise: Informasi Implisit"], ["22:10", "Case Study: Bacaan Campuran"]]],
-  ] },
-  { code: "PBM", name: "Pemahaman Bacaan dan Menulis", slug: "pemahaman-bacaan-menulis", sections: [
-    ["Pengenalan PBM", [["06:58", "Format Soal PBM"], ["11:22", "Cara Membaca Kalimat Bermasalah"]]],
-    ["Konsep Inti", [["16:35", "Efektivitas Kalimat"], ["14:48", "Kohesi dan Koherensi Paragraf"], ["13:52", "Kesalahan Ejaan yang Sering Muncul"]]],
-    ["Latihan", [["20:28", "Guided Exercise: Sunting Kalimat"], ["23:12", "Case Study: Paragraf Tidak Efektif"]]],
-  ] },
-  { code: "PK", name: "Pengetahuan Kuantitatif", slug: "pengetahuan-kuantitatif", sections: [
-    ["Number Sense", [["09:48", "Mental Math Warmup"], ["13:22", "Rasio dan Persentase"], ["16:14", "Mengenali Pola Bilangan"]]],
-    ["Konsep Inti", [["18:02", "Membandingkan Nilai Secara Cepat"], ["20:40", "Kesalahan Umum di Soal Kuantitatif"], ["15:45", "Review Drill Bertempo"]]],
-    ["Latihan", [["24:00", "Guided Exercise: Soal Campuran"], ["26:18", "Case Study: Recovery Skor PK"]]],
-  ] },
-  { code: "LBI", name: "Literasi Bahasa Indonesia", slug: "literasi-bahasa-indonesia", sections: [
-    ["Pengenalan LBI", [["07:05", "Apa yang Diuji di LBI"], ["11:26", "Struktur Bacaan Panjang"]]],
-    ["Konsep Inti", [["16:50", "Menemukan Ide Pokok"], ["14:18", "Inferensi Tanpa Overthinking"], ["13:42", "Nada dan Tujuan Penulis"]]],
-    ["Latihan", [["20:12", "Guided Exercise: Teks Editorial"], ["22:30", "Case Study: Reading Bertempo"]]],
-  ] },
-  { code: "LBE", name: "Literasi Bahasa Inggris", slug: "literasi-bahasa-inggris", sections: [
-    ["Reading Setup", [["08:44", "Course Orientation"], ["12:10", "Skimming vs Scanning"], ["10:58", "Vocabulary in Context"]]],
-    ["Konsep Inti", [["18:36", "Inference Questions"], ["17:05", "Author Purpose and Tone"], ["15:34", "Distractor Patterns"]]],
-    ["Latihan", [["23:20", "Guided Exercise: Science Passage"], ["25:12", "Case Study: Two-Passage Set"]]],
-  ] },
-  { code: "PM", name: "Penalaran Matematika", slug: "penalaran-matematika", sections: [
-    ["Pengenalan PM", [["08:16", "Format Penalaran Matematika"], ["12:38", "Menerjemahkan Cerita ke Model"], ["13:05", "Membaca Grafik dan Tabel"]]],
-    ["Konsep Inti", [["18:55", "Menghubungkan Data dan Operasi"], ["16:28", "Kesalahan Umum di PM"], ["17:40", "Memilih Simpulan Matematis"]]],
-    ["Latihan", [["24:18", "Guided Exercise: Soal Tabel"], ["27:30", "Case Study: Grafik Campuran"]]],
-  ] },
-];
-
-const EXPECTED_TOPICS = CATALOGUE.flatMap((subject, subjectIndex) =>
-  subject.sections.map(([name], sectionIndex) => ({
-    code: `materi:${subject.slug}:section-${sectionIndex + 1}`,
-    name,
-    sortOrder: sectionIndex + 1,
-    subjectCode: subject.code,
-    subjectOrder: subjectIndex + 1,
-  })),
+const SUBJECT_CODES = MATERI_CATALOGUE.map((subject) => subject.code);
+const TOPIC_CODES = MATERI_CATALOGUE.flatMap((subject) =>
+  subject.sections.map((_, sectionIndex) => `materi:${subject.slug}:section-${sectionIndex + 1}`),
 );
-
-const EXPECTED_LESSONS = CATALOGUE.flatMap((subject) => {
-  let sequenceNo = 0;
-  return subject.sections.flatMap(([, lessons], sectionIndex) =>
-    lessons.map(([duration, title], lessonIndex) => ({
-      code: `${subject.slug}-${sectionIndex + 1}-${lessonIndex + 1}`,
-      durationSeconds: durationToSeconds(duration),
-      sequenceNo: ++sequenceNo,
-      title,
-      topicCode: `materi:${subject.slug}:section-${sectionIndex + 1}`,
-    })),
-  );
-});
-
-function durationToSeconds(duration) {
-  const [minutes, seconds] = duration.split(":").map(Number);
-  return minutes * 60 + seconds;
-}
+const DEMO_CODES = MATERI_DEMO_MODULES.map((module) => module.code);
 
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required before running the read-only Materi cutover parity gate.");
-  }
+  if (!databaseUrl) throw new Error("DATABASE_URL is required before running the read-only Materi catalogue verifier.");
   return databaseUrl;
 }
 
-function groupRowsByCode(rows) {
+function assertContractShape() {
+  const failures = [];
+  if (MATERI_CATALOGUE.length !== 7) failures.push(`expected 7 subjects, found ${MATERI_CATALOGUE.length}`);
+  if (TOPIC_CODES.length !== 21) failures.push(`expected 21 sections, found ${TOPIC_CODES.length}`);
+  if (MATERI_DEMO_MODULES.length !== 21) failures.push(`expected 21 demo modules, found ${MATERI_DEMO_MODULES.length}`);
+  if (new Set(SUBJECT_CODES).size !== SUBJECT_CODES.length) failures.push("subject codes are duplicated");
+  if (new Set(TOPIC_CODES).size !== TOPIC_CODES.length) failures.push("section codes are duplicated");
+  if (new Set(DEMO_CODES).size !== DEMO_CODES.length) failures.push("stable demo module codes are duplicated");
+  if (MATERI_DEMO_MODULES.filter((module) => module.withVideo).length === 0) failures.push("the fixture must cover document-plus-video units");
+  if (MATERI_DEMO_MODULES.filter((module) => !module.withVideo).length === 0) failures.push("the fixture must cover document-only units");
+  for (const subject of MATERI_CATALOGUE) {
+    if (subject.sections.length !== 3) failures.push(`subject ${subject.code} must contain exactly 3 canonical sections`);
+  }
+  if (failures.length > 0) throw new Error(`Materi document-first static contract failed:\n- ${failures.join("\n- ")}`);
+}
+
+function groupRowsByCode(rows, key = "code") {
   const grouped = new Map();
   for (const row of rows) {
-    const group = grouped.get(row.code) ?? [];
+    const group = grouped.get(row[key]) ?? [];
     group.push(row);
-    grouped.set(row.code, group);
+    grouped.set(row[key], group);
   }
   return grouped;
 }
 
-function assertContractShape() {
-  if (CATALOGUE.length !== 7 || EXPECTED_TOPICS.length !== 21 || EXPECTED_LESSONS.length !== 53) {
-    throw new Error("The Materi cutover parity contract must contain exactly 7 subjects, 21 sections, and 53 lessons.");
+function isAbsoluteHttpUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
   }
+}
+
+function isPdfUrl(value) {
+  try {
+    return new URL(value).pathname.toLowerCase().endsWith(".pdf");
+  } catch {
+    return false;
+  }
+}
+
+function assertOneRow(rows, label, failures) {
+  if (rows.length !== 1) {
+    failures.push(`${label}: expected one row, found ${rows.length}`);
+    return null;
+  }
+  return rows[0];
 }
 
 async function verify() {
   assertContractShape();
-
   const client = new Client({ connectionString: requireDatabaseUrl() });
   await client.connect();
 
   try {
     const failures = [];
-    const expectedSubjectCodes = CATALOGUE.map((subject) => subject.code);
     const subjectResult = await client.query(
-      "SELECT code, name, is_active, sort_order FROM subtests WHERE code = ANY($1::text[])",
-      [expectedSubjectCodes],
+      `SELECT code, name, is_active, sort_order
+         FROM subtests
+        WHERE code = ANY($1::text[])
+        ORDER BY sort_order, code`,
+      [SUBJECT_CODES],
     );
     const subjects = groupRowsByCode(subjectResult.rows);
-    for (const [index, expected] of CATALOGUE.entries()) {
-      const rows = subjects.get(expected.code) ?? [];
-      if (rows.length !== 1) {
-        failures.push(`subject ${expected.code}: expected one record, found ${rows.length}`);
-        continue;
-      }
-      const [subject] = rows;
-      if (subject.name !== expected.name) failures.push(`subject ${expected.code}: name is ${JSON.stringify(subject.name)}, expected ${JSON.stringify(expected.name)}`);
-      if (subject.sort_order !== index + 1) failures.push(`subject ${expected.code}: sort order is ${subject.sort_order}, expected ${index + 1}`);
+    for (const [subjectIndex, expected] of MATERI_CATALOGUE.entries()) {
+      const subject = assertOneRow(subjects.get(expected.code) ?? [], `subject ${expected.code}`, failures);
+      if (!subject) continue;
+      if (subject.name !== expected.name) failures.push(`subject ${expected.code}: name differs from the canonical contract`);
+      if (subject.sort_order !== subjectIndex + 1) failures.push(`subject ${expected.code}: sort order is ${subject.sort_order}, expected ${subjectIndex + 1}`);
       if (!subject.is_active) failures.push(`subject ${expected.code}: must be active`);
     }
 
     const topicResult = await client.query(
-      `SELECT topics.code, topics.name, topics.is_active, topics.parent_topic_id, topics.sort_order, subtests.code AS subject_code
-       FROM topics
-       JOIN subtests ON subtests.id = topics.subtest_id
-       WHERE topics.code = ANY($1::text[])`,
-      [EXPECTED_TOPICS.map((topic) => topic.code)],
+      `SELECT topics.code, topics.name, topics.is_active, topics.parent_topic_id,
+              topics.sort_order, subtests.code AS subject_code
+         FROM topics
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+        ORDER BY subtests.sort_order, topics.sort_order, topics.code`,
+      [SUBJECT_CODES, TOPIC_CODES],
     );
-    const topics = groupRowsByCode(topicResult.rows);
-    for (const expected of EXPECTED_TOPICS) {
-      const rows = topics.get(expected.code) ?? [];
-      if (rows.length !== 1) {
-        failures.push(`section ${expected.code}: expected one canonical record, found ${rows.length}`);
-        continue;
+    const topics = new Map(topicResult.rows.map((row) => [`${row.subject_code}:${row.code}`, row]));
+    if (topicResult.rowCount !== TOPIC_CODES.length) {
+      failures.push(`canonical sections: expected exactly ${TOPIC_CODES.length}, found ${topicResult.rowCount}`);
+    }
+    for (const subject of MATERI_CATALOGUE) {
+      for (const [sectionIndex, section] of subject.sections.entries()) {
+        const topicCode = `materi:${subject.slug}:section-${sectionIndex + 1}`;
+        const topic = topics.get(`${subject.code}:${topicCode}`);
+        if (!topic) {
+          failures.push(`section ${subject.code}/${topicCode}: missing`);
+          continue;
+        }
+        if (topic.name !== section.name) failures.push(`section ${subject.code}/${topicCode}: name differs from the canonical contract`);
+        if (topic.sort_order !== sectionIndex + 1) failures.push(`section ${subject.code}/${topicCode}: sort order is ${topic.sort_order}, expected ${sectionIndex + 1}`);
+        if (topic.parent_topic_id !== null) failures.push(`section ${subject.code}/${topicCode}: must be top-level`);
+        if (!topic.is_active) failures.push(`section ${subject.code}/${topicCode}: must be active`);
       }
-      const [topic] = rows;
-      if (topic.name !== expected.name) failures.push(`section ${expected.code}: name is ${JSON.stringify(topic.name)}, expected ${JSON.stringify(expected.name)}`);
-      if (topic.subject_code !== expected.subjectCode) failures.push(`section ${expected.code}: subject is ${topic.subject_code}, expected ${expected.subjectCode}`);
-      if (topic.parent_topic_id !== null) failures.push(`section ${expected.code}: must be top-level`);
-      if (topic.sort_order !== expected.sortOrder) failures.push(`section ${expected.code}: sort order is ${topic.sort_order}, expected ${expected.sortOrder}`);
-      if (!topic.is_active) failures.push(`section ${expected.code}: must be active`);
+    }
+
+    const unexpectedModuleResult = await client.query(
+      `SELECT modules.code, subtests.code AS subject_code, topics.code AS topic_code
+         FROM modules
+         JOIN topics ON topics.id = modules.topic_id
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+          AND NOT (modules.code = ANY($3::text[]))
+        ORDER BY subtests.sort_order, topics.sort_order, modules.sequence_no, modules.code`,
+      [SUBJECT_CODES, TOPIC_CODES, DEMO_CODES],
+    );
+    if (unexpectedModuleResult.rowCount) {
+      failures.push(`canonical sections contain ${unexpectedModuleResult.rowCount} unexpected module(s)`);
+    }
+    const unexpectedSubjectModuleResult = await client.query(
+      `SELECT modules.code, subtests.code AS subject_code, topics.code AS topic_code
+         FROM modules
+         JOIN topics ON topics.id = modules.topic_id
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND NOT (topics.code = ANY($2::text[]))
+        ORDER BY subtests.sort_order, topics.sort_order, modules.sequence_no, modules.code`,
+      [SUBJECT_CODES, TOPIC_CODES],
+    );
+    if (unexpectedSubjectModuleResult.rowCount) {
+      failures.push(`canonical subjects contain ${unexpectedSubjectModuleResult.rowCount} module(s) outside the three canonical sections`);
     }
 
     const lessonResult = await client.query(
-      `SELECT
-         modules.code,
-         modules.title,
-         modules.sequence_no,
-         modules.status::text AS status,
-         topics.code AS topic_code,
-         module_assets.id AS primary_asset_id,
-         module_assets.asset_type::text AS primary_asset_type,
-         module_assets.duration_seconds AS primary_duration_seconds,
-         module_assets.media_url AS primary_media_url
-       FROM modules
-       LEFT JOIN topics ON topics.id = modules.topic_id
-       LEFT JOIN module_assets
-         ON module_assets.module_id = modules.id
-         AND module_assets.sort_order = 0
-       WHERE modules.code = ANY($1::text[])`,
-      [EXPECTED_LESSONS.map((lesson) => lesson.code)],
+      `SELECT modules.id, modules.code, modules.title, modules.summary,
+              modules.sequence_no, modules.status::text AS status,
+              topics.code AS topic_code, subtests.code AS subject_code,
+              module_assets.id AS asset_id,
+              module_assets.asset_type::text AS asset_type,
+              module_assets.source_kind::text AS source_kind,
+              module_assets.managed_asset_id,
+              module_assets.media_url,
+              module_assets.mime_type,
+              module_assets.original_name,
+              module_assets.duration_seconds,
+              module_assets.title AS asset_title
+         FROM modules
+         JOIN topics ON topics.id = modules.topic_id
+         JOIN subtests ON subtests.id = topics.subtest_id
+         LEFT JOIN module_assets ON module_assets.module_id = modules.id
+        WHERE modules.code = ANY($1::text[])
+        ORDER BY subtests.sort_order, modules.sequence_no, modules.code, module_assets.asset_type`,
+      [DEMO_CODES],
     );
-    const lessons = groupRowsByCode(lessonResult.rows);
-    for (const expected of EXPECTED_LESSONS) {
-      const rows = lessons.get(expected.code) ?? [];
-      if (rows.length !== 1) {
-        failures.push(`lesson ${expected.code}: expected one module/primary-slot row, found ${rows.length}`);
+
+    const lessonsByCode = new Map();
+    for (const row of lessonResult.rows) {
+      const lesson = lessonsByCode.get(row.code) ?? {
+        assets: [],
+        code: row.code,
+        subjectCode: row.subject_code,
+        summary: row.summary,
+        sequenceNo: row.sequence_no,
+        status: row.status,
+        title: row.title,
+        topicCode: row.topic_code,
+      };
+      if (row.asset_id) lesson.assets.push(row);
+      lessonsByCode.set(row.code, lesson);
+    }
+    if (lessonsByCode.size !== MATERI_DEMO_MODULES.length) {
+      failures.push(`demo modules: expected exactly ${MATERI_DEMO_MODULES.length}, found ${lessonsByCode.size}`);
+    }
+
+    for (const expected of MATERI_DEMO_MODULES) {
+      const lesson = lessonsByCode.get(expected.code);
+      if (!lesson) {
+        failures.push(`demo module ${expected.code}: missing`);
         continue;
       }
-      const [lesson] = rows;
-      if (lesson.topic_code !== expected.topicCode) failures.push(`lesson ${expected.code}: topic is ${lesson.topic_code ?? "missing"}, expected ${expected.topicCode}`);
-      if (lesson.sequence_no !== expected.sequenceNo) failures.push(`lesson ${expected.code}: sequence is ${lesson.sequence_no}, expected ${expected.sequenceNo}`);
-      if (lesson.title !== expected.title) failures.push(`lesson ${expected.code}: title is ${JSON.stringify(lesson.title)}, expected ${JSON.stringify(expected.title)}`);
-      if (lesson.status !== "published") failures.push(`lesson ${expected.code}: status is ${lesson.status ?? "missing"}, expected published`);
-      if (!lesson.primary_asset_id || lesson.primary_asset_type !== "video") failures.push(`lesson ${expected.code}: slot 0 must contain a video asset`);
-      if (lesson.primary_duration_seconds !== expected.durationSeconds) failures.push(`lesson ${expected.code}: duration is ${lesson.primary_duration_seconds}, expected ${expected.durationSeconds}`);
-      if (lesson.primary_media_url !== INITIAL_PLACEHOLDER_MEDIA_URL) failures.push(`lesson ${expected.code}: media URL differs from the initial placeholder`);
-    }
+      if (lesson.subjectCode !== expected.subjectCode) failures.push(`demo module ${expected.code}: subject is ${lesson.subjectCode}, expected ${expected.subjectCode}`);
+      if (lesson.topicCode !== expected.topicCode) failures.push(`demo module ${expected.code}: topic is ${lesson.topicCode}, expected ${expected.topicCode}`);
+      if (lesson.sequenceNo !== expected.sectionNo) failures.push(`demo module ${expected.code}: sequence is ${lesson.sequenceNo}, expected ${expected.sectionNo}`);
+      if (lesson.status !== "published") failures.push(`demo module ${expected.code}: must be published`);
+      if (!lesson.title.startsWith("[DEMO]")) failures.push(`demo module ${expected.code}: title must be clearly marked [DEMO]`);
+      if (!lesson.summary?.includes("DEMO ONLY")) failures.push(`demo module ${expected.code}: summary must identify temporary demo content`);
 
-    const canonicalModuleResult = await client.query(
-      `SELECT modules.code, topics.code AS topic_code
-       FROM modules
-       JOIN topics ON topics.id = modules.topic_id
-       WHERE topics.code = ANY($1::text[])`,
-      [EXPECTED_TOPICS.map((topic) => topic.code)],
-    );
-    const expectedLessonsByCode = new Map(EXPECTED_LESSONS.map((lesson) => [lesson.code, lesson]));
-    for (const row of canonicalModuleResult.rows) {
-      const expected = expectedLessonsByCode.get(row.code);
-      if (!expected) {
-        failures.push(`section ${row.topic_code}: unexpected lesson ${row.code}`);
-      } else if (row.topic_code !== expected.topicCode) {
-        failures.push(`lesson ${row.code}: appears in ${row.topic_code}, expected ${expected.topicCode}`);
+      const attachments = lesson.assets.filter((asset) => asset.asset_type === "attachment");
+      const videos = lesson.assets.filter((asset) => asset.asset_type === "video");
+      const otherAssets = lesson.assets.filter((asset) => !["attachment", "video"].includes(asset.asset_type));
+      if (attachments.length !== 1) failures.push(`demo module ${expected.code}: expected exactly one attachment resource, found ${attachments.length}`);
+      if (otherAssets.length > 0) failures.push(`demo module ${expected.code}: contains unsupported asset role(s) ${otherAssets.map((asset) => asset.asset_type).join(", ")}`);
+      if (videos.length > 1) failures.push(`demo module ${expected.code}: expected at most one optional video resource`);
+      if (expected.withVideo && videos.length !== 1) failures.push(`demo module ${expected.code}: document-plus-video coverage requires one optional video`);
+      if (!expected.withVideo && videos.length !== 0) failures.push(`demo module ${expected.code}: document-only coverage must not contain a video`);
+
+      const attachment = attachments[0];
+      if (attachment) {
+        if (attachment.source_kind !== "hosted") failures.push(`demo module ${expected.code}: PDF source_kind must be hosted`);
+        if (attachment.managed_asset_id !== null) failures.push(`demo module ${expected.code}: local demo PDF must not reference a managed Media Asset`);
+        if (attachment.mime_type?.toLowerCase() !== MATERI_DOCUMENT_MIME_TYPE) failures.push(`demo module ${expected.code}: PDF MIME type must be ${MATERI_DOCUMENT_MIME_TYPE}`);
+        if (attachment.original_name !== MATERI_DEMO_PDF_FILENAME) failures.push(`demo module ${expected.code}: PDF original_name must be ${MATERI_DEMO_PDF_FILENAME}`);
+        if (!isAbsoluteHttpUrl(attachment.media_url) || !isPdfUrl(attachment.media_url)) failures.push(`demo module ${expected.code}: PDF media_url must be an absolute HTTP(S) .pdf URL`);
+        if (!attachment.asset_title?.startsWith("[DEMO]")) failures.push(`demo module ${expected.code}: PDF asset title must be clearly marked [DEMO]`);
+      }
+      const video = videos[0];
+      if (video) {
+        if (video.source_kind !== "hosted") failures.push(`demo module ${expected.code}: optional video source_kind must be hosted`);
+        if (video.media_url !== MATERI_DEMO_VIDEO_URL) failures.push(`demo module ${expected.code}: optional video URL differs from the approved placeholder`);
+        if (video.duration_seconds !== MATERI_DEMO_VIDEO_DURATION_SECONDS || !Number.isInteger(video.duration_seconds) || video.duration_seconds <= 0) failures.push(`demo module ${expected.code}: optional video duration must be a positive integer`);
+        if (!video.asset_title?.startsWith("[DEMO]")) failures.push(`demo module ${expected.code}: video asset title must be clearly marked [DEMO]`);
       }
     }
 
-    const duplicateSlotResult = await client.query(
-      `SELECT module_id, sort_order, COUNT(*)::int AS count
-       FROM module_assets
-       GROUP BY module_id, sort_order
+    const duplicateCodeResult = await client.query(
+      `SELECT code, COUNT(*)::int AS count
+         FROM modules
+        WHERE code = ANY($1::text[])
+        GROUP BY code
        HAVING COUNT(*) > 1`,
+      [DEMO_CODES],
     );
-    for (const duplicate of duplicateSlotResult.rows) {
-      failures.push(`module asset slot ${duplicate.module_id}/${duplicate.sort_order}: ${duplicate.count} rows found`);
-    }
+    if (duplicateCodeResult.rowCount) failures.push("demo module codes are duplicated in the database");
 
     if (failures.length > 0) {
-      throw new Error(`Materi initial cutover parity failed:\n- ${failures.join("\n- ")}`);
+      throw new Error(`Materi document-first catalogue verification failed:\n- ${failures.join("\n- ")}`);
     }
 
-    console.log("Materi initial cutover parity passed: exact 7-subject, 21-section, 53-lesson catalogue with canonical order and placeholder primary videos.");
+    const optionalVideoCount = MATERI_DEMO_MODULES.filter((module) => module.withVideo).length;
+    console.log(`Materi document-first catalogue passed: 7 subjects, 21 sections, 21 stable demo modules, 21 hosted PDF attachments, ${optionalVideoCount} optional videos, document-only and document-plus-video coverage. Verification selects resources by explicit asset role and does not rely on a slot-0/video assumption.`);
   } finally {
     await client.end();
   }

@@ -104,6 +104,7 @@ function MentorDashboardPageModule({
           action={
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
+                nativeButton={false}
                 render={<Link href="/mentor/materi" />}
                 size="sm"
                 variant="brandOutline"
@@ -130,6 +131,7 @@ function MentorDashboardPageModule({
         <SectionHeading
           action={
             <Button
+              nativeButton={false}
               render={<Link href="/mentor/tryout" />}
               size="sm"
               variant="brandOutline"

@@ -70,7 +70,7 @@ const quickAccessItems: Array<{
   icon: DashboardIcon;
   label: string;
 }> = [
-  { description: "Lanjutkan modul belajarmu", href: "/courses", icon: BookOpen, label: "Materi" },
+  { description: "Lanjutkan bacaanmu", href: "/courses", icon: BookOpen, label: "Materi" },
   { description: "Latihan soal sesuai subtes", href: "/quiz", icon: ListChecks, label: "Kuis" },
   { description: "Uji kesiapan UTBK", href: "/tryout", icon: Gauge, label: "Tryout" },
   { description: "Tanya dan susun strategi belajar", href: "/vera-ai", icon: Bot, label: "Vera AI" },
@@ -84,7 +84,7 @@ const quickAccessItems: Array<{
 const dailyMissionItems = [
   "Daftar Tryout SNBT Pintarly",
   "Kerjakan Latihan Kilat 10 Soal PU (Penalaran Umum)",
-  "Tonton 1 Video Materi Pembelajaran",
+  "Selesaikan 1 Bacaan Materi",
 ];
 
 const chapterTabs = [

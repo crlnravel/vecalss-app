@@ -3,6 +3,7 @@
 import {
   ChevronRight,
   FileImage,
+  FileText,
   Folder,
   FolderInput,
   FolderPlus,
@@ -62,9 +63,14 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  allMediaMimeTypes,
   formatMediaBytes,
+  imageMediaMimeTypes,
+  isImageMimeType,
+  isPdfMimeType,
   validateMediaUpload,
   type MediaScope,
+  type SupportedMediaMimeType,
 } from "@/lib/media/domain";
 import type {
   MediaAssetDto,
@@ -168,6 +174,7 @@ const getItemDate = (value: string) => dateFormatter.format(new Date(value));
 
 function MediaLibrary({
   appearance = "default",
+  allowedMimeTypes,
   className,
   onSelect,
   scope,
@@ -175,6 +182,7 @@ function MediaLibrary({
   variant = "manage",
 }: {
   appearance?: "default" | "drive";
+  allowedMimeTypes?: readonly SupportedMediaMimeType[];
   className?: string;
   onSelect?: (asset: MediaAssetDto) => void;
   scope: MediaScope;
@@ -203,6 +211,20 @@ function MediaLibrary({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const isPicker = variant === "picker";
   const isDrive = appearance === "drive" && !isPicker;
+  const defaultMimeTypes = scope === "admin"
+    ? imageMediaMimeTypes
+    : isPicker
+      ? imageMediaMimeTypes
+      : allMediaMimeTypes;
+  const acceptedMimeTypes = allowedMimeTypes ?? defaultMimeTypes;
+  const mimeTypesQuery = allowedMimeTypes ?? (isPicker || scope === "admin" ? imageMediaMimeTypes : null);
+  const shouldFilterMimeTypes = mimeTypesQuery !== null;
+  const mimeTypesQueryString = mimeTypesQuery?.join(",") ?? "";
+  const mediaLabel = acceptedMimeTypes.length === 1 && isPdfMimeType(acceptedMimeTypes[0])
+    ? "PDF"
+    : acceptedMimeTypes.length > 0 && acceptedMimeTypes.every((mimeType) => isImageMimeType(mimeType))
+      ? "gambar"
+      : "media";
 
   const loadLibrary = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -210,6 +232,7 @@ function MediaLibrary({
     const search = new URLSearchParams();
     if (folderId) search.set("folderId", folderId);
     if (query.trim()) search.set("query", query.trim());
+    if (shouldFilterMimeTypes) search.set("mimeTypes", mimeTypesQueryString);
 
     try {
       const response = await fetch(`/api/media/${scope}?${search.toString()}`, {
@@ -223,7 +246,7 @@ function MediaLibrary({
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [folderId, query, scope]);
+  }, [folderId, mimeTypesQueryString, query, scope, shouldFilterMimeTypes]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -317,19 +340,24 @@ function MediaLibrary({
         setUploadStatus(null);
         return;
       }
+      if (!acceptedMimeTypes.includes(file.type as SupportedMediaMimeType)) {
+        setError(`${file.name}: Pilih ${mediaLabel} yang sesuai dengan picker ini.`);
+        setUploadStatus(null);
+        return;
+      }
 
       setUploadStatus({ current: index + 1, fileName: file.name, progress: 0, total: files.length });
       try {
-        const [ticket, dimensions] = await Promise.all([
-          postMediaAction<MediaUploadTicket>(scope, {
-            action: "request-upload",
-            fileName: file.name,
-            folderId,
-            mimeType: file.type,
-            sizeBytes: file.size,
-          }),
-          readImageDimensions(file),
-        ]);
+        const ticket = await postMediaAction<MediaUploadTicket>(scope, {
+          action: "request-upload",
+          fileName: file.name,
+          folderId,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        });
+        const dimensions = isImageMimeType(file.type)
+          ? await readImageDimensions(file)
+          : { height: null, width: null };
         await putFile(file, ticket.uploadUrl, (progress) => {
           setUploadStatus({ current: index + 1, fileName: file.name, progress, total: files.length });
         });
@@ -340,7 +368,7 @@ function MediaLibrary({
           width: dimensions.width,
         });
       } catch (uploadError) {
-        setError(uploadError instanceof Error ? uploadError.message : "Upload gambar gagal.");
+        setError(uploadError instanceof Error ? uploadError.message : `Upload ${mediaLabel} gagal.`);
         setUploadStatus(null);
         return;
       }
@@ -348,7 +376,7 @@ function MediaLibrary({
 
     setUploadStatus(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    refreshLibrary(files.length === 1 ? "Gambar berhasil diupload." : `${files.length} gambar berhasil diupload.`);
+    refreshLibrary(files.length === 1 ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diupload.` : `${files.length} ${mediaLabel} berhasil diupload.`);
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -412,12 +440,12 @@ function MediaLibrary({
               {!isDrive ? "Folder baru" : null}
             </Button>
           ) : null}
-          <Button aria-label={uploadStatus ? "Mengupload gambar" : "Upload gambar"} disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} size={isDrive ? "icon" : "default"} variant="brand">
+          <Button aria-label={uploadStatus ? `Mengupload ${mediaLabel}` : `Upload ${mediaLabel}`} disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} size={isDrive ? "icon" : "default"} variant="brand">
             {uploadStatus ? <LoaderCircle className="animate-spin" /> : <Upload />}
-            {!isDrive ? (uploadStatus ? "Mengupload" : "Upload gambar") : null}
+            {!isDrive ? (uploadStatus ? "Mengupload" : `Upload ${mediaLabel}`) : null}
           </Button>
           <input
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept={acceptedMimeTypes.join(",")}
             className="sr-only"
             multiple
             onChange={(event) => void handleFiles(Array.from(event.target.files ?? []))}
@@ -427,7 +455,7 @@ function MediaLibrary({
         </div>
 
         <label className={cn("relative block w-full xl:max-w-md", isDrive && "order-1 min-w-0 flex-1 xl:w-auto xl:max-w-none")}>
-          <span className="sr-only">Cari gambar</span>
+          <span className="sr-only">Cari {mediaLabel}</span>
           <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-500" />
           <Input
             className={cn("h-11 border-primary-100 bg-white pl-11", isDrive && "rounded-full bg-primary-50/55 shadow-none")}
@@ -438,7 +466,7 @@ function MediaLibrary({
                 setQuery(searchInput.trim());
               }
             }}
-            placeholder="Cari nama gambar..."
+            placeholder={`Cari nama ${mediaLabel}...`}
             value={searchInput}
           />
         </label>
@@ -446,7 +474,7 @@ function MediaLibrary({
 
       {!snapshot?.isStorageConfigured && !isLoading ? (
         <div className="rounded-3xl border border-primary-100 bg-primary-50/70 px-5 py-4 text-sm leading-6 text-secondary-700" role="status">
-          R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview gambar.
+          R2 belum dikonfigurasi. Tambahkan kredensial server untuk mengaktifkan upload dan preview media.
         </div>
       ) : null}
       {notice ? <p className="text-sm font-medium text-primary-800" role="status">{notice}</p> : null}
@@ -477,8 +505,8 @@ function MediaLibrary({
           <div className="pointer-events-none absolute inset-3 flex items-center justify-center rounded-[1.5rem] border-2 border-dashed border-primary-500 bg-primary-50/90 text-center">
             <div className="flex flex-col items-center gap-2 text-primary-900">
               <Upload className="size-8" />
-              <p className="font-semibold">Lepaskan gambar untuk upload</p>
-              <p className="text-sm text-secondary-600">JPG, PNG, WebP, atau GIF · maksimal 15 MB</p>
+              <p className="font-semibold">Lepaskan {mediaLabel} untuk upload</p>
+              <p className="text-sm text-secondary-600">{acceptedMimeTypes.join(", ")} · maksimal 15 MB</p>
             </div>
           </div>
         ) : null}
@@ -576,7 +604,9 @@ function MediaLibrary({
                   <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", isDrive && viewMode === "list" && "min-h-16 rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", isDrive && viewMode === "grid" && "group relative block overflow-hidden rounded-2xl border border-primary-100 bg-primary-50/35 p-1.5 hover:border-primary-200 hover:bg-primary-50/70", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}>
                     <button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "list" && "min-h-16", isDrive && viewMode === "grid" && "flex w-full flex-col items-stretch gap-0 rounded-xl")} onClick={() => void handlePreview(asset)} type="button">
                       <span className={cn("flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800", isDrive && viewMode === "list" && "size-10", isDrive && viewMode === "grid" && "aspect-[5/3] size-auto w-full rounded-xl bg-white")}>
-                        {(asset.thumbnailUrl ?? asset.previewUrl) ? (
+                        {isPdfMimeType(asset.mimeType) ? (
+                          <FileText className="size-7 text-primary-800" />
+                        ) : (asset.thumbnailUrl ?? asset.previewUrl) ? (
                           // Signed R2 URLs are intentionally dynamic and cannot be declared in next/image remotePatterns.
                           // eslint-disable-next-line @next/next/no-img-element
                           <img alt="" className={cn("size-full object-cover", isDrive && viewMode === "grid" && "object-contain p-2")} loading="lazy" src={asset.thumbnailUrl ?? asset.previewUrl ?? undefined} />
@@ -602,11 +632,11 @@ function MediaLibrary({
         ) : (
           <Empty className="min-h-[22rem] border-0">
             <EmptyHeader>
-              <EmptyMedia variant="icon">{query ? <Search /> : <ImageOff />}</EmptyMedia>
-              <EmptyTitle>{query ? "Gambar tidak ditemukan" : "Folder ini masih kosong"}</EmptyTitle>
-              <EmptyDescription>{query ? "Coba nama file lain atau hapus pencarian." : "Upload gambar atau buat folder untuk mulai menyusun library."}</EmptyDescription>
+              <EmptyMedia variant="icon">{query ? <Search /> : <FileImage />}</EmptyMedia>
+              <EmptyTitle>{query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : "Folder ini masih kosong"}</EmptyTitle>
+              <EmptyDescription>{query ? "Coba nama file lain atau hapus pencarian." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}</EmptyDescription>
             </EmptyHeader>
-            {!query ? <EmptyContent><Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload gambar</Button></EmptyContent> : null}
+            {!query ? <EmptyContent><Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload {mediaLabel}</Button></EmptyContent> : null}
           </Empty>
         )}
         </div>
@@ -644,15 +674,41 @@ function MediaLibrary({
       </Dialog>
 
       <Dialog onOpenChange={(open) => { if (!open) setPreviewAsset(null); }} open={Boolean(previewAsset)}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader><DialogTitle>{previewAsset?.name}</DialogTitle><DialogDescription>{previewAsset ? `${formatMediaBytes(previewAsset.sizeBytes)} · ${previewAsset.mimeType} · diupload oleh ${previewAsset.uploadedBy}` : "Preview gambar"}</DialogDescription></DialogHeader>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader><DialogTitle>{previewAsset?.name}</DialogTitle><DialogDescription>{previewAsset ? `${formatMediaBytes(previewAsset.sizeBytes)} · ${previewAsset.mimeType} · diupload oleh ${previewAsset.uploadedBy}` : "Preview media"}</DialogDescription></DialogHeader>
           <div className="flex min-h-64 items-center justify-center overflow-hidden rounded-3xl bg-primary-50/70">
-            {previewAsset?.previewUrl ? (
+            {previewAsset?.previewUrl && isPdfMimeType(previewAsset.mimeType) ? (
+              <div className="flex w-full flex-col gap-4 p-4">
+                <iframe
+                  className="h-[60vh] min-h-96 w-full rounded-2xl border border-primary-100 bg-white"
+                  src={previewAsset.previewUrl}
+                  title={`Preview ${previewAsset.name}`}
+                />
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <a
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 text-sm font-semibold text-primary-900 hover:bg-primary-50"
+                    href={previewAsset.previewUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <FileText className="size-4" />
+                    Buka PDF
+                  </a>
+                  <a
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800"
+                    download={previewAsset.name}
+                    href={previewAsset.previewUrl}
+                  >
+                    Download PDF
+                  </a>
+                </div>
+              </div>
+            ) : previewAsset?.previewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img alt={previewAsset.name} className="max-h-[60vh] max-w-full object-contain" src={previewAsset.previewUrl} />
             ) : <div className="flex flex-col items-center gap-2 text-secondary-500"><ImageOff className="size-8" /><span>Preview belum tersedia</span></div>}
           </div>
-          {isPicker && previewAsset ? <DialogFooter><Button onClick={() => onSelect?.(previewAsset)} variant="brand">Pilih gambar</Button></DialogFooter> : null}
+          {isPicker && previewAsset ? <DialogFooter><Button onClick={() => onSelect?.(previewAsset)} variant="brand">Pilih {isPdfMimeType(previewAsset.mimeType) ? "PDF" : "gambar"}</Button></DialogFooter> : null}
         </DialogContent>
       </Dialog>
     </section>
@@ -660,12 +716,14 @@ function MediaLibrary({
 }
 
 function MediaPickerDialog({
+  allowedMimeTypes,
   onOpenChange,
   onSelect,
   open,
   selectedAssetId,
-  title = "Pilih gambar",
+  title,
 }: {
+  allowedMimeTypes?: readonly SupportedMediaMimeType[];
   onOpenChange: (open: boolean) => void;
   onSelect: (asset: MediaAssetDto) => void;
   open: boolean;
@@ -676,12 +734,14 @@ function MediaPickerDialog({
     onSelect(asset);
     onOpenChange(false);
   };
+  const isPdfPicker = allowedMimeTypes?.length === 1 && isPdfMimeType(allowedMimeTypes[0]);
+  const pickerTitle = title ?? (isPdfPicker ? "Pilih PDF" : "Pilih gambar");
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
-        <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>Pilih dari library Kapten atau upload gambar baru.</DialogDescription></DialogHeader>
-        <MediaLibrary onSelect={handleSelect} scope="kapten" selectedAssetId={selectedAssetId} variant="picker" />
+        <DialogHeader><DialogTitle>{pickerTitle}</DialogTitle><DialogDescription>Pilih dari library Kapten atau upload {isPdfPicker ? "PDF baru" : "gambar baru"}.</DialogDescription></DialogHeader>
+        <MediaLibrary allowedMimeTypes={allowedMimeTypes} onSelect={handleSelect} scope="kapten" selectedAssetId={selectedAssetId} variant="picker" />
       </DialogContent>
     </Dialog>
   );
@@ -691,21 +751,27 @@ function MediaAssetPreview({
   assetId,
   alt,
   className,
+  showDownloadControls = false,
   scope = "kapten",
 }: {
   alt: string;
   assetId: string;
   className?: string;
+  showDownloadControls?: boolean;
   scope?: MediaScope;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [mimeType, setMimeType] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     void fetch(`/api/media/${scope}/assets/${assetId}/preview`, { cache: "no-store", signal: controller.signal })
-      .then((response) => readJson<{ previewUrl: string }>(response))
-      .then((payload) => setPreviewUrl(payload.previewUrl))
+      .then((response) => readJson<{ mimeType?: string; previewUrl: string }>(response))
+      .then((payload) => {
+        setMimeType(payload.mimeType ?? null);
+        setPreviewUrl(payload.previewUrl);
+      })
       .catch((previewError) => {
         if (!(previewError instanceof DOMException && previewError.name === "AbortError")) setHasError(true);
       });
@@ -713,9 +779,30 @@ function MediaAssetPreview({
   }, [assetId, scope]);
 
   if (hasError) {
-    return <div className={cn("flex min-h-24 items-center justify-center rounded-2xl bg-primary-50 text-sm text-secondary-500", className)}><ImageOff className="mr-2 size-4" />Gambar tidak tersedia</div>;
+    return <div className={cn("flex min-h-24 items-center justify-center rounded-2xl bg-primary-50 text-sm text-secondary-500", className)}><ImageOff className="mr-2 size-4" />Media tidak tersedia</div>;
   }
   if (!previewUrl) return <Skeleton className={cn("min-h-24 w-full rounded-2xl", className)} />;
+
+  if (isPdfMimeType(mimeType)) {
+    return <div className={cn("flex min-h-24 flex-wrap items-center justify-center gap-2 rounded-2xl bg-primary-50 px-4", className)}>
+      <a
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-primary-900 hover:bg-primary-100"
+        href={previewUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        <FileText className="size-5" />
+        Buka PDF
+      </a>
+      {showDownloadControls ? <a
+        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800"
+        download
+        href={previewUrl}
+      >
+        Download PDF
+      </a> : null}
+    </div>;
+  }
 
   // eslint-disable-next-line @next/next/no-img-element
   return <img alt={alt} className={cn("max-h-72 w-full rounded-2xl object-contain", className)} src={previewUrl} />;

@@ -1,4 +1,4 @@
-import { parseMediaScope } from "@/lib/media/domain";
+import { isPdfMimeType, isSupportedMediaMimeType, parseMediaScope } from "@/lib/media/domain";
 import {
   MediaServiceError,
   createMediaFolder,
@@ -38,7 +38,14 @@ export async function GET(
     const url = new URL(request.url);
     const folderId = url.searchParams.get("folderId");
     const query = url.searchParams.get("query") ?? "";
-    return Response.json(await listMediaLibrary({ folderId, query, scope }));
+    const rawMimeTypes = url.searchParams.get("mimeTypes")?.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+    if (rawMimeTypes?.some((mimeType) => !isSupportedMediaMimeType(mimeType))) {
+      throw new MediaServiceError("Filter tipe media tidak valid.");
+    }
+    if (scope === "admin" && rawMimeTypes?.some((mimeType) => isPdfMimeType(mimeType))) {
+      throw new MediaServiceError("Media Admin hanya mendukung gambar.");
+    }
+    return Response.json(await listMediaLibrary({ folderId, mimeTypes: rawMimeTypes, query, scope }));
   } catch (error) {
     return errorResponse(error);
   }

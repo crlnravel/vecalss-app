@@ -37,7 +37,7 @@ function StudentWorkspaceShell({
   children,
   mainClassName,
   notificationItems = studentNotificationItems,
-  searchPlaceholder = "Cari materi, video, atau topik...",
+  searchPlaceholder = "Cari materi, bacaan, atau topik...",
   showSearch = true,
   session,
 }: {

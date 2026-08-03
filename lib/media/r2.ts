@@ -8,6 +8,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+import { safeDownloadFileName } from "./domain";
+
 const UPLOAD_URL_TTL_SECONDS = 10 * 60;
 const PREVIEW_URL_TTL_SECONDS = 15 * 60;
 
@@ -76,14 +78,29 @@ const createMediaUploadUrl = async (objectKey: string, mimeType: string) => {
   return { expiresInSeconds: UPLOAD_URL_TTL_SECONDS, uploadUrl };
 };
 
-const createMediaPreviewUrl = async (objectKey: string) => {
+type MediaPreviewUrlOptions = {
+  contentDisposition?: "attachment" | "inline";
+  fileName?: string | null;
+};
+
+const createMediaPreviewUrl = async (
+  objectKey: string,
+  options: MediaPreviewUrlOptions = {},
+) => {
   const { client, configuration } = getR2Client();
+  const disposition = options.contentDisposition
+    ? `${options.contentDisposition}; filename="${safeDownloadFileName(options.fileName)}"`
+    : undefined;
 
   return getSignedUrl(
     client,
     new GetObjectCommand({
       Bucket: configuration.bucketName,
       Key: objectKey,
+      ...(disposition ? { ResponseContentDisposition: disposition } : {}),
+      ...(options.contentDisposition === "attachment"
+        ? { ResponseContentType: "application/pdf" }
+        : {}),
     }),
     { expiresIn: PREVIEW_URL_TTL_SECONDS },
   );
@@ -114,6 +131,7 @@ const headMediaObject = async (objectKey: string) => {
 };
 
 export {
+  PREVIEW_URL_TTL_SECONDS,
   R2ConfigurationError,
   createMediaPreviewUrl,
   createMediaUploadUrl,
@@ -121,3 +139,4 @@ export {
   isR2Configured,
   readMediaObject,
 };
+export type { MediaPreviewUrlOptions };

@@ -1,4 +1,5 @@
 import type {
+  MateriDocumentResource,
   MentorMateriLesson,
   MentorMateriSubject,
 } from "@/lib/materi/repository";
@@ -7,8 +8,14 @@ type KaptenMateriStatus = "draft" | "scheduled" | "published" | "archived";
 
 type KaptenMateriView = {
   code: string;
+  document: MateriDocumentResource | null;
+  documentMimeType: string;
+  documentName: string;
+  documentSource: MateriDocumentResource["sourceKind"] | null;
+  documentUrl: string;
   description: string;
   duration: string;
+  hasOptionalVideo: boolean;
   href: string;
   id: string;
   lifecycleStatus: KaptenMateriStatus;
@@ -23,6 +30,7 @@ type KaptenMateriView = {
   subjectName: string;
   subjectSlug: string;
   title: string;
+  optionalVideoUrl: string;
   updatedAt: string;
   updatedAtEpoch: number;
   videoUrl: string;
@@ -57,26 +65,41 @@ function toKaptenMateriView(
     subject: { code: string; name: string; slug: string };
   },
 ): KaptenMateriView {
-  const duration = formatDuration(lesson.primaryVideo?.durationSeconds);
-  const videoUrl = lesson.primaryVideo?.mediaUrl ?? "";
+  const optionalVideo = lesson.optionalVideo ?? lesson.primaryVideo;
+  const duration = formatDuration(optionalVideo?.durationSeconds);
+  const videoUrl = optionalVideo?.mediaUrl ?? "";
+  const documentName = lesson.document?.originalName ?? "PDF belum dipilih";
+  const documentSource = lesson.document?.sourceKind ?? null;
+  const hasOptionalVideo = Boolean(optionalVideo);
+  const documentMetric = lesson.document ? "1 bacaan" : "PDF belum dipilih";
+  const videoMetric = hasOptionalVideo ? `Video opsional${duration ? ` · ${duration}` : ""}` : "Tanpa video";
   return {
     code: lesson.code,
-    description: `${lesson.subject.name} · Video Materi`,
+    document: lesson.document,
+    documentMimeType: lesson.document?.mimeType ?? "",
+    documentName,
+    documentSource,
+    documentUrl: lesson.document?.url ?? "",
+    description: `${lesson.subject.name} · Bacaan PDF${hasOptionalVideo ? " · Video opsional" : ""}`,
     duration,
+    hasOptionalVideo,
     href: `/mentor/materi/${lesson.code}`,
     id: lesson.code,
     lifecycleStatus: lesson.lifecycleStatus,
     position: lesson.sequenceNo,
-    primaryMetric: lesson.readiness === "ready" ? (duration || "Durasi belum diisi") : `${duration || "Durasi belum diisi"} · Belum siap`,
+    primaryMetric: lesson.readiness === "ready"
+      ? `${documentMetric} · ${videoMetric}`
+      : `${documentMetric} · Belum siap`,
     progress: lesson.readiness === "ready" ? 100 : 0,
     readiness: lesson.readiness,
-    resourceCount: 1,
+    resourceCount: (lesson.document ? 1 : 0) + (hasOptionalVideo ? 1 : 0),
     resourceType: "materi",
     status: lesson.lifecycleStatus,
     subjectCode: lesson.subject.code,
     subjectName: lesson.subject.name,
     subjectSlug: lesson.subject.slug,
     title: lesson.title,
+    optionalVideoUrl: videoUrl,
     updatedAt: relativeEditedAt(lesson.updatedAt),
     updatedAtEpoch: new Date(lesson.updatedAt).getTime(),
     videoUrl,

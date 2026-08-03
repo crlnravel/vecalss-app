@@ -1,24 +1,42 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 import {
   getCourseLesson,
   getCourseProgressState,
   getSeedCourseProgress,
+  getLessonProgressStatus,
   type Course,
   type CourseProgressSnapshot,
 } from "@/modules/courses/data";
 
-const STUDENT_MATERI_PROGRESS_STORAGE_KEY = "vecalss.student.materi-progress.v1";
-const STUDENT_MATERI_PROGRESS_STORAGE_VERSION = 1;
+// v2 is a deliberate curriculum boundary. The old video-first key and its
+// baseline completions are never read or merged into the ebook-first path.
+const STUDENT_MATERI_PROGRESS_STORAGE_KEY = "vecalss.student.materi-progress.v2";
+const STUDENT_MATERI_PROGRESS_STORAGE_VERSION = 2;
+const anonymousStudentIdentity = "anonymous";
 const progressChangeEvent = "vecalss-student-materi-progress-change";
 const serverStorageSnapshot = "__vecalss_server_student_materi_progress_snapshot__";
 
 type StoredLearningProgress = Record<string, CourseProgressSnapshot>;
 
-let inMemoryProgress: StoredLearningProgress | null = null;
-let storageUnavailable = false;
+const inMemoryProgressByIdentity = new Map<string, StoredLearningProgress>();
+const storageUnavailableIdentities = new Set<string>();
+const hydratedServerProgressKeys = new Map<string, string>();
+
+function normalizeStudentIdentity(studentIdentity?: string) {
+  const normalized = studentIdentity?.trim();
+  return normalized || anonymousStudentIdentity;
+}
+
+function getStudentMateriProgressStorageKey(studentIdentity?: string) {
+  return `${STUDENT_MATERI_PROGRESS_STORAGE_KEY}.${encodeURIComponent(normalizeStudentIdentity(studentIdentity))}`;
+}
+
+function getProgressChangeEvent(studentIdentity?: string) {
+  return `${progressChangeEvent}:${encodeURIComponent(normalizeStudentIdentity(studentIdentity))}`;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,10 +74,11 @@ function parseStoredLearningProgress(
       }
 
       const completedLessonIds = rawProgress.completedLessonIds;
+      const lessonIds = new Set(course.lessons.map((lesson) => lesson.id));
       if (
         !Array.isArray(completedLessonIds)
         || completedLessonIds.some(
-          (lessonId) => typeof lessonId !== "string" || lessonId.length === 0,
+          (lessonId) => typeof lessonId !== "string" || lessonId.length === 0 || !lessonIds.has(lessonId),
         )
         || new Set(completedLessonIds).size !== completedLessonIds.length
       ) {
@@ -69,7 +88,12 @@ function parseStoredLearningProgress(
       const skippedToLessonId = rawProgress.skippedToLessonId;
       if (
         skippedToLessonId !== undefined
-        && (typeof skippedToLessonId !== "string" || skippedToLessonId.length === 0)
+        && (
+          typeof skippedToLessonId !== "string"
+          || skippedToLessonId.length === 0
+          || !lessonIds.has(skippedToLessonId)
+          || completedLessonIds.includes(skippedToLessonId)
+        )
       ) {
         return null;
       }
@@ -116,46 +140,52 @@ function mergeWithSeedProgress(
   return seed;
 }
 
-function readRawProgress() {
+function readRawProgress(studentIdentity?: string) {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
-    return window.localStorage.getItem(STUDENT_MATERI_PROGRESS_STORAGE_KEY);
+    return window.localStorage.getItem(getStudentMateriProgressStorageKey(studentIdentity));
   } catch {
-    storageUnavailable = true;
+    storageUnavailableIdentities.add(normalizeStudentIdentity(studentIdentity));
     return null;
   }
 }
 
-function readInMemoryProgress(courses: readonly Course[]) {
-  if (!inMemoryProgress) {
+function readInMemoryProgress(courses: readonly Course[], studentIdentity?: string) {
+  const identity = normalizeStudentIdentity(studentIdentity);
+  const progress = inMemoryProgressByIdentity.get(identity);
+  if (!progress) {
     return null;
   }
 
   try {
-    const validated = parseStoredLearningProgress(JSON.stringify(inMemoryProgress), courses);
+    const validated = parseStoredLearningProgress(JSON.stringify(progress), courses);
     return validated === null ? null : mergeWithSeedProgress(validated, courses);
   } catch {
     return null;
   }
 }
 
-function readLearningProgress(courses: readonly Course[]): StoredLearningProgress {
-  if (storageUnavailable) {
-    const memoryProgress = readInMemoryProgress(courses);
+function readLearningProgress(
+  courses: readonly Course[],
+  studentIdentity?: string,
+): StoredLearningProgress {
+  const identity = normalizeStudentIdentity(studentIdentity);
+  if (storageUnavailableIdentities.has(identity)) {
+    const memoryProgress = readInMemoryProgress(courses, identity);
     if (memoryProgress) {
       return memoryProgress;
     }
   }
 
-  return mergeWithSeedProgress(parseStoredLearningProgress(readRawProgress(), courses), courses);
+  return mergeWithSeedProgress(parseStoredLearningProgress(readRawProgress(identity), courses), courses);
 }
 
-function notifyProgressChange() {
+function notifyProgressChange(studentIdentity?: string) {
   try {
-    window.dispatchEvent(new Event(progressChangeEvent));
+    window.dispatchEvent(new Event(getProgressChangeEvent(studentIdentity)));
   } catch {
     // Event dispatch is best effort; the in-memory snapshot remains readable synchronously.
   }
@@ -164,29 +194,32 @@ function notifyProgressChange() {
 function writeLearningProgress(
   progress: StoredLearningProgress,
   courses: readonly Course[],
+  studentIdentity?: string,
 ) {
   if (typeof window === "undefined") {
     return false;
   }
 
+  const identity = normalizeStudentIdentity(studentIdentity);
+  const storageKey = getStudentMateriProgressStorageKey(identity);
   try {
     const serialized = JSON.stringify(progress);
     if (parseStoredLearningProgress(serialized, courses) === null) {
       return false;
     }
 
-    window.localStorage.setItem(STUDENT_MATERI_PROGRESS_STORAGE_KEY, serialized);
-    inMemoryProgress = null;
-    storageUnavailable = false;
-    notifyProgressChange();
+    window.localStorage.setItem(storageKey, serialized);
+    inMemoryProgressByIdentity.delete(identity);
+    storageUnavailableIdentities.delete(identity);
+    notifyProgressChange(identity);
     return true;
   } catch {
     try {
       const validated = parseStoredLearningProgress(JSON.stringify(progress), courses);
       if (validated !== null) {
-        inMemoryProgress = mergeWithSeedProgress(validated, courses);
-        storageUnavailable = true;
-        notifyProgressChange();
+        inMemoryProgressByIdentity.set(identity, mergeWithSeedProgress(validated, courses));
+        storageUnavailableIdentities.add(identity);
+        notifyProgressChange(identity);
       }
     } catch {
       // Do not retain a value that could not be serialized and validated.
@@ -199,9 +232,10 @@ function updateCourseProgress(
   courseSlug: string,
   update: (progress: CourseProgressSnapshot, course: Course) => CourseProgressSnapshot,
   courses: readonly Course[],
+  studentIdentity?: string,
 ) {
   const course = courses.find((candidate) => candidate.slug === courseSlug);
-  const current = readLearningProgress(courses);
+  const current = readLearningProgress(courses, studentIdentity);
   if (!course || !getCourseMap(courses).has(courseSlug)) {
     return current;
   }
@@ -210,17 +244,47 @@ function updateCourseProgress(
     ...current,
     [courseSlug]: update(current[courseSlug] ?? getSeedCourseProgress(course), course),
   };
-  writeLearningProgress(next, courses);
+  writeLearningProgress(next, courses, studentIdentity);
   return next;
+}
+
+function hydrateCourseProgress(
+  courseSlug: string,
+  snapshot: CourseProgressSnapshot,
+  courses: readonly Course[],
+  studentIdentity?: string,
+) {
+  const course = courses.find((candidate) => candidate.slug === courseSlug);
+  if (!course) return false;
+
+  const parsed = parseStoredLearningProgress(
+    JSON.stringify({ [courseSlug]: snapshot }),
+    courses,
+  );
+  if (!parsed) return false;
+
+  const current = readLearningProgress(courses, studentIdentity);
+  return writeLearningProgress(
+    { ...current, [courseSlug]: parsed[courseSlug]! },
+    courses,
+    studentIdentity,
+  );
 }
 
 function completeCourseLesson(
   courseSlug: string,
   lessonId: string,
   courses: readonly Course[],
+  studentIdentity?: string,
 ) {
   return updateCourseProgress(courseSlug, (progress, course) => {
-    if (!getCourseLesson(course, lessonId) || progress.completedLessonIds.includes(lessonId)) {
+    const lessonStatus = getLessonProgressStatus(course, lessonId, progress);
+    if (
+      !getCourseLesson(course, lessonId)
+      || lessonStatus === undefined
+      || lessonStatus === "locked"
+      || progress.completedLessonIds.includes(lessonId)
+    ) {
       return progress;
     }
 
@@ -228,13 +292,14 @@ function completeCourseLesson(
       ...progress,
       completedLessonIds: [...progress.completedLessonIds, lessonId],
     };
-  }, courses);
+  }, courses, studentIdentity);
 }
 
 function skipToCourseLesson(
   courseSlug: string,
   lessonId: string,
   courses: readonly Course[],
+  studentIdentity?: string,
 ) {
   return updateCourseProgress(courseSlug, (progress, course) => {
     if (
@@ -246,26 +311,62 @@ function skipToCourseLesson(
     }
 
     return { ...progress, skippedToLessonId: lessonId };
-  }, courses);
+  }, courses, studentIdentity);
 }
 
-function getStoredCourseProgress(courseSlug: string, courses: readonly Course[]) {
-  return readLearningProgress(courses)[courseSlug];
+function getStoredCourseProgress(
+  courseSlug: string,
+  courses: readonly Course[],
+  studentIdentity?: string,
+) {
+  return readLearningProgress(courses, studentIdentity)[courseSlug];
 }
 
-function useCourseProgress(course: Course, courses: readonly Course[]) {
+function useCourseProgress(
+  course: Course,
+  courses: readonly Course[],
+  serverProgress?: CourseProgressSnapshot,
+  serverIdentity?: string,
+) {
+  const serverProgressKey = serverProgress ? JSON.stringify(serverProgress) : null;
+  const normalizedIdentity = normalizeStudentIdentity(serverIdentity);
+  const storageKey = getStudentMateriProgressStorageKey(normalizedIdentity);
+  const hydrationKey = `${normalizedIdentity}:${course.slug}`;
+
+  useEffect(() => {
+    if (serverProgressKey === null || !serverProgress) {
+      hydratedServerProgressKeys.delete(hydrationKey);
+      return;
+    }
+
+    // Mark before writing so the external-store event triggered by the write
+    // immediately renders the cache snapshot rather than the server seed.
+    hydratedServerProgressKeys.set(hydrationKey, serverProgressKey);
+    hydrateCourseProgress(course.slug, serverProgress, courses, normalizedIdentity);
+  }, [course.slug, courses, hydrationKey, normalizedIdentity, serverProgress, serverProgressKey]);
+
   const serializedProgress = useSyncExternalStore(
     (onStoreChange) => {
-      window.addEventListener("storage", onStoreChange);
-      window.addEventListener(progressChangeEvent, onStoreChange);
+      const onStorageChange = (event: StorageEvent) => {
+        // Browser storage events are shared across accounts/tabs. Only the
+        // identity-scoped v2 key may invalidate this subscriber.
+        if (event.key !== null && event.key !== storageKey) {
+          return;
+        }
+        onStoreChange();
+      };
+      const changeEvent = getProgressChangeEvent(normalizedIdentity);
+      window.addEventListener("storage", onStorageChange);
+      window.addEventListener(changeEvent, onStoreChange);
       return () => {
-        window.removeEventListener("storage", onStoreChange);
-        window.removeEventListener(progressChangeEvent, onStoreChange);
+        window.removeEventListener("storage", onStorageChange);
+        window.removeEventListener(changeEvent, onStoreChange);
       };
     },
     () => {
-      const rawProgress = readRawProgress();
-      if (storageUnavailable && inMemoryProgress) {
+      const rawProgress = readRawProgress(normalizedIdentity);
+      const inMemoryProgress = inMemoryProgressByIdentity.get(normalizedIdentity);
+      if (storageUnavailableIdentities.has(normalizedIdentity) && inMemoryProgress) {
         return JSON.stringify(inMemoryProgress);
       }
 
@@ -274,12 +375,19 @@ function useCourseProgress(course: Course, courses: readonly Course[]) {
     () => serverStorageSnapshot,
   );
 
+  const shouldUseServerProgress = serverProgressKey !== null
+    && hydratedServerProgressKeys.get(hydrationKey) !== serverProgressKey;
+
   return useMemo(() => {
+    if (shouldUseServerProgress && serverProgress) {
+      return getCourseProgressState(course, serverProgress);
+    }
+
     const stored = serializedProgress === serverStorageSnapshot
       ? null
       : parseStoredLearningProgress(serializedProgress, courses);
     return getCourseProgressState(course, stored?.[course.slug] ?? getSeedCourseProgress(course));
-  }, [course, courses, serializedProgress]);
+  }, [course, courses, serializedProgress, serverProgress, shouldUseServerProgress]);
 }
 
 export {
@@ -288,9 +396,11 @@ export {
   parseStoredLearningProgress,
   readLearningProgress,
   completeCourseLesson,
+  hydrateCourseProgress,
   skipToCourseLesson,
   useCourseProgress,
   writeLearningProgress,
+  getStudentMateriProgressStorageKey,
   STUDENT_MATERI_PROGRESS_STORAGE_KEY,
   STUDENT_MATERI_PROGRESS_STORAGE_VERSION,
 };
