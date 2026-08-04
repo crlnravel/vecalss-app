@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
 import { logoutAction } from "@/modules/auth/actions";
-import { getInitials } from "@/modules/student/components/student-sidebar";
+import { getInitials } from "@/modules/student/components/student-sidebar-utils";
 
 type StudentAccountMenuItem = "notifications";
 type AccountMenuAudience = "student" | "tutor";

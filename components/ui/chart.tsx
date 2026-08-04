@@ -1,15 +1,25 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import * as React from "react"
-import * as RechartsPrimitive from "recharts"
-import type { TooltipValueType } from "recharts"
 
 import { cn } from "@/lib/utils"
+
+const RechartsResponsiveContainer = dynamic(() =>
+  import("recharts").then((module) => module.ResponsiveContainer)
+)
+const RechartsTooltip = dynamic(() =>
+  import("recharts").then((module) => module.Tooltip)
+)
+const RechartsLegend = dynamic(() =>
+  import("recharts").then((module) => module.Legend)
+)
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const
+type TooltipValueType = import("recharts").TooltipValueType
 type TooltipNameType = number | string
 
 export type ChartConfig = Record<
@@ -49,7 +59,7 @@ function ChartContainer({
 }: React.ComponentProps<"div"> & {
   config: ChartConfig
   children: React.ComponentProps<
-    typeof RechartsPrimitive.ResponsiveContainer
+    typeof RechartsResponsiveContainer
   >["children"]
   initialDimension?: {
     width: number
@@ -58,9 +68,10 @@ function ChartContainer({
 }) {
   const uniqueId = React.useId()
   const chartId = `chart-${id ?? uniqueId.replace(/:/g, "")}`
+  const contextValue = React.useMemo(() => ({ config }), [config])
 
   return (
-    <ChartContext.Provider value={{ config }}>
+    <ChartContext.Provider value={contextValue}>
       <div
         data-slot="chart"
         data-chart={chartId}
@@ -71,11 +82,11 @@ function ChartContainer({
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer
+        <RechartsResponsiveContainer
           initialDimension={initialDimension}
         >
           {children}
-        </RechartsPrimitive.ResponsiveContainer>
+        </RechartsResponsiveContainer>
       </div>
     </ChartContext.Provider>
   )
@@ -114,7 +125,7 @@ ${colorConfig
   )
 }
 
-const ChartTooltip = RechartsPrimitive.Tooltip
+const ChartTooltip = RechartsTooltip
 
 function ChartTooltipContent({
   active,
@@ -130,7 +141,7 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
+}: React.ComponentProps<typeof RechartsTooltip> &
   React.ComponentProps<"div"> & {
     hideLabel?: boolean
     hideIndicator?: boolean
@@ -138,7 +149,7 @@ function ChartTooltipContent({
     nameKey?: string
     labelKey?: string
   } & Omit<
-    RechartsPrimitive.DefaultTooltipContentProps<
+    import("recharts").DefaultTooltipContentProps<
       TooltipValueType,
       TooltipNameType
     >,
@@ -146,7 +157,11 @@ function ChartTooltipContent({
   >) {
   const { config } = useChart()
 
-  const tooltipLabel = React.useMemo(() => {
+  if (!active || !payload?.length) {
+    return null
+  }
+
+  const tooltipLabel = (() => {
     if (hideLabel || !payload?.length) {
       return null
     }
@@ -172,19 +187,7 @@ function ChartTooltipContent({
     }
 
     return <div className={cn("font-medium", labelClassName)}>{value}</div>
-  }, [
-    label,
-    labelFormatter,
-    payload,
-    hideLabel,
-    labelClassName,
-    config,
-    labelKey,
-  ])
-
-  if (!active || !payload?.length) {
-    return null
-  }
+  })()
 
   const nestLabel = payload.length === 1 && indicator !== "dot"
 
@@ -197,16 +200,17 @@ function ChartTooltipContent({
     >
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
-        {payload
-          .filter((item) => item.type !== "none")
-          .map((item, index) => {
-            const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`
-            const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color ?? item.payload?.fill ?? item.color
+        {payload.reduce<React.ReactNode[]>((items, item) => {
+          if (item.type === "none") return items
 
-            return (
+          const index = items.length
+          const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`
+          const itemConfig = getPayloadConfigFromPayload(config, item, key)
+          const indicatorColor = color ?? item.payload?.fill ?? item.color
+
+          items.push(
               <div
-                key={index}
+                key={key}
                 className={cn(
                   "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                   indicator === "dot" && "items-center"
@@ -264,13 +268,14 @@ function ChartTooltipContent({
                 )}
               </div>
             )
-          })}
+          return items
+        }, [])}
       </div>
     </div>
   )
 }
 
-const ChartLegend = RechartsPrimitive.Legend
+const ChartLegend = RechartsLegend
 
 function ChartLegendContent({
   className,
@@ -281,7 +286,7 @@ function ChartLegendContent({
 }: React.ComponentProps<"div"> & {
   hideIcon?: boolean
   nameKey?: string
-} & RechartsPrimitive.DefaultLegendContentProps) {
+} & import("recharts").DefaultLegendContentProps) {
   const { config } = useChart()
 
   if (!payload?.length) {
@@ -296,15 +301,15 @@ function ChartLegendContent({
         className
       )}
     >
-      {payload
-        .filter((item) => item.type !== "none")
-        .map((item, index) => {
-          const key = `${nameKey ?? item.dataKey ?? "value"}`
-          const itemConfig = getPayloadConfigFromPayload(config, item, key)
+      {payload.reduce<React.ReactNode[]>((items, item) => {
+        if (item.type === "none") return items
 
-          return (
+        const key = `${nameKey ?? item.dataKey ?? "value"}`
+        const itemConfig = getPayloadConfigFromPayload(config, item, key)
+
+        items.push(
             <div
-              key={index}
+              key={key}
               className={cn(
                 "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
               )}
@@ -322,7 +327,8 @@ function ChartLegendContent({
               {itemConfig?.label}
             </div>
           )
-        })}
+        return items
+      }, [])}
     </div>
   )
 }

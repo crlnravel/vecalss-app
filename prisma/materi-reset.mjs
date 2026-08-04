@@ -210,64 +210,64 @@ async function countModuleReferences(client, moduleRows) {
       unexpectedPrerequisiteEdges: [],
     };
   }
-  // Keep these reads sequential: node-postgres queues concurrent operations
-  // on one client and emits a deprecation warning for Promise.all here.
-  const assets = await client.query(
-    "SELECT COUNT(*)::int AS count FROM module_assets WHERE module_id = ANY($1::uuid[])",
-    [moduleIds],
-  );
-  const progress = await client.query(
-    "SELECT COUNT(*)::int AS count FROM module_progress WHERE module_id = ANY($1::uuid[])",
-    [moduleIds],
-  );
-  const prerequisites = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM module_prerequisites
-      WHERE module_id = ANY($1::uuid[])
-         OR prerequisite_module_id = ANY($1::uuid[])`,
-    [moduleIds],
-  );
-  const sharedAssets = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM module_assets
-      WHERE module_id = ANY($1::uuid[])
-        AND managed_asset_id IS NOT NULL`,
-    [moduleIds],
-  );
-  const crossScopePrerequisites = await client.query(
-    `SELECT prerequisites.module_id,
-            prerequisites.prerequisite_module_id,
-            dependent.code AS dependent_code,
-            prerequisite.code AS prerequisite_code
-       FROM module_prerequisites prerequisites
-       JOIN modules dependent ON dependent.id = prerequisites.module_id
-       JOIN modules prerequisite ON prerequisite.id = prerequisites.prerequisite_module_id
-      WHERE (
-        prerequisites.module_id = ANY($1::uuid[])
-        AND NOT (prerequisites.prerequisite_module_id = ANY($1::uuid[]))
-      ) OR (
-        prerequisites.prerequisite_module_id = ANY($1::uuid[])
-        AND NOT (prerequisites.module_id = ANY($1::uuid[]))
-      )
-      ORDER BY dependent.code, prerequisite.code`,
-    [moduleIds],
-  );
-  const foreignKeys = await client.query(
-    `SELECT child_ns.nspname AS schema_name,
-            child.relname AS table_name,
-            child_col.attname AS column_name,
-            con.conname AS constraint_name
-       FROM pg_constraint con
-       JOIN pg_class child ON child.oid = con.conrelid
-       JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
-       JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS child_key(attnum, position) ON TRUE
-       JOIN pg_attribute child_col
-         ON child_col.attrelid = child.oid
-        AND child_col.attnum = child_key.attnum
-      WHERE con.contype = 'f'
-        AND con.confrelid = to_regclass('public.modules')
-      ORDER BY child_ns.nspname, child.relname, child_col.attname`,
-  );
+  const [assets, progress, prerequisites, sharedAssets, crossScopePrerequisites, foreignKeys] = await Promise.all([
+    client.query(
+      "SELECT COUNT(*)::int AS count FROM module_assets WHERE module_id = ANY($1::uuid[])",
+      [moduleIds],
+    ),
+    client.query(
+      "SELECT COUNT(*)::int AS count FROM module_progress WHERE module_id = ANY($1::uuid[])",
+      [moduleIds],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM module_prerequisites
+        WHERE module_id = ANY($1::uuid[])
+           OR prerequisite_module_id = ANY($1::uuid[])`,
+      [moduleIds],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM module_assets
+        WHERE module_id = ANY($1::uuid[])
+          AND managed_asset_id IS NOT NULL`,
+      [moduleIds],
+    ),
+    client.query(
+      `SELECT prerequisites.module_id,
+              prerequisites.prerequisite_module_id,
+              dependent.code AS dependent_code,
+              prerequisite.code AS prerequisite_code
+         FROM module_prerequisites prerequisites
+         JOIN modules dependent ON dependent.id = prerequisites.module_id
+         JOIN modules prerequisite ON prerequisite.id = prerequisites.prerequisite_module_id
+        WHERE (
+          prerequisites.module_id = ANY($1::uuid[])
+          AND NOT (prerequisites.prerequisite_module_id = ANY($1::uuid[]))
+        ) OR (
+          prerequisites.prerequisite_module_id = ANY($1::uuid[])
+          AND NOT (prerequisites.module_id = ANY($1::uuid[]))
+        )
+        ORDER BY dependent.code, prerequisite.code`,
+      [moduleIds],
+    ),
+    client.query(
+      `SELECT child_ns.nspname AS schema_name,
+              child.relname AS table_name,
+              child_col.attname AS column_name,
+              con.conname AS constraint_name
+         FROM pg_constraint con
+         JOIN pg_class child ON child.oid = con.conrelid
+         JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
+         JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS child_key(attnum, position) ON TRUE
+         JOIN pg_attribute child_col
+           ON child_col.attrelid = child.oid
+          AND child_col.attnum = child_key.attnum
+        WHERE con.contype = 'f'
+          AND con.confrelid = to_regclass('public.modules')
+        ORDER BY child_ns.nspname, child.relname, child_col.attname`,
+    ),
+  ]);
 
   const unexpectedDependencies = [];
   for (const foreignKey of foreignKeys.rows) {
@@ -302,69 +302,78 @@ function quoteIdentifier(value) {
   return `"${String(value).replaceAll("\"", "\"\"")}"`;
 }
 
+function runInOrder(tasks) {
+  return tasks.reduce(
+    (chain, task) => chain.then(async (results) => [...results, await task()]),
+    Promise.resolve([]),
+  );
+}
+
 async function inspectMateriReset(client) {
-  const subjectResult = await client.query(
-    `SELECT id, code, name, sort_order, is_active
-       FROM subtests
-      WHERE code = ANY($1::text[])
-      ORDER BY sort_order, code`,
-    [MATERI_SUBJECT_CODES],
-  );
-  const topicResult = await client.query(
-    `SELECT topics.id, topics.code, topics.name, topics.sort_order,
-            topics.is_active, topics.parent_topic_id,
-            subtests.code AS subject_code
-       FROM topics
-       JOIN subtests ON subtests.id = topics.subtest_id
-      WHERE subtests.code = ANY($1::text[])
-        AND topics.code = ANY($2::text[])
-      ORDER BY subtests.sort_order, topics.sort_order, topics.code`,
-    [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
-  );
-  const moduleResult = await client.query(
-    `SELECT modules.id, modules.code, modules.status::text AS status,
-            topics.code AS topic_code, subtests.code AS subject_code
-       FROM modules
-       JOIN topics ON topics.id = modules.topic_id
-       JOIN subtests ON subtests.id = topics.subtest_id
-      WHERE subtests.code = ANY($1::text[])
-        AND topics.code = ANY($2::text[])
-      ORDER BY subtests.sort_order, topics.sort_order, modules.sequence_no, modules.code`,
-    [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
-  );
-  const unexpectedSubjectModuleResult = await client.query(
-    `SELECT modules.id, modules.code,
-            subtests.code AS subject_code, topics.code AS topic_code
-       FROM modules
-       JOIN topics ON topics.id = modules.topic_id
-       JOIN subtests ON subtests.id = topics.subtest_id
-      WHERE subtests.code = ANY($1::text[])
-        AND NOT (topics.code = ANY($2::text[]))
-      ORDER BY subtests.sort_order, topics.sort_order, modules.sequence_no, modules.code`,
-    [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
-  );
-  const scopeResult = await client.query(
-    `SELECT subtests.code AS subject_code,
-            topics.code AS topic_code,
-            COUNT(DISTINCT modules.id)::int AS module_count,
-            COUNT(DISTINCT module_assets.id)::int AS asset_count,
-            COUNT(DISTINCT module_progress.id)::int AS progress_count,
-            COUNT(DISTINCT module_prerequisites.module_id)
-              + COUNT(DISTINCT module_prerequisites.prerequisite_module_id)::int AS prerequisite_count
-       FROM subtests
-       JOIN topics ON topics.subtest_id = subtests.id
-       LEFT JOIN modules ON modules.topic_id = topics.id
-       LEFT JOIN module_assets ON module_assets.module_id = modules.id
-       LEFT JOIN module_progress ON module_progress.module_id = modules.id
-       LEFT JOIN module_prerequisites
-         ON module_prerequisites.module_id = modules.id
-         OR module_prerequisites.prerequisite_module_id = modules.id
-      WHERE subtests.code = ANY($1::text[])
-        AND topics.code = ANY($2::text[])
-      GROUP BY subtests.sort_order, subtests.code, topics.sort_order, topics.code
-      ORDER BY subtests.sort_order, topics.sort_order, topics.code`,
-    [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
-  );
+  const [subjectResult, topicResult, moduleResult, unexpectedSubjectModuleResult, scopeResult] = await Promise.all([
+    client.query(
+      `SELECT id, code, name, sort_order, is_active
+         FROM subtests
+        WHERE code = ANY($1::text[])
+        ORDER BY sort_order, code`,
+      [MATERI_SUBJECT_CODES],
+    ),
+    client.query(
+      `SELECT topics.id, topics.code, topics.name, topics.sort_order,
+              topics.is_active, topics.parent_topic_id,
+              subtests.code AS subject_code
+         FROM topics
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+        ORDER BY subtests.sort_order, topics.sort_order, topics.code`,
+      [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
+    ),
+    client.query(
+      `SELECT modules.id, modules.code, modules.status::text AS status,
+              topics.code AS topic_code, subtests.code AS subject_code
+         FROM modules
+         JOIN topics ON topics.id = modules.topic_id
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+        ORDER BY subtests.sort_order, topics.sort_order, modules.sequence_no, modules.code`,
+      [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
+    ),
+    client.query(
+      `SELECT modules.id, modules.code,
+              subtests.code AS subject_code, topics.code AS topic_code
+         FROM modules
+         JOIN topics ON topics.id = modules.topic_id
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND NOT (topics.code = ANY($2::text[]))
+        ORDER BY subtests.sort_order, topics.sort_order, modules.sequence_no, modules.code`,
+      [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
+    ),
+    client.query(
+      `SELECT subtests.code AS subject_code,
+              topics.code AS topic_code,
+              COUNT(DISTINCT modules.id)::int AS module_count,
+              COUNT(DISTINCT module_assets.id)::int AS asset_count,
+              COUNT(DISTINCT module_progress.id)::int AS progress_count,
+              COUNT(DISTINCT module_prerequisites.module_id)
+                + COUNT(DISTINCT module_prerequisites.prerequisite_module_id)::int AS prerequisite_count
+         FROM subtests
+         JOIN topics ON topics.subtest_id = subtests.id
+         LEFT JOIN modules ON modules.topic_id = topics.id
+         LEFT JOIN module_assets ON module_assets.module_id = modules.id
+         LEFT JOIN module_progress ON module_progress.module_id = modules.id
+         LEFT JOIN module_prerequisites
+           ON module_prerequisites.module_id = modules.id
+           OR module_prerequisites.prerequisite_module_id = modules.id
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+        GROUP BY subtests.sort_order, subtests.code, topics.sort_order, topics.code
+        ORDER BY subtests.sort_order, topics.sort_order, topics.code`,
+      [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
+    ),
+  ]);
 
   const references = await countModuleReferences(client, moduleResult.rows);
   return {
@@ -433,24 +442,30 @@ function assertSafeMateriPreflight(preflight) {
 async function deleteCanonicalMateri(client, moduleRows) {
   const moduleIds = moduleRows.map((row) => row.id);
   if (moduleIds.length === 0) return { assets: 0, modules: 0, prerequisites: 0, progress: 0 };
-  const prerequisites = await client.query(
-    `DELETE FROM module_prerequisites
-      WHERE module_id = ANY($1::uuid[])
-        AND prerequisite_module_id = ANY($1::uuid[])`,
-    [moduleIds],
-  );
-  const progress = await client.query(
-    "DELETE FROM module_progress WHERE module_id = ANY($1::uuid[])",
-    [moduleIds],
-  );
-  const assets = await client.query(
-    "DELETE FROM module_assets WHERE module_id = ANY($1::uuid[])",
-    [moduleIds],
-  );
-  const modules = await client.query(
-    "DELETE FROM modules WHERE id = ANY($1::uuid[])",
-    [moduleIds],
-  );
+  // The deletes must remain ordered because all four child tables use
+  // ON DELETE RESTRICT. The promise chain makes that dependency explicit
+  // while every SQL value remains driver-bound.
+  const [prerequisites, progress, assets, modules] = await runInOrder([
+    () => client.query(
+      `DELETE FROM module_prerequisites
+        WHERE module_id = ANY($1::uuid[])
+          AND prerequisite_module_id = ANY($1::uuid[])
+        RETURNING module_id`,
+      [moduleIds],
+    ),
+    () => client.query(
+      "DELETE FROM module_progress WHERE module_id = ANY($1::uuid[]) RETURNING id",
+      [moduleIds],
+    ),
+    () => client.query(
+      "DELETE FROM module_assets WHERE module_id = ANY($1::uuid[]) RETURNING id",
+      [moduleIds],
+    ),
+    () => client.query(
+      "DELETE FROM modules WHERE id = ANY($1::uuid[]) RETURNING id",
+      [moduleIds],
+    ),
+  ]);
   return {
     assets: assets.rowCount,
     modules: modules.rowCount,
@@ -460,78 +475,80 @@ async function deleteCanonicalMateri(client, moduleRows) {
 }
 
 async function inspectPostSeed(client) {
-  const subjectCountResult = await client.query(
-    "SELECT COUNT(*)::int AS count FROM subtests WHERE code = ANY($1::text[]) AND is_active = TRUE",
-    [MATERI_SUBJECT_CODES],
-  );
-  const topicCountResult = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM topics
-       JOIN subtests ON subtests.id = topics.subtest_id
-      WHERE subtests.code = ANY($1::text[])
-        AND topics.code = ANY($2::text[])
-        AND topics.parent_topic_id IS NULL
-        AND topics.is_active = TRUE`,
-    [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
-  );
-  const demoModuleResult = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM modules
-      WHERE code = ANY($1::text[])
-        AND status = 'published'`,
-    [MATERI_DEMO_CODES],
-  );
-  const attachmentResult = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM module_assets
-      WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))
-        AND asset_type = 'attachment'
-        AND source_kind = 'hosted'
-        AND mime_type = $2
-        AND original_name = $3
-        AND media_url IS NOT NULL`,
-    [MATERI_DEMO_CODES, MATERI_DOCUMENT_MIME_TYPE, MATERI_DEMO_PDF_FILENAME],
-  );
-  const videoResult = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM module_assets
-      WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))
-        AND asset_type = 'video'
-        AND source_kind = 'hosted'
-        AND media_url = $2
-        AND duration_seconds = $3`,
-    [MATERI_DEMO_CODES, MATERI_DEMO_VIDEO_URL, MATERI_DEMO_VIDEO_DURATION_SECONDS],
-  );
-  const progressResult = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM module_progress
-      WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))`,
-    [MATERI_DEMO_CODES],
-  );
-  const prerequisiteResult = await client.query(
-    `SELECT COUNT(*)::int AS count
-       FROM module_prerequisites
-      WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))
-         OR prerequisite_module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))`,
-    [MATERI_DEMO_CODES],
-  );
-  const bySubject = await client.query(
-    `SELECT subtests.code AS subject, COUNT(modules.id)::int AS modules,
-            COUNT(attachment.id)::int AS pdfs,
-            COUNT(video.id)::int AS videos
-       FROM subtests
-       JOIN topics ON topics.subtest_id = subtests.id
-       LEFT JOIN modules ON modules.topic_id = topics.id AND modules.code = ANY($3::text[])
-       LEFT JOIN module_assets attachment
-         ON attachment.module_id = modules.id AND attachment.asset_type = 'attachment'
-       LEFT JOIN module_assets video
-         ON video.module_id = modules.id AND video.asset_type = 'video'
-      WHERE subtests.code = ANY($1::text[])
-        AND topics.code = ANY($2::text[])
-      GROUP BY subtests.sort_order, subtests.code
-      ORDER BY subtests.sort_order`,
-    [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES, MATERI_DEMO_CODES],
-  );
+  const [subjectCountResult, topicCountResult, demoModuleResult, attachmentResult, videoResult, progressResult, prerequisiteResult, bySubject] = await Promise.all([
+    client.query(
+      "SELECT COUNT(*)::int AS count FROM subtests WHERE code = ANY($1::text[]) AND is_active = TRUE",
+      [MATERI_SUBJECT_CODES],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM topics
+         JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+          AND topics.parent_topic_id IS NULL
+          AND topics.is_active = TRUE`,
+      [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM modules
+        WHERE code = ANY($1::text[])
+          AND status = 'published'`,
+      [MATERI_DEMO_CODES],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM module_assets
+        WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))
+          AND asset_type = 'attachment'
+          AND source_kind = 'hosted'
+          AND mime_type = $2
+          AND original_name = $3
+          AND media_url IS NOT NULL`,
+      [MATERI_DEMO_CODES, MATERI_DOCUMENT_MIME_TYPE, MATERI_DEMO_PDF_FILENAME],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM module_assets
+        WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))
+          AND asset_type = 'video'
+          AND source_kind = 'hosted'
+          AND media_url = $2
+          AND duration_seconds = $3`,
+      [MATERI_DEMO_CODES, MATERI_DEMO_VIDEO_URL, MATERI_DEMO_VIDEO_DURATION_SECONDS],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM module_progress
+        WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))`,
+      [MATERI_DEMO_CODES],
+    ),
+    client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM module_prerequisites
+        WHERE module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))
+           OR prerequisite_module_id IN (SELECT id FROM modules WHERE code = ANY($1::text[]))`,
+      [MATERI_DEMO_CODES],
+    ),
+    client.query(
+      `SELECT subtests.code AS subject, COUNT(modules.id)::int AS modules,
+              COUNT(attachment.id)::int AS pdfs,
+              COUNT(video.id)::int AS videos
+         FROM subtests
+         JOIN topics ON topics.subtest_id = subtests.id
+         LEFT JOIN modules ON modules.topic_id = topics.id AND modules.code = ANY($3::text[])
+         LEFT JOIN module_assets attachment
+           ON attachment.module_id = modules.id AND attachment.asset_type = 'attachment'
+         LEFT JOIN module_assets video
+           ON video.module_id = modules.id AND video.asset_type = 'video'
+        WHERE subtests.code = ANY($1::text[])
+          AND topics.code = ANY($2::text[])
+        GROUP BY subtests.sort_order, subtests.code
+        ORDER BY subtests.sort_order`,
+      [MATERI_SUBJECT_CODES, MATERI_TOPIC_CODES, MATERI_DEMO_CODES],
+    ),
+  ]);
 
   const postflight = {
     attachmentCount: asInt(attachmentResult.rows[0]?.count),

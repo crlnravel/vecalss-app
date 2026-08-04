@@ -92,10 +92,12 @@ function StudentPdfPreview({
       signal: controller.signal,
     })
       .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Materi PDF tidak tersedia.");
+        }
         const payload = await response.json().catch(() => null) as DeliveryPayload | null;
         if (
-          !response.ok
-          || !payload
+          !payload
           || (payload.sourceKind !== "managed" && payload.sourceKind !== "hosted")
           || payload.sourceKind !== document?.sourceKind
           || !isHttpDocumentUrl(payload.documentUrl)
@@ -141,6 +143,7 @@ function StudentPdfPreview({
         ) : state === "ready" && previewUrl ? (
           <iframe
             className="h-[min(68vh,52rem)] min-h-[22rem] w-full bg-white md:min-h-[34rem]"
+            sandbox=""
             src={previewUrl}
             title={iframeTitle}
           />

@@ -242,7 +242,10 @@ async function resolveSubtests(client) {
     [SUBJECTS.map(({ code }) => code)],
   );
   const subtestIds = new Map(result.rows.map((row) => [row.code, row.id]));
-  const missing = SUBJECTS.filter(({ code }) => !subtestIds.has(code)).map(({ code }) => code);
+  const missing = SUBJECTS.reduce((codes, { code }) => {
+    if (!subtestIds.has(code)) codes.push(code);
+    return codes;
+  }, []);
   if (missing.length) throw new Error(`Missing active subtests: ${missing.join(", ")}. Run the Materi seed before the assessment seed.`);
   return subtestIds;
 }
@@ -803,22 +806,24 @@ async function seedTryoutOperations(client, { studentIds, tryoutId, tutorId }) {
     rejected: await upsertAdmission(client, { decidedByUserId: tutorId, status: "rejected", studentId: studentIds.rejected, tryoutId }),
     revoked: await upsertAdmission(client, { decidedByUserId: tutorId, status: "revoked", studentId: studentIds.revoked, tryoutId }),
   };
-  const historicalSessionId = await upsertDeliverySession(client, {
-    name: "Sesi Evaluasi Sebelumnya",
-    relativeWindow: { from: -10, until: -8 },
-    release: { defaultRegistration: false, fullscreenPrompt: true, policy: "manual", released: true },
-    status: "closed",
-    tryoutId,
-    tutorId,
-  });
-  const activeSessionId = await upsertDeliverySession(client, {
-    name: "Sesi Reguler Pekan Ini",
-    relativeWindow: { from: -1, until: 7 },
-    release: { defaultRegistration: true, fullscreenPrompt: true, policy: "automatic_at_end", released: false },
-    status: "active",
-    tryoutId,
-    tutorId,
-  });
+  const [historicalSessionId, activeSessionId] = await Promise.all([
+    upsertDeliverySession(client, {
+      name: "Sesi Evaluasi Sebelumnya",
+      relativeWindow: { from: -10, until: -8 },
+      release: { defaultRegistration: false, fullscreenPrompt: true, policy: "manual", released: true },
+      status: "closed",
+      tryoutId,
+      tutorId,
+    }),
+    upsertDeliverySession(client, {
+      name: "Sesi Reguler Pekan Ini",
+      relativeWindow: { from: -1, until: 7 },
+      release: { defaultRegistration: true, fullscreenPrompt: true, policy: "automatic_at_end", released: false },
+      status: "active",
+      tryoutId,
+      tutorId,
+    }),
+  ]);
   await upsertAssignment(client, { admissionId: admissions.primary, assignedDaysAgo: 10, deliverySessionId: historicalSessionId, status: "revoked", tutorId });
   await upsertAssignment(client, { admissionId: admissions.completed, assignedDaysAgo: 10, deliverySessionId: historicalSessionId, tutorId });
   await upsertAssignment(client, { admissionId: admissions.secondCompleted, assignedDaysAgo: 10, deliverySessionId: historicalSessionId, tutorId });
@@ -850,8 +855,10 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
   const questions = await upsertQuestions(client, { bankId, subtestIds, tutorId });
   await upsertCalibrations(client, tutorId, questions);
   const versionIds = await seedReusablePackages(client, { bankId, questions, subtestIds, tutorId });
-  const quizIds = await seedQuizzes(client, { bankId, questions, studentIds, subtestIds, tutorId });
-  const tryoutId = await seedTryout(client, { examEventId, subtestIds, tutorId, versionIds });
+  const [quizIds, tryoutId] = await Promise.all([
+    seedQuizzes(client, { bankId, questions, studentIds, subtestIds, tutorId }),
+    seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }),
+  ]);
   const sessions = await seedTryoutOperations(client, { studentIds, tryoutId, tutorId });
   return { bankId, questionCount: questions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
 }

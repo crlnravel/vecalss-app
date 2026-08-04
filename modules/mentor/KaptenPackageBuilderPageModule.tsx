@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, CircleHelp, ListFilter, PackageCheck, Plus, Save, Search, Upload, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -55,7 +55,10 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog }: { i
     setQuestionSearch("");
   };
   const validate = () => {
-    const invalid = new Set(draft.items.filter((item) => !Number.isFinite(item.pointValue) || item.pointValue <= 0).map((item) => item.sourceQuestionId));
+    const invalid = new Set(draft.items.reduce<string[]>((invalidIds, item) => {
+      if (!Number.isFinite(item.pointValue) || item.pointValue <= 0) invalidIds.push(item.sourceQuestionId);
+      return invalidIds;
+    }, []));
     setScoreErrors(invalid);
     if (!draft.title.trim()) { setError("Masukkan judul Paket Soal."); return false; }
     if (!draft.sourceBankId) { setError("Pilih Bank Soal terlebih dahulu."); return false; }
@@ -63,24 +66,39 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog }: { i
     if (invalid.size) { setError("Perbaiki poin yang ditandai; setiap soal harus bernilai positif."); return false; }
     return true;
   };
+  const sourceBankOptions = sourceCatalog.reduce<ReactNode[]>((options, { bank }) => {
+    if (!bank.title.toLowerCase().includes(bankSearch.toLowerCase())) return options;
+    options.push(<Button className="justify-start" key={bank.id} onClick={() => changeBank(bank.id)} variant={bank.id === draft.sourceBankId ? "contextSelected" : "ghost"}>{bank.title}</Button>);
+    return options;
+  }, []);
   const save = async () => {
     setError(null);
     if (!validate()) return;
     setSaving(true);
-    const result = await saveReusableQuestionPackageAction({ description: draft.description, id, items: draft.items, sourceBankId: draft.sourceBankId, subtest: draft.subtest, title: draft.title });
-    setSaving(false);
-    if (!result.ok) { setError(result.message); return; }
-    setDraft(result.result);
-    if (!id) window.location.assign(`/mentor/packages/${result.result.id}/versions/new`);
+    try {
+      const result = await saveReusableQuestionPackageAction({ description: draft.description, id, items: draft.items, sourceBankId: draft.sourceBankId, subtest: draft.subtest, title: draft.title });
+      if (!result.ok) { setError(result.message); return; }
+      setDraft(result.result);
+      if (!id) window.location.assign(`/mentor/packages/${result.result.id}/versions/new`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Paket Soal belum dapat disimpan.");
+    } finally {
+      setSaving(false);
+    }
   };
   const ready = async () => {
     if (!id || !validate()) return;
     setSaving(true); setError(null);
-    const result = await readyReusableQuestionPackageVersionAction(id);
-    setSaving(false);
-    if (!result.ok) { setError(result.message); return; }
-    setConfirmReady(false);
-    window.location.assign(`/mentor/packages/${id}`);
+    try {
+      const result = await readyReusableQuestionPackageVersionAction(id);
+      if (!result.ok) { setError(result.message); return; }
+      setConfirmReady(false);
+      window.location.assign(`/mentor/packages/${id}`);
+    } catch (readyError) {
+      setError(readyError instanceof Error ? readyError.message : "Versi Paket Soal belum dapat disiapkan.");
+    } finally {
+      setSaving(false);
+    }
   };
   const updateItem = (sourceQuestionId: string, pointValue: number) => {
     setDraft((current) => ({ ...current, items: current.items.map((item) => item.sourceQuestionId === sourceQuestionId ? { ...item, pointValue } : item) }));
@@ -111,7 +129,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog }: { i
       <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
         <section className="rounded-3xl border border-primary-100 bg-white p-4">
           <div className="flex items-center gap-2"><h2 className="font-semibold text-secondary-900">Informasi Bank Soal</h2><TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Bantuan informasi Bank Soal" size="icon-xs" variant="ghost" />}><CircleHelp /></TooltipTrigger><TooltipContent>Menampilkan Bank Soal dan Subtest yang digunakan untuk versi ini.</TooltipContent></Tooltip></TooltipProvider></div>
-          {saved ? <div className="mt-4 grid gap-4 text-sm"><div><p className="text-secondary-500">Bank Soal</p><p className="mt-1 font-semibold text-secondary-900">{selectedSource?.bank.title ?? draft.sourceBankName}</p></div><div><p className="text-secondary-500">Subtest</p><p className="mt-1"><span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{draft.subtest} · {subjectName(draft.subtest)}</span></p></div><div><p className="text-secondary-500">Versi</p><p className="mt-1 font-semibold text-secondary-900">{draft.latestReadyVersionNo ? `v${draft.latestReadyVersionNo}` : "Draf"}</p></div></div> : <div className="mt-4 grid gap-4"><Field><FieldLabel>Bank Soal</FieldLabel><Picker label={selectedSource?.bank.title ?? "Pilih Bank Soal"} empty="Tidak ada Bank Soal siap." openContent={<><FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl px-3 py-2 text-sm" onChange={(event) => setBankSearch(event.target.value)} placeholder="Cari Bank…" value={bankSearch} />{sourceCatalog.filter(({ bank }) => bank.title.toLowerCase().includes(bankSearch.toLowerCase())).map(({ bank }) => <Button className="justify-start" key={bank.id} onClick={() => changeBank(bank.id)} variant={bank.id === draft.sourceBankId ? "contextSelected" : "ghost"}>{bank.title}</Button>)}</>} /></Field><Field><FieldLabel>Subtest</FieldLabel><Picker label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank terlebih dahulu"} disabled={!draft.sourceBankId} empty="Tidak ada Subtest." openContent={subjectCodes.map((code) => { const count = selectedSource?.questions.filter((question) => question.subjectCode === code).length ?? 0; return <Button className="justify-start" disabled={!count} key={code} onClick={() => changeSubtest(code)} variant={code === draft.subtest ? "contextSelected" : "ghost"}>{code} · {subjectName(code)}</Button>; })} /></Field></div>}
+          {saved ? <div className="mt-4 grid gap-4 text-sm"><div><p className="text-secondary-500">Bank Soal</p><p className="mt-1 font-semibold text-secondary-900">{selectedSource?.bank.title ?? draft.sourceBankName}</p></div><div><p className="text-secondary-500">Subtest</p><p className="mt-1"><span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{draft.subtest} · {subjectName(draft.subtest)}</span></p></div><div><p className="text-secondary-500">Versi</p><p className="mt-1 font-semibold text-secondary-900">{draft.latestReadyVersionNo ? `v${draft.latestReadyVersionNo}` : "Draf"}</p></div></div> : <div className="mt-4 grid gap-4"><Field><FieldLabel>Bank Soal</FieldLabel><Picker label={selectedSource?.bank.title ?? "Pilih Bank Soal"} empty="Tidak ada Bank Soal siap." openContent={<><FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl px-3 py-2 text-sm" onChange={(event) => setBankSearch(event.target.value)} placeholder="Cari Bank…" value={bankSearch} />{sourceBankOptions}</>} /></Field><Field><FieldLabel>Subtest</FieldLabel><Picker label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank terlebih dahulu"} disabled={!draft.sourceBankId} empty="Tidak ada Subtest." openContent={subjectCodes.map((code) => { const count = selectedSource?.questions.filter((question) => question.subjectCode === code).length ?? 0; return <Button className="justify-start" disabled={!count} key={code} onClick={() => changeSubtest(code)} variant={code === draft.subtest ? "contextSelected" : "ghost"}>{code} · {subjectName(code)}</Button>; })} /></Field></div>}
         </section>
       </aside>
 

@@ -15,6 +15,13 @@ import type { ExamEvent, Major, University } from "@/generated/prisma/client";
 import { saveOnboardingAction, skipOnboardingAction } from "@/modules/student/actions";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
+const examDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "long",
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+});
+
 function DoodleBackdrop() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -166,7 +173,7 @@ function OnboardingForm({
         ) : null}
 
         {step === 0 ? (
-          <section className="flex flex-1 flex-col items-center justify-center pb-12 text-center animate-in fade-in zoom-in-95 duration-500">
+          <section className="flex flex-1 flex-col items-center justify-center pb-12 text-center vecalss-enter-fade-zoom-500">
             <div className="relative mb-6 grid size-28 place-items-center rounded-[2.4rem] bg-[linear-gradient(145deg,#d8f3fb,#e9f7c9)]">
               <span className="absolute inset-2 rounded-[2rem] border border-white/80" />
               <Image alt="Maskot Vecalss" className="relative h-24 w-24 object-contain drop-shadow-[0_9px_8px_rgba(18,83,101,.18)]" height={3100} priority src="/brand/mascot-vecalss.png" width={3100} />
@@ -185,7 +192,7 @@ function OnboardingForm({
         ) : null}
 
         {step === 1 ? (
-          <section className="mx-auto w-full max-w-[33rem] animate-in fade-in slide-in-from-right-3 duration-300">
+          <section className="mx-auto w-full max-w-[33rem] vecalss-enter-fade-slide-right-300">
             <div className="mt-4 flex items-center justify-center gap-3 rounded-[1.5rem] border border-slate-200 bg-white/90 p-4 shadow-[0_12px_24px_-22px_rgba(32,66,79,.6)]">
               <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
               <div>
@@ -195,7 +202,7 @@ function OnboardingForm({
             </div>
             <div className="mt-10 space-y-3">
               {examEvents.slice(0, 4).map((examEvent) => (
-                <ChoiceCard description={examEvent.examDate ? `Target ujian ${new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(examEvent.examDate)}` : "Target ujianmu"} icon={Target} key={examEvent.id} onClick={() => chooseExam(examEvent.id)} selected={targetKind === "exam" && examId === examEvent.id} title={examEvent.name} />
+                <ChoiceCard description={examEvent.examDate ? `Target ujian ${examDateFormatter.format(examEvent.examDate)}` : "Target ujianmu"} icon={Target} key={examEvent.id} onClick={() => chooseExam(examEvent.id)} selected={targetKind === "exam" && examId === examEvent.id} title={examEvent.name} />
               ))}
               <ChoiceCard description="Menyiapkan pilihan kampus dan jurusan" icon={GraduationCap} onClick={chooseCampusTarget} selected={targetKind === "campus"} title="Aku sudah punya target kampus" />
               {examEvents.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Target ujian belum tersedia. Kamu tetap bisa memilih kampus dan jurusan.</p> : null}
@@ -210,7 +217,7 @@ function OnboardingForm({
         ) : null}
 
         {step === 2 ? (
-          <section className="mx-auto w-full max-w-[33rem] animate-in fade-in slide-in-from-right-3 duration-300">
+          <section className="mx-auto w-full max-w-[33rem] vecalss-enter-fade-slide-right-300">
             <div className="mt-4 flex items-center justify-center gap-3 rounded-[1.5rem] border border-slate-200 bg-white/90 p-4 shadow-[0_12px_24px_-22px_rgba(32,66,79,.6)]">
               <Image alt="" className="size-16 shrink-0 object-contain" height={3100} src="/brand/mascot-vecalss.png" width={3100} />
               <div><h1 className="text-xl font-bold tracking-[-0.035em] text-slate-900">Kampus impianmu di mana?</h1><p className="mt-1 text-sm leading-5 text-slate-500">Tidak perlu pasti kok. Ini hanya untuk membantumu fokus.</p></div>
@@ -237,7 +244,7 @@ function OnboardingForm({
         ) : null}
 
         {step === 3 ? (
-          <section className="flex flex-1 flex-col items-center justify-center pb-12 text-center animate-in fade-in zoom-in-95 duration-500">
+          <section className="flex flex-1 flex-col items-center justify-center pb-12 text-center vecalss-enter-fade-zoom-500">
             <div className="relative mb-7 grid size-32 place-items-center rounded-full bg-[linear-gradient(145deg,#d6f4f5,#e5f4ba)] shadow-[0_20px_40px_-25px_rgba(52,138,145,.55)]">
               <span className="absolute inset-2 rounded-full border-2 border-white/90" />
               <Image alt="Maskot Vecalss" className="relative size-28 object-contain drop-shadow-[0_10px_9px_rgba(18,83,101,.18)]" height={3100} src="/brand/mascot-vecalss.png" width={3100} />

@@ -26,37 +26,22 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { modeLabels, policyLabels, type Mode, type Policy } from "./KaptenTryoutOperationsData";
 
-type Policy = "immediate" | "manual" | "automatic_at_end" | "scheduled";
-type DefaultPolicy = Exclude<Policy, "scheduled">;
-type Mode = "open" | "approval_required" | "invitation_only";
-
-const policyLabels: Record<Policy, string> = {
-  automatic_at_end: "Setelah sesi",
-  immediate: "Segera",
-  manual: "Manual",
-  scheduled: "Tanggal tertentu",
-};
-
-const modeLabels: Record<Mode, string> = {
-  approval_required: "Perlu persetujuan",
-  invitation_only: "Undangan saja",
-  open: "Terbuka",
+const statusLabels: Record<string, string> = {
+  active: "Aktif",
+  completed: "Selesai",
+  draft: "Draf",
+  expired: "Kedaluwarsa",
+  in_progress: "Berlangsung",
+  pending: "Menunggu",
+  published: "Diterbitkan",
+  revoked: "Dicabut",
+  sealed: "Selesai",
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const labels: Record<string, string> = {
-    active: "Aktif",
-    completed: "Selesai",
-    draft: "Draf",
-    expired: "Kedaluwarsa",
-    in_progress: "Berlangsung",
-    pending: "Menunggu",
-    published: "Diterbitkan",
-    revoked: "Dicabut",
-    sealed: "Selesai",
-  };
-  const label = labels[status] ?? status.replace(/(^|[_\s-])(\p{L})/gu, (_, prefix: string, character: string) => `${prefix}${character.toLocaleUpperCase()}`);
+  const label = statusLabels[status] ?? status.replace(/(^|[_\s-])(\p{L})/gu, (_, prefix: string, character: string) => `${prefix}${character.toLocaleUpperCase()}`);
 
   return (
     <Badge
@@ -215,5 +200,5 @@ function KaptenTryoutOperationsModule({
   );
 }
 
-export { KaptenTryoutOperationsModule, StatusBadge, modeLabels, policyLabels };
-export type { DefaultPolicy, Mode, Policy };
+export { KaptenTryoutOperationsModule, StatusBadge };
+export type { DefaultPolicy, Mode, Policy } from "./KaptenTryoutOperationsData";

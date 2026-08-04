@@ -46,14 +46,26 @@ function isProgressStatusAdmitted(status: ProgressStatus) {
   return status === ProgressStatus.in_progress || status === ProgressStatus.completed;
 }
 
+function getCompletedModuleIds(rows: readonly ProgressionRow[]) {
+  return rows.reduce<string[]>((moduleIds, row) => {
+    if (row.status === ProgressStatus.completed) {
+      moduleIds.push(row.moduleId);
+    }
+    return moduleIds;
+  }, []);
+}
+
 function buildCourseProgressSnapshot(
   modules: readonly ProgressionModule[],
   rows: readonly ProgressionRow[],
 ): CourseProgressSnapshot {
   const normalizedRows = normalizeProgressRows(modules, rows);
-  const completedLessonIds = modules
-    .filter((module) => getProgressionStatus(normalizedRows, module.id) === ProgressStatus.completed)
-    .map((module) => module.code);
+  const completedLessonIds = modules.reduce<string[]>((lessonIds, module) => {
+    if (getProgressionStatus(normalizedRows, module.id) === ProgressStatus.completed) {
+      lessonIds.push(module.code);
+    }
+    return lessonIds;
+  }, []);
   const currentIndex = modules.findIndex(
     (module) => getProgressionStatus(normalizedRows, module.id) === ProgressStatus.in_progress,
   );
@@ -81,11 +93,7 @@ function ensureInitialProgressStatuses(
     return normalizedRows;
   }
 
-  const completed = new Set(
-    normalizedRows
-      .filter((row) => row.status === ProgressStatus.completed)
-      .map((row) => row.moduleId),
-  );
+  const completed = new Set(getCompletedModuleIds(normalizedRows));
   const earliestIncompleteIndex = modules.findIndex((module) => !completed.has(module.id));
   if (earliestIncompleteIndex >= 0) {
     normalizedRows[earliestIncompleteIndex] = {
@@ -119,11 +127,7 @@ function transitionComplete(
     moduleId: targetModuleId,
     status: ProgressStatus.completed,
   };
-  const completed = new Set(
-    normalizedRows
-      .filter((row) => row.status === ProgressStatus.completed)
-      .map((row) => row.moduleId),
-  );
+  const completed = new Set(getCompletedModuleIds(normalizedRows));
   const nextIndex = modules.findIndex((module) => !completed.has(module.id));
 
   if (nextIndex >= 0) {
@@ -157,11 +161,7 @@ function transitionSkip(
     throw new ProgressionTransitionError("invalid", "Bacaan yang sudah selesai tidak dapat dilewati.");
   }
 
-  const completed = new Set(
-    normalizedRows
-      .filter((row) => row.status === ProgressStatus.completed)
-      .map((row) => row.moduleId),
-  );
+  const completed = new Set(getCompletedModuleIds(normalizedRows));
   for (const [index, module] of modules.entries()) {
     normalizedRows[index] = {
       moduleId: module.id,

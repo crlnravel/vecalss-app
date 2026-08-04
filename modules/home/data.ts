@@ -115,12 +115,6 @@ export const marketingNavItems: NavItem[] = [
   { label: "Login", href: "/login" },
 ];
 
-export const footerItems: NavItem[] = [
-  { label: "About Us", href: "/#about" },
-  { label: "Program", href: "/#program" },
-  { label: "Login", href: "/login" },
-];
-
 export const journeyStats: JourneyStat[] = [
   { value: 15000, suffix: "+", label: "Voyager" },
   { value: 4, suffix: " Tahun", label: "Perjalanan Berlayar" },
@@ -231,97 +225,6 @@ export const pathways: Pathway[] = [
     art: "/landing-assets/program-consultation.svg",
     artAlt: "Ilustrasi mentoring pribadi",
     tone: "emerald",
-  },
-];
-
-export const supportPillars: SupportPillar[] = [
-  {
-    title: "Peta belajar jelas",
-    body: "Materi disusun agar siswa tahu apa yang harus dikuasai dan kapan harus mengulang.",
-  },
-  {
-    title: "Ritme yang terjaga",
-    body: "Belajar dibuat konsisten dengan jadwal, latihan, dan pengingat yang realistis.",
-  },
-  {
-    title: "Kru yang mendampingi",
-    body: "Tutor membantu siswa memahami proses, bukan sekadar memberi materi tambahan.",
-  },
-];
-
-export const studentProfiles: StudentProfile[] = [
-  {
-    title: "Siswa dengan jadwal sekolah padat",
-    body: "Belajar dibuat realistis agar tetap berjalan di tengah tugas, ujian sekolah, dan kegiatan harian.",
-  },
-  {
-    title: "Siswa yang skor tryout-nya belum bergerak",
-    body: "Kami bantu membaca pola kelemahan dan mengubahnya menjadi latihan yang lebih terarah.",
-  },
-  {
-    title: "Siswa yang butuh ritme personal",
-    body: "Pendampingan disesuaikan dengan pace, target, dan tantangan belajar masing-masing Voyager.",
-  },
-];
-
-export const campusOutcomes: CampusOutcome[] = [
-  {
-    campus: "Institut Teknologi Bandung",
-    result: "Tujuan untuk Voyager yang mengejar rumpun teknik, arsitektur, dan sains terapan.",
-    programs: ["FTI RI", "SAPPK"],
-    markSrc: "/brand/campuses/itb.svg",
-    markAlt: "Institut Teknologi Bandung mark",
-  },
-  {
-    campus: "Universitas Indonesia",
-    result: "Pilihan banyak Voyager untuk bidang kesehatan, sosial, humaniora, dan sains.",
-    programs: ["Kedokteran Gigi", "Psikologi"],
-    markSrc: "/brand/campuses/ui.png",
-    markAlt: "Universitas Indonesia mark",
-  },
-  {
-    campus: "Universitas Padjadjaran",
-    result: "Destinasi untuk Voyager yang menyiapkan jurusan kompetitif secara bertahap.",
-    programs: ["Kedokteran", "Hukum"],
-    markSrc: "/brand/campuses/unpad.png",
-    markAlt: "Universitas Padjadjaran mark",
-  },
-  {
-    campus: "Rute PTN lainnya",
-    result: "Perjalanan juga terbuka menuju ITS, Unair, UGM, UPN, dan PTN unggulan lain.",
-    programs: ["ITS", "Unair"],
-    markSrc: "/brand/campuses/unair.png",
-    markAlt: "Universitas Airlangga mark for additional destination routes",
-  },
-];
-
-export const acceptanceResults: AcceptanceResult[] = [
-  {
-    student: "Voyager STEM",
-    campus: "PTN bidang sains dan teknologi",
-    major: "Kedokteran, teknik, sains, dan rumpun teknologi",
-    year: "STEM",
-    scoreDelta: "Cerita perjalanan dari target besar menuju hasil yang nyata",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Voyager STEM",
-  },
-  {
-    student: "Voyager SHARE",
-    campus: "PTN bidang sosial dan humaniora",
-    major: "Psikologi, hukum, hubungan internasional, dan rumpun sosial",
-    year: "SHARE",
-    scoreDelta: "Belajar lebih terarah sampai pilihan jurusan terasa lebih dekat",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Voyager SHARE",
-  },
-  {
-    student: "Alumni Summer Class",
-    campus: "Berbagai PTN unggulan",
-    major: "Fondasi kelas 10 dan 11 untuk persiapan yang lebih panjang",
-    year: "2027",
-    scoreDelta: "Momentum liburan diubah menjadi langkah awal yang konsisten",
-    photoSrc: "/landing-assets/avatar-placeholder.png",
-    photoAlt: "Placeholder avatar untuk Alumni Summer Class",
   },
 ];
 

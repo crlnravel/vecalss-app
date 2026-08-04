@@ -13,8 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldInput } from "@/components/ui/field";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { modeLabels, policyLabels } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import type { DefaultPolicy, Mode } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   HelpFieldLabel,
   OperationalPageHeader,
@@ -50,29 +49,34 @@ function KaptenTryoutPolicyPageModule({
       return;
     }
     setBusy(true);
-    const [admission, release] = await Promise.all([
-      configureTryoutAdmissionAction(
-        initial.id,
-        admissionMode,
-        auditReason,
-      ),
-      configureTryoutDefaultResultReleaseAction(
-        initial.id,
-        defaultReleasePolicy,
-        auditReason,
-      ),
-    ]);
-    setBusy(false);
-    if (!admission.ok) {
-      setNotice({ message: admission.message ?? "Kebijakan admission gagal disimpan.", tone: "error" });
-      return;
+    try {
+      const [admission, release] = await Promise.all([
+        configureTryoutAdmissionAction(
+          initial.id,
+          admissionMode,
+          auditReason,
+        ),
+        configureTryoutDefaultResultReleaseAction(
+          initial.id,
+          defaultReleasePolicy,
+          auditReason,
+        ),
+      ]);
+      if (!admission.ok) {
+        setNotice({ message: admission.message ?? "Kebijakan admission gagal disimpan.", tone: "error" });
+        return;
+      }
+      if (!release.ok) {
+        setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
+        return;
+      }
+      setAuditReason("");
+      setNotice({ message: "Kebijakan Tryout berhasil disimpan.", tone: "default" });
+    } catch (saveError) {
+      setNotice({ message: saveError instanceof Error ? saveError.message : "Kebijakan Tryout belum dapat disimpan.", tone: "error" });
+    } finally {
+      setBusy(false);
     }
-    if (!release.ok) {
-      setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
-      return;
-    }
-    setAuditReason("");
-    setNotice({ message: "Kebijakan Tryout berhasil disimpan.", tone: "default" });
   };
 
   return (

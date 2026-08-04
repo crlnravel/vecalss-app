@@ -4,12 +4,15 @@ The guarded Materi seed uses the supplied `tmp/test.pdf` as the source for all
 21 temporary units. The file is gitignored and must not be edited, copied over,
 or deleted by the seed operation.
 
-During local development, `app/api/materi-demo/[filename]/route.ts` reads that
-file at request time and serves it at:
+During local development, `app/api/materi-demo/[filename]/route.ts` loads that
+file once when the route module starts and serves the cached bytes at:
 
 ```text
 http://localhost:5023/api/materi-demo/test.pdf
 ```
+
+If the fixture is added or replaced while the dev server is running, restart
+the server before requesting the route again.
 
 The route is development-only; production mode returns `404`. Applying the
 reset requires an explicit URL so a deployment database cannot silently store

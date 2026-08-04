@@ -62,12 +62,12 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
     const sources = sourceIds.length ? await tx.question.findMany({ where: { id: { in: sourceIds }, questionBankId: input.sourceBankId || undefined, subtestId: subtest.id, questionBank: { status: ContentStatus.published } }, include: { options: { orderBy: { sortOrder: "asc" } } } }) : [];
     if (sources.length !== new Set(sourceIds).size) throw new QuizValidationError("Sebagian soal Bank tidak lagi tersedia atau tidak cocok dengan subject Quiz.");
     const sourceById = new Map(sources.map((source) => [source.id, source]));
-    for (let index = 0; index < input.questions.length; index++) {
-      const submitted = input.questions[index]!; const source = submitted.sourceQuestionId ? sourceById.get(submitted.sourceQuestionId) : null;
+    await Promise.all(input.questions.map(async (submitted, index) => {
+      const source = submitted.sourceQuestionId ? sourceById.get(submitted.sourceQuestionId) : null;
       const choices = source ? source.options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, sourceId: option.id, text: option.content, correct: option.isCorrect })) : submitted.choices.map((choice) => ({ ...choice, sourceId: undefined, correct: choice.id === submitted.correctChoiceId }));
       const item = await tx.standaloneQuizItem.create({ data: { difficulty: source?.difficulty ?? DifficultyLevel.medium, explanation: (source?.explanation ?? submitted.explanation) || null, explanationAssetId: (source?.explanationAssetId ?? submitted.explanationMediaAssetId) || null, prompt: source?.stem ?? submitted.prompt, promptAssetId: (source?.promptAssetId ?? submitted.promptMediaAssetId) || null, quizId: id!, sortOrder: index + 1, sourceQuestionId: source?.id ?? null, subtestId: subtest.id } });
       await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: choice.correct, quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: choice.sourceId ?? null })) });
-    }
+    }));
     const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id }, include: quizInclude });
     return toKaptenQuiz(saved);
   });
@@ -211,7 +211,7 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string) {
     answeredCount: attempt.answers.length,
     correctCount: attempt.correctCount,
     isSubmitted: attempt.status !== "in_progress",
-    questions: attempt.quiz.items.map((item) => ({ explanation: item.explanation, options: item.options.map((option) => ({ correct: option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })), prompt: item.prompt, selectedOptionId: answersByItem.get(item.id) ?? null })),
+    questions: attempt.quiz.items.map((item) => ({ explanation: item.explanation, id: item.id, options: item.options.map((option) => ({ correct: option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })), prompt: item.prompt, selectedOptionId: answersByItem.get(item.id) ?? null })),
     score: attempt.score,
     title: attempt.quiz.title,
     totalQuestions,

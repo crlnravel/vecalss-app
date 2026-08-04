@@ -1,3 +1,7 @@
+minimumReleaseAge: 10080
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+
 allowBuilds:
   '@prisma/engines': set this to true or false
   esbuild: set this to true or false

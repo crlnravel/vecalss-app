@@ -30,7 +30,6 @@ import {
   type KaptenQuiz,
   type KaptenTryout,
 } from "@/modules/mentor/mock-data";
-import { KaptenMateriPageModule } from "@/modules/mentor/KaptenMateriCataloguePageModules";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 
 function CreateButton({ href, label }: { href: string; label: string }) {
@@ -411,7 +410,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
 }
 
 export {
-  KaptenMateriPageModule,
   KaptenQuestionBankPageModule,
   KaptenQuizPageModule,
   KaptenSettingsPageModule,

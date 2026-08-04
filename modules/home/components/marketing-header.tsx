@@ -78,7 +78,7 @@ function MarketingHeader({
         </div>
 
         <details className="relative lg:hidden">
-          <summary className="flex size-12 list-none items-center justify-center rounded-full border border-[#014C38]/12 bg-white text-[#014C38] [&::-webkit-details-marker]:hidden">
+          <summary aria-label="Menu navigasi" className="flex size-12 list-none items-center justify-center rounded-full border border-[#014C38]/12 bg-white text-[#014C38] [&::-webkit-details-marker]:hidden">
             <Menu className="size-5" />
           </summary>
           <div className="absolute right-0 top-full mt-3 w-[18rem] rounded-2xl border border-[#014C38]/10 bg-white p-4 shadow-[0_24px_64px_-44px_rgba(1,76,56,0.24)]">

@@ -19,6 +19,15 @@ import type {
 } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
+const fullDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "full",
+  timeZone: "Asia/Jakarta",
+});
+const shortTimeFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  timeStyle: "short",
+});
+
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
@@ -27,12 +36,12 @@ function formatDuration(seconds: number) {
 
 function formatDate(value?: Date) {
   if (!value) return "Jadwal menyusul";
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "full" }).format(new Date(value));
+  return fullDateFormatter.format(new Date(value));
 }
 
 function formatTime(value?: Date) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("id-ID", { timeStyle: "short" }).format(new Date(value));
+  return shortTimeFormatter.format(new Date(value));
 }
 
 function ParticipantTryoutDetailModule({

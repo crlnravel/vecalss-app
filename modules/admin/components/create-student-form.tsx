@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { Field, FieldInput, FieldLabel, fieldControlClassName } from "@/components/ui/field";
+import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { fieldControlClassName } from "@/components/ui/field-constants";
 import type { ExamEvent } from "@/generated/prisma/client";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -78,6 +79,7 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
         <Field>
           <FieldLabel htmlFor="student-exam-goal">Target exam</FieldLabel>
           <select
+            aria-label="Target exam"
             className={fieldControlClassName}
             defaultValue={state.fields?.targetExamEventId ?? ""}
             id="student-exam-goal"

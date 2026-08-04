@@ -13,6 +13,7 @@ import {
   WifiHigh,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -77,13 +78,19 @@ function ParticipantWaitingRoomModule({
   const handleStart = async () => {
     setBusy(true);
     setMessage(null);
-    const response = await startTryoutAttemptAction(assignment.id);
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
+    try {
+      const response = await startTryoutAttemptAction(assignment.id);
+      if (!response.ok) {
+        setMessage(response.message);
+        return;
+      }
+      window.location.assign(`/tryout/attempt/${response.result.attemptId}`);
+    } catch (startError) {
+      unstable_rethrow(startError);
+      setMessage(startError instanceof Error ? startError.message : "Tryout belum dapat dimulai.");
+    } finally {
+      setBusy(false);
     }
-    window.location.assign(`/tryout/attempt/${response.result.attemptId}`);
   };
 
   if (attempt) {

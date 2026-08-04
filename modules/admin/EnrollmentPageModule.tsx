@@ -1,5 +1,6 @@
-import { Button, buttonVariants } from "@/components/ui/button";
-import { fieldControlClassName } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { fieldControlClassName } from "@/components/ui/field-constants";
 import type { ExamEvent, StudentProfile, User } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";

@@ -137,16 +137,19 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
     await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${packageId}::uuid FOR UPDATE`;
     const pkg = await tx.reusableQuestionPackage.findFirst({ where: { id: packageId, createdByUserId: actorId }, include: { subtest: true, items: { orderBy: { sortOrder: "asc" } } } });
     if (!pkg) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
-    const sources = await readAndValidatePackageSources(tx, pkg.items.map((item) => item.sourceQuestionId), pkg.subtest.code as SubjectCode, pkg.sourceBankId);
+    const [sources, versionCount] = await Promise.all([
+      readAndValidatePackageSources(tx, pkg.items.map((item) => item.sourceQuestionId), pkg.subtest.code as SubjectCode, pkg.sourceBankId),
+      tx.reusableQuestionPackageVersion.count({ where: { packageId } }),
+    ]);
     // Build a draft snapshot first. The database guard makes the final ready
     // state immutable, including its children, once this transition completes.
-    const version = await tx.reusableQuestionPackageVersion.create({ data: { createdByUserId: actorId, packageId, sourceBankId: pkg.sourceBankId, versionNo: (await tx.reusableQuestionPackageVersion.count({ where: { packageId } })) + 1 } });
+    const version = await tx.reusableQuestionPackageVersion.create({ data: { createdByUserId: actorId, packageId, sourceBankId: pkg.sourceBankId, versionNo: versionCount + 1 } });
     const sourceById = new Map(sources.map((source) => [source.id, source]));
-    for (const membership of pkg.items) {
+    await Promise.all(pkg.items.map(async (membership) => {
       const source = sourceById.get(membership.sourceQuestionId)!;
       const item = await tx.reusableQuestionPackageVersionItem.create({ data: { difficulty: source.difficulty, explanation: source.explanation, explanationAssetId: source.explanationAssetId, packageVersionId: version.id, pointValue: membership.pointValue, prompt: source.stem, promptAssetId: source.promptAssetId, sortOrder: membership.sortOrder, sourceQuestionId: source.id, subtestId: source.subtestId! } });
       await tx.reusableQuestionPackageVersionItemOption.createMany({ data: source.options.map((option, index) => ({ assetId: option.assetId, choiceKey: String.fromCharCode(65 + index), content: option.content, isCorrect: option.isCorrect, packageVersionItemId: item.id, sortOrder: index, sourceQuestionOptionId: option.id })) });
-    }
+    }));
     await tx.reusableQuestionPackageVersion.update({ where: { id: version.id }, data: { readyAt: new Date(), status: ContentStatus.published } });
     await tx.reusableQuestionPackage.update({ where: { id: packageId }, data: { revision: { increment: 1 }, status: ContentStatus.published, updatedByUserId: actorId } });
     return { id: version.id, versionNo: version.versionNo };
@@ -183,23 +186,28 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const created = await tx.tryoutPackage.create({ data: { code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
     }
     const versions = await tx.reusableQuestionPackageVersion.findMany({ where: { id: { in: input.sections.flatMap((section) => section.packageVersionId ? [section.packageVersionId] : []) } }, include: versionInclude });
-    const versionById = new Map(versions.map((version) => [version.id, version])); const usedSourceIds = new Set<string>();
-    for (let index = 0; index < SUBJECTS.length; index++) {
-      const sectionInput = input.sections.find((section) => section.subtest === SUBJECTS[index])!;
-      const subtest = await tx.subtest.findUnique({ where: { code: sectionInput.subtest } }); if (!subtest) throw new TryoutValidationError(`Subtest ${sectionInput.subtest} tidak ditemukan.`);
+    const versionById = new Map(versions.map((version) => [version.id, version]));
+    const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
+    const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });
+    const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
+    const sectionRecords = await Promise.all(SUBJECTS.map(async (subjectCode, index) => {
+      const sectionInput = sectionBySubtest.get(subjectCode)!;
+      const subtest = subtestByCode.get(sectionInput.subtest);
+      if (!subtest) throw new TryoutValidationError(`Subtest ${sectionInput.subtest} tidak ditemukan.`);
       const version = sectionInput.packageVersionId ? versionById.get(sectionInput.packageVersionId) : undefined;
       if (sectionInput.packageVersionId && (!version || version.status !== ContentStatus.published || version.package.subtest.code !== sectionInput.subtest)) throw new TryoutValidationError(`Paket siap untuk Test ${sectionInput.subtest} tidak valid atau tidak cocok.`);
       if (input.status === "published" && !version) throw new TryoutValidationError("Setiap Test harus mengikat satu versi Paket Soal siap sebelum Tryout diterbitkan.");
       if (input.status === "published" && sectionInput.testType === "cat") await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version?.id, subtestId: subtest.id });
       const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: version?.id, questionCount: version?.items.length ?? 0, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
-      if (!version) continue;
-      for (const snapshot of version.items) {
-        if (usedSourceIds.has(snapshot.sourceQuestionId)) throw new TryoutValidationError("Satu soal sumber hanya boleh digunakan sekali dalam seluruh Tryout.");
-        usedSourceIds.add(snapshot.sourceQuestionId);
-        const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: version.package.code, packageVersionId: version.id, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, sortOrder: snapshot.sortOrder, sourceQuestionId: snapshot.sourceQuestionId, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
-        await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, tryoutItemId: item.id })) });
-      }
-    }
+      return { section, version };
+    }));
+    const itemEntries = sectionRecords.flatMap(({ section, version }) => version ? version.items.map((snapshot) => ({ section, snapshot, version })) : []);
+    const sourceQuestionIds = itemEntries.map(({ snapshot }) => snapshot.sourceQuestionId);
+    if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh digunakan sekali dalam seluruh Tryout.");
+    await Promise.all(itemEntries.map(async ({ section, snapshot, version }) => {
+      const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: version.package.code, packageVersionId: version.id, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, sortOrder: snapshot.sortOrder, sourceQuestionId: snapshot.sourceQuestionId, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
+      await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, tryoutItemId: item.id })) });
+    }));
     return toTryoutDto(await tx.tryoutPackage.findUniqueOrThrow({ where: { id }, include: tryoutInclude }));
   });
 }

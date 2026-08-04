@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, ChevronLeft, Ellipsis, Eye, FilePenLine, FileText, ListChecks, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
-import { useState } from "react";
+import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -167,6 +167,79 @@ function MateriLessonRow({
   );
 }
 
+type MateriCatalogueState = {
+  bulkError: string | null;
+  bulkIntent: "publish" | "unpublish" | null;
+  bulkNotice: string | null;
+  isBulkPending: boolean;
+  lessons: KaptenMateriView[];
+  page: number;
+  query: string;
+  readinessFilter: string;
+  selectedCodes: Set<string>;
+  selectionMode: boolean;
+  statusFilter: string;
+  videoFilter: string;
+};
+
+type MateriCatalogueAction =
+  | { type: "bulkErrorChanged"; error: string | null }
+  | { type: "bulkIntentChanged"; intent: "publish" | "unpublish" | null }
+  | { type: "bulkNoticeChanged"; notice: string | null }
+  | { type: "bulkPendingChanged"; pending: boolean }
+  | { type: "filterChanged"; filter: "readinessFilter" | "statusFilter" | "videoFilter"; value: string }
+  | { type: "lessonsChanged"; lessons: KaptenMateriView[] }
+  | { type: "pageChanged"; page: number }
+  | { type: "queryChanged"; value: string }
+  | { type: "selectedCodesChanged"; codes: Set<string> }
+  | { type: "selectionModeChanged"; enabled: boolean }
+  | { checked: boolean; code: string; type: "toggleSelected" }
+  | { checked: boolean; codes: string[]; type: "toggleAllVisible" };
+
+function materiCatalogueReducer(
+  state: MateriCatalogueState,
+  action: MateriCatalogueAction,
+): MateriCatalogueState {
+  switch (action.type) {
+    case "queryChanged":
+      return { ...state, page: 1, query: action.value, selectedCodes: new Set() };
+    case "filterChanged":
+      return { ...state, [action.filter]: action.value, page: 1, selectedCodes: new Set() };
+    case "pageChanged":
+      return { ...state, page: action.page };
+    case "selectedCodesChanged":
+      return { ...state, selectedCodes: action.codes };
+    case "toggleSelected": {
+      const selectedCodes = new Set(state.selectedCodes);
+      if (action.checked) selectedCodes.add(action.code);
+      else selectedCodes.delete(action.code);
+      return { ...state, bulkNotice: null, selectedCodes };
+    }
+    case "toggleAllVisible": {
+      const selectedCodes = new Set(state.selectedCodes);
+      for (const code of action.codes) {
+        if (action.checked) selectedCodes.add(code);
+        else selectedCodes.delete(code);
+      }
+      return { ...state, bulkNotice: null, selectedCodes };
+    }
+    case "selectionModeChanged":
+      return { ...state, selectionMode: action.enabled };
+    case "bulkErrorChanged":
+      return { ...state, bulkError: action.error };
+    case "bulkIntentChanged":
+      return { ...state, bulkIntent: action.intent };
+    case "bulkNoticeChanged":
+      return { ...state, bulkNotice: action.notice };
+    case "bulkPendingChanged":
+      return { ...state, isBulkPending: action.pending };
+    case "lessonsChanged":
+      return { ...state, lessons: action.lessons };
+    default:
+      return state;
+  }
+}
+
 function KaptenMateriSubjectPageModule({
   catalogue,
   session,
@@ -177,26 +250,36 @@ function KaptenMateriSubjectPageModule({
   subject: KaptenMateriSubjectView;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [lessons, setLessons] = useState(() =>
-    catalogue
+  const [state, dispatch] = useReducer(materiCatalogueReducer, undefined, () => ({
+    bulkError: null,
+    bulkIntent: null,
+    bulkNotice: null,
+    isBulkPending: false,
+    lessons: catalogue
       .filter((lesson) => lesson.subjectSlug === subject.slug)
       .sort((a, b) => a.position - b.position || a.code.localeCompare(b.code)),
-  );
-  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [bulkIntent, setBulkIntent] = useState<"publish" | "unpublish" | null>(
-    null,
-  );
-  const [bulkError, setBulkError] = useState<string | null>(null);
-  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
-  const [isBulkPending, setIsBulkPending] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [readinessFilter, setReadinessFilter] = useState("");
-  const [videoFilter, setVideoFilter] = useState("");
+    page: 1,
+    query: "",
+    readinessFilter: "",
+    selectedCodes: new Set<string>(),
+    selectionMode: false,
+    statusFilter: "",
+    videoFilter: "",
+  }));
+  const {
+    bulkError,
+    bulkIntent,
+    bulkNotice,
+    isBulkPending,
+    lessons,
+    page,
+    query,
+    readinessFilter,
+    selectedCodes,
+    selectionMode,
+    statusFilter,
+    videoFilter,
+  } = state;
   const returnTo = `/mentor/materi/subject/${subject.slug}`;
 
   function filterVisibleLessons(value: string) {
@@ -259,37 +342,25 @@ function KaptenMateriSubjectPageModule({
         };
 
   function changeQuery(value: string) {
-    setQuery(value);
-    setPage(1);
-    setSelectedCodes(new Set());
+    dispatch({ type: "queryChanged", value });
   }
 
   function toggleSelected(code: string, checked: boolean) {
-    setBulkNotice(null);
-    setSelectedCodes((current) => {
-      const next = new Set(current);
-      if (checked) next.add(code);
-      else next.delete(code);
-      return next;
-    });
+    dispatch({ checked, code, type: "toggleSelected" });
   }
 
   function toggleAllVisible(checked: boolean) {
-    setBulkNotice(null);
-    setSelectedCodes((current) => {
-      const next = new Set(current);
-      for (const lesson of visibleLessons) {
-        if (checked) next.add(lesson.code);
-        else next.delete(lesson.code);
-      }
-      return next;
+    dispatch({
+      checked,
+      codes: visibleLessons.map((lesson) => lesson.code),
+      type: "toggleAllVisible",
     });
   }
 
   async function confirmBulkLifecycle() {
     if (!bulkIntent || isBulkPending || selectedLessons.length === 0) return;
-    setIsBulkPending(true);
-    setBulkError(null);
+    dispatch({ pending: true, type: "bulkPendingChanged" });
+    dispatch({ error: null, type: "bulkErrorChanged" });
     const codes = selectedLessons.map((lesson) => lesson.code);
     try {
       const result =
@@ -297,12 +368,12 @@ function KaptenMateriSubjectPageModule({
           ? await bulkPublishMateriLessonsAction(subject.slug, codes)
           : await bulkUnpublishMateriLessonsAction(subject.slug, codes);
       if (!result.ok) {
-        setBulkError(result.message);
+        dispatch({ error: result.message, type: "bulkErrorChanged" });
         return;
       }
       const affected = new Set(result.affectedCodes);
-      setLessons((current) =>
-        current.map((lesson) =>
+      dispatch({
+        lessons: lessons.map((lesson) =>
           affected.has(lesson.code)
             ? {
                 ...lesson,
@@ -311,278 +382,418 @@ function KaptenMateriSubjectPageModule({
               }
             : lesson,
         ),
-      );
-      setSelectedCodes(new Set());
-      setSelectionMode(false);
-      setBulkNotice(result.message);
-      setBulkIntent(null);
+        type: "lessonsChanged",
+      });
+      dispatch({ codes: new Set(), type: "selectedCodesChanged" });
+      dispatch({ enabled: false, type: "selectionModeChanged" });
+      dispatch({ notice: result.message, type: "bulkNoticeChanged" });
+      dispatch({ intent: null, type: "bulkIntentChanged" });
       router.refresh();
     } catch (error) {
-      setBulkError(
-        error instanceof Error
+      dispatch({
+        error: error instanceof Error
           ? error.message
           : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
-      );
+        type: "bulkErrorChanged",
+      });
     } finally {
-      setIsBulkPending(false);
+      dispatch({ pending: false, type: "bulkPendingChanged" });
     }
   }
 
   async function applyLessonAction(lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") {
     if (isBulkPending) return;
     if (action === "delete") return;
-    setIsBulkPending(true); setBulkError(null);
+    dispatch({ pending: true, type: "bulkPendingChanged" });
+    dispatch({ error: null, type: "bulkErrorChanged" });
     try {
       if (action === "publish" || action === "unpublish") {
-        const result = action === "publish" ? await bulkPublishMateriLessonsAction(subject.slug, [lesson.code]) : await bulkUnpublishMateriLessonsAction(subject.slug, [lesson.code]);
-        if (!result.ok) { setBulkError(result.message); return; }
-        setLessons((current) => current.map((item) => item.code === lesson.code ? { ...item, lifecycleStatus: result.status, status: result.status } : item));
-        setBulkNotice(result.message);
+        const result = action === "publish"
+          ? await bulkPublishMateriLessonsAction(subject.slug, [lesson.code])
+          : await bulkUnpublishMateriLessonsAction(subject.slug, [lesson.code]);
+        if (!result.ok) {
+          dispatch({ error: result.message, type: "bulkErrorChanged" });
+          return;
+        }
+        dispatch({
+          lessons: lessons.map((item) =>
+            item.code === lesson.code
+              ? { ...item, lifecycleStatus: result.status, status: result.status }
+              : item,
+          ),
+          type: "lessonsChanged",
+        });
+        dispatch({ notice: result.message, type: "bulkNoticeChanged" });
       } else {
-        const result = action === "archive" ? await archiveMateriLessonAction(lesson.code) : await returnMateriLessonToDraftAction(lesson.code);
-        if (!result.ok) { setBulkError(result.message); return; }
-        setLessons((current) => current.map((item) => item.code === lesson.code ? result.lesson : item));
-        setBulkNotice(result.message);
+        const result = action === "archive"
+          ? await archiveMateriLessonAction(lesson.code)
+          : await returnMateriLessonToDraftAction(lesson.code);
+        if (!result.ok) {
+          dispatch({ error: result.message, type: "bulkErrorChanged" });
+          return;
+        }
+        dispatch({
+          lessons: lessons.map((item) => item.code === lesson.code ? result.lesson : item),
+          type: "lessonsChanged",
+        });
+        dispatch({ notice: result.message, type: "bulkNoticeChanged" });
       }
       router.refresh();
     } catch (error) {
-      setBulkError(error instanceof Error ? error.message : "Status lesson tidak dapat diubah saat ini. Coba lagi.");
-    } finally { setIsBulkPending(false); }
+      dispatch({
+        error: error instanceof Error
+          ? error.message
+          : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
+        type: "bulkErrorChanged",
+      });
+    } finally {
+      dispatch({ pending: false, type: "bulkPendingChanged" });
+    }
   }
-
   return (
-    <MentorWorkspaceShell
-      activeLabel="Materi"
-      breadcrumbLabel={`${subject.code} · Materi`}
-      searchPlaceholder="Cari lesson..."
-      session={session}
-    >
-      <div className="space-y-3">
-      <section className="space-y-3">
-        <Button
-          aria-label="Kembali ke semua materi"
-          render={<Link href="/mentor/materi" />}
-          size="icon-sm"
-          title="Kembali ke semua materi"
-          variant="ghost"
-        >
-          <ChevronLeft />
-        </Button>
-        <PageIntro
-          action={
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      aria-label="Buat materi baru"
-                      render={<Link href={buildCreateHref(subject.slug)} />}
-                      size="icon"
-                      variant="brand"
-                    />
-                  }
-                >
-                  <Plus />
-                </TooltipTrigger>
-                <TooltipContent>Buat materi baru</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+    <MateriSubjectCatalogueScreen
+      actions={{
+        onApplyLessonAction: (lesson, action) => { void applyLessonAction(lesson, action); },
+        onBulkIntent: (intent) => dispatch({ intent, type: "bulkIntentChanged" }),
+        onClearBulkError: () => dispatch({ error: null, type: "bulkErrorChanged" }),
+        onClearSelection: () => dispatch({ codes: new Set(), type: "selectedCodesChanged" }),
+        onCloseBulkDialog: () => {
+          if (!isBulkPending) {
+            dispatch({ error: null, type: "bulkErrorChanged" });
+            dispatch({ intent: null, type: "bulkIntentChanged" });
           }
-          title={subject.name}
-        />
-        <CatalogueSearchInput
-          onChange={changeQuery}
-          placeholder="Cari judul, PDF, video, atau status..."
-          value={query}
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <CatalogueFilter
-            label="Filter status"
-            onValueChange={(value) => { setStatusFilter(value); setPage(1); setSelectedCodes(new Set()); }}
-            options={[
-              { label: "Semua status", value: "" },
-              { label: "Draf", value: "draft" },
-              { label: "Diterbitkan", value: "published" },
-              { label: "Diarsipkan", value: "archived" },
-              { label: "Terjadwal", value: "scheduled" },
-            ]}
-            value={statusFilter}
+        },
+        onConfirmBulkLifecycle: () => { void confirmBulkLifecycle(); },
+        onExitSelectionMode: () => {
+          dispatch({ enabled: false, type: "selectionModeChanged" });
+          dispatch({ codes: new Set(), type: "selectedCodesChanged" });
+        },
+        onPageChange: (nextPage) => dispatch({ page: nextPage, type: "pageChanged" }),
+        onQueryChange: changeQuery,
+        onReadinessFilterChange: (value) => dispatch({ filter: "readinessFilter", type: "filterChanged", value }),
+        onSetSelectionMode: (enabled) => dispatch({ enabled, type: "selectionModeChanged" }),
+        onStatusFilterChange: (value) => dispatch({ filter: "statusFilter", type: "filterChanged", value }),
+        onToggleAllVisible: toggleAllVisible,
+        onToggleSelected: toggleSelected,
+        onVideoFilterChange: (value) => dispatch({ filter: "videoFilter", type: "filterChanged", value }),
+      }}
+      data={{
+        confirmation,
+        eligibilityReason,
+        pageCount,
+        pagedLessons,
+        publishEligible,
+        selectAllVisible,
+        selectedLessons,
+        unpublishEligible,
+        visibleLessons,
+      }}
+      returnTo={returnTo}
+      session={session}
+      state={state}
+      subject={subject}
+    />
+  );
+}
+
+type MateriSubjectCatalogueActions = {
+  onApplyLessonAction: (lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void;
+  onBulkIntent: (intent: "publish" | "unpublish") => void;
+  onClearBulkError: () => void;
+  onClearSelection: () => void;
+  onCloseBulkDialog: () => void;
+  onConfirmBulkLifecycle: () => void;
+  onExitSelectionMode: () => void;
+  onPageChange: (page: number) => void;
+  onQueryChange: (value: string) => void;
+  onReadinessFilterChange: (value: string) => void;
+  onSetSelectionMode: (enabled: boolean) => void;
+  onStatusFilterChange: (value: string) => void;
+  onToggleAllVisible: (checked: boolean) => void;
+  onToggleSelected: (code: string, checked: boolean) => void;
+  onVideoFilterChange: (value: string) => void;
+};
+
+type MateriSubjectCatalogueData = {
+  confirmation: { confirm: string; description: string; title: string };
+  eligibilityReason: string | null;
+  pageCount: number;
+  pagedLessons: KaptenMateriView[];
+  publishEligible: boolean;
+  selectAllVisible: boolean;
+  selectedLessons: KaptenMateriView[];
+  unpublishEligible: boolean;
+  visibleLessons: KaptenMateriView[];
+};
+
+function MateriSubjectCatalogueScreen({
+  actions,
+  data,
+  returnTo,
+  session,
+  state,
+  subject,
+}: {
+  actions: MateriSubjectCatalogueActions;
+  data: MateriSubjectCatalogueData;
+  returnTo: string;
+  session: SessionContext;
+  state: MateriCatalogueState;
+  subject: KaptenMateriSubjectView;
+}) {
+  const {
+    bulkError,
+    bulkIntent,
+    bulkNotice,
+    isBulkPending,
+    page,
+    query,
+    readinessFilter,
+    selectedCodes,
+    selectionMode,
+    statusFilter,
+    videoFilter,
+  } = state;
+  const {
+    confirmation,
+    eligibilityReason,
+    pageCount,
+    pagedLessons,
+    publishEligible,
+    selectAllVisible,
+    selectedLessons,
+    unpublishEligible,
+  } = data;
+
+    return (
+      <MentorWorkspaceShell
+        activeLabel="Materi"
+        breadcrumbLabel={`${subject.code} · Materi`}
+        searchPlaceholder="Cari lesson..."
+        session={session}
+      >
+        <div className="space-y-3">
+        <section className="space-y-3">
+          <Button
+            aria-label="Kembali ke semua materi"
+            render={<Link href="/mentor/materi" />}
+            size="icon-sm"
+            title="Kembali ke semua materi"
+            variant="ghost"
+          >
+            <ChevronLeft />
+          </Button>
+          <PageIntro
+            action={
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label="Buat materi baru"
+                        render={<Link href={buildCreateHref(subject.slug)} />}
+                        size="icon"
+                        variant="brand"
+                      />
+                    }
+                  >
+                    <Plus />
+                  </TooltipTrigger>
+                  <TooltipContent>Buat materi baru</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            }
+            title={subject.name}
           />
-          <CatalogueFilter
-            label="Filter kesiapan PDF"
-            onValueChange={(value) => { setReadinessFilter(value); setPage(1); setSelectedCodes(new Set()); }}
-            options={[
-              { label: "Semua kesiapan PDF", value: "" },
-              { label: "PDF siap", value: "ready" },
-              { label: "PDF belum siap", value: "incomplete" },
-            ]}
-            value={readinessFilter}
+          <CatalogueSearchInput
+            onChange={actions.onQueryChange}
+            placeholder="Cari judul, PDF, video, atau status..."
+            value={query}
           />
-          <CatalogueFilter
-            label="Filter video opsional"
-            onValueChange={(value) => { setVideoFilter(value); setPage(1); setSelectedCodes(new Set()); }}
-            options={[
-              { label: "Semua video", value: "" },
-              { label: "Dengan video opsional", value: "with-video" },
-              { label: "Tanpa video", value: "without-video" },
-            ]}
-            value={videoFilter}
-          />
-          {!selectionMode ? (
-            <Button
-              aria-label="Pilih beberapa lesson"
-              className="ml-auto"
-              onClick={() => setSelectionMode(true)}
-              size="icon-sm"
-              title="Pilih beberapa lesson"
-              type="button"
-              variant="brandOutline"
-            >
-              <ListChecks />
-            </Button>
-          ) : null}
-        </div>
-      </section>
-      <section className="space-y-3">
-        {selectionMode ? (
-          <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-primary-100 bg-primary-50/35 px-6 py-4">
-            <Button aria-label="Keluar dari mode pilih" onClick={() => { setSelectionMode(false); setSelectedCodes(new Set()); }} size="icon-xs" type="button" variant="ghost"><X /></Button>
-            <span className="text-sm font-semibold text-secondary-900">{selectedLessons.length} dipilih</span>
-            <Checkbox
-              aria-label="Pilih semua lesson yang terlihat"
-              checked={selectAllVisible}
-              onCheckedChange={(checked) => toggleAllVisible(checked === true)}
+          <div className="flex flex-wrap items-center gap-2">
+            <CatalogueFilter
+              label="Filter status"
+            onValueChange={actions.onStatusFilterChange}
+              options={[
+                { label: "Semua status", value: "" },
+                { label: "Draf", value: "draft" },
+                { label: "Diterbitkan", value: "published" },
+                { label: "Diarsipkan", value: "archived" },
+                { label: "Terjadwal", value: "scheduled" },
+              ]}
+              value={statusFilter}
             />
-            <span className="text-sm font-semibold text-secondary-700">
-              Semua hasil
-            </span>
-            <div className="ml-auto flex flex-wrap items-center gap-3">
+            <CatalogueFilter
+              label="Filter kesiapan PDF"
+            onValueChange={actions.onReadinessFilterChange}
+              options={[
+                { label: "Semua kesiapan PDF", value: "" },
+                { label: "PDF siap", value: "ready" },
+                { label: "PDF belum siap", value: "incomplete" },
+              ]}
+              value={readinessFilter}
+            />
+            <CatalogueFilter
+              label="Filter video opsional"
+            onValueChange={actions.onVideoFilterChange}
+              options={[
+                { label: "Semua video", value: "" },
+                { label: "Dengan video opsional", value: "with-video" },
+                { label: "Tanpa video", value: "without-video" },
+              ]}
+              value={videoFilter}
+            />
+            {!selectionMode ? (
               <Button
-                disabled={!publishEligible || isBulkPending}
-                onClick={() => {
-                  setBulkError(null);
-                  setBulkIntent("publish");
-                }}
-                size="sm"
-                type="button"
-                variant="brand"
-              >
-                Terbitkan
-              </Button>
-              <Button
-                disabled={!unpublishEligible || isBulkPending}
-                onClick={() => {
-                  setBulkError(null);
-                  setBulkIntent("unpublish");
-                }}
-                size="sm"
+                aria-label="Pilih beberapa lesson"
+                className="ml-auto"
+                onClick={() => actions.onSetSelectionMode(true)}
+                size="icon-sm"
+                title="Pilih beberapa lesson"
                 type="button"
                 variant="brandOutline"
               >
-                Batalkan terbit
+                <ListChecks />
               </Button>
-              <Button
-                disabled={isBulkPending}
-                onClick={() => setSelectedCodes(new Set())}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Hapus pilihan
-              </Button>
-            </div>
-            {eligibilityReason ? (
-              <p
-                className="basis-full text-sm text-secondary-600"
-                role="status"
-              >
-                {eligibilityReason}
-              </p>
             ) : null}
           </div>
-        ) : null}
-        {bulkNotice ? (
-          <p
-            className="rounded-2xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-sm font-medium text-primary-900"
-            role="status"
-          >
-            {bulkNotice}
-          </p>
-        ) : null}
-        {pagedLessons.length ? (
-          pagedLessons.map((lesson) => (
-            <MateriLessonRow
-              key={lesson.code}
-              lesson={lesson}
-              onAction={(action) => { void applyLessonAction(lesson, action); }}
-              onSelectedChange={(checked) =>
-                toggleSelected(lesson.code, checked)
-              }
-              returnTo={returnTo}
-              selectionMode={selectionMode}
-              selected={selectedCodes.has(lesson.code)}
-            />
-          ))
-        ) : (
-          <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-10 text-center text-sm text-secondary-600">
-            Tidak ada lesson yang cocok dengan pencarian ini.
-          </div>
-        )}
-        <PaginationControls
-          onPageChange={setPage}
-          page={page}
-          pageCount={pageCount}
-        />
-      </section>
-      </div>
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open && !isBulkPending) {
-            setBulkError(null);
-            setBulkIntent(null);
-          }
-        }}
-        open={Boolean(bulkIntent)}
-      >
-        <DialogContent showCloseButton={!isBulkPending}>
-          <DialogHeader>
-            <DialogTitle>{confirmation.title}</DialogTitle>
-            <DialogDescription>{confirmation.description}</DialogDescription>
-          </DialogHeader>
-          {bulkError ? (
-            <div
-              aria-live="assertive"
-              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-              role="alert"
-            >
-              {bulkError}
+        </section>
+        <section className="space-y-3">
+          {selectionMode ? (
+            <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-primary-100 bg-primary-50/35 px-6 py-4">
+              <Button aria-label="Keluar dari mode pilih" onClick={() => { actions.onExitSelectionMode(); }} size="icon-xs" type="button" variant="ghost"><X /></Button>
+              <span className="text-sm font-semibold text-secondary-900">{selectedLessons.length} dipilih</span>
+              <Checkbox
+                aria-label="Pilih semua lesson yang terlihat"
+                checked={selectAllVisible}
+              onCheckedChange={(checked) => actions.onToggleAllVisible(checked === true)}
+              />
+              <span className="text-sm font-semibold text-secondary-700">
+                Semua hasil
+              </span>
+              <div className="ml-auto flex flex-wrap items-center gap-3">
+                <Button
+                  disabled={!publishEligible || isBulkPending}
+                  onClick={() => {
+                    actions.onClearBulkError();
+                    actions.onBulkIntent("publish");
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="brand"
+                >
+                  Terbitkan
+                </Button>
+                <Button
+                  disabled={!unpublishEligible || isBulkPending}
+                  onClick={() => {
+                    actions.onClearBulkError();
+                    actions.onBulkIntent("unpublish");
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="brandOutline"
+                >
+                  Batalkan terbit
+                </Button>
+                <Button
+                  disabled={isBulkPending}
+                  onClick={actions.onClearSelection}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  Hapus pilihan
+                </Button>
+              </div>
+              {eligibilityReason ? (
+                <p
+                  className="basis-full text-sm text-secondary-600"
+                  role="status"
+                >
+                  {eligibilityReason}
+                </p>
+              ) : null}
             </div>
           ) : null}
-          <DialogFooter>
-            <DialogClose
-              disabled={isBulkPending}
-              render={<Button type="button" variant="brandOutline" />}
+          {bulkNotice ? (
+            <p
+              className="rounded-2xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-sm font-medium text-primary-900"
+              role="status"
             >
-              Batal
-            </DialogClose>
-            <Button
-              disabled={
-                isBulkPending ||
-                (bulkIntent === "publish"
-                  ? !publishEligible
-                  : !unpublishEligible)
-              }
-              onClick={confirmBulkLifecycle}
-              type="button"
-              variant="brand"
-            >
-              {isBulkPending ? "Memproses..." : confirmation.confirm}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </MentorWorkspaceShell>
-  );
+              {bulkNotice}
+            </p>
+          ) : null}
+          {pagedLessons.length ? (
+            pagedLessons.map((lesson) => (
+              <MateriLessonRow
+                key={lesson.code}
+                lesson={lesson}
+                onAction={(action) => { actions.onApplyLessonAction(lesson, action); }}
+                onSelectedChange={(checked) =>
+                  actions.onToggleSelected(lesson.code, checked)
+                }
+                returnTo={returnTo}
+                selectionMode={selectionMode}
+                selected={selectedCodes.has(lesson.code)}
+              />
+            ))
+          ) : (
+            <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-10 text-center text-sm text-secondary-600">
+              Tidak ada lesson yang cocok dengan pencarian ini.
+            </div>
+          )}
+          <PaginationControls
+            onPageChange={actions.onPageChange}
+            page={page}
+            pageCount={pageCount}
+          />
+        </section>
+        </div>
+        <Dialog
+          onOpenChange={actions.onCloseBulkDialog}
+          open={Boolean(bulkIntent)}
+        >
+          <DialogContent showCloseButton={!isBulkPending}>
+            <DialogHeader>
+              <DialogTitle>{confirmation.title}</DialogTitle>
+              <DialogDescription>{confirmation.description}</DialogDescription>
+            </DialogHeader>
+            {bulkError ? (
+              <div
+                aria-live="assertive"
+                className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                role="alert"
+              >
+                {bulkError}
+              </div>
+            ) : null}
+            <DialogFooter>
+              <DialogClose
+                disabled={isBulkPending}
+                render={<Button type="button" variant="brandOutline" />}
+              >
+                Batal
+              </DialogClose>
+              <Button
+                disabled={
+                  isBulkPending ||
+                  (bulkIntent === "publish"
+                    ? !publishEligible
+                    : !unpublishEligible)
+                }
+                onClick={actions.onConfirmBulkLifecycle}
+                type="button"
+                variant="brand"
+              >
+                {isBulkPending ? "Memproses..." : confirmation.confirm}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </MentorWorkspaceShell>
+    );
 }
+
 
 export { KaptenMateriPageModule, KaptenMateriSubjectPageModule };

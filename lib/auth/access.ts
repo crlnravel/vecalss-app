@@ -5,8 +5,6 @@ import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 import {
   getDefaultHomePath,
   getLoginPathForAudience,
-  getStudentHomePath,
-  getTutorHomePath,
 } from "./paths";
 import { getSessionContext, hasRole } from "./session";
 import type { AuthenticatedUser, SessionContext } from "./types";
@@ -96,8 +94,6 @@ function redirectIfOnboardingAlreadyComplete(session: SessionContext) {
 export {
   getDefaultHomePath,
   getLoginPathForAudience,
-  getStudentHomePath,
-  getTutorHomePath,
   redirectIfOnboardingAlreadyComplete,
   redirectToAuthorizedHome,
   requireAdminSession,

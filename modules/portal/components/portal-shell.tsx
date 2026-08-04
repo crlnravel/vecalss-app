@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import type { LoginAudience } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/modules/auth/actions";

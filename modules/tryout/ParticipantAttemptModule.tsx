@@ -19,6 +19,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -153,30 +154,36 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
 
   const refresh = useCallback(async () => {
     setBusy(true);
-    const response = await tryoutAttemptStateAction(attemptId);
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
-    }
-    const nextState = response.result as State;
-    const nextRunId = nextState.activeRun?.id ?? null;
-    if (nextRunId !== activeRunRef.current) {
-      activeRunRef.current = nextRunId;
-      setIndex(0);
-      if (nextRunId) {
-        const saved = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:marked`);
-        try {
-          setMarked(new Set(saved ? JSON.parse(saved) as string[] : []));
-        } catch {
+    try {
+      const response = await tryoutAttemptStateAction(attemptId);
+      if (!response.ok) {
+        setMessage(response.message);
+        return;
+      }
+      const nextState = response.result as State;
+      const nextRunId = nextState.activeRun?.id ?? null;
+      if (nextRunId !== activeRunRef.current) {
+        activeRunRef.current = nextRunId;
+        setIndex(0);
+        if (nextRunId) {
+          const saved = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:marked`);
+          try {
+            setMarked(new Set(saved ? JSON.parse(saved) as string[] : []));
+          } catch {
+            setMarked(new Set());
+          }
+        } else {
           setMarked(new Set());
         }
-      } else {
-        setMarked(new Set());
       }
+      setState(nextState);
+      setMessage("");
+    } catch (refreshError) {
+      unstable_rethrow(refreshError);
+      setMessage(refreshError instanceof Error ? refreshError.message : "Tryout belum dapat dimuat.");
+    } finally {
+      setBusy(false);
     }
-    setState(nextState);
-    setMessage("");
   }, [attemptId]);
 
   useEffect(() => {
@@ -239,7 +246,10 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
 
   const item = items[Math.min(index, Math.max(0, items.length - 1))];
   const selected = run?.answers.find((answer) => answer.tryoutItemId === item?.id)?.selectedOptionId ?? null;
-  const answerIds = useMemo(() => new Set(run?.answers.filter((answer) => answer.selectedOptionId).map((answer) => answer.tryoutItemId) ?? []), [run?.answers]);
+  const answerIds = useMemo(() => new Set(run?.answers.reduce<string[]>((ids, answer) => {
+    if (answer.selectedOptionId) ids.push(answer.tryoutItemId);
+    return ids;
+  }, []) ?? []), [run?.answers]);
   const unansweredCount = items.filter((candidate) => !answerIds.has(candidate.id)).length;
   const markedCount = items.filter((candidate) => marked.has(candidate.id)).length;
 
@@ -247,44 +257,62 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
     if (!run || !item) return;
     setSaveState("saving");
     setMessage("");
-    const response = await saveTryoutAnswerAction(attemptId, run.id, item.id, optionId);
-    if (!response.ok) {
+    try {
+      const response = await saveTryoutAnswerAction(attemptId, run.id, item.id, optionId);
+      if (!response.ok) {
+        setSaveState("error");
+        setMessage(response.message);
+        return;
+      }
+      setSaveState("saved");
+      setState((current) => {
+        if (!current?.activeRun || current.activeRun.id !== run.id) return current;
+        const otherAnswers = current.activeRun.answers.filter((answer) => answer.tryoutItemId !== item.id);
+        return { ...current, activeRun: { ...current.activeRun, answers: [...otherAnswers, { selectedOptionId: optionId, tryoutItemId: item.id }] } };
+      });
+      if (snapshot?.testType === "cat") await refresh();
+    } catch (saveError) {
+      unstable_rethrow(saveError);
       setSaveState("error");
-      setMessage(response.message);
-      return;
+      setMessage(saveError instanceof Error ? saveError.message : "Jawaban belum dapat disimpan.");
     }
-    setSaveState("saved");
-    setState((current) => {
-      if (!current?.activeRun || current.activeRun.id !== run.id) return current;
-      const otherAnswers = current.activeRun.answers.filter((answer) => answer.tryoutItemId !== item.id);
-      return { ...current, activeRun: { ...current.activeRun, answers: [...otherAnswers, { selectedOptionId: optionId, tryoutItemId: item.id }] } };
-    });
-    if (snapshot?.testType === "cat") await refresh();
   };
 
   const begin = async (runId: string) => {
     setBusy(true);
     setMessage("");
-    const response = await startActiveTryoutTestRunAction(attemptId, runId);
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
+    try {
+      const response = await startActiveTryoutTestRunAction(attemptId, runId);
+      if (!response.ok) {
+        setMessage(response.message);
+        return;
+      }
+      await refresh();
+    } catch (beginError) {
+      unstable_rethrow(beginError);
+      setMessage(beginError instanceof Error ? beginError.message : "Test belum dapat dimulai.");
+    } finally {
+      setBusy(false);
     }
-    await refresh();
   };
 
   const submit = async () => {
     if (!run) return;
     setSubmitOpen(false);
     setBusy(true);
-    const response = await sealTryoutTestRunAction(attemptId, run.id);
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
+    try {
+      const response = await sealTryoutTestRunAction(attemptId, run.id);
+      if (!response.ok) {
+        setMessage(response.message);
+        return;
+      }
+      await refresh();
+    } catch (submitError) {
+      unstable_rethrow(submitError);
+      setMessage(submitError instanceof Error ? submitError.message : "Test belum dapat dikirim.");
+    } finally {
+      setBusy(false);
     }
-    await refresh();
   };
 
   const toggleMarked = () => {
@@ -302,7 +330,8 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       await document.documentElement.requestFullscreen();
       const response = await recordTryoutIntegrityEventAction(attemptId, run.id, "fullscreen_entered");
       if (!response.ok) setMessage(response.message);
-    } catch {
+    } catch (error) {
+      unstable_rethrow(error);
       setMessage("Browser tidak dapat memasuki layar penuh. Tryout tetap dapat dilanjutkan.");
     }
   };
@@ -377,11 +406,103 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const timerUrgent = secondsLeft <= 300;
 
   return (
+    <ParticipantAttemptScreen
+      answerIds={answerIds}
+      busy={busy}
+      enterFullscreen={enterFullscreen}
+      index={index}
+      item={item}
+      items={items}
+      marked={marked}
+      markedCount={markedCount}
+      message={message}
+      now={now}
+      onIndexChange={setIndex}
+      onToggleMarked={toggleMarked}
+      paletteOpen={paletteOpen}
+      refresh={refresh}
+      run={run}
+      save={save}
+      saveState={saveState}
+      selected={selected}
+      setPaletteOpen={setPaletteOpen}
+      setSubmitOpen={setSubmitOpen}
+      snapshot={snapshot}
+      submit={submit}
+      submitOpen={submitOpen}
+      timerUrgent={timerUrgent}
+      tryoutTitle={state.tryoutTitle}
+      runCount={state.runs.length}
+      unansweredCount={unansweredCount}
+    />
+  );
+}
+
+type ActiveRun = NonNullable<State["activeRun"]>;
+
+function ParticipantAttemptScreen({
+  answerIds,
+  busy,
+  enterFullscreen,
+  index,
+  item,
+  items,
+  marked,
+  markedCount,
+  message,
+  now,
+  onIndexChange,
+  onToggleMarked,
+  paletteOpen,
+  refresh,
+  run,
+  save,
+  saveState,
+  selected,
+  setPaletteOpen,
+  setSubmitOpen,
+  snapshot,
+  submit,
+  submitOpen,
+  timerUrgent,
+  tryoutTitle,
+  runCount,
+  unansweredCount,
+}: {
+  answerIds: Set<string>;
+  busy: boolean;
+  enterFullscreen: () => void;
+  index: number;
+  item: Item;
+  items: Item[];
+  marked: Set<string>;
+  markedCount: number;
+  message: string;
+  now: number;
+  onIndexChange: (index: number) => void;
+  onToggleMarked: () => void;
+  paletteOpen: boolean;
+  refresh: () => void;
+  run: ActiveRun;
+  save: (optionId: string) => void;
+  saveState: "idle" | "saving" | "saved" | "error";
+  selected: string | null;
+  setPaletteOpen: (open: boolean) => void;
+  setSubmitOpen: (open: boolean) => void;
+  snapshot: Snapshot | undefined;
+  submit: () => void;
+  submitOpen: boolean;
+  timerUrgent: boolean;
+  tryoutTitle: string;
+  runCount: number;
+  unansweredCount: number;
+}) {
+  return (
     <main className="min-h-svh bg-[#f4f7f5] text-secondary-900">
       <header className="sticky top-0 z-30 border-b border-primary-100 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex min-h-16 max-w-[1440px] items-center gap-3 px-4 sm:px-6 lg:px-8">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-secondary-500">{state.tryoutTitle} · Bagian {run.sequenceNo}/{state.runs.length}</p>
+            <p className="truncate text-xs font-semibold text-secondary-500">{tryoutTitle} · Bagian {run.sequenceNo}/{runCount}</p>
             <p className="mt-0.5 truncate font-semibold">{run.section.title}</p>
           </div>
           <div className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 font-mono text-lg font-semibold tabular-nums", timerUrgent ? "bg-red-50 text-red-800" : "bg-[#fff8d8] text-[#5c4800]")} aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}>
@@ -429,12 +550,12 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
           <footer className="mt-4 flex flex-col gap-3 rounded-2xl border border-primary-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             {snapshot?.testType === "cbt" ? (
               <div className="grid grid-cols-2 gap-2 sm:flex">
-                <Button disabled={busy || saveState === "saving" || index === 0} onClick={() => setIndex(index - 1)} variant="brandOutline"><ArrowLeft />Sebelumnya</Button>
-                <Button disabled={busy || saveState === "saving" || index >= items.length - 1} onClick={() => setIndex(index + 1)} variant="brandOutline">Berikutnya<ArrowRight /></Button>
+                <Button disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} variant="brandOutline"><ArrowLeft />Sebelumnya</Button>
+                <Button disabled={busy || saveState === "saving" || index >= items.length - 1} onClick={() => onIndexChange(index + 1)} variant="brandOutline">Berikutnya<ArrowRight /></Button>
               </div>
             ) : <p className="text-sm text-secondary-600">Pilih jawaban untuk memuat soal adaptif berikutnya.</p>}
             <div className="grid grid-cols-2 gap-2 sm:flex">
-              {snapshot?.testType === "cbt" ? <Button aria-pressed={marked.has(item.id)} onClick={toggleMarked} variant={marked.has(item.id) ? "contextSelected" : "context"}><Flag />{marked.has(item.id) ? "Ditandai" : "Tandai"}</Button> : null}
+              {snapshot?.testType === "cbt" ? <Button aria-pressed={marked.has(item.id)} onClick={onToggleMarked} variant={marked.has(item.id) ? "contextSelected" : "context"}><Flag />{marked.has(item.id) ? "Ditandai" : "Tandai"}</Button> : null}
               <Button disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} variant="brand"><PaperPlaneTilt />Kirim bagian</Button>
             </div>
           </footer>
@@ -445,7 +566,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
             <div className="sticky top-24 rounded-[1.5rem] border border-primary-100 bg-white p-5">
               <p className="text-xs font-bold tracking-[0.12em] text-primary-700 uppercase">Daftar soal</p>
               <p className="mt-2 text-sm text-secondary-500">Pilih nomor untuk berpindah dalam bagian ini.</p>
-              <div className="mt-5"><QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={setIndex} /></div>
+              <div className="mt-5"><QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={onIndexChange} /></div>
               <Button className="mt-6 w-full" onClick={() => setSubmitOpen(true)} variant="brandOutline"><LockKey />Akhiri bagian</Button>
             </div>
           </aside>
@@ -455,7 +576,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       <Dialog onOpenChange={setPaletteOpen} open={paletteOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Daftar soal</DialogTitle><DialogDescription>Pilih nomor soal untuk berpindah.</DialogDescription></DialogHeader>
-          <QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={(nextIndex) => { setIndex(nextIndex); setPaletteOpen(false); }} />
+          <QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={(nextIndex) => { onIndexChange(nextIndex); setPaletteOpen(false); }} />
         </DialogContent>
       </Dialog>
 

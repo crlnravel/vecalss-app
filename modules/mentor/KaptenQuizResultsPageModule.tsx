@@ -1,9 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ChevronLeft, ExternalLink, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, LabelList, Scatter, ScatterChart, XAxis, YAxis } from "recharts";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,15 @@ import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
+const Bar = dynamic(() => import("recharts").then((module) => module.Bar));
+const BarChart = dynamic(() => import("recharts").then((module) => module.BarChart));
+const CartesianGrid = dynamic(() => import("recharts").then((module) => module.CartesianGrid));
+const LabelList = dynamic(() => import("recharts").then((module) => module.LabelList));
+const Scatter = dynamic(() => import("recharts").then((module) => module.Scatter));
+const ScatterChart = dynamic(() => import("recharts").then((module) => module.ScatterChart));
+const XAxis = dynamic(() => import("recharts").then((module) => module.XAxis));
+const YAxis = dynamic(() => import("recharts").then((module) => module.YAxis));
+
 type Attempt = {
   correctCount: number | null;
   createdAt: string;
@@ -29,7 +38,7 @@ type Attempt = {
 
 type Result = { attempts: Attempt[]; quiz: { id: string; questionCount: number; subject: string; title: string } };
 
-const dateTime = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" });
+const dateTime = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeZone: "Asia/Jakarta", timeStyle: "short" });
 
 const scoreIntervals = [
   { label: "0–24", maximumScore: 24, minimumScore: 0 },

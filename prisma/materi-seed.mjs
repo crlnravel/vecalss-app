@@ -121,9 +121,9 @@ function ensureAbsoluteHttpUrl(value, label) {
 }
 
 /**
- * Local demo PDFs are served by the development-only route that reads
- * `tmp/test.pdf` at request time. The seed stores only this absolute URL; it
- * never copies, mutates, or deletes the supplied fixture.
+ * Local demo PDFs are served by the development-only route that loads
+ * `tmp/test.pdf` once when its route module starts. The seed stores only this
+ * absolute URL; it never copies, mutates, or deletes the supplied fixture.
  */
 function resolveMateriDemoPdfUrl({ baseUrl, pdfUrl } = {}) {
   const explicitUrl = pdfUrl?.trim() || (!baseUrl ? process.env.MATERI_DEMO_PDF_URL?.trim() : "");
@@ -309,13 +309,13 @@ async function seedMateriCatalogue(client, { authorUserId, baseUrl, pdfUrl } = {
   const resolvedPdfUrl = resolveMateriDemoPdfUrl({ baseUrl, pdfUrl });
   const topicIds = new Map();
 
-  for (const [subjectIndex, subject] of MATERI_CATALOGUE.entries()) {
+  const topicEntries = (await Promise.all(MATERI_CATALOGUE.map(async (subject, subjectIndex) => {
     const subtestId = await insertOrSelectSubtest(client, {
       code: subject.code,
       name: subject.name,
       sortOrder: subjectIndex + 1,
     });
-    for (const [sectionIndex, section] of subject.sections.entries()) {
+    return Promise.all(subject.sections.map(async (section, sectionIndex) => {
       const topicCode = canonicalTopicCode(subject.slug, sectionIndex + 1);
       const topicId = await insertOrSelectTopic(client, {
         code: topicCode,
@@ -323,21 +323,22 @@ async function seedMateriCatalogue(client, { authorUserId, baseUrl, pdfUrl } = {
         sortOrder: sectionIndex + 1,
         subtestId,
       });
-      topicIds.set(topicCode, topicId);
-    }
-  }
+      return [topicCode, topicId];
+    }));
+  }))).flat();
+  for (const [topicCode, topicId] of topicEntries) topicIds.set(topicCode, topicId);
 
   await assertNoUnexpectedCanonicalModules(client);
-  for (const demoModule of MATERI_DEMO_MODULES) {
+  await Promise.all(MATERI_DEMO_MODULES.map(async (demoModule) => {
     const topicId = topicIds.get(demoModule.topicCode);
     if (!topicId) throw new Error(`Materi seed could not resolve topic ${demoModule.topicCode}.`);
-    await insertOrVerifyDemoModule(client, {
+    return insertOrVerifyDemoModule(client, {
       authorUserId,
       demoModule,
       pdfUrl: resolvedPdfUrl,
       topicId,
     });
-  }
+  }));
   return { demoModuleCount: MATERI_DEMO_MODULES.length, pdfUrl: resolvedPdfUrl };
 }
 

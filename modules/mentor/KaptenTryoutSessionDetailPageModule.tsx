@@ -33,11 +33,8 @@ import {
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import {
-  Policy,
-  StatusBadge,
-  policyLabels,
-} from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   OperationalPageHeader,
   OperationNotice,
@@ -48,6 +45,12 @@ import {
 } from "@/modules/mentor/tryout-actions";
 
 type Confirmation = "open" | "release" | null;
+
+const sessionDateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeZone: "Asia/Jakarta",
+  timeStyle: "short",
+});
 
 function KaptenTryoutSessionDetailPageModule({
   initial,
@@ -69,23 +72,28 @@ function KaptenTryoutSessionDetailPageModule({
   const handleConfirm = async () => {
     if (!confirmation || !auditReason.trim()) return;
     setBusy(true);
-    const result =
-      confirmation === "open"
-        ? await openTryoutDeliverySessionAction(delivery.id, auditReason)
-        : await releaseTryoutSessionResultsAction(delivery.id, auditReason);
-    setBusy(false);
-    setConfirmation(null);
-    if (!result.ok) {
-      setNotice(result.message ?? "Tindakan tidak dapat diproses.");
-      return;
+    try {
+      const result =
+        confirmation === "open"
+          ? await openTryoutDeliverySessionAction(delivery.id, auditReason)
+          : await releaseTryoutSessionResultsAction(delivery.id, auditReason);
+      setConfirmation(null);
+      if (!result.ok) {
+        setNotice(result.message ?? "Tindakan tidak dapat diproses.");
+        return;
+      }
+      setAuditReason("");
+      setNotice(
+        confirmation === "open"
+          ? "Sesi berhasil dibuka."
+          : "Hasil sesi berhasil dirilis.",
+      );
+      router.refresh();
+    } catch (actionError) {
+      setNotice(actionError instanceof Error ? actionError.message : "Tindakan tidak dapat diproses.");
+    } finally {
+      setBusy(false);
     }
-    setAuditReason("");
-    setNotice(
-      confirmation === "open"
-        ? "Sesi berhasil dibuka."
-        : "Hasil sesi berhasil dirilis.",
-    );
-    router.refresh();
   };
 
   return (
@@ -163,13 +171,13 @@ function KaptenTryoutSessionDetailPageModule({
                 <div>
                   <p className="text-secondary-500">Jadwal</p>
                   <p className="mt-1 font-medium text-secondary-900">
-                    {new Date(delivery.availableFrom).toLocaleString("id-ID")} — {new Date(delivery.availableUntil).toLocaleString("id-ID")}
+                    {sessionDateTimeFormatter.format(new Date(delivery.availableFrom))} — {sessionDateTimeFormatter.format(new Date(delivery.availableUntil))}
                   </p>
                 </div>
                 <div>
                   <p className="text-secondary-500">Rilis hasil</p>
                   <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
-                  {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? <p className="mt-1 text-secondary-600">{new Date(delivery.scheduledReleaseAt).toLocaleString("id-ID")}</p> : null}
+                  {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? <p className="mt-1 text-secondary-600">{sessionDateTimeFormatter.format(new Date(delivery.scheduledReleaseAt))}</p> : null}
                 </div>
                 <div>
                   <p className="text-secondary-500">Peringkat</p>

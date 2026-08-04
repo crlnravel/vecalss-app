@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -44,24 +44,27 @@ function QuizOngoingPageModule({
   const [textScale, setTextScale] = useState<"compact" | "default" | "large">(
     "default",
   );
-  const [currentQuestion, setCurrentQuestion] = useState(attempt.currentNumber);
+  const [currentQuestion, setCurrentQuestion] = useState(() => attempt.currentNumber);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>(
-    Object.fromEntries(
+    () => Object.fromEntries(
       attempt.questions.flatMap((question, index) =>
         question.selectedOptionKey ? [[index + 1, question.selectedOptionKey]] : [],
       ),
     ),
   );
   const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>(
-    attempt.markers
-      .filter((marker) => marker.state === "flagged")
-      .map((marker) => marker.number),
+    () => attempt.markers.reduce<number[]>((numbers, marker) => {
+      if (marker.state === "flagged") numbers.push(marker.number);
+      return numbers;
+    }, []),
   );
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
   const [savingQuestions, setSavingQuestions] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const savingQuestionSet = useMemo(() => new Set(savingQuestions), [savingQuestions]);
+  const flaggedQuestionSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions]);
 
   const readingTextClass =
     textScale === "large"
@@ -85,7 +88,7 @@ function QuizOngoingPageModule({
 
   const currentSelectedOptionKey = selectedAnswers[currentQuestion] ?? null;
   const currentQuizQuestion = attempt.questions[currentQuestion - 1];
-  const isCurrentQuestionFlagged = flaggedQuestions.includes(currentQuestion);
+  const isCurrentQuestionFlagged = flaggedQuestionSet.has(currentQuestion);
   const isCurrentQuestionReported = reportedQuestions.includes(currentQuestion);
 
   function updateTextScale(direction: "smaller" | "larger") {
@@ -127,7 +130,7 @@ function QuizOngoingPageModule({
   }
 
   async function selectAnswer(optionId: string) {
-    if (!currentQuizQuestion || savingQuestions.includes(currentQuestion) || isSubmitting) {
+    if (!currentQuizQuestion || savingQuestionSet.has(currentQuestion) || isSubmitting) {
       return;
     }
     const previousOptionId = selectedAnswers[currentQuestion];
@@ -157,18 +160,111 @@ function QuizOngoingPageModule({
     }
     setIsSubmitting(true);
     setMessage(null);
-    const response = await submitQuizAction(attemptId);
-    if (!response.ok) {
+    try {
+      const response = await submitQuizAction(attemptId);
+      if (!response.ok) {
+        setMessage(response.message);
+        return;
+      }
+      router.push(`/quiz/${subjectSlug}/${quiz.slug}/result`);
+    } catch (submitError) {
+      unstable_rethrow(submitError);
+      setMessage(submitError instanceof Error ? submitError.message : "Quiz belum dapat dikirim.");
+    } finally {
       setIsSubmitting(false);
-      setMessage(response.message);
-      return;
     }
-    router.push(`/quiz/${subjectSlug}/${quiz.slug}/result`);
   }
 
   return (
+    <QuizOngoingScreen
+      attempt={attempt}
+      currentQuestion={currentQuestion}
+      currentQuizQuestion={currentQuizQuestion}
+      currentSelectedOptionKey={currentSelectedOptionKey}
+      flaggedQuestionSet={flaggedQuestionSet}
+      message={message}
+      onExit={() => router.push(`/quiz/${subjectSlug}`)}
+      onExitDialogChange={setIsExitDialogOpen}
+      onGoToQuestion={goToQuestion}
+      onSelectAnswer={selectAnswer}
+      onSubmitQuiz={() => { void submitQuiz(); }}
+      onToggleFlag={toggleFlag}
+      onToggleReport={toggleReport}
+      onUpdateTextScale={updateTextScale}
+      quiz={quiz}
+      readingTextClass={readingTextClass}
+      savingQuestionSet={savingQuestionSet}
+      selectedAnswers={selectedAnswers}
+      subjectTitle={subjectTitle}
+      uiTextClass={uiTextClass}
+      unlockedQuestionCount={unlockedQuestionCount}
+      viewState={{
+        dialogOpen: isExitDialogOpen,
+        flagged: isCurrentQuestionFlagged,
+        reported: isCurrentQuestionReported,
+        submitting: isSubmitting,
+      }}
+    />
+  );
+}
+
+type QuizOngoingScreenProps = {
+  attempt: QuizAttempt;
+  currentQuestion: number;
+  currentQuizQuestion: QuizAttempt["questions"][number] | undefined;
+  currentSelectedOptionKey: string | null;
+  flaggedQuestionSet: Set<number>;
+  message: string | null;
+  onExit: () => void;
+  onExitDialogChange: (open: boolean) => void;
+  onGoToQuestion: (question: number) => void;
+  onSelectAnswer: (optionId: string) => void;
+  onSubmitQuiz: () => void;
+  onToggleFlag: () => void;
+  onToggleReport: () => void;
+  onUpdateTextScale: (direction: "smaller" | "larger") => void;
+  quiz: QuizItem;
+  readingTextClass: string;
+  savingQuestionSet: Set<number>;
+  selectedAnswers: Record<number, string>;
+  subjectTitle: string;
+  uiTextClass: string;
+  unlockedQuestionCount: number;
+  viewState: {
+    dialogOpen: boolean;
+    flagged: boolean;
+    reported: boolean;
+    submitting: boolean;
+  };
+};
+
+function QuizOngoingScreen({
+  attempt,
+  currentQuestion,
+  currentQuizQuestion,
+  currentSelectedOptionKey,
+  flaggedQuestionSet,
+  message,
+  onExit,
+  onExitDialogChange,
+  onGoToQuestion,
+  onSelectAnswer,
+  onSubmitQuiz,
+  onToggleFlag,
+  onToggleReport,
+  onUpdateTextScale,
+  quiz,
+  readingTextClass,
+  savingQuestionSet,
+  selectedAnswers,
+  subjectTitle,
+  uiTextClass,
+  unlockedQuestionCount,
+  viewState,
+}: QuizOngoingScreenProps) {
+  return (
     <div className="min-h-svh bg-white text-secondary-900">
-      <Dialog onOpenChange={setIsExitDialogOpen} open={isExitDialogOpen}>
+      <Dialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
         <DialogContent
           className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-3xl bg-white p-0 shadow-xl sm:max-w-md"
           showCloseButton={false}
@@ -182,7 +278,7 @@ function QuizOngoingPageModule({
                 <button
                   aria-label="Tutup modal"
                   className="inline-flex size-8 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-secondary-50 hover:text-secondary-500"
-                  onClick={() => setIsExitDialogOpen(false)}
+                  onClick={() => onExitDialogChange(false)}
                   type="button"
                 >
                   <span className="text-2xl leading-none">×</span>
@@ -199,14 +295,14 @@ function QuizOngoingPageModule({
           <div className="flex items-center justify-end gap-2 border-t border-primary-100 bg-[#fbfbfb] px-5 py-4">
             <button
               className="inline-flex h-10 min-w-[96px] items-center justify-center rounded-full px-5 text-base font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
-              onClick={() => setIsExitDialogOpen(false)}
+              onClick={() => onExitDialogChange(false)}
               type="button"
             >
               Batal
             </button>
             <button
               className="inline-flex h-10 min-w-[132px] items-center justify-center rounded-full bg-[#ff0008] px-5 text-base font-semibold text-white transition-colors hover:bg-[#e10007]"
-              onClick={() => router.push(`/quiz/${subjectSlug}`)}
+              onClick={() => onExit}
               type="button"
             >
               Ya, Keluar
@@ -220,7 +316,7 @@ function QuizOngoingPageModule({
           <div className="border-b border-primary-100 px-5 py-5">
             <div className="flex items-start">
               <Button
-                onClick={() => setIsExitDialogOpen(true)}
+                onClick={() => onExitDialogChange(true)}
                 size="icon-sm"
                 variant="ghost"
               >
@@ -234,12 +330,12 @@ function QuizOngoingPageModule({
               Navigasi Soal
             </p>
             <div className="mt-4 grid grid-cols-4 gap-2.5">
-              {Array.from({ length: quiz.questionCount }, (_, index) => {
+              {attempt.questions.map((question, index) => {
                 const number = index + 1;
                 const markerState: QuizAttemptNavState =
                   number === currentQuestion
                     ? "active"
-                    : flaggedQuestions.includes(number)
+                    : flaggedQuestionSet.has(number)
                       ? "flagged"
                       : selectedAnswers[number]
                         ? "answered"
@@ -249,9 +345,9 @@ function QuizOngoingPageModule({
 
                 return (
                   <QuestionMarker
-                    key={number}
+                    key={question.id}
                     marker={{ number, state: markerState }}
-                    onClick={() => goToQuestion(number)}
+                    onClick={() => onGoToQuestion(number)}
                   />
                 );
               })}
@@ -283,26 +379,26 @@ function QuizOngoingPageModule({
                 <span className="font-medium text-secondary-400">{subjectTitle}</span>
                 <span className="text-secondary-300">|</span>
                 <UtilityPill
-                  active={isCurrentQuestionReported}
+                  active={viewState.reported}
                   icon={AlertTriangle}
                   label="Laporkan"
-                  onClick={toggleReport}
+                  onClick={onToggleReport}
                 />
                 <UtilityPill
-                  active={isCurrentQuestionFlagged}
+                  active={viewState.flagged}
                   icon={Flag}
                   label="Tandai"
-                  onClick={toggleFlag}
+                  onClick={onToggleFlag}
                 />
                 <MagnifierButton
                   ariaLabel="Perkecil ukuran font"
                   icon={ZoomOut}
-                  onClick={() => updateTextScale("smaller")}
+                  onClick={() => onUpdateTextScale("smaller")}
                 />
                 <MagnifierButton
                   ariaLabel="Perbesar ukuran font"
                   icon={ZoomIn}
-                  onClick={() => updateTextScale("larger")}
+                  onClick={() => onUpdateTextScale("larger")}
                 />
               </div>
 
@@ -335,11 +431,11 @@ function QuizOngoingPageModule({
                 <div className="grid gap-4">
                   {currentQuizQuestion?.options.map((option) => (
                     <AnswerOption
-                      onClick={() => void selectAnswer(option.id)}
+                      onClick={() => void onSelectAnswer(option.id)}
                       key={option.key}
                       option={option}
                       selected={option.id === currentSelectedOptionKey}
-                      disabled={savingQuestions.includes(currentQuestion) || isSubmitting}
+                      disabled={savingQuestionSet.has(currentQuestion) || viewState.submitting}
                     />
                   ))}
                 </div>
@@ -352,7 +448,7 @@ function QuizOngoingPageModule({
             <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
               <Button
                 disabled={currentQuestion === 1}
-                onClick={() => goToQuestion(currentQuestion - 1)}
+                onClick={() => onGoToQuestion(currentQuestion - 1)}
                 size="lg"
                 variant="brandOutline"
               >
@@ -360,12 +456,12 @@ function QuizOngoingPageModule({
                 Soal Sebelumnya
               </Button>
               {currentQuestion === quiz.questionCount ? (
-                <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" disabled={isSubmitting || savingQuestions.length > 0} onClick={() => void submitQuiz()} size="lg">
-                  {isSubmitting ? "Mengirim quiz…" : "Kirim Quiz"}
+                <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" disabled={viewState.submitting || savingQuestionSet.size > 0} onClick={() => onSubmitQuiz()} size="lg">
+                  {viewState.submitting ? "Mengirim quiz…" : "Kirim Quiz"}
                   <ChevronRight data-icon="inline-end" />
                 </Button>
               ) : (
-                <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" onClick={() => goToQuestion(currentQuestion + 1)} size="lg">
+                <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" onClick={() => onGoToQuestion(currentQuestion + 1)} size="lg">
                   Soal Selanjutnya
                   <ChevronRight data-icon="inline-end" />
                 </Button>

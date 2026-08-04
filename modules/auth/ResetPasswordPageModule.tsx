@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import type { LoginAudience } from "@/lib/auth/types";
 
 import { AuthShell } from "./components/auth-shell";

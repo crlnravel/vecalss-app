@@ -71,13 +71,16 @@ function CourseLearningPathPageModule({
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null) as { error?: unknown } | null;
+        throw new Error(typeof errorPayload?.error === "string" ? errorPayload.error : "Progress belum tersimpan. Coba lagi.");
+      }
       const payload = await response.json().catch(() => null) as {
         error?: unknown;
         snapshot?: CourseProgressSnapshot;
       } | null;
       if (
-        !response.ok
-        || !payload?.snapshot
+        !payload?.snapshot
         || !hydrateCourseProgress(course.slug, payload.snapshot, courses, session.user.id)
       ) {
         throw new Error(typeof payload?.error === "string" ? payload.error : "Progress belum tersimpan. Coba lagi.");

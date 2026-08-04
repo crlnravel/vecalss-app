@@ -10,8 +10,10 @@ type MentorQuizSubjectPageProps = { params: Promise<{ subjectSlug: string }> };
 export const metadata: Metadata = { title: "Subject Quiz Kapten | Vecalss LMS" };
 
 export default async function MentorQuizSubjectPage({ params }: MentorQuizSubjectPageProps) {
-  const { subjectSlug } = await params;
-  const session = await requireTutorSession();
+  const [{ subjectSlug }, session] = await Promise.all([
+    params,
+    requireTutorSession(),
+  ]);
   const subject = getSubjectMetadataBySlug(subjectSlug);
   if (!subject) notFound();
   const catalogue = await getMentorStandaloneQuizzes(session.user.id);

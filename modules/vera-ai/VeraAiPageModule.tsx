@@ -100,6 +100,10 @@ import {
 
 type WorkspaceTab = "chat" | "studio";
 
+function sourceForTitle(title: string) {
+  return veraContextSources.find((source) => source.title === title);
+}
+
 type VeraMessage = {
   id: string;
   role: "vera" | "student";
@@ -302,13 +306,17 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
 
   const activeSession =
     sessions.find((item) => item.id === activeSessionId) ?? sessions[0];
+  const activeSourceIdSet = useMemo(
+    () => new Set(activeSession.sourceIds),
+    [activeSession.sourceIds],
+  );
 
   const selectedSources = useMemo(
     () =>
       veraContextSources.filter((source) =>
-        activeSession.sourceIds.includes(source.id),
+        activeSourceIdSet.has(source.id),
       ),
-    [activeSession.sourceIds],
+    [activeSourceIdSet],
   );
 
   const generatedArtifacts = useMemo(
@@ -969,7 +977,7 @@ function ContextStrip({
 
           return (
             <span
-              className="group flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-primary-100 bg-white px-2.5 text-xs font-semibold text-primary-900 animate-in fade-in slide-in-from-left-1 duration-200"
+              className="group flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-primary-100 bg-white px-2.5 text-xs font-semibold text-primary-900 vecalss-enter-fade-slide-left-200"
               key={source.id}
             >
               <Icon className="size-3.5" aria-hidden="true" />
@@ -1221,7 +1229,7 @@ function StudioToolRow({
 
   return (
     <button
-      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-transparent px-2.5 py-2 text-left transition-[border-color,background-color] duration-200 hover:border-primary-100 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onGenerate}
       type="button"
     >
@@ -1249,7 +1257,7 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
       type="button"
     >
@@ -1521,6 +1529,7 @@ function AddContextDialog({
     materialPage * CONTEXT_PAGE_SIZE,
   );
   const limitReached = draftSourceIds.length >= MAX_CONTEXTS_PER_SESSION;
+  const draftSourceIdSet = useMemo(() => new Set(draftSourceIds), [draftSourceIds]);
 
   function toggleSource(sourceId: string) {
     setDraftSourceIds((current) => {
@@ -1534,10 +1543,6 @@ function AddContextDialog({
 
       return [...current, sourceId];
     });
-  }
-
-  function sourceForTitle(title: string) {
-    return veraContextSources.find((source) => source.title === title);
   }
 
   return (
@@ -1570,199 +1575,30 @@ function AddContextDialog({
           </DialogClose>
         </div>
 
-        <Tabs
-          className="min-h-0 flex-1 gap-0"
-          onValueChange={(value) =>
-            setActiveTab(value as VeraContextTypeId)
-          }
-          value={activeTab}
-        >
-          <div className="shrink-0 border-b border-primary-100 bg-background px-4 md:px-10">
-            <TabsList
-              className="grid h-12 w-full grid-cols-3 justify-start gap-1 p-0 md:flex md:h-13 md:w-fit"
-              variant="line"
-            >
-              <TabsTrigger
-                className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-44 md:justify-start md:px-4 md:text-sm"
-                value="practice"
-              >
-                <ListChecks data-icon="inline-start" />
-                Hasil Latihan
-              </TabsTrigger>
-              <TabsTrigger
-                className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-34 md:justify-start md:px-4 md:text-sm"
-                value="material"
-              >
-                <BookOpen data-icon="inline-start" />
-                Materi
-              </TabsTrigger>
-              <TabsTrigger
-                className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-36 md:justify-start md:px-4 md:text-sm"
-                value="document"
-              >
-                <FileText data-icon="inline-start" />
-                Dokumen
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent className="min-h-0 overflow-hidden" value="practice">
-            <ScrollArea className="h-full">
-              <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-                <div className="flex flex-col gap-3">
-                  {visiblePracticeItems.map((item) => {
-                    const source = sourceForTitle(item.title);
-                    const selected = Boolean(
-                      source && draftSourceIds.includes(source.id),
-                    );
-
-                    return (
-                      <PracticeContextOption
-                        disabled={limitReached && !selected}
-                        item={item}
-                        key={item.id}
-                        onToggle={() => source && toggleSource(source.id)}
-                        selected={selected}
-                      />
-                    );
-                  })}
-                </div>
-                <ContextPagination
-                  className="mt-auto"
-                  onPageChange={setPracticePage}
-                  page={practicePage}
-                  pageCount={practicePageCount}
-                />
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent className="min-h-0 overflow-hidden" value="material">
-            <ScrollArea className="h-full">
-              <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                  <Input
-                    aria-label="Cari materi Vecalss"
-                    className="h-10 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
-                    onChange={(event) => {
-                      setMaterialQuery(event.target.value);
-                      setMaterialPage(1);
-                    }}
-                    placeholder="Cari materi Vecalss..."
-                    value={materialQuery}
-                  />
-                </div>
-                <div className="mt-3 flex flex-col gap-3">
-                  {filteredMaterials.length > 0 ? (
-                    visibleMaterialItems.map((item) => {
-                      const source = sourceForTitle(item.title);
-                      const selected = Boolean(
-                        source && draftSourceIds.includes(source.id),
-                      );
-
-                      return (
-                        <MaterialContextOption
-                          disabled={limitReached && !selected}
-                          item={item}
-                          key={item.id}
-                          onToggle={() => source && toggleSource(source.id)}
-                          selected={selected}
-                        />
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                      Materi tidak ditemukan.
-                    </div>
-                  )}
-                </div>
-                {filteredMaterials.length > 0 ? (
-                  <ContextPagination
-                    className="mt-auto"
-                    onPageChange={setMaterialPage}
-                    page={materialPage}
-                    pageCount={materialPageCount}
-                  />
-                ) : null}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent className="min-h-0 overflow-hidden" value="document">
-            <ScrollArea className="h-full">
-              <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
-                <label
-                  className={cn(
-                    "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
-                    limitReached && !draftSourceIds.includes("external-notes")
-                      ? "cursor-not-allowed opacity-55"
-                      : "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
-                  )}
-                >
-                  <input
-                    accept=".pdf,.txt,text/plain,application/pdf"
-                    className="sr-only"
-                    disabled={
-                      limitReached && !draftSourceIds.includes("external-notes")
-                    }
-                    multiple
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-
-                      if (file) {
-                        setUploadedFileName(file.name);
-                        if (!draftSourceIds.includes("external-notes")) {
-                          toggleSource("external-notes");
-                        }
-                      }
-                    }}
-                    type="file"
-                  />
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
-                    <Upload className="size-4" />
-                  </span>
-                  <span className="mt-3 text-sm font-semibold text-secondary-950">
-                    Upload dokumen belajar
-                  </span>
-                  <span className="mt-1.5 max-w-sm text-xs leading-5 text-secondary-500">
-                    Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
-                    TXT untuk catatan, rangkuman, dan materi eksternal.
-                  </span>
-                  <span className="mt-4 inline-flex rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white">
-                    Pilih file
-                  </span>
-                </label>
-                {draftSourceIds.includes("external-notes") ? (
-                  <Attachment className="mt-3 w-full" state="done">
-                    <AttachmentMedia>
-                      <FileText />
-                    </AttachmentMedia>
-                    <AttachmentContent>
-                      <AttachmentTitle>
-                        {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
-                      </AttachmentTitle>
-                      <AttachmentDescription>
-                        Dokumen siap ditambahkan
-                      </AttachmentDescription>
-                    </AttachmentContent>
-                    <AttachmentActions>
-                      <AttachmentAction
-                        aria-label="Lepas dokumen"
-                        onClick={() => {
-                          toggleSource("external-notes");
-                          setUploadedFileName(null);
-                        }}
-                      >
-                        <X />
-                      </AttachmentAction>
-                    </AttachmentActions>
-                  </Attachment>
-                ) : null}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+<AddContextTabs
+          activeTab={activeTab}
+          draftSourceIds={draftSourceIds}
+          draftSourceIdSet={draftSourceIdSet}
+          filteredMaterials={filteredMaterials}
+          limitReached={limitReached}
+          materialPage={materialPage}
+          materialPageCount={materialPageCount}
+          materialQuery={materialQuery}
+          onActiveTabChange={(value) => setActiveTab(value)}
+          onMaterialPageChange={setMaterialPage}
+          onMaterialQueryChange={(value) => {
+            setMaterialQuery(value);
+            setMaterialPage(1);
+          }}
+          onPracticePageChange={setPracticePage}
+          onToggleSource={toggleSource}
+          onUploadedFileNameChange={setUploadedFileName}
+          practicePage={practicePage}
+          practicePageCount={practicePageCount}
+          uploadedFileName={uploadedFileName}
+          visibleMaterialItems={visibleMaterialItems}
+          visiblePracticeItems={visiblePracticeItems}
+        />
 
         <div className="flex shrink-0 flex-col gap-3 border-t border-primary-100 bg-background px-5 py-3 sm:flex-row sm:items-center sm:justify-between md:min-h-20 md:px-8 md:py-4">
           <div className="flex min-w-0 flex-col gap-0.5">
@@ -1807,6 +1643,245 @@ function AddContextDialog({
     </Dialog>
   );
 }
+
+function AddContextTabs({
+  activeTab,
+  draftSourceIds,
+  draftSourceIdSet,
+  filteredMaterials,
+  limitReached,
+  materialPage,
+  materialPageCount,
+  materialQuery,
+  onActiveTabChange,
+  onMaterialPageChange,
+  onMaterialQueryChange,
+  onPracticePageChange,
+  onToggleSource,
+  onUploadedFileNameChange,
+  practicePage,
+  practicePageCount,
+  uploadedFileName,
+  visibleMaterialItems,
+  visiblePracticeItems,
+}: {
+  activeTab: VeraContextTypeId;
+  draftSourceIds: string[];
+  draftSourceIdSet: Set<string>;
+  filteredMaterials: VeraMaterialHistory[];
+  limitReached: boolean;
+  materialPage: number;
+  materialPageCount: number;
+  materialQuery: string;
+  onActiveTabChange: (value: VeraContextTypeId) => void;
+  onMaterialPageChange: (page: number) => void;
+  onMaterialQueryChange: (query: string) => void;
+  onPracticePageChange: (page: number) => void;
+  onToggleSource: (sourceId: string) => void;
+  onUploadedFileNameChange: (name: string | null) => void;
+  practicePage: number;
+  practicePageCount: number;
+  uploadedFileName: string | null;
+  visibleMaterialItems: VeraMaterialHistory[];
+  visiblePracticeItems: VeraPracticeHistory[];
+}) {
+  return (
+          <Tabs
+            className="min-h-0 flex-1 gap-0"
+            onValueChange={(value) =>
+              onActiveTabChange(value as VeraContextTypeId)
+            }
+            value={activeTab}
+          >
+            <div className="shrink-0 border-b border-primary-100 bg-background px-4 md:px-10">
+              <TabsList
+                className="grid h-12 w-full grid-cols-3 justify-start gap-1 p-0 md:flex md:h-13 md:w-fit"
+                variant="line"
+              >
+                <TabsTrigger
+                  className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-44 md:justify-start md:px-4 md:text-sm"
+                  value="practice"
+                >
+                  <ListChecks data-icon="inline-start" />
+                  Hasil Latihan
+                </TabsTrigger>
+                <TabsTrigger
+                  className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-34 md:justify-start md:px-4 md:text-sm"
+                  value="material"
+                >
+                  <BookOpen data-icon="inline-start" />
+                  Materi
+                </TabsTrigger>
+                <TabsTrigger
+                  className="h-12 rounded-t-xl px-2 py-1.5 text-xs after:h-0.5 after:bg-primary-700 data-active:bg-primary-50 data-active:text-secondary-950 md:h-13 md:min-w-36 md:justify-start md:px-4 md:text-sm"
+                  value="document"
+                >
+                  <FileText data-icon="inline-start" />
+                  Dokumen
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent className="min-h-0 overflow-hidden" value="practice">
+              <ScrollArea className="h-full">
+                <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+                  <div className="flex flex-col gap-3">
+                    {visiblePracticeItems.map((item) => {
+                      const source = sourceForTitle(item.title);
+                      const selected = Boolean(
+                        source && draftSourceIdSet.has(source.id),
+                      );
+
+                      return (
+                        <PracticeContextOption
+                          disabled={limitReached && !selected}
+                          item={item}
+                          key={item.id}
+                          onToggle={() => source && onToggleSource(source.id)}
+                          selected={selected}
+                        />
+                      );
+                    })}
+                  </div>
+                  <ContextPagination
+                    className="mt-auto"
+                    onPageChange={onPracticePageChange}
+                    page={practicePage}
+                    pageCount={practicePageCount}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent className="min-h-0 overflow-hidden" value="material">
+              <ScrollArea className="h-full">
+                <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                    <Input
+                      aria-label="Cari materi Vecalss"
+                      className="h-10 rounded-xl border-primary-100 bg-background pl-10 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
+                      onChange={(event) => {
+                        onMaterialQueryChange(event.target.value);
+                        onMaterialPageChange(1);
+                      }}
+                      placeholder="Cari materi Vecalss..."
+                      value={materialQuery}
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-col gap-3">
+                    {filteredMaterials.length > 0 ? (
+                      visibleMaterialItems.map((item) => {
+                        const source = sourceForTitle(item.title);
+                        const selected = Boolean(
+                          source && draftSourceIdSet.has(source.id),
+                        );
+
+                        return (
+                          <MaterialContextOption
+                            disabled={limitReached && !selected}
+                            item={item}
+                            key={item.id}
+                            onToggle={() => source && onToggleSource(source.id)}
+                            selected={selected}
+                          />
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                        Materi tidak ditemukan.
+                      </div>
+                    )}
+                  </div>
+                  {filteredMaterials.length > 0 ? (
+                    <ContextPagination
+                      className="mt-auto"
+                      onPageChange={onMaterialPageChange}
+                      page={materialPage}
+                      pageCount={materialPageCount}
+                    />
+                  ) : null}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent className="min-h-0 overflow-hidden" value="document">
+              <ScrollArea className="h-full">
+                <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
+                  <label
+                    className={cn(
+                      "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
+                      limitReached && !draftSourceIds.includes("external-notes")
+                        ? "cursor-not-allowed opacity-55"
+                        : "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
+                    )}
+                  >
+                    <input
+                      accept=".pdf,.txt,text/plain,application/pdf"
+                      className="sr-only"
+                      disabled={
+                        limitReached && !draftSourceIds.includes("external-notes")
+                      }
+                      multiple
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+
+                        if (file) {
+                          onUploadedFileNameChange(file.name);
+                          if (!draftSourceIds.includes("external-notes")) {
+                            onToggleSource("external-notes");
+                          }
+                        }
+                      }}
+                      type="file"
+                    />
+                    <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
+                      <Upload className="size-4" />
+                    </span>
+                    <span className="mt-3 text-sm font-semibold text-secondary-950">
+                      Upload dokumen belajar
+                    </span>
+                    <span className="mt-1.5 max-w-sm text-xs leading-5 text-secondary-500">
+                      Seret file ke sini atau pilih dari perangkat. Mendukung PDF dan
+                      TXT untuk catatan, rangkuman, dan materi eksternal.
+                    </span>
+                    <span className="mt-4 inline-flex rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white">
+                      Pilih file
+                    </span>
+                  </label>
+                  {draftSourceIds.includes("external-notes") ? (
+                    <Attachment className="mt-3 w-full" state="done">
+                      <AttachmentMedia>
+                        <FileText />
+                      </AttachmentMedia>
+                      <AttachmentContent>
+                        <AttachmentTitle>
+                          {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
+                        </AttachmentTitle>
+                        <AttachmentDescription>
+                          Dokumen siap ditambahkan
+                        </AttachmentDescription>
+                      </AttachmentContent>
+                      <AttachmentActions>
+                        <AttachmentAction
+                          aria-label="Lepas dokumen"
+                          onClick={() => {
+                            onToggleSource("external-notes");
+                            onUploadedFileNameChange(null);
+                          }}
+                        >
+                          <X />
+                        </AttachmentAction>
+                      </AttachmentActions>
+                    </Attachment>
+                  ) : null}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+  );
+}
+
 
 function ContextPagination({
   className,

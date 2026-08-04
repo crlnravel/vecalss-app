@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, BarChart3, ChevronLeft, Ellipsis, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
-import { useState } from "react";
+import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +28,59 @@ import {
   updateStandaloneQuizLifecycleAction,
 } from "@/modules/mentor/quiz-actions";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
+
+const quizDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeZone: "Asia/Jakarta",
+  timeStyle: "short",
+});
+
+type QuizCatalogueState = {
+  quizzes: KaptenQuiz[];
+  query: string;
+  page: number;
+  selectedIds: Set<string>;
+  intent: "publish" | "unpublish" | null;
+  notice: string | null;
+  error: string | null;
+  isPending: boolean;
+  selectionMode: boolean;
+  statusFilter: string;
+  questionFilter: string;
+};
+
+type QuizCatalogueAction =
+  | { type: "patch"; patch: Partial<QuizCatalogueState> }
+  | { type: "toggle-selected"; checked: boolean; id: string }
+  | { type: "toggle-all-visible"; checked: boolean; ids: string[] }
+  | { type: "update-status"; ids: string[]; status: KaptenQuiz["status"] }
+  | { type: "replace-quiz"; quiz: KaptenQuiz };
+
+function quizCatalogueReducer(state: QuizCatalogueState, action: QuizCatalogueAction): QuizCatalogueState {
+  if (action.type === "patch") return { ...state, ...action.patch };
+  if (action.type === "toggle-selected") {
+    const selectedIds = new Set(state.selectedIds);
+    if (action.checked) selectedIds.add(action.id);
+    else selectedIds.delete(action.id);
+    return { ...state, notice: null, selectedIds };
+  }
+  if (action.type === "toggle-all-visible") {
+    const selectedIds = new Set(state.selectedIds);
+    action.ids.forEach((id) => action.checked ? selectedIds.add(id) : selectedIds.delete(id));
+    return { ...state, notice: null, selectedIds };
+  }
+  if (action.type === "update-status") {
+    const affectedIds = new Set(action.ids);
+    return {
+      ...state,
+      quizzes: state.quizzes.map((quiz) => affectedIds.has(quiz.id) ? { ...quiz, status: action.status } : quiz),
+    };
+  }
+  return {
+    ...state,
+    quizzes: state.quizzes.map((quiz) => quiz.id === action.quiz.id ? action.quiz : quiz),
+  };
+}
 
 function SubjectCard({ subject }: { subject: KaptenSubject }) {
   const subjectCategory = getSubjectCategory(subject.code);
@@ -64,8 +117,8 @@ function QuizRow({ quiz, onAction, onSelectedChange, selectionMode, selected }: 
           <StatusPill status={quiz.status} />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
-          {quiz.opensAt ? <span>Buka {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(quiz.opensAt))}</span> : null}
-          {quiz.closesAt ? <span>Tutup {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(quiz.closesAt))}</span> : null}
+          {quiz.opensAt ? <span>Buka {quizDateFormatter.format(new Date(quiz.opensAt))}</span> : null}
+          {quiz.closesAt ? <span>Tutup {quizDateFormatter.format(new Date(quiz.closesAt))}</span> : null}
         </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -79,17 +132,32 @@ function QuizRow({ quiz, onAction, onSelectedChange, selectionMode, selected }: 
 
 function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogue: KaptenQuiz[]; session: SessionContext; subject: KaptenSubject }) {
   const router = useRouter();
-  const [quizzes, setQuizzes] = useState(() => catalogue.filter((quiz) => quiz.subjectCode === subject.code));
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [intent, setIntent] = useState<"publish" | "unpublish" | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [questionFilter, setQuestionFilter] = useState("");
+  const [catalogueState, dispatch] = useReducer(quizCatalogueReducer, {
+    error: null,
+    intent: null,
+    isPending: false,
+    notice: null,
+    page: 1,
+    questionFilter: "",
+    query: "",
+    quizzes: catalogue.filter((quiz) => quiz.subjectCode === subject.code),
+    selectedIds: new Set<string>(),
+    selectionMode: false,
+    statusFilter: "",
+  });
+  const {
+    error,
+    intent,
+    isPending,
+    notice,
+    page,
+    questionFilter,
+    query,
+    quizzes,
+    selectedIds,
+    selectionMode,
+    statusFilter,
+  } = catalogueState;
   const visibleQuizzes = quizzes.filter((quiz) =>
     (!query.trim() || [quiz.title, quiz.status, quiz.primaryMetric].some((value) => value.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
     && (!statusFilter || quiz.status === statusFilter)
@@ -105,37 +173,40 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
   const eligibilityReason = selectedQuizzes.length > 0 && !canPublish && !canUnpublish ? "Pilih hanya quiz draf yang memiliki soal atau quiz yang sudah diterbitkan." : null;
   const confirmation = intent === "publish" ? { confirm: "Terbitkan semua", description: `${selectedQuizzes.length} quiz akan tersedia untuk siswa.`, title: "Terbitkan quiz terpilih?" } : { confirm: "Batalkan terbit", description: `${selectedQuizzes.length} quiz kembali menjadi draf dan tidak tersedia untuk siswa.`, title: "Batalkan penerbitan quiz?" };
 
-  const toggleSelected = (id: string, checked: boolean) => { setNotice(null); setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; }); };
-  const toggleAllVisible = (checked: boolean) => { setNotice(null); setSelectedIds((current) => { const next = new Set(current); visibleQuizzes.forEach((quiz) => checked ? next.add(quiz.id) : next.delete(quiz.id)); return next; }); };
+  const toggleSelected = (id: string, checked: boolean) => dispatch({ checked, id, type: "toggle-selected" });
+  const toggleAllVisible = (checked: boolean) => dispatch({ checked, ids: visibleQuizzes.map((quiz) => quiz.id), type: "toggle-all-visible" });
   const confirmLifecycle = async () => {
     if (!intent || isPending || !selectedQuizzes.length) return;
-    setIsPending(true); setError(null);
+    dispatch({ patch: { error: null, isPending: true }, type: "patch" });
     try {
       const result = intent === "publish" ? await bulkPublishStandaloneQuizzesAction(selectedQuizzes.map((quiz) => quiz.id)) : await bulkUnpublishStandaloneQuizzesAction(selectedQuizzes.map((quiz) => quiz.id));
-      if (!result.ok) { setError(result.message); return; }
+      if (!result.ok) { dispatch({ patch: { error: result.message }, type: "patch" }); return; }
       const affectedIds = new Set(result.affectedIds);
-      setQuizzes((current) => current.map((quiz) => affectedIds.has(quiz.id) ? { ...quiz, status: result.status } : quiz));
-      setSelectedIds(new Set()); setSelectionMode(false); setNotice(result.message); setIntent(null); router.refresh();
-    } catch (caughtError) { setError(caughtError instanceof Error ? caughtError.message : "Status quiz tidak dapat diubah saat ini. Coba lagi."); }
-    finally { setIsPending(false); }
+      dispatch({ ids: [...affectedIds], status: result.status, type: "update-status" });
+      dispatch({ patch: { intent: null, notice: result.message, selectedIds: new Set(), selectionMode: false }, type: "patch" });
+      router.refresh();
+    } catch (caughtError) { dispatch({ patch: { error: caughtError instanceof Error ? caughtError.message : "Status quiz tidak dapat diubah saat ini. Coba lagi." }, type: "patch" }); }
+    finally { dispatch({ patch: { isPending: false }, type: "patch" }); }
   };
   const applyQuizAction = async (quiz: KaptenQuiz, action: "archive" | "delete" | "publish" | "restore" | "unpublish") => {
     if (isPending) return;
     if (action === "delete") return;
-    setIsPending(true); setError(null);
+    dispatch({ patch: { error: null, isPending: true }, type: "patch" });
     try {
       if (action === "publish" || action === "unpublish") {
         const result = action === "publish" ? await bulkPublishStandaloneQuizzesAction([quiz.id]) : await bulkUnpublishStandaloneQuizzesAction([quiz.id]);
-        if (!result.ok) { setError(result.message); return; }
-        setQuizzes((current) => current.map((item) => item.id === quiz.id ? { ...item, status: result.status } : item)); setNotice(result.message);
+        if (!result.ok) { dispatch({ patch: { error: result.message }, type: "patch" }); return; }
+        dispatch({ ids: [quiz.id], status: result.status, type: "update-status" });
+        dispatch({ patch: { notice: result.message }, type: "patch" });
       } else {
         const result = await updateStandaloneQuizLifecycleAction(quiz.id, action);
-        if (!result.ok) { setError(result.message); return; }
-        setQuizzes((current) => current.map((item) => item.id === quiz.id ? result.quiz : item)); setNotice(action === "archive" ? "Quiz telah diarsipkan." : "Quiz dipulihkan sebagai draf.");
+        if (!result.ok) { dispatch({ patch: { error: result.message }, type: "patch" }); return; }
+        dispatch({ quiz: result.quiz, type: "replace-quiz" });
+        dispatch({ patch: { notice: action === "archive" ? "Quiz telah diarsipkan." : "Quiz dipulihkan sebagai draf." }, type: "patch" });
       }
       router.refresh();
-    } catch (caughtError) { setError(caughtError instanceof Error ? caughtError.message : "Status Quiz tidak dapat diubah saat ini. Coba lagi."); }
-    finally { setIsPending(false); }
+    } catch (caughtError) { dispatch({ patch: { error: caughtError instanceof Error ? caughtError.message : "Status Quiz tidak dapat diubah saat ini. Coba lagi." }, type: "patch" }); }
+    finally { dispatch({ patch: { isPending: false }, type: "patch" }); }
   };
 
   return (
@@ -165,11 +236,11 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
           }
           title={subject.name}
         />
-        <CatalogueSearchInput onChange={(value) => { setQuery(value); setPage(1); setSelectedIds(new Set()); }} placeholder="Cari judul, jumlah soal, atau status..." value={query} />
+        <CatalogueSearchInput onChange={(value) => dispatch({ patch: { page: 1, query: value, selectedIds: new Set() }, type: "patch" })} placeholder="Cari judul, jumlah soal, atau status..." value={query} />
         <div className="flex flex-wrap items-center gap-2">
           <CatalogueFilter
             label="Filter status"
-            onValueChange={(value) => { setStatusFilter(value); setPage(1); setSelectedIds(new Set()); }}
+            onValueChange={(value) => dispatch({ patch: { page: 1, selectedIds: new Set(), statusFilter: value }, type: "patch" })}
             options={[
               { label: "Semua status", value: "" },
               { label: "Draf", value: "draft" },
@@ -181,7 +252,7 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
           />
           <CatalogueFilter
             label="Filter isi soal"
-            onValueChange={(value) => { setQuestionFilter(value); setPage(1); setSelectedIds(new Set()); }}
+            onValueChange={(value) => dispatch({ patch: { page: 1, questionFilter: value, selectedIds: new Set() }, type: "patch" })}
             options={[
               { label: "Semua isi soal", value: "" },
               { label: "Memiliki soal", value: "ready" },
@@ -189,11 +260,11 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
             ]}
             value={questionFilter}
           />
-          {!selectionMode ? <Button aria-label="Pilih beberapa quiz" className="ml-auto" onClick={() => setSelectionMode(true)} size="icon-sm" title="Pilih beberapa quiz" type="button" variant="brandOutline"><ListChecks /></Button> : null}
+          {!selectionMode ? <Button aria-label="Pilih beberapa quiz" className="ml-auto" onClick={() => dispatch({ patch: { selectionMode: true }, type: "patch" })} size="icon-sm" title="Pilih beberapa quiz" type="button" variant="brandOutline"><ListChecks /></Button> : null}
         </div>
       </section>
       <section className="space-y-3">
-        {selectionMode ? <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-primary-100 bg-primary-50/35 px-6 py-4"><Button aria-label="Keluar dari mode pilih" onClick={() => { setSelectionMode(false); setSelectedIds(new Set()); }} size="icon-xs" type="button" variant="ghost"><X /></Button><span className="text-sm font-semibold text-secondary-900">{selectedQuizzes.length} dipilih</span><Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => toggleAllVisible(checked === true)} /><span className="text-sm font-semibold text-secondary-700">Semua hasil</span><div className="ml-auto flex flex-wrap items-center gap-3"><Button disabled={!canPublish || isPending} onClick={() => { setError(null); setIntent("publish"); }} size="sm" type="button" variant="brand">Terbitkan</Button><Button disabled={!canUnpublish || isPending} onClick={() => { setError(null); setIntent("unpublish"); }} size="sm" type="button" variant="brandOutline">Batalkan terbit</Button><Button disabled={isPending} onClick={() => setSelectedIds(new Set())} size="sm" type="button" variant="ghost">Hapus pilihan</Button></div>{eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}</div> : null}
+        {selectionMode ? <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-primary-100 bg-primary-50/35 px-6 py-4"><Button aria-label="Keluar dari mode pilih" onClick={() => dispatch({ patch: { selectedIds: new Set(), selectionMode: false }, type: "patch" })} size="icon-xs" type="button" variant="ghost"><X /></Button><span className="text-sm font-semibold text-secondary-900">{selectedQuizzes.length} dipilih</span><Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => toggleAllVisible(checked === true)} /><span className="text-sm font-semibold text-secondary-700">Semua hasil</span><div className="ml-auto flex flex-wrap items-center gap-3"><Button disabled={!canPublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "publish" }, type: "patch" })} size="sm" type="button" variant="brand">Terbitkan</Button><Button disabled={!canUnpublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "unpublish" }, type: "patch" })} size="sm" type="button" variant="brandOutline">Batalkan terbit</Button><Button disabled={isPending} onClick={() => dispatch({ patch: { selectedIds: new Set() }, type: "patch" })} size="sm" type="button" variant="ghost">Hapus pilihan</Button></div>{eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}</div> : null}
         {notice ? <p className="rounded-2xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-sm font-medium text-primary-900" role="status">{notice}</p> : null}
         {pagedQuizzes.length ? pagedQuizzes.map((quiz) => <QuizRow key={quiz.id} quiz={quiz} onAction={(action) => { void applyQuizAction(quiz, action); }} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} selectionMode={selectionMode} selected={selectedIds.has(quiz.id)} />) : quizzes.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-12 text-center">
@@ -203,10 +274,10 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
             <Button className="mt-5" render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />} size="sm" variant="brand"><Plus />Buat quiz pertama</Button>
           </div>
         ) : <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-10 text-center text-sm text-secondary-600">Tidak ada quiz yang cocok dengan pencarian ini.</div>}
-        <PaginationControls onPageChange={setPage} page={page} pageCount={pageCount} />
+        <PaginationControls onPageChange={(nextPage) => dispatch({ patch: { page: nextPage }, type: "patch" })} page={page} pageCount={pageCount} />
       </section>
       </div>
-      <Dialog onOpenChange={(open) => { if (!open && !isPending) { setError(null); setIntent(null); } }} open={Boolean(intent)}>
+      <Dialog onOpenChange={(open) => { if (!open && !isPending) dispatch({ patch: { error: null, intent: null }, type: "patch" }); }} open={Boolean(intent)}>
         <DialogContent showCloseButton={!isPending}><DialogHeader><DialogTitle>{confirmation.title}</DialogTitle><DialogDescription>{confirmation.description}</DialogDescription></DialogHeader>{error ? <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{error}</div> : null}<DialogFooter><DialogClose disabled={isPending} render={<Button type="button" variant="brandOutline" />}>Batal</DialogClose><Button disabled={isPending || (intent === "publish" ? !canPublish : !canUnpublish)} onClick={confirmLifecycle} type="button" variant="brand">{isPending ? "Memproses..." : confirmation.confirm}</Button></DialogFooter></DialogContent>
       </Dialog>
     </MentorWorkspaceShell>

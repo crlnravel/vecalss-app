@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Copy, Lock, PackagePlus, Save, Search, Upload } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -58,11 +58,16 @@ function KaptenTryoutBuilderPageModule({ id, initialDraft, initialWorkspace = "a
   const save = async (status = draft.status) => {
     setSaving(true);
     setError(null);
-    const result = await saveTryoutAction({ description: draft.description, id, sections: draft.sections.map((section) => ({ catItemCount: section.catItemCount, durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status, title: draft.title });
-    setSaving(false);
-    if (!result.ok) return setError(result.message);
-    setDraft(normalize(result.result));
-    if (!id) window.location.assign(`/mentor/tryout/${result.result.id}`);
+    try {
+      const result = await saveTryoutAction({ description: draft.description, id, sections: draft.sections.map((section) => ({ catItemCount: section.catItemCount, durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status, title: draft.title });
+      if (!result.ok) return setError(result.message);
+      setDraft(normalize(result.result));
+      if (!id) window.location.assign(`/mentor/tryout/${result.result.id}`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Tryout belum dapat disimpan. Coba lagi.");
+    } finally {
+      setSaving(false);
+    }
   };
   const publish = async () => {
     setPublishOpen(false);
@@ -72,10 +77,15 @@ function KaptenTryoutBuilderPageModule({ id, initialDraft, initialWorkspace = "a
     if (!id) return;
     setSaving(true);
     setError(null);
-    const result = await duplicateTryoutAction(id);
-    setSaving(false);
-    if (!result.ok) return setError(result.message);
-    window.location.assign(`/mentor/tryout/${result.result.id}`);
+    try {
+      const result = await duplicateTryoutAction(id);
+      if (!result.ok) return setError(result.message);
+      window.location.assign(`/mentor/tryout/${result.result.id}`);
+    } catch (duplicateError) {
+      setError(duplicateError instanceof Error ? duplicateError.message : "Tryout belum dapat disalin. Coba lagi.");
+    } finally {
+      setSaving(false);
+    }
   };
   const selectPackage = (version: ReadyVersion) => {
     update(activeSection.subtest, { packageVersionId: version.id, packageVersionLabel: version.label });
@@ -90,6 +100,11 @@ function KaptenTryoutBuilderPageModule({ id, initialDraft, initialWorkspace = "a
     else url.searchParams.set("workspace", nextWorkspace);
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
+  const incompleteSectionButtons = draft.sections.reduce<ReactNode[]>((buttons, section) => {
+    if (section.packageVersionId) return buttons;
+    buttons.push(<Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => setActiveCode(section.subtest)} variant="outline">Buka {section.subtest}</Button>);
+    return buttons;
+  }, []);
 
   return <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
     <header className="flex flex-col gap-3 border-b border-primary-100 pb-4">
@@ -119,7 +134,7 @@ function KaptenTryoutBuilderPageModule({ id, initialDraft, initialWorkspace = "a
         </div>
         <footer className="mt-7 flex justify-end border-t border-primary-100 pt-5"><div className="flex gap-2">{activeIndex > 0 ? <Button onClick={() => setActiveCode(subjectCodes[activeIndex - 1])} variant="brandOutline">Sebelumnya</Button> : null}{activeIndex < subjectCodes.length - 1 ? <Button onClick={() => setActiveCode(subjectCodes[activeIndex + 1])} variant="brand">Test berikutnya<ChevronRight /></Button> : <Button disabled={saving || !readyToPublish || draft.locked} onClick={() => setPublishOpen(true)} variant="brand"><Upload />Terbitkan</Button>}</div></footer>
       </section>
-      {!draft.locked && !readyToPublish ? <section className="mt-4 rounded-2xl border border-[#f3d486] bg-[#fff7e5] px-4 py-3 text-sm leading-6 text-[#6a4a00]" role="status"><div className="flex items-start gap-2"><CircleAlert className="mt-1 size-4 shrink-0" /><p><strong>{7 - boundCount} Test belum siap.</strong> Lengkapi Paket Soal pada Test yang ditandai, lalu publikasi akan tersedia.</p></div><div className="mt-2 flex flex-wrap gap-2 pl-6">{draft.sections.filter((section) => !section.packageVersionId).map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => setActiveCode(section.subtest)} variant="outline">Buka {section.subtest}</Button>)}</div></section> : null}
+      {!draft.locked && !readyToPublish ? <section className="mt-4 rounded-2xl border border-[#f3d486] bg-[#fff7e5] px-4 py-3 text-sm leading-6 text-[#6a4a00]" role="status"><div className="flex items-start gap-2"><CircleAlert className="mt-1 size-4 shrink-0" /><p><strong>{7 - boundCount} Test belum siap.</strong> Lengkapi Paket Soal pada Test yang ditandai, lalu publikasi akan tersedia.</p></div><div className="mt-2 flex flex-wrap gap-2 pl-6">{incompleteSectionButtons}</div></section> : null}
     </div></TabsContent>
     {operationsInitial && id ? <><TabsContent className="mt-5" value="policy"><KaptenTryoutPolicyPageModule embedded initial={operationsInitial} /></TabsContent><TabsContent className="mt-5" value="sessions"><KaptenTryoutSessionsPageModule embedded initial={operationsInitial} /></TabsContent><TabsContent className="mt-5" value="participants"><KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} /></TabsContent></> : null}
     </Tabs>

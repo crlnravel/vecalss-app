@@ -136,9 +136,10 @@ function parseDrafts(value: string | null): StoredQuestionBankDraft[] {
       counts.set(draft.bank.id, (counts.get(draft.bank.id) ?? 0) + 1);
     }
 
-    return validDrafts
-      .filter((draft) => counts.get(draft.bank.id) === 1)
-      .map(sanitizeDraft);
+    return validDrafts.reduce<StoredQuestionBankDraft[]>((drafts, draft) => {
+      if (counts.get(draft.bank.id) === 1) drafts.push(sanitizeDraft(draft));
+      return drafts;
+    }, []);
   } catch {
     return [];
   }
@@ -252,10 +253,11 @@ function getQuestionBankCatalog() {
 }
 
 function getQuestionBankSourceCatalog() {
-  return getQuestionBankCatalog().map(({ bank, questions }) => ({
-    bank,
-    questions: bank.status === "published" ? questions.filter(isReadyBankQuestion) : [],
-  })).filter(({ questions }) => questions.length > 0);
+  return getQuestionBankCatalog().reduce<Array<{ bank: KaptenQuestionBank; questions: BankQuestion[] }>>((sources, { bank, questions }) => {
+    const readyQuestions = bank.status === "published" ? questions.filter(isReadyBankQuestion) : [];
+    if (readyQuestions.length > 0) sources.push({ bank, questions: readyQuestions });
+    return sources;
+  }, []);
 }
 
 function updateQuestionBankLifecycle(
@@ -266,7 +268,8 @@ function updateQuestionBankLifecycle(
   if (!uniqueIds.length) throw new Error("Pilih minimal satu bank soal.");
 
   const catalog = getQuestionBankCatalog();
-  const selected = catalog.filter(({ bank }) => uniqueIds.includes(bank.id));
+  const uniqueIdSet = new Set(uniqueIds);
+  const selected = catalog.filter(({ bank }) => uniqueIdSet.has(bank.id));
   if (selected.length !== uniqueIds.length) {
     throw new Error("Sebagian bank soal tidak ditemukan. Muat ulang halaman lalu coba lagi.");
   }

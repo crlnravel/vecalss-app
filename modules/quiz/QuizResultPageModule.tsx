@@ -22,6 +22,7 @@ type QuizResult = {
   isSubmitted: boolean;
   questions: Array<{
     explanation: string | null;
+    id: string;
     options: Array<{ correct: boolean; id: string; key: string; text: string }>;
     prompt: string;
     selectedOptionId: string | null;
@@ -118,7 +119,7 @@ function QuizResultPageModule({
                 return (
                   <QuestionMarker
                     current={number === currentQuestion}
-                    key={number}
+                    key={reviewQuestion.id}
                     number={number}
                     onClick={() => setCurrentQuestion(number)}
                     state={state}

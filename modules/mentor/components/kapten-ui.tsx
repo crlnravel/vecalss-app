@@ -36,6 +36,12 @@ const statusClasses: Record<KaptenContentStatus, string> = {
   scheduled: "border-secondary-200 bg-secondary-50 text-secondary-700",
 };
 
+const availabilityFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeZone: "Asia/Jakarta",
+  timeStyle: "short",
+});
+
 function StatusPill({ status }: { status: KaptenContentStatus }) {
   return (
     <span
@@ -53,10 +59,7 @@ function formatAvailability(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
 
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return availabilityFormatter.format(date);
 }
 
 function PageIntro({

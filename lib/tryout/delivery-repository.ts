@@ -127,13 +127,18 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
     if (session.status !== TryoutDeliverySessionStatus.draft) throw new TryoutDeliveryValidationError("Hanya sesi draft yang dapat dibuka.");
     const ready = session.tryout.status === ContentStatus.published && session.tryout.sections.length === 7 && session.tryout.sections.every((section) => section.packageVersion?.status === ContentStatus.published && section.packageVersion.items.length > 0);
     if (!ready) throw new TryoutDeliveryValidationError("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap.");
-    for (const section of session.tryout.sections) {
-      if (section.testType !== "cat") continue;
-      const items = section.packageVersion!.items;
-      if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
-      const calibrated = await tx.twoPlQuestionCalibration.count({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: { in: items.map((item) => item.sourceQuestionId) } } });
-      if (calibrated !== items.length) throw new TryoutDeliveryValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui.");
-    }
+    const calibrationChecks = session.tryout.sections.reduce<Promise<void>[]>((checks, section) => {
+      if (section.testType === "cat") {
+        checks.push((async () => {
+          const items = section.packageVersion!.items;
+          if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
+          const calibrated = await tx.twoPlQuestionCalibration.count({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: { in: items.map((item) => item.sourceQuestionId) } } });
+          if (calibrated !== items.length) throw new TryoutDeliveryValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui.");
+        })());
+      }
+      return checks;
+    }, []);
+    await Promise.all(calibrationChecks);
     const opened = await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { status: TryoutDeliverySessionStatus.active, updatedByUserId: actorId } });
     await audit(tx, { action: "delivery_session.opened", actorId, after: { status: opened.status }, before: { status: session.status }, deliverySessionId, reason: auditReason, tryoutId: session.tryoutId });
     return opened;
@@ -212,8 +217,10 @@ async function inviteTryoutParticipant(tryoutId: string, studentId: string, acto
 async function assignTryoutDeliverySession(input: AssignmentInput, actorId: string, reason: string) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    const admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
-    const session = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } });
+    const [admission, session] = await Promise.all([
+      tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } }),
+      tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } }),
+    ]);
     if (!admission || !session || admission.tryoutId !== session.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
     if (admission.status !== TryoutAdmissionStatus.active || session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif dan sesi aktif diperlukan untuk penugasan.");
     const assignment = await tx.tryoutDeliveryAssignment.upsert({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, create: { admissionId: input.admissionId, assignedByUserId: actorId, deliverySessionId: input.deliverySessionId }, update: { assignedByUserId: actorId, assignedAt: new Date(), revokeReason: null, revokedAt: null, status: TryoutAssignmentStatus.active } });

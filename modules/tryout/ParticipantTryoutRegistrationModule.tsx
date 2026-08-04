@@ -13,6 +13,7 @@ import {
   Target,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -81,16 +82,22 @@ function ParticipantTryoutRegistrationModule({
     if (!university || !major) return;
     setBusy(true);
     setMessage(null);
-    const response = await registerForTryoutWithTargetAction(tryout.id, {
-      majorId: major.id,
-      universityId: university.id,
-    });
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(response.message);
-      return;
+    try {
+      const response = await registerForTryoutWithTargetAction(tryout.id, {
+        majorId: major.id,
+        universityId: university.id,
+      });
+      if (!response.ok) {
+        setMessage(response.message);
+        return;
+      }
+      window.location.assign(response.result.state === "assigned" ? `/tryout/${tryout.id}/waiting` : `/tryout/${tryout.id}`);
+    } catch (registerError) {
+      unstable_rethrow(registerError);
+      setMessage(registerError instanceof Error ? registerError.message : "Pendaftaran tryout belum dapat diproses.");
+    } finally {
+      setBusy(false);
     }
-    window.location.assign(response.result.state === "assigned" ? `/tryout/${tryout.id}/waiting` : `/tryout/${tryout.id}`);
   };
 
   return (

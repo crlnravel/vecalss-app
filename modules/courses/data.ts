@@ -171,7 +171,10 @@ function getCourseProgressState(
   const completedCount = completedLessonIds.size;
 
   return {
-    completedLessonIds: lessons.filter((lesson) => completedLessonIds.has(lesson.id)).map((lesson) => lesson.id),
+    completedLessonIds: lessons.reduce<string[]>((lessonIds, lesson) => {
+      if (completedLessonIds.has(lesson.id)) lessonIds.push(lesson.id);
+      return lessonIds;
+    }, []),
     completionPercentage: lessons.length === 0 ? 0 : Math.round((completedCount / lessons.length) * 100),
     lessons,
     nextLesson,

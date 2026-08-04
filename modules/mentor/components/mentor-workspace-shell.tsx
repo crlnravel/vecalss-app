@@ -32,9 +32,9 @@ import { cn } from "@/lib/utils";
 import { MentorSidebar } from "@/modules/mentor/components/mentor-sidebar";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 
-type PendingNavigation = {
-  continueNavigation: () => void;
-};
+type PendingNavigation =
+  | { destination: string; kind: "route" }
+  | { kind: "history" };
 
 function MentorWorkspaceShell({
   activeLabel,
@@ -62,28 +62,43 @@ function MentorWorkspaceShell({
   const router = useRouter();
   const onNavigateAwayRef = useRef(onNavigateAway);
   const hasHistoryGuardRef = useRef(false);
+  const pendingNavigationRef = useRef<PendingNavigation | null>(null);
   const pendingRouteContinuationRef = useRef<(() => void) | null>(null);
   const restoreSyntheticEntryRef = useRef(false);
   const allowHistoryTraversalRef = useRef(false);
-  const [pendingNavigation, setPendingNavigation] =
-    useState<PendingNavigation | null>(null);
+  const [isConfirmationOpen, setConfirmationOpen] = useState(false);
 
   useEffect(() => {
     onNavigateAwayRef.current = onNavigateAway;
   }, [onNavigateAway]);
 
-  function requestConfirmation(continueNavigation: () => void) {
-    setPendingNavigation((current) => current ?? { continueNavigation });
+  function requestConfirmation(nextNavigation: PendingNavigation) {
+    if (pendingNavigationRef.current) return;
+
+    pendingNavigationRef.current = nextNavigation;
+    setConfirmationOpen(true);
   }
 
   function dismissConfirmation() {
-    setPendingNavigation(null);
+    pendingNavigationRef.current = null;
+    setConfirmationOpen(false);
   }
 
   function confirmPendingNavigation() {
-    const request = pendingNavigation;
+    const request = pendingNavigationRef.current;
     dismissConfirmation();
-    request?.continueNavigation();
+    if (!request) return;
+
+    if (request.kind === "history") {
+      hasHistoryGuardRef.current = false;
+      allowHistoryTraversalRef.current = true;
+      // We are back on the synthetic entry. Skip both duplicate entries
+      // to complete the originally requested browser Back in one action.
+      window.history.go(-2);
+      return;
+    }
+
+    consumeSyntheticEntry(() => router.push(request.destination));
   }
 
   function consumeSyntheticEntry(continueNavigation: () => void) {
@@ -141,7 +156,10 @@ function MentorWorkspaceShell({
       if (!canLeave) {
         event.preventDefault();
         event.stopPropagation();
-        requestConfirmation(() => consumeSyntheticEntry(navigate));
+        requestConfirmation({
+          destination: destination.pathname + destination.search + destination.hash,
+          kind: "route",
+        });
         return;
       }
 
@@ -184,13 +202,7 @@ function MentorWorkspaceShell({
 
       if (restoreSyntheticEntryRef.current) {
         restoreSyntheticEntryRef.current = false;
-        requestConfirmation(() => {
-          hasHistoryGuardRef.current = false;
-          allowHistoryTraversalRef.current = true;
-          // We are back on the synthetic entry. Skip both duplicate entries
-          // to complete the originally requested browser Back in one action.
-          window.history.go(-2);
-        });
+        requestConfirmation({ kind: "history" });
         return;
       }
 
@@ -285,7 +297,7 @@ function MentorWorkspaceShell({
             dismissConfirmation();
           }
         }}
-        open={Boolean(pendingNavigation)}
+        open={isConfirmationOpen}
       >
         <DialogContent
           className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"

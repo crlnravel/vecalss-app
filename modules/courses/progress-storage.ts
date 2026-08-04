@@ -43,7 +43,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: string[]) {
-  return Object.keys(value).every((key) => keys.includes(key));
+  const allowedKeys = new Set(keys);
+  return Object.keys(value).every((key) => allowedKeys.has(key));
 }
 
 function getCourseMap(courses: readonly Course[]) {

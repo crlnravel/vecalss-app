@@ -9,8 +9,10 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { token } = await params;
-  const resolvedSearchParams = await searchParams;
-  const tokenStatus = await getResetTokenStatus(token);
+  const [resolvedSearchParams, tokenStatus] = await Promise.all([
+    searchParams,
+    getResetTokenStatus(token),
+  ]);
   const audience = resolvedSearchParams.audience === "admin"
     ? "admin"
     : resolvedSearchParams.audience === "tutor"

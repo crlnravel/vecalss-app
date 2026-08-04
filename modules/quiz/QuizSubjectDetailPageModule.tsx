@@ -102,7 +102,7 @@ function QuizSubjectDetailPageModule({
 
 function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
   return (
-    <article className="group overflow-hidden rounded-2xl border border-primary-100 bg-white text-left shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-all duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)]">
+    <article className="group overflow-hidden rounded-2xl border border-primary-100 bg-white text-left shadow-[0_12px_38px_-28px_rgba(1,76,56,0.45)] transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-primary-200 hover:shadow-[0_24px_58px_-42px_rgba(1,76,56,0.55)]">
       <div className={cn("p-5", subject.palette)}>
         <h3 className="max-w-[16ch] text-3xl leading-[1.08] font-semibold">
           {quiz.title}

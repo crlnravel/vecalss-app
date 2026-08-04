@@ -42,6 +42,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsPageModule
+      key={`${profile.userId}:${profile.updatedAt.getTime()}`}
       examEvents={examEvents}
       majors={majors}
       profile={profile}

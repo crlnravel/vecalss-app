@@ -22,7 +22,8 @@ function runScore(result: Prisma.JsonValue | null) {
 function explanationsComplete(run: { catSnapshot: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue }) {
   const content = run.contentSnapshot as { items?: Array<{ explanation?: string | null; id: string }> };
   const adaptive = run.catSnapshot as { selectedItemIds?: string[] } | null;
-  const items = adaptive?.selectedItemIds ? (content.items ?? []).filter((item) => adaptive.selectedItemIds?.includes(item.id)) : content.items ?? [];
+  const selectedItemIds = adaptive?.selectedItemIds ? new Set(adaptive.selectedItemIds) : null;
+  const items = selectedItemIds ? (content.items ?? []).filter((item) => selectedItemIds.has(item.id)) : content.items ?? [];
   return items.length > 0 && items.every((item) => Boolean(item.explanation?.trim()));
 }
 
@@ -135,17 +136,10 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
       university: attempt.student.studentProfile?.targetUniversity?.shortName ?? attempt.student.studentProfile?.targetUniversity?.name ?? null,
     },
     tryoutTitle: attempt.tryout.title,
-    runs: attempt.runs.map((run) => ({
-      calculation: run.calculationResult,
-      durationSeconds: run.section.durationSeconds,
-      sectionTitle: run.section.title,
-      subtest: run.section.subtest.code,
-      subtestName: run.section.subtest.name,
-      testType: run.section.testType,
-      timeSpentSeconds: run.serverStartedAt && run.sealedAt
-        ? Math.max(0, Math.round((run.sealedAt.getTime() - run.serverStartedAt.getTime()) / 1000))
-        : null,
-      review: (run.contentSnapshot as {
+    runs: attempt.runs.map((run) => {
+      const selectedItemIds = (run.catSnapshot as { selectedItemIds?: string[] } | null)?.selectedItemIds;
+      const selectedItemIdSet = selectedItemIds ? new Set(selectedItemIds) : null;
+      const contentItems = (run.contentSnapshot as {
         items?: Array<{
           difficulty?: string;
           explanation?: string | null;
@@ -153,16 +147,38 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
           options?: Array<{ choiceKey: string; content: string; id: string; isCorrect?: boolean }>;
           prompt: string;
         }>;
-      }).items
-        ?.filter((item) => !(run.catSnapshot as { selectedItemIds?: string[] } | null)?.selectedItemIds || (run.catSnapshot as { selectedItemIds?: string[] }).selectedItemIds?.includes(item.id))
-        .map((item) => ({
+      }).items;
+      const review = contentItems?.reduce<Array<{
+        difficulty: string;
+        explanation: string;
+        options: Array<{ choiceKey: string; content: string; correct: boolean | undefined; id: string }>;
+        prompt: string;
+        selectedOptionId: string | null;
+      }>>((items, item) => {
+        if (selectedItemIdSet && !selectedItemIdSet.has(item.id)) return items;
+        items.push({
           difficulty: item.difficulty ?? "medium",
           explanation: item.explanation ?? "",
           prompt: item.prompt,
           selectedOptionId: run.answers.find((answer) => answer.tryoutItemId === item.id)?.selectedOptionId ?? null,
           options: item.options?.map((option) => ({ choiceKey: option.choiceKey, content: option.content, correct: option.isCorrect, id: option.id })) ?? [],
-        })) ?? [],
-    })),
+        });
+        return items;
+      }, []) ?? [];
+
+      return {
+        calculation: run.calculationResult,
+        durationSeconds: run.section.durationSeconds,
+        sectionTitle: run.section.title,
+        subtest: run.section.subtest.code,
+        subtestName: run.section.subtest.name,
+        testType: run.section.testType,
+        timeSpentSeconds: run.serverStartedAt && run.sealedAt
+          ? Math.max(0, Math.round((run.sealedAt.getTime() - run.serverStartedAt.getTime()) / 1000))
+          : null,
+        review,
+      };
+    }),
   };
 }
 

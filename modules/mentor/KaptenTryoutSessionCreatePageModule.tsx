@@ -15,8 +15,7 @@ import {
 import { Field, FieldInput } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { policyLabels } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import type { Policy } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   HelpFieldLabel,
   OperationalPageHeader,
@@ -76,16 +75,21 @@ function KaptenTryoutSessionCreatePageModule({
       return;
     }
     setBusy(true);
-    const result = await createTryoutDeliverySessionAction(
-      { ...session, tryoutId: initial.id },
-      session.auditReason,
-    );
-    setBusy(false);
-    if (!result.ok) {
-      setNotice({ message: result.message ?? "Sesi tidak dapat dibuat.", tone: "error" });
-      return;
+    try {
+      const result = await createTryoutDeliverySessionAction(
+        { ...session, tryoutId: initial.id },
+        session.auditReason,
+      );
+      if (!result.ok) {
+        setNotice({ message: result.message ?? "Sesi tidak dapat dibuat.", tone: "error" });
+        return;
+      }
+      router.push(`/mentor/tryout/${initial.id}/operations/sessions/${result.result.id}`);
+    } catch (createError) {
+      setNotice({ message: createError instanceof Error ? createError.message : "Sesi tidak dapat dibuat.", tone: "error" });
+    } finally {
+      setBusy(false);
     }
-    router.push(`/mentor/tryout/${initial.id}/operations/sessions/${result.result.id}`);
   };
 
   return (

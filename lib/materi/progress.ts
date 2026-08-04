@@ -182,17 +182,20 @@ async function ensureCurrentAdmission(
 ) {
   let rows = await readProgressRows(tx, studentId, modules);
   const desired = ensureInitialProgressStatuses(modules, rows);
-  if (modules.length === 0 || desired.every((row, index) => row.status === rows.find((current) => current.moduleId === modules[index]?.id)?.status)) {
+  const current = new Map(rows.map((row) => [row.moduleId, row.status]));
+  const statusesMatch = desired.length === rows.length
+    && desired.every((row) => current.get(row.moduleId) === row.status);
+  if (modules.length === 0 || statusesMatch) {
     return rows;
   }
 
   // This covers both a brand-new student (first unit admission) and a
   // recovered/legacy row set whose active unit was missing after completion.
-  const current = new Map(rows.map((row) => [row.moduleId, row.status]));
-  for (const row of desired) {
-    if (current.get(row.moduleId) !== row.status && row.status === ProgressStatus.in_progress) {
-      await upsertProgressStatus(tx, studentId, row.moduleId, row.status);
-    }
+  const nextAdmission = desired.find(
+    (row) => current.get(row.moduleId) !== row.status && row.status === ProgressStatus.in_progress,
+  );
+  if (nextAdmission) {
+    await upsertProgressStatus(tx, studentId, nextAdmission.moduleId, nextAdmission.status);
   }
   rows = await readProgressRows(tx, studentId, modules);
   return rows;
@@ -221,18 +224,15 @@ async function getCourseProgressSnapshots(
   courses: readonly ProgressionCourse[],
 ): Promise<Record<string, CourseProgressSnapshot>> {
   return prisma.$transaction(async (tx) => {
-    const snapshots: Record<string, CourseProgressSnapshot> = {};
     const orderedCourses = [...courses].sort((left, right) => left.code.localeCompare(right.code));
-
-    for (const course of orderedCourses) {
-      snapshots[course.slug] = await getCourseProgressSnapshotInTransaction(
-        tx,
-        studentId,
+    const entries = await Promise.all(
+      orderedCourses.map(async (course) => [
         course.slug,
-      );
-    }
+        await getCourseProgressSnapshotInTransaction(tx, studentId, course.slug),
+      ] as const),
+    );
 
-    return snapshots;
+    return Object.fromEntries(entries) as Record<string, CourseProgressSnapshot>;
   }, { timeout: 20_000 });
 }
 
@@ -291,11 +291,13 @@ async function completeMateriLesson(
       throw error;
     }
     const current = new Map(rows.map((row) => [row.moduleId, row.status]));
-    for (const row of transition.rows) {
+    const progressUpdates = transition.rows.reduce<Promise<void>[]>((updates, row) => {
       if (current.get(row.moduleId) !== row.status) {
-        await upsertProgressStatus(tx, studentId, row.moduleId, row.status);
+        updates.push(upsertProgressStatus(tx, studentId, row.moduleId, row.status));
       }
-    }
+      return updates;
+    }, []);
+    await Promise.all(progressUpdates);
     rows = await readProgressRows(tx, studentId, modules);
     return buildCourseProgressSnapshot(modules, rows);
   });
@@ -326,11 +328,13 @@ async function skipToMateriLesson(
       throw error;
     }
     const current = new Map(rows.map((row) => [row.moduleId, row.status]));
-    for (const row of transition.rows) {
+    const progressUpdates = transition.rows.reduce<Promise<void>[]>((updates, row) => {
       if (current.get(row.moduleId) !== row.status) {
-        await upsertProgressStatus(tx, studentId, row.moduleId, row.status);
+        updates.push(upsertProgressStatus(tx, studentId, row.moduleId, row.status));
       }
-    }
+      return updates;
+    }, []);
+    await Promise.all(progressUpdates);
 
     const updatedRows = await readProgressRows(tx, studentId, modules);
     return buildCourseProgressSnapshot(modules, updatedRows);

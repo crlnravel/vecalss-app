@@ -95,13 +95,16 @@ function CourseLessonPlayerModule({
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null) as { error?: unknown } | null;
+        throw new Error(typeof errorPayload?.error === "string" ? errorPayload.error : "Progress belum tersimpan. Coba lagi.");
+      }
       const payload = await response.json().catch(() => null) as {
         error?: unknown;
         snapshot?: CourseProgressSnapshot;
       } | null;
       if (
-        !response.ok
-        || !payload?.snapshot
+        !payload?.snapshot
         || !hydrateCourseProgress(course.slug, payload.snapshot, courses, session.user.id)
       ) {
         throw new Error(typeof payload?.error === "string" ? payload.error : "Progress belum tersimpan. Coba lagi.");
@@ -281,12 +284,12 @@ function LessonPlayer({
         ) : null}
       </section>
 
-      <a
+      <Link
         className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#b7ddc3] bg-white px-4 text-sm font-semibold text-[#176b4d] outline-none transition hover:bg-[#f3faf5] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
         href="/vera-ai"
       >
         <MessageCircle className="size-5" /> Tanya Vera
-      </a>
+      </Link>
     </article>
   );
 }

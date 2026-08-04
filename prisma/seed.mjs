@@ -510,23 +510,25 @@ async function seedOperationalContext(client, { adminUserId, cohortId, completed
     );
   }
 
-  const moduleResult = await client.query(
-    `SELECT modules.id
-      FROM modules
-      JOIN topics ON topics.id = modules.topic_id
-      JOIN subtests ON subtests.id = topics.subtest_id
-      WHERE subtests.code = 'PK'
-        AND modules.status = 'published'
-        AND topics.code NOT LIKE 'materi:%'
-      ORDER BY modules.sequence_no
-      LIMIT 1`,
-  );
-  const flagResult = await client.query(
-    `SELECT id FROM risk_flags
-      WHERE student_id = $1 AND cohort_id = $2 AND flag_type = 'practice_consistency'
-      LIMIT 1`,
-    [completedStudentId, cohortId],
-  );
+  const [moduleResult, flagResult] = await Promise.all([
+    client.query(
+      `SELECT modules.id
+        FROM modules
+        JOIN topics ON topics.id = modules.topic_id
+        JOIN subtests ON subtests.id = topics.subtest_id
+        WHERE subtests.code = 'PK'
+          AND modules.status = 'published'
+          AND topics.code NOT LIKE 'materi:%'
+        ORDER BY modules.sequence_no
+        LIMIT 1`,
+    ),
+    client.query(
+      `SELECT id FROM risk_flags
+        WHERE student_id = $1 AND cohort_id = $2 AND flag_type = 'practice_consistency'
+        LIMIT 1`,
+      [completedStudentId, cohortId],
+    ),
+  ]);
   let riskFlagId = flagResult.rows[0]?.id;
   if (!riskFlagId) {
     const createdFlag = await client.query(
@@ -751,35 +753,35 @@ async function main() {
       userId: tutorUserId,
     });
 
-    await seedMateriCatalogue(client, { authorUserId: tutorUserId });
-
     const demoPasswordHash = await hashPassword("Student12345!");
-    const demoStudentIds = {};
-    for (const demoStudent of DEMO_STUDENTS) {
-      const demoStudentId = await upsertUser(client, {
-        email: demoStudent.email,
-        fullName: demoStudent.fullName,
-        mustChangePassword: false,
-        passwordHash: demoPasswordHash,
-        passwordUpdatedAt: new Date(),
-      });
-      demoStudentIds[demoStudent.key] = demoStudentId;
-      await ensureRoleAssignment(client, {
-        assignedByUserId: adminUserId,
-        role: "student",
-        userId: demoStudentId,
-      });
-      await ensureNotificationPreference(client, demoStudentId);
-      await upsertStudentProfile(client, {
-        displayName: demoStudent.fullName,
-        enrolledByUserId: adminUserId,
-        onboardingStatus: "completed",
-        targetExamEventId: upcomingExamEventId,
-        targetMajorId: uiInformaticsId,
-        targetUniversityId: uiId,
-        userId: demoStudentId,
-      });
-    }
+    const demoStudentEntries = await Promise.all(
+      DEMO_STUDENTS.map(async (demoStudent) => {
+        const demoStudentId = await upsertUser(client, {
+          email: demoStudent.email,
+          fullName: demoStudent.fullName,
+          mustChangePassword: false,
+          passwordHash: demoPasswordHash,
+          passwordUpdatedAt: new Date(),
+        });
+        await ensureRoleAssignment(client, {
+          assignedByUserId: adminUserId,
+          role: "student",
+          userId: demoStudentId,
+        });
+        await ensureNotificationPreference(client, demoStudentId);
+        await upsertStudentProfile(client, {
+          displayName: demoStudent.fullName,
+          enrolledByUserId: adminUserId,
+          onboardingStatus: "completed",
+          targetExamEventId: upcomingExamEventId,
+          targetMajorId: uiInformaticsId,
+          targetUniversityId: uiId,
+          userId: demoStudentId,
+        });
+        return [demoStudent.key, demoStudentId];
+      }),
+    );
+    const demoStudentIds = Object.fromEntries(demoStudentEntries);
 
     const cohortId = await upsertCohort(client, {
       endDate: new Date("2027-04-30"),
@@ -796,12 +798,14 @@ async function main() {
       cohortId,
       studentId: tempStudentUserId,
     });
-    for (const demoStudentId of Object.values(demoStudentIds)) {
-      await ensureCohortStudent(client, {
-        cohortId,
-        studentId: demoStudentId,
-      });
-    }
+    await Promise.all(
+      Object.values(demoStudentIds).map((demoStudentId) =>
+        ensureCohortStudent(client, {
+          cohortId,
+          studentId: demoStudentId,
+        }),
+      ),
+    );
     await ensureTutorCohortAssignment(client, {
       assignedByUserId: adminUserId,
       cohortId,

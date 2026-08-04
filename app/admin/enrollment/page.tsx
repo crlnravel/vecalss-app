@@ -9,9 +9,8 @@ export default async function EnrollmentPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const session = await requireAdminSession();
-  const resolvedSearchParams = await searchParams;
-
-  const [examEvents, students] = await Promise.all([
+  const [resolvedSearchParams, examEvents, students] = await Promise.all([
+    searchParams,
     prisma.examEvent.findMany({
       orderBy: [{ examDate: "asc" }, { name: "asc" }],
       where: {

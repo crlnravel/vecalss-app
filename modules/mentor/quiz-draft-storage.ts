@@ -181,9 +181,10 @@ function getQuizWithStoredDrafts(baseQuizzes: KaptenQuiz[]) {
   const drafts = readDrafts().sort((a, b) => b.savedAt - a.savedAt);
   const storedById = new Map(drafts.map((draft) => [draft.quiz.id, draft.quiz]));
   const existingIds = new Set(baseQuizzes.map((quiz) => quiz.id));
-  const newDrafts = drafts
-    .filter((draft) => !existingIds.has(draft.quiz.id))
-    .map((draft) => draft.quiz);
+  const newDrafts = drafts.reduce<KaptenQuiz[]>((quizzes, draft) => {
+    if (!existingIds.has(draft.quiz.id)) quizzes.push(draft.quiz);
+    return quizzes;
+  }, []);
 
   return [
     ...newDrafts,

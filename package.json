@@ -34,7 +34,8 @@
     "test:guard-assessment-prototype-reset-concurrency": "node scripts/test-guard-assessment-prototype-reset-concurrency.mjs",
     "test:guard-assessment-prototype-reset-prelock": "node scripts/test-guard-assessment-prototype-reset-concurrency.mjs pre",
     "test:guard-assessment-prototype-reset-postlock": "node scripts/test-guard-assessment-prototype-reset-concurrency.mjs post",
-    "verify": "pnpm lint && pnpm build"
+    "verify": "pnpm lint && pnpm build",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1089.0",
@@ -54,7 +55,6 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^4.12.2",
     "recharts": "3.8.0",
     "shadcn": "^4.11.0",
     "sharp": "^0.35.3",

@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 const MATERI_SUBJECT_LOCK_PREFIX = "vecalss:materi:subject:";
 
@@ -22,9 +22,18 @@ async function lockMateriSubjectScopes(
   tx: Prisma.TransactionClient,
   subjectCodes: readonly string[],
 ) {
-  for (const subjectCode of [...new Set(subjectCodes)].sort()) {
-    await lockMateriSubjectScope(tx, subjectCode);
-  }
+  const orderedSubjectCodes = [...new Set(subjectCodes)].sort();
+  if (orderedSubjectCodes.length === 0) return;
+
+  // Keep the same deterministic order as the former loop, but let PostgreSQL
+  // acquire the whole ordered set in one transaction command. This preserves
+  // the deadlock boundary without awaiting one lock statement at a time.
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(scope.subject_code, 0))
+      FROM unnest(ARRAY[${Prisma.join(orderedSubjectCodes)}]::text[])
+        WITH ORDINALITY AS scope(subject_code, lock_order)
+     ORDER BY scope.lock_order
+  `;
 }
 
 async function lockMateriProgressScope(

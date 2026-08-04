@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { UserStatus } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
@@ -125,6 +125,8 @@ async function updateStudentEnrollmentAction(formData: FormData) {
     );
   }
 
+  let updateError: string | null = null;
+
   try {
     await updateStudentEnrollment({
       actorUserId: session.user.id,
@@ -133,23 +135,28 @@ async function updateStudentEnrollmentAction(formData: FormData) {
       targetExamEventId,
       userId,
     });
-    redirect(
-      buildEnrollmentRedirect({
-        focus: userId,
-        notice: "student-updated",
-      }),
-    );
   } catch (error) {
+    unstable_rethrow(error);
+    updateError = error instanceof Error && error.message.includes("already exists")
+      ? "duplicate-email"
+      : "update-failed";
+  }
+
+  if (updateError) {
     redirect(
       buildEnrollmentRedirect({
-        error:
-          error instanceof Error && error.message.includes("already exists")
-            ? "duplicate-email"
-            : "update-failed",
+        error: updateError,
         focus: userId,
       }),
     );
   }
+
+  redirect(
+    buildEnrollmentRedirect({
+      focus: userId,
+      notice: "student-updated",
+    }),
+  );
 }
 
 async function deactivateStudentEnrollmentAction(formData: FormData) {

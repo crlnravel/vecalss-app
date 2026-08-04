@@ -108,7 +108,16 @@ async function listQuestionBankSources() {
     include: bankInclude,
     orderBy: { updatedAt: "desc" },
   });
-  return records.map(toDto).map(({ bank, questions }) => ({ bank, questions: questions.filter((question) => question.prompt.trim() && question.choices.length >= 2 && question.choices.length <= 5 && question.choices.every((choice) => choice.text.trim()) && question.correctChoiceId) })).filter(({ questions }) => questions.length);
+  const sources: Array<{
+    bank: ReturnType<typeof toDto>["bank"];
+    questions: ReturnType<typeof toDto>["questions"];
+  }> = [];
+  for (const record of records) {
+    const { bank, questions } = toDto(record);
+    const readyQuestions = questions.filter((question) => question.prompt.trim() && question.choices.length >= 2 && question.choices.length <= 5 && question.choices.every((choice) => choice.text.trim()) && question.correctChoiceId);
+    if (readyQuestions.length) sources.push({ bank, questions: readyQuestions });
+  }
+  return sources;
 }
 
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
@@ -136,28 +145,28 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     const subtests = await tx.subtest.findMany({ where: { code: { in: tags } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
     const existing = await tx.question.findMany({ where: { questionBankId: bankId }, include: { options: true } });
-    const retainedIds = new Set<string>();
-    for (let questionIndex = 0; questionIndex < input.questions.length; questionIndex++) {
-      const question = input.questions[questionIndex]!;
+    const existingById = new Map(existing.map((question) => [question.id, question]));
+    const retainedIds = new Set(
+      await Promise.all(input.questions.map(async (question, questionIndex) => {
       const subtest = subtestByCode.get(question.subjectCode);
       if (!subtest) throw new QuestionBankError(`Subtest ${question.subjectCode} tidak ditemukan.`);
-      const current = existing.find((item) => item.id === question.id);
+      const current = question.id ? existingById.get(question.id) : undefined;
       const data = { difficulty: question.difficulty as DifficultyLevel, explanation: question.explanation.trim() || null, explanationAssetId: question.explanationMediaAssetId || null, promptAssetId: question.promptMediaAssetId || null, stem: question.prompt, subtestId: subtest.id, topicId: null, status, updatedByUserId: actorId };
       const saved = current
         ? await tx.question.update({ where: { id: current.id }, data: { ...data, revision: { increment: 1 } } })
         : await tx.question.create({ data: { ...data, code: `${codeFromTitle(input.title)}-q${questionIndex + 1}`, createdByUserId: actorId, questionBankId: bankId } });
-      retainedIds.add(saved.id);
 
-      for (let optionIndex = 0; optionIndex < question.choices.length; optionIndex++) {
-        const choice = question.choices[optionIndex]!;
+      await Promise.all(question.choices.map(async (choice, optionIndex) => {
         const old = current?.options.find((option) => option.id === choice.id) ?? current?.options.find((option) => option.sortOrder === optionIndex);
         const optionData = { assetId: choice.mediaAssetId || null, content: choice.text, isCorrect: choice.id === question.correctChoiceId || old?.id === question.correctChoiceId, label: String.fromCharCode(65 + optionIndex), sortOrder: optionIndex };
         if (old) await tx.questionOption.update({ where: { id: old.id }, data: optionData });
         else await tx.questionOption.create({ data: { ...optionData, questionId: saved.id } });
-      }
+      }));
       const extras = current?.options.filter((option) => option.sortOrder >= question.choices.length) ?? [];
       if (extras.length) await tx.questionOption.deleteMany({ where: { id: { in: extras.map((option) => option.id) }, standaloneQuizItemOptions: { none: {} }, tryoutItemOptions: { none: {} } } });
-    }
+      return saved.id;
+      })),
+    );
     await tx.question.updateMany({ where: { questionBankId: bankId, id: { notIn: [...retainedIds] } }, data: { status: ContentStatus.archived, updatedByUserId: actorId } });
     const saved = await tx.questionBank.findUniqueOrThrow({ where: { id: bankId }, include: bankInclude });
     return toDto(saved);

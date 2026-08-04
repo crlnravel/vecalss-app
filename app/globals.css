@@ -348,6 +348,18 @@
   .route-pulse {
     animation: route-pulse 2.6s ease-in-out infinite;
   }
+
+  .vecalss-enter-fade-zoom-500 {
+    animation: vecalss-enter-fade-zoom 500ms ease;
+  }
+
+  .vecalss-enter-fade-slide-right-300 {
+    animation: vecalss-enter-fade-slide-right 300ms ease;
+  }
+
+  .vecalss-enter-fade-slide-left-200 {
+    animation: vecalss-enter-fade-slide-left 200ms ease;
+  }
 }
 
 @keyframes title-reveal {
@@ -416,5 +428,26 @@
   50% {
     transform: scale(1.04);
     opacity: 1;
+  }
+}
+
+@keyframes vecalss-enter-fade-zoom {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes vecalss-enter-fade-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(0.75rem);
+  }
+}
+
+@keyframes vecalss-enter-fade-slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(-0.25rem);
   }
 }

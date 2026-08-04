@@ -385,7 +385,10 @@ const getFolderSubtreeIds = async (scope: MediaScope, rootId: string) => {
         trashedAt: null,
       },
     });
-    frontier = children.map((folder) => folder.id).filter((id) => !ids.includes(id));
+    frontier = children.reduce<string[]>((nextFrontier, folder) => {
+      if (!ids.includes(folder.id)) nextFrontier.push(folder.id);
+      return nextFrontier;
+    }, []);
     ids.push(...frontier);
     if (ids.length > 10_000) throw new MediaServiceError("Folder terlalu besar untuk diproses.", 409);
   }

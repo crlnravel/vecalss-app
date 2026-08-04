@@ -54,7 +54,7 @@ function HomeFooter() {
             </p>
           </div>
 
-          <nav className="grid gap-3 text-sm font-medium">
+          <nav aria-label="Quick links" className="grid gap-3 text-sm font-medium">
             <p className="kicker-label mb-2 text-white/52">Quick Links</p>
             {quickLinks.map((item) => (
               <Link
@@ -67,7 +67,7 @@ function HomeFooter() {
             ))}
           </nav>
 
-          <nav className="grid gap-3 text-sm font-medium">
+          <nav aria-label="Social media" className="grid gap-3 text-sm font-medium">
             <p className="kicker-label mb-2 text-white/52">Social Media</p>
             {contactLinks.map((item) => {
               const Icon = item.icon;

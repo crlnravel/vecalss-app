@@ -32,6 +32,13 @@ const programAssets = [
   "/brand/voyage-assets/jangkar.png",
 ];
 
+const logos = [0, 1, 2].flatMap((copy) =>
+  campusCrewMarks.map((item) => ({ ...item, copy })),
+);
+const marqueeItems = [0, 1].flatMap((copy) =>
+  testimonials.map((item) => ({ ...item, copy })),
+);
+
 function SectionIntro({
   eyebrow,
   title,
@@ -128,8 +135,6 @@ function Hero() {
 }
 
 function LogoMarquee() {
-  const logos = [...campusCrewMarks, ...campusCrewMarks, ...campusCrewMarks];
-
   return (
     <section className="bg-white py-16 md:py-24">
       <div className="mx-auto mb-12 w-full max-w-[1440px] px-4 md:px-8 lg:px-10">
@@ -147,9 +152,9 @@ function LogoMarquee() {
 
       <div className="marquee-mask marquee-mask-white py-3 md:py-5">
         <div className="marquee-track hover:[animation-play-state:paused]">
-          {logos.map((item, index) => (
+          {logos.map((item) => (
             <div
-              key={`${item.name}-${index}`}
+              key={`${item.name}-${item.copy}`}
               className="relative mx-10 h-14 w-28 shrink-0 opacity-58 transition duration-300 hover:opacity-100 md:mx-14 md:h-16 md:w-36"
             >
               <Image
@@ -300,8 +305,6 @@ function MentorsSection() {
 }
 
 function ResultsSection() {
-  const marqueeItems = [...testimonials, ...testimonials];
-
   return (
     <section className="bg-[#014C38] py-20 text-white md:py-28">
       <div className="scroll-reveal mx-auto w-full max-w-[1180px] px-4 md:px-8 lg:px-10">
@@ -316,9 +319,9 @@ function ResultsSection() {
 
       <div className="marquee-mask marquee-mask-dark mt-12 overflow-hidden">
         <div className="marquee-track hover:[animation-play-state:paused]">
-          {marqueeItems.map((item, index) => (
+          {marqueeItems.map((item) => (
             <article
-              key={`${item.name}-${index}`}
+              key={`${item.name}-${item.copy}`}
               className="mx-3 flex w-[320px] shrink-0 flex-col rounded-4xl border border-white/12 bg-white p-5 text-[#014C38] shadow-[0_26px_80px_-64px_rgba(0,0,0,0.44)] md:mx-4 md:w-[390px] md:p-6"
             >
               <div className="flex items-center justify-between gap-5">

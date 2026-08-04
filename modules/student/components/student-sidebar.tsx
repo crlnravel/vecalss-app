@@ -42,16 +42,6 @@ const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/settings", icon: UserRound, label: "Profil" },
 ];
 
-function getInitials(fullName: string) {
-  return fullName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
 function StudentSidebar({
   activeLabel,
   notificationBadge,
@@ -109,4 +99,4 @@ function StudentSidebar({
   );
 }
 
-export { StudentSidebar, getInitials };
+export { StudentSidebar };

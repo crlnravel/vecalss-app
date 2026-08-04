@@ -15,5 +15,5 @@ export default async function QuizOngoingPage({
   const result = await getAvailableQuizAttempt(slug, quizSlug, session.user.id);
   if (!result) notFound();
   if (result.attempt.isSubmitted) redirect(`/quiz/${slug}/${quizSlug}/result`);
-  return <QuizOngoingPageModule attempt={result.attempt} attemptId={result.attemptId} quiz={result.quiz} subjectSlug={slug} subjectTitle={result.subject.title} />;
+  return <QuizOngoingPageModule key={result.attemptId} attempt={result.attempt} attemptId={result.attemptId} quiz={result.quiz} subjectSlug={slug} subjectTitle={result.subject.title} />;
 }

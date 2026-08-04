@@ -107,10 +107,10 @@ type ParticipantTryoutRecord = Prisma.TryoutPackageGetPayload<{
 
 function sectionDifficulty(items: Array<{ difficulty: string }>) {
   if (!items.length) return "medium" as const;
-  const counts = items.reduce(
-    (result, item) => ({ ...result, [item.difficulty]: (result[item.difficulty] ?? 0) + 1 }),
-    {} as Record<string, number>,
-  );
+  const counts = items.reduce((result, item) => {
+    result[item.difficulty] = (result[item.difficulty] ?? 0) + 1;
+    return result;
+  }, {} as Record<string, number>);
   return (Object.entries(counts).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "medium") as ParticipantTryoutSection["difficulty"];
 }
 

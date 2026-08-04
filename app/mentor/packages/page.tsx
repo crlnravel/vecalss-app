@@ -8,8 +8,10 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 export const metadata: Metadata = { title: "Paket Soal Kapten | Vecalss LMS" };
 
 export default async function PackagePage({ searchParams }: PageProps<"/mentor/packages">) {
-  const params = await searchParams;
-  const session = await requireTutorSession();
+  const [params, session] = await Promise.all([
+    searchParams,
+    requireTutorSession(),
+  ]);
   const query = typeof params.q === "string" ? params.q : "";
   const status = params.status === "draft" || params.status === "ready" ? params.status : undefined;
   const subtest = typeof params.subtest === "string" ? params.subtest : "";

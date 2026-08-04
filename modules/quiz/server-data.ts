@@ -12,14 +12,19 @@ function toQuestionSnapshot(item: { id: string; prompt: string; explanation: str
 async function getAvailableQuizSubjects(studentId: string): Promise<QuizSubject[]> {
   const records = await getAvailableStandaloneQuizCatalogue();
   const submittedQuizIds = new Set(
-    (await getStandaloneQuizAttemptStatuses(studentId, records.map((record) => record.id)))
-      .filter((attempt) => attempt.status === "submitted")
-      .map((attempt) => attempt.quizId),
+    (await getStandaloneQuizAttemptStatuses(studentId, records.map((record) => record.id))).reduce<string[]>((quizIds, attempt) => {
+      if (attempt.status === "submitted") quizIds.push(attempt.quizId);
+      return quizIds;
+    }, []),
   );
   return ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"].flatMap((code) => {
     const template = getQuizSubjectByCode(code);
     if (!template) return [];
-    return [{ ...template, quizzes: records.filter((record) => record.subtest.code === code).map((record) => toDatabaseQuizItem(record, submittedQuizIds.has(record.id))) }];
+    const quizzes = records.reduce<Array<ReturnType<typeof toDatabaseQuizItem>>>((items, record) => {
+      if (record.subtest.code === code) items.push(toDatabaseQuizItem(record, submittedQuizIds.has(record.id)));
+      return items;
+    }, []);
+    return [{ ...template, quizzes }];
   });
 }
 

@@ -1,18 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  XAxis,
-} from "recharts";
 import {
   BookOpen,
   Bot,
@@ -55,6 +46,15 @@ import type {
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
+
+const Bar = dynamic(() => import("recharts").then((module) => module.Bar));
+const BarChart = dynamic(() => import("recharts").then((module) => module.BarChart));
+const CartesianGrid = dynamic(() => import("recharts").then((module) => module.CartesianGrid));
+const PolarAngleAxis = dynamic(() => import("recharts").then((module) => module.PolarAngleAxis));
+const PolarGrid = dynamic(() => import("recharts").then((module) => module.PolarGrid));
+const Radar = dynamic(() => import("recharts").then((module) => module.Radar));
+const RadarChart = dynamic(() => import("recharts").then((module) => module.RadarChart));
+const XAxis = dynamic(() => import("recharts").then((module) => module.XAxis));
 
 type DashboardProfile = StudentProfile & {
   targetExamEvent: ExamEvent | null;

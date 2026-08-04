@@ -57,7 +57,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
       status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
     },
   });
-  const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: run.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
+  const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: sealed.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
   if (!remaining) await tx.tryoutAttempt.update({ where: { id: run.attemptId }, data: { status: AttemptStatus.submitted, submittedAt: now } });
   return sealed;
 }
@@ -84,7 +84,7 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
   const current = catSnapshot(run.catSnapshot)!;
   const result = { answeredCount: run.answers.length, ability: current.currentAbility, deliveredCount: current.selectedItemIds.length, score: current.currentAbility, unansweredCount: current.selectedItemIds.length - run.answers.length };
   const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: "2pl-map-v1", calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
-  const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: run.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
+  const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: sealed.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
   if (!remaining) await tx.tryoutAttempt.update({ where: { id: run.attemptId }, data: { status: AttemptStatus.submitted, submittedAt: now } });
   return sealed;
 }
@@ -183,8 +183,13 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       },
     });
     if (lockedTryout.sections.length !== 7 || lockedTryout.sections.some((section) => !section.items.length)) throw new TryoutAttemptValidationError("Konfigurasi tujuh Test Tryout belum lengkap.");
-    const catSnapshots = new Map<string, CatSnapshot>();
-    for (const section of lockedTryout.sections) if (section.testType === TryoutTestType.cat) catSnapshots.set(section.id, await catRunSnapshot(tx, section));
+    const catSnapshotEntries = lockedTryout.sections.reduce<Promise<readonly [string, CatSnapshot]>[]>((entries, section) => {
+      if (section.testType === TryoutTestType.cat) {
+        entries.push(catRunSnapshot(tx, section).then((snapshot) => [section.id, snapshot] as const));
+      }
+      return entries;
+    }, []);
+    const catSnapshots = new Map(await Promise.all(catSnapshotEntries));
     const attempt = await tx.tryoutAttempt.create({
       data: {
         admissionId: assignment.admissionId,
@@ -291,7 +296,10 @@ async function recordTryoutIntegrityEvent(attemptId: string, runId: string, even
 function redactRunSnapshot(snapshot: Prisma.JsonValue, cat: Prisma.JsonValue | null = null) {
   const value = structuredClone(snapshot) as { items?: Array<{ options?: Array<{ isCorrect?: boolean }> }> };
   const adaptive = catSnapshot(cat);
-  if (adaptive) value.items = value.items?.filter((item) => adaptive.selectedItemIds.includes((item as { id: string }).id));
+  if (adaptive) {
+    const selectedItemIds = new Set(adaptive.selectedItemIds);
+    value.items = value.items?.filter((item) => selectedItemIds.has((item as { id: string }).id));
+  }
   value.items?.forEach((item) => item.options?.forEach((option) => delete option.isCorrect));
   return value;
 }
@@ -304,8 +312,10 @@ async function startActiveTestRun(attemptId: string, runId: string, studentId: s
     await synchronizeAttempt(tx, attemptId, now);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, include: { section: true } });
     if (!run || run.status !== TryoutAttemptTestRunStatus.pending) throw new TryoutAttemptValidationError("Hanya Test berikutnya yang belum dimulai dapat dibuka.");
-    const predecessor = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, sequenceNo: { lt: run.sequenceNo }, status: { notIn: [TryoutAttemptTestRunStatus.sealed, TryoutAttemptTestRunStatus.expired] } }, select: { id: true } });
-    const active = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } });
+    const [predecessor, active] = await Promise.all([
+      tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, sequenceNo: { lt: run.sequenceNo }, status: { notIn: [TryoutAttemptTestRunStatus.sealed, TryoutAttemptTestRunStatus.expired] } }, select: { id: true } }),
+      tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } }),
+    ]);
     if (predecessor || active) throw new TryoutAttemptValidationError("Test sebelumnya harus diselesaikan sebelum Test ini dimulai.");
     if (run.section.testType === TryoutTestType.cat) {
       const snapshot = catSnapshot(run.catSnapshot);
@@ -344,8 +354,8 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
     if (run.section.testType === TryoutTestType.cat) {
       try {
         const parameter = adaptive!.parameters.find((candidate) => candidate.itemId === tryoutItemId);
-        const correct = selectedOptionId ? Boolean((await tx.tryoutItemOption.findUnique({ where: { id: selectedOptionId }, select: { isCorrect: true } }))?.isCorrect) : false;
         if (!parameter) throw new Error("Parameter item CAT hilang.");
+        const correct = selectedOptionId ? Boolean((await tx.tryoutItemOption.findUnique({ where: { id: selectedOptionId }, select: { isCorrect: true } }))?.isCorrect) : false;
         const abilityBefore = adaptive!.currentAbility;
         const probability = logistic(parameter.discrimination * (abilityBefore - parameter.difficulty));
         const abilityAfter = abilityBefore + (parameter.discrimination * ((correct ? 1 : 0) - probability)) / (1 + catInformation(parameter, abilityBefore));

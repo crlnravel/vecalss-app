@@ -17,9 +17,14 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
   const [saving, setSaving] = useState(false);
   const save = async () => {
     setSaving(true); setError(null);
-    const result = await saveReusableQuestionPackageMetadataAction({ description, id: initialMetadata.id, title });
-    setSaving(false);
-    if (!result.ok) setError(result.message);
+    try {
+      const result = await saveReusableQuestionPackageMetadataAction({ description, id: initialMetadata.id, title });
+      if (!result.ok) setError(result.message);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Informasi Paket belum dapat disimpan.");
+    } finally {
+      setSaving(false);
+    }
   };
   return <div>
     <div className="flex flex-wrap items-center justify-between gap-3"><Button aria-label="Kembali ke versi Paket" render={<Link href={`/mentor/packages/${initialMetadata.id}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button><Button disabled={saving} onClick={() => void save()} size="sm" variant="brand"><Save />{saving ? "Menyimpan…" : "Simpan informasi"}</Button></div>

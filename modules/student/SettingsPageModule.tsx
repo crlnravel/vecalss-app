@@ -7,8 +7,8 @@ import {
   Field,
   FieldInput,
   FieldLabel,
-  fieldControlClassName,
 } from "@/components/ui/field";
+import { fieldControlClassName } from "@/components/ui/field-constants";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 import type {
@@ -96,6 +96,7 @@ function SelectField({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <div className="relative">
         <select
+          aria-label={label}
           className={`${fieldControlClassName} appearance-none pr-12`}
           id={id}
           name={name ?? id}
@@ -121,10 +122,10 @@ function SettingsPageModule({
   session: SessionContext;
 }) {
   const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
-  const [targetExamEventId, setTargetExamEventId] = useState(profile.targetExamEventId ?? "");
-  const [targetUniversityId, setTargetUniversityId] = useState(profile.targetUniversityId ?? "");
-  const [targetMajorId, setTargetMajorId] = useState(profile.targetMajorId ?? "");
-  const [timezone, setTimezone] = useState(profile.timezone);
+  const [targetExamEventId, setTargetExamEventId] = useState(() => profile.targetExamEventId ?? "");
+  const [targetUniversityId, setTargetUniversityId] = useState(() => profile.targetUniversityId ?? "");
+  const [targetMajorId, setTargetMajorId] = useState(() => profile.targetMajorId ?? "");
+  const [timezone, setTimezone] = useState(() => profile.timezone);
 
   const availableMajors = useMemo(
     () => (targetUniversityId ? majors.filter((major) => major.universityId === targetUniversityId) : majors),

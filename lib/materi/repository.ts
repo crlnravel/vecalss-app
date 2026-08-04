@@ -249,10 +249,11 @@ async function getMentorMateriCatalogue(): Promise<MentorMateriSubject[]> {
 
     return [{
       code: subject.code,
-      lessons: subtest.topics
-        .filter((topic) => isCanonicalTopicForSubject(subject.slug, topic.code))
-        .flatMap((topic) => topic.modules.map(toMentorLesson))
-        .sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code)),
+      lessons: subtest.topics.reduce<MentorMateriLesson[]>((lessons, topic) => {
+        if (!isCanonicalTopicForSubject(subject.slug, topic.code)) return lessons;
+        for (const lessonModule of topic.modules) lessons.push(toMentorLesson(lessonModule));
+        return lessons;
+      }, []).sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code)),
       name: subtest.name,
       slug: subject.slug,
       sortOrder: subtest.sortOrder,
@@ -364,20 +365,21 @@ async function getPublishedCourseCatalogue(): Promise<PublishedMateriCourse[]> {
 
     return [{
       code: subject.code,
-      lessons: subtest.topics
-        .filter((topic) => isCanonicalTopicForSubject(subject.slug, topic.code))
-        .flatMap((topic) => topic.modules.flatMap((module) => {
-          const resources = toMateriResourceRead(module.assets);
-          if (!resources.document || !isMateriReady(module.title, resources)) return [];
-          return [{
-            code: module.code,
+      lessons: subtest.topics.reduce<PublishedMateriLesson[]>((lessons, topic) => {
+        if (!isCanonicalTopicForSubject(subject.slug, topic.code)) return lessons;
+        for (const lessonModule of topic.modules) {
+          const resources = toMateriResourceRead(lessonModule.assets);
+          if (!resources.document || !isMateriReady(lessonModule.title, resources)) continue;
+          lessons.push({
+            code: lessonModule.code,
             document: resources.document,
             optionalVideo: resources.video,
-            sequenceNo: module.sequenceNo,
-            title: module.title,
-          }];
-        }))
-        .sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code)),
+            sequenceNo: lessonModule.sequenceNo,
+            title: lessonModule.title,
+          });
+        }
+        return lessons;
+      }, []).sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code)),
       name: subtest.name,
       slug: subject.slug,
       sortOrder: subtest.sortOrder,
@@ -457,24 +459,31 @@ async function reorderMateriSubject(subjectSlug: string, orderedCodes: string[],
     if (topics.length !== 3) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
 
     // A deterministic lock order serializes overlapping subject reorders.
-    await tx.$queryRawUnsafe("SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", topics.map((topic) => topic.id));
+    await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
     const current = await tx.module.findMany({
       where: { topicId: { in: topics.map((topic) => topic.id) } },
       orderBy: [{ sequenceNo: "asc" }, { code: "asc" }],
       select: { code: true, sequenceNo: true },
     });
     const currentCodes = current.map((lesson) => lesson.code);
-    if (currentCodes.length !== orderedCodes.length || currentCodes.some((code) => !orderedCodes.includes(code))) {
+    const orderedCodeSet = new Set(orderedCodes);
+    if (currentCodes.length !== orderedCodes.length || currentCodes.some((code) => !orderedCodeSet.has(code))) {
       throw new MateriValidationError("Urutan Materi sudah berubah. Muat ulang lalu coba lagi.");
     }
 
     const maxSequence = Math.max(0, ...current.map((lesson) => lesson.sequenceNo));
-    for (const [index, lesson] of current.entries()) {
-      await tx.module.update({ where: { code: lesson.code }, data: { sequenceNo: maxSequence + current.length + index + 1 } });
-    }
-    for (const [index, code] of orderedCodes.entries()) {
-      await tx.module.update({ where: { code }, data: { sequenceNo: index + 1, updatedByUserId: tutorId } });
-    }
+    await Promise.all(
+      current.map((lesson, index) => tx.module.update({
+        where: { code: lesson.code },
+        data: { sequenceNo: maxSequence + current.length + index + 1 },
+      })),
+    );
+    await Promise.all(
+      orderedCodes.map((code, index) => tx.module.update({
+        where: { code },
+        data: { sequenceNo: index + 1, updatedByUserId: tutorId },
+      })),
+    );
 
     return orderedCodes.map((code, index) => ({ code, sequenceNo: index + 1 }));
   });
@@ -568,7 +577,7 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     const topics = await tx.topic.findMany({ where: { code: { in: subjectSlugs.flatMap(getCanonicalTopicCodes) }, parentTopicId: null }, orderBy: [{ subtestId: "asc" }, { code: "asc" }], select: { id: true, code: true, subtest: { select: { code: true } } } });
     const expectedTopics = subjectSlugs.length * 3;
     if (topics.length !== expectedTopics) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
-    await tx.$queryRawUnsafe("SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", topics.map((topic) => topic.id));
+    await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
 
     const topicBySubject = new Map<string, typeof topics>();
     for (const topic of topics) {
@@ -577,10 +586,18 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
     const modules = await tx.module.findMany({ where: { topicId: { in: topics.map((topic) => topic.id) } }, orderBy: [{ sequenceNo: "asc" }, { code: "asc" }], select: { code: true, sequenceNo: true, topicId: true } });
     const max = Math.max(0, ...modules.map((lesson) => Math.abs(lesson.sequenceNo)));
-    for (const [index, lesson] of modules.entries()) await tx.module.update({ where: { code: lesson.code }, data: { sequenceNo: max + modules.length + index + 1 } });
+    await Promise.all(
+      modules.map((lesson, index) => tx.module.update({
+        where: { code: lesson.code },
+        data: { sequenceNo: max + modules.length + index + 1 },
+      })),
+    );
 
     const sourceCode = source?.code;
-    const destinationTopics = topicBySubject.get(subject.code)!;
+    const destinationTopics = topicBySubject.get(subject.code);
+    if (!destinationTopics?.length) {
+      throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
+    }
     const destinationTopicId = current && sourceCode === subject.code ? current.topicId : destinationTopics[0].id;
     if (!current) {
       await tx.module.create({ data: { code, topicId: destinationTopicId, title, sequenceNo: max + (modules.length * 2) + 1, estimatedMinutes: video ? Math.ceil(video.durationSeconds / 60) : null, status: ContentStatus.draft, createdByUserId: tutorId, updatedByUserId: tutorId } });
@@ -588,16 +605,37 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
       await tx.module.update({ where: { code }, data: { ...(sourceCode === subject.code ? {} : { topicId: destinationTopicId }), title, estimatedMinutes: video ? Math.ceil(video.durationSeconds / 60) : null, updatedByUserId: tutorId } });
     }
 
-    const orderFor = (subjectCode: string) => modules.filter((lesson) => topicBySubject.get(subjectCode)!.some((topic) => topic.id === lesson.topicId)).map((lesson) => lesson.code).filter((candidate) => candidate !== code);
+    const orderFor = (subjectCode: string) => {
+      const subjectTopics = topicBySubject.get(subjectCode);
+      if (!subjectTopics) {
+        throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
+      }
+      return modules.reduce<string[]>((codes, lesson) => {
+        if (lesson.code !== code && subjectTopics.some((topic) => topic.id === lesson.topicId)) {
+          codes.push(lesson.code);
+        }
+        return codes;
+      }, []);
+    };
     const orders = new Map<string, string[]>();
     if (sourceCode && sourceCode !== subject.code) orders.set(sourceCode, orderFor(sourceCode));
     const destinationOrder = current && sourceCode === subject.code ? [...orderFor(subject.code), code] : [...orderFor(subject.code), code];
     if (current && sourceCode === subject.code) {
-      const original = modules.filter((lesson) => topicBySubject.get(subject.code)!.some((topic) => topic.id === lesson.topicId)).map((lesson) => lesson.code);
+      const original = modules.reduce<string[]>((codes, lesson) => {
+        if (destinationTopics.some((topic) => topic.id === lesson.topicId)) {
+          codes.push(lesson.code);
+        }
+        return codes;
+      }, []);
       orders.set(subject.code, original);
     } else orders.set(subject.code, destinationOrder);
 
-    for (const orderedCodes of orders.values()) for (const [index, moduleCode] of orderedCodes.entries()) await tx.module.update({ where: { code: moduleCode }, data: { sequenceNo: index + 1, updatedByUserId: tutorId } });
+    await Promise.all(
+      [...orders.values()].flatMap((orderedCodes) => orderedCodes.map((moduleCode, index) => tx.module.update({
+        where: { code: moduleCode },
+        data: { sequenceNo: index + 1, updatedByUserId: tutorId },
+      }))),
+    );
     const saved = await tx.module.findUnique({ where: { code }, select: { id: true } });
     if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
 
@@ -609,12 +647,18 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
       select: { assetType: true, id: true, sortOrder: true },
     });
     const maxSort = Math.max(0, ...allAssets.map((asset) => Math.abs(asset.sortOrder)));
-    for (const [index, asset] of allAssets.entries()) {
-      await tx.moduleAsset.update({ where: { id: asset.id }, data: { sortOrder: maxSort + allAssets.length + index + 100 } });
-    }
+    await Promise.all(
+      allAssets.map((asset, index) => tx.moduleAsset.update({
+        where: { id: asset.id },
+        data: { sortOrder: maxSort + allAssets.length + index + 100 },
+      })),
+    );
 
     const roleAssets = allAssets.filter((asset) => asset.assetType === ModuleAssetType.attachment || asset.assetType === ModuleAssetType.video);
-    const unrelatedSorts = new Set(allAssets.filter((asset) => !roleAssets.some((role) => role.id === asset.id)).map((asset) => asset.sortOrder));
+    const unrelatedSorts = new Set(allAssets.reduce<number[]>((sorts, asset) => {
+      if (!roleAssets.some((role) => role.id === asset.id)) sorts.push(asset.sortOrder);
+      return sorts;
+    }, []));
     const allocateSortOrder = () => {
       let candidate = 0;
       while (unrelatedSorts.has(candidate)) candidate += 1;
@@ -667,9 +711,13 @@ async function saveMateriLesson(input: SaveMateriLessonInput, tutorId: string) {
     }
     const duplicateVideoAssets = roleAssets.filter((asset) => asset.assetType === ModuleAssetType.video && asset.id !== videoAsset?.id);
     if (video && duplicateVideoAssets.length) await tx.moduleAsset.deleteMany({ where: { id: { in: duplicateVideoAssets.map((asset) => asset.id) } } });
-    for (const asset of allAssets.filter((candidate) => !roleAssets.some((role) => role.id === candidate.id))) {
-      await tx.moduleAsset.update({ where: { id: asset.id }, data: { sortOrder: asset.sortOrder } });
-    }
+    const unrelatedAssetUpdates = allAssets.reduce<Promise<unknown>[]>((updates, asset) => {
+      if (!roleAssets.some((role) => role.id === asset.id)) {
+        updates.push(tx.moduleAsset.update({ where: { id: asset.id }, data: { sortOrder: asset.sortOrder } }));
+      }
+      return updates;
+    }, []);
+    await Promise.all(unrelatedAssetUpdates);
   });
   const saved = await getMentorMateriByCode(code!);
   if (!saved) throw new Error("Lesson tersimpan tetapi tidak dapat dimuat ulang.");
@@ -730,24 +778,18 @@ async function readLockedMateriLifecycleRecord(
     select: { id: true },
   });
   if (topics.length !== 3) throw new MateriValidationError("Struktur internal Materi tidak lengkap.");
-  await tx.$queryRawUnsafe(
-    "SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
-    topics.map((topic) => topic.id),
-  );
+  await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
 
   // Keep row-lock ordering consistent with save/reorder: subject scopes,
   // canonical topics, module, module-assets, then managed assets.
-  await tx.$queryRawUnsafe("SELECT id FROM modules WHERE id = $1::uuid FOR UPDATE", identity.id);
+  await tx.$queryRaw`SELECT id FROM modules WHERE id = ${identity.id}::uuid FOR UPDATE`;
   const resourceRows = await tx.moduleAsset.findMany({
     where: { moduleId: identity.id },
     orderBy: { id: "asc" },
     select: { id: true, managedAssetId: true },
   });
   if (resourceRows.length > 0) {
-    await tx.$queryRawUnsafe(
-      "SELECT id FROM module_assets WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
-      resourceRows.map((asset) => asset.id),
-    );
+    await tx.$queryRaw`SELECT id FROM module_assets WHERE id = ANY(${resourceRows.map((asset) => asset.id)}::uuid[]) ORDER BY id FOR UPDATE`;
   }
   const managedAssetIds = [...new Set(
     resourceRows
@@ -755,10 +797,7 @@ async function readLockedMateriLifecycleRecord(
       .filter((assetId): assetId is string => Boolean(assetId)),
   )].sort();
   if (managedAssetIds.length > 0) {
-    await tx.$queryRawUnsafe(
-      "SELECT id FROM assets WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
-      managedAssetIds,
-    );
+    await tx.$queryRaw`SELECT id FROM assets WHERE id = ANY(${managedAssetIds}::uuid[]) ORDER BY id FOR UPDATE`;
   }
 
   // Re-read after all canonical rows/resources are locked. This is the state
@@ -968,7 +1007,7 @@ async function bulkUpdateMateriLifecycle(
 
     // Use the same canonical-topic lock boundary as saves before validating
     // readiness or changing lifecycle state.
-    await tx.$queryRawUnsafe("SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE", topics.map((topic) => topic.id));
+    await tx.$queryRaw`SELECT id FROM topics WHERE id = ANY(${topics.map((topic) => topic.id)}::uuid[]) ORDER BY id FOR UPDATE`;
     const topicIds = topics.map((topic) => topic.id);
     const records = await tx.module.findMany({
       where: {
