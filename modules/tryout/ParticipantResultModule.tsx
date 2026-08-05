@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpenText,
   Check,
@@ -18,6 +17,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -149,7 +149,15 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           <p className="mt-3 text-sm leading-6 text-secondary-600">{result.status}</p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Button onClick={() => void load()} variant="brand">Periksa lagi</Button>
-            <Button render={<Link href="/tryout" />} variant="brandOutline"><ArrowLeft />Kembali ke tryout</Button>
+            <Button
+              aria-label="Kembali ke tryout"
+              render={<Link href="/tryout" />}
+              size="icon"
+              title="Kembali ke tryout"
+              variant="brandOutline"
+            >
+              <ChevronLeft />
+            </Button>
           </div>
         </div>
       </main>
@@ -169,7 +177,15 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
     <main className="min-h-svh bg-[#f7faf8] px-4 py-7 text-secondary-900 sm:px-6 lg:px-8 lg:py-10">
       <div className="mx-auto grid max-w-6xl gap-5">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-          <Button render={<Link href="/tryout" />} variant="ghost"><ArrowLeft />Kembali ke tryout</Button>
+          <Button
+            aria-label="Kembali ke tryout"
+            render={<Link href="/tryout" />}
+            size="icon"
+            title="Kembali ke tryout"
+            variant="ghost"
+          >
+            <ChevronLeft />
+          </Button>
           <Button onClick={() => window.print()} variant="brandOutline"><Printer />Cetak laporan</Button>
         </div>
 
@@ -275,7 +291,18 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           ) : null}
         </section>
 
-        <div className="flex flex-col justify-between gap-3 sm:flex-row print:hidden"><Button render={<Link href="/tryout" />} variant="brandOutline"><ArrowLeft />Kembali ke katalog</Button><Button render={<Link href="/materi" />} variant="brand">Lanjutkan belajar <ArrowRight /></Button></div>
+        <div className="flex flex-col justify-between gap-3 sm:flex-row print:hidden">
+          <Button
+            aria-label="Kembali ke katalog"
+            render={<Link href="/tryout" />}
+            size="icon"
+            title="Kembali ke katalog"
+            variant="brandOutline"
+          >
+            <ChevronLeft />
+          </Button>
+          <Button render={<Link href="/materi" />} variant="brand">Lanjutkan belajar <ArrowRight /></Button>
+        </div>
       </div>
     </main>
   );

@@ -30,6 +30,16 @@ import {
 import { StudentSidebar } from "@/modules/student/components/student-sidebar";
 import { studentNotificationItems } from "@/modules/student/notification-data";
 
+const studentRootHrefByLabel: Record<string, string> = {
+  Beranda: "/dashboard",
+  Materi: "/courses",
+  Kuis: "/quiz",
+  Tryout: "/tryout",
+  "Vera AI": "/vera-ai",
+  Notifikasi: "/notifications",
+  Profil: "/settings",
+};
+
 function StudentWorkspaceShell({
   accountMenuExtraItem,
   activeLabel,
@@ -54,6 +64,8 @@ function StudentWorkspaceShell({
   const unreadNotificationCount = notificationItems?.filter(
     (item) => item.unread,
   ).length;
+  const rootHref = studentRootHrefByLabel[activeLabel] ?? "/dashboard";
+  const isRootPage = breadcrumbLabel === activeLabel;
 
   return (
     <SidebarProvider>
@@ -76,14 +88,18 @@ function StudentWorkspaceShell({
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem>
-                      <BreadcrumbLink href="/" className="text-secondary-500">
-                        Vecalss
+                      <BreadcrumbLink href={rootHref} className="text-secondary-500">
+                        {activeLabel}
                       </BreadcrumbLink>
                     </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
-                    </BreadcrumbItem>
+                    {!isRootPage ? (
+                      <>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                          <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                        </BreadcrumbItem>
+                      </>
+                    ) : null}
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>

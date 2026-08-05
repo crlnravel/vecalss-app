@@ -1,14 +1,22 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Target, UserRound } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { AlertCircle, ChevronDown } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Field,
   FieldInput,
   FieldLabel,
 } from "@/components/ui/field";
-import { fieldControlClassName } from "@/components/ui/field-constants";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 import type {
@@ -35,12 +43,6 @@ type ProfileOptionData = {
   universities: University[];
 };
 
-const onboardingStatusLabel: Record<StudentProfile["onboardingStatus"], string> = {
-  completed: "Profil lengkap",
-  not_started: "Belum dimulai",
-  skipped: "Dilanjutkan nanti",
-};
-
 function getInitials(fullName: string) {
   return fullName
     .trim()
@@ -58,7 +60,7 @@ function ProfileSection({
   title,
 }: {
   children: React.ReactNode;
-  description: string;
+  description?: string;
   id: string;
   title: string;
 }) {
@@ -69,7 +71,7 @@ function ProfileSection({
     >
       <div>
         <h2 className="text-xl leading-tight font-semibold text-secondary-900">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p>
+        {description ? <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p> : null}
       </div>
       <div>{children}</div>
     </section>
@@ -77,37 +79,56 @@ function ProfileSection({
 }
 
 function SelectField({
-  children,
   id,
   label,
   name,
   onChange,
+  options,
   value,
 }: {
-  children: React.ReactNode;
   id: string;
   label: string;
   name?: string;
   onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
   value: string;
 }) {
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? "Pilih nanti";
+
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <div className="relative">
-        <select
+      <DropdownMenu>
+        <DropdownMenuTrigger
           aria-label={label}
-          className={`${fieldControlClassName} appearance-none pr-12`}
           id={id}
-          name={name ?? id}
-          onChange={(event) => onChange(event.target.value)}
-          value={value}
+          render={<Button className="w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 text-left text-[15px] font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
         >
-          {children}
-        </select>
-        <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-      </div>
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronDown aria-hidden className="size-4 shrink-0 text-secondary-500" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuRadioGroup onValueChange={(nextValue) => onChange(String(nextValue))} value={value}>
+            {options.map((option) => (
+              <DropdownMenuRadioItem closeOnClick key={option.value || "empty"} value={option.value}>
+                {option.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <input name={name ?? id} type="hidden" value={value} />
     </Field>
+  );
+}
+
+function ProfileFormContent({ children }: { children: React.ReactNode }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <fieldset aria-busy={pending} className="contents" disabled={pending}>
+      {children}
+    </fieldset>
   );
 }
 
@@ -122,6 +143,7 @@ function SettingsPageModule({
   session: SessionContext;
 }) {
   const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
+  const [fullName, setFullName] = useState(() => session.user.fullName);
   const [targetExamEventId, setTargetExamEventId] = useState(() => profile.targetExamEventId ?? "");
   const [targetUniversityId, setTargetUniversityId] = useState(() => profile.targetUniversityId ?? "");
   const [targetMajorId, setTargetMajorId] = useState(() => profile.targetMajorId ?? "");
@@ -141,8 +163,27 @@ function SettingsPageModule({
     }
   }
 
-  const statusLabel = onboardingStatusLabel[profile.onboardingStatus];
-  const initials = getInitials(session.user.fullName);
+  const initials = getInitials(fullName || session.user.fullName);
+  const hasUnsavedChanges = useMemo(
+    () =>
+      fullName.trim() !== session.user.fullName.trim() ||
+      targetExamEventId !== (profile.targetExamEventId ?? "") ||
+      targetUniversityId !== (profile.targetUniversityId ?? "") ||
+      targetMajorId !== (profile.targetMajorId ?? "") ||
+      timezone !== profile.timezone,
+    [
+      fullName,
+      profile.targetExamEventId,
+      profile.targetMajorId,
+      profile.targetUniversityId,
+      profile.timezone,
+      session.user.fullName,
+      targetExamEventId,
+      targetMajorId,
+      targetUniversityId,
+      timezone,
+    ],
+  );
 
   return (
     <StudentWorkspaceShell
@@ -152,27 +193,25 @@ function SettingsPageModule({
       searchPlaceholder="Cari di profil..."
       session={session}
     >
-      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-primary-700 uppercase">Ruang belajarmu</p>
-          <h1 className="mt-2 text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">Profil</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary-500 md:text-base">
-            Kelola identitas akun dan target belajar yang kamu pilih saat onboarding.
-          </p>
-        </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-100 bg-white px-4 py-2 text-sm font-medium text-secondary-700 shadow-sm">
-          <CheckCircle2 className="size-4 text-primary-700" />
-          {statusLabel}
-        </div>
-      </header>
+      <form action={formAction} className="space-y-8">
+        <ProfileFormContent>
+        <header className="flex flex-col gap-5 pb-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">Profil</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary-500 md:text-base">
+              Kelola identitas akun dan target belajar yang kamu pilih saat onboarding.
+            </p>
+          </div>
+          <SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">
+            Simpan profil
+          </SubmitButton>
+        </header>
 
-      <form action={formAction} className="mt-5 space-y-8">
         {state.message ? (
           <FormNotice tone={state.status === "error" ? "danger" : "success"}>{state.message}</FormNotice>
         ) : null}
 
         <ProfileSection
-          description="Informasi ini digunakan untuk menyapa kamu di ruang belajar."
           id="profil"
           title="Data diri"
         >
@@ -181,28 +220,30 @@ function SettingsPageModule({
               <Field>
                 <FieldLabel htmlFor="profile-full-name">Nama lengkap</FieldLabel>
                 <FieldInput
+                  aria-describedby={state.fieldErrors?.fullName ? "profile-full-name-error" : undefined}
                   aria-invalid={Boolean(state.fieldErrors?.fullName)}
-                  defaultValue={state.fields?.fullName ?? session.user.fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  value={fullName}
                   id="profile-full-name"
                   name="fullName"
                   required
                 />
-                {state.fieldErrors?.fullName ? <p className="text-sm text-danger-700">{state.fieldErrors.fullName}</p> : null}
+                {state.fieldErrors?.fullName ? (
+                  <p className="text-sm text-danger-700" id="profile-full-name-error">
+                    {state.fieldErrors.fullName}
+                  </p>
+                ) : null}
               </Field>
 
               <Field>
                 <FieldLabel htmlFor="profile-email">Email</FieldLabel>
                 <FieldInput
-                  aria-describedby="profile-email-note"
                   className="bg-secondary-50 text-secondary-500"
                   defaultValue={session.user.email}
                   id="profile-email"
                   readOnly
                   type="email"
                 />
-                <p className="text-sm leading-5 text-secondary-500" id="profile-email-note">
-                  Email dikelola oleh admin dan belum bisa diubah dari sini.
-                </p>
               </Field>
             </div>
             <ProfilePhotoEditor initials={initials} />
@@ -210,7 +251,6 @@ function SettingsPageModule({
         </ProfileSection>
 
         <ProfileSection
-          description="Target ini berasal dari onboarding dan bisa kamu sesuaikan kapan saja."
           id="target-belajar"
           title="Target belajar"
         >
@@ -221,54 +261,48 @@ function SettingsPageModule({
                 label="Ujian target"
                 name="targetExamEventId"
                 onChange={setTargetExamEventId}
+                options={[
+                  { label: "Pilih nanti", value: "" },
+                  ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id })),
+                ]}
                 value={targetExamEventId}
-              >
-                <option value="">Pilih nanti</option>
-                {examEvents.map((examEvent) => (
-                  <option key={examEvent.id} value={examEvent.id}>{examEvent.name}</option>
-                ))}
-              </SelectField>
+              />
 
               <SelectField
                 id="profile-target-university"
                 label="Kampus tujuan"
                 name="targetUniversityId"
                 onChange={handleUniversityChange}
+                options={[
+                  { label: "Pilih nanti", value: "" },
+                  ...universities.map((university) => ({
+                    label: university.shortName ? `${university.shortName} — ${university.name}` : university.name,
+                    value: university.id,
+                  })),
+                ]}
                 value={targetUniversityId}
-              >
-                <option value="">Pilih nanti</option>
-                {universities.map((university) => (
-                  <option key={university.id} value={university.id}>
-                    {university.shortName ? `${university.shortName} — ${university.name}` : university.name}
-                  </option>
-                ))}
-              </SelectField>
+              />
 
               <SelectField
                 id="profile-target-major"
                 label="Jurusan tujuan"
                 name="targetMajorId"
                 onChange={setTargetMajorId}
+                options={[
+                  { label: "Pilih nanti", value: "" },
+                  ...availableMajors.map((major) => ({
+                    label: `${major.name}${!targetUniversityId ? ` · ${major.university.shortName ?? major.university.name}` : ""}`,
+                    value: major.id,
+                  })),
+                ]}
                 value={targetMajorId}
-              >
-                <option value="">Pilih nanti</option>
-                {availableMajors.map((major) => (
-                  <option key={major.id} value={major.id}>
-                    {major.name}{!targetUniversityId ? ` · ${major.university.shortName ?? major.university.name}` : ""}
-                  </option>
-                ))}
-              </SelectField>
+              />
             </div>
 
-            <div className="mt-6 flex items-start gap-3 rounded-3xl border border-primary-100 bg-primary-50/45 p-4 text-sm leading-6 text-secondary-600">
-              <Target className="mt-0.5 size-5 shrink-0 text-primary-700" />
-              <p>Perubahan target akan dipakai untuk menyesuaikan rekomendasi materi, kuis, dan tryout di dashboard.</p>
-            </div>
           </div>
         </ProfileSection>
 
         <ProfileSection
-          description="Preferensi yang digunakan untuk menampilkan waktu dan jadwal belajarmu."
           id="preferensi"
           title="Preferensi belajar"
         >
@@ -278,23 +312,33 @@ function SettingsPageModule({
               label="Zona waktu"
               name="timezone"
               onChange={setTimezone}
+              options={[
+                { label: "WIB — Asia/Jakarta", value: "Asia/Jakarta" },
+                { label: "WITA — Asia/Makassar", value: "Asia/Makassar" },
+                { label: "WIT — Asia/Jayapura", value: "Asia/Jayapura" },
+              ]}
               value={timezone}
-            >
-              <option value="Asia/Jakarta">WIB — Asia/Jakarta</option>
-              <option value="Asia/Makassar">WITA — Asia/Makassar</option>
-              <option value="Asia/Jayapura">WIT — Asia/Jayapura</option>
-            </SelectField>
+            />
           </div>
         </ProfileSection>
 
-        <div className="flex flex-col gap-3 border-t border-primary-100 pt-6 sm:flex-row sm:items-center sm:justify-end">
-          <p className="flex items-center gap-2 text-sm text-secondary-500 sm:mr-auto">
-            <UserRound className="size-4 text-primary-700" /> Data profil tersimpan aman di akunmu.
-          </p>
-          <SubmitButton pendingLabel="Menyimpan profil..." size="lg" type="submit" variant="brand">
-            Simpan profil
-          </SubmitButton>
-        </div>
+        {hasUnsavedChanges ? (
+          <div
+            aria-live="polite"
+            className="fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] backdrop-blur-md sm:inset-x-auto sm:right-6 sm:left-auto sm:w-[390px] sm:max-w-[calc(100vw-3rem)]"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+                <AlertCircle className="size-4" />
+              </span>
+              <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
+            </div>
+            <SubmitButton className="shrink-0" pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
+              Simpan
+            </SubmitButton>
+          </div>
+        ) : null}
+        </ProfileFormContent>
       </form>
     </StudentWorkspaceShell>
   );

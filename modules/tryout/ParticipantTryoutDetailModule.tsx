@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpenText,
   CalendarBlank,
@@ -10,6 +9,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
@@ -87,8 +87,14 @@ function ParticipantTryoutDetailModule({
       session={session}
       showSearch={false}
     >
-      <Button className="w-fit" render={<Link href="/tryout" />} variant="ghost">
-        <ArrowLeft /> Kembali ke katalog
+      <Button
+        aria-label="Kembali ke katalog"
+        render={<Link href="/tryout" />}
+        size="icon"
+        title="Kembali ke katalog"
+        variant="ghost"
+      >
+        <ChevronLeft />
       </Button>
 
       <section aria-label={`Banner ${tryout.title}`} className="relative aspect-video overflow-hidden rounded-[2rem] border border-primary-100 bg-primary-50">

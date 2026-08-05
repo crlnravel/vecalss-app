@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronLeft,
   Clipboard,
   LockKeyhole,
   MessageCircle,
@@ -218,13 +219,16 @@ function LessonPlayer({
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
-      <Link
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-[#176b4d] outline-none transition hover:text-[#0f563b] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 md:text-base"
-        href={`/courses/${course.slug}`}
+      <Button
+        aria-label={`Kembali ke ${course.description} (${course.title})`}
+        nativeButton={false}
+        render={<Link href={`/courses/${course.slug}`} />}
+        size="icon"
+        title={`Kembali ke ${course.description} (${course.title})`}
+        variant="ghost"
       >
-        <ArrowLeft className="size-4" />
-        Kembali ke {course.description} ({course.title})
-      </Link>
+        <ChevronLeft />
+      </Button>
 
       <MateriLessonPresentation
         action={(
@@ -331,23 +335,29 @@ function LockedLessonState({
         {lesson.title} akan terbuka setelah kamu mengikuti urutan jalur belajar.
         Kamu juga bisa memilih “Skip ke sini” dari halaman materi.
       </p>
-      <Button
-        className="mt-7 rounded-[1.1rem] bg-[#176b4d] font-extrabold text-white hover:bg-[#0f563b]"
-        nativeButton={false}
-        render={
-          <Link
-            href={
-              nextLesson
-                ? `/courses/${course.slug}/${nextLesson.id}`
-                : `/courses/${course.slug}`
-            }
-          >
-            {nextLesson ? "Lanjut ke Bagian yang tersedia" : "Kembali ke Materi"}
-            <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
-          </Link>
-        }
-        size="lg"
-      />
+      {nextLesson ? (
+        <Button
+          className="mt-7 rounded-[1.1rem] bg-[#176b4d] font-extrabold text-white hover:bg-[#0f563b]"
+          nativeButton={false}
+          render={<Link href={`/courses/${course.slug}/${nextLesson.id}`} />}
+          size="lg"
+        >
+          Lanjut ke Bagian yang tersedia
+          <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
+        </Button>
+      ) : (
+        <Button
+          aria-label="Kembali ke Materi"
+          className="mt-7 bg-[#176b4d] text-white hover:bg-[#0f563b]"
+          nativeButton={false}
+          render={<Link href={`/courses/${course.slug}`} />}
+          size="icon"
+          title="Kembali ke Materi"
+          variant="brand"
+        >
+          <ChevronLeft />
+        </Button>
+      )}
     </section>
   );
 }

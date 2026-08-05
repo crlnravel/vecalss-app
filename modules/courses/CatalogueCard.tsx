@@ -18,6 +18,7 @@ type CatalogueCardProps = {
   stats: CatalogueCardStat[];
   title: string;
   className?: string;
+  codeBadge?: boolean;
   leftAccent?: boolean;
 };
 
@@ -30,6 +31,7 @@ function CatalogueCard({
   stats,
   title,
   className,
+  codeBadge = false,
   leftAccent = false,
 }: CatalogueCardProps) {
   return (
@@ -49,8 +51,15 @@ function CatalogueCard({
       ) : null}
       <div className="flex w-full flex-col gap-3">
         <div className="mb-3 flex items-start gap-4">
-          <div className="inline-flex items-center gap-2 text-sm font-semibold md:text-base">
-            <Icon className="size-4" />
+          <div
+            className={cn(
+              "inline-flex items-center gap-2 text-sm font-semibold md:text-base",
+              codeBadge
+                ? "rounded-[1rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] px-3 py-2 text-[#176b4d]"
+                : null,
+            )}
+          >
+            <Icon className={cn(codeBadge ? "size-5" : "size-4")} />
             <span>{code}</span>
           </div>
         </div>

@@ -125,9 +125,11 @@ function SectionHeading({
 }
 
 function ResourceRow({
+  compact = false,
   emphasis = false,
   resource,
 }: {
+  compact?: boolean;
   emphasis?: boolean;
   resource: KaptenResource;
 }) {
@@ -144,7 +146,10 @@ function ResourceRow({
     <Link
       href={resource.href}
       className={cn(
-        "group flex flex-col gap-4 rounded-3xl border px-4 py-4 transition-[transform,border-color,background-color,box-shadow] duration-200 md:flex-row md:items-center motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5",
+        "group flex flex-col border transition-[transform,border-color,background-color,box-shadow] duration-200 md:flex-row md:items-center motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5",
+        compact
+          ? "gap-3 rounded-2xl px-4 py-3 md:gap-3"
+          : "gap-4 rounded-3xl px-4 py-4",
         emphasis
           ? "border-[#ead9a5] bg-[#fffdf1] hover:border-[#e3c978] hover:bg-[#fffbed] hover:shadow-[0_18px_38px_-28px_rgba(112,88,8,0.42)] focus-within:border-[#e3c978] focus-within:shadow-[0_18px_38px_-28px_rgba(112,88,8,0.42)]"
           : "border-primary-100 bg-white hover:border-primary-200 hover:bg-primary-50/40 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)]",
@@ -174,26 +179,35 @@ function ResourceRow({
       </div>
 
       <div className="flex items-center justify-end md:min-w-8">
-        <ArrowRight className="size-4 text-secondary-400 transition-transform group-hover:translate-x-1" />
+        <ArrowRight
+          className={cn(
+            "text-secondary-400 transition-transform group-hover:translate-x-1",
+            compact ? "size-3.5" : "size-4",
+          )}
+        />
       </div>
     </Link>
   );
 }
 
-function QuickCreateMenu() {
+function QuickCreateMenu({ label }: { label?: string } = {}) {
+  const hasLabel = Boolean(label);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label="Buat cepat"
-            size="icon"
-            title="Buat cepat"
-            variant="brandOutline"
+            aria-label={label ?? "Buat cepat"}
+            size={hasLabel ? "sm" : "icon"}
+            title={label ?? "Buat cepat"}
+            variant={hasLabel ? "brand" : "brandOutline"}
           />
         }
       >
         <Plus />
+        {label ? <span>{label}</span> : null}
+        {label ? <ChevronDown aria-hidden="true" className="size-4 opacity-70" /> : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {quickCreateItems.map((item) => (
@@ -363,7 +377,7 @@ function DropdownField({
         aria-label={ariaLabel ?? placeholder}
         disabled={disabled}
         id={id}
-        render={<Button className={cn("h-12 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 text-left text-[15px] font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" , className)} variant="context" />}
+        render={<Button className={cn("h-12 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" , className)} variant="context" />}
       >
         <span className="truncate">{selected}</span>
         <ChevronDown aria-hidden className="size-4 shrink-0 text-secondary-500" />

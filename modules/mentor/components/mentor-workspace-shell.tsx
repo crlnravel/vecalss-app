@@ -36,6 +36,17 @@ type PendingNavigation =
   | { destination: string; kind: "route" }
   | { kind: "history" };
 
+const mentorRootHrefByLabel: Record<string, string> = {
+  Dashboard: "/mentor/dashboard",
+  Materi: "/mentor/materi",
+  Kuis: "/mentor/quiz",
+  "Bank Soal": "/mentor/quiz/question-bank",
+  Tryout: "/mentor/tryout",
+  "Paket Soal": "/mentor/packages",
+  Media: "/mentor/media",
+  Pengaturan: "/mentor/settings",
+};
+
 function MentorWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
@@ -67,6 +78,8 @@ function MentorWorkspaceShell({
   const restoreSyntheticEntryRef = useRef(false);
   const allowHistoryTraversalRef = useRef(false);
   const [isConfirmationOpen, setConfirmationOpen] = useState(false);
+  const rootHref = mentorRootHrefByLabel[activeLabel] ?? "/mentor/dashboard";
+  const isRootPage = breadcrumbLabel === activeLabel;
 
   useEffect(() => {
     onNavigateAwayRef.current = onNavigateAway;
@@ -248,16 +261,20 @@ function MentorWorkspaceShell({
                     <BreadcrumbList>
                       <BreadcrumbItem>
                         <BreadcrumbLink
-                          href="/mentor/dashboard"
+                          href={rootHref}
                           className="text-secondary-500"
                         >
-                          Vecalss CMS
+                          {activeLabel}
                         </BreadcrumbLink>
                       </BreadcrumbItem>
-                      <BreadcrumbSeparator />
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
-                      </BreadcrumbItem>
+                      {!isRootPage ? (
+                        <>
+                          <BreadcrumbSeparator />
+                          <BreadcrumbItem>
+                            <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                          </BreadcrumbItem>
+                        </>
+                      ) : null}
                     </BreadcrumbList>
                   </Breadcrumb>
                 </div>

@@ -242,8 +242,7 @@ function SubjectSelector({
                   {subject.description}
                 </span>
                 <span className="mt-0.5 block text-xs font-semibold text-[#98a1b1]">
-                  {subject.title} · {subject.lessons.length} bacaan
-                  {subject.lessons.some((lesson) => lesson.optionalVideo) ? " · video opsional" : ""}
+                  {subject.title} · {subject.lessons.length} unit
                 </span>
               </span>
               {isActive ? (

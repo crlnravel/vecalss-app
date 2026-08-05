@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   ArrowRight,
   ArrowsClockwise,
   CheckCircle,
@@ -13,6 +12,7 @@ import {
   WifiHigh,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -111,7 +111,15 @@ function ParticipantWaitingRoomModule({
 
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" session={session} showSearch={false}>
-      <Button className="w-fit" render={<Link href={`/tryout/${tryout.id}`} />} variant="ghost"><ArrowLeft />Kembali ke detail</Button>
+      <Button
+        aria-label="Kembali ke detail tryout"
+        render={<Link href={`/tryout/${tryout.id}`} />}
+        size="icon"
+        title="Kembali ke detail tryout"
+        variant="ghost"
+      >
+        <ChevronLeft />
+      </Button>
 
       <div className="mx-auto grid w-full max-w-5xl gap-5">
         <section aria-label={`${countdownLabel} ${hours} jam ${minutes} menit ${seconds} detik`} className="relative isolate overflow-hidden rounded-[2rem] border border-primary-900/10 bg-[radial-gradient(circle_at_50%_85%,rgba(15,111,82,0.52),transparent_46%),linear-gradient(125deg,#002c22_0%,#00513b_52%,#002d23_100%)] text-white">

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   ArrowRight,
   Buildings,
   CaretDown,
@@ -13,6 +12,7 @@ import {
   Target,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { unstable_rethrow } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -102,8 +102,14 @@ function ParticipantTryoutRegistrationModule({
 
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pendaftaran tryout" session={session} showSearch={false}>
-      <Button className="w-fit" render={<Link href={`/tryout/${tryout.id}`} />} variant="ghost">
-        <ArrowLeft /> Kembali ke detail
+      <Button
+        aria-label="Kembali ke detail tryout"
+        render={<Link href={`/tryout/${tryout.id}`} />}
+        size="icon"
+        title="Kembali ke detail tryout"
+        variant="ghost"
+      >
+        <ChevronLeft />
       </Button>
 
       <div className="mx-auto grid w-full max-w-4xl gap-5">

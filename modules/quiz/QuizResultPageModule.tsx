@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  ArrowLeft,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -73,7 +72,17 @@ function QuizResultPageModule({
       <main className="mx-auto max-w-3xl px-5 py-14">
         <h1 className="text-3xl font-semibold text-secondary-900">Quiz belum dikirim</h1>
         <p className="mt-3 text-secondary-600">Kembali ke quiz untuk menyelesaikan dan mengirim jawabanmu.</p>
-        <Button className="mt-6" nativeButton={false} render={<Link href={`/quiz/${subjectSlug}`} />} variant="brand">Kembali ke daftar quiz</Button>
+        <Button
+          aria-label="Kembali ke daftar quiz"
+          className="mt-6"
+          nativeButton={false}
+          render={<Link href={`/quiz/${subjectSlug}`} />}
+          size="icon"
+          title="Kembali ke daftar quiz"
+          variant="brand"
+        >
+          <ChevronLeft />
+        </Button>
       </main>
     );
   }
@@ -94,9 +103,10 @@ function QuizResultPageModule({
               nativeButton={false}
               render={<Link href={`/quiz/${subjectSlug}`} />}
               size="icon-sm"
+              title="Kembali ke daftar quiz"
               variant="ghost"
             >
-              <ArrowLeft data-icon="inline-start" />
+              <ChevronLeft />
             </Button>
           </div>
 

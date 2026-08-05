@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -316,11 +315,13 @@ function QuizOngoingScreen({
           <div className="border-b border-primary-100 px-5 py-5">
             <div className="flex items-start">
               <Button
+                aria-label="Keluar dari latihan"
                 onClick={() => onExitDialogChange(true)}
                 size="icon-sm"
+                title="Keluar dari latihan"
                 variant="ghost"
               >
-                <ArrowLeft data-icon="inline-start" />
+                <ChevronLeft />
               </Button>
             </div>
           </div>

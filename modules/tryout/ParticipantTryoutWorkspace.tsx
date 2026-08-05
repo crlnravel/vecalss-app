@@ -71,6 +71,10 @@ function ParticipantTryoutWorkspace({
     });
   }, [filter, initialTryouts, query, referenceTime]);
 
+  const tryoutGridClass = visibleTryouts.length === 1
+    ? "grid gap-5 sm:grid-cols-2 xl:grid-cols-2"
+    : "grid gap-5 sm:grid-cols-2 xl:grid-cols-3";
+
   return (
     <CourseWorkspaceShell
       activeLabel="Tryout"
@@ -80,56 +84,64 @@ function ParticipantTryoutWorkspace({
       session={session}
       showSearch={false}
     >
-      <section className="relative min-h-[18rem] overflow-hidden rounded-[2rem] border border-primary-100 bg-[linear-gradient(125deg,#ffffff_0%,#eef9f2_48%,#bfe6ce_100%)] px-5 py-7 shadow-[0_28px_90px_-58px_rgba(1,76,56,0.42)] sm:px-8 sm:py-9 lg:px-10">
+      <section className="relative isolate min-h-[22rem] overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_62%,#2f8a5d_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_rgba(1,76,56,0.72)] sm:px-8 sm:py-10 lg:min-h-[24rem] lg:px-10 lg:py-12">
+        <div aria-hidden="true" className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-80" />
+        <div aria-hidden="true" className="pointer-events-none absolute right-8 bottom-7 flex items-end gap-2 opacity-90 sm:right-[23%]">
+          <span className="size-2 rounded-full bg-[#ffd766]" />
+          <span className="size-3 rounded-full bg-[#b7ddc3]" />
+          <span className="size-2 rounded-full bg-[#eef8f1]" />
+        </div>
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[42%] min-w-[20rem] lg:block">
-          <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-primary-900/12 blur-2xl" />
+          <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
           <Image
             alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(1,76,56,0.18)] xl:w-[26rem]"
+            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(0,20,14,0.36)] xl:w-[26rem]"
             height={416}
             sizes="(min-width: 1280px) 416px, 352px"
             src="/brand/mascot-vecalss.png"
             width={416}
           />
         </div>
-        <div className="relative max-w-3xl">
-          <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance text-secondary-900 sm:text-5xl">
+        <div className="relative max-w-3xl lg:max-w-[58%]">
+          <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
             Bersiap menghadapi ujian dengan pengalaman yang terasa nyata.
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-secondary-600 sm:text-base sm:leading-7">
+          <p className="mt-5 max-w-2xl text-sm leading-6 text-[#e7f5eb] sm:text-base sm:leading-7">
             Pilih tryout sesuai kebutuhanmu, tetapkan target kampus, lalu mulai mengerjakan. Semua progres akan tersimpan otomatis.
           </p>
         </div>
       </section>
 
-      <section aria-label="Cari dan filter tryout" className="grid gap-5">
-        <label className="relative block w-full">
-          <span className="sr-only">Cari tryout</span>
-          <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
-          <Input
-            className="h-12 rounded-2xl border-primary-100 bg-white pl-11 shadow-[0_16px_40px_-34px_rgba(1,76,56,0.58)]"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari tryout..."
-            value={query}
-          />
-        </label>
+      <section aria-label="Cari dan filter tryout" className="grid gap-6">
+        <div className="grid gap-4 rounded-[1.75rem] border border-primary-100 bg-white p-4 shadow-[0_20px_52px_-38px_rgba(1,76,56,0.5)] sm:p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <label className="relative block w-full">
+            <span className="sr-only">Cari tryout</span>
+            <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Input
+              className="h-12 rounded-2xl border-primary-100 bg-primary-50/60 pl-11 shadow-none"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari tryout..."
+              value={query}
+            />
+          </label>
 
-        <div aria-label="Filter tryout" className="flex gap-2 overflow-x-auto pb-1" role="group">
-          {filters.map((item) => (
-            <Button
-              aria-pressed={filter === item.id}
-              className="shrink-0 rounded-full"
-              key={item.id}
-              onClick={() => setFilter(item.id)}
-              variant={filter === item.id ? "brand" : "context"}
-            >
-              {item.label}
-            </Button>
-          ))}
+          <div aria-label="Filter tryout" className="flex gap-2 overflow-x-auto pb-1 md:justify-end" role="group">
+            {filters.map((item) => (
+              <Button
+                aria-pressed={filter === item.id}
+                className="shrink-0 rounded-full"
+                key={item.id}
+                onClick={() => setFilter(item.id)}
+                variant={filter === item.id ? "brand" : "context"}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {visibleTryouts.length ? (
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <div className={tryoutGridClass}>
             {visibleTryouts.map((tryout) => {
               const totalQuestions = tryout.sections.reduce((sum, section) => sum + section.questionCount, 0);
               const totalDuration = tryout.sections.reduce((sum, section) => sum + section.durationSeconds, 0);
@@ -150,28 +162,33 @@ function ParticipantTryoutWorkspace({
                     : "Lihat detail";
 
               return (
-                <article className="group flex min-w-0 flex-col overflow-hidden rounded-3xl border border-primary-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-primary-300 hover:shadow-[0_20px_45px_-34px_rgba(1,76,56,0.45)]" key={tryout.id}>
-                  <div className="relative aspect-[16/10] overflow-hidden bg-primary-50">
+                <article className="group flex min-w-0 flex-col overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] transition duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]" key={tryout.id}>
+                  <div className="relative aspect-[16/9] overflow-hidden bg-primary-50">
                     <Image
                       alt=""
-                      className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                      className="object-cover object-center"
                       fill
-                      sizes="(min-width: 1536px) 16.67vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
+                      sizes={visibleTryouts.length === 1
+                        ? "(min-width: 1280px) 50vw, (min-width: 640px) 50vw, 100vw"
+                        : "(min-width: 1536px) 33vw, (min-width: 1280px) 33vw, (min-width: 1024px) 50vw, 100vw"}
                       src="/brand/tryout-placeholder-banner.jpg"
                     />
                     <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.28)_0%,rgba(1,76,56,0.03)_60%,rgba(1,76,56,0.2)_100%)]" />
-                    <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-primary-800">Vecalss</span>
+                    <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-primary-800">Vecalss</span>
                   </div>
 
-                  <div className="flex flex-1 flex-col p-3.5">
-                    <span className={`w-fit rounded-full border px-2.5 py-1 text-[11px] font-semibold ${stateClassName(state)}`}>{stateLabel(state)}</span>
-                    <h3 className="mt-3 line-clamp-2 font-heading text-base leading-tight font-semibold tracking-[-0.02em] text-secondary-900">{tryout.title}</h3>
-                    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-600">
-                      <span className="flex items-center gap-1.5"><Clock className="text-primary-700" />{formatDuration(totalDuration)}</span>
-                      <span className="flex items-center gap-1.5"><BookOpenText className="text-primary-700" />{totalQuestions || "—"} soal</span>
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-semibold ${stateClassName(state)}`}>{stateLabel(state)}</span>
+                      <span className="text-xs font-bold tracking-[0.14em] text-secondary-400 uppercase">Tryout</span>
                     </div>
-                    <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-secondary-500"><CalendarBlank className="mt-0.5 shrink-0 text-primary-700" />{formatSchedule(primarySession?.availableFrom)}</p>
-                    <Button className="mt-4 w-full" render={<Link href={href} />} size="sm" variant="brand">
+                    <h3 className="mt-4 line-clamp-2 font-heading text-xl leading-tight font-extrabold tracking-[-0.035em] text-secondary-900">{tryout.title}</h3>
+                    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-medium text-secondary-600">
+                      <span className="flex items-center gap-1.5"><Clock className="size-4 text-primary-700" />{formatDuration(totalDuration)}</span>
+                      <span className="flex items-center gap-1.5"><BookOpenText className="size-4 text-primary-700" />{totalQuestions || "—"} soal</span>
+                    </div>
+                    <p className="mt-3 flex items-start gap-2 text-sm leading-5 text-secondary-500"><CalendarBlank className="mt-0.5 size-4 shrink-0 text-primary-700" />{formatSchedule(primarySession?.availableFrom)}</p>
+                    <Button className="mt-6 w-full" render={<Link href={href} />} variant="brand">
                       {actionLabel} <ArrowRight />
                     </Button>
                   </div>
@@ -180,7 +197,7 @@ function ParticipantTryoutWorkspace({
             })}
           </div>
         ) : (
-          <div className="rounded-3xl border border-dashed border-primary-200 bg-white px-6 py-14 text-center">
+          <div className="rounded-[2rem] border border-dashed border-primary-200 bg-white px-6 py-16 text-center shadow-[0_18px_42px_-34px_rgba(23,107,77,0.38)]">
             <Buildings className="mx-auto text-3xl text-primary-700" />
             <h3 className="mt-4 text-lg font-semibold text-secondary-900">Tidak ada tryout yang cocok</h3>
             <p className="mt-2 text-sm text-secondary-600">Coba pilih kategori atau kata kunci lain.</p>

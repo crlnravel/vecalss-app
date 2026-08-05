@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-04T14:26:12Z",
+  "title": "Design System: Vecalss",
+  "extensions": {
+    "colorMeta": {
+      "voyage-deep": {
+        "role": "primary",
+        "displayName": "Voyage Deep",
+        "canonical": "#014C38",
+        "tonalRamp": ["#022F24", "#013D2E", "#014C38", "#075F46", "#16745A", "#41997D", "#7ABDA8", "#EEF7F3"]
+      },
+      "voyage-forest": {
+        "role": "primary",
+        "displayName": "Voyage Forest",
+        "canonical": "#176B4D",
+        "tonalRamp": ["#0F563B", "#176B4D", "#267A52", "#2F8A5D", "#4C9A70", "#9DCAB0", "#B7DDC3", "#E8F5EC"]
+      },
+      "voyage-leaf": {
+        "role": "primary",
+        "displayName": "Voyage Leaf",
+        "canonical": "#2F8A5D",
+        "tonalRamp": ["#176B4D", "#267A52", "#2F8A5D", "#4C9A70", "#7ABDA8", "#9DCAB0", "#B7DDC3", "#E8F5EC"]
+      },
+      "sea-glass": {
+        "role": "secondary",
+        "displayName": "Sea-Glass",
+        "canonical": "#B7DDC3",
+        "tonalRamp": ["#98BBAA", "#A6CDB9", "#B7DDC3", "#C8E6D2", "#D7EDDF", "#E6F4EB", "#EEF8F1", "#F7FAF8"]
+      },
+      "sea-glass-wash": {
+        "role": "secondary",
+        "displayName": "Sea-Glass Wash",
+        "canonical": "#EEF8F1",
+        "tonalRamp": ["#CFE7D8", "#D7EDDF", "#E2F0E6", "#E8F5EC", "#EEF8F1", "#F3FAF5", "#F7FAF8", "#FFFFFF"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "#F7FAF8",
+        "tonalRamp": ["#D6E5DB", "#E2ECE5", "#EAF1EC", "#F0F5F1", "#F3F7F4", "#F7FAF8", "#FBFDFC", "#FFFFFF"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#D6E5DB", "#E2ECE5", "#EAF1EC", "#F0F5F1", "#F3F7F4", "#F7FAF8", "#FBFDFC", "#FFFFFF"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#173C2D",
+        "tonalRamp": ["#10241D", "#173C2D", "#203B32", "#285641", "#38564C", "#5F776A", "#9EB9AD", "#F7FAF8"]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5F776A",
+        "tonalRamp": ["#38564C", "#477060", "#5F776A", "#718077", "#89958E", "#9EB9AD", "#C8D8D1", "#F7FAF8"]
+      },
+      "soft-border": {
+        "role": "neutral",
+        "displayName": "Soft Border",
+        "canonical": "#D6E5DB",
+        "tonalRamp": ["#B7CFC1", "#C8D8D1", "#D6E5DB", "#E2ECE5", "#EAF1EC", "#F0F5F1", "#F7FAF8", "#FFFFFF"]
+      },
+      "warm-sun": {
+        "role": "tertiary",
+        "displayName": "Warm Sun",
+        "canonical": "#FFD766",
+        "tonalRamp": ["#D9AD32", "#E8BE45", "#F0CC59", "#FFD766", "#FFE28C", "#FFF0BE", "#FFF8DF", "#FFFDF4"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Voyage Display",
+        "purpose": "Confident page statements, route titles, and expressive learning moments."
+      },
+      "body": {
+        "displayName": "Voyage Sans",
+        "purpose": "Readable instructions, metadata, navigation, and long-form learning copy."
+      },
+      "label": {
+        "displayName": "Voyage Labels",
+        "purpose": "Compact uppercase context for subtests, sections, and statuses."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-card",
+        "value": "0 18px 42px -34px rgba(23,107,77,0.48)",
+        "purpose": "Low, diffuse lift beneath white cards and catalogue rows."
+      },
+      {
+        "name": "lifted-card",
+        "value": "0 24px 52px -30px rgba(23,107,77,0.55)",
+        "purpose": "Hover emphasis for a card that is ready to be opened."
+      },
+      {
+        "name": "tactile-node",
+        "value": "0 9px 0 #0F563B, 0 26px 48px -30px rgba(23,107,77,0.68)",
+        "purpose": "Offset press cue for learning milestones and journey actions."
+      },
+      {
+        "name": "parchment-panel",
+        "value": "0 26px 80px -46px rgba(1,76,56,0.24), inset 0 1px 0 rgba(255,255,255,0.6)",
+        "purpose": "Soft depth for larger pale panels without making them feel heavy."
+      }
+    ],
+    "motion": [
+      {
+        "name": "hover-lift",
+        "value": "transform 200ms ease-out, box-shadow 200ms ease-out",
+        "purpose": "Small upward response for interactive cards and controls."
+      },
+      {
+        "name": "playful-tilt",
+        "value": "transform 250ms ease-out",
+        "purpose": "A restrained icon tilt or scale that rewards pointer interaction."
+      },
+      {
+        "name": "press",
+        "value": "transform 150ms ease, box-shadow 150ms ease",
+        "purpose": "Short downward press on tactile learning actions."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce)",
+        "purpose": "Remove translation, tilt, and looping motion while preserving state changes."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default high-confidence action for starting or continuing a learning task.",
+      "html": "<button class='ds-btn-primary' type='button'><span>Mulai belajar</span><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6'></path></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:12px 16px;border:1px solid transparent;border-radius:12px;background:var(--primary-700);color:#fff;font:700 14px/1.2 var(--font-voyage-sans),sans-serif;transition:transform 150ms ease,background-color 150ms ease,box-shadow 150ms ease}.ds-btn-primary svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-btn-primary:hover{background:#013D2E;transform:translateY(-2px);box-shadow:0 12px 24px -18px rgba(1,76,56,.75)}.ds-btn-primary:focus-visible{outline:3px solid rgba(65,153,125,.45);outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px);box-shadow:none}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "A quieter peer action that keeps the primary action visually dominant.",
+      "html": "<button class='ds-btn-outline' type='button'><span>Lihat semua</span></button>",
+      "css": ".ds-btn-outline{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:12px 16px;border:1px solid #D6E5DB;border-radius:12px;background:#fff;color:#173C2D;font:600 14px/1.2 var(--font-voyage-sans),sans-serif;transition:transform 150ms ease,background-color 150ms ease,border-color 150ms ease}.ds-btn-outline:hover{border-color:#B7DDC3;background:#EEF8F1;transform:translateY(-1px)}.ds-btn-outline:focus-visible{outline:3px solid rgba(65,153,125,.35);outline-offset:2px}.ds-btn-outline:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "A soft, readable field for finding Materi and workspace content.",
+      "html": "<label class='ds-input-wrap'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='m21 21-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z'></path></svg><input class='ds-input-search' placeholder='Cari materi, bacaan, atau topik...' /></label>",
+      "css": ".ds-input-wrap{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px;border:1px solid #D6E5DB;border-radius:20px;background:#EEF8F1;color:#5F776A}.ds-input-wrap svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}.ds-input-search{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#173C2D;font:500 14px/1.5 var(--font-voyage-sans),sans-serif}.ds-input-search::placeholder{color:#718077}.ds-input-wrap:focus-within{border-color:#2F8A5D;outline:3px solid rgba(65,153,125,.28);outline-offset:1px}"
+    },
+    {
+      "name": "Mint Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-mint",
+      "description": "A compact status or subject marker with strong text contrast.",
+      "html": "<span class='ds-chip-mint'>Terbit</span>",
+      "css": ".ds-chip-mint{display:inline-flex;align-items:center;min-height:26px;padding:6px 10px;border:1px solid #B7DDC3;border-radius:999px;background:#EEF8F1;color:#014C38;font:700 12px/1 var(--font-voyage-sans),sans-serif;letter-spacing:.04em}"
+    },
+    {
+      "name": "Course Card",
+      "kind": "card",
+      "refersTo": "card-course",
+      "description": "A wide, scan-friendly Materi entry that makes the next learning route obvious.",
+      "html": "<article class='ds-course-card'><div class='ds-course-icon'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z'></path><path d='M4 5.5v16M8 7h8'></path></svg></div><div class='ds-course-copy'><span class='ds-course-label'>TPS</span><h3>Penalaran Umum</h3><p>7 unit · 42% selesai</p><div class='ds-progress'><span></span></div></div><span class='ds-course-arrow' aria-hidden='true'>→</span></article>",
+      "css": ".ds-course-card{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:20px;min-height:176px;padding:24px;border:1px solid #D6E5DB;border-radius:32px;background:#fff;color:#173C2D;box-shadow:0 18px 42px -34px rgba(23,107,77,.48);transition:transform 200ms ease,box-shadow 200ms ease,border-color 200ms ease}.ds-course-card:hover{transform:translateY(-3px);border-color:#B7DDC3;box-shadow:0 24px 52px -30px rgba(23,107,77,.55)}.ds-course-icon{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,#B7DDC3 0%,#EEF8F1 100%);color:#176B4D;transition:transform 250ms ease}.ds-course-card:hover .ds-course-icon{transform:rotate(-3deg)}.ds-course-icon svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-course-copy{min-width:0}.ds-course-label{font:700 12px/1 var(--font-voyage-sans),sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#477060}.ds-course-copy h3{margin:8px 0 0;font:800 24px/1.1 var(--font-voyage-sans),sans-serif;letter-spacing:-.035em}.ds-course-copy p{margin:12px 0 0;color:#5F776A;font:600 14px/1.5 var(--font-voyage-sans),sans-serif}.ds-progress{height:6px;margin-top:14px;overflow:hidden;border-radius:999px;background:#E2ECE5}.ds-progress span{display:block;width:42%;height:100%;border-radius:inherit;background:#176B4D}.ds-course-arrow{display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:#176B4D;color:#fff;font:700 24px/1 var(--font-voyage-sans),sans-serif;box-shadow:0 10px 24px -16px rgba(23,107,77,.75)}"
+    },
+    {
+      "name": "Workspace Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-sidebar",
+      "description": "A quiet shell that keeps the learning task in focus while making location clear.",
+      "html": "<nav class='ds-nav' aria-label='Ruang belajar'><div class='ds-nav-brand'>Vecalss</div><a class='ds-nav-item' data-active='true' href='#'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M4 12 12 5l8 7v7H4v-7Z'></path><path d='M9 19v-5h6v5'></path></svg><span>Materi</span></a><a class='ds-nav-item' data-active='false' href='#'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M5 4h14v16H5z'></path><path d='M8 8h8M8 12h6'></path></svg><span>Kuis</span></a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:8px;width:240px;min-height:320px;padding:20px 12px;border-right:1px solid #D6E5DB;background:rgba(255,255,255,.95);color:#173C2D}.ds-nav-brand{padding:8px 12px 20px;font:800 24px/1 var(--font-voyage-display),var(--font-voyage-sans),sans-serif;letter-spacing:-.04em}.ds-nav-item{display:flex;align-items:center;gap:10px;min-height:44px;padding:10px 12px;border-radius:12px;color:#5F776A;text-decoration:none;font:600 14px/1.2 var(--font-voyage-sans),sans-serif;transition:background-color 150ms ease,color 150ms ease}.ds-nav-item svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-nav-item:hover{background:#EEF8F1;color:#014C38}.ds-nav-item[data-active='true']{background:#EEF8F1;color:#014C38;font-weight:800}.ds-nav-item:focus-visible{outline:3px solid rgba(65,153,125,.35);outline-offset:2px}"
+    },
+    {
+      "name": "Learning Journey Node",
+      "kind": "custom",
+      "refersTo": "journey-node",
+      "description": "A progress landmark that makes an available lesson feel tangible and actionable.",
+      "html": "<a class='ds-journey-node' href='#'><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z'></path><path d='M4 5.5v16'></path></svg><span>Bagian 1</span></a>",
+      "css": ".ds-journey-node{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:112px;height:112px;border:4px solid #fff;border-radius:38px;background:#176B4D;color:#fff;text-decoration:none;font:800 12px/1.1 var(--font-voyage-sans),sans-serif;box-shadow:0 9px 0 #0F563B,0 26px 48px -30px rgba(23,107,77,.68);transition:transform 200ms ease,background-color 200ms ease,box-shadow 200ms ease}.ds-journey-node svg{width:40px;height:40px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-journey-node:hover{transform:translateY(-4px);background:#2F8A5D}.ds-journey-node:active{transform:translateY(3px);box-shadow:0 3px 0 #0F563B}.ds-journey-node:focus-visible{outline:3px solid rgba(65,153,125,.5);outline-offset:4px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Playful Voyage Map",
+    "overview": "Vecalss makes learning feel like a journey with a visible route, friendly landmarks, and a clear next step. The Materi experience is the strongest expression of this idea: sea-glass gradients soften the surface, deep green anchors actions and progress, and voyage illustrations turn completion into a small story rather than a checklist.\n\nThe system is playful but purposeful. It uses generous rounded geometry, confident type, tactile interaction feedback, and a light canvas so students can scan quickly without losing warmth. Playfulness belongs in the moments that explain progress, invite action, or reward completion; authoring and operational surfaces should borrow the same language with a calmer density.",
+    "keyCharacteristics": [
+      "Deep voyage green paired with sea-glass mint gradients.",
+      "Friendly, heavy headings with readable supporting copy.",
+      "Soft-lifted cards with occasional offset shadows for tactile states.",
+      "Rounded containers, expressive icons, and purposeful voyage illustrations.",
+      "Small lifts, tilts, and presses that clarify interaction without becoming a game layer."
+    ],
+    "rules": [
+      { "name": "The Sea-Glass Contrast Rule", "body": "Use pale mint gradients to support hierarchy, never as a substitute for text contrast. Primary actions, headings, and progress states must remain anchored in deep green.", "section": "colors" },
+      { "name": "The One Warm Accent Rule", "body": "Warm sun is an event color. Do not let it become a second competing brand palette across ordinary cards or navigation.", "section": "colors" },
+      { "name": "The Bold-Then-Readable Rule", "body": "Let headings carry the personality through weight and scale; never make supporting copy compete through decoration or compressed line length.", "section": "typography" },
+      { "name": "The Soft-Lift Rule", "body": "Resting surfaces should feel light; motion and shadow should explain affordance, state, or progress rather than decorate every edge.", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** use Voyage Deep for the primary action and the clearest progress cue.",
+      "**Do** pair deep green anchors with sea-glass gradients so the page feels bright without losing structure.",
+      "**Do** use illustration, tilt, and motion when they clarify progress, state, or the next step.",
+      "**Do** keep body copy calm, readable, and comfortably spaced beneath bold headings.",
+      "**Do** carry the same tactile language into Kapten and admin surfaces while reducing decorative density for operational work."
+    ],
+    "donts": [
+      "**Don't** turn the product into a generic admin panel of dense tables, tiny labels, or analytics-first blocks.",
+      "**Don't** over-gamify the experience with cartoon overload, noisy rewards, or decoration that competes with learning tasks.",
+      "**Don't** use green gradients as low-contrast text backgrounds or as noise on every surface.",
+      "**Don't** copy the Materi zig-zag road onto screens whose job is editing, reviewing, or managing content.",
+      "**Don't** remove the tactile hover, focus, and press cues from interactive learning controls without replacing them with an equally clear state signal."
+    ]
+  }
+}
