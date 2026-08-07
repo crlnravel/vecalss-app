@@ -23,6 +23,8 @@
     "test:materi-lock-boundary": "tsx scripts/test-materi-lock-boundary.ts",
     "test:materi-builder-validation": "tsx scripts/test-materi-builder-validation.ts",
     "test:media-domain": "tsx scripts/test-media-domain.ts",
+    "test:admin-handoff-envelope": "tsx scripts/test-admin-handoff-envelope.ts",
+    "test:admin-handoff-foundation": "tsx scripts/test-admin-handoff-foundation.ts",
     "test:tryout-package-invariants": "node scripts/test-tryout-package-invariants.mjs",
     "test:tryout-release-invariants": "node scripts/test-tryout-release-invariants.mjs",
     "db:verify-materi": "node scripts/verify-materi-catalogue.mjs",

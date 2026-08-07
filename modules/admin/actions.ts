@@ -91,7 +91,7 @@ async function createStudentEnrollmentAction(
       message:
         "Student account created. Share the temporary password securely because it will not be shown again.",
       status: "success",
-      temporaryPassword: result.temporaryPassword,
+      temporaryPassword: result.temporaryPassword ?? undefined,
     };
   } catch (error) {
     return {

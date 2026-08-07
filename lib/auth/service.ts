@@ -1,4 +1,6 @@
 import {
+  EnrollmentHandoffMethod,
+  EnrollmentHandoffStatus,
   LoginAttemptResult,
   Prisma,
   RoleName,
@@ -23,8 +25,17 @@ import {
   verifyPassword,
 } from "./crypto";
 import { getRequestMetadata } from "./request";
-import { createSession, revokeAllUserSessions } from "./session";
+import { createSession } from "./session";
 import type { AuthenticatedUser, LoginAudience } from "./types";
+import {
+  buildEnrollmentInviteUrl,
+  completeEnrollmentHandoffsForUser,
+  createEnrollmentHandoff,
+  lockEnrollmentHandoffByToken,
+  releaseEnrollmentHandoff,
+  revokeOpenEnrollmentHandoffs,
+  writeHandoffAudit,
+} from "@/lib/admin/handoffs/service";
 
 type LoginOutcome =
   | { ok: true; user: AuthenticatedUser }
@@ -43,6 +54,7 @@ type EnrollmentCreateInput = {
   email: string;
   fullName: string;
   targetExamEventId: string | null;
+  handoffMethod?: EnrollmentHandoffMethod;
 };
 
 type EnrollmentUpdateInput = {
@@ -52,6 +64,11 @@ type EnrollmentUpdateInput = {
   targetExamEventId: string | null;
   userId: string;
 };
+
+const ACTIVE_HANDOFF_STATUSES = [
+  EnrollmentHandoffStatus.pending,
+  EnrollmentHandoffStatus.released,
+] as const;
 
 async function recordLoginAttempt({
   email,
@@ -152,20 +169,27 @@ async function authenticateUser(
     const now = new Date();
 
     if (user.status === UserStatus.locked && user.lockedUntil && user.lockedUntil <= now) {
-      user = await prisma.user.update({
+      const unlocked = await prisma.user.updateMany({
         data: {
           failedLoginCount: 0,
           lockedUntil: null,
           status: UserStatus.active,
         },
-        include: {
-          roleAssignments: true,
-          studentProfile: true,
-        },
         where: {
           id: user.id,
+          softDeletedAt: null,
+          status: UserStatus.locked,
         },
       });
+
+      if (unlocked.count === 1) {
+        user = {
+          ...user,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          status: UserStatus.active,
+        };
+      }
     }
 
     const activeRoles = user.roleAssignments
@@ -219,7 +243,7 @@ async function authenticateUser(
         ? new Date(Date.now() + ACCOUNT_LOCK_WINDOW_MINUTES * 60 * 1000)
         : null;
 
-      await prisma.user.update({
+      await prisma.user.updateMany({
         data: {
           failedLoginCount,
           lockedUntil,
@@ -227,6 +251,8 @@ async function authenticateUser(
         },
         where: {
           id: user.id,
+          softDeletedAt: null,
+          status: { notIn: [UserStatus.disabled, UserStatus.soft_deleted] },
         },
       });
 
@@ -243,7 +269,7 @@ async function authenticateUser(
       };
     }
 
-    await prisma.user.update({
+    const loginState = await prisma.user.updateMany({
       data: {
         failedLoginCount: 0,
         lastLoginAt: new Date(),
@@ -252,16 +278,46 @@ async function authenticateUser(
       },
       where: {
         id: user.id,
+        softDeletedAt: null,
+        status: { notIn: [UserStatus.disabled, UserStatus.soft_deleted] },
       },
     });
+
+    if (loginState.count !== 1) {
+      await recordLoginAttempt({
+        email: normalizedEmail,
+        failureReason: "inactive_or_unauthorized",
+        result: LoginAttemptResult.failed,
+        userId: user.id,
+      });
+
+      return {
+        code: "invalid_credentials",
+        ok: false,
+      };
+    }
+
+    const session = await createSession(user.id);
+
+    if (!session) {
+      await recordLoginAttempt({
+        email: normalizedEmail,
+        failureReason: "inactive_or_unauthorized",
+        result: LoginAttemptResult.failed,
+        userId: user.id,
+      });
+
+      return {
+        code: "invalid_credentials",
+        ok: false,
+      };
+    }
 
     await recordLoginAttempt({
       email: normalizedEmail,
       result: LoginAttemptResult.success,
       userId: user.id,
     });
-
-    await createSession(user.id);
 
     return {
       ok: true,
@@ -359,17 +415,55 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
     throw new Error(validationError);
   }
 
-  const record = await getValidPasswordResetRecord(rawToken);
-
-  if (!record) {
-    throw new Error("This reset link is invalid or has already expired.");
-  }
-
   const passwordHash = await hashPassword(nextPassword);
   const now = new Date();
 
-  await prisma.$transaction([
-    prisma.user.update({
+  await prisma.$transaction(async (tx) => {
+    const candidate = await tx.$queryRaw<Array<{ id: string; user_id: string }>>`
+      SELECT id, user_id
+      FROM password_reset_tokens
+      WHERE token_hash = ${hashToken(rawToken)}
+        AND used_at IS NULL
+        AND expires_at > ${now}
+    `;
+
+    if (!candidate[0]) {
+      throw new Error("This reset link is invalid or has already expired.");
+    }
+
+    // First-login completion also locks the user before touching reset-token
+    // rows, keeping concurrent completion paths in a deterministic order.
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${candidate[0].user_id}::uuid FOR UPDATE`;
+
+    const claimed = await tx.$queryRaw<Array<{ id: string; user_id: string }>>`
+      UPDATE password_reset_tokens
+      SET used_at = ${now}
+      WHERE token_hash = ${hashToken(rawToken)}
+        AND used_at IS NULL
+        AND expires_at > ${now}
+      RETURNING id, user_id
+    `;
+
+    const record = claimed[0];
+
+    if (!record) {
+      throw new Error("This reset link is invalid or has already expired.");
+    }
+
+    const user = await tx.user.findUnique({
+      select: {
+        id: true,
+        softDeletedAt: true,
+        status: true,
+      },
+      where: { id: record.user_id },
+    });
+
+    if (!user || user.status === UserStatus.disabled || user.status === UserStatus.soft_deleted || user.softDeletedAt) {
+      throw new Error("This reset link is invalid or has already expired.");
+    }
+
+    await tx.user.update({
       data: {
         failedLoginCount: 0,
         lockedUntil: null,
@@ -378,41 +472,43 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
         passwordUpdatedAt: now,
         status: UserStatus.active,
       },
+      where: { id: record.user_id },
+    });
+
+    await tx.passwordResetToken.updateMany({
+      data: { usedAt: now },
       where: {
-        id: record.userId,
-      },
-    }),
-    prisma.passwordResetToken.update({
-      data: {
-        usedAt: now,
-      },
-      where: {
-        id: record.id,
-      },
-    }),
-    prisma.passwordResetToken.updateMany({
-      data: {
-        usedAt: now,
-      },
-      where: {
-        id: {
-          not: record.id,
-        },
+        id: { not: record.id },
         usedAt: null,
-        userId: record.userId,
+        userId: record.user_id,
       },
-    }),
-    prisma.authSession.updateMany({
+    });
+
+    await completeEnrollmentHandoffsForUser(tx, record.user_id);
+
+    await tx.authSession.updateMany({
       data: {
         revokedAt: now,
         status: SessionStatus.revoked,
       },
       where: {
         status: SessionStatus.active,
-        userId: record.userId,
+        userId: record.user_id,
       },
-    }),
-  ]);
+    });
+
+    await tx.auditLog.create({
+      data: {
+        action: "password_reset.completed",
+        metadata: {
+          method: "password_reset",
+          userId: record.user_id,
+        },
+        targetId: record.user_id,
+        targetType: "user",
+      },
+    });
+  });
 }
 
 async function changePasswordForUser(userId: string, nextPassword: string) {
@@ -425,8 +521,29 @@ async function changePasswordForUser(userId: string, nextPassword: string) {
   const passwordHash = await hashPassword(nextPassword);
   const now = new Date();
 
-  await prisma.$transaction([
-    prisma.user.update({
+  await prisma.$transaction(async (tx) => {
+    const users = await tx.$queryRaw<Array<{
+      soft_deleted_at: Date | null;
+      status: UserStatus;
+    }>>`
+      SELECT status, soft_deleted_at
+      FROM users
+      WHERE id = ${userId}::uuid
+      FOR UPDATE
+    `;
+
+    const currentUser = users[0];
+
+    if (
+      !currentUser
+      || currentUser.status === UserStatus.disabled
+      || currentUser.status === UserStatus.soft_deleted
+      || currentUser.soft_deleted_at
+    ) {
+      throw new Error("The account is inactive and cannot complete first-login setup.");
+    }
+
+    await tx.user.update({
       data: {
         failedLoginCount: 0,
         lockedUntil: null,
@@ -435,27 +552,188 @@ async function changePasswordForUser(userId: string, nextPassword: string) {
         passwordUpdatedAt: now,
         status: UserStatus.active,
       },
-      where: {
-        id: userId,
-      },
-    }),
-    prisma.passwordResetToken.updateMany({
-      data: {
-        usedAt: now,
-      },
+      where: { id: userId },
+    });
+
+    await tx.passwordResetToken.updateMany({
+      data: { usedAt: now },
       where: {
         usedAt: null,
         userId,
       },
-    }),
-  ]);
+    });
+
+    await completeEnrollmentHandoffsForUser(tx, userId);
+
+    await tx.auditLog.create({
+      data: {
+        action: "first_login_password_changed",
+        metadata: {
+          method: "first_login",
+          userId,
+        },
+        targetId: userId,
+        targetType: "user",
+      },
+    });
+  });
+}
+
+/**
+ * Consume a manual-share invite link and complete the recipient's credential
+ * setup in the same transaction as the handoff transition.
+ */
+async function completeEnrollmentInvite(rawToken: string, nextPassword: string) {
+  const validationError = validatePassword(nextPassword);
+
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const tokenHash = hashToken(rawToken);
+  const now = new Date();
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const handoff = await lockEnrollmentHandoffByToken(tx, tokenHash);
+
+    if (!handoff || handoff.method !== EnrollmentHandoffMethod.invite_link) {
+      throw new Error("This invite link is invalid or has already expired.");
+    }
+
+    if (!ACTIVE_HANDOFF_STATUSES.includes(handoff.status as (typeof ACTIVE_HANDOFF_STATUSES)[number])) {
+      throw new Error("This invite link is invalid or has already expired.");
+    }
+
+    if (handoff.expires_at !== null && handoff.expires_at <= now) {
+      const expired = await tx.enrollmentHandoff.updateMany({
+        data: {
+          secretEnvelope: Prisma.DbNull,
+          status: EnrollmentHandoffStatus.expired,
+        },
+        where: {
+          id: handoff.id,
+          expiresAt: { lte: now },
+          status: { in: [...ACTIVE_HANDOFF_STATUSES] },
+        },
+      });
+
+      if (expired.count === 1) {
+        await writeHandoffAudit({
+          action: "enrollment_handoff.expired",
+          handoffId: handoff.id,
+          metadata: {
+            method: handoff.method,
+          },
+          tx,
+          userId: handoff.user_id,
+        });
+      }
+
+      return { expired: true as const };
+    }
+
+    if (handoff.user_status !== UserStatus.active || handoff.soft_deleted_at !== null) {
+      throw new Error("This invite link is invalid or has already expired.");
+    }
+
+    // Do not spend bcrypt work on invalid, expired, or terminal bearer tokens.
+    const passwordHash = await hashPassword(nextPassword);
+
+    await tx.user.update({
+      data: {
+        failedLoginCount: 0,
+        lockedUntil: null,
+        mustChangePassword: false,
+        passwordHash,
+        passwordUpdatedAt: now,
+        status: UserStatus.active,
+      },
+      where: { id: handoff.user_id },
+    });
+
+    await tx.enrollmentHandoff.update({
+      data: {
+        completedAt: now,
+        secretEnvelope: Prisma.DbNull,
+        status: EnrollmentHandoffStatus.completed,
+      },
+      where: {
+        id: handoff.id,
+        status: { in: [...ACTIVE_HANDOFF_STATUSES] },
+      },
+    });
+
+    await tx.passwordResetToken.updateMany({
+      data: { usedAt: now },
+      where: {
+        usedAt: null,
+        userId: handoff.user_id,
+      },
+    });
+
+    await tx.authSession.updateMany({
+      data: {
+        revokedAt: now,
+        status: SessionStatus.revoked,
+      },
+      where: {
+        status: SessionStatus.active,
+        userId: handoff.user_id,
+      },
+    });
+
+    await writeHandoffAudit({
+      action: "enrollment_handoff.completed",
+      handoffId: handoff.id,
+      metadata: {
+        method: EnrollmentHandoffMethod.invite_link,
+      },
+      tx,
+      userId: handoff.user_id,
+    });
+
+    await tx.auditLog.create({
+      data: {
+        action: "invite.accepted",
+        metadata: {
+          handoffId: handoff.id,
+          method: EnrollmentHandoffMethod.invite_link,
+          userId: handoff.user_id,
+        },
+        targetId: handoff.user_id,
+        targetType: "user",
+      },
+    });
+
+    return { expired: false as const };
+  });
+
+  if (outcome.expired) {
+    throw new Error("This invite link is invalid or has already expired.");
+  }
+
+  return { completed: true as const };
 }
 
 async function createStudentEnrollment(input: EnrollmentCreateInput) {
   await ensureExamEventExists(input.targetExamEventId);
 
-  const password = generateTemporaryPassword();
-  const passwordHash = await hashPassword(password);
+  const handoffMethod = input.handoffMethod ?? EnrollmentHandoffMethod.temporary_password;
+  const rawSecret = handoffMethod === EnrollmentHandoffMethod.invite_link
+    ? createOpaqueToken()
+    : generateTemporaryPassword();
+  const passwordHash = await hashPassword(
+    handoffMethod === EnrollmentHandoffMethod.temporary_password
+      ? rawSecret
+      : createOpaqueToken(24),
+  );
+  const expiresAt = handoffMethod === EnrollmentHandoffMethod.invite_link
+    ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+    : null;
+  const inviteUrl = handoffMethod === EnrollmentHandoffMethod.invite_link
+    ? buildEnrollmentInviteUrl(rawSecret)
+    : null;
+  let handoffId = "";
 
   try {
     const student = await prisma.$transaction(async (tx) => {
@@ -492,13 +770,26 @@ async function createStudentEnrollment(input: EnrollmentCreateInput) {
         },
       });
 
+      const handoff = await createEnrollmentHandoff({
+        createdByUserId: input.actorUserId,
+        expiresAt,
+        method: handoffMethod,
+        rawSecret,
+        tokenHash: handoffMethod === EnrollmentHandoffMethod.invite_link ? hashToken(rawSecret) : null,
+        tx,
+        userId: user.id,
+      });
+      handoffId = handoff.handoffId;
+
       await tx.auditLog.create({
         data: {
           action: "student_enrollment.created",
           actorUserId: input.actorUserId,
           metadata: {
-            email: normalizeEmail(input.email),
+            handoffId: handoff.handoffId,
+            method: handoffMethod,
             targetExamEventId: input.targetExamEventId,
+            userId: user.id,
           },
           targetId: user.id,
           targetType: "user",
@@ -508,8 +799,22 @@ async function createStudentEnrollment(input: EnrollmentCreateInput) {
       return user;
     });
 
+    const released = await releaseEnrollmentHandoff({
+      actorUserId: input.actorUserId,
+      handoffId,
+    });
+
+    if (released.status !== "released" || !released.secret) {
+      throw new Error("The enrollment handoff could not be released.");
+    }
+
     return {
-      temporaryPassword: password,
+      inviteUrl: handoffMethod === EnrollmentHandoffMethod.invite_link
+        ? inviteUrl
+        : null,
+      temporaryPassword: handoffMethod === EnrollmentHandoffMethod.temporary_password
+        ? released.secret
+        : null,
       userId: student.id,
     };
   } catch (error) {
@@ -575,16 +880,27 @@ async function setStudentEnrollmentStatus({
   nextStatus: "active" | "disabled";
   userId: string;
 }) {
-  await prisma.$transaction([
-    prisma.user.update({
-      data: {
-        status: nextStatus,
-      },
-      where: {
-        id: userId,
-      },
-    }),
-    prisma.auditLog.create({
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      data: { status: nextStatus },
+      where: { id: userId },
+    });
+
+    if (nextStatus === UserStatus.disabled) {
+      await revokeOpenEnrollmentHandoffs(tx, userId, actorUserId);
+      await tx.authSession.updateMany({
+        data: {
+          revokedAt: new Date(),
+          status: SessionStatus.revoked,
+        },
+        where: {
+          status: SessionStatus.active,
+          userId,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
       data: {
         action:
           nextStatus === UserStatus.disabled
@@ -592,22 +908,21 @@ async function setStudentEnrollmentStatus({
             : "student_enrollment.reactivated",
         actorUserId,
         metadata: {
+          method: "admin_status_change",
           nextStatus,
+          userId,
         },
         targetId: userId,
         targetType: "user",
       },
-    }),
-  ]);
-
-  if (nextStatus === UserStatus.disabled) {
-    await revokeAllUserSessions(userId);
-  }
+    });
+  });
 }
 
 export {
   authenticateUser,
   changePasswordForUser,
+  completeEnrollmentInvite,
   completePasswordReset,
   createStudentEnrollment,
   getValidPasswordResetRecord,

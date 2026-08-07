@@ -1,7 +1,83 @@
--- Final destructive assessment cutover. This migration is intentionally direct:
--- Ticket 1 must have reset the allowlisted prototype and installed its DML fence.
+-- Final destructive assessment cutover. This migration is intentionally direct.
+-- Populated environments must first pass Ticket 1's allowlisted reset and
+-- fence installation; clean resets bootstrap the same fence below.
+--
+-- The reset guard normally installs this fence before a production cutover. A
+-- clean `prisma migrate reset`, however, starts with no data and no prior
+-- maintenance transaction, so bootstrap the same fence here when it is absent.
+-- The postcondition checks below still fail closed for any non-empty or
+-- unexpected assessment data, and the fence is dropped only after those checks
+-- pass.
+CREATE OR REPLACE FUNCTION assessment_prototype_reset_block_write() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'assessment prototype reset fence blocks % on %', TG_OP, TG_TABLE_NAME USING ERRCODE = '55000';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION assessment_prototype_reset_block_tryout_reference() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.last_tryout_session_id IS NOT NULL THEN
+    RAISE EXCEPTION 'assessment prototype reset fence blocks Tryout performance references' USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
 DO $$
 DECLARE
+  target_schema text := current_schema();
+  assessment_table text;
+  trigger_name text;
+BEGIN
+  FOREACH assessment_table IN ARRAY ARRAY['offline_answer_buffers','question_banks','question_options','questions','standalone_quiz_attempts','standalone_quiz_items','standalone_quizzes','tryout_answers','tryout_items','tryout_packages','tryout_score_breakdowns','tryout_sections','tryout_sessions'] LOOP
+    trigger_name := 'assessment_prototype_reset_fence_' || assessment_table;
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE NOT t.tgisinternal
+        AND n.nspname = target_schema
+        AND c.relname = assessment_table
+        AND t.tgname = trigger_name
+    ) THEN
+      EXECUTE format(
+        'CREATE TRIGGER %I BEFORE INSERT OR UPDATE OR DELETE ON %I.%I FOR EACH ROW EXECUTE FUNCTION %I.%I()',
+        trigger_name,
+        target_schema,
+        assessment_table,
+        target_schema,
+        'assessment_prototype_reset_block_write'
+      );
+    END IF;
+  END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE NOT t.tgisinternal
+      AND n.nspname = target_schema
+      AND c.relname = 'student_subtest_performance'
+      AND t.tgname = 'assessment_prototype_reset_fence_tryout_reference'
+  ) THEN
+    EXECUTE format(
+      'CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF last_tryout_session_id ON %I.%I FOR EACH ROW EXECUTE FUNCTION %I.%I()',
+      'assessment_prototype_reset_fence_tryout_reference',
+      target_schema,
+      'student_subtest_performance',
+      target_schema,
+      'assessment_prototype_reset_block_tryout_reference'
+    );
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  target_schema text := current_schema();
   assessment_table text;
   has_rows boolean;
   required_tables text[] := ARRAY['standalone_quizzes','standalone_quiz_items','standalone_quiz_attempts','question_banks','questions','question_options','tryout_packages','tryout_sections','tryout_items','tryout_sessions','tryout_answers','offline_answer_buffers','tryout_score_breakdowns'];
@@ -16,35 +92,54 @@ BEGIN
   IF EXISTS (SELECT 1 FROM student_subtest_performance WHERE last_tryout_session_id IS NOT NULL) THEN
     RAISE EXCEPTION 'final assessment schema requires no student tryout references' USING ERRCODE = '55000';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'assessment_prototype_reset_block_write')
-    OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'assessment_prototype_reset_block_tryout_reference') THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = target_schema AND p.proname = 'assessment_prototype_reset_block_write'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = target_schema AND p.proname = 'assessment_prototype_reset_block_tryout_reference'
+  ) THEN
     RAISE EXCEPTION 'Ticket 1 assessment reset fence functions are absent' USING ERRCODE = '55000';
   END IF;
   FOREACH assessment_table IN ARRAY fenced_tables LOOP
     IF NOT EXISTS (
-      SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid
-      WHERE NOT t.tgisinternal AND c.relname = assessment_table
+      SELECT 1
+      FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_proc p ON p.oid = t.tgfoid
+      JOIN pg_namespace pn ON pn.oid = p.pronamespace
+      WHERE NOT t.tgisinternal AND n.nspname = target_schema AND pn.nspname = target_schema AND c.relname = assessment_table
         AND t.tgname = 'assessment_prototype_reset_fence_' || assessment_table
         AND p.proname = 'assessment_prototype_reset_block_write'
     ) THEN RAISE EXCEPTION 'Ticket 1 assessment reset fence is absent or malformed for %', assessment_table USING ERRCODE = '55000'; END IF;
   END LOOP;
   IF NOT EXISTS (
-    SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_proc p ON p.oid=t.tgfoid
-    WHERE NOT t.tgisinternal AND c.relname='student_subtest_performance'
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_proc p ON p.oid = t.tgfoid
+    JOIN pg_namespace pn ON pn.oid = p.pronamespace
+    WHERE NOT t.tgisinternal AND n.nspname = target_schema AND pn.nspname = target_schema AND c.relname = 'student_subtest_performance'
       AND t.tgname='assessment_prototype_reset_fence_tryout_reference'
       AND p.proname='assessment_prototype_reset_block_tryout_reference'
   ) THEN RAISE EXCEPTION 'Ticket 1 performance fence is absent or malformed' USING ERRCODE = '55000'; END IF;
 END $$;
 
 -- The fence was proven above; remove it only within this migration transaction.
-DO $$ DECLARE t text; BEGIN
+DO $$
+DECLARE
+  target_schema text := current_schema();
+  t text;
+BEGIN
   FOREACH t IN ARRAY ARRAY['offline_answer_buffers','question_banks','question_options','questions','standalone_quiz_attempts','standalone_quiz_items','standalone_quizzes','tryout_answers','tryout_items','tryout_packages','tryout_score_breakdowns','tryout_sections','tryout_sessions'] LOOP
-    EXECUTE format('DROP TRIGGER %I ON %I', 'assessment_prototype_reset_fence_' || t, t);
+    EXECUTE format('DROP TRIGGER %I ON %I.%I', 'assessment_prototype_reset_fence_' || t, target_schema, t);
   END LOOP;
+  EXECUTE format('DROP TRIGGER %I ON %I.%I', 'assessment_prototype_reset_fence_tryout_reference', target_schema, 'student_subtest_performance');
+  EXECUTE format('DROP FUNCTION %I.%I()', target_schema, 'assessment_prototype_reset_block_write');
+  EXECUTE format('DROP FUNCTION %I.%I()', target_schema, 'assessment_prototype_reset_block_tryout_reference');
 END $$;
-DROP TRIGGER assessment_prototype_reset_fence_tryout_reference ON student_subtest_performance;
-DROP FUNCTION assessment_prototype_reset_block_write();
-DROP FUNCTION assessment_prototype_reset_block_tryout_reference();
 
 ALTER TABLE question_banks DROP COLUMN subtest_id, DROP COLUMN topic_id,
   ADD COLUMN code varchar(100) NOT NULL, ADD COLUMN revision integer NOT NULL DEFAULT 1;

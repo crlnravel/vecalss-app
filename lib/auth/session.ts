@@ -34,15 +34,37 @@ async function createSession(userId: string) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000);
 
-  const session = await prisma.authSession.create({
-    data: {
-      expiresAt,
-      issuedAt: now,
-      refreshTokenHash,
-      status: SessionStatus.active,
-      userId,
-    },
+  const session = await prisma.$transaction(async (tx) => {
+    const users = await tx.$queryRaw<Array<{
+      soft_deleted_at: Date | null;
+      status: UserStatus;
+    }>>`
+      SELECT status, soft_deleted_at
+      FROM users
+      WHERE id = ${userId}::uuid
+      FOR UPDATE
+    `;
+
+    const user = users[0];
+
+    if (!user || user.status !== UserStatus.active || user.soft_deleted_at !== null) {
+      return null;
+    }
+
+    return tx.authSession.create({
+      data: {
+        expiresAt,
+        issuedAt: now,
+        refreshTokenHash,
+        status: SessionStatus.active,
+        userId,
+      },
+    });
   });
+
+  if (!session) {
+    return null;
+  }
 
   await setSessionCookie(rawToken);
 
@@ -161,7 +183,7 @@ async function getSessionContext() {
     && session.user.lockedUntil <= now;
 
   if (lockExpired) {
-    await prisma.user.update({
+    const unlocked = await prisma.user.updateMany({
       data: {
         failedLoginCount: 0,
         lockedUntil: null,
@@ -169,8 +191,14 @@ async function getSessionContext() {
       },
       where: {
         id: mapped.user.id,
+        softDeletedAt: null,
+        status: UserStatus.locked,
       },
     });
+
+    if (unlocked.count !== 1) {
+      return null;
+    }
 
     mapped.user.status = UserStatus.active;
   }
