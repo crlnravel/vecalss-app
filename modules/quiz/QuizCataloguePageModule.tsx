@@ -40,16 +40,6 @@ function QuizCataloguePageModule({
   session: SessionContext;
   subjects: QuizSubject[];
 }) {
-  const totalQuizzes = subjects.reduce(
-    (total, subject) => total + subject.quizzes.length,
-    0,
-  );
-  const totalQuestions = subjects.reduce(
-    (total, subject) =>
-      total +
-      subject.quizzes.reduce((subjectTotal, quiz) => subjectTotal + quiz.questionCount, 0),
-    0,
-  );
   const subjectGroups = subjectGroupOrder
     .map((code) => ({
       code,
@@ -74,15 +64,6 @@ function QuizCataloguePageModule({
             aria-hidden="true"
             className="pointer-events-none absolute right-[26%] bottom-[-8rem] size-64 rounded-full bg-primary-400/20 blur-3xl"
           />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-8 bottom-8 flex items-center gap-2"
-          >
-            <span className="size-2 rounded-full bg-[#ffd766]" />
-            <span className="size-3 rounded-full bg-primary-300" />
-            <span className="size-2 rounded-full bg-primary-100" />
-          </div>
-
           <div className="relative z-10 max-w-[42rem]">
             <h1 className="text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
               Kuis
@@ -91,21 +72,6 @@ function QuizCataloguePageModule({
               Temukan kuis berdasarkan mata pelajaran dan materi yang ingin kamu
               pelajari.
             </p>
-
-            <div className="mt-7 flex flex-wrap gap-3 text-sm font-bold">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5">
-                <LibraryBig className="size-4 text-primary-200" />
-                {subjects.length} subjek
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5">
-                <ListChecks className="size-4 text-primary-200" />
-                {totalQuizzes} kuis
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5">
-                <BookOpenCheck className="size-4 text-primary-200" />
-                {totalQuestions} soal
-              </span>
-            </div>
           </div>
 
           <div

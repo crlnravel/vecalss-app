@@ -19,10 +19,12 @@ type LoginNotice = {
 function LoginForm({
   audience,
   notice,
+  returnTo,
   registerUrl,
 }: {
   audience: LoginAudience;
   notice?: LoginNotice | null;
+  returnTo?: string | null;
   registerUrl: string;
 }) {
   const loginAction = audience === "admin"
@@ -45,6 +47,7 @@ function LoginForm({
   return (
     <form action={formAction} className="space-y-5">
       <input name="audience" type="hidden" value={audience} />
+      {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
 
       {notice ? (
         <FormNotice compact={notice.compact} tone="success">

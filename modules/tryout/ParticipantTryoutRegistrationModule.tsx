@@ -91,7 +91,11 @@ function ParticipantTryoutRegistrationModule({
         setMessage(response.message);
         return;
       }
-      window.location.assign(response.result.state === "assigned" ? `/tryout/${tryout.id}/waiting` : `/tryout/${tryout.id}`);
+      if (response.result.state === "unavailable") {
+        setMessage("Belum ada sesi tryout yang dapat menerima pendaftaran. Targetmu belum diubah; coba lagi setelah Kapten membuka jadwal baru.");
+        return;
+      }
+      window.location.assign(response.result.assignmentId ? `/tryout/${tryout.id}/waiting` : `/tryout/${tryout.id}`);
     } catch (registerError) {
       unstable_rethrow(registerError);
       setMessage(registerError instanceof Error ? registerError.message : "Pendaftaran tryout belum dapat diproses.");

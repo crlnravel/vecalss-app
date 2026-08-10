@@ -17,7 +17,7 @@ function formatDuration(seconds: number) {
 
 function formatSchedule(value?: Date) {
   if (!value) return "Jadwal menyusul";
-  return scheduleFormatter.format(new Date(value));
+  return `${scheduleFormatter.format(new Date(value))} WIB`;
 }
 
 function getTryoutState(tryout: ParticipantTryout, now: number): TryoutState {

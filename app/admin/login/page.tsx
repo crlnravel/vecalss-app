@@ -1,4 +1,5 @@
 import { LoginPageModule } from "@/modules/auth/LoginPageModule";
+import { getSafeAdminReturnPath } from "@/lib/auth/paths";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -9,6 +10,7 @@ export default async function AdminLoginPage({
   const notice = typeof resolvedSearchParams.notice === "string"
     ? resolvedSearchParams.notice
     : null;
+  const returnTo = getSafeAdminReturnPath(resolvedSearchParams.returnTo);
 
-  return <LoginPageModule audience="admin" notice={notice} />;
+  return <LoginPageModule audience="admin" notice={notice} returnTo={returnTo} />;
 }

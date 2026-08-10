@@ -6,7 +6,7 @@ import {
   getDefaultHomePath,
   getLoginPathForAudience,
 } from "./paths";
-import { getSessionContext, hasRole } from "./session";
+import { getReadOnlySessionContext, getSessionContext, hasRole } from "./session";
 import type { AuthenticatedUser, SessionContext } from "./types";
 
 async function requireSession(loginPath = getLoginPathForAudience("student")) {
@@ -19,8 +19,23 @@ async function requireSession(loginPath = getLoginPathForAudience("student")) {
   return session;
 }
 
-async function requireAdminSession() {
-  const session = await requireSession(getLoginPathForAudience("admin"));
+async function requireAdminSession(loginPath = getLoginPathForAudience("admin")) {
+  const session = await requireSession(loginPath);
+
+  if (!hasRole(session, RoleName.admin)) {
+    // Permission contract: an authenticated non-admin returns to their authorized home.
+    redirect(getDefaultHomePath(session.user));
+  }
+
+  return session;
+}
+
+async function requireAdminReadOnlySession() {
+  const session = await getReadOnlySessionContext();
+
+  if (!session) {
+    redirect(getLoginPathForAudience("admin"));
+  }
 
   if (!hasRole(session, RoleName.admin)) {
     redirect(getDefaultHomePath(session.user));
@@ -97,6 +112,7 @@ export {
   redirectIfOnboardingAlreadyComplete,
   redirectToAuthorizedHome,
   requireAdminSession,
+  requireAdminReadOnlySession,
   requireSession,
   requireStudentSession,
   requireTutorSession,

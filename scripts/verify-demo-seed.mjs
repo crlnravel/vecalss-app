@@ -112,6 +112,37 @@ async function main() {
       "Every historical attempt must contain seven releaseable runs.",
     );
 
+    const normalizedScores = await client.query(
+      `SELECT attempts.id,
+              attempts.score::numeric AS final_score,
+              attempts.release_policy_snapshot ->> 'aggregationVersion' AS aggregation_version,
+              COUNT(runs.id)::int AS run_count,
+              COUNT(*) FILTER (WHERE runs.calculation_result ? 'normalizedScore')::int AS normalized_run_count,
+              MIN((runs.calculation_result ->> 'normalizedScore')::numeric) AS minimum_run_score,
+              MAX((runs.calculation_result ->> 'normalizedScore')::numeric) AS maximum_run_score
+         FROM tryout_attempts attempts
+         JOIN tryout_attempt_test_runs runs ON runs.attempt_id = attempts.id
+        WHERE attempts.delivery_session_id = $1
+        GROUP BY attempts.id
+        ORDER BY final_score DESC`,
+      [historical.id],
+    );
+    assert.equal(normalizedScores.rowCount, 3, "The historical session must contain three normalized scored attempts.");
+    for (const attempt of normalizedScores.rows) {
+      assert.equal(attempt.aggregation_version, "normalized-test-mean-v1", "Each demo attempt must record the normalized aggregation version.");
+      assert.equal(attempt.run_count, 7, "Each demo attempt must contain seven Test runs.");
+      assert.equal(attempt.normalized_run_count, 7, "Each demo Test run must retain normalizedScore.");
+      assert(Number(attempt.final_score) >= 0 && Number(attempt.final_score) <= 100, "Demo final indices must stay within the internal 0–100 scale.");
+      assert(Number(attempt.minimum_run_score) >= 0 && Number(attempt.maximum_run_score) <= 100, "Demo Test indices must stay within the internal 0–100 scale.");
+    }
+    console.table(normalizedScores.rows.map((attempt) => ({
+      aggregationVersion: attempt.aggregation_version,
+      finalIndex: Number(attempt.final_score),
+      maxTestIndex: Number(attempt.maximum_run_score),
+      minTestIndex: Number(attempt.minimum_run_score),
+      normalizedRuns: attempt.normalized_run_count,
+    })));
+
     const prohibitedCopy = await scalar(
       client,
       `SELECT COUNT(*)::int AS value FROM (

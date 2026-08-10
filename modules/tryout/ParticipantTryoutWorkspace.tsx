@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  ArrowCounterClockwise,
   BookOpenText,
   Buildings,
   CalendarBlank,
@@ -10,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,49 @@ function stateClassName(state: TryoutState) {
   }[state];
 }
 
+function TryoutCardArtwork({
+  useReferenceCover,
+}: {
+  useReferenceCover: boolean;
+}) {
+  return (
+    <div className="relative aspect-[16/9] overflow-hidden bg-primary-50">
+      {useReferenceCover ? (
+        <Image
+          alt=""
+          className="object-cover object-center"
+          fill
+          sizes="(min-width: 1280px) 50vw, (min-width: 640px) 50vw, 100vw"
+          src="/brand/tryout-placeholder-banner.jpg"
+        />
+      ) : (
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute -top-24 -right-16 size-64 rounded-full border-[18px] border-primary-200/55"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[linear-gradient(125deg,#d8eedf_0%,#b8ddc5_48%,#7eb697_100%)]"
+          />
+          <Image
+            alt=""
+            className="absolute right-[-1.5rem] bottom-[-2.25rem] h-auto w-[45%] max-w-[15rem] object-contain drop-shadow-[0_18px_24px_rgba(1,76,56,0.2)]"
+            height={416}
+            sizes="(min-width: 1280px) 15rem, 45vw"
+            src="/brand/mascot-vecalss.png"
+            width={416}
+          />
+        </>
+      )}
+      <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.28)_0%,rgba(1,76,56,0.03)_60%,rgba(1,76,56,0.2)_100%)]" />
+      <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-primary-800">
+        Vecalss
+      </span>
+    </div>
+  );
+}
+
 function ParticipantTryoutWorkspace({
   initialTryouts,
   session,
@@ -55,7 +99,12 @@ function ParticipantTryoutWorkspace({
 }) {
   const [filter, setFilter] = useState<CatalogueFilter>("all");
   const [query, setQuery] = useState("");
-  const [referenceTime] = useState(() => Date.now());
+  const [referenceTime, setReferenceTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setReferenceTime(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const visibleTryouts = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("id-ID");
@@ -86,23 +135,18 @@ function ParticipantTryoutWorkspace({
     >
       <section className="relative isolate min-h-[22rem] overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_62%,#2f8a5d_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_rgba(1,76,56,0.72)] sm:px-8 sm:py-10 lg:min-h-[24rem] lg:px-10 lg:py-12">
         <div aria-hidden="true" className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-80" />
-        <div aria-hidden="true" className="pointer-events-none absolute right-8 bottom-7 flex items-end gap-2 opacity-90 sm:right-[23%]">
-          <span className="size-2 rounded-full bg-[#ffd766]" />
-          <span className="size-3 rounded-full bg-[#b7ddc3]" />
-          <span className="size-2 rounded-full bg-[#eef8f1]" />
-        </div>
-        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[42%] min-w-[20rem] lg:block">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[40%] min-w-[18rem] lg:block">
           <div className="absolute inset-x-8 bottom-5 z-10 h-12 rounded-full bg-black/20 blur-2xl" />
           <Image
             alt=""
-            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[22rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(0,20,14,0.36)] xl:w-[26rem]"
+            className="absolute right-[-2.5rem] bottom-[-2.5rem] h-auto w-[20rem] max-w-none object-contain drop-shadow-[0_26px_42px_rgba(0,20,14,0.36)] xl:w-[26rem]"
             height={416}
             sizes="(min-width: 1280px) 416px, 352px"
             src="/brand/mascot-vecalss.png"
             width={416}
           />
         </div>
-        <div className="relative max-w-3xl lg:max-w-[58%]">
+        <div className="relative max-w-3xl lg:max-w-[60%]">
           <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
             Bersiap menghadapi ujian dengan pengalaman yang terasa nyata.
           </h1>
@@ -113,7 +157,7 @@ function ParticipantTryoutWorkspace({
       </section>
 
       <section aria-label="Cari dan filter tryout" className="grid gap-6">
-        <div className="grid gap-4 rounded-[1.75rem] border border-primary-100 bg-white p-4 shadow-[0_20px_52px_-38px_rgba(1,76,56,0.5)] sm:p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="grid gap-4 rounded-[1.75rem] border border-primary-100 bg-white p-4 shadow-[0_20px_52px_-38px_rgba(1,76,56,0.5)] sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <label className="relative block w-full">
             <span className="sr-only">Cari tryout</span>
             <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-secondary-500" />
@@ -125,7 +169,7 @@ function ParticipantTryoutWorkspace({
             />
           </label>
 
-          <div aria-label="Filter tryout" className="flex gap-2 overflow-x-auto pb-1 md:justify-end" role="group">
+          <div aria-label="Filter tryout" className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden lg:justify-end" role="group">
             {filters.map((item) => (
               <Button
                 aria-pressed={filter === item.id}
@@ -157,25 +201,15 @@ function ParticipantTryoutWorkspace({
                 ? "Lanjutkan"
                 : attempt
                   ? "Lihat hasil"
-                  : tryout.admissionStatus === "active"
+                  : tryout.admissionStatus === "active" && tryout.assignments.length
                     ? "Masuk ruang tunggu"
+                    : tryout.admissionStatus === "active"
+                      ? "Lihat status"
                     : "Lihat detail";
 
               return (
                 <article className="group flex min-w-0 flex-col overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] transition duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]" key={tryout.id}>
-                  <div className="relative aspect-[16/9] overflow-hidden bg-primary-50">
-                    <Image
-                      alt=""
-                      className="object-cover object-center"
-                      fill
-                      sizes={visibleTryouts.length === 1
-                        ? "(min-width: 1280px) 50vw, (min-width: 640px) 50vw, 100vw"
-                        : "(min-width: 1536px) 33vw, (min-width: 1280px) 33vw, (min-width: 1024px) 50vw, 100vw"}
-                      src="/brand/tryout-placeholder-banner.jpg"
-                    />
-                    <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.28)_0%,rgba(1,76,56,0.03)_60%,rgba(1,76,56,0.2)_100%)]" />
-                    <span className="absolute top-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-primary-800">Vecalss</span>
-                  </div>
+                  <TryoutCardArtwork useReferenceCover={visibleTryouts.length === 1} />
 
                   <div className="flex flex-1 flex-col p-5">
                     <div className="flex items-center justify-between gap-3">
@@ -188,9 +222,11 @@ function ParticipantTryoutWorkspace({
                       <span className="flex items-center gap-1.5"><BookOpenText className="size-4 text-primary-700" />{totalQuestions || "—"} soal</span>
                     </div>
                     <p className="mt-3 flex items-start gap-2 text-sm leading-5 text-secondary-500"><CalendarBlank className="mt-0.5 size-4 shrink-0 text-primary-700" />{formatSchedule(primarySession?.availableFrom)}</p>
-                    <Button className="mt-6 w-full" render={<Link href={href} />} variant="brand">
-                      {actionLabel} <ArrowRight />
-                    </Button>
+                    <div className="mt-auto pt-6">
+                      <Button className="w-full" render={<Link href={href} />} variant="brand">
+                        {actionLabel} <ArrowRight />
+                      </Button>
+                    </div>
                   </div>
                 </article>
               );
@@ -201,6 +237,18 @@ function ParticipantTryoutWorkspace({
             <Buildings className="mx-auto text-3xl text-primary-700" />
             <h3 className="mt-4 text-lg font-semibold text-secondary-900">Tidak ada tryout yang cocok</h3>
             <p className="mt-2 text-sm text-secondary-600">Coba pilih kategori atau kata kunci lain.</p>
+            {query || filter !== "all" ? (
+              <Button
+                className="mt-5"
+                onClick={() => {
+                  setFilter("all");
+                  setQuery("");
+                }}
+                variant="brandOutline"
+              >
+                <ArrowCounterClockwise /> Reset pencarian
+              </Button>
+            ) : null}
           </div>
         )}
       </section>

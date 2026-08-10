@@ -1,6 +1,9 @@
 type FormState = {
   fieldErrors?: Record<string, string>;
   fields?: Record<string, string>;
+  handoffId?: string;
+  inviteUrl?: string;
+  handoffMethod?: "invite_link" | "temporary_password";
   message?: string;
   resetUrl?: string;
   status: "error" | "idle" | "success";

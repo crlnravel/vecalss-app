@@ -162,9 +162,9 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       }
       const nextState = response.result as State;
       const nextRunId = nextState.activeRun?.id ?? null;
+      let restoredPositionMessage = "";
       if (nextRunId !== activeRunRef.current) {
         activeRunRef.current = nextRunId;
-        setIndex(0);
         if (nextRunId) {
           const saved = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:marked`);
           try {
@@ -172,12 +172,20 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
           } catch {
             setMarked(new Set());
           }
+          const positionItemId = window.localStorage.getItem(`tryout:${attemptId}:${nextRunId}:position`);
+          const restoredIndex = nextState.activeRun?.contentSnapshot.testType === "cbt" && positionItemId
+            ? nextState.activeRun.contentSnapshot.items.findIndex((candidate) => candidate.id === positionItemId)
+            : -1;
+          const safeIndex = restoredIndex >= 0 ? restoredIndex : 0;
+          setIndex(safeIndex);
+          if (safeIndex > 0) restoredPositionMessage = `Progres dipulihkan ke soal ${safeIndex + 1}. Jawaban tersimpan dari server.`;
         } else {
+          setIndex(0);
           setMarked(new Set());
         }
       }
       setState(nextState);
-      setMessage("");
+      setMessage(restoredPositionMessage);
     } catch (refreshError) {
       unstable_rethrow(refreshError);
       setMessage(refreshError instanceof Error ? refreshError.message : "Tryout belum dapat dimuat.");
@@ -245,6 +253,12 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   }, [busy, now, refresh, run?.serverDeadlineAt]);
 
   const item = items[Math.min(index, Math.max(0, items.length - 1))];
+
+  useEffect(() => {
+    if (!run || snapshot?.testType !== "cbt" || !item) return;
+    window.localStorage.setItem(`tryout:${attemptId}:${run.id}:position`, item.id);
+  }, [attemptId, item, run, snapshot?.testType]);
+
   const selected = run?.answers.find((answer) => answer.tryoutItemId === item?.id)?.selectedOptionId ?? null;
   const answerIds = useMemo(() => new Set(run?.answers.reduce<string[]>((ids, answer) => {
     if (answer.selectedOptionId) ids.push(answer.tryoutItemId);
@@ -420,7 +434,6 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       onIndexChange={setIndex}
       onToggleMarked={toggleMarked}
       paletteOpen={paletteOpen}
-      refresh={refresh}
       run={run}
       save={save}
       saveState={saveState}
@@ -454,7 +467,6 @@ function ParticipantAttemptScreen({
   onIndexChange,
   onToggleMarked,
   paletteOpen,
-  refresh,
   run,
   save,
   saveState,
@@ -482,7 +494,6 @@ function ParticipantAttemptScreen({
   onIndexChange: (index: number) => void;
   onToggleMarked: () => void;
   paletteOpen: boolean;
-  refresh: () => void;
   run: ActiveRun;
   save: (optionId: string) => void;
   saveState: "idle" | "saving" | "saved" | "error";
@@ -506,7 +517,9 @@ function ParticipantAttemptScreen({
             <p className="mt-0.5 truncate font-semibold">{run.section.title}</p>
           </div>
           <div className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 font-mono text-lg font-semibold tabular-nums", timerUrgent ? "bg-red-50 text-red-800" : "bg-[#fff8d8] text-[#5c4800]")} aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}>
-            <ClockCountdown />{formatTimer(run.serverDeadlineAt, now)}
+            <ClockCountdown />
+            <span className="hidden font-sans text-xs font-bold sm:inline">{timerUrgent ? "Segera habis" : "Sisa waktu"}</span>
+            {formatTimer(run.serverDeadlineAt, now)}
           </div>
           {run.fullscreenPrompt ? <Button aria-label="Masuk layar penuh" className="hidden sm:inline-flex" onClick={() => void enterFullscreen()} size="icon" variant="brandOutline"><ArrowsOut /></Button> : null}
         </div>
@@ -514,13 +527,13 @@ function ParticipantAttemptScreen({
 
       <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:px-8 lg:py-7">
         <div className="min-w-0">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3">
+          <div className="grid gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-[0.08em] text-primary-700 uppercase">Soal {Math.min(index + 1, items.length)} dari {items.length}</p>
               <p className="mt-1 text-sm text-secondary-500">{snapshot?.testType === "cat" ? "CAT · jawaban tidak dapat diubah setelah dikirim" : `${answerIds.size} dijawab · ${markedCount} ditandai`}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <p aria-live="polite" className={cn("hidden items-center gap-2 text-xs sm:flex", saveState === "error" ? "text-red-700" : "text-secondary-500")}>{saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : saveState === "error" ? <><WarningCircle />Gagal tersimpan</> : <><FloppyDisk />Simpan otomatis</>}</p>
+            <div className="flex items-center justify-between gap-2 sm:justify-end">
+              <p aria-live="polite" className={cn("flex min-h-9 items-center gap-2 text-xs font-medium", saveState === "error" ? "text-red-700" : "text-secondary-500")}>{saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : <><FloppyDisk />Simpan otomatis</>}</p>
               {snapshot?.testType === "cbt" ? <Button className="lg:hidden" onClick={() => setPaletteOpen(true)} variant="brandOutline"><GridFour />Daftar soal</Button> : null}
             </div>
           </div>

@@ -71,6 +71,72 @@ async function createSession(userId: string) {
   return session;
 }
 
+type CreateSessionIfUserStateMatchesInput = {
+  expectedFailedLoginCount: number;
+  expectedLockedUntil: Date | null;
+  expectedMustChangePassword: boolean;
+  expectedPasswordHash: string;
+  expectedPasswordUpdatedAt: Date | null;
+  userId: string;
+};
+
+/**
+ * Complete the post-bcrypt login transition and issue its session while the
+ * account row is still locked. A password/reset/reissue/status mutation that
+ * wins the race changes the credential generation marker (and usually the
+ * credential fields), causing this conditional update to return zero and
+ * preventing a stale login from creating a session.
+ */
+async function createSessionIfUserStateMatches(input: CreateSessionIfUserStateMatchesInput) {
+  const rawToken = createOpaqueToken();
+  const refreshTokenHash = hashToken(rawToken);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000);
+
+  const session = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.updateMany({
+      data: {
+        failedLoginCount: 0,
+        lastLoginAt: now,
+        lockedUntil: null,
+        status: UserStatus.active,
+      },
+      where: {
+        failedLoginCount: input.expectedFailedLoginCount,
+        id: input.userId,
+        lockedUntil: input.expectedLockedUntil,
+        mustChangePassword: input.expectedMustChangePassword,
+        passwordHash: input.expectedPasswordHash,
+        passwordUpdatedAt: input.expectedPasswordUpdatedAt,
+        softDeletedAt: null,
+        status: UserStatus.active,
+      },
+    });
+
+    if (updated.count !== 1) {
+      return null;
+    }
+
+    return tx.authSession.create({
+      data: {
+        expiresAt,
+        issuedAt: now,
+        refreshTokenHash,
+        status: SessionStatus.active,
+        userId: input.userId,
+      },
+    });
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  await setSessionCookie(rawToken);
+
+  return session;
+}
+
 async function revokeSessionByHash(refreshTokenHash: string) {
   const now = new Date();
 
@@ -142,6 +208,13 @@ async function getSessionContext() {
   });
 
   if (!session?.user) {
+    return null;
+  }
+
+  // Legacy rows can retain active status after a soft-delete timestamp is
+  // written. Reject before student-profile auto-provisioning or heartbeat
+  // updates so an existing session cannot authorize side effects.
+  if (session.user.softDeletedAt !== null) {
     return null;
   }
 
@@ -223,6 +296,79 @@ async function getSessionContext() {
   return mapped;
 }
 
+/**
+ * Read the current session without any authentication side effects.
+ *
+ * API preview/status endpoints use this path so an otherwise read-only
+ * request cannot refresh the heartbeat, auto-provision a student profile, or
+ * unlock an account as a consequence of authorization.
+ */
+async function getReadOnlySessionContextForToken(sessionToken: string) {
+  if (!sessionToken) {
+    return null;
+  }
+
+  const refreshTokenHash = hashToken(sessionToken);
+  const now = new Date();
+  const session = await prisma.authSession.findFirst({
+    include: {
+      user: {
+        include: {
+          roleAssignments: true,
+          studentProfile: true,
+        },
+      },
+    },
+    where: {
+      expiresAt: {
+        gt: now,
+      },
+      refreshTokenHash,
+      revokedAt: null,
+      status: SessionStatus.active,
+    },
+  });
+
+  if (!session?.user) {
+    return null;
+  }
+
+  // Do not perform the normal getSessionContext lock-expiry transition here:
+  // this function is deliberately a pure read. A locked, disabled, or
+  // soft-deleted account cannot authorize a preview request.
+  if (
+    session.user.softDeletedAt !== null
+    || session.user.status === UserStatus.disabled
+    || session.user.status === UserStatus.soft_deleted
+    || session.user.status === UserStatus.locked
+  ) {
+    return null;
+  }
+
+  return {
+    expiresAt: session.expiresAt,
+    sessionId: session.id,
+    user: {
+      email: session.user.email,
+      fullName: session.user.fullName,
+      id: session.user.id,
+      mustChangePassword: session.user.mustChangePassword,
+      onboardingStatus: session.user.studentProfile?.onboardingStatus ?? null,
+      roles: session.user.roleAssignments
+        .filter((assignment) => assignment.revokedAt === null)
+        .map((assignment) => assignment.role),
+      status: session.user.status,
+    },
+  } satisfies SessionContext;
+}
+
+async function getReadOnlySessionContext() {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+  return getReadOnlySessionContextForToken(sessionToken ?? "");
+}
+
 function hasRole(session: SessionContext | null, role: RoleName) {
   return Boolean(session?.user.roles.includes(role));
 }
@@ -230,7 +376,10 @@ function hasRole(session: SessionContext | null, role: RoleName) {
 export {
   clearSessionCookie,
   createSession,
+  createSessionIfUserStateMatches,
   getSessionContext,
+  getReadOnlySessionContext,
+  getReadOnlySessionContextForToken,
   hasRole,
   revokeAllUserSessions,
   revokeCurrentSession,

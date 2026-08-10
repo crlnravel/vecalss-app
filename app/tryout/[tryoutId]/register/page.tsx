@@ -14,8 +14,11 @@ export default async function TryoutRegistrationPage({ params }: { params: Promi
     prisma.major.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, universityId: true }, where: { isActive: true } }),
   ]);
   if (!tryout) notFound();
-  if (tryout.admissionStatus === "active") redirect(`/tryout/${tryout.id}/waiting`);
+  if (tryout.admissionStatus === "active") {
+    redirect(tryout.assignments.length ? `/tryout/${tryout.id}/waiting` : `/tryout/${tryout.id}`);
+  }
   if (tryout.admissionStatus) redirect(`/tryout/${tryout.id}`);
+  if (tryout.admissionMode === "invitation_only") redirect(`/tryout/${tryout.id}`);
   return (
     <ParticipantTryoutRegistrationModule
       initialMajorId={profile?.targetMajorId ?? null}

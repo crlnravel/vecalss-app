@@ -4,8 +4,11 @@ import {
   CalendarBlank,
   ChartBar,
   Clock,
+  HourglassMedium,
+  LockKey,
   Target,
   UsersThree,
+  WarningCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import Link from "next/link";
@@ -41,7 +44,7 @@ function formatDate(value?: Date) {
 
 function formatTime(value?: Date) {
   if (!value) return "—";
-  return shortTimeFormatter.format(new Date(value));
+  return `${shortTimeFormatter.format(new Date(value))} WIB`;
 }
 
 function ParticipantTryoutDetailModule({
@@ -56,7 +59,7 @@ function ParticipantTryoutDetailModule({
   const totalQuestions = tryout.sections.reduce((sum, section) => sum + section.questionCount, 0);
   const totalDuration = tryout.sections.reduce((sum, section) => sum + section.durationSeconds, 0);
   const assignedSession = tryout.assignments[0];
-  const primarySession = assignedSession ?? tryout.sessions[0];
+  const primarySession = assignedSession ?? (tryout.admissionStatus === "active" ? undefined : tryout.sessions[0]);
   const attempt = assignedSession?.attempt;
   const hasEnrolled = tryout.admissionStatus !== null;
   const target = targetProfile.university
@@ -71,14 +74,42 @@ function ParticipantTryoutDetailModule({
   } else if (attempt) {
     actionHref = `/tryout/attempt/${attempt.id}/result`;
     actionLabel = "Lihat hasil";
-  } else if (tryout.admissionStatus === "active") {
+  } else if (tryout.admissionStatus === "active" && assignedSession) {
     actionHref = `/tryout/${tryout.id}/waiting`;
     actionLabel = "Masuk ruang tunggu";
   }
 
-  const registrationBlocked = tryout.admissionStatus === "pending"
-    || tryout.admissionStatus === "rejected"
-    || tryout.admissionStatus === "revoked";
+  const admissionNotice = tryout.admissionStatus === "pending"
+    ? {
+        icon: HourglassMedium,
+        message: "Pendaftaranmu sedang ditinjau Kapten. Jadwal sesi akan muncul setelah pendaftaran disetujui dan sesi ditetapkan.",
+        title: "Menunggu persetujuan",
+        tone: "amber" as const,
+      }
+    : tryout.admissionStatus === "active" && !assignedSession
+      ? {
+          icon: HourglassMedium,
+          message: "Pendaftaranmu sudah disetujui. Kapten belum menetapkan sesi ujian; kamu akan melihat jadwal dan tombol masuk setelah sesi tersedia.",
+          title: "Menunggu jadwal sesi",
+          tone: "green" as const,
+        }
+      : tryout.admissionStatus === "rejected" || tryout.admissionStatus === "revoked"
+        ? {
+            icon: WarningCircle,
+            message: tryout.admissionStatus === "rejected"
+              ? "Pendaftaran ini tidak disetujui. Hubungi Kapten jika kamu memerlukan penjelasan atau ingin mengikuti sesi lain."
+              : "Aksesmu ke tryout ini sudah dinonaktifkan. Hubungi Kapten untuk mengetahui langkah berikutnya.",
+            title: tryout.admissionStatus === "rejected" ? "Pendaftaran tidak disetujui" : "Akses dinonaktifkan",
+            tone: "red" as const,
+          }
+        : tryout.admissionMode === "invitation_only" && !hasEnrolled
+          ? {
+              icon: LockKey,
+              message: "Tryout ini hanya dapat diikuti melalui undangan Kapten. Jika kamu seharusnya mendapat akses, hubungi Kapten.",
+              title: "Khusus peserta undangan",
+              tone: "amber" as const,
+            }
+          : null;
 
   return (
     <CourseWorkspaceShell
@@ -127,12 +158,12 @@ function ParticipantTryoutDetailModule({
       <section aria-label="Jadwal dan target tryout" className="rounded-[1.75rem] border border-primary-100 bg-primary-50 p-5 sm:p-7">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <p className="flex items-center gap-2 text-sm text-secondary-500"><CalendarBlank className="text-primary-700" />Mulai</p>
+            <p className="flex items-center gap-2 text-sm text-secondary-500"><CalendarBlank className="text-primary-700" />Mulai · WIB</p>
             <p className="mt-2 text-base font-semibold text-secondary-900">{formatDate(primarySession?.availableFrom)}</p>
             <p className="mt-2 flex items-center gap-2 text-base text-secondary-700"><Clock className="text-primary-700" />{formatTime(primarySession?.availableFrom)}</p>
           </div>
           <div>
-            <p className="flex items-center gap-2 text-sm text-secondary-500"><CalendarBlank className="text-primary-700" />Selesai</p>
+            <p className="flex items-center gap-2 text-sm text-secondary-500"><CalendarBlank className="text-primary-700" />Selesai · WIB</p>
             <p className="mt-2 text-base font-semibold text-secondary-900">{formatDate(primarySession?.availableUntil)}</p>
             <p className="mt-2 flex items-center gap-2 text-base text-secondary-700"><Clock className="text-primary-700" />{formatTime(primarySession?.availableUntil)}</p>
           </div>
@@ -143,9 +174,20 @@ function ParticipantTryoutDetailModule({
         </div>
 
         <div className="mt-8">
-          {registrationBlocked ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              {tryout.admissionStatus === "pending" ? "Pendaftaran menunggu persetujuan." : "Akses pendaftaran tidak aktif."}
+          {admissionNotice ? (
+            <div
+              className={admissionNotice.tone === "green"
+                ? "flex items-start gap-3 rounded-2xl border border-primary-200 bg-white p-4 text-sm leading-6 text-primary-900"
+                : admissionNotice.tone === "red"
+                  ? "flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900"
+                  : "flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"}
+              role="status"
+            >
+              <admissionNotice.icon className="mt-0.5 size-5 shrink-0" />
+              <div>
+                <p className="font-semibold">{admissionNotice.title}</p>
+                <p className="mt-1">{admissionNotice.message}</p>
+              </div>
             </div>
           ) : (
             <Button className="w-full" render={<Link href={actionHref} />} size="lg" variant="brand">

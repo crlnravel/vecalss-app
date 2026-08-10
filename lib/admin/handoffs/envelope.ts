@@ -5,6 +5,7 @@ import {
 } from "node:crypto";
 
 import { EnrollmentHandoffMethod } from "@/generated/prisma/client";
+import { getAppBaseUrl } from "@/lib/config";
 
 const ENVELOPE_VERSION = 1;
 const AAD_VERSION = 1;
@@ -324,35 +325,14 @@ function rewrapEnrollmentHandoffSecret(
 }
 
 function getTrustedAppBaseUrl(env: NodeJS.ProcessEnv = process.env) {
-  const raw = env.APP_BASE_URL?.trim();
-
-  if (!raw) {
-    if (env.NODE_ENV === "production") {
-      cryptoError("invalid_base_url", "APP_BASE_URL is required in production.");
-    }
-
-    return "http://localhost:3000";
-  }
-
-  let parsed: URL;
   try {
-    parsed = new URL(raw);
-  } catch {
-    cryptoError("invalid_base_url", "APP_BASE_URL must be an absolute URL.");
+    return getAppBaseUrl(env);
+  } catch (error) {
+    cryptoError(
+      "invalid_base_url",
+      error instanceof Error ? error.message : "APP_BASE_URL is invalid.",
+    );
   }
-
-  if (
-    !["http:", "https:"].includes(parsed.protocol)
-    || parsed.username
-    || parsed.password
-    || parsed.search
-    || parsed.hash
-    || (env.NODE_ENV === "production" && parsed.protocol !== "https:")
-  ) {
-    cryptoError("invalid_base_url", "APP_BASE_URL must be a trusted absolute HTTP(S) origin.");
-  }
-
-  return parsed.toString().replace(/\/$/, "");
 }
 
 function buildEnrollmentInviteUrl(rawToken: string, env: NodeJS.ProcessEnv = process.env) {

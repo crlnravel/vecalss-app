@@ -812,6 +812,12 @@ async function main() {
       tutorId: tutorUserId,
     });
 
+    await seedMateriCatalogue(client, {
+      authorUserId: tutorUserId,
+      baseUrl: process.env.MATERI_DEMO_PDF_BASE_URL,
+      pdfUrl: process.env.MATERI_DEMO_PDF_URL,
+    });
+
     await seedLearningProgress(client, {
       completedStudentId: demoStudentIds.completed,
       primaryStudentId: studentUserId,

@@ -2,7 +2,6 @@
 
 import {
   ArrowRight,
-  BookOpenText,
   Check,
   CheckCircle,
   CircleNotch,
@@ -36,6 +35,7 @@ type Calculation = {
   correctCount?: number;
   deliveredCount?: number;
   maxScore?: number;
+  normalizedScore?: number;
   score?: number;
   unansweredCount?: number;
   wrongCount?: number;
@@ -64,6 +64,21 @@ type Result =
     };
 
 type ReviewFilter = "all" | "wrong" | "blank";
+
+const courseSlugBySubtest: Record<string, string> = {
+  LBE: "literasi-bahasa-inggris",
+  LBI: "literasi-bahasa-indonesia",
+  PBM: "pemahaman-bacaan-menulis",
+  PK: "pengetahuan-kuantitatif",
+  PM: "penalaran-matematika",
+  PPU: "pengetahuan-pemahaman-umum",
+  PU: "penalaran-umum",
+};
+
+function courseHref(subtest: string) {
+  const slug = courseSlugBySubtest[subtest];
+  return slug ? `/courses/${slug}` : "/courses";
+}
 
 function itemState(item: ReviewItem) {
   if (!item.selectedOptionId) return "blank" as const;
@@ -194,13 +209,13 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
             <div>
               <p className="text-xs font-bold tracking-[0.15em] text-primary-200 uppercase">Paket hasil · {result.tryoutTitle}</p>
               <h1 className="mt-4 font-heading text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Kerja bagus. Ini peta belajarmu.</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-primary-100 sm:text-base">Skor adalah titik awal. Gunakan akurasi per subtes dan review jawaban untuk memilih latihan berikutnya.</p>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-primary-100 sm:text-base">Indeks hasil ini menggabungkan tujuh subtes pada skala internal 0–100 untuk evaluasi Vecalss, bukan nilai resmi SNBT. Gunakan indeks dan akurasi per subtes bersama review jawaban untuk memilih latihan berikutnya.</p>
               <div className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 text-sm"><Target />{targetLabel}</div>
             </div>
             <div className="min-w-52 rounded-3xl bg-[#f5c518] p-6 text-[#2f2808]">
-              <p className="text-xs font-bold tracking-[0.12em] uppercase">Skor akhir</p>
-              <p className="mt-2 font-mono text-6xl font-bold tracking-[-0.05em]">{Math.round(result.finalScore)}</p>
-              <p className="mt-2 text-sm">dari {result.runs.length} subtes</p>
+              <p className="text-xs font-bold tracking-[0.12em] uppercase">Indeks hasil</p>
+              <p className="mt-2 font-mono text-6xl font-bold tracking-[-0.05em]">{result.finalScore.toFixed(2)}</p>
+              <p className="mt-2 text-sm">skala internal 0–100 · {result.runs.length} subtes</p>
             </div>
           </div>
         </section>
@@ -219,7 +234,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
             <div className="mt-6 grid gap-5">
               {runMetrics.map((run) => (
                 <article key={`${run.subtest}-${run.sectionTitle}`}>
-                  <div className="flex items-end justify-between gap-4"><div><h3 className="font-semibold">{run.subtest}</h3><p className="mt-1 text-xs text-secondary-500">{run.subtestName} · {run.testType.toUpperCase()}</p></div><p className="font-mono text-lg font-semibold">{run.accuracy}%</p></div>
+                  <div className="flex items-end justify-between gap-4"><div><h3 className="font-semibold">{run.subtest}</h3><p className="mt-1 text-xs text-secondary-500">{run.subtestName} · {run.testType.toUpperCase()}</p></div><div className="text-right"><p className="font-mono text-lg font-semibold">{typeof run.calculation?.normalizedScore === "number" ? run.calculation.normalizedScore.toFixed(2) : "—"}</p><p className="text-xs text-secondary-500">indeks · {run.accuracy}% akurasi</p></div></div>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary-100" role="img" aria-label={`Akurasi ${run.subtest} ${run.accuracy} persen`}><div className="h-full rounded-full bg-primary-700" style={{ width: `${run.accuracy}%` }} /></div>
                   <p className="mt-2 text-xs text-secondary-500">{run.correct} benar · {run.wrong} salah · {run.blank} kosong{run.timeSpentSeconds !== null ? ` · ${formatTime(run.timeSpentSeconds)}` : ""}</p>
                 </article>
@@ -232,9 +247,19 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
               <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Fokus berikutnya</p>
               <h2 className="mt-2 font-heading text-xl font-semibold">Subtes yang perlu dikuatkan</h2>
               <ol className="mt-5 grid gap-3">
-                {weakRuns.map((run, index) => <li className="flex items-center gap-3 rounded-2xl bg-primary-50 p-3" key={run.subtest}><span className="flex size-8 items-center justify-center rounded-full bg-white text-sm font-bold text-primary-800">{index + 1}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{run.subtestName}</strong><span className="text-xs text-secondary-500">Akurasi {run.accuracy}%</span></span></li>)}
+                {weakRuns.map((run, index) => (
+                  <li key={run.subtest}>
+                    <Link
+                      className="group flex min-h-14 items-center gap-3 rounded-2xl bg-primary-50 p-3 outline-none transition-colors hover:bg-primary-100 focus-visible:ring-4 focus-visible:ring-primary-700/20"
+                      href={courseHref(run.subtest)}
+                    >
+                      <span className="flex size-8 items-center justify-center rounded-full bg-white text-sm font-bold text-primary-800">{index + 1}</span>
+                      <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{run.subtestName}</strong><span className="text-xs text-secondary-500">Akurasi {run.accuracy}% · buka materi</span></span>
+                      <ArrowRight className="shrink-0 text-primary-700 transition-transform group-hover:translate-x-0.5" />
+                    </Link>
+                  </li>
+                ))}
               </ol>
-              <Button className="mt-5 w-full" render={<Link href="/materi" />} variant="brandOutline"><BookOpenText />Buka materi</Button>
             </section>
 
             <section className="rounded-[2rem] border border-primary-100 bg-white p-6">
@@ -270,7 +295,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
                           const correctOption = item.options.find((option) => option.correct);
                           return (
                             <details className="group rounded-2xl border border-primary-100 bg-secondary-50 p-4 open:bg-white" key={`${run.subtest}-${itemIndex}`}>
-                              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 outline-none [&::-webkit-details-marker]:hidden">
+                              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20 [&::-webkit-details-marker]:hidden">
                                 <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", state === "correct" ? "bg-primary-100 text-primary-800" : state === "wrong" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800")}>{state === "correct" ? <Check /> : state === "wrong" ? <X /> : <FlagBanner />}</span>
                                 <span className="line-clamp-2 flex-1 text-sm font-medium">{itemIndex + 1}. {item.prompt}</span>
                                 <span className="text-xs font-semibold text-secondary-500">{state === "correct" ? "Benar" : state === "wrong" ? "Salah" : "Kosong"}</span>
@@ -301,7 +326,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           >
             <ChevronLeft />
           </Button>
-          <Button render={<Link href="/materi" />} variant="brand">Lanjutkan belajar <ArrowRight /></Button>
+          <Button render={<Link href="/courses" />} variant="brand">Lanjutkan belajar <ArrowRight /></Button>
         </div>
       </div>
     </main>

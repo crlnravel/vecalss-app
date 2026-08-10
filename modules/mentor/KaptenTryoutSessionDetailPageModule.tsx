@@ -139,7 +139,7 @@ function KaptenTryoutSessionDetailPageModule({
                         </CardDescription>
                         <CardAction className="flex items-center gap-2">
                           <span className="text-sm font-medium text-secondary-700">
-                            {attempt.score ?? "Belum dihitung"}
+                            {attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}
                           </span>
                           <ChevronRight aria-hidden="true" className="text-secondary-400" />
                         </CardAction>

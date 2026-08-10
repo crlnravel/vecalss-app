@@ -10,6 +10,7 @@ import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 
 import { createStudentEnrollmentAction } from "../actions";
+import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
 function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
   const [state, formAction] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
@@ -22,10 +23,7 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">
-            UC-18 Enrollment
-          </p>
-          <h2 className="mt-2 text-2xl font-medium">Create a student account</h2>
+          <h2 className="text-2xl font-medium">Create a student account</h2>
           <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-600">
             Provision approved students, assign their first exam goal if it is already
             known, and hand off a one-time temporary password securely.
@@ -39,14 +37,11 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
         </FormNotice>
       ) : null}
 
-      {state.temporaryPassword ? (
-        <FormNotice tone="neutral">
-          <p className="font-medium">Temporary password</p>
-          <p className="mt-1 font-mono text-sm">{state.temporaryPassword}</p>
-        </FormNotice>
+      {state.temporaryPassword || state.inviteUrl ? (
+        <HandoffDeliveryNotice state={state} />
       ) : null}
 
-      <div className="grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr]">
+      <div className="grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]">
         <Field>
           <FieldLabel htmlFor="student-full-name">Student name</FieldLabel>
           <FieldInput
@@ -92,6 +87,23 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
               </option>
             ))}
           </select>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="student-handoff-method">Credential handoff</FieldLabel>
+          <select
+            aria-label="Credential handoff"
+            className={fieldControlClassName}
+            defaultValue={state.fields?.handoffMethod ?? "temporary_password"}
+            id="student-handoff-method"
+            name="handoffMethod"
+          >
+            <option value="temporary_password">Temporary password</option>
+            <option value="invite_link">Invite link (24 hours)</option>
+          </select>
+          {state.fieldErrors?.handoffMethod ? (
+            <p className="text-sm text-danger-700">{state.fieldErrors.handoffMethod}</p>
+          ) : null}
         </Field>
       </div>
 

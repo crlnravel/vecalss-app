@@ -162,29 +162,30 @@ async function registerForTryout(
       if (!major || major.universityId !== target.universityId) {
         throw new TryoutDeliveryValidationError("Kampus dan jurusan tujuan tidak cocok atau sudah tidak tersedia.");
       }
-      await tx.studentProfile.update({
-        data: {
-          targetMajorId: target.majorId,
-          targetUniversityId: target.universityId,
-        },
-        where: { userId: studentId },
-      });
     }
     const existing = await tx.tryoutAdmission.findUnique({ where: { tryoutId_studentId: { studentId, tryoutId } }, include: { assignments: { where: { status: TryoutAssignmentStatus.active }, select: { deliverySessionId: true } } } });
-    if (existing) return { admissionId: existing.id, assignmentId: existing.assignments[0]?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
+    if (existing) {
+      if (target) {
+        await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
+      }
+      return { admissionId: existing.id, assignmentId: existing.assignments[0]?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
+    }
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
     if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
     if (tryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
     const status = tryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
-    const admission = await tx.tryoutAdmission.create({ data: { status, studentId, tryoutId } });
-    if (status === TryoutAdmissionStatus.pending) return { admissionId: admission.id, assignmentId: null, state: "pending_approval" as const, status };
-    const defaultSession = await tx.tryoutDeliverySession.findFirst({ where: { availableUntil: { gt: new Date() }, isDefaultOpenRegistration: true, status: TryoutDeliverySessionStatus.active, tryoutId }, select: { id: true } });
-    if (!defaultSession) {
-      // Keep no partial admission for an unavailable open-registration flow.
-      await tx.tryoutAdmission.delete({ where: { id: admission.id } });
+    const defaultSession = status === TryoutAdmissionStatus.active
+      ? await tx.tryoutDeliverySession.findFirst({ where: { availableUntil: { gt: new Date() }, isDefaultOpenRegistration: true, status: TryoutDeliverySessionStatus.active, tryoutId }, select: { id: true } })
+      : null;
+    if (status === TryoutAdmissionStatus.active && !defaultSession) {
       return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
     }
-    const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: studentId, deliverySessionId: defaultSession.id } });
+    if (target) {
+      await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
+    }
+    const admission = await tx.tryoutAdmission.create({ data: { status, studentId, tryoutId } });
+    if (status === TryoutAdmissionStatus.pending) return { admissionId: admission.id, assignmentId: null, state: "pending_approval" as const, status };
+    const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: studentId, deliverySessionId: defaultSession!.id } });
     return { admissionId: admission.id, assignmentId: assignment.id, state: "assigned" as const, status };
   });
 }

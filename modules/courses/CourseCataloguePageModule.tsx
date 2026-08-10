@@ -61,15 +61,6 @@ function CourseCataloguePageModule({
             aria-hidden="true"
             className="pointer-events-none absolute -top-24 right-[-3rem] size-56 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-72"
           />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-7 bottom-6 flex items-end gap-2 opacity-80"
-          >
-            <span className="size-2 rounded-full bg-[#ffd766]" />
-            <span className="size-3 rounded-full bg-[#b7ddc3]" />
-            <span className="size-2 rounded-full bg-[#eef8f1]" />
-          </div>
-
           <div className="relative max-w-2xl">
             <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">
               Materi

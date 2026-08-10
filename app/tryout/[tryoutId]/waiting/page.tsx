@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import { participantTryoutDetail } from "@/lib/tryout/participant-repository";
 import { ParticipantWaitingRoomModule } from "@/modules/tryout/ParticipantWaitingRoomModule";
+
+export const metadata: Metadata = {
+  title: "Ruang tunggu tryout | Vecalss",
+};
 
 export default async function TryoutWaitingRoomPage({ params }: { params: Promise<{ tryoutId: string }> }) {
   const [{ tryoutId }, session] = await Promise.all([params, requireStudentSession()]);

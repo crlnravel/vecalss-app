@@ -105,7 +105,7 @@ function KaptenTryoutAttemptDetailPageModule({
           <div className="flex items-center justify-between gap-3">
             <h2 id="attempt-runs-title" className="text-xl font-semibold">Tujuh Test</h2>
             <span className="text-sm font-medium text-secondary-700">
-              Skor {attempt.score ?? "belum dihitung"}
+              Indeks internal 0–100 {attempt.score !== null ? Number(attempt.score).toFixed(2) : "belum dihitung"}
             </span>
           </div>
           {attempt.runs.map((run) => (

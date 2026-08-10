@@ -11,6 +11,9 @@ const noticeCopy: Record<
   "password-reset": {
     text: "Password kamu sudah diperbarui. Silakan masuk dengan kredensial baru.",
   },
+  "invite-completed": {
+    text: "Your account is active. Sign in with the password you just created.",
+  },
   "signed-out": {
     compact: true,
     text: "Kamu sudah keluar dari akun.",
@@ -20,9 +23,11 @@ const noticeCopy: Record<
 function LoginPageModule({
   audience = "student",
   notice,
+  returnTo,
 }: {
   audience?: LoginAudience;
   notice?: string | null;
+  returnTo?: string | null;
 }) {
   const isAdminLogin = audience === "admin";
   const isTutorLogin = audience === "tutor";
@@ -48,6 +53,7 @@ function LoginPageModule({
         audience={audience}
         notice={notice ? noticeCopy[notice] ?? null : null}
         registerUrl={getRegistrationFormUrl()}
+        returnTo={returnTo}
       />
     </AuthShell>
   );

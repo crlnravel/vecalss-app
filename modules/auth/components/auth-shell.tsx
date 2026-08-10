@@ -4,6 +4,7 @@ import Link from "next/link";
 function AuthShell({
   children,
   description,
+  eyebrow,
   title,
 }: {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ function AuthShell({
             href="/"
             className="relative z-10 inline-flex w-fit items-center gap-3"
             aria-label="Vecalss"
+            prefetch={false}
           >
             <Image
               alt=""
@@ -61,10 +63,15 @@ function AuthShell({
         <section className="flex min-h-screen items-center justify-center px-5 py-10 md:px-8 lg:px-12">
           <div className="w-full max-w-[520px]">
             <div className="mb-9">
+              {eyebrow ? (
+                <p className="mb-3 text-xs tracking-[0.16em] text-primary-700 uppercase">
+                  {eyebrow}
+                </p>
+              ) : null}
               <h2 className="font-heading text-5xl leading-none font-semibold text-secondary-900 md:text-6xl">
-                Ganti Password
+                {title}
               </h2>
-              <p className="mt-4 text-lg leading-7 text-secondary-600"></p>
+              <p className="mt-4 text-lg leading-7 text-secondary-600">{description}</p>
             </div>
 
             <div className="rounded-5xl bg-white px-5 py-6 shadow-[0_22px_68px_-48px_rgba(1,76,56,0.48)] md:px-8 md:py-8">

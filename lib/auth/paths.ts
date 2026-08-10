@@ -14,6 +14,21 @@ function getLoginPathForAudience(audience: LoginAudience) {
   return "/login";
 }
 
+function getSafeAdminReturnPath(value: unknown) {
+  if (typeof value !== "string") return null;
+  const path = value.trim();
+  if (
+    !(path === "/admin" || path.startsWith("/admin/"))
+    || path.startsWith("//")
+    || path.includes("\\")
+    || path === "/admin/login"
+    || path.startsWith("/admin/login?")
+  ) {
+    return null;
+  }
+  return path;
+}
+
 function getStudentHomePath(user: AuthenticatedUser) {
   if (user.mustChangePassword) {
     return "/change-password";
@@ -36,7 +51,7 @@ function getTutorHomePath(user: AuthenticatedUser) {
 
 function getDefaultHomePath(user: AuthenticatedUser) {
   if (user.roles.includes(RoleName.admin)) {
-    return "/admin/enrollment";
+    return "/admin";
   }
 
   if (user.roles.includes(RoleName.tutor)) {
@@ -53,6 +68,7 @@ function getDefaultHomePath(user: AuthenticatedUser) {
 export {
   getDefaultHomePath,
   getLoginPathForAudience,
+  getSafeAdminReturnPath,
   getStudentHomePath,
   getTutorHomePath,
 };

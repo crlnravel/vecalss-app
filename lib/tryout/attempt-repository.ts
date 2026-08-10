@@ -2,6 +2,7 @@ import "server-only";
 
 import { AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
+import { normalizeCatAbility, normalizeCbtScore, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 import { prisma } from "@/lib/prisma";
 
 class TryoutAttemptValidationError extends Error {}
@@ -45,7 +46,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
   const score = correctAnswers.reduce((sum, answer) => sum + (pointsByItem.get(answer.tryoutItemId) ?? 0), 0);
   const maxScore = items.reduce((sum, item) => sum + Number(item.points), 0);
   const answered = run.answers.length;
-  const result = { answeredCount: answered, correctCount: correct, maxScore, score, unansweredCount: total - answered, wrongCount: answered - correct };
+  const result = { answeredCount: answered, correctCount: correct, maxScore, normalizedScore: normalizeCbtScore(score, maxScore), score, unansweredCount: total - answered, wrongCount: answered - correct };
   const sealed = await tx.tryoutAttemptTestRun.update({
     where: { id: run.id },
     data: {
@@ -82,7 +83,7 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
     return tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
   }
   const current = catSnapshot(run.catSnapshot)!;
-  const result = { answeredCount: run.answers.length, ability: current.currentAbility, deliveredCount: current.selectedItemIds.length, score: current.currentAbility, unansweredCount: current.selectedItemIds.length - run.answers.length };
+  const result = { answeredCount: run.answers.length, ability: current.currentAbility, deliveredCount: current.selectedItemIds.length, normalizedScore: normalizeCatAbility(current.currentAbility), score: current.currentAbility, unansweredCount: current.selectedItemIds.length - run.answers.length };
   const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: "2pl-map-v1", calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
   const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: sealed.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
   if (!remaining) await tx.tryoutAttempt.update({ where: { id: run.attemptId }, data: { status: AttemptStatus.submitted, submittedAt: now } });
@@ -195,7 +196,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
         admissionId: assignment.admissionId,
         contentSnapshot: json({ tryoutId: session.tryoutId, tryoutRevision: lockedTryout.revision }),
         deliverySessionId,
-        releasePolicySnapshot: json({ rankingRule: session.rankingRule, resultReleasePolicy: session.resultReleasePolicy, scheduledReleaseAt: session.scheduledReleaseAt?.toISOString() ?? null }),
+        releasePolicySnapshot: json({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: session.rankingRule, resultReleasePolicy: session.resultReleasePolicy, scheduledReleaseAt: session.scheduledReleaseAt?.toISOString() ?? null }),
         serverDeadlineAt: session.availableUntil,
         serverStartedAt: now,
         studentId,
@@ -405,7 +406,7 @@ async function retryCatTestRun(runId: string, actorId: string, reason: string) {
     const before = { catFailureReason: run.catFailureReason, catState: run.catState };
     const snapshot = catSnapshot(run.catSnapshot);
     if (!snapshot || !Number.isFinite(snapshot.currentAbility)) { await failCatRun(tx, runId, "Snapshot CAT tidak dapat dihitung ulang."); }
-    else await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationInput: json({ modelVersion: snapshot.modelVersion, selectedItemIds: snapshot.selectedItemIds, updates: snapshot.updates }), calculationResult: json({ ability: snapshot.currentAbility, answeredCount: run.answers.length, deliveredCount: snapshot.selectedItemIds.length, score: snapshot.currentAbility }), calculationVersion: "2pl-map-v1", calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready } });
+    else await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationInput: json({ modelVersion: snapshot.modelVersion, selectedItemIds: snapshot.selectedItemIds, updates: snapshot.updates }), calculationResult: json({ ability: snapshot.currentAbility, answeredCount: run.answers.length, deliveredCount: snapshot.selectedItemIds.length, normalizedScore: normalizeCatAbility(snapshot.currentAbility), score: snapshot.currentAbility }), calculationVersion: "2pl-map-v1", calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready } });
     const updated = await tx.tryoutAttemptTestRun.findUniqueOrThrow({ where: { id: runId } });
     await tx.tryoutCatResolutionAudit.create({ data: { action: "retry", actorUserId: actorId, after: auditJson({ catFailureReason: updated.catFailureReason, catState: updated.catState }), before: auditJson(before), reason: reason.trim(), runId } });
     return { catState: updated.catState, releaseable: updated.calculationReleaseable, runId };

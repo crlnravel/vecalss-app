@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import localFont from "next/font/local";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 
+import { ConditionalSpeedInsights } from "@/components/conditional-speed-insights";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
@@ -44,7 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <TooltipProvider>{children}</TooltipProvider>
-        <SpeedInsights />
+        <ConditionalSpeedInsights />
       </body>
     </html>
   );

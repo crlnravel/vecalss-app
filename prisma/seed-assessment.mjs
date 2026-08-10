@@ -199,6 +199,27 @@ const TRYOUT = {
   description: "Simulasi tujuh subtes untuk menilai kemajuan belajar dan menentukan prioritas pembahasan berikutnya.",
 };
 
+const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
+
+function roundInternalScore(value) {
+  return Math.round(Math.min(100, Math.max(0, value)) * 100) / 100;
+}
+
+function normalizeSeedCbtScore(score, maxScore) {
+  return roundInternalScore((score / maxScore) * 100);
+}
+
+function normalizeSeedCatAbility(ability) {
+  const probability = ability >= 0
+    ? 1 / (1 + Math.exp(-ability))
+    : Math.exp(ability) / (1 + Math.exp(ability));
+  return roundInternalScore(probability * 100);
+}
+
+function aggregateSeedTryoutScores(scores) {
+  return roundInternalScore(scores.reduce((total, score) => total + score, 0) / scores.length);
+}
+
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) throw new Error("DATABASE_URL is required before running the assessment seed.");
@@ -725,7 +746,17 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
   );
   if (existing.rowCount) return existing.rows[0].id;
   const sections = await sectionSnapshots(client, tryoutId);
-  const finalScore = scorePattern.reduce((total, value) => total + value, 0);
+  if (sections.length !== 7 || scorePattern.length !== sections.length) throw new Error("The assessment seed expects seven score inputs.");
+  const normalizedScores = sections.map((section, sectionIndex) => {
+    const score = scorePattern[sectionIndex];
+    if (section.test_type === "cat") {
+      const correctCount = Math.min(2, Math.max(0, score));
+      return normalizeSeedCatAbility(correctCount === 2 ? 0.72 : -0.15);
+    }
+    const maxScore = section.content.items.reduce((total, item) => total + Number(item.points), 0);
+    return normalizeSeedCbtScore(score, maxScore);
+  });
+  const finalScore = aggregateSeedTryoutScores(normalizedScores);
   const attemptResult = await client.query(
     `INSERT INTO tryout_attempts (
        tryout_id, delivery_session_id, admission_id, student_id, status,
@@ -736,13 +767,23 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
        NOW() - INTERVAL '8 days', $5, $6,
        $7::jsonb, $8::jsonb
      ) RETURNING id`,
-    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, finalScore >= 16 ? 82 : 61, JSON.stringify({ rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ tryoutId, tryoutRevision: 1 })],
+    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ tryoutId, tryoutRevision: 1 })],
   );
   const attemptId = attemptResult.rows[0].id;
   for (const [sectionIndex, section] of sections.entries()) {
     const score = scorePattern[sectionIndex];
     const isCat = section.test_type === "cat";
     const selectedItemIds = isCat ? section.content.items.slice(0, 2).map((item) => item.id) : [];
+    const correctCount = isCat ? Math.min(2, Math.max(0, score)) : score;
+    const wrongCount = (isCat ? 2 : section.content.items.length) - correctCount;
+    const ability = isCat ? (correctCount === 2 ? 0.72 : -0.15) : null;
+    const normalizedScore = normalizedScores[sectionIndex];
+    const calculationInput = isCat
+      ? { modelVersion: "2pl-canonical-v1", selectedItemIds, updates: [] }
+      : { totalItems: section.content.items.length };
+    const calculationResult = isCat
+      ? { ability, answeredCount: 2, deliveredCount: 2, normalizedScore, score: ability, unansweredCount: 0 }
+      : { answeredCount: section.content.items.length, correctCount, maxScore: section.content.items.reduce((total, item) => total + Number(item.points), 0), normalizedScore, score, unansweredCount: 0, wrongCount };
     const runResult = await client.query(
       `INSERT INTO tryout_attempt_test_runs (
          attempt_id, tryout_section_id, sequence_no, status, server_started_at,
@@ -759,16 +800,16 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         section.id,
         section.sequence_no,
         JSON.stringify(section.content),
-        JSON.stringify({ totalItems: isCat ? 2 : section.content.items.length }),
-        JSON.stringify({ answeredCount: isCat ? 2 : 3, correctCount: score, maxScore: isCat ? 2 : 3, score, unansweredCount: 0, wrongCount: (isCat ? 2 : 3) - score }),
+        JSON.stringify(calculationInput),
+        JSON.stringify(calculationResult),
         isCat ? "2pl-map-v1" : "cbt-frozen-item-points-v1",
         isCat ? "ready" : "not_applicable",
-        isCat ? JSON.stringify({ currentAbility: score === 2 ? 0.72 : -0.15, initialAbility: 0, modelVersion: "2pl-canonical-v1", parameters: [], selectedItemIds, updates: [] }) : null,
+        isCat ? JSON.stringify({ currentAbility: ability, initialAbility: 0, modelVersion: "2pl-canonical-v1", parameters: [], selectedItemIds, updates: [] }) : null,
       ],
     );
     const answerableItems = isCat ? section.content.items.slice(0, 2) : section.content.items;
     for (const [itemIndex, item] of answerableItems.entries()) {
-      const chooseCorrect = itemIndex < score;
+      const chooseCorrect = itemIndex < correctCount;
       const selected = item.options.find((option) => option.isCorrect === chooseCorrect) ?? item.options[0];
       await client.query(
         `INSERT INTO tryout_answers (
@@ -781,8 +822,8 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     await client.query(
       `INSERT INTO tryout_score_breakdowns (
          attempt_id, subtest_id, correct_count, wrong_count, unanswered_count, raw_score, scaled_score
-       ) VALUES ($1, $2, $3::int, $4::int, 0, $3::numeric, $5::numeric)`,
-      [attemptId, section.subtest_id, score, (isCat ? 2 : 3) - score, Math.round(420 + score * 95 + sectionIndex * 7)],
+       ) VALUES ($1, $2, $3::int, $4::int, 0, $5::numeric, $6::numeric)`,
+      [attemptId, section.subtest_id, correctCount, wrongCount, isCat ? ability : score, normalizedScore],
     );
     if (sectionIndex === 0) {
       await client.query(

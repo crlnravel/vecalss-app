@@ -2,6 +2,7 @@ import "server-only";
 
 import { AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutCatRunState, TryoutResultReleasePolicy } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { aggregateTryoutScores, normalizeRunScore, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 
 class TryoutResultValidationError extends Error {}
 
@@ -12,11 +13,6 @@ function effectivePolicy(session: { resultReleasePolicy: TryoutResultReleasePoli
   const selected = session.resultReleasePolicy === TryoutResultReleasePolicy.inherit ? session.tryout.defaultResultReleasePolicy : session.resultReleasePolicy;
   if (selected === TryoutResultReleasePolicy.inherit) throw new TryoutResultValidationError("Kebijakan rilis Tryout belum lengkap.");
   return selected as ReleasePolicy;
-}
-
-function runScore(result: Prisma.JsonValue | null) {
-  const value = result as { score?: unknown } | null;
-  return typeof value?.score === "number" && Number.isFinite(value.score) ? value.score : null;
 }
 
 function explanationsComplete(run: { catSnapshot: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue }) {
@@ -30,16 +26,17 @@ function explanationsComplete(run: { catSnapshot: Prisma.JsonValue | null; conte
 async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit perhitungan wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const attempt = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, include: { runs: { include: { section: { select: { subtestId: true } } }, orderBy: { sequenceNo: "asc" } } } });
+    const attempt = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, include: { runs: { include: { section: { select: { subtestId: true, testType: true } } }, orderBy: { sequenceNo: "asc" } } } });
     if (!attempt) throw new TryoutResultValidationError("Attempt Tryout tidak ditemukan.");
     if (attempt.status === AttemptStatus.in_progress) throw new TryoutResultValidationError("Attempt masih berjalan dan belum dapat dihitung sebagai hasil akhir.");
     if (attempt.runs.length !== 7 || attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided)) throw new TryoutResultValidationError("Semua tujuh Test harus tersegel, tervalidasi, dan tidak void sebelum hasil dapat dihitung.");
-    const scores = attempt.runs.map((run) => runScore(run.calculationResult));
-    if (scores.some((score) => score === null)) throw new TryoutResultValidationError("Input perhitungan Test belum lengkap.");
-    const finalScore = scores.reduce<number>((total, score) => total + (score ?? 0), 0);
+    const normalizedScores = attempt.runs.map((run) => normalizeRunScore(run.calculationResult, run.section.testType, run.catSnapshot));
+    if (normalizedScores.some((score) => score === null)) throw new TryoutResultValidationError("Input perhitungan Test belum lengkap atau tidak dapat dinormalisasi.");
+    const scores = normalizedScores.filter((score): score is number => score !== null);
+    const finalScore = aggregateTryoutScores(scores);
     await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { score: finalScore } });
-    await tx.tryoutDeliveryAudit.create({ data: { action: "result.calculated", actorUserId: actorId, admissionId: attempt.admissionId, after: json({ finalScore, runScores: scores }), reason: reason.trim(), tryoutId: attempt.tryoutId, deliverySessionId: attempt.deliverySessionId } });
-    return { attemptId, finalScore, runScores: scores };
+    await tx.tryoutDeliveryAudit.create({ data: { action: "result.calculated", actorUserId: actorId, admissionId: attempt.admissionId, after: json({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, finalScore, runScores: scores }), reason: reason.trim(), tryoutId: attempt.tryoutId, deliverySessionId: attempt.deliverySessionId } });
+    return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, finalScore, runScores: scores };
   });
 }
 

@@ -4,6 +4,7 @@ import {
   EnrollmentHandoffMethod,
   EnrollmentHandoffStatus,
   Prisma,
+  SessionStatus,
   UserStatus,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,7 @@ type HandoffStateErrorCode =
   | "handoff_not_releasable"
   | "handoff_expired"
   | "handoff_account_inactive"
+  | "handoff_import_recovery_required"
   | "handoff_invalid_method"
   | "handoff_conflict";
 
@@ -87,6 +89,7 @@ type LockedHandoff = {
   token_hash: string | null;
   secret_envelope: Prisma.JsonValue | null;
   expires_at: Date | null;
+  source_import_row_id: string | null;
   user_status: UserStatus;
   soft_deleted_at: Date | null;
 };
@@ -209,6 +212,7 @@ async function lockHandoff(tx: HandoffTransaction, handoffId: string) {
       h.token_hash,
       h.secret_envelope,
       h.expires_at,
+      h.source_import_row_id,
       u.status AS user_status,
       u.soft_deleted_at
     FROM enrollment_handoffs h
@@ -244,6 +248,7 @@ async function lockEnrollmentHandoffByToken(tx: HandoffTransaction, tokenHash: s
       h.token_hash,
       h.secret_envelope,
       h.expires_at,
+      h.source_import_row_id,
       u.status AS user_status,
       u.soft_deleted_at
     FROM enrollment_handoffs h
@@ -295,21 +300,43 @@ async function releaseEnrollmentHandoff(input: {
 
     const now = new Date();
 
-    if (handoff.method === EnrollmentHandoffMethod.invite_link && handoff.expires_at && handoff.expires_at <= now) {
-      await tx.enrollmentHandoff.update({
+    const inviteHasExpired = handoff.method === EnrollmentHandoffMethod.invite_link
+      && (handoff.expires_at === null || handoff.expires_at <= now);
+
+    if (inviteHasExpired) {
+      // A nullable invite expiry is malformed, not perpetual. Keep the
+      // terminalization fail-closed and conditional so a future caller can
+      // never decrypt/release a row that changed between the lock and update.
+      const terminalized = await tx.enrollmentHandoff.updateMany({
         data: {
           revokedAt: null,
           secretEnvelope: Prisma.DbNull,
           status: EnrollmentHandoffStatus.expired,
         },
-        where: { id: handoff.id },
+        where: {
+          id: handoff.id,
+          method: EnrollmentHandoffMethod.invite_link,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { lte: now } },
+          ],
+          status: EnrollmentHandoffStatus.pending,
+        },
       });
+
+      if (terminalized.count !== 1) {
+        throw new EnrollmentHandoffStateError(
+          "handoff_conflict",
+          "The invite handoff changed before its expiry could be recorded.",
+        );
+      }
 
       await writeHandoffAudit({
         action: "enrollment_handoff.expired",
         handoffId: handoff.id,
         metadata: {
           method: handoff.method,
+          reason: handoff.expires_at === null ? "missing_expiry" : "expired",
         },
         tx,
         userId: handoff.user_id,
@@ -513,6 +540,8 @@ async function acknowledgeEnrollmentHandoff(input: {
 async function reissueEnrollmentHandoff(input: {
   handoffId: string;
   actorUserId: string;
+  allowImportRecovery?: boolean;
+  importId?: string;
   method?: EnrollmentHandoffMethod;
 }) {
   return prisma.$transaction(async (tx) => {
@@ -542,6 +571,32 @@ async function reissueEnrollmentHandoff(input: {
       throw new EnrollmentHandoffStateError(
         "handoff_invalid_method",
         "A handoff can only be reissued with its existing delivery method.",
+      );
+    }
+
+    if (input.allowImportRecovery) {
+      if (!input.importId || !existing.source_import_row_id) {
+        throw new EnrollmentHandoffStateError(
+          "handoff_not_found",
+          "The enrollment handoff is not linked to this import.",
+        );
+      }
+
+      const ownedSource = await tx.enrollmentImport.findFirst({
+        select: { id: true },
+        where: {
+          createdByUserId: input.actorUserId,
+          id: input.importId,
+          rows: { some: { id: existing.source_import_row_id } },
+        },
+      });
+      if (!ownedSource) {
+        throw new EnrollmentHandoffStateError("handoff_not_found", "The enrollment handoff was not found.");
+      }
+    } else if (existing.source_import_row_id) {
+      throw new EnrollmentHandoffStateError(
+        "handoff_import_recovery_required",
+        "Import-sourced handoffs must be released through the authenticated handoff-file workflow before they can be replaced.",
       );
     }
 
@@ -577,16 +632,43 @@ async function reissueEnrollmentHandoff(input: {
         },
         where: { id: existing.user_id },
       });
+
+      // A reset token issued before a temporary-password reissue must not be
+      // able to win later and overwrite the replacement credential.
+      await tx.passwordResetToken.updateMany({
+        data: { usedAt: now },
+        where: {
+          usedAt: null,
+          userId: existing.user_id,
+        },
+      });
+
+      // Reissuing a temporary password invalidates any session that was
+      // authenticated with the previous credential. Invite reissue does not
+      // change the account credential and therefore leaves sessions intact.
+      await tx.authSession.updateMany({
+        data: {
+          revokedAt: now,
+          status: SessionStatus.revoked,
+        },
+        where: {
+          status: SessionStatus.active,
+          userId: existing.user_id,
+        },
+      });
     }
 
     const expiresAt = method === EnrollmentHandoffMethod.invite_link
       ? new Date(now.getTime() + INVITE_HANDOFF_WINDOW_MS)
       : null;
     const newHandoffId = randomUUID();
+    const importRecovery = Boolean(existing.source_import_row_id);
     // Seal before mutating account state so key/configuration failures roll
-    // back the entire reissue transaction; the envelope is then discarded
-    // because this operation returns the replacement secret exactly once.
-    sealEnrollmentHandoffSecret(rawSecret, {
+    // back the entire reissue transaction. Import-sourced replacements stay
+    // pending and sealed so a lost response can be recovered through the
+    // one-time bulk handoff-file path; standalone reissues retain the
+    // existing released-and-returned-secret behavior.
+    const sealedReplacement = sealEnrollmentHandoffSecret(rawSecret, {
       handoffId: newHandoffId,
       method,
       userId: existing.user_id,
@@ -598,21 +680,41 @@ async function reissueEnrollmentHandoff(input: {
         expiresAt,
         id: newHandoffId,
         method,
-        // Reissue returns the replacement secret once, so do not leave a
-        // second copy available to a later release call.
-        releasedAt: now,
-        secretEnvelope: Prisma.DbNull,
-        status: EnrollmentHandoffStatus.released,
+        releasedAt: importRecovery ? null : now,
+        secretEnvelope: importRecovery
+          ? sealedReplacement as Prisma.InputJsonValue
+          : Prisma.DbNull,
+        sourceImportRowId: existing.source_import_row_id,
+        status: importRecovery
+          ? EnrollmentHandoffStatus.pending
+          : EnrollmentHandoffStatus.released,
         tokenHash,
         userId: existing.user_id,
       },
     });
+
+    if (existing.source_import_row_id) {
+      const linked = await tx.enrollmentImportRow.updateMany({
+        data: { handoffId: newHandoffId },
+        where: {
+          handoffId: existing.id,
+          id: existing.source_import_row_id,
+        },
+      });
+      if (linked.count !== 1) {
+        throw new EnrollmentHandoffStateError(
+          "handoff_conflict",
+          "The import row changed before its replacement handoff could be linked.",
+        );
+      }
+    }
 
     await writeHandoffAudit({
       action: "enrollment_handoff.reissued",
       actorUserId: input.actorUserId,
       handoffId: newHandoffId,
       metadata: {
+        importRecovery,
         method,
         replacedHandoffId: existing.id,
       },
@@ -621,17 +723,24 @@ async function reissueEnrollmentHandoff(input: {
     });
 
     return {
+      recoverableByImportFile: importRecovery,
       handoffId: newHandoffId,
-      inviteUrl: method === EnrollmentHandoffMethod.invite_link
+      inviteUrl: !importRecovery && method === EnrollmentHandoffMethod.invite_link
         ? buildEnrollmentInviteUrl(rawSecret)
         : null,
       method,
-      secret: rawSecret,
+      secret: importRecovery ? null : rawSecret,
       userId: existing.user_id,
     };
   });
 }
 
+/**
+ * Callable expiry sweep for the existing worker/scheduler boundary. Ticket 2
+ * deliberately does not invent an in-process timer; the deployment worker
+ * must call this function on its schedule and treat the returned count as the
+ * completion metric.
+ */
 async function expireEnrollmentHandoffs(now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const candidates = await tx.enrollmentHandoff.findMany({
@@ -757,6 +866,7 @@ export {
   countUnreleasedEnvelopesByKeyId,
   expireEnrollmentHandoffs,
   lockEnrollmentHandoffByToken,
+  lockHandoff,
   releaseEnrollmentHandoff,
   reissueEnrollmentHandoff,
   revokeOpenEnrollmentHandoffs,
@@ -767,4 +877,5 @@ export {
 export type {
   CreateEnrollmentHandoffInput,
   HandoffTransaction,
+  LockedHandoff,
 };

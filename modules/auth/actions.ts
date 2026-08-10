@@ -9,6 +9,7 @@ import {
   getLoginPathForAudience,
   requireSession,
 } from "@/lib/auth/access";
+import { getSafeAdminReturnPath } from "@/lib/auth/paths";
 import {
   changePasswordForUser,
   completePasswordReset,
@@ -67,6 +68,9 @@ async function handleLoginAction(
 ): Promise<FormState> {
   const email = readTextField(formData, "email");
   const password = readTextField(formData, "password");
+  const returnTo = requiredRole === RoleName.admin
+    ? getSafeAdminReturnPath(formData.get("returnTo"))
+    : null;
 
   if (!email || !password) {
     return withFieldError(
@@ -113,7 +117,7 @@ async function handleLoginAction(
     };
   }
 
-  redirect(getDefaultHomePath(result.user));
+  redirect(returnTo && !result.user.mustChangePassword ? returnTo : getDefaultHomePath(result.user));
 }
 
 async function loginStudentAction(previousState: FormState, formData: FormData): Promise<FormState> {
@@ -242,7 +246,7 @@ async function changePasswordAction(
   }
 
   try {
-    await changePasswordForUser(session.user.id, password);
+    await changePasswordForUser(session.user.id, session.sessionId, password);
   } catch (error) {
     return {
       message: getChangePasswordErrorMessage(error),
