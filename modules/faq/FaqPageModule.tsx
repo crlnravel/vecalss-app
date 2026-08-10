@@ -5,7 +5,7 @@ import {
   Plus,
   ScanSearch,
   Sparkles,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { ActionButtonLink } from "@/modules/home/components/home-primitives";

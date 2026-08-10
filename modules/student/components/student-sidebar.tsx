@@ -10,7 +10,7 @@ import {
   LayoutDashboard,
   ListChecks,
   UserRound,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import {
   Sidebar,

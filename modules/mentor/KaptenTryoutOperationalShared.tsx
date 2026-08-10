@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, CircleAlert, CircleHelp } from "lucide-react";
+import { ChevronLeft, CircleAlert, CircleHelp } from "@/lib/icons";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

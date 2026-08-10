@@ -17,7 +17,7 @@ import {
   UserRound,
   Target,
   Zap,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import {
   Empty,

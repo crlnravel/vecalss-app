@@ -1,6 +1,6 @@
 "use client";
 
-import { Save } from "lucide-react";
+import { Save } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

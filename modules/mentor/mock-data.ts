@@ -6,9 +6,9 @@ import {
   Image as ImageIcon,
   LibraryBig,
   ListChecks,
-  type LucideIcon,
+  type AppIcon,
   Video,
-} from "lucide-react";
+} from "@/lib/icons";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 
 type KaptenContentStatus = "draft" | "scheduled" | "published" | "archived";
@@ -92,7 +92,7 @@ type KaptenMediaAsset = KaptenResource & {
 type KaptenNotificationItem = {
   detail: string;
   href: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   time: string;
   title: string;
   unread: boolean;
@@ -699,7 +699,7 @@ const quickCreateItems = [
 
 const contentTypeMeta: Record<
   KaptenResourceType,
-  { icon: LucideIcon; label: string }
+  { icon: AppIcon; label: string }
 > = {
   materi: { icon: BookOpenText, label: "Materi" },
   media: { icon: ImageIcon, label: "Media" },

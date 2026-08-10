@@ -1,4 +1,4 @@
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "@/lib/icons";
 
 import { cn } from "@/lib/utils";
 

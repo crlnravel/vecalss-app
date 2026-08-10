@@ -8,7 +8,7 @@ import {
   ChevronRight,
   Plus,
   Search,
-} from "lucide-react";
+} from "@/lib/icons";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";

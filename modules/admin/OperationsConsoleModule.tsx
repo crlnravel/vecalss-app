@@ -16,7 +16,7 @@ import {
   UserPlus,
   Users,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";

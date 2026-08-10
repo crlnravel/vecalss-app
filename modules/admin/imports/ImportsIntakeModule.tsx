@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDownToLine, FileUp, UsersRound } from "lucide-react";
+import { ArrowDownToLine, FileUp, UsersRound } from "@/lib/icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 

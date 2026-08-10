@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";

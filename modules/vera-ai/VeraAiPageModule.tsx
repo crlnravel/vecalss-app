@@ -36,8 +36,8 @@ import {
   Sparkles,
   Upload,
   X,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -134,7 +134,7 @@ const CONTEXT_PAGE_SIZE = 3;
 const DAILY_TOKEN_USAGE = 3200;
 const DAILY_TOKEN_LIMIT = 10000;
 
-const toolIcons: Record<VeraToolId, LucideIcon> = {
+const toolIcons: Record<VeraToolId, AppIcon> = {
   analysis: ChartNoAxesColumnIncreasing,
   route: ListChecks,
   drill: Dumbbell,
@@ -143,7 +143,7 @@ const toolIcons: Record<VeraToolId, LucideIcon> = {
   summary: FileText,
 };
 
-const contextTypeIcons: Record<VeraContextTypeId, LucideIcon> = {
+const contextTypeIcons: Record<VeraContextTypeId, AppIcon> = {
   practice: ChartNoAxesColumnIncreasing,
   material: BookOpen,
   document: FileText,
@@ -1987,9 +1987,9 @@ function ContextOption({
   title,
 }: {
   disabled: boolean;
-  icon: LucideIcon;
+  icon: AppIcon;
   meta: string;
-  metaIcon?: LucideIcon;
+  metaIcon?: AppIcon;
   onToggle: () => void;
   selected: boolean;
   tag: string;

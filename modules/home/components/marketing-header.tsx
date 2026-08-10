@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Menu } from "lucide-react";
+import { Menu } from "@/lib/icons";
 
 import { marketingNavItems } from "../data";
 

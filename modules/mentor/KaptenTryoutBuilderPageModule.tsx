@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Copy, Lock, PackagePlus, Save, Search, Upload } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Copy, Lock, PackagePlus, Save, Search, Upload } from "@/lib/icons";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";

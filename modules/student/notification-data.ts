@@ -1,4 +1,4 @@
-import { BookOpen, CalendarCheck, MessageCircle } from "lucide-react";
+import { BookOpen, CalendarCheck, MessageCircle } from "@/lib/icons";
 
 import type { StudentNotificationItem } from "@/modules/student/components/student-notification-popover";
 

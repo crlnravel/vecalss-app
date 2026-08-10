@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, PackageCheck, Plus, Search } from "lucide-react";
+import { ChevronRight, PackageCheck, Plus, Search } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";

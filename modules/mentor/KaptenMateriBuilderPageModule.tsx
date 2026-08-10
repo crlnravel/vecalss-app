@@ -13,7 +13,7 @@ import {
   Save,
   Trash2,
   Upload,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useEffect, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 

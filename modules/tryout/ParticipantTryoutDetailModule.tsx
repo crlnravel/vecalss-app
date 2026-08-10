@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";

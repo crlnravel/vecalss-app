@@ -13,7 +13,7 @@ import {
   Save,
   Trash2,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

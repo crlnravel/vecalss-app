@@ -1,4 +1,4 @@
-import { AlertTriangle, CircleCheckBig, Info } from "lucide-react";
+import { AlertTriangle, CircleCheckBig, Info } from "@/lib/icons";
 
 import { cn } from "@/lib/utils";
 

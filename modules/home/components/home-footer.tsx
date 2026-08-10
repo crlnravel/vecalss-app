@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AtSign, BriefcaseBusiness, X } from "lucide-react";
+import { AtSign, BriefcaseBusiness, X } from "@/lib/icons";
 
 const quickLinks = [
   { label: "About Us", href: "/#about" },

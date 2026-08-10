@@ -16,7 +16,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "@/lib/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";

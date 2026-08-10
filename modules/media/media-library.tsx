@@ -17,7 +17,7 @@ import {
   Search,
   Trash2,
   Upload,
-} from "lucide-react";
+} from "@/lib/icons";
 import NextImage from "next/image";
 import {
   useCallback,

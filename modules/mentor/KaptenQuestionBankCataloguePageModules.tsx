@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Archive, Ellipsis, FilePenLine, LibraryBig, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Archive, Ellipsis, FilePenLine, LibraryBig, Pencil, Plus, Trash2, Upload } from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";

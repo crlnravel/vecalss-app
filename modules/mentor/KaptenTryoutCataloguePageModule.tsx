@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, CircleHelp, ClipboardList, Lock, Plus } from "lucide-react";
+import { ChevronRight, CircleHelp, ClipboardList, Lock, Plus } from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";

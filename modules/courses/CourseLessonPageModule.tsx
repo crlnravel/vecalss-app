@@ -10,7 +10,7 @@ import {
   LockKeyhole,
   MessageCircle,
   Share2,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";

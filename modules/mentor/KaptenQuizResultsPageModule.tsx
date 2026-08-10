@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ChevronLeft, ExternalLink, Search } from "lucide-react";
+import { ChevronLeft, ExternalLink, Search } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

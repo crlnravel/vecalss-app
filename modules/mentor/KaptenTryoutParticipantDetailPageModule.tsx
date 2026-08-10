@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Link2, ShieldX, Unlink, X } from "lucide-react";
+import { Check, Link2, ShieldX, Unlink, X } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

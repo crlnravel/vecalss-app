@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Plus } from "lucide-react";
+import { CalendarDays, ChevronRight, Plus } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {

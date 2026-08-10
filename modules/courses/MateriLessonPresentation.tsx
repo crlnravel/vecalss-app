@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink } from "@/lib/icons";
 import type { ReactNode } from "react";
 
 import type { MateriDocument } from "@/lib/materi/contract";

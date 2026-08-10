@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Users } from "lucide-react";
+import { ChevronRight, Users } from "@/lib/icons";
 
 import {
   Card,

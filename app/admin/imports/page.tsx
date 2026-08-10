@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, CircleAlert, FileClock } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, CircleAlert, FileClock } from "@/lib/icons";
 
 import { EnrollmentImportRole, EnrollmentImportStatus } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";

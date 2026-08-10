@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   Clock3,
   ListChecks,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";

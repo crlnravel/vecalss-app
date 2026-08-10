@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, LockOpen, Upload } from "lucide-react";
+import { ChevronRight, LockOpen, Upload } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

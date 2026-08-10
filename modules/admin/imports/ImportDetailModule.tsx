@@ -18,7 +18,7 @@ import {
   SkipForward,
   Timer,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
 import {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, RotateCcw, ShieldAlert } from "lucide-react";
+import { Calculator, RotateCcw, ShieldAlert } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

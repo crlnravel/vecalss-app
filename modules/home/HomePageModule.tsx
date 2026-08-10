@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/lib/icons";
 
 import { featuredTopAlumni, type TopAlumni } from "@/modules/alumni/data";
 import { ContactForm } from "./components/contact-form";

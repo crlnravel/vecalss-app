@@ -12,7 +12,7 @@ import {
   LockKeyhole,
   SkipForward,
   Video,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 

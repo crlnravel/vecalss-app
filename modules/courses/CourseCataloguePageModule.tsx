@@ -11,8 +11,8 @@ import {
   Languages,
   LibraryBig,
   PenTool,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/lib/icons";
 
 import type { SessionContext } from "@/lib/auth/types";
 
@@ -32,7 +32,7 @@ const courseIcons = {
   languages: Languages,
   library: LibraryBig,
   "pen-tool": PenTool,
-} satisfies Record<SubjectIcon, LucideIcon>;
+} satisfies Record<SubjectIcon, AppIcon>;
 
 const courseCategoryLabels: Record<string, string> = {
   PU: "TPS",

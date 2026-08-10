@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import type { AppIcon } from "@/lib/icons";
 
 import { cn } from "@/lib/utils";
 
 type CatalogueCardStat = {
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
   value: string;
 };
@@ -13,7 +13,7 @@ type CatalogueCardProps = {
   code: string;
   description: string;
   href: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   palette: string;
   stats: CatalogueCardStat[];
   title: string;

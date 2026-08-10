@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, BarChart3, ChevronLeft, Ellipsis, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Archive, BarChart3, ChevronLeft, Ellipsis, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, X } from "@/lib/icons";
 import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";

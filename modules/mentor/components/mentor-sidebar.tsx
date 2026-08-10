@@ -11,7 +11,7 @@ import {
   ListChecks,
   PackageCheck,
   Settings,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import {
   Sidebar,

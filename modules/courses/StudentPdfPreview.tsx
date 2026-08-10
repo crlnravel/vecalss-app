@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, ExternalLink, FileText, LoaderCircle, RefreshCw } from "lucide-react";
+import { Download, ExternalLink, FileText, LoaderCircle, RefreshCw } from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
 
 import {

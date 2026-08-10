@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, Bell, LogOut, Settings, UserRound } from "lucide-react";
+import { AlertTriangle, Bell, LogOut, Settings, UserRound } from "@/lib/icons";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

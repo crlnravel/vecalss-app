@@ -11,7 +11,7 @@ import {
   WifiHigh,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "@/lib/icons";
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 

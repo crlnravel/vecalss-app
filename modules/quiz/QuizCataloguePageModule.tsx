@@ -13,7 +13,7 @@ import {
   LibraryBig,
   ListChecks,
   PenTool,
-} from "lucide-react";
+} from "@/lib/icons";
 
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";

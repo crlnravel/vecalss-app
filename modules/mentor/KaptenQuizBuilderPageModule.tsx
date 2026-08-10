@@ -17,7 +17,7 @@ import {
   Search,
   Trash2,
   Upload,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";

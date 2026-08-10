@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, Pencil, Plus } from "lucide-react";
+import { ChevronLeft, Pencil, Plus } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 
