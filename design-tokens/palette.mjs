@@ -63,4 +63,37 @@ export const palette = {
     800: "#203b32",
     900: "#10241d",
   },
+
+  // Semantic tones used by student badges, status chips, and compact state UI.
+  // Keep these separate from the legacy accent/warning ramps so their meaning
+  // stays stable while the broader component library migrates.
+  student: {
+    "status-category-bg": "#eef8f1",
+    "status-category-fg": "#014c38",
+    "status-category-border": "#d6e5db",
+    "status-neutral-bg": "#ffffff",
+    "status-neutral-fg": "#38564c",
+    "status-neutral-border": "#d6e5db",
+    "status-active-bg": "#014c38",
+    "status-active-fg": "#ffffff",
+    "status-active-border": "#014c38",
+    "status-attention-bg": "#fff4cf",
+    "status-attention-fg": "#5e4707",
+    "status-attention-border": "#f2d47a",
+    "status-attention-solid-bg": "#ffd766",
+    "status-attention-solid-fg": "#5e4707",
+    "status-success-bg": "#eef7f3",
+    "status-success-fg": "#075f46",
+    "status-success-border": "#acd7c8",
+    "status-info-bg": "#edf5fb",
+    "status-info-fg": "#18576b",
+    "status-info-border": "#b8d8e4",
+    "status-danger-bg": "#fff1f0",
+    "status-danger-fg": "#8b3f32",
+    "status-danger-border": "#e8c0b8",
+    "status-danger-solid-bg": "#8b3f32",
+    "status-danger-solid-fg": "#ffffff",
+    "status-success-solid-bg": "#075f46",
+    "status-success-solid-fg": "#ffffff",
+  },
 };

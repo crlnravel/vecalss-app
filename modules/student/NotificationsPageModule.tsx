@@ -59,7 +59,7 @@ function NotificationsPageModule({
                     {item.title}
                   </p>
                   {item.unread ? (
-                    <span className="size-2 rounded-full bg-[#F5C518]" />
+                    <span className="size-2 rounded-full bg-student-status-attention-border" />
                   ) : null}
                 </div>
                 <p className="mt-1 text-sm leading-6 text-secondary-600">

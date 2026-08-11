@@ -50,7 +50,7 @@ import {
   AttachmentTitle,
 } from "@/components/ui/attachment";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { Badge } from "@/components/ui/badge";
+import { StudentBadge } from "@/components/ui/student-badge";
 import {
   Dialog,
   DialogClose,
@@ -2014,13 +2014,9 @@ function ContextOption({
           <span className="text-sm font-semibold text-secondary-950 md:text-base">
             {title}
           </span>
-          <Badge
-            className="rounded-full px-2 py-0.5"
-            size="ui"
-            variant="mint"
-          >
+          <StudentBadge tone="category">
             {tag}
-          </Badge>
+          </StudentBadge>
         </span>
         <span className="mt-1 flex items-center gap-1.5 text-xs font-normal leading-5 text-secondary-500">
           {MetaIcon ? <MetaIcon aria-hidden /> : null}

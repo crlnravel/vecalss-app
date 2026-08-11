@@ -52,6 +52,33 @@
   --warning-700: oklch(0.426 0.039 171.5);
   --warning-800: oklch(0.328 0.037 170.6);
   --warning-900: oklch(0.241 0.030 169.2);
+  --student-status-category-bg: oklch(0.970 0.014 155.6);
+  --student-status-category-fg: oklch(0.370 0.075 167.9);
+  --student-status-category-border: oklch(0.908 0.021 156.8);
+  --student-status-neutral-bg: oklch(1.000 0.000 0.0);
+  --student-status-neutral-fg: oklch(0.426 0.039 171.5);
+  --student-status-neutral-border: oklch(0.908 0.021 156.8);
+  --student-status-active-bg: oklch(0.370 0.075 167.9);
+  --student-status-active-fg: oklch(1.000 0.000 0.0);
+  --student-status-active-border: oklch(0.370 0.075 167.9);
+  --student-status-attention-bg: oklch(0.966 0.049 93.4);
+  --student-status-attention-fg: oklch(0.412 0.081 86.3);
+  --student-status-attention-border: oklch(0.876 0.115 91.5);
+  --student-status-attention-solid-bg: oklch(0.892 0.138 89.9);
+  --student-status-attention-solid-fg: oklch(0.412 0.081 86.3);
+  --student-status-success-bg: oklch(0.968 0.011 167.8);
+  --student-status-success-fg: oklch(0.432 0.086 166.8);
+  --student-status-success-border: oklch(0.844 0.050 171.8);
+  --student-status-info-bg: oklch(0.966 0.012 239.9);
+  --student-status-info-fg: oklch(0.427 0.070 223.5);
+  --student-status-info-border: oklch(0.863 0.038 222.5);
+  --student-status-danger-bg: oklch(0.969 0.015 22.4);
+  --student-status-danger-fg: oklch(0.465 0.107 31.4);
+  --student-status-danger-border: oklch(0.840 0.047 31.3);
+  --student-status-danger-solid-bg: oklch(0.465 0.107 31.4);
+  --student-status-danger-solid-fg: oklch(1.000 0.000 0.0);
+  --student-status-success-solid-bg: oklch(0.432 0.086 166.8);
+  --student-status-success-solid-fg: oklch(1.000 0.000 0.0);
 }
 
 @theme inline {
@@ -105,4 +132,31 @@
   --color-warning-700: var(--warning-700);
   --color-warning-800: var(--warning-800);
   --color-warning-900: var(--warning-900);
+  --color-student-status-category-bg: var(--student-status-category-bg);
+  --color-student-status-category-fg: var(--student-status-category-fg);
+  --color-student-status-category-border: var(--student-status-category-border);
+  --color-student-status-neutral-bg: var(--student-status-neutral-bg);
+  --color-student-status-neutral-fg: var(--student-status-neutral-fg);
+  --color-student-status-neutral-border: var(--student-status-neutral-border);
+  --color-student-status-active-bg: var(--student-status-active-bg);
+  --color-student-status-active-fg: var(--student-status-active-fg);
+  --color-student-status-active-border: var(--student-status-active-border);
+  --color-student-status-attention-bg: var(--student-status-attention-bg);
+  --color-student-status-attention-fg: var(--student-status-attention-fg);
+  --color-student-status-attention-border: var(--student-status-attention-border);
+  --color-student-status-attention-solid-bg: var(--student-status-attention-solid-bg);
+  --color-student-status-attention-solid-fg: var(--student-status-attention-solid-fg);
+  --color-student-status-success-bg: var(--student-status-success-bg);
+  --color-student-status-success-fg: var(--student-status-success-fg);
+  --color-student-status-success-border: var(--student-status-success-border);
+  --color-student-status-info-bg: var(--student-status-info-bg);
+  --color-student-status-info-fg: var(--student-status-info-fg);
+  --color-student-status-info-border: var(--student-status-info-border);
+  --color-student-status-danger-bg: var(--student-status-danger-bg);
+  --color-student-status-danger-fg: var(--student-status-danger-fg);
+  --color-student-status-danger-border: var(--student-status-danger-border);
+  --color-student-status-danger-solid-bg: var(--student-status-danger-solid-bg);
+  --color-student-status-danger-solid-fg: var(--student-status-danger-solid-fg);
+  --color-student-status-success-solid-bg: var(--student-status-success-solid-bg);
+  --color-student-status-success-solid-fg: var(--student-status-success-solid-fg);
 }

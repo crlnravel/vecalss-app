@@ -387,7 +387,7 @@ function FeedbackNotice({ feedback }: { feedback: Feedback | null }) {
       className={cn(
         "mx-auto mt-5 flex max-w-xl items-start gap-2 rounded-2xl px-4 py-3 text-left text-sm leading-6",
         feedback.tone === "error"
-          ? "bg-red-50 text-red-800"
+          ? "bg-student-status-danger-bg text-student-status-danger-fg"
           : "bg-[#eaf9f4] text-[#176d5b]",
       )}
       role="status"

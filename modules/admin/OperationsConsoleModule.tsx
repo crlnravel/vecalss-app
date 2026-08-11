@@ -37,6 +37,11 @@ import {
   acknowledgeEnrollmentHandoffAction,
   reissueEnrollmentHandoffAction,
 } from "./actions";
+import {
+  ADMIN_CARD_CLASS_NAME,
+  ADMIN_STATUS_CLASS_NAMES,
+  ADMIN_STATUS_FILL_CLASS_NAMES,
+} from "./admin-ui-contract";
 import { CreateKaptenForm } from "./components/create-kapten-form";
 import { CreateStudentForm } from "./components/create-student-form";
 import { findVisibleFocusTarget, firstVisibleFocusTarget, isVisibleFocusTarget } from "./components/focus-target";
@@ -48,19 +53,19 @@ const SNAPSHOT_STALE_AFTER_MS = 5 * 60 * 1000;
 
 const operationLabels: Record<OperationKey, { detail: string; label: string }> = {
   "add-kapten": {
-    detail: "Provision a tutor role and profile",
+    detail: "Create a Kapten account",
     label: "Add Kapten",
   },
   "add-student": {
-    detail: "Create a student account and handoff",
+    detail: "Create a student account",
     label: "Add student",
   },
   exceptions: {
-    detail: "Resolve handoffs and imports needing a decision",
+    detail: "Resolve open issues",
     label: "Review exceptions",
   },
   "import-roster": {
-    detail: "Start a role-scoped roster import",
+    detail: "Upload a roster CSV",
     label: "Import roster",
   },
 };
@@ -117,15 +122,15 @@ function SnapshotStatusBar({
         ? "Checking snapshot"
         : "Snapshot current";
   const statusClassName = status === "stale"
-    ? "border-[#ead899] bg-[#fff5cf] text-[#725400]"
+    ? ADMIN_STATUS_CLASS_NAMES.warning
     : status === "error"
-      ? "border-[#e3c2bb] bg-[#fff0ee] text-[#8b3f32]"
-      : "border-white/15 bg-white/[0.08] text-[#c8e7d0]";
+      ? ADMIN_STATUS_CLASS_NAMES.danger
+      : "border-white/15 bg-white/[0.08] text-primary-100";
   const dotClassName = status === "stale"
-    ? "bg-[#c49212]"
+    ? "bg-student-status-attention-solid-bg"
     : status === "error"
-      ? "bg-[#b25343]"
-      : "bg-[#91d6a5]";
+      ? "bg-student-status-danger-solid-bg"
+      : "bg-primary-300";
 
   return (
     <div aria-live="polite" className={`flex flex-wrap items-center justify-end gap-x-2 gap-y-1 rounded-xl border px-3 py-2 text-xs ${statusClassName}`}>
@@ -136,7 +141,7 @@ function SnapshotStatusBar({
       {status === "error" ? <span className="basis-full text-[0.72rem]">Retry to recover the read timestamp.</span> : null}
       <Link
         aria-label="Refresh operations snapshot"
-        className="ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 font-bold text-current hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#91d6a5]"
+        className="ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 font-semibold text-current hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
         href={refreshHref}
       >
         <RefreshCw size={14} />
@@ -158,14 +163,14 @@ function MetricCard({
   value: number;
 }) {
   return (
-    <article className="relative min-w-0 overflow-hidden rounded-[18px] border border-white/15 bg-white/[0.075] px-3 py-4 sm:px-5">
+    <article className="relative min-w-0 overflow-hidden rounded-3xl border border-white/15 bg-white/[0.075] px-3 py-4 sm:px-5">
       <span
         aria-hidden="true"
-        className={`absolute right-4 top-4 size-2.5 rounded-full ${accent === "sun" ? "bg-[#ffd766]" : accent === "pending" ? "bg-[#ffd766]" : "bg-[#91d6a5]"}`}
+        className={`absolute right-4 top-4 size-2.5 rounded-full ${accent === "sun" ? "bg-student-status-attention-solid-bg" : accent === "pending" ? "bg-student-status-attention-solid-bg" : "bg-primary-300"}`}
       />
-      <p className="max-w-[16ch] break-words text-xs font-bold uppercase tracking-[0.13em] text-[#c8e7d0]">{label}</p>
-      <p className="mt-3 text-2xl font-bold leading-none tracking-[-0.04em] text-white sm:text-3xl xl:text-4xl">{value.toLocaleString("en-US")}</p>
-      <p className="mt-1.5 break-words text-xs leading-5 text-[#a9d0b5]">{detail}</p>
+      <p className="max-w-[16ch] break-words text-xs font-semibold uppercase tracking-[0.13em] text-primary-100">{label}</p>
+      <p className="mt-3 text-2xl font-semibold leading-none tracking-[-0.04em] text-white sm:text-3xl xl:text-4xl">{value.toLocaleString("en-US")}</p>
+      <p className="mt-1.5 break-words text-xs leading-5 text-primary-200">{detail}</p>
     </article>
   );
 }
@@ -188,25 +193,25 @@ function OperationControl({
   return (
     <button
       aria-pressed={active}
-      className={`group flex min-h-[88px] items-center gap-3 rounded-[18px] border px-4 py-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a] ${active ? "-translate-y-0.5 border-[#73bc8a] bg-[#e8f5eb] shadow-[0_18px_34px_-30px_rgba(1,76,56,0.8)]" : "border-[#d6e5db] bg-white hover:-translate-y-0.5 hover:border-[#a9d0b5] hover:bg-[#f8fcf9]"}`}
+      className={`group flex min-h-[88px] items-center gap-3 rounded-3xl border px-4 py-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 ${active ? "-translate-y-0.5 border-primary-300 bg-primary-50 shadow-[0_18px_34px_-30px_rgba(1,76,56,0.8)]" : "border-primary-100 bg-white hover:-translate-y-0.5 hover:border-primary-200 hover:bg-secondary-50"}`}
       onClick={onSelect}
       type="button"
     >
-      <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${active ? "bg-[#014c38] text-white" : "bg-[#eef8f1] text-[#176b4d]"}`}>
+      <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${active ? "bg-primary-700 text-white" : "bg-primary-50 text-primary-800"}`}>
         <Icon size={18} strokeWidth={1.8} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-sm font-bold text-[#173c2d]">
+        <span className="flex items-center gap-2 text-sm font-semibold text-secondary-900">
           {label}
           {typeof count === "number" ? (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${count > 0 ? "bg-[#fff0bc] text-[#725400]" : "bg-[#eef8f1] text-[#176b4d]"}`}>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${count > 0 ? ADMIN_STATUS_FILL_CLASS_NAMES.warning : ADMIN_STATUS_FILL_CLASS_NAMES.success}`}>
               {count}
             </span>
           ) : null}
         </span>
-        <span className="mt-1 block text-xs leading-5 text-[#5f776a]">{detail}</span>
+        <span className="mt-1 block text-xs leading-5 text-secondary-600">{detail}</span>
       </span>
-      <ChevronRight aria-hidden="true" className="shrink-0 text-[#8aa997] transition-transform group-hover:translate-x-0.5" size={17} />
+      <ChevronRight aria-hidden="true" className="shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5" size={17} />
     </button>
   );
 }
@@ -220,26 +225,26 @@ function AttentionRow({
 }) {
   return (
     <button
-      className="group flex min-h-16 w-full items-center gap-3 border-b border-[#e7f0ea] px-1 py-3 text-left last:border-b-0 focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]"
+      className="group flex min-h-16 w-full items-center gap-3 border-b border-primary-100 px-1 py-3 text-left last:border-b-0 focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
       data-attention-row="true"
       data-attention-trigger="true"
       onClick={(event) => onOpen(item, event.currentTarget)}
       type="button"
     >
-      <span aria-hidden="true" className={`grid size-9 shrink-0 place-items-center rounded-xl ${item.kind === "import" ? "bg-[#fff5cf] text-[#725400]" : "bg-[#eef8f1] text-[#176b4d]"}`}>
+      <span aria-hidden="true" className={`grid size-9 shrink-0 place-items-center rounded-xl ${item.kind === "import" ? ADMIN_STATUS_FILL_CLASS_NAMES.warning : ADMIN_STATUS_FILL_CLASS_NAMES.success}`}>
         {item.kind === "import" ? <FileClock size={16} /> : <Clock3 size={16} />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-sm font-bold text-[#173c2d]">{item.title}</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${item.kind === "import" ? "bg-[#fff5cf] text-[#725400]" : "bg-[#eef8f1] text-[#176b4d]"}`}>
+          <span className="truncate text-sm font-semibold text-secondary-900">{item.title}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.kind === "import" ? ADMIN_STATUS_FILL_CLASS_NAMES.warning : ADMIN_STATUS_FILL_CLASS_NAMES.success}`}>
             {item.statusLabel}
           </span>
         </span>
-        <span className="mt-1 block truncate text-xs text-[#5f776a]">{item.detail}</span>
+        <span className="mt-1 block truncate text-xs text-secondary-600">{item.detail}</span>
       </span>
-      <span className="hidden shrink-0 text-xs text-[#8aa997] sm:block">{formatDate(item.createdAt)}</span>
-      <ChevronRight aria-hidden="true" className="shrink-0 text-[#8aa997] transition-transform group-hover:translate-x-0.5" size={16} />
+      <span className="hidden shrink-0 text-xs text-secondary-400 sm:block">{formatDate(item.createdAt)}</span>
+      <ChevronRight aria-hidden="true" className="shrink-0 text-secondary-400 transition-transform group-hover:translate-x-0.5" size={16} />
     </button>
   );
 }
@@ -257,10 +262,10 @@ function AttentionList({
     const hasRemainingAttention = attentionTotal > 0;
 
     return (
-      <div className="mt-5 rounded-[18px] border border-dashed border-[#c9dfd0] bg-[#f8fcf9] px-4 py-6 text-center focus:outline-2 focus:outline-offset-2 focus:outline-[#73bc8a]" data-attention-queue-notice="true" tabIndex={-1}>
-        <CheckCircle2 className="mx-auto text-[#2f8a5d]" size={21} />
-        <p className="mt-2 text-sm font-bold text-[#173c2d]">{hasRemainingAttention ? "No more items in this slice" : "No attention items right now"}</p>
-        <p className="mt-1 text-xs leading-5 text-[#5f776a]">
+      <div className="mt-5 rounded-3xl border border-dashed border-primary-200 bg-primary-50/70 px-4 py-6 text-center focus:outline-2 focus:outline-offset-2 focus:outline-primary-300" data-attention-queue-notice="true" tabIndex={-1}>
+        <CheckCircle2 className="mx-auto text-primary-600" size={21} />
+        <p className="mt-2 text-sm font-semibold text-secondary-900">{hasRemainingAttention ? "No more items in this slice" : "No attention items right now"}</p>
+        <p className="mt-1 text-xs leading-5 text-secondary-600">
           {hasRemainingAttention
             ? `${attentionTotal} ${attentionTotal === 1 ? "item remains" : "items remain"} in the queue outside this visible slice. Refresh to load the latest signals.`
             : "New handoffs and imports will appear here when a decision is needed."}
@@ -296,13 +301,13 @@ function AttentionPanel({
   const queueSummary = attentionQueueSummary(attention.length, attentionTotal);
 
   return (
-    <section className="rounded-[22px] border border-[#d6e5db] bg-white p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+    <section className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d] focus:outline-2 focus:outline-offset-2 focus:outline-[#73bc8a]" id="attention-queue-heading" tabIndex={-1}>Attention queue</h2>
-          <p className="mt-1 max-w-[55ch] text-sm leading-6 text-[#5f776a]">Open a row to see the smallest next action without rebuilding the context.</p>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900 focus:outline-2 focus:outline-offset-2 focus:outline-primary-300" id="attention-queue-heading" tabIndex={-1}>Attention queue</h2>
+          <p className="mt-1 max-w-[55ch] text-sm leading-6 text-secondary-600">Open a row to see the smallest next action without rebuilding the context.</p>
         </div>
-        <span className="hidden items-center gap-1.5 rounded-full bg-[#eef8f1] px-3 py-1.5 text-xs font-semibold text-[#176b4d] sm:flex">
+        <span className="hidden items-center gap-1.5 rounded-full bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-800 sm:flex">
           <Activity size={14} /> {queueSummary}
         </span>
       </div>
@@ -352,25 +357,25 @@ function MobileAttentionQueue({
         aria-controls="mobile-attention-queue-sheet"
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="flex min-h-14 w-full items-center gap-3 rounded-[18px] border border-[#d6e5db] bg-white px-4 text-left shadow-[0_18px_40px_-38px_rgba(1,76,56,0.55)] transition hover:border-[#a9d0b5] hover:bg-[#f8fcf9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]"
+        className="flex min-h-14 w-full items-center gap-3 rounded-3xl border border-primary-100 bg-white px-4 text-left shadow-[0_18px_40px_-38px_rgba(1,76,56,0.55)] transition hover:border-primary-200 hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
         data-attention-trigger="true"
         onClick={() => setOpen(true)}
         ref={triggerRef}
         type="button"
       >
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#eef8f1] text-[#176b4d]"><Activity size={16} /></span>
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Activity size={16} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-[#173c2d]">Open attention queue</span>
-          <span className="mt-0.5 block text-xs text-[#5f776a]">{queuePrompt}</span>
+          <span className="block text-sm font-semibold text-secondary-900">Open attention queue</span>
+          <span className="mt-0.5 block text-xs text-secondary-600">{queuePrompt}</span>
         </span>
-        <ChevronRight aria-hidden="true" className="shrink-0 text-[#8aa997]" size={17} />
+        <ChevronRight aria-hidden="true" className="shrink-0 text-secondary-400" size={17} />
       </button>
 
       <Sheet onOpenChange={handleOpenChange} open={open}>
-        <SheetContent className="h-[100dvh] w-full max-w-none rounded-none border-[#d6e5db] bg-[#f7faf8] p-0 md:hidden" id="mobile-attention-queue-sheet" side="right">
-          <SheetHeader className="border-b border-[#d6e5db] bg-white px-5 py-6 pr-14">
-            <SheetTitle className="text-[#173c2d]">Attention queue</SheetTitle>
-          <SheetDescription className="mt-1 text-[#5f776a]">{attentionTotal === 0 ? "There is nothing to resolve right now." : attention.length === 0 ? `${attentionTotal} remain outside this visible slice. Refresh before choosing the next action.` : `${queueSummary} need a decision. Select one to open its next action.`}</SheetDescription>
+        <SheetContent className="h-[100dvh] w-full max-w-none rounded-none border-primary-100 bg-secondary-50 p-0 md:hidden" id="mobile-attention-queue-sheet" side="right">
+          <SheetHeader className="border-b border-primary-100 bg-white px-5 py-6 pr-14">
+            <SheetTitle className="text-secondary-900">Attention queue</SheetTitle>
+          <SheetDescription className="mt-1 text-secondary-600">{attentionTotal === 0 ? "There is nothing to resolve right now." : attention.length === 0 ? `${attentionTotal} remain outside this visible slice. Refresh before choosing the next action.` : `${queueSummary} need a decision. Select one to open its next action.`}</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-5 pb-8">
             <AttentionList attention={attention} attentionTotal={attentionTotal} onOpen={handleItemOpen} />
@@ -383,37 +388,37 @@ function MobileAttentionQueue({
 
 function importStatusClassName(status: string) {
   if (status === "completed") {
-    return "bg-[#eef8f1] text-[#176b4d]";
+    return ADMIN_STATUS_FILL_CLASS_NAMES.success;
   }
 
   if (status === "queued" || status === "processing") {
-    return "bg-[#e8f5eb] text-[#176b4d]";
+    return "bg-student-status-success-bg text-student-status-success-fg";
   }
 
   if (status === "failed" || status === "partial" || status === "draft") {
-    return "bg-[#fff5cf] text-[#725400]";
+    return ADMIN_STATUS_FILL_CLASS_NAMES.warning;
   }
 
-  return "bg-[#edf1ee] text-[#5f776a]";
+  return ADMIN_STATUS_FILL_CLASS_NAMES.neutral;
 }
 
 function RecentImportsLedger({ recentImports }: { recentImports: OperationsRecentImport[] }) {
   return (
-    <div className="mt-6 border-t border-[#c9dfd0] pt-5">
-      <h3 className="text-base font-bold text-[#173c2d]">Recent imports</h3>
+    <div className="mt-6 border-t border-primary-200 pt-5">
+      <h3 className="text-base font-semibold text-secondary-900">Recent imports</h3>
       {recentImports.length === 0 ? (
-        <p className="mt-3 rounded-[18px] border border-dashed border-[#c9dfd0] bg-white/65 px-4 py-4 text-sm leading-6 text-[#5f776a]">No roster imports have been recorded yet.</p>
+        <p className="mt-3 rounded-3xl border border-dashed border-primary-200 bg-white/65 px-4 py-4 text-sm leading-6 text-secondary-600">No roster imports have been recorded yet.</p>
       ) : (
-        <ol className="mt-3 divide-y divide-[#c9dfd0]">
+        <ol className="mt-3 divide-y divide-primary-200">
           {recentImports.map((item) => (
             <li key={item.id}>
-              <Link className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0 focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" href={item.href}>
-                <FileClock aria-hidden="true" className="mt-0.5 shrink-0 text-[#176b4d]" size={16} />
+              <Link className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0 focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={item.href}>
+                <FileClock aria-hidden="true" className="mt-0.5 shrink-0 text-primary-800" size={16} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-[#173c2d]">{item.sourceFilename}</span>
-                  <span className="mt-1 block truncate text-xs leading-5 text-[#5f776a]">{item.role === "kapten" ? "Kapten" : "Students"} · {item.rowCount} rows · Updated {formatDate(item.updatedAt)} UTC</span>
+                  <span className="block truncate text-sm font-semibold text-secondary-900">{item.sourceFilename}</span>
+                  <span className="mt-1 block truncate text-xs leading-5 text-secondary-600">{item.role === "kapten" ? "Kapten" : "Students"} · {item.rowCount} rows · Updated {formatDate(item.updatedAt)} UTC</span>
                 </span>
-                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${importStatusClassName(item.status)}`}>{item.statusLabel}</span>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${importStatusClassName(item.status)}`}>{item.statusLabel}</span>
               </Link>
             </li>
           ))}
@@ -431,21 +436,21 @@ function ActivityPanel({
   recentImports: OperationsRecentImport[];
 }) {
   return (
-    <section className="rounded-[22px] border border-[#d6e5db] bg-[#eef8f1] p-5 sm:p-6">
+    <section className="rounded-4xl border border-primary-100 bg-primary-50 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]">Recent activity</h2>
-        <ShieldCheck aria-hidden="true" className="text-[#2f8a5d]" size={20} />
+        <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Recent activity</h2>
+        <ShieldCheck aria-hidden="true" className="text-primary-600" size={20} />
       </div>
       {audits.length === 0 ? (
-        <p className="mt-5 rounded-[18px] border border-[#c9dfd0] bg-white/65 px-4 py-5 text-sm leading-6 text-[#5f776a]">No audit activity has been recorded yet.</p>
+        <p className="mt-5 rounded-3xl border border-primary-200 bg-white/65 px-4 py-5 text-sm leading-6 text-secondary-600">No audit activity has been recorded yet.</p>
       ) : (
         <ol className="mt-4 space-y-3">
           {audits.map((audit) => (
             <li className="flex gap-3" key={audit.id}>
-              <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-[#2f8a5d]" />
+              <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-primary-600" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[#173c2d]">{audit.action}</p>
-                <p className="mt-0.5 text-xs leading-5 text-[#5f776a]">{audit.actorName} · {formatDate(audit.occurredAt)}</p>
+                <p className="truncate text-sm font-semibold text-secondary-900">{audit.action}</p>
+                <p className="mt-0.5 text-xs leading-5 text-secondary-600">{audit.actorName} · {formatDate(audit.occurredAt)}</p>
               </div>
             </li>
           ))}
@@ -506,16 +511,16 @@ function HandoffAttentionAction({
 
   if (item.sourceImportRowId && !isAwaitingAcknowledgement) {
     return (
-      <p className="rounded-xl border border-[#ead899] bg-[#fff5cf] px-3 py-3 text-xs leading-5 text-[#725400]">
+      <p className={`rounded-2xl border px-3 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
         Reissue is disabled for this import-sourced handoff until an authenticated handoff-file recovery workflow is reachable. Open Imports to inspect the source record; do not replace this handoff from the directory.
       </p>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-[18px] border border-[#d6e5db] bg-[#f8fcf9] p-4">
-      <p className="text-sm font-bold text-[#173c2d]">{isAwaitingAcknowledgement ? "Confirm handoff delivery" : "Replace this handoff"}</p>
-      <p className="text-xs leading-5 text-[#5f776a]">
+    <div className="space-y-3 rounded-3xl border border-primary-100 bg-secondary-50 p-4">
+      <p className="text-sm font-semibold text-secondary-900">{isAwaitingAcknowledgement ? "Confirm handoff delivery" : "Replace this handoff"}</p>
+      <p className="text-xs leading-5 text-secondary-600">
         {isAwaitingAcknowledgement
           ? "Record that the released credential reached the recipient so it leaves the attention queue."
           : "Reissuing revokes the current credential and creates a replacement using the same delivery method."}
@@ -527,7 +532,7 @@ function HandoffAttentionAction({
       {state.status !== "success" ? (
         <form action={formAction} className="space-y-3">
           <input name="handoffId" type="hidden" value={item.id} />
-          <label className="flex items-start gap-2 text-xs leading-5 text-[#5f776a]">
+          <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
             <input className="mt-1" name="confirmation" required type="checkbox" value={isAwaitingAcknowledgement ? "acknowledge" : "reissue"} />
             <span>{isAwaitingAcknowledgement ? "I confirm this handoff was delivered." : "I understand the current handoff will be revoked."}</span>
           </label>
@@ -605,16 +610,16 @@ function ImportAttentionAction({
   }
 
   return (
-    <div className="space-y-3 rounded-[18px] border border-[#d6e5db] bg-[#f8fcf9] p-4">
-      <p className="text-sm font-bold text-[#173c2d]">{isDraft ? "Discard this draft" : "Retry this import"}</p>
-      <p className="text-xs leading-5 text-[#5f776a]">
+    <div className="space-y-3 rounded-3xl border border-primary-100 bg-secondary-50 p-4">
+      <p className="text-sm font-semibold text-secondary-900">{isDraft ? "Discard this draft" : "Retry this import"}</p>
+      <p className="text-xs leading-5 text-secondary-600">
         {isDraft
           ? "Cancelling removes the abandoned draft from the review queue without changing accounts."
           : "Retry only the failed rows through the existing authenticated import worker boundary."}
       </p>
       {error ? <FormNotice compact tone="danger">{error}</FormNotice> : null}
       <form className="space-y-3" onSubmit={handleSubmit}>
-        <label className="flex items-start gap-2 text-xs leading-5 text-[#5f776a]">
+        <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
           <input className="mt-1" name="confirmation" required type="checkbox" value="confirm" />
           <span>{isDraft ? "I understand this draft will be cancelled." : "I understand the failed rows will be queued again."}</span>
         </label>
@@ -639,26 +644,26 @@ function OperationDetailSheet({
 }) {
   return (
     <Sheet onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(item)}>
-      <SheetContent className="w-full border-[#d6e5db] bg-[#f7faf8] p-0 sm:max-w-[440px]" side="right">
-        <SheetHeader className="border-b border-[#d6e5db] bg-white px-5 py-6 pr-14">
-          <SheetTitle className="text-[#173c2d]">{item?.label ?? "Attention item"}</SheetTitle>
-          <SheetDescription className="mt-1 text-[#5f776a]">
+      <SheetContent className="w-full border-primary-100 bg-secondary-50 p-0 sm:max-w-[440px]" side="right">
+        <SheetHeader className="border-b border-primary-100 bg-white px-5 py-6 pr-14">
+          <SheetTitle className="text-secondary-900">{item?.label ?? "Attention item"}</SheetTitle>
+          <SheetDescription className="mt-1 text-secondary-600">
             This item is still open in the PostgreSQL operations snapshot.
           </SheetDescription>
         </SheetHeader>
         {item ? (
           <div className="flex flex-1 flex-col px-5 py-6">
-            <div className="rounded-[18px] border border-[#d6e5db] bg-white p-4">
+            <div className="rounded-3xl border border-primary-100 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-bold text-[#173c2d]">{item.title}</h3>
+                  <h3 className="text-lg font-semibold text-secondary-900">{item.title}</h3>
                 </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.kind === "import" ? "bg-[#fff5cf] text-[#725400]" : "bg-[#eef8f1] text-[#176b4d]"}`}>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.kind === "import" ? ADMIN_STATUS_FILL_CLASS_NAMES.warning : ADMIN_STATUS_FILL_CLASS_NAMES.success}`}>
                   {item.statusLabel}
                 </span>
               </div>
-              <p className="mt-4 text-sm leading-6 text-[#5f776a]">{item.detail}</p>
-              <p className="mt-3 text-xs leading-5 text-[#8aa997]">Added {formatDate(item.createdAt)}</p>
+              <p className="mt-4 text-sm leading-6 text-secondary-600">{item.detail}</p>
+              <p className="mt-3 text-xs leading-5 text-secondary-400">Added {formatDate(item.createdAt)}</p>
             </div>
             <div className="mt-5">
               {item.kind === "handoff" ? (
@@ -670,17 +675,17 @@ function OperationDetailSheet({
               ) : item.status === "draft" || item.status === "partial" || item.status === "failed" ? (
                 <ImportAttentionAction item={item} onResolved={() => onResolved(item.id, true)} />
               ) : (
-                <p className="rounded-[18px] border border-[#d6e5db] bg-[#eef8f1] px-3 py-3 text-xs leading-5 text-[#5f776a]">
+                <p className="rounded-3xl border border-primary-100 bg-primary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
                   This import is already queued or processing. Review its live status in the Imports workspace before taking the next account action.
                 </p>
               )}
             </div>
             <div className="mt-auto space-y-3 pt-6">
-              <Link className="flex min-h-12 items-center justify-between rounded-xl bg-[#014c38] px-4 text-sm font-bold text-white transition hover:bg-[#176b4d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" href={item.href}>
+              <Link className="flex min-h-12 items-center justify-between rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white transition hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={item.href}>
                 Open relevant workspace
                 <ArrowUpRight size={17} />
               </Link>
-              <button className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#c9dfd0] bg-white px-4 text-sm font-semibold text-[#176b4d] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" onClick={onClose} type="button">
+              <button className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary-200 bg-white px-4 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={onClose} type="button">
                 <X size={16} />
                 Keep queue open
               </button>
@@ -791,35 +796,35 @@ function OperationsConsoleModule({
   return (
     <div className="space-y-6">
       <p aria-live="polite" className="sr-only" data-attention-queue-announcement="true">{attentionQueueAnnouncement}</p>
-      <section className="overflow-hidden rounded-[26px] bg-[#014c38] p-5 shadow-[0_28px_68px_-44px_rgba(1,76,56,0.72)] sm:p-6 lg:p-7">
+      <section className="overflow-hidden rounded-5xl bg-primary-700 p-5 shadow-[0_28px_68px_-44px_rgba(1,76,56,0.72)] sm:p-6 lg:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-[62ch]">
-            <h2 className="text-[clamp(1.7rem,3.2vw,2.7rem)] font-bold leading-[1.04] tracking-[-0.045em] text-white">
-              Keep enrollment moving.
-            </h2>
-            <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#9ed9aa]">
-              <span aria-hidden="true" className="size-2 rounded-full bg-[#91d6a5]" /> Live PostgreSQL snapshot
+          <div className="max-w-[50ch]">
+            <h1 className="text-3xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-4xl">
+              Enrollment at a glance.
+            </h1>
+            <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-primary-200">
+              <span aria-hidden="true" className="size-2 rounded-full bg-primary-300" /> Live PostgreSQL snapshot
             </div>
-            <p className="mt-3 max-w-[58ch] text-sm leading-6 text-[#c8e7d0]">
-              See the signals that need a decision, arm an operation, and resolve the next handoff without losing the roster context.
+            <p className="mt-3 max-w-[44ch] text-sm leading-6 text-primary-100">
+              Monitor enrollment and resolve the next exception.
             </p>
           </div>
           <SnapshotStatusBar lastUpdatedAt={snapshot.lastUpdatedAt} refreshHref={currentRefreshHref || refreshHref} />
         </div>
         <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
-          <MetricCard accent="mint" detail="Accounts with an active student role" label="Active students" value={snapshot.counts.activeStudents} />
-          <MetricCard accent="mint" detail="Accounts with an active Kapten role" label="Active Kapten" value={snapshot.counts.activeKapten} />
-          <MetricCard accent="pending" detail="Handoffs awaiting release or acknowledgement" label="Awaiting handoff" value={snapshot.counts.awaitingHandoff} />
-          <MetricCard accent="sun" detail="Draft, partial, or failed imports" label="Imports needing review" value={snapshot.counts.importsNeedingReview} />
+          <MetricCard accent="mint" detail="Active student roles" label="Active students" value={snapshot.counts.activeStudents} />
+          <MetricCard accent="mint" detail="Active Kapten roles" label="Active Kapten" value={snapshot.counts.activeKapten} />
+          <MetricCard accent="pending" detail="Pending credential handoffs" label="Awaiting handoff" value={snapshot.counts.awaitingHandoff} />
+          <MetricCard accent="sun" detail="Draft or failed imports" label="Imports needing review" value={snapshot.counts.importsNeedingReview} />
         </div>
       </section>
 
       <section>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]">Choose the next operation</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Quick actions</h2>
           </div>
-          <p className="text-xs leading-5 text-[#5f776a]">Selected: <span className="font-bold text-[#173c2d]">{operationHeading.label}</span></p>
+          <p className="text-xs leading-5 text-secondary-600">Selected: <span className="font-semibold text-secondary-900">{operationHeading.label}</span></p>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <OperationControl active={selectedOperation === "add-student"} icon={UserPlus} onSelect={() => selectOperation("add-student")} operation="add-student" />
@@ -830,37 +835,37 @@ function OperationsConsoleModule({
       </section>
 
       {selectedOperation === "add-student" ? (
-        <section aria-labelledby="operation-student-heading" className="rounded-[22px] border border-[#d6e5db] bg-white p-4 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+        <section aria-labelledby="operation-student-heading" className={`${ADMIN_CARD_CLASS_NAME} p-4 sm:p-6`}>
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-[#173c2d]" id="operation-student-heading">Add student</h2>
+              <h2 className="text-xl font-semibold text-secondary-900" id="operation-student-heading">Add student</h2>
             </div>
-            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-[#5f776a] hover:bg-[#eef8f1] hover:text-[#014c38] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" onClick={() => selectOperation("exceptions")} type="button"><X size={17} /></button>
+            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation("exceptions")} type="button"><X size={17} /></button>
           </div>
           <CreateStudentForm examEvents={examEvents} />
         </section>
       ) : null}
 
       {selectedOperation === "add-kapten" ? (
-        <section aria-labelledby="operation-kapten-heading" className="rounded-[22px] border border-[#d6e5db] bg-white p-4 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+        <section aria-labelledby="operation-kapten-heading" className={`${ADMIN_CARD_CLASS_NAME} p-4 sm:p-6`}>
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-[#173c2d]" id="operation-kapten-heading">Add Kapten</h2>
+              <h2 className="text-xl font-semibold text-secondary-900" id="operation-kapten-heading">Add Kapten</h2>
             </div>
-            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-[#5f776a] hover:bg-[#eef8f1] hover:text-[#014c38] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" onClick={() => selectOperation("exceptions")} type="button"><X size={17} /></button>
+            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation("exceptions")} type="button"><X size={17} /></button>
           </div>
           <CreateKaptenForm />
         </section>
       ) : null}
 
       {selectedOperation === "import-roster" ? (
-        <section className="rounded-[22px] border border-[#d6e5db] bg-white p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+        <section className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-[#173c2d]">Import roster</h2>
-              <p className="mt-2 max-w-[58ch] text-sm leading-6 text-[#5f776a]">Choose Students or Kapten on the imports workspace, then review the preview before any account changes occur.</p>
+              <h2 className="text-xl font-semibold text-secondary-900">Import roster</h2>
+              <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Choose Students or Kapten on the imports workspace, then review the preview before any account changes occur.</p>
             </div>
-            <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#014c38] px-4 text-sm font-bold text-white hover:bg-[#176b4d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" href="/admin/imports">Open imports <ArrowUpRight size={16} /></Link>
+            <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/imports">Open imports <ArrowUpRight size={16} /></Link>
           </div>
         </section>
       ) : null}
@@ -873,19 +878,19 @@ function OperationsConsoleModule({
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
-        <div className="rounded-[22px] border border-[#d6e5db] bg-white p-5 sm:p-6">
+        <div className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]">Browse the roster</h2>
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Directories</h2>
             </div>
-            <span className="text-xs text-[#5f776a]">Stable actions · search · status filters</span>
+            <span className="text-xs text-secondary-600">Search and manage accounts</span>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Link className="flex min-h-16 items-center justify-between rounded-[18px] border border-[#d6e5db] bg-[#f8fcf9] px-4 text-sm font-bold text-[#173c2d] hover:border-[#a9d0b5] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" href="/admin/enrollment">
-              Students <span className="grid size-9 place-items-center rounded-xl bg-white text-[#176b4d]"><Users size={17} /></span>
+            <Link className="flex min-h-16 items-center justify-between rounded-3xl border border-primary-100 bg-secondary-50 px-4 text-sm font-semibold text-secondary-900 hover:border-primary-200 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/enrollment">
+              Students <span className="grid size-9 place-items-center rounded-xl bg-white text-primary-800"><Users size={17} /></span>
             </Link>
-            <Link className="flex min-h-16 items-center justify-between rounded-[18px] border border-[#d6e5db] bg-[#f8fcf9] px-4 text-sm font-bold text-[#173c2d] hover:border-[#a9d0b5] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" href="/admin/kapten">
-              Kapten <span className="grid size-9 place-items-center rounded-xl bg-white text-[#176b4d]"><Users size={17} /></span>
+            <Link className="flex min-h-16 items-center justify-between rounded-3xl border border-primary-100 bg-secondary-50 px-4 text-sm font-semibold text-secondary-900 hover:border-primary-200 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/kapten">
+              Kapten <span className="grid size-9 place-items-center rounded-xl bg-white text-primary-800"><Users size={17} /></span>
             </Link>
           </div>
         </div>

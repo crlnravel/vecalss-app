@@ -7,6 +7,7 @@ import { fieldControlClassName } from "@/components/ui/field-constants";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
+import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
 
 import { createKaptenEnrollmentAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
@@ -17,13 +18,13 @@ function CreateKaptenForm() {
   return (
     <form
       action={formAction}
-      className="space-y-5 overflow-hidden rounded-5xl border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]"
+      className={`${ADMIN_CARD_CLASS_NAME} space-y-5 overflow-hidden p-6`}
       id="create-kapten-account"
     >
       <div>
-        <h2 className="text-2xl font-medium">Create a Kapten account</h2>
+        <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Create a Kapten account</h2>
         <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-600">
-          Provision an active tutor role and profile. Cohorts and subject specialties are assigned separately.
+          Add an active tutor profile. Cohorts and subject specialties are assigned separately.
         </p>
       </div>
 

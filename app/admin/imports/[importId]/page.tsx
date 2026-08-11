@@ -42,9 +42,9 @@ export default async function AdminImportDetailPage({
     <PortalShell
       activeAdminSection="imports"
       audience="admin"
-      description="Review row decisions, choose one handoff method, and follow the durable result without treating queue signals as database truth."
+      description="Review rows and release the next handoff."
+      session={session}
       title="Import review"
-      userLabel={session.user.fullName}
     >
       <ImportDetailModule initialImport={importStatus} />
     </PortalShell>

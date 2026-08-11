@@ -19,6 +19,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { studentBadgeVariants } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -129,12 +130,12 @@ function ParticipantTryoutRegistrationModule({
           </p>
         </header>
 
-        <ol aria-label="Tahap pendaftaran" className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 text-xs font-semibold">
-          <li className={`rounded-full px-4 py-2 text-center ${step === "target" ? "bg-primary-900 text-white" : "bg-primary-100 text-primary-900"}`}>1. Target</li>
-          <li className={`rounded-full px-4 py-2 text-center ${step === "confirmation" ? "bg-primary-900 text-white" : "bg-white text-secondary-500"}`}>2. Konfirmasi</li>
+        <ol aria-label="Tahap pendaftaran" className="mx-auto grid w-full max-w-md grid-cols-2 gap-2">
+          <li className={studentBadgeVariants({ className: "w-full justify-center", size: "md", tone: step === "target" ? "active" : "category" })}>1. Target</li>
+          <li className={studentBadgeVariants({ className: "w-full justify-center", size: "md", tone: step === "confirmation" ? "active" : "neutral" })}>2. Konfirmasi</li>
         </ol>
 
-        {message ? <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{message}</p> : null}
+        {message ? <p className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert">{message}</p> : null}
 
         {step === "target" ? (
           <section className="grid gap-6 rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">

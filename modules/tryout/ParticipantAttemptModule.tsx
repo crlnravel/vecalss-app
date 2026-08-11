@@ -116,7 +116,7 @@ function QuestionPalette({
               aria-pressed={isCurrent}
               className={cn(
                 "relative rounded-xl font-mono",
-                isCurrent && "border-[#f5c518] bg-[#fff8d8] text-[#5c4800] ring-2 ring-[#f5c518]/30",
+                isCurrent && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg ring-2 ring-student-status-attention-border/30",
                 !isCurrent && isAnswered && "border-primary-700 bg-primary-700 text-white hover:bg-primary-800",
               )}
               key={item.id}
@@ -125,7 +125,7 @@ function QuestionPalette({
               variant={isCurrent || isAnswered ? "contextSelected" : "context"}
             >
               {itemIndex + 1}
-              {isMarked ? <span className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-white bg-amber-500" /> : null}
+              {isMarked ? <span className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-white bg-student-status-attention-fg" /> : null}
             </Button>
           );
         })}
@@ -133,8 +133,8 @@ function QuestionPalette({
       <div className="mt-5 grid gap-2 text-xs text-secondary-600">
         <span className="flex items-center gap-2"><span className="size-3 rounded border border-primary-200 bg-white" />Belum dijawab</span>
         <span className="flex items-center gap-2"><span className="size-3 rounded bg-primary-700" />Sudah dijawab</span>
-        <span className="flex items-center gap-2"><span className="size-3 rounded border-2 border-[#f5c518] bg-[#fff8d8]" />Sedang dibuka</span>
-        <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-amber-500" />Ditandai</span>
+        <span className="flex items-center gap-2"><span className="size-3 rounded border-2 border-student-status-attention-border bg-student-status-attention-bg" />Sedang dibuka</span>
+        <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-student-status-attention-fg" />Ditandai</span>
       </div>
     </div>
   );
@@ -372,7 +372,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-secondary-600 sm:text-base">{finished ? "Sistem sedang menyiapkan skor, peringkat, dan review jawabanmu." : "Timer hanya berjalan untuk bagian yang sedang aktif. Bagian yang telah dikirim tetap terkunci."}</p>
           </header>
 
-          {message ? <p className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert"><WarningCircle />{message}</p> : null}
+          {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><WarningCircle />{message}</p> : null}
 
           {finished ? (
             <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
@@ -398,7 +398,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
                   const isComplete = ["sealed", "expired"].includes(candidate.status);
                   return (
                     <div className="grid gap-4 p-5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
-                      <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-[#f5c518] text-[#3b3005]" : "bg-secondary-100 text-secondary-500")}>{isComplete ? <Check /> : candidate.sequenceNo}</span>
+                      <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>{isComplete ? <Check /> : candidate.sequenceNo}</span>
                       <div><h2 className="font-semibold">{candidate.section.title}</h2><p className="mt-1 text-sm text-secondary-500">{candidate.section.questionCount} soal · {Math.round(candidate.section.durationSeconds / 60)} menit · {candidate.section.testType.toUpperCase()}</p></div>
                       {isNext ? <Button disabled={busy} onClick={() => void begin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
                     </div>
@@ -516,7 +516,7 @@ function ParticipantAttemptScreen({
             <p className="truncate text-xs font-semibold text-secondary-500">{tryoutTitle} · Bagian {run.sequenceNo}/{runCount}</p>
             <p className="mt-0.5 truncate font-semibold">{run.section.title}</p>
           </div>
-          <div className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 font-mono text-lg font-semibold tabular-nums", timerUrgent ? "bg-red-50 text-red-800" : "bg-[#fff8d8] text-[#5c4800]")} aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}>
+          <div className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 font-mono text-lg font-semibold tabular-nums", timerUrgent ? "bg-student-status-danger-bg text-student-status-danger-fg" : "bg-student-status-attention-bg text-student-status-attention-fg")} aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}>
             <ClockCountdown />
             <span className="hidden font-sans text-xs font-bold sm:inline">{timerUrgent ? "Segera habis" : "Sisa waktu"}</span>
             {formatTimer(run.serverDeadlineAt, now)}
@@ -533,13 +533,13 @@ function ParticipantAttemptScreen({
               <p className="mt-1 text-sm text-secondary-500">{snapshot?.testType === "cat" ? "CAT · jawaban tidak dapat diubah setelah dikirim" : `${answerIds.size} dijawab · ${markedCount} ditandai`}</p>
             </div>
             <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <p aria-live="polite" className={cn("flex min-h-9 items-center gap-2 text-xs font-medium", saveState === "error" ? "text-red-700" : "text-secondary-500")}>{saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : <><FloppyDisk />Simpan otomatis</>}</p>
+              <p aria-live="polite" className={cn("flex min-h-9 items-center gap-2 text-xs font-medium", saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500")}>{saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : <><FloppyDisk />Simpan otomatis</>}</p>
               {snapshot?.testType === "cbt" ? <Button className="lg:hidden" onClick={() => setPaletteOpen(true)} variant="brandOutline"><GridFour />Daftar soal</Button> : null}
             </div>
           </div>
 
           {snapshot?.instructions ? <aside className="mt-4 rounded-2xl border border-primary-100 bg-primary-50 p-4 text-sm leading-6 text-secondary-700"><strong>Petunjuk:</strong> {snapshot.instructions}</aside> : null}
-          {message ? <p className="mt-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status"><WarningCircle />{message}</p> : null}
+          {message ? <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status"><WarningCircle />{message}</p> : null}
 
           <section className="mt-4 rounded-[1.75rem] border border-primary-100 bg-white p-5 sm:p-7 lg:p-8">
             <p className="whitespace-pre-wrap text-base leading-7 sm:text-lg sm:leading-8">{item.prompt}</p>
@@ -596,7 +596,7 @@ function ParticipantAttemptScreen({
       <AlertDialog onOpenChange={setSubmitOpen} open={submitOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogMedia className="bg-amber-50 text-amber-800"><Warning /></AlertDialogMedia>
+            <AlertDialogMedia className="bg-student-status-attention-bg text-student-status-attention-fg"><Warning /></AlertDialogMedia>
             <AlertDialogTitle>Kirim dan kunci bagian ini?</AlertDialogTitle>
             <AlertDialogDescription>
               Bagian yang dikirim tidak dapat dibuka lagi. Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum dijawab</strong> dan <strong className="text-secondary-900">{markedCount} soal ditandai</strong>.

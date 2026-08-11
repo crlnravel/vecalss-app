@@ -177,10 +177,10 @@ function ParticipantTryoutDetailModule({
           {admissionNotice ? (
             <div
               className={admissionNotice.tone === "green"
-                ? "flex items-start gap-3 rounded-2xl border border-primary-200 bg-white p-4 text-sm leading-6 text-primary-900"
+                ? "flex items-start gap-3 rounded-2xl border border-student-status-success-border bg-student-status-success-bg p-4 text-sm leading-6 text-student-status-success-fg"
                 : admissionNotice.tone === "red"
-                  ? "flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900"
-                  : "flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"}
+                  ? "flex items-start gap-3 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm leading-6 text-student-status-danger-fg"
+                  : "flex items-start gap-3 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm leading-6 text-student-status-attention-fg"}
               role="status"
             >
               <admissionNotice.icon className="mt-0.5 size-5 shrink-0" />

@@ -13,6 +13,7 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
 
 type QuizResult = {
@@ -162,10 +163,10 @@ function QuizResultPageModule({
                 <span className="text-secondary-300">•</span>
                 <span className="text-secondary-400">{subjectTitle}</span>
                 <span className="text-secondary-300">|</span>
-                <span className={cn("inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold", isCorrect ? "bg-primary-50 text-primary-800" : "bg-red-50 text-red-700")}>
+                <StudentBadge size="md" tone={isCorrect ? "success" : "danger"}>
                   {isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />}
                   {isCorrect ? "Benar" : selectedOption ? "Belum tepat" : "Tidak dijawab"}
-                </span>
+                </StudentBadge>
                 <MagnifierButton
                   ariaLabel="Perkecil ukuran font"
                   icon={ZoomOut}
@@ -194,13 +195,13 @@ function QuizResultPageModule({
                   ))}
                 </div>
 
-                <section aria-label="Pembahasan" className="rounded-3xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
+                <section aria-label="Pembahasan" className="rounded-3xl border border-student-status-attention-border bg-student-status-attention-bg/70 p-5 md:p-6">
                   <div className="min-w-0">
-                    <h2 className="font-semibold text-amber-950">Pembahasan</h2>
+                    <h2 className="font-semibold text-student-status-attention-fg">Pembahasan</h2>
                     <p className={cn("mt-1.5 text-secondary-700", explanationTextClass)}>
                       {question.explanation || "Pembahasan untuk soal ini belum tersedia."}
                     </p>
-                    <p className="mt-3 border-t border-amber-200 pt-3 text-sm font-medium text-secondary-700">
+                    <p className="mt-3 border-t border-student-status-attention-border pt-3 text-sm font-medium text-secondary-700">
                       {selectedOption
                         ? `Pilihan: ${selectedOption.key}. Kunci: ${correctOption?.key ?? "—"}.`
                         : `Kunci: ${correctOption?.key ?? "—"}.`}
@@ -256,9 +257,9 @@ function QuestionMarker({
       aria-current={current ? "step" : undefined}
       className={cn(
         "flex h-12 items-center justify-center rounded-2xl border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
-        state === "correct" && "border-primary-300 bg-primary-50 text-primary-800",
-        state === "incorrect" && "border-red-200 bg-red-50 text-red-700",
-        state === "unanswered" && "border-secondary-200 bg-secondary-50 text-secondary-500",
+        state === "correct" && "border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg",
+        state === "incorrect" && "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
+        state === "unanswered" && "border-student-status-neutral-border bg-student-status-neutral-bg text-student-status-neutral-fg",
         current && "ring-2 ring-primary-700 ring-offset-2",
       )}
       onClick={onClick}
@@ -314,16 +315,16 @@ function ReviewAnswerOption({
     <div
       className={cn(
         "flex w-full items-start gap-4 rounded-4xl border bg-white px-5 py-5 text-left md:px-6",
-        option.correct && "border-primary-300 bg-primary-50",
-        isIncorrectSelection && "border-red-200 bg-red-50",
+        option.correct && "border-student-status-success-border bg-student-status-success-bg",
+        isIncorrectSelection && "border-student-status-danger-border bg-student-status-danger-bg",
         !option.correct && !isIncorrectSelection && "border-primary-100",
       )}
     >
       <span
         className={cn(
           "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
-          option.correct && "border-primary-700 bg-primary-700 text-white",
-          isIncorrectSelection && "border-red-500 bg-red-500 text-white",
+          option.correct && "border-student-status-success-solid-bg bg-student-status-success-solid-bg text-student-status-success-solid-fg",
+          isIncorrectSelection && "border-student-status-danger-solid-bg bg-student-status-danger-solid-bg text-student-status-danger-solid-fg",
           !option.correct && !isIncorrectSelection && "border-secondary-200 bg-secondary-50 text-secondary-500",
         )}
       >

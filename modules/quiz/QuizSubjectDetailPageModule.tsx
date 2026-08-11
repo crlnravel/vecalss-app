@@ -9,6 +9,7 @@ import {
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import { StudentBadge } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -167,9 +168,12 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
           className="pointer-events-none absolute -right-10 -top-14 size-36 rounded-full border-[14px] border-white/35"
         />
         <div className="relative z-10 flex items-start justify-between gap-4">
-          <span className="rounded-full bg-white/75 px-3 py-1.5 text-xs font-extrabold tracking-[0.1em] text-primary-800">
+          <StudentBadge
+            className="tracking-[0.1em]"
+            tone={quizStatusTone(quiz.status)}
+          >
             {quiz.status}
-          </span>
+          </StudentBadge>
           <ArrowUpRight className="size-5 text-primary-700 transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-reduce:transition-none" />
         </div>
 
@@ -191,9 +195,9 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
             <ListChecks className="size-4" />
             {quiz.questionCount} soal
           </span>
-          <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-bold text-primary-800">
+          <StudentBadge tone="category">
             {quiz.difficulty}
-          </span>
+          </StudentBadge>
         </div>
 
         <Button
@@ -213,6 +217,12 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
       </div>
     </article>
   );
+}
+
+function quizStatusTone(status: QuizItem["status"]) {
+  if (status === "Perlu review") return "attention" as const;
+  if (status === "Baru ditambahkan") return "info" as const;
+  return "category" as const;
 }
 
 export { QuizSubjectDetailPageModule };

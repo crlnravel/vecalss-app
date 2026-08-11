@@ -300,7 +300,7 @@ function QuizOngoingScreen({
               Batal
             </button>
             <button
-              className="inline-flex h-10 min-w-[132px] items-center justify-center rounded-full bg-[#ff0008] px-5 text-base font-semibold text-white transition-colors hover:bg-[#e10007]"
+              className="inline-flex h-10 min-w-[132px] items-center justify-center rounded-full bg-student-status-danger-solid-bg px-5 text-base font-semibold text-student-status-danger-solid-fg transition-colors hover:bg-student-status-danger-solid-bg/90 focus-visible:ring-3 focus-visible:ring-student-status-danger-solid-bg/25"
               onClick={() => onExit}
               type="button"
             >
@@ -441,7 +441,7 @@ function QuizOngoingScreen({
                   ))}
                 </div>
               </div>
-              {message ? <p className="mt-3 text-sm font-medium text-red-600">{message}</p> : null}
+              {message ? <p className="mt-3 text-sm font-medium text-student-status-danger-fg">{message}</p> : null}
             </div>
           </div>
 

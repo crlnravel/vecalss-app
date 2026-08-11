@@ -212,7 +212,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
               <p className="mt-4 max-w-2xl text-sm leading-6 text-primary-100 sm:text-base">Indeks hasil ini menggabungkan tujuh subtes pada skala internal 0–100 untuk evaluasi Vecalss, bukan nilai resmi SNBT. Gunakan indeks dan akurasi per subtes bersama review jawaban untuk memilih latihan berikutnya.</p>
               <div className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 text-sm"><Target />{targetLabel}</div>
             </div>
-            <div className="min-w-52 rounded-3xl bg-[#f5c518] p-6 text-[#2f2808]">
+            <div className="min-w-52 rounded-3xl bg-student-status-attention-solid-bg p-6 text-student-status-attention-solid-fg">
               <p className="text-xs font-bold tracking-[0.12em] uppercase">Indeks hasil</p>
               <p className="mt-2 font-mono text-6xl font-bold tracking-[-0.05em]">{result.finalScore.toFixed(2)}</p>
               <p className="mt-2 text-sm">skala internal 0–100 · {result.runs.length} subtes</p>
@@ -224,7 +224,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           <article className="rounded-3xl border border-primary-100 bg-white p-5"><p className="flex items-center gap-2 text-sm text-secondary-500"><TrendUp />Akurasi</p><p className="mt-3 font-mono text-3xl font-semibold">{metrics?.accuracy}%</p><p className="mt-1 text-xs text-secondary-500">dari soal yang dijawab</p></article>
           <article className="rounded-3xl border border-primary-100 bg-white p-5"><p className="flex items-center gap-2 text-sm text-secondary-500"><CheckCircle />Benar</p><p className="mt-3 font-mono text-3xl font-semibold text-primary-700">{metrics?.correct}</p><p className="mt-1 text-xs text-secondary-500">{metrics?.wrong} salah · {metrics?.blank} kosong</p></article>
           <article className="rounded-3xl border border-primary-100 bg-white p-5"><p className="flex items-center gap-2 text-sm text-secondary-500"><Clock />Rata-rata waktu</p><p className="mt-3 font-mono text-3xl font-semibold">{formatTime(metrics?.averageSeconds ?? 0)}</p><p className="mt-1 text-xs text-secondary-500">per soal terkirim</p></article>
-          <article className="rounded-3xl border border-primary-100 bg-white p-5"><p className="flex items-center gap-2 text-sm text-secondary-500"><Medal />Peringkat {result.ranking.rule === "cohort" ? "kelompok" : "nasional"}</p><p className="mt-3 text-2xl font-semibold">{result.ranking.state === "available" ? `#${result.ranking.rank} / ${result.ranking.total}` : "Belum tersedia"}</p>{result.ranking.provisional ? <p className="mt-1 text-xs text-amber-700">Sementara hingga sesi ditutup</p> : null}</article>
+          <article className="rounded-3xl border border-primary-100 bg-white p-5"><p className="flex items-center gap-2 text-sm text-secondary-500"><Medal />Peringkat {result.ranking.rule === "cohort" ? "kelompok" : "nasional"}</p><p className="mt-3 text-2xl font-semibold">{result.ranking.state === "available" ? `#${result.ranking.rank} / ${result.ranking.total}` : "Belum tersedia"}</p>{result.ranking.provisional ? <p className="mt-1 text-xs text-student-status-attention-fg">Sementara hingga sesi ditutup</p> : null}</article>
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
@@ -296,7 +296,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
                           return (
                             <details className="group rounded-2xl border border-primary-100 bg-secondary-50 p-4 open:bg-white" key={`${run.subtest}-${itemIndex}`}>
                               <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20 [&::-webkit-details-marker]:hidden">
-                                <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", state === "correct" ? "bg-primary-100 text-primary-800" : state === "wrong" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800")}>{state === "correct" ? <Check /> : state === "wrong" ? <X /> : <FlagBanner />}</span>
+                                <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", state === "correct" ? "bg-student-status-success-bg text-student-status-success-fg" : state === "wrong" ? "bg-student-status-danger-bg text-student-status-danger-fg" : "bg-student-status-attention-bg text-student-status-attention-fg")}>{state === "correct" ? <Check /> : state === "wrong" ? <X /> : <FlagBanner />}</span>
                                 <span className="line-clamp-2 flex-1 text-sm font-medium">{itemIndex + 1}. {item.prompt}</span>
                                 <span className="text-xs font-semibold text-secondary-500">{state === "correct" ? "Benar" : state === "wrong" ? "Salah" : "Kosong"}</span>
                               </summary>

@@ -10,7 +10,7 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Operations Console | Vecalss LMS",
+  title: "Admin Dashboard | Vecalss LMS",
 };
 
 const operationKeys: OperationKey[] = ["add-student", "add-kapten", "import-roster", "exceptions"];
@@ -48,9 +48,9 @@ export default async function AdminHomePage({
     <PortalShell
       activeAdminSection="overview"
       audience="admin"
-      description="A live command center for enrollment handoffs, roster imports, and the next safe operation."
-      title="Operations Console"
-      userLabel={session.user.fullName}
+      description="Enrollment, handoffs, and imports at a glance."
+      session={session}
+      title="Dashboard"
     >
       <OperationsConsoleModule
         examEvents={examEvents}

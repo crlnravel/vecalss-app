@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { ActionButtonLink } from "@/modules/home/components/home-primitives";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
+import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 
 import {
   deactivateKaptenEnrollmentAction,
@@ -73,11 +74,12 @@ function KaptenPageModule({
     <PortalShell
       activeAdminSection="kapten"
       audience="admin"
-      description="Provision active Kapten accounts and maintain their bounded profile details without changing credentials or cohort assignments."
-      title="Kapten enrollment"
-      userLabel={session.user.fullName}
+      description="Manage Kapten accounts and enrollment handoffs."
+      session={session}
+      title="Kapten"
     >
       <div className="space-y-6">
+        <h1 className="sr-only">Kapten</h1>
         <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-directory-heading" noticeId="kapten-directory-notice" targetId={focus ? `kapten-${focus}` : null} />
         <CreateKaptenForm />
 
@@ -85,13 +87,12 @@ function KaptenPageModule({
         {notice ? <div id="kapten-directory-notice" tabIndex={-1}><FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice></div> : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <section className="overflow-hidden rounded-5xl border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]">
+        <section className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden p-6`}>
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">Current Kapten</p>
-              <h2 className="mt-2 text-2xl font-medium" id="kapten-directory-heading" tabIndex={-1}>Manage existing Kapten accounts</h2>
+              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="kapten-directory-heading" tabIndex={-1}>Manage Kapten accounts</h2>
             </div>
-            <p className="text-sm leading-6 text-secondary-600">Status changes revoke sessions and open handoffs; reactivation never restores either.</p>
+            <p className="text-sm leading-6 text-secondary-600">Edit profiles or change access status.</p>
           </div>
 
           <form className="mt-5 grid gap-3 rounded-3xl border border-primary-100 bg-primary-50/60 p-4 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end" method="get">
@@ -113,15 +114,14 @@ function KaptenPageModule({
 
           <div className="mt-6 space-y-4">
             {kapten.length === 0 ? (
-              <div className="parchment-panel rounded-5xl px-6 py-8 md:px-8 md:py-10">
-                <p className="text-xs tracking-[0.16em] text-primary-700 uppercase">Empty roster</p>
-                <h3 className="mt-3 max-w-[16ch] text-2xl leading-tight font-medium text-secondary-900 md:text-3xl">{total === 0 ? "No Kapten accounts match this view." : "No Kapten match these filters."}</h3>
-                <p className="mt-4 max-w-[58ch] text-sm leading-7 text-secondary-600 md:text-base">{total === 0 ? "Use the form above to create a tutor role and bounded profile, then deliver the one-time credential handoff." : "Try another name, email, or status filter to find the Kapten account you need."}</p>
+              <div className="rounded-3xl border border-dashed border-primary-200 bg-secondary-50 px-6 py-8 md:px-8 md:py-10">
+                <h3 className="max-w-[18ch] text-2xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-3xl">{total === 0 ? "No Kapten accounts match this view." : "No Kapten match these filters."}</h3>
+                <p className="mt-4 max-w-[58ch] text-sm leading-7 text-secondary-600 md:text-base">{total === 0 ? "Use the form above to add the first Kapten account and choose its handoff." : "Try another name, email, or status filter."}</p>
                 <div className="mt-6"><ActionButtonLink href="#create-kapten-account">Return to the create form</ActionButtonLink></div>
               </div>
             ) : kapten.map((person) => (
               <article
-                className={cn("overflow-hidden rounded-4xl border border-primary-100 p-5", focus === person.id && "shadow-[0_0_0_2px_rgba(26,107,60,0.18)]")}
+                className={cn("overflow-hidden rounded-3xl border border-primary-100 bg-white p-5", focus === person.id && "shadow-[0_0_0_2px_rgba(26,107,60,0.18)]")}
                 data-directory-row="true"
                 id={`kapten-${person.id}`}
                 key={person.id}
@@ -186,7 +186,7 @@ function KaptenPageModule({
             {pageCount > 1 ? (
               <nav aria-label="Kapten directory pages" className="flex items-center gap-2">
                 {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={pageHref(page - 1)}>Previous</Link> : null}
-                <span aria-current="page" className="rounded-xl bg-primary-50 px-3 py-2 text-xs font-bold text-primary-800">Page {page} of {pageCount}</span>
+                <span aria-current="page" className="rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Page {page} of {pageCount}</span>
                 {page < pageCount ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={pageHref(page + 1)}>Next</Link> : null}
               </nav>
             ) : null}

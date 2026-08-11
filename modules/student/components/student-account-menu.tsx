@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, Bell, LogOut, Settings, UserRound } from "@/lib/icons";
+import { AlertTriangle, Bell, LayoutDashboard, LogOut, Settings, UserRound } from "@/lib/icons";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ import { logoutAction } from "@/modules/auth/actions";
 import { getInitials } from "@/modules/student/components/student-sidebar-utils";
 
 type StudentAccountMenuItem = "notifications";
-type AccountMenuAudience = "student" | "tutor";
+type AccountMenuAudience = "admin" | "student" | "tutor";
 
 const studentAccountMenuItemClassName =
   "hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50";
@@ -45,6 +45,7 @@ function StudentAccountMenu({
   const initials = getInitials(session.user.fullName);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const isTutor = audience === "tutor";
+  const isAdmin = audience === "admin";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
   const settingsHref = "/mentor/settings";
 
@@ -54,7 +55,7 @@ function StudentAccountMenu({
         <DropdownMenuTrigger
           render={
             <Button
-              aria-label={isTutor ? "Buka menu Kapten" : "Buka menu pengguna"}
+              aria-label={isAdmin ? "Buka menu admin" : isTutor ? "Buka menu Kapten" : "Buka menu pengguna"}
               className="rounded-full p-1"
               size="icon-sm"
               type="button"
@@ -77,13 +78,23 @@ function StudentAccountMenu({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem
-              className={studentAccountMenuItemClassName}
-              render={<Link href={profileHref} />}
-            >
-              <UserRound />
-              Profil
-            </DropdownMenuItem>
+            {isAdmin ? (
+              <DropdownMenuItem
+                className={studentAccountMenuItemClassName}
+                render={<Link href="/admin" />}
+              >
+                <LayoutDashboard />
+                Dashboard
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                className={studentAccountMenuItemClassName}
+                render={<Link href={profileHref} />}
+              >
+                <UserRound />
+                Profil
+              </DropdownMenuItem>
+            )}
             {isTutor ? (
               <DropdownMenuItem
                 className={studentAccountMenuItemClassName}
@@ -124,7 +135,7 @@ function StudentAccountMenu({
                 Keluar dari akun?
               </DialogTitle>
               <DialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
-                Kamu perlu masuk kembali untuk melanjutkan {isTutor ? "mengelola konten" : "belajar"} di dashboard.
+                Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : "belajar"} di dashboard.
               </DialogDescription>
             </div>
           </div>
@@ -140,7 +151,7 @@ function StudentAccountMenu({
             <form action={logoutAction}>
               <input name="audience" type="hidden" value={audience} />
               <Button
-                className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25"
+                className="border-student-status-danger-solid-bg bg-student-status-danger-solid-bg text-student-status-danger-solid-fg hover:bg-student-status-danger-solid-bg/90 focus-visible:border-student-status-danger-solid-bg focus-visible:ring-student-status-danger-solid-bg/25"
                 type="submit"
                 variant="destructive"
               >

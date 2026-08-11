@@ -83,7 +83,7 @@ function StudentSidebar({
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                     {badge ? (
-                      <SidebarMenuBadge className="bg-accent-300 text-secondary-900">
+                      <SidebarMenuBadge className="border border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg">
                         {badge}
                       </SidebarMenuBadge>
                     ) : null}

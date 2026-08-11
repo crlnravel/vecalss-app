@@ -251,7 +251,7 @@ function OnboardingForm({
             </div>
             <h1 className="max-w-[17ch] font-heading text-4xl leading-[1.08] font-extrabold tracking-[-0.045em] text-slate-900 sm:text-5xl">Terima kasih sudah berbagi.</h1>
             <p className="mt-5 max-w-sm text-base leading-7 text-slate-500">Kami akan menyiapkan pengalaman belajar yang lebih personal untukmu.</p>
-            {state.message ? <p className="mt-5 w-full max-w-sm rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">{state.message}</p> : null}
+            {state.message ? <p className="mt-5 w-full max-w-sm rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-left text-sm text-student-status-danger-fg">{state.message}</p> : null}
             <form action={formAction} className="mt-9 flex w-full max-w-sm flex-col items-center gap-4">
               <input name="targetExamEventId" type="hidden" value={examId} />
               <input name="targetUniversityId" type="hidden" value={universityId} />

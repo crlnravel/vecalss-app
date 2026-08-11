@@ -51,7 +51,7 @@ assert.doesNotMatch(consoleModule, /uppercase[^>]*>Selected operation/);
 assert.doesNotMatch(consoleModule, /uppercase[^>]*>Control matrix/);
 assert.doesNotMatch(consoleModule, /uppercase[^>]*>Signal log/);
 assert.doesNotMatch(consoleModule, /uppercase[^>]*>People directories/);
-assert.match(shell, /Overview/);
+assert.match(shell, /Dashboard/);
 assert.match(shell, /Students/);
 assert.match(shell, /Kapten/);
 assert.match(shell, /Imports/);

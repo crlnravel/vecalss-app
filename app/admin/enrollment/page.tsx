@@ -67,7 +67,15 @@ export default async function EnrollmentPage({
             },
           },
         },
-        studentProfile: true,
+        studentProfile: {
+          include: {
+            targetExamEvent: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         fullName: "asc",

@@ -1,81 +1,115 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import type { LoginAudience } from "@/lib/auth/types";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import type { LoginAudience, SessionContext } from "@/lib/auth/types";
+import { cn } from "@/lib/utils";
 import { logoutAction } from "@/modules/auth/actions";
 import { BrandLogo } from "@/modules/home/components/home-primitives";
+import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 
 import { AdminPortalNav } from "./admin-portal-nav";
+
+const adminSectionLabels = {
+  imports: "Imports",
+  kapten: "Kapten",
+  media: "Media",
+  overview: "Dashboard",
+  students: "Students",
+} as const;
+
+const adminSectionRootHrefs = {
+  imports: "/admin/imports",
+  kapten: "/admin/kapten",
+  media: "/admin/media",
+  overview: "/admin",
+  students: "/admin/enrollment",
+} as const;
 
 function PortalShell({
   audience,
   activeAdminSection,
   children,
   description,
+  session,
   title,
-  userLabel,
 }: {
   audience: LoginAudience;
   activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media";
   children: React.ReactNode;
   description: string;
+  session: SessionContext;
   title: string;
-  userLabel: string;
 }) {
   if (audience === "admin") {
     const activeSection = activeAdminSection === "enrollment"
       ? "students"
       : activeAdminSection ?? "overview";
+    const activeLabel = adminSectionLabels[activeSection];
+    const rootHref = adminSectionRootHrefs[activeSection];
+    const isRootPage = title === activeLabel;
 
     return (
-      <main className="min-h-screen bg-[#f7faf8] text-[#173c2d]">
-        <div className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 md:px-8 md:py-6">
-          <div className="flex min-h-[calc(100vh-2rem)] flex-1 gap-5 md:min-h-[calc(100vh-3rem)] md:gap-6">
-            <AdminPortalNav activeSection={activeSection} />
+      <SidebarProvider>
+        <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
+          <AdminPortalNav activeSection={activeSection} />
 
-            <div className="min-w-0 flex-1">
-              <header className="rounded-[24px] border border-[#d6e5db] bg-white px-4 py-4 shadow-[0_20px_54px_-42px_rgba(1,76,56,0.55)] sm:px-6 md:px-7 md:py-5">
-                <div className="flex items-start gap-3 md:items-center md:justify-between">
-                  <div className="flex min-w-0 items-start gap-3 md:items-center md:gap-5">
-                    <div className="md:hidden">
-                      <AdminPortalNav activeSection={activeSection} mobileOnly />
-                    </div>
-                    <Link aria-label="Vecalss home" className="hidden shrink-0 items-center md:inline-flex" href="/">
-                      <BrandLogo compact />
-                    </Link>
-                    <div className="hidden h-10 w-px bg-[#d6e5db] md:block" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#176b4d]">
-                        Vecalss operations
-                      </p>
-                      <h1 className="mt-1 truncate text-lg font-bold tracking-[-0.02em] text-[#173c2d] sm:text-xl">
-                        {title}
-                      </h1>
-                    </div>
-                  </div>
+          <SidebarInset className="bg-transparent">
+            <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+              <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
+                <SidebarTrigger className="shrink-0" />
 
-                  <div className="flex shrink-0 items-center gap-3">
-                    <div className="hidden rounded-full bg-[#eef8f1] px-4 py-2 text-xs font-semibold text-[#176b4d] lg:block">
-                      Signed in as {userLabel}
-                    </div>
-                    <form action={logoutAction}>
-                      <input name="audience" type="hidden" value={audience} />
-                      <Button size="default" type="submit" variant="brandOutline">
-                        Log out
-                      </Button>
-                    </form>
-                  </div>
+                <div className="hidden min-w-0 flex-1 md:block">
+                  <Breadcrumb>
+                    <BreadcrumbList>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink className="text-secondary-500" href={rootHref}>
+                          {activeLabel}
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      {!isRootPage ? (
+                        <>
+                          <BreadcrumbSeparator />
+                          <BreadcrumbItem>
+                            <BreadcrumbPage>{title}</BreadcrumbPage>
+                          </BreadcrumbItem>
+                        </>
+                      ) : null}
+                    </BreadcrumbList>
+                  </Breadcrumb>
                 </div>
-                <p className="mt-4 max-w-[72ch] text-sm leading-6 text-[#5f776a] md:mt-3">
-                  {description}
-                </p>
-              </header>
 
-              <div className="py-5 md:py-7">{children}</div>
-            </div>
-          </div>
+                <div className="ml-auto" />
+                <StudentAccountMenu audience="admin" session={session} />
+              </div>
+            </header>
+
+            <ScrollArea className="h-[calc(100svh-4rem)]">
+              <main
+                className={cn(
+                  "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
+                )}
+              >
+                <p className="sr-only">{description}</p>
+                {children}
+              </main>
+            </ScrollArea>
+          </SidebarInset>
         </div>
-      </main>
+      </SidebarProvider>
     );
   }
 
@@ -99,9 +133,9 @@ function PortalShell({
 
             <div className="flex items-center gap-3">
               <div className="hidden rounded-full bg-primary-50 px-4 py-2 text-sm text-primary-800 md:block">
-                Signed in as {userLabel}
+                Signed in as {session.user.fullName}
               </div>
-              <form action={logoutAction}>
+                <form action={logoutAction}>
                 <input name="audience" type="hidden" value={audience} />
                 <Button size="default" type="submit" variant="brandOutline">
                   Log out

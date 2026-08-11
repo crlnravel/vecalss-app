@@ -5,7 +5,7 @@ import { MediaLibrary } from "@/modules/media/media-library";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 export const metadata: Metadata = {
-  title: "Media Admin | Vecalss LMS",
+  title: "Media | Vecalss LMS",
 };
 
 export default async function AdminMediaPage() {
@@ -15,9 +15,9 @@ export default async function AdminMediaPage() {
     <PortalShell
       activeAdminSection="media"
       audience="admin"
-      description="Kelola gambar operasional admin dalam library yang terpisah dari aset Bank Soal Kapten."
-      title="Media library"
-      userLabel={session.user.fullName}
+      description="Manage admin assets separately from Kapten content media."
+      session={session}
+      title="Media"
     >
       <MediaLibrary scope="admin" />
     </PortalShell>

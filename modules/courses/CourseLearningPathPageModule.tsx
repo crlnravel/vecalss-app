@@ -119,7 +119,7 @@ function CourseLearningPathPageModule({
               {feedback ? (
                 <p
                   aria-live="polite"
-                  className="relative z-20 mx-auto mb-4 max-w-xl rounded-2xl bg-red-50 px-4 py-3 text-center text-sm font-semibold leading-6 text-red-800"
+                  className="relative z-20 mx-auto mb-4 max-w-xl rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-center text-sm font-semibold leading-6 text-student-status-danger-fg"
                   role="status"
                 >
                   {feedback}

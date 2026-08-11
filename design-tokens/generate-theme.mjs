@@ -15,8 +15,9 @@ let css = `/* AUTO-GENERATED FILE */
 for (const [group, shades] of Object.entries(palette)) {
   for (const [shade, hex] of Object.entries(shades)) {
     const color = toOklch(hex);
+    const hue = Number.isFinite(color.h) ? color.h : 0;
 
-    css += `  --${group}-${shade}: oklch(${color.l.toFixed(3)} ${color.c.toFixed(3)} ${color.h.toFixed(1)});\n`;
+    css += `  --${group}-${shade}: oklch(${color.l.toFixed(3)} ${color.c.toFixed(3)} ${hue.toFixed(1)});\n`;
   }
 }
 

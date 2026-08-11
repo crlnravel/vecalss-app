@@ -204,7 +204,7 @@ function ParticipantWaitingRoomModule({
           </div>
         </section>
 
-        {message ? <p className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert"><WarningCircle aria-hidden="true" />{message}</p> : null}
+        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4 text-sm text-student-status-danger-fg" role="alert"><WarningCircle aria-hidden="true" />{message}</p> : null}
 
         <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
           <h2 className="font-heading text-2xl font-semibold tracking-[-0.025em]">Sebelum mulai</h2>

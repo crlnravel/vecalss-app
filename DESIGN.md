@@ -261,6 +261,13 @@ Shapes are generous and friendly. Use 12px corners for ordinary controls,
 hero-scale or route surfaces. Pills are fully rounded and reserved for compact
 status, tags, and actions that benefit from a capsule silhouette.
 
+**The No-Message-Badge Rule.** Do not render complete sentences or user-facing
+empty, error, unavailable, or not-found states as standalone capsule badges.
+Avoid leading-dot pills such as “LOKASI TIDAK DITEMUKAN.” Place the message in
+the relevant content flow or a calm empty/error-state block with an icon,
+explanation, and next action when useful. Reserve badges and chips for compact
+semantic metadata such as categories, filters, progress, or short status labels.
+
 Borders are thin, low-contrast, and green-tinted. Focus rings are visible and
 slightly stronger than resting borders. Avoid sharp corners on primary learning
 surfaces unless a document preview or native media frame requires them.
@@ -284,6 +291,31 @@ surfaces unless a document preview or native media frame requires them.
   text; status variants may use a pale warm-sun wash for drafts.
 - **State:** Keep selected/active chips visibly stronger through background,
   border, or weight—not color alone.
+- **Boundary:** Never use a chip or badge for a sentence or an empty, error,
+  unavailable, or not-found message; use inline copy or a contextual state
+  block instead.
+
+### Student status tokens
+
+Student badges and status chips use the semantic `student-status-*` token
+family rather than route-specific hex values:
+
+- **Category:** sea-glass wash with voyage-deep text for subject and content
+  labels.
+- **Neutral:** white surface with muted green text for passive metadata.
+- **Active:** voyage-deep fill with white text for the current or in-progress
+  state.
+- **Attention:** warm-sun wash for upcoming, unread, flagged, or review-needed
+  states.
+- **Success:** pale green for completed or correct states.
+- **Info:** a quiet blue wash for informational or practice states.
+- **Danger:** a restrained red wash for incorrect or failed states.
+- Solid variants are reserved for high-emphasis actions or result markers; use
+  the wash variants for ordinary status labels.
+
+Use the shared `StudentBadge` component for compact pills. The warm-sun
+attention tone is intentionally separate from the legacy `accent-*` ramp used
+by generic shadcn-compatible components.
 
 ### Cards / Containers
 
@@ -297,6 +329,13 @@ surfaces unless a document preview or native media frame requires them.
   selected states.
 - **Internal Padding:** 20px for compact cards, 24–28px for primary learning
   cards, and 32px for larger route surfaces.
+
+Student catalogue cards use the shared `StudentCatalogueCard` geometry with an
+explicit content variant. `materi` is the wide progress row (icon, content,
+action); `kuis` is the subject tile with a fixed reading height; and `tryout`
+is the artwork-first card with the same radius, border, lift, and focus
+treatment. Content-specific artwork and status treatments may vary, but the
+outer card contract should not.
 
 ### Inputs / Fields
 
@@ -349,5 +388,7 @@ locked, or next; do not use it as a generic decorative badge.
   every surface.
 - **Don't** copy the Materi zig-zag road onto screens whose job is editing,
   reviewing, or managing content.
+- **Don't** use a capsule badge with a leading status dot for full-sentence
+  empty, error, unavailable, or not-found messages.
 - **Don't** remove the tactile hover, focus, and press cues from interactive
   learning controls without replacing them with an equally clear state signal.

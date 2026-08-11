@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import {
   ArrowUpRight,
   BookOpen,
@@ -16,7 +15,7 @@ import {
 } from "@/lib/icons";
 
 import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
+import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 import { getQuizSubjectStats, type QuizSubject } from "./data";
@@ -133,20 +132,13 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
     subjectIcons[subject.title as keyof typeof subjectIcons] ?? ListChecks;
 
   return (
-    <Link
-      className={cn(
-        "group relative flex min-h-[246px] flex-col overflow-hidden rounded-[2rem] border border-primary-200 p-6 text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.55)] outline-none transition-[transform,border-color,box-shadow] duration-300 motion-safe:hover:-translate-y-1.5 hover:border-primary-300 hover:shadow-[0_28px_64px_-42px_rgba(23,107,77,0.62)] focus-visible:ring-4 focus-visible:ring-primary-400/30 motion-reduce:transition-none md:min-h-[270px] md:p-7",
-        subject.palette,
-      )}
+    <StudentCatalogueCard
+      className={subject.palette}
       href={`/quiz/${subject.slug}`}
+      variant="kuis"
     >
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-1.5 bg-primary-700"
-      />
-
       <div className="flex items-start justify-between gap-4">
-        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-primary-900 text-white shadow-[0_12px_26px_-18px_rgba(1,76,56,0.8)] transition-transform duration-250 ease-out motion-safe:group-hover:-rotate-3 motion-reduce:transition-none">
+        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-primary-900 text-white shadow-[0_12px_26px_-18px_rgba(1,76,56,0.8)]">
           <Icon className="size-7" strokeWidth={2.1} />
         </span>
         <span className="rounded-full bg-white/75 px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-primary-800">
@@ -174,11 +166,11 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
             {stats.totalQuestions} soal
           </span>
         </div>
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-900 text-white shadow-[0_12px_28px_-18px_rgba(1,76,56,0.85)] transition-transform duration-200 ease-out motion-safe:group-hover:rotate-45 motion-reduce:transition-none">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-900 text-white shadow-[0_12px_28px_-18px_rgba(1,76,56,0.85)]">
           <ArrowUpRight className="size-5" strokeWidth={2.5} />
         </span>
       </div>
-    </Link>
+    </StudentCatalogueCard>
   );
 }
 

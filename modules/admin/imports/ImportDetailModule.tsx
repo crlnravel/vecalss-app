@@ -22,6 +22,11 @@ import {
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
 import {
+  ADMIN_CARD_CLASS_NAME,
+  ADMIN_INSET_CLASS_NAME,
+  ADMIN_STATUS_CLASS_NAMES,
+} from "../admin-ui-contract";
+import {
   canConfirmImport,
   classifyImportSessionRecovery,
   getBoundedKaptenBioPreview,
@@ -97,13 +102,11 @@ function statusIcon(status: string) {
 }
 
 function toneClasses(tone: ReturnType<typeof statusCopy>["tone"]) {
-  switch (tone) {
-    case "danger": return "border-[#e3c2bb] bg-[#fff0ee] text-[#8b3f32]";
-    case "info": return "border-[#b7ddc3] bg-[#eef8f1] text-[#176b4d]";
-    case "success": return "border-[#9ed1ac] bg-[#eef8f1] text-[#176b4d]";
-    case "warning": return "border-[#ead899] bg-[#fff5cf] text-[#725400]";
-    default: return "border-[#d6e5db] bg-[#f1f5f2] text-[#506a5d]";
-  }
+  if (tone === "danger") return ADMIN_STATUS_CLASS_NAMES.danger;
+  if (tone === "info") return ADMIN_STATUS_CLASS_NAMES.info;
+  if (tone === "success") return ADMIN_STATUS_CLASS_NAMES.success;
+  if (tone === "warning") return ADMIN_STATUS_CLASS_NAMES.warning;
+  return ADMIN_STATUS_CLASS_NAMES.neutral;
 }
 
 function rowStatusCopy(status: RowStatus) {
@@ -134,7 +137,7 @@ function ImportInputSummary({ input }: { input: ImportStatusDto["rows"][number][
   if (entries.length === 0) return null;
 
   return (
-    <div className="mt-1 space-y-1 text-xs leading-5 text-[#5f776a]">
+    <div className="mt-1 space-y-1 text-xs leading-5 text-secondary-600">
       {entries.map(({ key, value }) => {
         const isLongBio = key === "bio" && value.trim().length > MAX_KAPTEN_BIO_PREVIEW_LENGTH;
         return (
@@ -142,8 +145,8 @@ function ImportInputSummary({ input }: { input: ImportStatusDto["rows"][number][
             <span>{key.replaceAll("_", " ")}: {isLongBio ? getBoundedKaptenBioPreview(value) : value}</span>
             {isLongBio ? (
               <details className="mt-1">
-                <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2 font-bold text-[#014c38] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]">View full bio ({value.trim().length} characters)</summary>
-                <p className="mt-1 max-w-[48ch] whitespace-pre-wrap rounded-xl bg-[#f8fcf9] px-3 py-2 text-xs leading-5 text-[#173c2d]">{value}</p>
+                <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2 font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300">View full bio ({value.trim().length} characters)</summary>
+                <p className="mt-1 max-w-[48ch] whitespace-pre-wrap rounded-xl bg-secondary-50 px-3 py-2 text-xs leading-5 text-secondary-900">{value}</p>
               </details>
             ) : null}
           </div>
@@ -191,16 +194,16 @@ function ImportSessionRecoveryNotice({
   onRefresh: () => void;
 }) {
   return (
-    <section aria-labelledby="import-session-recovery-heading" className="flex flex-col gap-3 rounded-[22px] border border-[#e3c2bb] bg-[#fff0ee] p-5 text-[#8b3f32] sm:flex-row sm:items-start sm:justify-between sm:p-6" role="alert">
+    <section aria-labelledby="import-session-recovery-heading" className={`flex flex-col gap-3 rounded-4xl border p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert">
       <div>
-        <p className="text-base font-bold" id="import-session-recovery-heading">{kind === "expired" ? "Admin session expired" : "Admin permission required"}</p>
+        <p className="text-base font-semibold" id="import-session-recovery-heading">{kind === "expired" ? "Admin session expired" : "Admin permission required"}</p>
         <p className="mt-1 max-w-[68ch] text-sm leading-6">{kind === "expired" ? "Sign in again to return to this import review. The import ID stays in this page context; credentials are never included in the recovery link." : "This admin account can no longer review the import. Sign in with an active admin account or return to the admin home."}</p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
-        <Link className="inline-flex min-h-11 items-center rounded-xl border border-[#c87868] px-3 text-sm font-bold text-[#8b3f32] hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c87868]" href={getImportLoginRecoveryHref(`/admin/imports/${encodeURIComponent(importId)}`)}>
+        <Link className="inline-flex min-h-11 items-center rounded-xl border border-student-status-danger-border px-3 text-sm font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" href={getImportLoginRecoveryHref(`/admin/imports/${encodeURIComponent(importId)}`)}>
           {kind === "expired" ? "Sign in again" : "Sign in as admin"}
         </Link>
-        <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-[#8b3f32] hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c87868]" onClick={onRefresh} type="button">Refresh page</button>
+        <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={onRefresh} type="button">Refresh page</button>
       </div>
     </section>
   );
@@ -225,9 +228,9 @@ function CountStrip({ counts, mode }: { counts: ImportStatusDto["counts"]; mode:
   return (
     <dl className={`grid grid-cols-2 gap-2 ${items.length === 5 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
       {items.map(([label, value]) => (
-        <div className="rounded-2xl border border-[#d6e5db] bg-[#f8fcf9] px-3 py-3" key={label}>
-          <dt className="text-xs font-semibold text-[#5f776a]">{label}</dt>
-          <dd className="mt-1 text-xl font-bold tabular-nums tracking-[-0.03em] text-[#173c2d]">{value.toLocaleString("en-US")}</dd>
+        <div className="rounded-2xl border border-primary-100 bg-secondary-50 px-3 py-3" key={label}>
+          <dt className="text-xs font-semibold text-secondary-600">{label}</dt>
+          <dd className="mt-1 text-xl font-semibold tabular-nums tracking-[-0.03em] text-secondary-900">{value.toLocaleString("en-US")}</dd>
         </div>
       ))}
     </dl>
@@ -240,18 +243,18 @@ function ImportProgressPanel({ importStatus }: { importStatus: ImportStatusDto }
   const progressMax = Math.max(progress.total, 1);
 
   return (
-    <section aria-labelledby="import-progress-heading" className="rounded-[22px] border border-[#b7ddc3] bg-[#f8fcf9] p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+    <section aria-labelledby="import-progress-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-primary-50/70 p-5 sm:p-6`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="import-progress-heading">Import progress</h2>
-          <p className="mt-1 text-sm leading-6 text-[#5f776a]">The worker reports durable row outcomes from PostgreSQL. This page will keep polling until the import reaches a terminal state.</p>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-progress-heading">Import progress</h2>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">The worker reports durable row outcomes from PostgreSQL. This page will keep polling until the import reaches a terminal state.</p>
         </div>
-        <p className="text-sm font-bold tabular-nums text-[#014c38]">{progress.percent}% complete</p>
+        <p className="text-sm font-semibold tabular-nums text-primary-800">{progress.percent}% complete</p>
       </div>
-      <div aria-label={`Import progress: ${progress.processed} of ${progress.total} rows processed`} aria-valuemax={progressMax} aria-valuemin={0} aria-valuenow={progress.processed} aria-valuetext={`${progress.processed} of ${progress.total} rows processed`} className="mt-5 h-3 overflow-hidden rounded-full bg-[#dceee1]" role="progressbar">
-        <div className="h-full rounded-full bg-[#2f8a5d] transition-[width] duration-300" style={{ width: `${progress.percent}%` }} />
+      <div aria-label={`Import progress: ${progress.processed} of ${progress.total} rows processed`} aria-valuemax={progressMax} aria-valuemin={0} aria-valuenow={progress.processed} aria-valuetext={`${progress.processed} of ${progress.total} rows processed`} className="mt-5 h-3 overflow-hidden rounded-full bg-primary-100" role="progressbar">
+        <div className="h-full rounded-full bg-primary-600 transition-[width] duration-300" style={{ width: `${progress.percent}%` }} />
       </div>
-      <p className="mt-2 text-sm font-bold tabular-nums text-[#173c2d]">Processed {progress.processed} of {progress.total} rows</p>
+      <p className="mt-2 text-sm font-semibold tabular-nums text-secondary-900">Processed {progress.processed} of {progress.total} rows</p>
       <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           ["Pending", progress.pending],
@@ -259,9 +262,9 @@ function ImportProgressPanel({ importStatus }: { importStatus: ImportStatusDto }
           ["Remaining", progress.remaining],
           ["Rows with outcomes", progress.processed],
         ].map(([label, value]) => (
-          <div className="rounded-2xl border border-[#d6e5db] bg-white px-3 py-3" key={label}>
-            <dt className="text-xs font-semibold text-[#5f776a]">{label}</dt>
-            <dd className="mt-1 text-lg font-bold tabular-nums text-[#173c2d]">{value.toLocaleString("en-US")}</dd>
+          <div className="rounded-2xl border border-primary-100 bg-white px-3 py-3" key={label}>
+            <dt className="text-xs font-semibold text-secondary-600">{label}</dt>
+            <dd className="mt-1 text-lg font-semibold tabular-nums text-secondary-900">{value.toLocaleString("en-US")}</dd>
           </div>
         ))}
       </dl>
@@ -272,12 +275,12 @@ function ImportProgressPanel({ importStatus }: { importStatus: ImportStatusDto }
 function ImportStatusBanner({ importStatus }: { importStatus: ImportStatusDto }) {
   const copy = statusCopy(importStatus.status);
   return (
-    <section aria-live="polite" className={`rounded-[22px] border p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6 ${toneClasses(copy.tone)}`}>
+    <section aria-live="polite" className={`rounded-4xl border p-5 shadow-[0_20px_52px_-42px_rgba(1,76,56,0.42)] sm:p-6 ${toneClasses(copy.tone)}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-white/70">{statusIcon(importStatus.status)}</span>
           <div>
-            <p className="text-lg font-bold tracking-[-0.02em]">{copy.label}</p>
+            <p className="text-lg font-semibold tracking-[-0.02em]">{copy.label}</p>
             <p className="mt-1 max-w-[65ch] text-sm leading-6 opacity-85">{copy.detail}</p>
           </div>
         </div>
@@ -301,14 +304,14 @@ function ImportRowTable({
 }) {
   const invalidRows = importStatus.rows.filter((row) => row.status === "invalid");
   return (
-    <div className="overflow-hidden rounded-[22px] border border-[#d6e5db] bg-white shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)]">
-      <div className="flex flex-col gap-3 border-b border-[#e7f0ea] px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+    <div className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+      <div className="flex flex-col gap-3 border-b border-primary-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
         <div>
-          <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]">Preview rows</h2>
-          <p className="mt-1 text-sm leading-6 text-[#5f776a]">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Preview rows</h2>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
         </div>
         {invalidRows.length > 0 ? (
-          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#d7bf75] px-3 text-sm font-bold text-[#725400] hover:bg-[#fff9df] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ad8d2c]" onClick={() => invalidRows.filter((row) => selectedInvalidRows.size === invalidRows.length || !selectedInvalidRows.has(row.rowId)).forEach((row) => onToggleInvalid(row.rowId))} type="button">
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-3 text-sm font-semibold text-student-status-attention-fg hover:bg-student-status-attention-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border" onClick={() => invalidRows.filter((row) => selectedInvalidRows.size === invalidRows.length || !selectedInvalidRows.has(row.rowId)).forEach((row) => onToggleInvalid(row.rowId))} type="button">
             <CircleAlert aria-hidden="true" size={15} />
             {selectedInvalidRows.size === invalidRows.length ? "Clear invalid selection" : "Select invalid rows"}
           </button>
@@ -316,14 +319,14 @@ function ImportRowTable({
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="border-b border-[#e7f0ea] text-xs font-bold text-[#5f776a]">
+          <thead className="border-b border-primary-100 text-xs font-semibold text-secondary-600">
             <tr>
-              <th className="w-14 px-4 py-3 font-bold"><span className="sr-only">Select</span></th>
-              <th className="px-3 py-3 font-bold">Row</th>
-              <th className="px-3 py-3 font-bold">Email</th>
-              <th className="px-3 py-3 font-bold">Operation</th>
-              <th className="px-3 py-3 font-bold">State</th>
-              <th className="px-3 py-3 font-bold">Explanation</th>
+              <th className="w-14 px-4 py-3 font-semibold"><span className="sr-only">Select</span></th>
+              <th className="px-3 py-3 font-semibold">Row</th>
+              <th className="px-3 py-3 font-semibold">Email</th>
+              <th className="px-3 py-3 font-semibold">Operation</th>
+              <th className="px-3 py-3 font-semibold">State</th>
+              <th className="px-3 py-3 font-semibold">Explanation</th>
             </tr>
           </thead>
           <tbody>
@@ -331,28 +334,28 @@ function ImportRowTable({
               const copy = rowStatusCopy(row.status as RowStatus);
               const isInvalid = row.status === "invalid";
               return (
-                <tr className={`border-b border-[#edf3ee] last:border-b-0 ${isInvalid ? "bg-[#fffdf5]" : ""}`} key={row.rowId}>
+                <tr className={`border-b border-primary-100 last:border-b-0 ${isInvalid ? "bg-student-status-attention-bg/45" : ""}`} key={row.rowId}>
                   <td className="px-4 py-3 align-top">
                     {isInvalid ? (
                       <label className="flex min-h-11 items-center justify-center" title={`Select row ${row.rowNumber} to skip`}>
-                        <input aria-label={`Select invalid row ${row.rowNumber} to skip`} checked={selectedInvalidRows.has(row.rowId)} className="size-4 accent-[#014c38]" onChange={() => onToggleInvalid(row.rowId)} type="checkbox" />
+                        <input aria-label={`Select invalid row ${row.rowNumber} to skip`} checked={selectedInvalidRows.has(row.rowId)} className="size-4 accent-primary-700" onChange={() => onToggleInvalid(row.rowId)} type="checkbox" />
                       </label>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3 align-top font-bold tabular-nums text-[#173c2d]">{row.rowNumber}</td>
+                  <td className="px-3 py-3 align-top font-semibold tabular-nums text-secondary-900">{row.rowNumber}</td>
                   <td className="max-w-[240px] px-3 py-3 align-top">
-                    <span className="block truncate font-semibold text-[#173c2d]">{row.normalizedEmail || "No email"}</span>
+                    <span className="block truncate font-semibold text-secondary-900">{row.normalizedEmail || "No email"}</span>
                     <ImportInputSummary input={row.input} />
                   </td>
-                  <td className="px-3 py-3 align-top text-[#5f776a]">{row.operation === "create" ? "Create" : row.operation === "update" ? "Update profile" : "No operation"}</td>
+                  <td className="px-3 py-3 align-top text-secondary-600">{row.operation === "create" ? "Create" : row.operation === "update" ? "Update profile" : "No operation"}</td>
                   <td className="px-3 py-3 align-top">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${copy.tone === "danger" ? "border-[#e3c2bb] bg-[#fff0ee] text-[#8b3f32]" : copy.tone === "warning" ? "border-[#ead899] bg-[#fff5cf] text-[#725400]" : copy.tone === "success" ? "border-[#b7ddc3] bg-[#eef8f1] text-[#176b4d]" : "border-[#d6e5db] bg-[#f1f5f2] text-[#506a5d]"}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${copy.tone === "danger" ? ADMIN_STATUS_CLASS_NAMES.danger : copy.tone === "warning" ? ADMIN_STATUS_CLASS_NAMES.warning : copy.tone === "success" ? ADMIN_STATUS_CLASS_NAMES.success : copy.tone === "info" ? ADMIN_STATUS_CLASS_NAMES.info : ADMIN_STATUS_CLASS_NAMES.neutral}`}>
                       {copy.icon}
                       {copy.label}
                     </span>
                   </td>
-                  <td className="max-w-[270px] px-3 py-3 align-top text-xs leading-5 text-[#5f776a]">
-                    {row.errorMessage ? <><span className="font-bold text-[#725400]">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} handoff · ${row.handoffStatus.replaceAll("_", " ")}` : "Ready for the next step."}
+                  <td className="max-w-[270px] px-3 py-3 align-top text-xs leading-5 text-secondary-600">
+                    {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} handoff · ${row.handoffStatus.replaceAll("_", " ")}` : "Ready for the next step."}
                   </td>
                 </tr>
               );
@@ -390,10 +393,10 @@ function WorkerHealthNotice({
   const statusReadOnly = noticeState === "status_read_stale";
   const workerOnly = noticeState === "worker_stale";
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-[#ead899] bg-[#fff9df] px-4 py-3 text-sm text-[#725400]" role="status">
+    <div className={`flex items-start gap-3 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="status">
       <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} />
       <div>
-        <p className="font-bold">
+        <p className="font-semibold">
           {statusReadOnly ? "Status refresh is delayed" : workerOnly ? "Worker or queue needs attention" : "Status and worker health need attention"}
         </p>
         {statusReadOnly ? (
@@ -566,12 +569,12 @@ function HandoffDeliveryPanel({
 
   if (handoffState === "all_acknowledged") {
     return (
-      <section aria-labelledby="handoff-file-heading" className="rounded-[22px] border border-[#b7ddc3] bg-[#f8fcf9] p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+      <section aria-labelledby="handoff-file-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-primary-50/70 p-5 sm:p-6`}>
         <div className="flex items-start gap-3">
-          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eef8f1] text-[#176b4d]"><CheckCircle2 size={19} /></span>
+          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-student-status-success-bg text-student-status-success-fg"><CheckCircle2 size={19} /></span>
           <div>
-            <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="handoff-file-heading">All handoffs acknowledged</h2>
-            <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[#5f776a]">Every released credential file for this import has been confirmed as transferred. No handoff file remains available to download.</p>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">All handoffs acknowledged</h2>
+            <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Every released credential file for this import has been confirmed as transferred. No handoff file remains available to download.</p>
           </div>
         </div>
       </section>
@@ -580,12 +583,12 @@ function HandoffDeliveryPanel({
 
   if (handoffState === "terminal") {
     return (
-      <section aria-labelledby="handoff-file-heading" className="rounded-[22px] border border-[#d6e5db] bg-[#f8fcf9] p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.45)] sm:p-6">
+      <section aria-labelledby="handoff-file-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-secondary-50 p-5 sm:p-6`}>
         <div className="flex items-start gap-3">
-          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eef8f1] text-[#506a5d]"><FileClock size={19} /></span>
+          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary-100 text-secondary-700"><FileClock size={19} /></span>
           <div>
-            <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="handoff-file-heading">No handoff action remains</h2>
-            <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[#5f776a]">Every new-account handoff for this import is terminal. Completed or revoked handoffs cannot be downloaded, reissued, or acknowledged here.</p>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">No handoff action remains</h2>
+            <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Every new-account handoff for this import is terminal. Completed or revoked handoffs cannot be downloaded, reissued, or acknowledged here.</p>
           </div>
         </div>
       </section>
@@ -593,16 +596,16 @@ function HandoffDeliveryPanel({
   }
 
   return (
-    <section aria-labelledby="handoff-file-heading" className="rounded-[22px] border border-[#d6e5db] bg-white p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+    <section aria-labelledby="handoff-file-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="handoff-file-heading">One-time handoff file</h2>
-          <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[#5f776a]">This import uses one method for all new accounts: <span className="font-bold text-[#173c2d]">{methodLabel(method)}</span>. The file is generated in memory and is never stored.</p>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">One-time handoff file</h2>
+          <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">This import uses one method for all new accounts: <span className="font-semibold text-secondary-900">{methodLabel(method)}</span>. The file is generated in memory and is never stored.</p>
         </div>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#eef8f1] px-3 py-1.5 text-xs font-bold text-[#176b4d]"><Info aria-hidden="true" size={14} /> Credentials shown once</span>
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-student-status-info-bg px-3 py-1.5 text-xs font-semibold text-student-status-info-fg"><Info aria-hidden="true" size={14} /> Credentials shown once</span>
       </div>
 
-      <div className="mt-4 rounded-2xl bg-[#f8fcf9] px-4 py-3 text-sm leading-6 text-[#5f776a]">
+      <div className={`${ADMIN_INSET_CLASS_NAME} mt-4 px-4 py-3 text-sm leading-6 text-secondary-600`}>
         {method === "invite_link"
           ? "Invite links expire after 24 hours and are used once. Share the link manually; no email delivery is implied. The recipient follows it to set a password."
           : "Temporary passwords work for the first login only and require a password change. Share the file securely; no email delivery is implied."}
@@ -611,25 +614,25 @@ function HandoffDeliveryPanel({
       {pendingRows.length > 0 ? (
         <div className="mt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-bold text-[#173c2d]">Pending new-account handoffs</p>
-            <button className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-xs font-bold text-[#014c38] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" onClick={() => setSelectedRows((current) => current.size === pendingRows.length ? new Set() : new Set(pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id))))} type="button">
+            <p className="text-sm font-semibold text-secondary-900">Pending new-account handoffs</p>
+            <button className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-xs font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => setSelectedRows((current) => current.size === pendingRows.length ? new Set() : new Set(pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id))))} type="button">
               {selectedRows.size === pendingRows.length ? "Clear selection" : "Select all pending"}
             </button>
           </div>
-          <div className="mt-2 divide-y divide-[#e7f0ea] rounded-2xl border border-[#d6e5db]">
+          <div className="mt-2 divide-y divide-primary-100 rounded-2xl border border-primary-100">
             {pendingRows.map((row) => (
               <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
-                <input aria-label={`Select handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-[#014c38]" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
-                <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-[#173c2d]">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs text-[#5f776a]">Expires {formatDate(row.handoffExpiresAt)}</span></span>
-                <span className="rounded-full bg-[#eef8f1] px-2 py-1 text-xs font-bold text-[#176b4d]">Pending</span>
+                <input aria-label={`Select handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-primary-700" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
+                <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs text-secondary-600">Expires {formatDate(row.handoffExpiresAt)}</span></span>
+                <span className="rounded-full bg-student-status-success-bg px-2 py-1 text-xs font-semibold text-student-status-success-fg">Pending</span>
               </label>
             ))}
           </div>
-          <label className="mt-4 flex items-start gap-3 rounded-2xl border border-[#d6e5db] bg-white px-4 py-3 text-xs leading-5 text-[#5f776a]">
-            <input checked={acknowledgeIntent} className="mt-1 size-4 accent-[#014c38]" onChange={(event) => setAcknowledgeIntent(event.target.checked)} type="checkbox" />
+          <label className="mt-4 flex items-start gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 text-xs leading-5 text-secondary-600">
+            <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => setAcknowledgeIntent(event.target.checked)} type="checkbox" />
             <span>I will share this file through a secure channel and understand the selected credentials cannot be recovered after release.</span>
           </label>
-          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#014c38] px-4 text-sm font-bold text-white hover:bg-[#176b4d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a] disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedIds.length || !acknowledgeIntent || downloadBusy} onClick={downloadFile} type="button">
+          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedIds.length || !acknowledgeIntent || downloadBusy} onClick={downloadFile} type="button">
             <Download aria-hidden="true" size={16} />
             {downloadBusy ? "Preparing file…" : `Download selected (${selectedIds.length})`}
           </button>
@@ -637,26 +640,26 @@ function HandoffDeliveryPanel({
       ) : null}
 
       {releasedRows.length > 0 ? (
-        <div className="mt-5 rounded-2xl border border-[#ead899] bg-[#fff9df] px-4 py-4 text-sm text-[#725400]">
-          <p className="font-bold">Some credentials are already released</p>
+        <div className={`mt-5 rounded-3xl border px-4 py-4 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
+          <p className="font-semibold">Some credentials are already released</p>
           <p className="mt-1 text-xs leading-5">The response cannot be downloaded again. If the file was lost, start a new preview/import for those accounts; do not expect the old credentials to reappear. Once you have transferred the file, acknowledge the released rows below.</p>
           <div className="mt-3 space-y-2">
             {releasedRows.map((row) => (
-              <div className="flex min-h-11 items-center gap-3 rounded-xl border border-[#ead899] bg-white/50 px-3 py-2 text-xs" key={row.rowId}>
+              <div className="flex min-h-11 items-center gap-3 rounded-xl border border-student-status-attention-border bg-white/50 px-3 py-2 text-xs" key={row.rowId}>
                 <label className="flex min-w-0 flex-1 items-center gap-3">
-                  <input aria-label={`Select released handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-[#725400]" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
+                  <input aria-label={`Select released handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-student-status-attention-fg" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
                   <span className="truncate">Row {row.rowNumber} · {row.normalizedEmail}</span>
                 </label>
-                <span className="font-bold">Already released</span>
-                {row.handoffId ? <button className="inline-flex min-h-11 items-center rounded-lg px-2 font-bold text-[#725400] hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ad8d2c] disabled:cursor-not-allowed disabled:opacity-55" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} type="button">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</button> : null}
+                <span className="font-semibold">Already released</span>
+                {row.handoffId ? <button className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-student-status-attention-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} type="button">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</button> : null}
               </div>
             ))}
           </div>
-          <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-[#725400]">
-            <input checked={transferConfirmed} className="mt-1 size-4 accent-[#725400]" onChange={(event) => setTransferConfirmed(event.target.checked)} type="checkbox" />
+          <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-attention-fg">
+            <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => setTransferConfirmed(event.target.checked)} type="checkbox" />
             <span>I confirm the released file was transferred through a secure channel.</span>
           </label>
-          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#b79d47] px-4 text-sm font-bold text-[#725400] hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ad8d2c] disabled:cursor-not-allowed disabled:opacity-55" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
+          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-4 text-sm font-semibold text-student-status-attention-fg hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
             <Check aria-hidden="true" size={16} />
             {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
           </button>
@@ -664,14 +667,14 @@ function HandoffDeliveryPanel({
       ) : null}
 
       {expiredRows.length > 0 ? (
-        <div className="mt-4 rounded-2xl border border-[#e3c2bb] bg-[#fff0ee] px-4 py-3 text-xs leading-5 text-[#8b3f32]">
-          <p className="font-bold">Expired handoffs need a new preview</p>
+        <div className={`mt-4 rounded-3xl border px-4 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`}>
+          <p className="font-semibold">Expired handoffs need a new preview</p>
           <p className="mt-1">Expired invite secrets are no longer releasable. Reissue a sealed replacement here, then select the new pending row for download. If the source data is wrong, create a new preview instead.</p>
           <div className="mt-3 space-y-2">
             {expiredRows.map((row) => (
-              <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[#e3c2bb] bg-white/50 px-3 py-2" key={row.rowId}>
+              <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-student-status-danger-border bg-white/50 px-3 py-2" key={row.rowId}>
                 <span className="truncate text-xs">Row {row.rowNumber} · {row.normalizedEmail}</span>
-                {row.handoffId ? <button className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[#8b3f32] hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c87868] disabled:cursor-not-allowed disabled:opacity-55" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} type="button">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</button> : null}
+                {row.handoffId ? <button className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border disabled:cursor-not-allowed disabled:opacity-55" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} type="button">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</button> : null}
               </div>
             ))}
           </div>
@@ -679,21 +682,21 @@ function HandoffDeliveryPanel({
       ) : null}
 
       {downloadedIds.size > 0 && releasedRows.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-[#b7ddc3] bg-[#eef8f1] px-4 py-3 text-sm text-[#176b4d]">
-          <p className="font-bold">File downloaded</p>
+        <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.success}`}>
+          <p className="font-semibold">File downloaded</p>
           <p className="mt-1 text-xs leading-5">Confirm that the file reached the recipient. The acknowledgement records the handoff; it does not expose the credentials again.</p>
-          <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-[#176b4d]">
-            <input checked={transferConfirmed} className="mt-1 size-4 accent-[#014c38]" onChange={(event) => setTransferConfirmed(event.target.checked)} type="checkbox" />
+          <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-success-fg">
+            <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => setTransferConfirmed(event.target.checked)} type="checkbox" />
             <span>I confirm the released file was transferred through a secure channel.</span>
           </label>
-          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#73bc8a] px-4 text-sm font-bold text-[#014c38] hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a] disabled:cursor-not-allowed disabled:opacity-55" disabled={!transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
+          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary-300 px-4 text-sm font-semibold text-primary-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
             <Check aria-hidden="true" size={16} />
             {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
           </button>
         </div>
       ) : null}
 
-      {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-[#5f776a]" role="status">{message}</p> : null}
+      {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
     </section>
   );
 }
@@ -754,30 +757,30 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
   }
 
   return (
-    <section aria-labelledby="retry-heading" className="rounded-[22px] border border-[#e3c2bb] bg-[#fffaf8] p-5 shadow-[0_20px_46px_-42px_rgba(139,63,50,0.35)] sm:p-6">
+    <section aria-labelledby="retry-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-student-status-danger-bg p-5 sm:p-6`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="retry-heading">Review failed rows</h2>
-          <p className="mt-1 text-sm leading-6 text-[#5f776a]">Retry is for transient or operational failures. Data corrections require a new preview/import.</p>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="retry-heading">Review failed rows</h2>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">Retry is for transient or operational failures. Data corrections require a new preview/import.</p>
         </div>
-        <span className="rounded-full bg-[#fff0ee] px-3 py-1.5 text-xs font-bold text-[#8b3f32]">{failedRows.length} failed</span>
+        <span className="rounded-full bg-student-status-danger-bg px-3 py-1.5 text-xs font-semibold text-student-status-danger-fg">{failedRows.length} failed</span>
       </div>
-      <div className="mt-4 divide-y divide-[#f0dfdb] rounded-2xl border border-[#e3c2bb] bg-white">
+      <div className="mt-4 divide-y divide-student-status-danger-border rounded-2xl border border-student-status-danger-border bg-white">
         {failedRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
-            <input aria-label={`Select failed row ${row.rowNumber} for retry`} checked={selectedRows.has(row.rowId)} className="size-4 accent-[#8b3f32]" onChange={() => toggleRow(row.rowId)} type="checkbox" />
-            <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-[#173c2d]">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs leading-5 text-[#8b3f32]">{row.errorMessage ?? row.errorCode?.replaceAll("_", " ") ?? "Operational failure"}</span></span>
+            <input aria-label={`Select failed row ${row.rowNumber} for retry`} checked={selectedRows.has(row.rowId)} className="size-4 accent-student-status-danger-solid-bg" onChange={() => toggleRow(row.rowId)} type="checkbox" />
+            <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs leading-5 text-student-status-danger-fg">{row.errorMessage ?? row.errorCode?.replaceAll("_", " ") ?? "Operational failure"}</span></span>
           </label>
         ))}
       </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="flex min-h-11 items-center gap-2 text-xs text-[#5f776a]"><input checked={retryAll} className="size-4 accent-[#8b3f32]" onChange={(event) => setRetryAll(event.target.checked)} type="checkbox" /> Retry all failed rows</label>
-        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#8b3f32] px-4 text-sm font-bold text-white hover:bg-[#713126] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c87868] disabled:cursor-not-allowed disabled:opacity-55" disabled={busy || (!retryAll && !selectedRows.size)} onClick={retryRows} type="button">
+        <label className="flex min-h-11 items-center gap-2 text-xs text-secondary-600"><input checked={retryAll} className="size-4 accent-student-status-danger-solid-bg" onChange={(event) => setRetryAll(event.target.checked)} type="checkbox" /> Retry all failed rows</label>
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-student-status-danger-solid-bg px-4 text-sm font-semibold text-white hover:bg-danger-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border disabled:cursor-not-allowed disabled:opacity-55" disabled={busy || (!retryAll && !selectedRows.size)} onClick={retryRows} type="button">
           <RotateCcw aria-hidden="true" size={16} />
           {busy ? "Queueing retry…" : retryAll ? "Retry all failed" : `Retry selected (${selectedRows.size})`}
         </button>
       </div>
-      {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-[#5f776a]" role="status">{message}</p> : null}
+      {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
     </section>
   );
 }
@@ -1088,33 +1091,33 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link className="inline-flex min-h-11 w-fit items-center rounded-xl px-3 text-sm font-bold text-[#014c38] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`}>
+        <Link className="inline-flex min-h-11 w-fit items-center rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`}>
           <ArrowLeft aria-hidden="true" size={15} />
           Back to imports
         </Link>
         <div className="flex items-center gap-2">
-          <button aria-label="Refresh import status" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#b7ddc3] px-3 text-sm font-bold text-[#014c38] hover:bg-[#eef8f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a] disabled:cursor-not-allowed disabled:opacity-55" disabled={refreshing} onClick={() => void loadStatus()} type="button">
+          <button aria-label="Refresh import status" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={refreshing} onClick={() => void loadStatus()} type="button">
             <RefreshCw aria-hidden="true" size={15} />
             {refreshing ? "Refreshing…" : "Refresh status"}
           </button>
-          <span className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-bold ${toneClasses(copy.tone)}`}><span aria-hidden="true">{statusIcon(importStatus.status)}</span>{copy.label}</span>
+          <span className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${toneClasses(copy.tone)}`}><span aria-hidden="true">{statusIcon(importStatus.status)}</span>{copy.label}</span>
         </div>
       </div>
 
       {sessionIssue ? <ImportSessionRecoveryNotice importId={importStatus.importId} kind={sessionIssue} onRefresh={() => window.location.reload()} /> : null}
-      {pollError && !sessionIssue && !readIsStale ? <div className="flex items-start gap-3 rounded-2xl border border-[#e3c2bb] bg-[#fff0ee] px-4 py-3 text-sm text-[#8b3f32]" role="alert"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-bold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></div> : null}
+      {pollError && !sessionIssue && !readIsStale ? <div className={`flex items-start gap-3 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></div> : null}
       <WorkerHealthNotice importStatus={importStatus} lastFetchedAt={lastFetchedAt} heartbeatStale={heartbeatIsStale} statusReadStale={readIsStale} />
 
       <ImportStatusBanner importStatus={importStatus} />
       <ImportProgressPanel importStatus={importStatus} />
 
-      <section aria-labelledby="import-summary-heading" className="rounded-[22px] border border-[#d6e5db] bg-white p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+      <section aria-labelledby="import-summary-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-[-0.04em] text-[#173c2d]" id="import-summary-heading">{importStatus.sourceFilename}</h1>
-            <p className="mt-1 text-sm text-[#5f776a]">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
+            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900" id="import-summary-heading">{importStatus.sourceFilename}</h1>
+            <p className="mt-1 text-sm text-secondary-600">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
           </div>
-          <p className="text-xs text-[#5f776a]">Preview created {formatDate(importStatus.createdAt)}</p>
+          <p className="text-xs text-secondary-600">Preview created {formatDate(importStatus.createdAt)}</p>
         </div>
         <div className="mt-5"><CountStrip counts={importStatus.counts} mode={importStatus.status === "draft" ? "preview" : "result"} /></div>
       </section>
@@ -1122,57 +1125,57 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       {importStatus.status === "draft" ? (
         <>
           <ImportRowTable importStatus={importStatus} onToggleInvalid={toggleInvalidRow} selectedInvalidRows={selectedInvalidRows} />
-          <section aria-labelledby="confirm-import-heading" className="rounded-[22px] border border-[#d6e5db] bg-white p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
+          <section aria-labelledby="confirm-import-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="confirm-import-heading">Choose one handoff method</h2>
-                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[#5f776a]">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
+                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
               </div>
-              <span className="rounded-full bg-[#f1f5f2] px-3 py-1.5 text-xs font-bold text-[#506a5d]">{importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows unresolved` : "Ready to confirm"}</span>
+              <span className="rounded-full bg-secondary-100 px-3 py-1.5 text-xs font-semibold text-secondary-700">{importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows unresolved` : "Ready to confirm"}</span>
             </div>
 
             {invalidRows.length > 0 ? (
-              <div className="mt-4 rounded-2xl border border-[#ead899] bg-[#fff9df] px-4 py-3 text-sm text-[#725400]">
-                <p className="font-bold">Confirmation is blocked until invalid rows are skipped</p>
+              <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
+                <p className="font-semibold">Confirmation is blocked until invalid rows are skipped</p>
                 <p className="mt-1 text-xs leading-5">Select the rows you intentionally want to leave out, then use “Skip selected invalid rows.” Duplicate, role-conflict, and malformed rows are never silently accepted.</p>
-                <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#725400] px-4 text-sm font-bold text-white hover:bg-[#5b4300] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ad8d2c] disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</button>
+                <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-student-status-attention-solid-bg px-4 text-sm font-semibold text-student-status-attention-solid-fg hover:bg-student-status-attention-solid-bg/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</button>
                 {skipMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5" role="status">{skipMessage}</p> : null}
               </div>
             ) : null}
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#73bc8a] ${handoffMethod === "invite_link" ? "border-[#73bc8a] bg-[#eef8f1]" : "border-[#d6e5db] bg-white hover:bg-[#f8fcf9]"}`}>
-                <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-[#014c38]" name="handoff-method" onChange={() => setHandoffMethod("invite_link")} type="radio" value="invite_link" />
-                <span><span className="block text-sm font-bold text-[#173c2d]">Invite link</span><span className="mt-1 block text-xs leading-5 text-[#5f776a]">Manual share · expires after 24 hours · recipient sets a password</span></span>
+              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "invite_link" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
+                <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => setHandoffMethod("invite_link")} type="radio" value="invite_link" />
+                <span><span className="block text-sm font-semibold text-secondary-900">Invite link</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · expires after 24 hours · recipient sets a password</span></span>
               </label>
-              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#73bc8a] ${handoffMethod === "temporary_password" ? "border-[#73bc8a] bg-[#eef8f1]" : "border-[#d6e5db] bg-white hover:bg-[#f8fcf9]"}`}>
-                <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-[#014c38]" name="handoff-method" onChange={() => setHandoffMethod("temporary_password")} type="radio" value="temporary_password" />
-                <span><span className="block text-sm font-bold text-[#173c2d]">Temporary password</span><span className="mt-1 block text-xs leading-5 text-[#5f776a]">Manual share · shown once · recipient must change it on first login</span></span>
+              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "temporary_password" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
+                <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => setHandoffMethod("temporary_password")} type="radio" value="temporary_password" />
+                <span><span className="block text-sm font-semibold text-secondary-900">Temporary password</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · shown once · recipient must change it on first login</span></span>
               </label>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-[#d6e5db] bg-[#f8fcf9] px-4 py-4">
-              <p className="text-sm font-bold text-[#173c2d]">Confirmation counts</p>
-              <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-[#5f776a]">New <strong className="text-[#173c2d]">{importStatus.counts.create}</strong></span><span className="text-[#5f776a]">Updates <strong className="text-[#173c2d]">{importStatus.counts.update}</strong></span><span className="text-[#5f776a]">Failed <strong className={importStatus.counts.failed ? "text-[#8b3f32]" : "text-[#173c2d]"}>{importStatus.counts.failed}</strong></span><span className="text-[#5f776a]">Skipped <strong className="text-[#173c2d]">{importStatus.counts.skipped}</strong></span><span className="text-[#5f776a]">Unresolved <strong className={importStatus.counts.invalid ? "text-[#8b3f32]" : "text-[#173c2d]"}>{importStatus.counts.invalid}</strong></span></div>
+            <div className={`${ADMIN_INSET_CLASS_NAME} mt-5 px-4 py-4`}>
+              <p className="text-sm font-semibold text-secondary-900">Confirmation counts</p>
+              <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-secondary-600">New <strong className="text-secondary-900">{importStatus.counts.create}</strong></span><span className="text-secondary-600">Updates <strong className="text-secondary-900">{importStatus.counts.update}</strong></span><span className="text-secondary-600">Failed <strong className={importStatus.counts.failed ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.failed}</strong></span><span className="text-secondary-600">Skipped <strong className="text-secondary-900">{importStatus.counts.skipped}</strong></span><span className="text-secondary-600">Unresolved <strong className={importStatus.counts.invalid ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.invalid}</strong></span></div>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#e3c2bb] px-4 text-sm font-bold text-[#8b3f32] hover:bg-[#fff0ee] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c87868]" onClick={() => void cancelImport()} type="button"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</button>
-                {cancelArmed ? <button className="ml-2 inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-bold text-[#5f776a] hover:bg-[#f1f5f2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a]" onClick={() => setCancelArmed(false)} type="button">Keep draft</button> : null}
-                {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-[#5f776a]" role="status">{cancelBusy ? "Abandoning…" : cancelMessage}</p> : null}
+                <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-danger-border px-4 text-sm font-semibold text-student-status-danger-fg hover:bg-student-status-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => void cancelImport()} type="button"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</button>
+                {cancelArmed ? <button className="ml-2 inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-secondary-600 hover:bg-secondary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => setCancelArmed(false)} type="button">Keep draft</button> : null}
+                {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Abandoning…" : cancelMessage}</p> : null}
               </div>
-              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#014c38] px-5 text-sm font-bold text-white hover:bg-[#176b4d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73bc8a] disabled:cursor-not-allowed disabled:opacity-55" disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} type="button"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</button>
+              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} type="button"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</button>
             </div>
-            {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-[#5f776a]" role="status">{confirmMessage}</p> : null}
+            {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
           </section>
         </>
       ) : (
         <>
-          <section aria-labelledby="result-heading" className="rounded-[22px] border border-[#d6e5db] bg-white p-5 shadow-[0_20px_46px_-42px_rgba(1,76,56,0.6)] sm:p-6">
-            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="text-xl font-bold tracking-[-0.03em] text-[#173c2d]" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-[#5f776a]">{copy.detail}</p></div></div>
+          <section aria-labelledby="result-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">{copy.detail}</p></div></div>
             <div className="mt-5"><CountStrip counts={importStatus.counts} mode="result" /></div>
-            {importStatus.lastErrorMessage ? <div className="mt-4 rounded-2xl border border-[#e3c2bb] bg-[#fff0ee] px-4 py-3 text-sm text-[#8b3f32]"><p className="font-bold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></div> : null}
+            {importStatus.lastErrorMessage ? <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`}><p className="font-semibold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></div> : null}
           </section>
           {importStatus.status === "completed" || importStatus.status === "partial" || importStatus.status === "failed" ? <HandoffDeliveryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={setSessionIssue} /> : null}
           <RetryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={setSessionIssue} />

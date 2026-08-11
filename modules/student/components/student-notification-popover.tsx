@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
 
 type StudentNotificationItem = {
@@ -54,9 +55,13 @@ function StudentNotificationPopover({
       >
         <Bell />
         {unreadCount > 0 ? (
-          <span className="absolute top-1.5 right-1.5 flex min-w-4 items-center justify-center rounded-full bg-[#F5C518] px-1 py-0.5 text-xs leading-none font-semibold text-secondary-900">
+          <StudentBadge
+            className="absolute top-1.5 right-1.5"
+            size="xs"
+            tone="attention"
+          >
             {unreadCount}
-          </span>
+          </StudentBadge>
         ) : null}
       </PopoverTrigger>
 
@@ -94,7 +99,7 @@ function StudentNotificationPopover({
                       {item.title}
                     </p>
                     {item.unread ? (
-                      <span className="size-2 shrink-0 rounded-full bg-[#F5C518]" />
+                      <span className="size-2 shrink-0 rounded-full bg-student-status-attention-border" />
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm leading-6 text-secondary-600">

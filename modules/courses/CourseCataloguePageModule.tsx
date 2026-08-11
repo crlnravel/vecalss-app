@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Brain,
   BookOpen,
@@ -13,6 +12,7 @@ import {
   PenTool,
   type AppIcon,
 } from "@/lib/icons";
+import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 
 import type { SessionContext } from "@/lib/auth/types";
 
@@ -129,11 +129,11 @@ function CourseRowCard({
   });
   const Icon = courseIcons[course.icon];
   return (
-    <Link
-      className="group relative grid min-h-[10.5rem] overflow-hidden rounded-[1.75rem] border border-[#c8dfd0] bg-[linear-gradient(110deg,#ffffff_0%,#ffffff_68%,#f1faf4_100%)] p-5 text-[#173c2d] shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] outline-none transition-transform duration-300 ease-out motion-safe:hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-reduce:transition-none md:grid-cols-[5rem_minmax(0,1fr)_3rem] md:items-center md:gap-7 md:rounded-[2rem] md:p-7"
+    <StudentCatalogueCard
       href={`/courses/${course.slug}`}
+      variant="materi"
     >
-      <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] transition-transform duration-250 ease-out motion-safe:group-hover:-rotate-3 motion-reduce:transition-none md:size-20 md:rounded-[1.6rem]">
+      <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
         <Icon className="size-7 md:size-9" strokeWidth={2.2} />
       </span>
 
@@ -174,11 +174,11 @@ function CourseRowCard({
       </div>
 
       <div className="mt-4 flex items-center justify-end border-t border-[#e2ece5] pt-4 md:mt-0 md:border-t-0 md:pt-0">
-        <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)] transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-0.5 motion-reduce:transition-none">
+        <span className="grid size-11 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
           <ChevronRight className="size-5" strokeWidth={2.6} />
         </span>
       </div>
-    </Link>
+    </StudentCatalogueCard>
   );
 }
 

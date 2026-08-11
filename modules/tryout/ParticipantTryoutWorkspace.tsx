@@ -15,6 +15,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card";
+import { studentBadgeVariants } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -40,10 +42,10 @@ function stateLabel(state: TryoutState) {
 
 function stateClassName(state: TryoutState) {
   return {
-    finished: "border-secondary-200 bg-secondary-50 text-secondary-600",
-    ongoing: "border-primary-200 bg-primary-50 text-primary-800",
-    practice: "border-sky-200 bg-sky-50 text-sky-800",
-    upcoming: "border-amber-200 bg-amber-50 text-amber-800",
+    finished: studentBadgeVariants({ tone: "success" }),
+    ongoing: studentBadgeVariants({ tone: "active" }),
+    practice: studentBadgeVariants({ tone: "info" }),
+    upcoming: studentBadgeVariants({ tone: "attention" }),
   }[state];
 }
 
@@ -208,10 +210,15 @@ function ParticipantTryoutWorkspace({
                     : "Lihat detail";
 
               return (
-                <article className="group flex min-w-0 flex-col overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] transition duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]" key={tryout.id}>
+                <article
+                  className={studentCatalogueCardVariants({ variant: "tryout" })}
+                  data-content-variant="tryout"
+                  data-slot="student-catalogue-card"
+                  key={tryout.id}
+                >
                   <TryoutCardArtwork useReferenceCover={visibleTryouts.length === 1} />
 
-                  <div className="flex flex-1 flex-col p-5">
+                  <div className="flex flex-1 flex-col p-6 md:p-7">
                     <div className="flex items-center justify-between gap-3">
                       <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-semibold ${stateClassName(state)}`}>{stateLabel(state)}</span>
                       <span className="text-xs font-bold tracking-[0.14em] text-secondary-400 uppercase">Tryout</span>

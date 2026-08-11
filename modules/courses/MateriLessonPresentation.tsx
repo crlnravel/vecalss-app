@@ -2,6 +2,7 @@ import { ExternalLink } from "@/lib/icons";
 import type { ReactNode } from "react";
 
 import type { MateriDocument } from "@/lib/materi/contract";
+import { StudentBadge } from "@/components/ui/student-badge";
 
 import { StudentPdfPreview } from "./StudentPdfPreview";
 
@@ -156,9 +157,9 @@ function MateriLessonPresentation({
               <p className="text-xs font-bold tracking-[0.14em] text-[#698078] uppercase">Bacaan utama</p>
               <p className="mt-1 text-sm font-semibold text-[#285641]">{document?.originalName?.trim() || "Dokumen Materi"}</p>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f5ec] px-3 py-1.5 text-xs font-bold text-[#176b4d]">
+            <StudentBadge tone="category">
               PDF
-            </span>
+            </StudentBadge>
           </div>
           {managedDocumentPreview ?? (
             <StudentPdfPreview

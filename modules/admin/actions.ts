@@ -124,14 +124,21 @@ function buildEnrollmentRedirect({
   error,
   focus,
   notice,
+  path = "/admin/enrollment",
   query,
 }: {
   error?: string;
   focus?: string;
   notice?: string;
+  path?: string;
   query?: string;
 }) {
-  return buildDirectoryRedirect("/admin/enrollment", { error, focus, notice, query });
+  return buildDirectoryRedirect(path, { error, focus, notice, query });
+}
+
+function readStudentReturnPath(formData: FormData, userId: string) {
+  const value = readTextField(formData, "returnPath");
+  return value === `/admin/enrollment/${userId}` ? value : null;
 }
 
 function buildKaptenRedirect({
@@ -309,6 +316,7 @@ async function createKaptenEnrollmentAction(
 async function updateStudentEnrollmentAction(formData: FormData) {
   const session = await requireAdminSession();
   const userId = readUuidField(formData, "userId");
+  const returnPath = userId ? readStudentReturnPath(formData, userId) : null;
   const directoryQuery = readDirectoryQuery(formData);
   const fullName = readTextField(formData, "fullName");
   const email = readTextField(formData, "email");
@@ -322,7 +330,8 @@ async function updateStudentEnrollmentAction(formData: FormData) {
     redirect(
       buildEnrollmentRedirect({
         error: "missing-fields",
-        focus: userId,
+        focus: returnPath ? undefined : userId,
+        path: returnPath ?? undefined,
         query: directoryQuery,
       }),
     );
@@ -349,18 +358,24 @@ async function updateStudentEnrollmentAction(formData: FormData) {
     redirect(
       buildEnrollmentRedirect({
         error: updateError,
-        focus: userId,
+        focus: returnPath ? undefined : userId,
+        path: returnPath ?? undefined,
         query: directoryQuery,
       }),
     );
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/enrollment");
+  if (returnPath) {
+    revalidatePath(returnPath);
+  }
 
   redirect(
     buildEnrollmentRedirect({
-      focus: userId,
+      focus: returnPath ? undefined : userId,
       notice: "student-updated",
+      path: returnPath ?? undefined,
       query: directoryQuery,
     }),
   );
@@ -407,6 +422,7 @@ async function updateKaptenEnrollmentAction(formData: FormData) {
 async function deactivateStudentEnrollmentAction(formData: FormData) {
   const session = await requireAdminSession();
   const userId = readUuidField(formData, "userId");
+  const returnPath = userId ? readStudentReturnPath(formData, userId) : null;
   const directoryQuery = readDirectoryQuery(formData);
 
   if (!userId) {
@@ -421,11 +437,16 @@ async function deactivateStudentEnrollmentAction(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/enrollment");
+  if (returnPath) {
+    revalidatePath(returnPath);
+  }
 
   redirect(
     buildEnrollmentRedirect({
-      focus: userId,
+      focus: returnPath ? undefined : userId,
       notice: "student-deactivated",
+      path: returnPath ?? undefined,
       query: directoryQuery,
     }),
   );
@@ -434,6 +455,7 @@ async function deactivateStudentEnrollmentAction(formData: FormData) {
 async function reactivateStudentEnrollmentAction(formData: FormData) {
   const session = await requireAdminSession();
   const userId = readUuidField(formData, "userId");
+  const returnPath = userId ? readStudentReturnPath(formData, userId) : null;
   const directoryQuery = readDirectoryQuery(formData);
 
   if (!userId) {
@@ -448,11 +470,16 @@ async function reactivateStudentEnrollmentAction(formData: FormData) {
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/enrollment");
+  if (returnPath) {
+    revalidatePath(returnPath);
+  }
 
   redirect(
     buildEnrollmentRedirect({
-      focus: userId,
+      focus: returnPath ? undefined : userId,
       notice: "student-reactivated",
+      path: returnPath ?? undefined,
       query: directoryQuery,
     }),
   );
@@ -516,12 +543,13 @@ async function acknowledgeEnrollmentHandoffAction(
   }
 
   try {
-    await acknowledgeEnrollmentHandoff({
+    const acknowledged = await acknowledgeEnrollmentHandoff({
       actorUserId: session.user.id,
       handoffId,
     });
     revalidatePath("/admin");
     revalidatePath("/admin/enrollment");
+    revalidatePath(`/admin/enrollment/${acknowledged.userId}`);
     revalidatePath("/admin/kapten");
     return {
       handoffId,
@@ -559,6 +587,7 @@ async function reissueEnrollmentHandoffAction(
     });
     revalidatePath("/admin");
     revalidatePath("/admin/enrollment");
+    revalidatePath(`/admin/enrollment/${result.userId}`);
     revalidatePath("/admin/kapten");
 
     return {

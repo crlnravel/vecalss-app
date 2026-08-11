@@ -8,6 +8,7 @@ import type { ExamEvent } from "@/generated/prisma/client";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
+import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
 
 import { createStudentEnrollmentAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
@@ -18,15 +19,14 @@ function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
   return (
     <form
       action={formAction}
-      className="space-y-5 overflow-hidden rounded-5xl border border-primary-100 bg-white p-6 shadow-[0_18px_60px_-40px_rgba(17,37,26,0.45)]"
+      className={`${ADMIN_CARD_CLASS_NAME} space-y-5 overflow-hidden p-6`}
       id="create-student-account"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-medium">Create a student account</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Create a student account</h2>
           <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-600">
-            Provision approved students, assign their first exam goal if it is already
-            known, and hand off a one-time temporary password securely.
+            Add an approved student, set an exam goal, and choose the credential handoff.
           </p>
         </div>
       </div>
