@@ -34,10 +34,7 @@ const courseIcons = {
   "pen-tool": PenTool,
 } satisfies Record<SubjectIcon, AppIcon>;
 
-const courseCategoryLabels: Record<string, string> = {
-  PU: "TPS",
-  PPU: "TPA",
-};
+const courseCategoryLabel = "TPA";
 
 function CourseCataloguePageModule({
   courses,
@@ -73,13 +70,16 @@ function CourseCataloguePageModule({
         </header>
 
         {courses.length > 0 ? (
-          <section aria-labelledby="course-list-title" className="flex flex-col gap-4">
+          <section
+            aria-labelledby="course-list-title"
+            className="flex flex-col gap-4"
+          >
             <div className="flex items-center gap-4 px-1">
               <h2
                 className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-[#173c2d] md:text-xl"
                 id="course-list-title"
               >
-                Pilih subtes
+                Subtes
               </h2>
               <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
             </div>
@@ -122,17 +122,19 @@ function CourseRowCard({
   serverIdentity: string;
   serverProgress?: CourseProgressSnapshot;
 }) {
-  const progress = useCourseProgress(course, courses, serverProgress, serverIdentity);
+  const progress = useCourseProgress(
+    course,
+    courses,
+    serverProgress,
+    serverIdentity,
+  );
   const state = getCourseProgressState(course, {
     completedLessonIds: progress.completedLessonIds,
     skippedToLessonId: progress.skippedToLessonId,
   });
   const Icon = courseIcons[course.icon];
   return (
-    <StudentCatalogueCard
-      href={`/courses/${course.slug}`}
-      variant="materi"
-    >
+    <StudentCatalogueCard href={`/courses/${course.slug}`} variant="materi">
       <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
         <Icon className="size-7 md:size-9" strokeWidth={2.2} />
       </span>
@@ -140,16 +142,12 @@ function CourseRowCard({
       <div className="mt-4 min-w-0 md:mt-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
-            {courseCategoryLabels[course.code] ?? course.code}
+            {courseCategoryLabel}
           </span>
-          {!courseCategoryLabels[course.code] ? (
-            <>
-              <span className="size-1 rounded-full bg-[#9dcab0]" />
-              <span className="text-xs font-semibold text-[#718077]">
-                {course.difficulty}
-              </span>
-            </>
-          ) : null}
+          <span className="size-1 rounded-full bg-[#9dcab0]" />
+          <span className="text-xs font-extrabold tracking-[0.14em] text-[#477060] uppercase">
+            {course.code}
+          </span>
         </div>
         <h2 className="mt-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance md:text-2xl">
           {course.description}

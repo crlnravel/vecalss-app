@@ -56,7 +56,7 @@ function StudentNotificationPopover({
         <Bell />
         {unreadCount > 0 ? (
           <StudentBadge
-            className="absolute top-1.5 right-1.5"
+            className="absolute -top-1 -right-1 h-5 min-w-5 border-2 border-white px-1 text-ui-xs"
             size="xs"
             tone="attention"
           >

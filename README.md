@@ -106,4 +106,5 @@ both document-only and document-plus-video coverage.
 - `/onboarding`
 - `/dashboard`
 - `/admin/enrollment`
+- `/admin/enrollment/new`
 - `/mentor/dashboard`

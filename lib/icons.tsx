@@ -91,6 +91,7 @@ import {
   Sparkle as PhosphorSparkles,
   SpinnerGap as PhosphorLoaderCircle,
   SquaresFour as PhosphorSquaresFour,
+  Table as PhosphorTable,
   Target as PhosphorTarget,
   Timer as PhosphorTimer,
   Trash as PhosphorTrash2,
@@ -229,6 +230,7 @@ export const SkipForward = PhosphorSkipForward;
 export const SlidersHorizontal = PhosphorSlidersHorizontal;
 export const Sparkles = PhosphorSparkles;
 export const Target = PhosphorTarget;
+export const TableIcon = PhosphorTable;
 export const Timer = PhosphorTimer;
 export const TimerReset = PhosphorRotateCcw;
 export const Trash2 = PhosphorTrash2;

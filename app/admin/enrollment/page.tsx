@@ -37,13 +37,7 @@ export default async function EnrollmentPage({
       : {}),
     softDeletedAt: null,
   };
-  const [examEvents, total, students] = await Promise.all([
-    prisma.examEvent.findMany({
-      orderBy: [{ examDate: "asc" }, { name: "asc" }],
-      where: {
-        isActive: true,
-      },
-    }),
+  const [total, students] = await Promise.all([
     prisma.user.count({ where: studentWhere }),
     prisma.user.findMany({
       include: {
@@ -71,7 +65,25 @@ export default async function EnrollmentPage({
           include: {
             targetExamEvent: {
               select: {
+                examDate: true,
                 name: true,
+              },
+            },
+            targetMajor: {
+              select: {
+                name: true,
+                university: {
+                  select: {
+                    name: true,
+                    shortName: true,
+                  },
+                },
+              },
+            },
+            targetUniversity: {
+              select: {
+                name: true,
+                shortName: true,
               },
             },
           },
@@ -99,7 +111,6 @@ export default async function EnrollmentPage({
   return (
     <EnrollmentPageModule
       error={error}
-      examEvents={examEvents}
       focus={focus}
       notice={notice}
       page={page}

@@ -17,12 +17,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Dumbbell,
-  Expand,
   FileQuestion,
   FileText,
   Gauge,
   GraduationCap,
   House,
+  LibraryBig,
   ListChecks,
   Maximize2,
   MessageCircleMore,
@@ -34,12 +34,15 @@ import {
   Search,
   SendHorizontal,
   Sparkles,
+  Trash2,
   Upload,
   X,
   type AppIcon,
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Attachment,
   AttachmentAction,
@@ -56,6 +59,7 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -98,7 +102,7 @@ import {
   type VeraToolId,
 } from "./data";
 
-type WorkspaceTab = "chat" | "studio";
+type WorkspaceTab = "chat" | "context" | "studio";
 
 function sourceForTitle(title: string) {
   return veraContextSources.find((source) => source.title === title);
@@ -296,6 +300,17 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
   const [activeArtifactId, setActiveArtifactId] = useState<VeraToolId | null>(
     requestedTool,
   );
+  const [contextSources, setContextSources] = useState<VeraContextSource[]>(
+    () => {
+      const addedSourceIds = new Set(
+        initialSessions.flatMap((item) => item.sourceIds),
+      );
+
+      return veraContextSources.filter((source) =>
+        addedSourceIds.has(source.id),
+      );
+    },
+  );
   const [fullscreenArtifactId, setFullscreenArtifactId] =
     useState<VeraToolId | null>(null);
   const [draft, setDraft] = useState("");
@@ -313,10 +328,10 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
 
   const selectedSources = useMemo(
     () =>
-      veraContextSources.filter((source) =>
+      contextSources.filter((source) =>
         activeSourceIdSet.has(source.id),
       ),
-    [activeSourceIdSet],
+    [activeSourceIdSet, contextSources],
   );
 
   const generatedArtifacts = useMemo(
@@ -386,11 +401,25 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
     }));
   }
 
-  function handleSaveContext(nextSourceIds: string[]) {
+  function handleSaveContext(
+    nextSourceIds: string[],
+    addedSources: VeraContextSource[] = [],
+  ) {
     const limitedSourceIds = nextSourceIds.slice(
       0,
       MAX_CONTEXTS_PER_SESSION,
     );
+
+    if (addedSources.length > 0) {
+      setContextSources((current) => {
+        const existingIds = new Set(current.map((source) => source.id));
+
+        return [
+          ...current,
+          ...addedSources.filter((source) => !existingIds.has(source.id)),
+        ];
+      });
+    }
 
     updateActiveSession((current) => ({
       ...current,
@@ -400,13 +429,50 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
     setContextDialogOpen(false);
   }
 
-  function handleRemoveContext(sourceId: string) {
+  function handleRemoveContexts(sourceIds: string[]) {
+    const removedSourceIds = new Set(sourceIds);
+
+    setContextSources((current) =>
+      current.filter((source) => !removedSourceIds.has(source.id)),
+    );
+    setSessions((current) =>
+      current.map((item) => {
+        const nextSourceIds = item.sourceIds.filter(
+          (sourceId) => !removedSourceIds.has(sourceId),
+        );
+
+        return nextSourceIds.length === item.sourceIds.length
+          ? item
+          : {
+              ...item,
+              sourceIds: nextSourceIds,
+              updatedAt: "Baru saja",
+            };
+      }),
+    );
+  }
+
+  function handleToggleContext(sourceId: string, active: boolean) {
     updateActiveSession((current) => {
-      const sourceIds = current.sourceIds.filter((id) => id !== sourceId);
+      if (!active) {
+        return {
+          ...current,
+          sourceIds: current.sourceIds.filter((id) => id !== sourceId),
+          updatedAt: "Baru saja",
+        };
+      }
+
+      if (
+        current.sourceIds.includes(sourceId) ||
+        current.sourceIds.length >= MAX_CONTEXTS_PER_SESSION
+      ) {
+        return current;
+      }
 
       return {
         ...current,
-        sourceIds,
+        sourceIds: [...current.sourceIds, sourceId],
+        updatedAt: "Baru saja",
       };
     });
   }
@@ -482,7 +548,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
   }
 
   return (
-    <div className="min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
+    <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
       <div className="flex min-h-svh flex-col md:h-svh">
         <VeraTopBar session={session} />
         <h1 className="sr-only">
@@ -490,7 +556,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
         </h1>
 
         <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
-          <div className="flex h-full min-h-0 gap-3">
+          <div className="flex h-full min-h-0 min-w-0 gap-3">
             <aside
               className={cn(
                 "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
@@ -507,27 +573,33 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
               />
             </aside>
             <Tabs
-              className="min-h-0 flex-1 gap-0"
+              className="min-h-0 min-w-0 flex-1 gap-0"
               onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)}
               value={workspaceTab}
             >
-              <WorkspaceTabs
-                activeTab={workspaceTab}
-              />
-              <TabsContent className="min-h-0 overflow-hidden" value="chat">
+              <WorkspaceTabs onChange={setWorkspaceTab} />
+              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
                 <ChatWorkspace
                   activeSession={activeSession}
                   className="flex"
                   draft={draft}
                   onDraftChange={setDraft}
-                  onOpenContextDialog={() => setContextDialogOpen(true)}
                   onRenameSession={handleRenameSession}
-                  onRemoveContext={handleRemoveContext}
                   onSend={handleSend}
-                  selectedSources={selectedSources}
                 />
               </TabsContent>
-              <TabsContent className="min-h-0 overflow-hidden" value="studio">
+              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
+                <ContextWorkspace
+                  activeSourceIds={activeSession.sourceIds}
+                  className="flex"
+                  key={`${activeSession.id}-${workspaceTab}`}
+                  onOpenAddContext={() => setContextDialogOpen(true)}
+                  onRemoveContexts={handleRemoveContexts}
+                  onToggleContext={handleToggleContext}
+                  sources={contextSources}
+                />
+              </TabsContent>
+              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
                 <StudioPanel
                   activeArtifact={activeArtifact}
                   className="flex"
@@ -550,6 +622,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
           onOpenChange={setContextDialogOpen}
           onSave={handleSaveContext}
           open
+          availableSources={contextSources}
           selectedSourceIds={activeSession.sourceIds}
         />
       ) : null}
@@ -666,28 +739,36 @@ function VeraUsagePopover() {
 }
 
 function WorkspaceTabs({
-  activeTab,
+  onChange,
 }: {
-  activeTab: WorkspaceTab;
+  onChange: (value: WorkspaceTab) => void;
 }) {
   return (
     <div className="mb-2 md:mb-3">
       <TabsList
         aria-label="Area kerja Vera"
-        className="grid h-10 w-full grid-cols-2 rounded-none bg-transparent p-0"
+        className="grid h-10 w-full grid-cols-3 rounded-none bg-transparent p-0"
         variant="line"
       >
         <TabsTrigger
-          aria-current={activeTab === "chat" ? "page" : undefined}
           className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+          onClick={() => onChange("chat")}
           value="chat"
         >
           <MessageCircleMore data-icon="inline-start" />
           Percakapan
         </TabsTrigger>
         <TabsTrigger
-          aria-current={activeTab === "studio" ? "page" : undefined}
           className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+          onClick={() => onChange("context")}
+          value="context"
+        >
+          <LibraryBig data-icon="inline-start" />
+          Konteks
+        </TabsTrigger>
+        <TabsTrigger
+          className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+          onClick={() => onChange("studio")}
           value="studio"
         >
           <Sparkles data-icon="inline-start" />
@@ -852,21 +933,15 @@ function ChatWorkspace({
   className,
   draft,
   onDraftChange,
-  onOpenContextDialog,
   onRenameSession,
-  onRemoveContext,
   onSend,
-  selectedSources,
 }: {
   activeSession: StudySession;
   className?: string;
   draft: string;
   onDraftChange: (value: string) => void;
-  onOpenContextDialog: () => void;
   onRenameSession: (title: string) => void;
-  onRemoveContext: (sourceId: string) => void;
   onSend: () => void;
-  selectedSources: VeraContextSource[];
 }) {
   return (
     <WorkspacePanel className={className}>
@@ -880,16 +955,10 @@ function ChatWorkspace({
         }
       />
 
-      <ContextStrip
-        onOpen={onOpenContextDialog}
-        onRemove={onRemoveContext}
-        sources={selectedSources}
-      />
-
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex w-full flex-col gap-7 px-4 py-7 md:px-5 md:py-8">
-          {activeSession.messages.map((message) => (
-            <MessageCard key={message.id} message={message} />
+          {activeSession.messages.map((message, index) => (
+            <MessageCard index={index} key={message.id} message={message} />
           ))}
         </div>
       </div>
@@ -900,6 +969,399 @@ function ChatWorkspace({
         onSend={onSend}
       />
     </WorkspacePanel>
+  );
+}
+
+const contextTypeLabels: Record<VeraContextTypeId, string> = {
+  practice: "Hasil latihan",
+  material: "Materi",
+  document: "Dokumen",
+};
+
+function contextMetadataForSource(source: VeraContextSource) {
+  if (source.type === "practice") {
+    const practice = veraPracticeHistory.find(
+      (item) => item.title === source.title,
+    );
+
+    return practice
+      ? `${practice.meta.replace(/^Selesai\s*/, "")} • ${practice.result}`
+      : "Riwayat latihan";
+  }
+
+  if (source.type === "material") {
+    const material = veraMaterialHistory.find(
+      (item) => item.title === source.title,
+    );
+
+    return material
+      ? `${material.topic} • ${material.lastAccessed}`
+      : "Materi belajar";
+  }
+
+  return source.id.startsWith("uploaded-")
+    ? "Dokumen tambahan"
+    : "Dokumen pribadi";
+}
+
+function ContextWorkspace({
+  activeSourceIds,
+  className,
+  onOpenAddContext,
+  onRemoveContexts,
+  onToggleContext,
+  sources,
+}: {
+  activeSourceIds: string[];
+  className?: string;
+  onOpenAddContext: () => void;
+  onRemoveContexts: (sourceIds: string[]) => void;
+  onToggleContext: (sourceId: string, active: boolean) => void;
+  sources: VeraContextSource[];
+}) {
+  const [query, setQuery] = useState("");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [pendingRemovalIds, setPendingRemovalIds] = useState<string[]>([]);
+  const [initialActiveSourceIdSet] = useState(
+    () => new Set(activeSourceIds),
+  );
+  const activeSourceIdSet = useMemo(
+    () => new Set(activeSourceIds),
+    [activeSourceIds],
+  );
+  const orderedSources = useMemo(
+    () =>
+      [...sources].sort(
+        (first, second) =>
+          Number(initialActiveSourceIdSet.has(second.id)) -
+          Number(initialActiveSourceIdSet.has(first.id)),
+      ),
+    [initialActiveSourceIdSet, sources],
+  );
+  const filteredSources = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return orderedSources;
+    }
+
+    return orderedSources
+      .filter((source) =>
+        [
+          source.title,
+          contextTypeLabels[source.type],
+          contextMetadataForSource(source),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery),
+      )
+  }, [orderedSources, query]);
+  const activeCount = activeSourceIds.length;
+  const limitReached = activeCount >= MAX_CONTEXTS_PER_SESSION;
+  const selectedCount = selectedSourceIds.size;
+  const visibleSourceIds = filteredSources.map((source) => source.id);
+  const allVisibleSelected =
+    visibleSourceIds.length > 0 &&
+    visibleSourceIds.every((sourceId) => selectedSourceIds.has(sourceId));
+  const someVisibleSelected = visibleSourceIds.some((sourceId) =>
+    selectedSourceIds.has(sourceId),
+  );
+
+  function toggleSelection(sourceId: string, checked: boolean) {
+    setSelectedSourceIds((current) => {
+      const next = new Set(current);
+
+      if (checked) {
+        next.add(sourceId);
+      } else {
+        next.delete(sourceId);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleVisibleSelection(checked: boolean) {
+    setSelectedSourceIds((current) => {
+      const next = new Set(current);
+
+      visibleSourceIds.forEach((sourceId) => {
+        if (checked) {
+          next.add(sourceId);
+        } else {
+          next.delete(sourceId);
+        }
+      });
+
+      return next;
+    });
+  }
+
+  function requestRemoval(sourceIds: string[]) {
+    if (sourceIds.length > 0) {
+      setPendingRemovalIds(sourceIds);
+    }
+  }
+
+  function confirmRemoval() {
+    onRemoveContexts(pendingRemovalIds);
+    setSelectedSourceIds((current) => {
+      const next = new Set(current);
+      pendingRemovalIds.forEach((sourceId) => next.delete(sourceId));
+      return next;
+    });
+    setPendingRemovalIds([]);
+  }
+
+  return (
+    <>
+      <WorkspacePanel className={className}>
+        <PanelHeader
+          action={
+            <div className="flex items-center gap-2">
+              <Button
+                aria-label={
+                  selectionMode
+                    ? "Batal memilih konteks"
+                    : "Pilih konteks untuk dihapus"
+                }
+                className="rounded-full"
+                onClick={() => {
+                  setSelectionMode((current) => !current);
+                  setSelectedSourceIds(new Set());
+                }}
+                size="sm"
+                variant="brandOutline"
+              >
+                {selectionMode ? <X data-icon="inline-start" /> : <ListChecks data-icon="inline-start" />}
+                <span className="hidden sm:inline">
+                  {selectionMode ? "Batal" : "Pilih"}
+                </span>
+              </Button>
+              <Button
+                aria-label="Tambah konteks"
+                className="rounded-full"
+                onClick={onOpenAddContext}
+                size="sm"
+                variant="brand"
+              >
+                <Plus data-icon="inline-start" />
+                <span className="hidden sm:inline">Tambah konteks</span>
+              </Button>
+            </div>
+          }
+          title="Konteks belajar"
+        />
+
+        <div className="min-h-0 flex-1 overflow-y-auto bg-primary-50/25">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 md:gap-6 md:p-6 lg:p-8">
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400"
+              />
+              <Input
+                aria-label="Cari konteks belajar"
+                className="h-11 rounded-2xl border-primary-100 bg-white pl-11 text-sm placeholder:text-secondary-400 focus-visible:border-primary-300 focus-visible:ring-primary-200/70"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari judul, tipe, atau topik konteks..."
+                value={query}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-secondary-500">Maks. 6 konteks</p>
+              {limitReached ? (
+                <p className="text-xs font-medium text-primary-700">
+                  Batas aktif tercapai. Nonaktifkan satu untuk mengganti.
+                </p>
+              ) : null}
+            </div>
+
+            {selectionMode ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-2.5">
+                <Checkbox
+                  aria-label="Pilih semua konteks yang terlihat"
+                  checked={allVisibleSelected}
+                  indeterminate={someVisibleSelected && !allVisibleSelected}
+                  onCheckedChange={(checked) =>
+                    toggleVisibleSelection(checked === true)
+                  }
+                />
+                <span className="text-sm font-semibold text-secondary-800">
+                  Semua yang terlihat
+                </span>
+                <span
+                  aria-live="polite"
+                  className="text-xs font-medium text-secondary-500"
+                >
+                  {selectedCount} dipilih
+                </span>
+                <Button
+                  className="ml-auto rounded-full"
+                  disabled={selectedCount === 0}
+                  onClick={() => requestRemoval([...selectedSourceIds])}
+                  size="sm"
+                  variant="destructive"
+                >
+                  <Trash2 data-icon="inline-start" />
+                  Hapus dipilih
+                </Button>
+              </div>
+            ) : null}
+
+            {filteredSources.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {filteredSources.map((source) => {
+                  const active = activeSourceIdSet.has(source.id);
+
+                  return (
+                    <ContextCard
+                      active={active}
+                      activationDisabled={limitReached && !active}
+                      key={source.id}
+                      onRemove={() => requestRemoval([source.id])}
+                      onSelect={(checked) => toggleSelection(source.id, checked)}
+                      onToggle={(nextActive) =>
+                        onToggleContext(source.id, nextActive)
+                      }
+                      selectable={selectionMode}
+                      selected={selectedSourceIds.has(source.id)}
+                      source={source}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex min-h-56 flex-col items-center justify-center rounded-3xl border border-dashed border-primary-200 bg-white px-6 py-10 text-center">
+                <span className="flex size-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+                  <Search className="size-5" aria-hidden="true" />
+                </span>
+                <p className="mt-3 text-sm font-semibold text-secondary-900">
+                  Konteks tidak ditemukan
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-secondary-500">
+                  Coba kata kunci lain atau tambahkan dokumen baru ke perpustakaan
+                  konteksmu.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </WorkspacePanel>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemovalIds([]);
+          }
+        }}
+        open={pendingRemovalIds.length > 0}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingRemovalIds.length === 1
+                ? "Hapus konteks ini?"
+                : `Hapus ${pendingRemovalIds.length} konteks?`}
+            </DialogTitle>
+            <DialogDescription>
+              Konteks akan dihapus dari perpustakaan dan dilepas dari sesi belajar
+              yang menggunakannya.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setPendingRemovalIds([])}
+              variant="brandOutline"
+            >
+              Batal
+            </Button>
+            <Button onClick={confirmRemoval} variant="destructive">
+              <Trash2 data-icon="inline-start" />
+              Hapus konteks
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function ContextCard({
+  active,
+  activationDisabled,
+  onRemove,
+  onSelect,
+  onToggle,
+  selectable,
+  selected,
+  source,
+}: {
+  active: boolean;
+  activationDisabled: boolean;
+  onRemove: () => void;
+  onSelect: (checked: boolean) => void;
+  onToggle: (active: boolean) => void;
+  selectable: boolean;
+  selected: boolean;
+  source: VeraContextSource;
+}) {
+  const Icon = contextTypeIcons[source.type];
+
+  return (
+    <article
+      className={cn(
+        "flex min-h-20 items-center gap-3 rounded-2xl border bg-white p-3 transition-[border-color,background-color,box-shadow] duration-200 md:gap-3",
+        active
+          ? "border-primary-300 bg-primary-50/45 shadow-[0_14px_30px_-28px_rgba(1,76,56,0.75)]"
+          : "border-primary-100 hover:border-primary-200 hover:bg-primary-50/20",
+        activationDisabled && "opacity-65",
+      )}
+    >
+      {selectable ? (
+        <Checkbox
+          aria-label={`Pilih ${source.title} untuk dihapus`}
+          checked={selected}
+          onCheckedChange={(checked) => onSelect(checked === true)}
+        />
+      ) : null}
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 md:size-10">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-semibold text-secondary-950 md:text-base">
+            {source.title}
+          </span>
+          <StudentBadge size="xs" tone="category">
+            {contextTypeLabels[source.type]}
+          </StudentBadge>
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
+        <Button
+          aria-label={`Hapus ${source.title}`}
+          className="text-secondary-400 hover:text-destructive"
+          onClick={onRemove}
+          size="icon-xs"
+          title={`Hapus ${source.title}`}
+          variant="ghost"
+        >
+          <Trash2 />
+        </Button>
+        <Switch
+          aria-label={`${active ? "Nonaktifkan" : "Aktifkan"} ${source.title}`}
+          checked={active}
+          disabled={activationDisabled}
+          onCheckedChange={onToggle}
+        />
+      </span>
+    </article>
   );
 }
 
@@ -957,62 +1419,22 @@ function EditableSessionTitle({
   );
 }
 
-function ContextStrip({
-  onOpen,
-  onRemove,
-  sources,
+function MessageCard({
+  index,
+  message,
 }: {
-  onOpen: () => void;
-  onRemove: (sourceId: string) => void;
-  sources: VeraContextSource[];
+  index: number;
+  message: VeraMessage;
 }) {
-  return (
-    <div className="border-b border-primary-100 bg-primary-50/40 px-4 py-3 md:px-5">
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-        <span className="mr-1 shrink-0 text-xs font-semibold text-secondary-500">
-          Konteks {sources.length}/{MAX_CONTEXTS_PER_SESSION}
-        </span>
-        {sources.map((source) => {
-          const Icon = contextTypeIcons[source.type];
-
-          return (
-            <span
-              className="group flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-primary-100 bg-white px-2.5 text-xs font-semibold text-primary-900 vecalss-enter-fade-slide-left-200"
-              key={source.id}
-            >
-              <Icon className="size-3.5" aria-hidden="true" />
-              {source.title}
-              <button
-                aria-label={`Lepas ${source.title} dari sesi`}
-                className="ml-0.5 flex size-5 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
-                onClick={() => onRemove(source.id)}
-                type="button"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
-          );
-        })}
-        <Button
-          aria-label="Tambahkan konteks belajar"
-          className="shrink-0 rounded-full border-dashed"
-          onClick={onOpen}
-          size="icon-xs"
-          variant="outline"
-        >
-          <Plus />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function MessageCard({ message }: { message: VeraMessage }) {
   const isStudent = message.role === "student";
 
   if (isStudent) {
     return (
-      <Bubble align="end" className="max-w-[84%]">
+      <Bubble
+        align="end"
+        className="vera-message-in vera-message-in--student max-w-[84%]"
+        style={{ animationDelay: `${Math.min(index, 4) * 70}ms` }}
+      >
         <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_rgba(1,76,56,0.7)]">
           <p>{message.body}</p>
           <p className="mt-1.5 text-right text-[11px] text-white/60">
@@ -1024,8 +1446,11 @@ function MessageCard({ message }: { message: VeraMessage }) {
   }
 
   return (
-    <article className="flex items-start gap-3.5">
-      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
+    <article
+      className="vera-message-in flex items-start gap-3.5"
+      style={{ animationDelay: `${Math.min(index, 4) * 70}ms` }}
+    >
+      <span className="vera-avatar-arrive flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
         <Image
           alt=""
           aria-hidden="true"
@@ -1139,10 +1564,10 @@ function StudioPanel({
           backAction={onCloseArtifact}
           title="Vera Studio"
         />
-        <div className="min-h-0 flex-1 overflow-y-auto bg-primary-50/35 p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white p-3">
           <StudioArtifactDocument
             compact
-            onExpand={() => onExpandArtifact(activeArtifact.id)}
+            key={activeArtifact.id}
             selectedSources={selectedSources}
             tool={activeArtifact}
           />
@@ -1185,8 +1610,9 @@ function StudioPanel({
           </div>
           <div className="mt-3 flex flex-col gap-2">
             {generatedArtifacts.length > 0 ? (
-              generatedArtifacts.map((tool) => (
+              generatedArtifacts.map((tool, index) => (
                 <StudioArtifactCard
+                  index={index}
                   key={tool.id}
                   onOpen={() => onOpenArtifact(tool.id)}
                   tool={tool}
@@ -1247,9 +1673,11 @@ function StudioToolRow({
 }
 
 function StudioArtifactCard({
+  index,
   onOpen,
   tool,
 }: {
+  index: number;
   onOpen: () => void;
   tool: VeraStudioTool;
 }) {
@@ -1257,8 +1685,9 @@ function StudioArtifactCard({
 
   return (
     <button
-      className="group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+      className="vera-studio-card-in group w-full rounded-2xl border border-primary-100 bg-white p-3 text-left transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_16px_34px_-28px_rgba(1,76,56,0.62)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
       onClick={onOpen}
+      style={{ animationDelay: `${Math.min(index, 3) * 80}ms` }}
       type="button"
     >
       <span className="flex items-start gap-3">
@@ -1284,12 +1713,10 @@ function StudioArtifactCard({
 
 function StudioArtifactDocument({
   compact = false,
-  onExpand,
   selectedSources,
   tool,
 }: {
   compact?: boolean;
-  onExpand?: () => void;
   selectedSources: VeraContextSource[];
   tool: VeraStudioTool;
 }) {
@@ -1300,9 +1727,9 @@ function StudioArtifactDocument({
   return (
     <article
       className={cn(
-        "mx-auto min-h-full bg-white",
+        "vera-studio-document mx-auto min-h-full bg-white",
         compact
-          ? "rounded-[1.65rem] border border-primary-100 p-4 shadow-[0_20px_54px_-44px_rgba(1,76,56,0.7)]"
+          ? "p-4"
           : "max-w-4xl py-2 md:py-4",
       )}
     >
@@ -1310,17 +1737,6 @@ function StudioArtifactDocument({
         <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        {compact && onExpand ? (
-          <Button
-            aria-label="Baca dalam layar penuh"
-            className="rounded-full"
-            onClick={onExpand}
-            size="icon-sm"
-            variant="outline"
-          >
-            <Expand />
-          </Button>
-        ) : null}
       </div>
 
       <StudioArtifactMarkdown compact={compact} content={markdown} />
@@ -1475,52 +1891,81 @@ function FullscreenArtifactDialog({
 }
 
 function AddContextDialog({
+  availableSources,
   onOpenChange,
   onSave,
   open,
   selectedSourceIds,
 }: {
+  availableSources: VeraContextSource[];
   onOpenChange: (open: boolean) => void;
-  onSave: (sourceIds: string[]) => void;
+  onSave: (
+    sourceIds: string[],
+    addedSources?: VeraContextSource[],
+  ) => void;
   open: boolean;
   selectedSourceIds: string[];
 }) {
   const [draftSourceIds, setDraftSourceIds] = useState(selectedSourceIds);
+  const [pendingAddedSourceIds, setPendingAddedSourceIds] = useState<
+    Set<string>
+  >(() => new Set());
   const [activeTab, setActiveTab] =
     useState<VeraContextTypeId>("practice");
   const [materialQuery, setMaterialQuery] = useState("");
   const [practicePage, setPracticePage] = useState(1);
   const [materialPage, setMaterialPage] = useState(1);
+  const existingUploadedSource = availableSources.find(
+    (source) =>
+      selectedSourceIds.includes(source.id) &&
+      (source.id === "external-notes" || source.id.startsWith("uploaded-")),
+  );
+  const [uploadedSource, setUploadedSource] =
+    useState<VeraContextSource | null>(existingUploadedSource ?? null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(
-    selectedSourceIds.includes("external-notes")
-      ? "Catatan UTBK Mingguan.pdf"
-      : null,
+    existingUploadedSource?.title ?? null,
+  );
+  const availableSourceIdSet = useMemo(
+    () => new Set(availableSources.map((source) => source.id)),
+    [availableSources],
+  );
+  const availablePracticeItems = useMemo(
+    () =>
+      veraPracticeHistory.filter((item) => {
+        const source = sourceForTitle(item.title);
+        return source && !availableSourceIdSet.has(source.id);
+      }),
+    [availableSourceIdSet],
   );
 
   const filteredMaterials = useMemo(() => {
     const query = materialQuery.trim().toLowerCase();
+    const availableMaterials = veraMaterialHistory.filter((item) => {
+      const source = sourceForTitle(item.title);
+      return source && !availableSourceIdSet.has(source.id);
+    });
 
     if (!query) {
-      return veraMaterialHistory;
+      return availableMaterials;
     }
 
-    return veraMaterialHistory.filter((material) =>
+    return availableMaterials.filter((material) =>
       [material.title, material.kind, material.topic]
         .join(" ")
         .toLowerCase()
         .includes(query),
     );
-  }, [materialQuery]);
+  }, [availableSourceIdSet, materialQuery]);
 
   const practicePageCount = Math.max(
     1,
-    Math.ceil(veraPracticeHistory.length / CONTEXT_PAGE_SIZE),
+    Math.ceil(availablePracticeItems.length / CONTEXT_PAGE_SIZE),
   );
   const materialPageCount = Math.max(
     1,
     Math.ceil(filteredMaterials.length / CONTEXT_PAGE_SIZE),
   );
-  const visiblePracticeItems = veraPracticeHistory.slice(
+  const visiblePracticeItems = availablePracticeItems.slice(
     (practicePage - 1) * CONTEXT_PAGE_SIZE,
     practicePage * CONTEXT_PAGE_SIZE,
   );
@@ -1529,20 +1974,51 @@ function AddContextDialog({
     materialPage * CONTEXT_PAGE_SIZE,
   );
   const limitReached = draftSourceIds.length >= MAX_CONTEXTS_PER_SESSION;
-  const draftSourceIdSet = useMemo(() => new Set(draftSourceIds), [draftSourceIds]);
+  const draftSourceIdSet = useMemo(
+    () => new Set(draftSourceIds),
+    [draftSourceIds],
+  );
+  const pendingAddedSourceIdSet = useMemo(
+    () => new Set(pendingAddedSourceIds),
+    [pendingAddedSourceIds],
+  );
+  const pendingInactiveCount = [...pendingAddedSourceIdSet].filter(
+    (sourceId) => !draftSourceIdSet.has(sourceId),
+  ).length;
 
   function toggleSource(sourceId: string) {
-    setDraftSourceIds((current) => {
-      if (current.includes(sourceId)) {
-        return current.filter((id) => id !== sourceId);
-      }
+    const isAlreadyActive = draftSourceIdSet.has(sourceId);
+    const isPendingAddition = pendingAddedSourceIdSet.has(sourceId);
 
-      if (current.length >= MAX_CONTEXTS_PER_SESSION) {
-        return current;
-      }
+    if (isAlreadyActive || isPendingAddition) {
+      setPendingAddedSourceIds((current) => {
+        const next = new Set(current);
+        next.delete(sourceId);
+        return next;
+      });
+      setDraftSourceIds((current) => {
+        const next = current.filter((id) => id !== sourceId);
+        const replacement = [...pendingAddedSourceIdSet].find(
+          (id) => id !== sourceId && !next.includes(id),
+        );
 
-      return [...current, sourceId];
+        return replacement && next.length < MAX_CONTEXTS_PER_SESSION
+          ? [...next, replacement]
+          : next;
+      });
+      return;
+    }
+
+    setPendingAddedSourceIds((current) => {
+      const next = new Set(current);
+      next.add(sourceId);
+      return next;
     });
+    setDraftSourceIds((current) =>
+      current.length < MAX_CONTEXTS_PER_SESSION
+        ? [...current, sourceId]
+        : current,
+    );
   }
 
   return (
@@ -1575,12 +2051,10 @@ function AddContextDialog({
           </DialogClose>
         </div>
 
-<AddContextTabs
+        <AddContextTabs
           activeTab={activeTab}
           draftSourceIds={draftSourceIds}
-          draftSourceIdSet={draftSourceIdSet}
           filteredMaterials={filteredMaterials}
-          limitReached={limitReached}
           materialPage={materialPage}
           materialPageCount={materialPageCount}
           materialQuery={materialQuery}
@@ -1592,10 +2066,13 @@ function AddContextDialog({
           }}
           onPracticePageChange={setPracticePage}
           onToggleSource={toggleSource}
+          onUploadedSourceChange={setUploadedSource}
           onUploadedFileNameChange={setUploadedFileName}
           practicePage={practicePage}
           practicePageCount={practicePageCount}
+          pendingAddedSourceIdSet={pendingAddedSourceIdSet}
           uploadedFileName={uploadedFileName}
+          uploadedSource={uploadedSource}
           visibleMaterialItems={visibleMaterialItems}
           visiblePracticeItems={visiblePracticeItems}
         />
@@ -1611,11 +2088,17 @@ function AddContextDialog({
               <span className="font-semibold text-primary-700">
                 {draftSourceIds.length} / {MAX_CONTEXTS_PER_SESSION}
               </span>{" "}
-              konteks dipilih
+              konteks dipakai di sesi
             </p>
-            {limitReached ? (
+            {pendingInactiveCount > 0 ? (
               <p className="text-[11px] text-secondary-400">
-                Batas tercapai. Lepas satu pilihan untuk menggantinya.
+                {pendingInactiveCount} konteks baru akan ditambahkan ke
+                perpustakaan. Kamu bisa memakainya nanti dari tab Konteks.
+              </p>
+            ) : limitReached ? (
+              <p className="text-[11px] text-secondary-400">
+                Batas 6 yang dipakai tercapai. Konteks tambahan tetap bisa
+                ditambahkan.
               </p>
             ) : null}
           </div>
@@ -1630,12 +2113,33 @@ function AddContextDialog({
             </Button>
             <Button
               className="flex-1 rounded-full sm:min-w-42 sm:flex-none"
-              onClick={() => onSave(draftSourceIds)}
+              onClick={() => {
+                const catalogSources = [
+                  ...veraPracticeHistory,
+                  ...veraMaterialHistory,
+                ]
+                  .map((item) => sourceForTitle(item.title))
+                  .filter(
+                    (source): source is VeraContextSource => Boolean(source),
+                  );
+                const addedSources = [
+                  ...catalogSources,
+                  ...(uploadedSource ? [uploadedSource] : []),
+                ].filter(
+                  (source, index, sources) =>
+                    pendingAddedSourceIdSet.has(source.id) &&
+                    !availableSourceIdSet.has(source.id) &&
+                    sources.findIndex((item) => item.id === source.id) === index,
+                );
+
+                onSave(draftSourceIds, addedSources);
+              }}
               size="default"
               variant="brand"
             >
-              Tambahkan
-              {draftSourceIds.length > 0 ? ` (${draftSourceIds.length})` : ""}
+              {pendingAddedSourceIdSet.size > 0
+                ? `Tambahkan (${pendingAddedSourceIdSet.size})`
+                : "Simpan"}
             </Button>
           </div>
         </div>
@@ -1647,9 +2151,7 @@ function AddContextDialog({
 function AddContextTabs({
   activeTab,
   draftSourceIds,
-  draftSourceIdSet,
   filteredMaterials,
-  limitReached,
   materialPage,
   materialPageCount,
   materialQuery,
@@ -1658,18 +2160,19 @@ function AddContextTabs({
   onMaterialQueryChange,
   onPracticePageChange,
   onToggleSource,
+  onUploadedSourceChange,
   onUploadedFileNameChange,
   practicePage,
   practicePageCount,
+  pendingAddedSourceIdSet,
   uploadedFileName,
+  uploadedSource,
   visibleMaterialItems,
   visiblePracticeItems,
 }: {
   activeTab: VeraContextTypeId;
   draftSourceIds: string[];
-  draftSourceIdSet: Set<string>;
   filteredMaterials: VeraMaterialHistory[];
-  limitReached: boolean;
   materialPage: number;
   materialPageCount: number;
   materialQuery: string;
@@ -1678,10 +2181,13 @@ function AddContextTabs({
   onMaterialQueryChange: (query: string) => void;
   onPracticePageChange: (page: number) => void;
   onToggleSource: (sourceId: string) => void;
+  onUploadedSourceChange: (source: VeraContextSource | null) => void;
   onUploadedFileNameChange: (name: string | null) => void;
   practicePage: number;
   practicePageCount: number;
+  pendingAddedSourceIdSet: Set<string>;
   uploadedFileName: string | null;
+  uploadedSource: VeraContextSource | null;
   visibleMaterialItems: VeraMaterialHistory[];
   visiblePracticeItems: VeraPracticeHistory[];
 }) {
@@ -1726,22 +2232,27 @@ function AddContextTabs({
               <ScrollArea className="h-full">
                 <div className="flex min-h-full flex-col bg-primary-50/25 px-4 py-4 md:px-8 md:py-5">
                   <div className="flex flex-col gap-3">
-                    {visiblePracticeItems.map((item) => {
-                      const source = sourceForTitle(item.title);
-                      const selected = Boolean(
-                        source && draftSourceIdSet.has(source.id),
-                      );
+                    {visiblePracticeItems.length > 0 ? (
+                      visiblePracticeItems.map((item) => {
+                        const source = sourceForTitle(item.title);
+                        const selected = Boolean(
+                          source && pendingAddedSourceIdSet.has(source.id),
+                        );
 
-                      return (
-                        <PracticeContextOption
-                          disabled={limitReached && !selected}
-                          item={item}
-                          key={item.id}
-                          onToggle={() => source && onToggleSource(source.id)}
-                          selected={selected}
-                        />
-                      );
-                    })}
+                        return (
+                          <PracticeContextOption
+                            item={item}
+                            key={item.id}
+                            onToggle={() => source && onToggleSource(source.id)}
+                            selected={selected}
+                          />
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
+                        Semua hasil latihan sudah ditambahkan.
+                      </div>
+                    )}
                   </div>
                   <ContextPagination
                     className="mt-auto"
@@ -1774,12 +2285,11 @@ function AddContextTabs({
                       visibleMaterialItems.map((item) => {
                         const source = sourceForTitle(item.title);
                         const selected = Boolean(
-                          source && draftSourceIdSet.has(source.id),
+                          source && pendingAddedSourceIdSet.has(source.id),
                         );
 
                         return (
                           <MaterialContextOption
-                            disabled={limitReached && !selected}
                             item={item}
                             key={item.id}
                             onToggle={() => source && onToggleSource(source.id)}
@@ -1789,7 +2299,9 @@ function AddContextTabs({
                       })
                     ) : (
                       <div className="rounded-3xl border border-dashed border-primary-200 bg-background p-6 text-center text-sm leading-6 text-secondary-500">
-                        Materi tidak ditemukan.
+                        {materialQuery.trim()
+                          ? "Materi tidak ditemukan."
+                          : "Semua materi sudah ditambahkan."}
                       </div>
                     )}
                   </div>
@@ -1811,28 +2323,32 @@ function AddContextTabs({
                   <label
                     className={cn(
                       "flex min-h-48 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-primary-300 bg-background p-5 text-center transition-colors",
-                      limitReached && !draftSourceIds.includes("external-notes")
-                        ? "cursor-not-allowed opacity-55"
-                        : "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
+                      "cursor-pointer hover:border-primary-500 hover:bg-primary-50/60",
                     )}
                   >
                     <input
                       accept=".pdf,.txt,text/plain,application/pdf"
                       className="sr-only"
-                      disabled={
-                        limitReached && !draftSourceIds.includes("external-notes")
-                      }
-                      multiple
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
 
-                        if (file) {
-                          onUploadedFileNameChange(file.name);
-                          if (!draftSourceIds.includes("external-notes")) {
-                            onToggleSource("external-notes");
+                          if (file) {
+                            const previousSourceId = uploadedSource?.id;
+                            const nextSource: VeraContextSource = {
+                              id: `uploaded-${Date.now()}`,
+                              title: file.name,
+                              type: "document",
+                            };
+
+                            if (previousSourceId) {
+                              onToggleSource(previousSourceId);
+                            }
+
+                            onUploadedSourceChange(nextSource);
+                            onUploadedFileNameChange(file.name);
+                            onToggleSource(nextSource.id);
                           }
-                        }
-                      }}
+                        }}
                       type="file"
                     />
                     <span className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-800">
@@ -1849,7 +2365,7 @@ function AddContextTabs({
                       Pilih file
                     </span>
                   </label>
-                  {draftSourceIds.includes("external-notes") ? (
+                  {uploadedSource ? (
                     <Attachment className="mt-3 w-full" state="done">
                       <AttachmentMedia>
                         <FileText />
@@ -1859,14 +2375,19 @@ function AddContextTabs({
                           {uploadedFileName ?? "Catatan UTBK Mingguan.pdf"}
                         </AttachmentTitle>
                         <AttachmentDescription>
-                          Dokumen siap ditambahkan
+                          {draftSourceIds.includes(uploadedSource.id)
+                            ? "Dipakai di sesi ini"
+                            : "Ditambahkan ke perpustakaan — pakai dari tab Konteks"}
                         </AttachmentDescription>
                       </AttachmentContent>
                       <AttachmentActions>
                         <AttachmentAction
                           aria-label="Lepas dokumen"
                           onClick={() => {
-                            onToggleSource("external-notes");
+                            if (draftSourceIds.includes(uploadedSource.id)) {
+                              onToggleSource(uploadedSource.id);
+                            }
+                            onUploadedSourceChange(null);
                             onUploadedFileNameChange(null);
                           }}
                         >
@@ -1928,19 +2449,16 @@ function ContextPagination({
 }
 
 function PracticeContextOption({
-  disabled,
   item,
   onToggle,
   selected,
 }: {
-  disabled: boolean;
   item: VeraPracticeHistory;
   onToggle: () => void;
   selected: boolean;
 }) {
   return (
     <ContextOption
-      disabled={disabled}
       icon={ChartNoAxesColumnIncreasing}
       meta={`${item.meta.replace(/^Selesai\s*/, "")} • ${item.result}`}
       metaIcon={CalendarDays}
@@ -1953,19 +2471,16 @@ function PracticeContextOption({
 }
 
 function MaterialContextOption({
-  disabled,
   item,
   onToggle,
   selected,
 }: {
-  disabled: boolean;
   item: VeraMaterialHistory;
   onToggle: () => void;
   selected: boolean;
 }) {
   return (
     <ContextOption
-      disabled={disabled}
       icon={NotebookPen}
       meta={item.lastAccessed}
       onToggle={onToggle}
@@ -1986,7 +2501,7 @@ function ContextOption({
   tag,
   title,
 }: {
-  disabled: boolean;
+  disabled?: boolean;
   icon: AppIcon;
   meta: string;
   metaIcon?: AppIcon;
@@ -2047,7 +2562,7 @@ function WorkspacePanel({
   return (
     <section
       className={cn(
-        "min-h-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:h-full",
+        "min-h-0 min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:h-full",
         className,
       )}
     >

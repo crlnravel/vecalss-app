@@ -1,0 +1,417 @@
+"use client";
+
+import Link from "next/link";
+import { useState, type ComponentProps, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  ListFilter,
+  MoreHorizontal,
+  Search,
+  TableIcon,
+  X,
+} from "@/lib/icons";
+import { cn } from "@/lib/utils";
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table";
+
+type DataTableColumn<T> = {
+  cell: (row: T) => ReactNode;
+  cellClassName?: string;
+  defaultVisible?: boolean;
+  headerClassName?: string;
+  id: string;
+  label: string;
+  hideable?: boolean;
+};
+
+type DataTableFilter = {
+  href?: string;
+  id: string;
+  label: string;
+  value: string;
+};
+
+type DataTableSearch = {
+  action?: string;
+  clearHref?: string;
+  hiddenFields?: Readonly<Record<string, string>>;
+  label?: string;
+  placeholder?: string;
+  value?: string;
+};
+
+type DataTableSelection<T> = {
+  ids: readonly string[];
+  rows: readonly T[];
+};
+
+type DataTableProps<T> = {
+  caption: string;
+  columns: readonly DataTableColumn<T>[];
+  filterPanel?: ReactNode;
+  filters?: readonly DataTableFilter[];
+  clearFiltersHref?: string;
+  getRowId: (row: T) => string;
+  moreMenu?: ReactNode;
+  rowClassName?: (row: T, selected: boolean) => string | undefined;
+  rowProps?: (row: T) => ComponentProps<typeof TableRow>;
+  rows: readonly T[];
+  onRowClick?: (row: T) => void;
+  search?: DataTableSearch;
+  selection?: boolean;
+  selectionActions?: (selection: DataTableSelection<T>) => ReactNode;
+  tableClassName?: string;
+  emptyState?: ReactNode;
+};
+
+function DataTableFilterChips({
+  clearFiltersHref,
+  filters,
+}: {
+  clearFiltersHref?: string;
+  filters: readonly DataTableFilter[];
+}) {
+  if (!filters.length) {
+    return null;
+  }
+
+  return (
+    <div aria-label="Active table filters" className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5">
+      {filters.map((filter) => (
+        <span
+          className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-secondary-50 px-2.5 py-1.5 text-xs text-secondary-700"
+          key={filter.id}
+        >
+          <span className="font-semibold text-secondary-900">{filter.label}</span>
+          <span className="text-secondary-400">is</span>
+          <span className="max-w-[16rem] truncate" title={filter.value}>{filter.value}</span>
+          {filter.href ? (
+            <Link
+              aria-label={`Remove ${filter.label} filter`}
+              className="ml-0.5 inline-flex size-5 items-center justify-center rounded-md text-secondary-500 transition-colors hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
+              href={filter.href}
+            >
+              <X aria-hidden="true" size={13} />
+            </Link>
+          ) : null}
+        </span>
+      ))}
+      {clearFiltersHref ? (
+        <Link
+          className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "ml-1 text-secondary-600")}
+          href={clearFiltersHref}
+        >
+          Clear all
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function DataTable<T>({
+  caption,
+  clearFiltersHref,
+  columns,
+  emptyState,
+  filterPanel,
+  filters = [],
+  getRowId,
+  moreMenu,
+  onRowClick,
+  rowClassName,
+  rowProps,
+  rows,
+  search,
+  selection = false,
+  selectionActions,
+  tableClassName,
+}: DataTableProps<T>) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [visibleColumnIds, setVisibleColumnIds] = useState<Set<string>>(
+    () => new Set(columns.filter((column) => column.defaultVisible !== false).map((column) => column.id)),
+  );
+
+  const visibleIds = rows.map((row) => getRowId(row));
+  const visibleColumns = columns.filter((column) => visibleColumnIds.has(column.id));
+  const selectedVisibleCount = visibleIds.filter((id) => selectedIds.has(id)).length;
+  const selectedRows = rows.filter((row) => selectedIds.has(getRowId(row)));
+  const areAllVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+  const hasPartialSelection = selectedVisibleCount > 0 && !areAllVisibleSelected;
+  const hasCustomColumnVisibility = columns.some((column) => {
+    const isVisible = visibleColumnIds.has(column.id);
+    return isVisible !== (column.defaultVisible !== false);
+  });
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      visibleIds.forEach((id) => {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      });
+      return next;
+    });
+  };
+
+  const resetColumns = () => {
+    setVisibleColumnIds(new Set(columns.filter((column) => column.defaultVisible !== false).map((column) => column.id)));
+  };
+
+  const rowIsClickable = Boolean(onRowClick);
+  const hasSelection = selection && selectedVisibleCount > 0;
+  const selectionActionMenu = hasSelection
+    ? selectionActions?.({
+        ids: selectedRows.map((row) => getRowId(row)),
+        rows: selectedRows,
+      })
+    : null;
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+        {search ? (
+          <form action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400" size={17} />
+            <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Search table"}</label>
+            <input
+              className="h-10 w-full border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-400 focus-visible:bg-primary-50/35 focus-visible:ring-0"
+              defaultValue={search.value}
+              id="data-table-search"
+              name="q"
+              placeholder={search.placeholder ?? "Search this table…"}
+              type="search"
+            />
+            {search.hiddenFields ? Object.entries(search.hiddenFields).map(([name, value]) => (
+              <input key={name} name={name} type="hidden" value={value} />
+            )) : null}
+            {search.value && search.clearHref ? (
+              <Link
+                aria-label="Clear table search"
+                className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
+                href={search.clearHref}
+              >
+                <X aria-hidden="true" size={14} />
+              </Link>
+            ) : null}
+          </form>
+        ) : <div className="min-w-0 flex-1" />}
+
+        <div className="flex items-center gap-2">
+          {filterPanel ? (
+            <Popover>
+              <PopoverTrigger
+                render={<Button aria-label="Open table filters" className="rounded-lg aria-expanded:bg-secondary-50" size="icon-sm" type="button" variant={filters.length ? "contextSelected" : "ghost"} />}
+              >
+                <ListFilter aria-hidden="true" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-xl p-3">
+                {filterPanel}
+              </PopoverContent>
+            </Popover>
+          ) : null}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button aria-label={hasSelection ? "Open bulk actions" : "Choose table columns"} className="size-9 rounded-lg text-secondary-500" size="icon-sm" type="button" variant="ghost" />}
+            >
+              {hasSelection ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
+              {hasSelection ? (
+                <>
+                  <DropdownMenuLabel className="font-semibold text-secondary-900">Bulk actions</DropdownMenuLabel>
+                  {selectionActionMenu}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Clear selection</DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuLabel className="font-semibold text-secondary-900">Choose columns</DropdownMenuLabel>
+                  {columns.filter((column) => column.hideable !== false).map((column) => (
+                    <DropdownMenuCheckboxItem
+                      checked={visibleColumnIds.has(column.id)}
+                      key={column.id}
+                      onCheckedChange={(checked) => {
+                        if (!checked && visibleColumns.length <= 1) {
+                          return;
+                        }
+
+                        setVisibleColumnIds((current) => {
+                          const next = new Set(current);
+                          if (checked) {
+                            next.add(column.id);
+                          } else {
+                            next.delete(column.id);
+                          }
+                          return next;
+                        });
+                      }}
+                    >
+                      {column.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
+                    Reset columns
+                  </DropdownMenuItem>
+                  {moreMenu ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      {moreMenu}
+                    </>
+                  ) : null}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+        </div>
+      </div>
+
+      <DataTableFilterChips clearFiltersHref={clearFiltersHref} filters={filters} />
+
+      <Table className={cn("min-w-[760px] table-fixed border-separate border-spacing-y-0", tableClassName)}>
+        <caption className="sr-only">{caption}</caption>
+        <TableHeader>
+          <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
+            {selection ? (
+              <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
+                <Checkbox
+                  aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
+                  aria-label={hasPartialSelection || areAllVisibleSelected ? "Clear all rows on this page" : "Select all rows on this page"}
+                  checked={areAllVisibleSelected}
+                  indeterminate={hasPartialSelection}
+                  onCheckedChange={(checked) => {
+                    if (hasPartialSelection) {
+                      toggleAllVisible(false);
+                      return;
+                    }
+
+                    toggleAllVisible(checked === true);
+                  }}
+                />
+              </TableHead>
+            ) : null}
+            {visibleColumns.map((column, index) => (
+              <TableHead
+                className={cn(
+                  "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-500 sm:px-5",
+                  index === 0 && !selection && "rounded-l-xl",
+                  index === visibleColumns.length - 1 && "rounded-r-xl",
+                  column.headerClassName,
+                )}
+                key={column.id}
+              >
+                {column.label}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length ? rows.map((row) => {
+            const id = getRowId(row);
+            const selected = selectedIds.has(id);
+            const additionalRowProps = rowProps?.(row);
+            const rowInteractionProps = rowIsClickable && onRowClick
+              ? {
+                  onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+                    additionalRowProps?.onClick?.(event);
+                    if (
+                      event.defaultPrevented ||
+                      (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
+                    ) {
+                      return;
+                    }
+
+                    onRowClick(row);
+                  },
+                  onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+                    additionalRowProps?.onKeyDown?.(event);
+                    if (
+                      event.defaultPrevented ||
+                      (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
+                    ) {
+                      return;
+                    }
+
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onRowClick(row);
+                    }
+                  },
+                  tabIndex: 0,
+                }
+              : undefined;
+            return (
+              <TableRow
+                {...additionalRowProps}
+                {...rowInteractionProps}
+                aria-selected={selection ? selected : undefined}
+                className={cn(
+                  "border-primary-100/55 transition-colors hover:bg-secondary-50/70",
+                  selected && "bg-primary-50/60 hover:bg-primary-50/80",
+                  rowIsClickable && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
+                  rowClassName?.(row, selected),
+                  additionalRowProps?.className,
+                )}
+                key={id}
+              >
+                {selection ? (
+                  <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection">
+                    <Checkbox
+                      aria-label={`Select row ${id}`}
+                      checked={selected}
+                      onCheckedChange={(checked) => toggleSelected(id, checked === true)}
+                    />
+                  </TableCell>
+                ) : null}
+                {visibleColumns.map((column) => (
+                  <TableCell className={cn("px-4 py-3.5 sm:px-5", column.cellClassName)} key={column.id}>
+                    {column.cell(row)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          }) : (
+            <TableRow>
+              <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
+                {emptyState ?? <span className="text-sm text-secondary-500">No results found.</span>}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </>
+  );
+}
+
+export { DataTable };
+export type { DataTableColumn, DataTableFilter, DataTableProps, DataTableSearch, DataTableSelection };

@@ -602,7 +602,10 @@ function HandoffDeliveryPanel({
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">One-time handoff file</h2>
           <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">This import uses one method for all new accounts: <span className="font-semibold text-secondary-900">{methodLabel(method)}</span>. The file is generated in memory and is never stored.</p>
         </div>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-student-status-info-bg px-3 py-1.5 text-xs font-semibold text-student-status-info-fg"><Info aria-hidden="true" size={14} /> Credentials shown once</span>
+        <p className="flex max-w-[18rem] items-start gap-2 text-xs leading-5 text-student-status-info-fg">
+          <Info aria-hidden="true" className="mt-0.5 shrink-0" size={14} />
+          <span>Credentials are shown once.</span>
+        </p>
       </div>
 
       <div className={`${ADMIN_INSET_CLASS_NAME} mt-4 px-4 py-3 text-sm leading-6 text-secondary-600`}>
@@ -1131,7 +1134,18 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
                 <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
                 <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
               </div>
-              <span className="rounded-full bg-secondary-100 px-3 py-1.5 text-xs font-semibold text-secondary-700">{importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows unresolved` : "Ready to confirm"}</span>
+              <div
+                className={`flex max-w-sm items-start gap-2 text-sm leading-5 ${importStatus.counts.invalid ? "text-student-status-attention-fg" : "text-student-status-success-fg"}`}
+                role="status"
+              >
+                {importStatus.counts.invalid ? <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" /> : <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
+                <span>
+                  <strong className="block font-semibold">
+                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows need review` : "Ready to confirm"}
+                  </strong>
+                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">Skip invalid rows before confirming.</span> : null}
+                </span>
+              </div>
             </div>
 
             {invalidRows.length > 0 ? (

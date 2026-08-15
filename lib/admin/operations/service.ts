@@ -85,6 +85,29 @@ type AdminOperationsSnapshot = {
   recentImports: OperationsRecentImport[];
 };
 
+const AUDIT_LOG_PAGE_SIZE = 25;
+
+type AdminAuditLogEntry = {
+  action: string;
+  actorEmail: string | null;
+  actorName: string;
+  id: string;
+  ipAddress: string | null;
+  metadata: Prisma.JsonValue | null;
+  occurredAt: string;
+  targetId: string | null;
+  targetType: string | null;
+  userAgent: string | null;
+};
+
+type AdminAuditLogPage = {
+  entries: AdminAuditLogEntry[];
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  total: number;
+};
+
 type AdminDirectoryEntry = {
   createdAt: string;
   email: string;
@@ -344,6 +367,59 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
   };
 }
 
+async function getAdminAuditLogPage({
+  page = 1,
+  pageSize = AUDIT_LOG_PAGE_SIZE,
+}: {
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<AdminAuditLogPage> {
+  const safePageSize = Math.min(Math.max(Math.trunc(pageSize) || AUDIT_LOG_PAGE_SIZE, 1), 50);
+  const total = await prisma.auditLog.count();
+  const pageCount = Math.max(1, Math.ceil(total / safePageSize));
+  const safePage = Math.min(Math.max(Math.trunc(page) || 1, 1), pageCount);
+  const entries = await prisma.auditLog.findMany({
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    select: {
+      action: true,
+      actor: {
+        select: {
+          email: true,
+          fullName: true,
+        },
+      },
+      id: true,
+      ipAddress: true,
+      metadata: true,
+      occurredAt: true,
+      targetId: true,
+      targetType: true,
+      userAgent: true,
+    },
+    skip: (safePage - 1) * safePageSize,
+    take: safePageSize,
+  });
+
+  return {
+    entries: entries.map((entry) => ({
+      action: entry.action,
+      actorEmail: entry.actor?.email ?? null,
+      actorName: entry.actor?.fullName ?? "System",
+      id: entry.id,
+      ipAddress: entry.ipAddress,
+      metadata: entry.metadata,
+      occurredAt: entry.occurredAt.toISOString(),
+      targetId: entry.targetId,
+      targetType: entry.targetType,
+      userAgent: entry.userAgent,
+    })),
+    page: safePage,
+    pageCount,
+    pageSize: safePageSize,
+    total,
+  };
+}
+
 async function getAdminDirectoryPage({
   page = 1,
   pageSize = 20,
@@ -429,10 +505,14 @@ export {
   ATTENTION_HANDOFF_STATUSES,
   ATTENTION_IMPORT_STATUSES,
   RECENT_IMPORT_STATUSES,
+  AUDIT_LOG_PAGE_SIZE,
+  getAdminAuditLogPage,
   getAdminDirectoryPage,
   getAdminOperationsSnapshot,
 };
 export type {
+  AdminAuditLogEntry,
+  AdminAuditLogPage,
   AdminDirectoryEntry,
   AdminDirectoryPage,
   AdminOperationsSnapshot,

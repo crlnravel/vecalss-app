@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import {
-  ArrowUpRight,
   BookOpen,
   BookOpenCheck,
   Brain,
   Calculator,
+  ChevronRight,
   FileText,
   Languages,
   LibraryBig,
@@ -93,24 +93,17 @@ function QuizCataloguePageModule({
           {subjectGroups.map((group) => (
             <section
               aria-labelledby={`quiz-group-${group.code}`}
-              className="flex flex-col gap-5"
+              className="flex flex-col gap-4"
               key={group.code}
             >
-              <div className="flex items-end justify-between gap-4 px-1">
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-primary-900 px-3 py-1.5 text-xs font-extrabold tracking-[0.14em] text-white">
-                    {group.code}
-                  </span>
-                  <h2
-                    className="text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl"
-                    id={`quiz-group-${group.code}`}
-                  >
-                    Subjek {group.code}
-                  </h2>
-                </div>
-                <span className="hidden text-sm font-bold text-secondary-500 sm:block">
-                  {group.subjects.length} subjek
-                </span>
+              <div className="flex items-center gap-4 px-1">
+                <h2
+                  className="shrink-0 text-lg font-extrabold tracking-[-0.025em] text-secondary-900 md:text-xl"
+                  id={`quiz-group-${group.code}`}
+                >
+                  Subjek {group.code}
+                </h2>
+                <span aria-hidden="true" className="h-px flex-1 bg-[#d6e5db]" />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -133,13 +126,12 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
 
   return (
     <StudentCatalogueCard
-      className={subject.palette}
       href={`/quiz/${subject.slug}`}
       variant="kuis"
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-primary-900 text-white shadow-[0_12px_26px_-18px_rgba(1,76,56,0.8)]">
-          <Icon className="size-7" strokeWidth={2.1} />
+        <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+          <Icon className="size-7 md:size-9" strokeWidth={2.2} />
         </span>
         <span className="rounded-full bg-white/75 px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-primary-800">
           {subject.code}
@@ -166,8 +158,8 @@ function QuizSubjectCard({ subject }: { subject: QuizSubject }) {
             {stats.totalQuestions} soal
           </span>
         </div>
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-900 text-white shadow-[0_12px_28px_-18px_rgba(1,76,56,0.85)]">
-          <ArrowUpRight className="size-5" strokeWidth={2.5} />
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
+          <ChevronRight className="size-5" strokeWidth={2.6} />
         </span>
       </div>
     </StudentCatalogueCard>

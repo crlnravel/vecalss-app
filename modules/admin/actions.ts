@@ -16,6 +16,7 @@ import {
   createStudentEnrollment,
   setKaptenEnrollmentStatus,
   setStudentEnrollmentStatus,
+  setStudentEnrollmentStatusBulk,
   updateKaptenEnrollment,
   updateStudentEnrollment,
 } from "@/lib/admin/enrollment";
@@ -33,6 +34,20 @@ function readOptionalId(formData: FormData, key: string) {
 
 function readUuidField(formData: FormData, key: string) {
   return parseUuid(readTextField(formData, key));
+}
+
+function readUuidFields(formData: FormData, key: string) {
+  const values = formData.getAll(key);
+  if (!values.length) {
+    return [];
+  }
+
+  const parsed = values.map((value) => typeof value === "string" ? parseUuid(value) : null);
+  if (parsed.some((value) => !value)) {
+    return [];
+  }
+
+  return [...new Set(parsed.filter((value): value is string => Boolean(value)))];
 }
 
 function readHandoffMethod(formData: FormData) {
@@ -485,6 +500,53 @@ async function reactivateStudentEnrollmentAction(formData: FormData) {
   );
 }
 
+async function bulkUpdateStudentEnrollmentStatusAction(formData: FormData) {
+  const session = await requireAdminSession();
+  const studentIds = readUuidFields(formData, "studentIds");
+  const directoryQuery = readDirectoryQuery(formData);
+  const nextStatusValue = readTextField(formData, "nextStatus");
+  const nextStatus = nextStatusValue === UserStatus.active
+    ? UserStatus.active
+    : nextStatusValue === UserStatus.disabled
+      ? UserStatus.disabled
+      : null;
+  const confirmation = nextStatus === UserStatus.disabled ? "deactivate" : "reactivate";
+
+  if (!studentIds.length || !nextStatus) {
+    redirect(buildEnrollmentRedirect({ error: "bulk-status-failed", query: directoryQuery }));
+  }
+
+  if (!isConfirmed(formData, confirmation)) {
+    redirect(buildEnrollmentRedirect({ error: "bulk-status-confirmation", query: directoryQuery }));
+  }
+
+  try {
+    const result = await setStudentEnrollmentStatusBulk({
+      actorUserId: session.user.id,
+      confirmed: true,
+      nextStatus,
+      userIds: studentIds,
+    });
+
+    if (result.changedCount === 0) {
+      redirect(buildEnrollmentRedirect({ error: "bulk-status-no-change", query: directoryQuery }));
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/enrollment");
+
+    redirect(
+      buildEnrollmentRedirect({
+        notice: nextStatus === UserStatus.disabled ? "students-disabled" : "students-reactivated",
+        query: directoryQuery,
+      }),
+    );
+  } catch (error) {
+    unstable_rethrow(error);
+    redirect(buildEnrollmentRedirect({ error: "bulk-status-failed", query: directoryQuery }));
+  }
+}
+
 async function deactivateKaptenEnrollmentAction(formData: FormData) {
   const session = await requireAdminSession();
   const userId = readUuidField(formData, "userId");
@@ -615,6 +677,7 @@ async function reissueEnrollmentHandoffAction(
 
 export {
   acknowledgeEnrollmentHandoffAction,
+  bulkUpdateStudentEnrollmentStatusAction,
   createKaptenEnrollmentAction,
   createStudentEnrollmentAction,
   deactivateKaptenEnrollmentAction,

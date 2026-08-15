@@ -12,20 +12,26 @@ type RadioPillGroupProps<TValue extends string> = {
   className?: string;
   defaultValue?: TValue;
   name: string;
+  onValueChange?: (value: TValue) => void;
   options: readonly RadioPillOption<TValue>[];
+  value?: TValue;
 };
 
 function RadioPillGroup<TValue extends string>({
   className,
   defaultValue,
   name,
+  onValueChange,
   options,
+  value,
 }: RadioPillGroupProps<TValue>) {
   return (
     <RadioGroup<TValue>
       className={cn("flex flex-wrap items-center gap-6", className)}
       defaultValue={defaultValue}
       name={name}
+      onValueChange={onValueChange}
+      value={value}
     >
       {options.map((option) => (
         <div

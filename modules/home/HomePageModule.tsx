@@ -40,7 +40,6 @@ const marqueeItems = [0, 1].flatMap((copy) =>
 );
 
 function SectionIntro({
-  eyebrow,
   title,
   body,
   center = false,
@@ -48,21 +47,13 @@ function SectionIntro({
 }: {
   body?: string;
   center?: boolean;
-  eyebrow?: string;
   light?: boolean;
   title: string;
 }) {
   return (
     <div className={`${center ? "mx-auto text-center" : ""} max-w-[760px]`}>
-      {eyebrow ? (
-        <p
-          className={`kicker-label ${light ? "text-white/70" : "text-[#014C38]/70"}`}
-        >
-          {eyebrow}
-        </p>
-      ) : null}
       <h2
-        className={`mt-3 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.04em] md:text-6xl ${
+        className={`text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.04em] md:text-6xl ${
           light ? "text-white" : "text-[#014C38]"
         }`}
       >
@@ -138,10 +129,7 @@ function LogoMarquee() {
   return (
     <section className="bg-white py-16 md:py-24">
       <div className="mx-auto mb-12 w-full max-w-[1440px] px-4 md:px-8 lg:px-10">
-        <p className="kicker-label text-[#014C38]/62">
-          University Destinations
-        </p>
-        <h2 className="mt-3 max-w-[780px] text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-6xl">
+        <h2 className="max-w-[780px] text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#014C38] md:text-6xl">
           Tempat Para Voyager Berlabuh
         </h2>
         <p className="mt-5 max-w-[620px] text-base leading-7 text-[#014C38]/66 md:text-lg md:leading-8">
@@ -155,7 +143,7 @@ function LogoMarquee() {
           {logos.map((item) => (
             <div
               key={`${item.name}-${item.copy}`}
-              className="relative mx-10 h-14 w-28 shrink-0 opacity-58 transition duration-300 hover:opacity-100 md:mx-14 md:h-16 md:w-36"
+              className="relative mx-5 h-20 w-36 shrink-0 opacity-58 transition duration-300 hover:opacity-100 md:mx-8 md:h-24 md:w-48"
             >
               <Image
                 alt={item.markAlt}
@@ -191,7 +179,6 @@ function AboutSection() {
 
         <div>
           <SectionIntro
-            eyebrow="About Us"
             title="Dari Perjalanan Kecil ke 15.000+ Voyager"
             body="Vecalss bermula dari ruang belajar kecil untuk membantu siswa menata ulang persiapan menuju PTN. Dari sana, perjalanan ini tumbuh menjadi ekosistem belajar yang memadukan kelas, latihan, mentoring, dan komunitas agar setiap Voyager punya arah yang lebih jelas, ritme yang lebih konsisten, dan teman seperjalanan yang memahami prosesnya."
           />
@@ -249,7 +236,6 @@ function ProgramsSection() {
       <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
         <SectionIntro
           center
-          eyebrow="Program"
           title="Pilih Rute Belajarmu"
           body="Empat misi sederhana untuk tahap perjalanan yang berbeda."
         />
@@ -293,7 +279,6 @@ function MentorsSection() {
       <div className="scroll-reveal mx-auto w-full max-w-[1180px]">
         <SectionIntro
           center
-          eyebrow="Kapten Kelas"
           title="Para Kapten di Balik Setiap Kelas"
           body="Tutor dari UI, ITB, UGM, dan PTN unggulan lainnya."
         />
@@ -311,7 +296,6 @@ function ResultsSection() {
         <SectionIntro
           center
           light
-          eyebrow="Social Proof"
           title="Para Voyager yang Telah Berlabuh"
           body="Cerita singkat dari Voyager yang menemukan ritme, arah, dan keberanian untuk terus bergerak menuju kampus impian."
         />
@@ -446,7 +430,6 @@ function QuestionsSection() {
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-10 lg:grid-cols-[0.58fr_1fr] lg:items-start">
         <div className="flex flex-col gap-8">
           <SectionIntro
-            eyebrow="FAQ"
             title="Pertanyaan dari Deck Kapal"
             body="Jawaban singkat sebelum kamu mulai berlayar."
           />
@@ -473,7 +456,6 @@ function VeraAiSection() {
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-12 lg:grid-cols-[1fr_0.72fr] lg:items-center">
         <div>
           <SectionIntro
-            eyebrow="Kompas Cerdas Masa Depan"
             title="Vera AI Akan Membantu Membaca Arah Belajarmu"
             body="Vecalss sedang menyiapkan Vera AI sebagai kompas personal untuk menganalisis pola belajar, membaca area yang perlu diperkuat, dan memberi rekomendasi langkah yang lebih tepat untuk setiap Voyager."
           />
@@ -521,7 +503,6 @@ function BriefingSection() {
       <div className="scroll-reveal mx-auto grid w-full max-w-[1180px] gap-10 lg:grid-cols-[0.42fr_1fr] lg:items-start">
         <div className="lg:pt-8">
           <SectionIntro
-            eyebrow="Kontak"
             title="Ceritakan titik berangkatmu."
             body="Tim Vecalss akan membantu membaca kebutuhanmu, memilih rute belajar yang paling masuk akal, dan menjelaskan langkah awal tanpa membuat prosesnya terasa rumit."
           />

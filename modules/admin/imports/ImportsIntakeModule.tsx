@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDownToLine, FileUp, UsersRound } from "@/lib/icons";
+import { ArrowDownToLine, ChevronDown, CircleHelp, FileUp, Upload } from "@/lib/icons";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -12,13 +13,10 @@ import {
 } from "./import-ui-contract";
 import {
   ADMIN_CARD_CLASS_NAME,
-  ADMIN_INSET_CLASS_NAME,
   ADMIN_STATUS_CLASS_NAMES,
 } from "../admin-ui-contract";
 
 type ImportRole = "student" | "tutor";
-
-const IMPORT_ROLES: ImportRole[] = ["student", "tutor"];
 
 const templateForRole: Record<ImportRole, { fileName: string; label: string; version: string }> = {
   student: { fileName: "students.v1.csv", label: "Students", version: "students.v1" },
@@ -63,11 +61,9 @@ function redirectedPath(response: Response) {
 function ImportsIntakeModule() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const roleButtonRefs = useRef<Record<ImportRole, HTMLButtonElement | null>>({
-    student: null,
-    tutor: null,
-  });
   const [role, setRole] = useState<ImportRole>("student");
+  const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; tone: "error" | "info" }>({
     message: "",
@@ -76,38 +72,45 @@ function ImportsIntakeModule() {
   const [sessionIssue, setSessionIssue] = useState<"expired" | "forbidden" | null>(null);
   const template = templateForRole[role];
 
+  function resetFile() {
+    setFile(null);
+    setIsDragging(false);
+    resetImportFileSelection(fileInputRef.current);
+  }
+
   function handleRoleChange(nextRole: ImportRole) {
     if (nextRole === role) return;
     setRole(nextRole);
-    resetImportFileSelection(fileInputRef.current);
+    resetFile();
     setFeedback({ message: `Role changed to ${templateForRole[nextRole].label}. Choose a fresh CSV for this template.`, tone: "info" });
   }
 
-  function handleRoleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, currentRole: ImportRole) {
-    const currentIndex = IMPORT_ROLES.indexOf(currentRole);
-    let nextRole: ImportRole | null = null;
-
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      nextRole = IMPORT_ROLES[(currentIndex + 1) % IMPORT_ROLES.length];
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      nextRole = IMPORT_ROLES[(currentIndex - 1 + IMPORT_ROLES.length) % IMPORT_ROLES.length];
-    } else if (event.key === "Home") {
-      nextRole = IMPORT_ROLES[0];
-    } else if (event.key === "End") {
-      nextRole = IMPORT_ROLES[IMPORT_ROLES.length - 1];
+  function handleFileSelection(nextFile: File | null) {
+    if (!nextFile) return;
+    if (!nextFile.name.toLowerCase().endsWith(".csv")) {
+      resetFile();
+      setFeedback({ message: "Choose a CSV file before uploading.", tone: "error" });
+      return;
     }
+    setFile(nextFile);
+    setFeedback({ message: "", tone: "info" });
+  }
 
-    if (!nextRole) return;
+  function handleFileInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    handleFileSelection(event.target.files?.[0] ?? null);
+  }
+
+  function handleFileDrop(event: React.DragEvent<HTMLLabelElement>) {
     event.preventDefault();
-    handleRoleChange(nextRole);
-    roleButtonRefs.current[nextRole]?.focus();
+    setIsDragging(false);
+    if (busy) return;
+    handleFileSelection(event.dataTransfer.files?.[0] ?? null);
   }
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      setFeedback({ message: "Choose a CSV file before creating a preview.", tone: "error" });
+      setFeedback({ message: "Choose a CSV file before uploading.", tone: "error" });
       return;
     }
 
@@ -150,9 +153,7 @@ function ImportsIntakeModule() {
         return;
       }
 
-      if (fileInputRef.current) {
-        resetImportFileSelection(fileInputRef.current);
-      }
+      resetFile();
       router.push(`/admin/imports/${encodeURIComponent(draft.importId)}`);
     } catch {
       setSessionIssue(null);
@@ -163,91 +164,109 @@ function ImportsIntakeModule() {
   }
 
   return (
-    <section aria-labelledby="start-import-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="start-import-heading">Start a roster import</h2>
-          <p className="mt-1 max-w-[65ch] text-sm leading-6 text-secondary-600">Pick a role, download its columns, then upload a CSV. The preview is saved before account changes happen.</p>
-        </div>
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-secondary-600"><UsersRound aria-hidden="true" size={15} /> One role per file</span>
+    <section aria-labelledby="import-siswa-heading" className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+      <div className="border-b border-primary-100 px-5 py-6 sm:px-8 sm:py-7">
+        <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Import Siswa</h2>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div>
-          <p className="text-sm font-semibold text-secondary-900">Choose a role</p>
-          <div aria-label="Import role" className="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup">
-            {(Object.entries(templateForRole) as Array<[ImportRole, (typeof templateForRole)[ImportRole]]>).map(([candidate, definition]) => {
-              const selected = candidate === role;
-              return (
-                <button
-                  aria-checked={selected}
-                  className={`flex min-h-16 items-center gap-3 rounded-2xl border px-4 text-left transition-[background-color,border-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 ${selected ? "border-primary-300 bg-primary-50 text-primary-800 shadow-[0_16px_30px_-28px_rgba(1,76,56,0.8)]" : "border-primary-100 bg-white text-secondary-600 hover:border-primary-200 hover:bg-secondary-50"}`}
-                  key={candidate}
-                  disabled={busy}
-                  onClick={() => handleRoleChange(candidate)}
-                  onKeyDown={(event) => handleRoleKeyDown(event, candidate)}
-                  ref={(node) => {
-                    roleButtonRefs.current[candidate] = node;
-                  }}
-                  role="radio"
-                  tabIndex={selected ? 0 : -1}
-                  type="button"
-                >
-                  <span aria-hidden="true" className={`grid size-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${selected ? "bg-primary-700 text-white" : "bg-primary-50 text-primary-800"}`}>{candidate === "student" ? "S" : "K"}</span>
-                  <span>
-                    <span className="block text-sm font-semibold">{definition.label}</span>
-                    <span className="mt-0.5 block text-xs text-current/70">{definition.version}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className={`${ADMIN_INSET_CLASS_NAME} mt-4 px-4 py-3 text-sm text-secondary-600`}>
-            <p className="font-semibold text-secondary-900">Template columns</p>
-            <p className="mt-1 leading-6">{role === "student" ? "email, full_name, target_exam" : "email, full_name, phone, headline, bio"}</p>
-          </div>
-          <a
-            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-4 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-            download={template.fileName}
-            href={`/api/admin/imports/templates/${template.version}`}
-          >
-            <ArrowDownToLine aria-hidden="true" size={16} />
-            Download {template.label} template
-          </a>
-        </div>
-
-        <form className="rounded-3xl border border-dashed border-primary-200 bg-primary-50/70 p-4 sm:p-5" onSubmit={handleUpload}>
-          <label className="block text-sm font-semibold text-secondary-900" htmlFor="roster-upload">Upload {template.label} CSV</label>
-          <p className="mt-1 text-xs leading-5 text-secondary-600">CSV only, up to 2 MiB and 500 data rows. A preview will explain each row before confirmation.</p>
-          <input
-            accept=".csv,text/csv"
-            className="mt-4 block min-h-11 w-full cursor-pointer rounded-xl border border-primary-200 bg-white px-3 py-2 text-sm text-secondary-900 file:mr-3 file:rounded-lg file:border-0 file:bg-primary-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-            id="roster-upload"
-            key={role}
-            name="file"
-            ref={fileInputRef}
-            type="file"
-          />
-          <button className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-60" disabled={busy} type="submit">
-            <FileUp aria-hidden="true" size={17} />
-            {busy ? "Creating preview…" : "Create preview"}
-          </button>
-          <p aria-live="polite" className={`mt-3 min-h-5 text-xs leading-5 ${feedback.tone === "error" ? "text-student-status-danger-fg" : "text-secondary-600"}`} role={feedback.tone === "error" ? "alert" : undefined}>{feedback.message}</p>
-          {sessionIssue ? (
-            <div className={`mt-3 flex flex-col gap-2 rounded-3xl border px-4 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert">
-              <p className="font-semibold">{sessionIssue === "expired" ? "Admin session expired" : "Admin permission required"}</p>
-              <p>{sessionIssue === "expired" ? "Sign in again to return to the imports workspace." : "Use an active admin account or return to the admin home."}</p>
-              <div className="flex flex-wrap gap-2">
-                <Link className="inline-flex min-h-11 items-center rounded-xl border border-student-status-danger-border px-3 font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" href={sessionIssue === "expired" ? getImportLoginRecoveryHref("/admin/imports") : "/admin"}>
-                  {sessionIssue === "expired" ? "Sign in again" : "Return to Admin home"}
-                </Link>
-                <button className="inline-flex min-h-11 items-center rounded-xl px-3 font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => window.location.reload()} type="button">Refresh page</button>
-              </div>
+      <form className="px-5 py-6 sm:px-8 sm:py-8" onSubmit={handleUpload}>
+        <div className="grid gap-8 lg:grid-cols-2 lg:gap-x-16">
+          <div className="lg:pr-8">
+            <div className="flex items-center gap-1.5">
+              <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Choose a role</label>
+              <Tooltip>
+                <TooltipTrigger render={<button aria-label="Role import guidance" className="inline-flex size-6 items-center justify-center rounded-full text-secondary-500 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" type="button" />}>
+                  <CircleHelp aria-hidden="true" size={15} />
+                </TooltipTrigger>
+                <TooltipContent>Each file can contain one role only.</TooltipContent>
+              </Tooltip>
             </div>
-          ) : null}
-        </form>
-      </div>
+            <div className="relative mt-3">
+              <select
+                className="min-h-12 w-full appearance-none rounded-xl border border-primary-200 bg-white px-4 pr-11 text-sm font-semibold text-secondary-900 transition-colors hover:border-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+                disabled={busy}
+                id="import-role"
+                onChange={(event) => handleRoleChange(event.target.value as ImportRole)}
+                value={role}
+              >
+                <option value="student">Students</option>
+                <option value="tutor">Kapten</option>
+              </select>
+              <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-primary-700" size={18} />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-secondary-900">2. Get the CSV template</p>
+            <a
+              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+              download={template.fileName}
+              href={`/api/admin/imports/templates/${template.version}`}
+            >
+              <ArrowDownToLine aria-hidden="true" size={16} />
+              Download template
+            </a>
+          </div>
+
+          <div className="pt-4 lg:col-span-2">
+            <p className="text-sm font-semibold text-secondary-900">3. Upload the file</p>
+            <p className="mt-2 text-xs leading-5 text-secondary-600">CSV only, up to 2 MiB and 500 data rows.</p>
+            <label
+              className={`mt-4 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${isDragging ? "border-primary-400 bg-primary-100" : "border-primary-200 bg-primary-50/50 hover:border-primary-300 hover:bg-primary-50"} ${busy ? "cursor-not-allowed opacity-70" : ""}`}
+              htmlFor="roster-upload"
+              onDragEnter={(event) => {
+                event.preventDefault();
+                if (!busy) setIsDragging(true);
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDragging(false);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (!busy) setIsDragging(true);
+              }}
+              onDrop={handleFileDrop}
+            >
+              <input
+                accept=".csv,text/csv"
+                aria-describedby="roster-upload-help"
+                className="sr-only"
+                disabled={busy}
+                id="roster-upload"
+                key={role}
+                name="file"
+                onChange={handleFileInputChange}
+                ref={fileInputRef}
+                type="file"
+              />
+              <Upload aria-hidden="true" className="text-primary-700" size={26} />
+              <span className="mt-3 text-sm font-semibold text-secondary-900">{file ? file.name : "Drop a CSV file here or browse"}</span>
+              <span className="mt-1 text-xs leading-5 text-secondary-600">{file ? "Ready to upload" : "CSV only · up to 2 MiB · 500 data rows"}</span>
+            </label>
+            <p className="sr-only" id="roster-upload-help">Drop a CSV file here or browse for one. A preview will explain each row before confirmation.</p>
+            <button className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-60" disabled={busy || !file} type="submit">
+              <FileUp aria-hidden="true" size={17} />
+              {busy ? "Uploading…" : "Upload"}
+            </button>
+            <p aria-live="polite" className={`mt-3 min-h-5 text-xs leading-5 ${feedback.tone === "error" ? "text-student-status-danger-fg" : "text-secondary-600"}`} role={feedback.tone === "error" ? "alert" : undefined}>{feedback.message}</p>
+          </div>
+        </div>
+
+        {sessionIssue ? (
+          <div className={`mt-6 flex flex-col gap-3 border-t border-primary-100 pt-5 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert">
+            <div>
+              <p className="font-semibold">{sessionIssue === "expired" ? "Admin session expired" : "Admin permission required"}</p>
+              <p className="mt-1">{sessionIssue === "expired" ? "Sign in again to return to the imports workspace." : "Use an active admin account or return to the admin home."}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link className="inline-flex min-h-11 items-center rounded-xl border border-student-status-danger-border px-3 font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" href={sessionIssue === "expired" ? getImportLoginRecoveryHref("/admin/imports") : "/admin"}>
+                {sessionIssue === "expired" ? "Sign in again" : "Return to Admin home"}
+              </Link>
+              <button className="inline-flex min-h-11 items-center rounded-xl px-3 font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => window.location.reload()} type="button">Refresh page</button>
+            </div>
+          </div>
+        ) : null}
+      </form>
     </section>
   );
 }

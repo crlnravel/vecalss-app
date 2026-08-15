@@ -24,6 +24,7 @@ import { StudentAccountMenu } from "@/modules/student/components/student-account
 import { AdminPortalNav } from "./admin-portal-nav";
 
 const adminSectionLabels = {
+  "audit-logs": "Audit logs",
   imports: "Imports",
   kapten: "Kapten",
   media: "Media",
@@ -32,6 +33,7 @@ const adminSectionLabels = {
 } as const;
 
 const adminSectionRootHrefs = {
+  "audit-logs": "/admin/audit-logs",
   imports: "/admin/imports",
   kapten: "/admin/kapten",
   media: "/admin/media",
@@ -48,7 +50,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media";
+  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media" | "audit-logs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
@@ -98,14 +100,14 @@ function PortalShell({
             </header>
 
             <ScrollArea className="h-[calc(100svh-4rem)]">
-              <main
+              <div
                 className={cn(
                   "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
                 )}
               >
                 <p className="sr-only">{description}</p>
                 {children}
-              </main>
+              </div>
             </ScrollArea>
           </SidebarInset>
         </div>

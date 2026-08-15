@@ -82,6 +82,19 @@ type SetEnrollmentStatusInput = {
   userId: string;
 };
 
+type SetEnrollmentStatusBulkInput = {
+  actorUserId: string;
+  confirmed: boolean;
+  nextStatus: EnrollmentStatus;
+  role: EnrollmentRole;
+  userIds: string[];
+};
+
+type EnrollmentStatusBulkResult = {
+  changedCount: number;
+  skippedCount: number;
+};
+
 type EnrollmentErrorCode =
   | "confirmation_required"
   | "duplicate_email"
@@ -586,8 +599,131 @@ async function setEnrollmentStatus(input: SetEnrollmentStatusInput) {
   });
 }
 
+async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Promise<EnrollmentStatusBulkResult> {
+  if (!input.confirmed) {
+    throw new EnrollmentServiceError(
+      "confirmation_required",
+      "Explicit confirmation is required to change account status.",
+    );
+  }
+
+  const userIds = [...new Set(input.userIds)];
+  if (!userIds.length) {
+    throw new EnrollmentServiceError("invalid_field", "Select at least one account.");
+  }
+
+  if (userIds.length > 100) {
+    throw new EnrollmentServiceError("invalid_field", "Select no more than 100 accounts at a time.");
+  }
+
+  const expectedCurrentStatus = input.nextStatus === UserStatus.disabled
+    ? UserStatus.active
+    : UserStatus.disabled;
+  const lockedUserIds = [...userIds].sort((left, right) => left.localeCompare(right));
+
+  return prisma.$transaction(async (tx) => {
+    for (const userId of lockedUserIds) {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+    }
+
+    const accounts = await tx.user.findMany({
+      select: {
+        id: true,
+        softDeletedAt: true,
+        status: true,
+      },
+      where: {
+        id: { in: userIds },
+        roleAssignments: {
+          some: {
+            revokedAt: null,
+            role: input.role === "student" ? RoleName.student : RoleName.tutor,
+          },
+        },
+        softDeletedAt: null,
+        status: { not: UserStatus.soft_deleted },
+      },
+    });
+
+    if (accounts.length !== userIds.length) {
+      throw new EnrollmentServiceError(
+        input.role === "student" ? "not_found" : "role_conflict",
+        input.role === "student"
+          ? "One or more student accounts could not be found. Refresh the directory and try again."
+          : "One or more Kapten accounts could not be found. Refresh the directory and try again.",
+      );
+    }
+
+    const eligibleAccounts = accounts.filter((account) => account.status === expectedCurrentStatus);
+    if (!eligibleAccounts.length) {
+      return {
+        changedCount: 0,
+        skippedCount: accounts.length,
+      };
+    }
+
+    const eligibleUserIds = eligibleAccounts.map((account) => account.id);
+    const now = new Date();
+
+    await tx.user.updateMany({
+      data: {
+        passwordUpdatedAt: now,
+        status: input.nextStatus,
+      },
+      where: { id: { in: eligibleUserIds } },
+    });
+
+    if (input.nextStatus === UserStatus.disabled) {
+      for (const userId of eligibleUserIds) {
+        await revokeOpenEnrollmentHandoffs(tx, userId, input.actorUserId);
+      }
+
+      await tx.authSession.updateMany({
+        data: {
+          revokedAt: now,
+          status: SessionStatus.revoked,
+        },
+        where: {
+          status: SessionStatus.active,
+          userId: { in: eligibleUserIds },
+        },
+      });
+    }
+
+    await tx.auditLog.createMany({
+      data: eligibleUserIds.map((userId) => ({
+        action: input.role === "student"
+          ? input.nextStatus === UserStatus.disabled
+            ? "student_enrollment.deactivated"
+            : "student_enrollment.reactivated"
+          : input.nextStatus === UserStatus.disabled
+            ? "kapten_enrollment.deactivated"
+            : "kapten_enrollment.reactivated",
+        actorUserId: input.actorUserId,
+        metadata: {
+          method: "admin_bulk_status_change",
+          nextStatus: input.nextStatus,
+          role: input.role,
+          userId,
+        } as Prisma.InputJsonValue,
+        targetId: userId,
+        targetType: "user",
+      })),
+    });
+
+    return {
+      changedCount: eligibleAccounts.length,
+      skippedCount: accounts.length - eligibleAccounts.length,
+    };
+  });
+}
+
 async function setStudentEnrollmentStatus(input: Omit<SetEnrollmentStatusInput, "role">) {
   return setEnrollmentStatus({ ...input, role: "student" });
+}
+
+async function setStudentEnrollmentStatusBulk(input: Omit<SetEnrollmentStatusBulkInput, "role">) {
+  return setEnrollmentStatusBulk({ ...input, role: "student" });
 }
 
 async function setKaptenEnrollmentStatus(input: Omit<SetEnrollmentStatusInput, "role">) {
@@ -599,8 +735,10 @@ export {
   createKaptenEnrollment,
   createStudentEnrollment,
   setEnrollmentStatus,
+  setEnrollmentStatusBulk,
   setKaptenEnrollmentStatus,
   setStudentEnrollmentStatus,
+  setStudentEnrollmentStatusBulk,
   updateKaptenEnrollment,
   updateStudentEnrollment,
 };
@@ -608,6 +746,7 @@ export {
 export type {
   EnrollmentErrorCode,
   EnrollmentHandoffResult,
+  EnrollmentStatusBulkResult,
   KaptenEnrollmentInput,
   KaptenEnrollmentUpdateInput,
   SetEnrollmentStatusInput,

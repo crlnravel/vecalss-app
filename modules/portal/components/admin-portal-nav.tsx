@@ -5,7 +5,7 @@ import type { ComponentType } from "react";
 import {
   BookOpenCheck,
   ClipboardList,
-  Image as ImageIcon,
+  History,
   LayoutDashboard,
   Users,
 } from "@/lib/icons";
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "imports" | "media";
+type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "audit-logs";
 
 type AdminNavigationItem = {
   href: string;
@@ -35,15 +35,12 @@ type AdminNavigationItem = {
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
   { href: "/admin/imports", icon: ClipboardList, id: "imports", label: "Imports" },
+  { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Audit logs" },
 ];
 
 const adminDirectoryNavigation: AdminNavigationItem[] = [
   { href: "/admin/enrollment", icon: Users, id: "students", label: "Students" },
   { href: "/admin/kapten", icon: BookOpenCheck, id: "kapten", label: "Kapten" },
-];
-
-const adminLibraryNavigation: AdminNavigationItem[] = [
-  { href: "/admin/media", icon: ImageIcon, id: "media", label: "Media" },
 ];
 
 function AdminNavigationGroup({
@@ -107,11 +104,6 @@ function AdminPortalNav({
           activeSection={activeSection}
           items={adminDirectoryNavigation}
           label="Directories"
-        />
-        <AdminNavigationGroup
-          activeSection={activeSection}
-          items={adminLibraryNavigation}
-          label="Library"
         />
       </SidebarContent>
     </Sidebar>

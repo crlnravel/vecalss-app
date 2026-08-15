@@ -347,6 +347,46 @@ outer card contract should not.
   disabled controls, and use a clear message plus an additional state cue for
   errors.
 
+### TanStack interaction patterns
+
+Vecalss uses TanStack selectively as a headless behavior layer, not as a visual
+system. The current stack includes `@tanstack/react-form` for forms that need
+typed values, field-level validation, touched state, or submission feedback.
+The admin audit-log table also uses `@tanstack/react-table` for current-page
+sorting while the server remains responsible for the canonical query and URL
+pagination. TanStack Query should be introduced only when a surface has real
+client-side server-state synchronization to manage.
+
+- **Keep the boundary narrow:** Place TanStack Form inside the smallest
+  interactive Client Component. Keep the surrounding page, copy, and static
+  imagery as Server Components so the landing page does not ship unnecessary
+  client JavaScript.
+- **Reuse Vecalss primitives:** Bind TanStack fields to the existing `Field`,
+  `FieldInput`, `FieldTextarea`, radio, and button primitives. TanStack owns
+  values and validation; the design system still owns geometry, color, focus,
+  motion, and copy.
+- **Validate at the right moment:** Prefer blur or submit validation for
+  marketing and onboarding forms. Avoid showing an error on every keystroke
+  unless the immediate feedback prevents a costly mistake.
+- **Make state perceivable:** Invalid fields need `aria-invalid`, a stable
+  `aria-describedby` reference, and an adjacent readable error. Submission
+  progress and completion need a visible label plus an `aria-live` region.
+- **Do not fake persistence:** TanStack Form may manage a local prototype state,
+  but a production submit must hand off to a Next.js Server Action or route
+  handler and render the server result. Never present a local acknowledgement
+  as if a lead, enrollment, or other record was stored.
+- **Keep table behavior headless:** TanStack Table owns row models and sorting
+  state; Vecalss table primitives still own markup, spacing, color, focus, and
+  responsive overflow. Sort controls need an accessible label, a visible
+  direction indicator, and `aria-sort` on the matching header.
+- **Respect the data boundary:** When pagination is server-owned, label local
+  sorting as sorting the current page. Promote sorting or filtering into the
+  server query only when the product needs results across the full dataset.
+- **Do not force TanStack onto static UI:** Navigation, FAQ disclosure, cards,
+  marquees, and illustration-led sections should stay with native links,
+  existing primitives, or focused local state. A library is justified by the
+  interaction model, not by the presence of a component.
+
 ### Navigation
 
 - **Style:** White sidebar with a collapsible icon mode and compact group labels.

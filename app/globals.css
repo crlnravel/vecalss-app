@@ -322,31 +322,31 @@
     animation-range: entry 8% cover 28%;
   }
 
-  .route-loader {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .route-loader::after {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
+  .route-shimmer {
+    color: #5f776a;
+    background-image: linear-gradient(
       110deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.52) 45%,
-      rgba(255, 255, 255, 0) 100%
+      #5f776a 0%,
+      #5f776a 38%,
+      #176b4d 50%,
+      #5f776a 62%,
+      #5f776a 100%
     );
-    transform: translateX(-120%);
-    animation: route-loader-sheen 1.8s ease-in-out infinite;
-    content: "";
+    background-position: -120% 0;
+    background-size: 220% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: route-text-sheen 1.8s ease-in-out infinite;
   }
 
   .route-orbit {
     animation: route-orbit 8s linear infinite;
   }
 
-  .route-pulse {
-    animation: route-pulse 2.6s ease-in-out infinite;
+  .ship-bob {
+    animation: ship-bob 3.6s ease-in-out infinite;
+    transform-origin: 50% 76%;
   }
 
   .vecalss-enter-fade-zoom-500 {
@@ -359,6 +359,28 @@
 
   .vecalss-enter-fade-slide-left-200 {
     animation: vecalss-enter-fade-slide-left 200ms ease;
+  }
+
+  /* Vera's motion is a conversation cue: messages arrive as a thought,
+     while Studio results settle like saved pages. */
+  .vera-message-in {
+    animation: vera-message-arrive 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .vera-message-in--student {
+    animation-name: vera-student-message-arrive;
+  }
+
+  .vera-avatar-arrive {
+    animation: vera-avatar-arrive 540ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .vera-studio-card-in {
+    animation: vera-studio-card-arrive 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .vera-studio-document {
+    animation: vera-studio-document-arrive 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
 
@@ -401,12 +423,12 @@
   }
 }
 
-@keyframes route-loader-sheen {
+@keyframes route-text-sheen {
   from {
-    transform: translateX(-120%);
+    background-position: -120% 0;
   }
   to {
-    transform: translateX(120%);
+    background-position: 120% 0;
   }
 }
 
@@ -419,15 +441,19 @@
   }
 }
 
-@keyframes route-pulse {
+@keyframes ship-bob {
   0%,
   100% {
-    transform: scale(1);
-    opacity: 0.94;
+    transform: translate3d(-12px, 4px, 0) rotate(-2deg) scale(1.6);
+  }
+  25% {
+    transform: translate3d(-4px, -4px, 0) rotate(-1deg) scale(1.6);
   }
   50% {
-    transform: scale(1.04);
-    opacity: 1;
+    transform: translate3d(14px, -9px, 0) rotate(2.5deg) scale(1.6);
+  }
+  75% {
+    transform: translate3d(5px, -3px, 0) rotate(1deg) scale(1.6);
   }
 }
 
@@ -449,5 +475,80 @@
   from {
     opacity: 0;
     transform: translateX(-0.25rem);
+  }
+}
+
+@keyframes vera-message-arrive {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes vera-student-message-arrive {
+  from {
+    opacity: 0;
+    transform: translateX(0.65rem) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes vera-avatar-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-5deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.04) rotate(1deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes vera-studio-card-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vera-studio-document-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ship-bob,
+  .route-shimmer {
+    animation: none;
+  }
+
+  .vera-ai-motion .vera-message-in,
+  .vera-ai-motion .vera-avatar-arrive,
+  .vera-ai-motion .vera-studio-card-in,
+  .vera-ai-motion .vera-studio-document {
+    animation: none;
   }
 }

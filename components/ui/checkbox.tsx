@@ -3,7 +3,7 @@
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
 
 import { cn } from "@/lib/utils"
-import { CheckIcon } from "@/lib/icons"
+import { CheckIcon, Minus } from "@/lib/icons"
 
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
   return (
@@ -18,10 +18,12 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
         className="grid place-content-center text-current transition-none [&>svg]:size-3.5"
-      >
-        <CheckIcon
-        />
-      </CheckboxPrimitive.Indicator>
+        render={(indicatorProps, state) => (
+          <span {...indicatorProps}>
+            {state.indeterminate ? <Minus aria-hidden="true" size={14} /> : <CheckIcon aria-hidden="true" size={14} />}
+          </span>
+        )}
+      />
     </CheckboxPrimitive.Root>
   )
 }
