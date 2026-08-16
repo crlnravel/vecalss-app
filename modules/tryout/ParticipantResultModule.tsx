@@ -166,6 +166,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
             <Button onClick={() => void load()} variant="brand">Periksa lagi</Button>
             <Button
               aria-label="Kembali ke tryout"
+              nativeButton={false}
               render={<Link href="/tryout" />}
               size="icon"
               title="Kembali ke tryout"
@@ -194,6 +195,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <Button
             aria-label="Kembali ke tryout"
+            nativeButton={false}
             render={<Link href="/tryout" />}
             size="icon"
             title="Kembali ke tryout"
@@ -319,6 +321,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
         <div className="flex flex-col justify-between gap-3 sm:flex-row print:hidden">
           <Button
             aria-label="Kembali ke katalog"
+            nativeButton={false}
             render={<Link href="/tryout" />}
             size="icon"
             title="Kembali ke katalog"
@@ -326,7 +329,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           >
             <ChevronLeft />
           </Button>
-          <Button render={<Link href="/courses" />} variant="brand">Lanjutkan belajar <ArrowRight /></Button>
+          <Button nativeButton={false} render={<Link href="/courses" />} variant="brand">Lanjutkan belajar <ArrowRight /></Button>
         </div>
       </div>
     </main>

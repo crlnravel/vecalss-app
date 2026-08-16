@@ -16,6 +16,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { ChevronLeft } from "@/lib/icons";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
+import { ParticipantTryoutRegistrationPrompt } from "@/modules/tryout/ParticipantTryoutRegistrationPrompt";
 
 const detailDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -184,7 +185,7 @@ function ParticipantTryoutDetailModule({
     !assignedSession.isExpired
   ) {
     actionHref = "/tryout/" + tryout.id + "/waiting";
-    actionLabel = "Daftar";
+    actionLabel = "Mulai";
   } else if (tryout.admissionStatus === "active" && assignedSession) {
     actionHref = "/tryout/" + tryout.id;
     actionLabel = "Sesi selesai";
@@ -300,12 +301,11 @@ function ParticipantTryoutDetailModule({
           <div className="relative mx-auto w-full max-w-[64rem] px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
             <Link
               aria-label="Kembali ke katalog"
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
               href="/tryout"
               title="Kembali ke katalog"
             >
-              <ChevronLeft className="size-6" />
-              <span>Detail Tryout</span>
+              <ChevronLeft aria-hidden="true" className="size-6" />
             </Link>
           </div>
         </div>
@@ -461,17 +461,22 @@ function ParticipantTryoutDetailModule({
           </div>
 
           {!admissionNotice && canTakeAction ? (
-            <Link
-              className={buttonVariants({
-                className:
-                  "sticky bottom-4 z-20 h-12 w-full rounded-xl !bg-primary-700 text-base font-extrabold text-white shadow-none hover:!bg-primary-800 focus-visible:ring-primary-200",
-                size: "lg",
-                variant: "brand",
-              })}
-              href={actionHref}
-            >
-              {actionDisplayLabel} <ArrowRight />
-            </Link>
+            actionLabel === "Daftar tryout" ? (
+              <ParticipantTryoutRegistrationPrompt href={actionHref} />
+            ) : (
+              <Link
+                className={buttonVariants({
+                  className:
+                    "h-12 w-full rounded-xl !bg-primary-700 text-base font-extrabold text-white shadow-none hover:!bg-primary-800 focus-visible:ring-primary-200",
+                  size: "lg",
+                  variant: "brand",
+                })}
+                href={actionHref}
+              >
+                {actionDisplayLabel}
+                {actionDisplayLabel === "Daftar" ? null : <ArrowRight />}
+              </Link>
+            )
           ) : null}
 
           {!admissionNotice && actionLabel === "Daftar tryout" ? (

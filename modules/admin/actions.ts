@@ -12,6 +12,10 @@ import {
 } from "@/lib/admin/handoffs/service";
 import { buildDirectoryQuery, parseDirectoryQuery, parseUuid } from "@/lib/admin/operations/validation";
 import {
+  KelasNotificationError,
+  sendKelasNotification,
+} from "@/lib/notifications/service";
+import {
   changeStudentEnrollmentPassword,
   createKaptenEnrollment,
   createStudentEnrollment,
@@ -342,6 +346,66 @@ async function createKaptenEnrollmentAction(
         error instanceof Error
           ? error.message
           : "We're sorry, we couldn't create the Kapten account. Please try again.",
+      status: "error",
+    };
+  }
+}
+
+async function sendKelasNotificationAction(
+  _previousState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireAdminSession();
+  const cohortId = readTextField(formData, "cohortId");
+  const title = readTextField(formData, "title");
+  const body = readTextField(formData, "body");
+  const fields = { body, cohortId, title };
+
+  if (!parseUuid(cohortId)) {
+    return {
+      fieldErrors: { cohortId: "Pilih kelas yang akan menerima notifikasi." },
+      fields,
+      message: "Pilih kelas sebelum mengirim notifikasi.",
+      status: "error",
+    };
+  }
+
+  try {
+    const result = await sendKelasNotification({
+      actorUserId: session.user.id,
+      body,
+      cohortId,
+      title,
+    });
+
+    revalidatePath("/notifications");
+
+    return {
+      fields: { body: "", cohortId: "", title: "" },
+      message: `Notifikasi kelas terkirim ke ${result.recipientCount} siswa di ${result.cohortName}.`,
+      status: "success",
+    };
+  } catch (error) {
+    if (error instanceof KelasNotificationError) {
+      const fieldErrors: Record<string, string> = error.code === "invalid_title"
+        ? { title: error.message }
+        : error.code === "invalid_body"
+          ? { body: error.message }
+          : error.code === "invalid_cohort_id" || error.code === "cohort_not_found"
+            ? { cohortId: error.message }
+            : {};
+
+      return {
+        fieldErrors,
+        fields,
+        message: error.message,
+        status: "error",
+      };
+    }
+
+    return {
+      fields,
+      message: "Notifikasi kelas belum dapat dikirim. Coba lagi.",
       status: "error",
     };
   }
@@ -804,6 +868,7 @@ export {
   reactivateKaptenEnrollmentAction,
   reactivateStudentEnrollmentAction,
   reissueEnrollmentHandoffAction,
+  sendKelasNotificationAction,
   updateKaptenEnrollmentAction,
   updateStudentEnrollmentAction,
 };

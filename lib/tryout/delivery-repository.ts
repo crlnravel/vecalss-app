@@ -152,7 +152,7 @@ async function registerForTryout(
 ) {
   return prisma.$transaction(async (tx) => {
     // Serialize only one participant/tryout admission. This intentionally does not lock Tryout content.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tryoutId}:${studentId}`}, 0))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tryoutId}:${studentId}`}, 0))`;
     await assertStudent(tx, studentId);
     if (target) {
       const major = await tx.major.findFirst({

@@ -18,17 +18,17 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationItem } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
+import { useStudentNotifications } from "@/modules/student/use-student-notifications";
 import {
   StudentAccountMenu,
   type StudentAccountMenuItem,
 } from "@/modules/student/components/student-account-menu";
 import {
   StudentNotificationPopover,
-  type StudentNotificationItem,
 } from "@/modules/student/components/student-notification-popover";
 import { StudentSidebar } from "@/modules/student/components/student-sidebar";
-import { studentNotificationItems } from "@/modules/student/notification-data";
 
 const studentRootHrefByLabel: Record<string, string> = {
   Beranda: "/dashboard",
@@ -46,7 +46,8 @@ function StudentWorkspaceShell({
   breadcrumbLabel,
   children,
   mainClassName,
-  notificationItems = studentNotificationItems,
+  notificationItems,
+  notificationUnreadCount,
   searchPlaceholder = "Cari materi, bacaan, atau topik...",
   showSearch = true,
   session,
@@ -57,13 +58,17 @@ function StudentWorkspaceShell({
   children: React.ReactNode;
   mainClassName?: string;
   notificationItems?: StudentNotificationItem[];
+  notificationUnreadCount?: number;
   searchPlaceholder?: string;
   showSearch?: boolean;
   session: SessionContext;
 }) {
-  const unreadNotificationCount = notificationItems?.filter(
-    (item) => item.unread,
-  ).length;
+  const liveNotificationFeed = useStudentNotifications(notificationItems, {
+    initialUnreadCount: notificationUnreadCount,
+    limit: 20,
+  });
+  const liveNotificationItems = liveNotificationFeed.items;
+  const unreadNotificationCount = liveNotificationFeed.unreadCount;
   const rootHref = studentRootHrefByLabel[activeLabel] ?? "/dashboard";
   const isRootPage = breadcrumbLabel === activeLabel;
 
@@ -73,7 +78,7 @@ function StudentWorkspaceShell({
         <StudentSidebar
           activeLabel={activeLabel}
           notificationBadge={
-            unreadNotificationCount === undefined || unreadNotificationCount === 0
+            unreadNotificationCount === 0
               ? undefined
               : String(unreadNotificationCount)
           }
@@ -115,7 +120,7 @@ function StudentWorkspaceShell({
                 </div>
               ) : null}
 
-              <StudentNotificationPopover items={notificationItems} />
+              <StudentNotificationPopover items={liveNotificationItems.slice(0, 5)} live={false} unreadCount={unreadNotificationCount} />
 
           <StudentAccountMenu
             extraItem={accountMenuExtraItem}

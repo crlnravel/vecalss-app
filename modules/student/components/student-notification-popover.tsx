@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentType } from "react";
+import { useStudentNotifications } from "@/modules/student/use-student-notifications";
 import { Bell } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
@@ -14,27 +14,26 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { StudentBadge } from "@/components/ui/student-badge";
-import { cn } from "@/lib/utils";
+import type { StudentNotificationItem } from "@/lib/notifications/types";
 
-type StudentNotificationItem = {
-  detail: string;
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  time: string;
-  title: string;
-  unread: boolean;
-};
+const EMPTY_NOTIFICATION_ITEMS: StudentNotificationItem[] = [];
 
 function StudentNotificationPopover({
-  items = [],
+  items,
+  live = true,
+  unreadCount,
 }: {
   items?: StudentNotificationItem[];
+  live?: boolean;
+  unreadCount?: number;
 }) {
-  const unreadCount = items.filter((item) => item.unread).length;
+  const liveFeed = useStudentNotifications(items ?? EMPTY_NOTIFICATION_ITEMS, { enabled: live, limit: 5 });
+  const renderedItems = liveFeed.items;
+  const renderedUnreadCount = unreadCount ?? liveFeed.unreadCount;
 
-  if (items.length === 0) {
+  if (renderedItems.length === 0) {
     return (
-      <Button aria-label="Notifikasi" size="icon-sm" variant="ghost">
+      <Button aria-label="Notifikasi" nativeButton={false} render={<Link href="/notifications" />} size="icon-sm" variant="ghost">
         <Bell />
       </Button>
     );
@@ -54,13 +53,13 @@ function StudentNotificationPopover({
         }
       >
         <Bell />
-        {unreadCount > 0 ? (
+        {renderedUnreadCount > 0 ? (
           <StudentBadge
             className="absolute -top-1 -right-1 h-5 min-w-5 border-2 border-white px-1 text-ui-xs"
             size="xs"
             tone="attention"
           >
-            {unreadCount}
+            {renderedUnreadCount}
           </StudentBadge>
         ) : null}
       </PopoverTrigger>
@@ -77,22 +76,9 @@ function StudentNotificationPopover({
         </PopoverHeader>
 
         <div className="flex flex-col">
-          {items.map((item, index) => (
-            <div key={item.title}>
-              <Link
-                href={item.href}
-                className="flex gap-3 px-4 py-4 transition-colors hover:bg-primary-50/80"
-              >
-                <div
-                  className={cn(
-                    "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
-                    item.unread
-                      ? "border-primary-200 bg-primary-100 text-primary-800"
-                      : "border-primary-100 bg-white text-secondary-500",
-                  )}
-                >
-                  <item.icon />
-                </div>
+          {renderedItems.map((item, index) => {
+            const entry = (
+              <>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold text-secondary-900">
@@ -109,17 +95,30 @@ function StudentNotificationPopover({
                     {item.time}
                   </span>
                 </div>
-              </Link>
-              {index < items.length - 1 ? (
-                <Separator className="bg-primary-100/80" />
-              ) : null}
-            </div>
-          ))}
+              </>
+            );
+
+            return (
+              <div key={item.id}>
+                <Link
+                  href={`/notifications/${item.id}`}
+                  className="flex gap-3 px-4 py-4 transition-colors hover:bg-primary-50/80"
+                  prefetch={false}
+                >
+                  {entry}
+                </Link>
+                {index < renderedItems.length - 1 ? (
+                  <Separator className="bg-primary-100/80" />
+                ) : null}
+              </div>
+            );
+          })}
         </div>
 
         <div className="border-t border-primary-100 px-4 py-3">
           <Button
             className="h-auto w-auto justify-start px-0 py-0 text-sm font-medium text-secondary-700 hover:bg-transparent hover:text-secondary-700"
+            nativeButton={false}
             render={<Link href="/notifications" />}
             variant="ghost"
           >

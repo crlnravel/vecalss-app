@@ -39,11 +39,13 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
 function SheetContent({
   className,
   children,
+  closeButtonClassName,
   side = "right",
   showCloseButton = true,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
+  closeButtonClassName?: string
   showCloseButton?: boolean
 }) {
   return (
@@ -65,7 +67,7 @@ function SheetContent({
             render={
               <Button
                 variant="brandOutline"
-                className="absolute top-4 right-4"
+                className={cn("absolute top-4 right-4", closeButtonClassName)}
                 size="icon"
               />
             }

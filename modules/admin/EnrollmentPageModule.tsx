@@ -70,10 +70,14 @@ function EnrollmentPageModule({
   pageCount,
   session,
   search,
-  statusFilter,
+  addedFrom,
+  addedTo,
+  statusFilters,
   students,
   total,
 }: {
+  addedFrom: string | null;
+  addedTo: string | null;
   error?: string | null;
   focus?: string | null;
   notice?: string | null;
@@ -81,17 +85,17 @@ function EnrollmentPageModule({
   pageCount: number;
   session: SessionContext;
   search: string;
-  statusFilter: UserStatus | "all";
+  statusFilters: UserStatus[];
   students: EnrolledStudent[];
   total: number;
 }) {
   const pageHref = (nextPage: number) => {
-    const query = buildDirectoryQuery({ focus: null, page: nextPage, search, status: statusFilter });
+    const query = buildDirectoryQuery({ addedFrom, addedTo, focus: null, page: nextPage, search, status: statusFilters[0] ?? "all", statuses: statusFilters });
     return query ? `/admin/enrollment${query}` : "/admin/enrollment";
   };
-  const directoryQuery = buildDirectoryQuery({ focus: focus ?? null, page, search, status: statusFilter });
-  const backQuery = buildDirectoryQuery({ focus: null, page, search, status: statusFilter });
-  const isEmptyDirectory = total === 0 && !search && statusFilter === "all";
+  const directoryQuery = buildDirectoryQuery({ addedFrom, addedTo, focus: focus ?? null, page, search, status: statusFilters[0] ?? "all", statuses: statusFilters });
+  const backQuery = buildDirectoryQuery({ addedFrom, addedTo, focus: null, page, search, status: statusFilters[0] ?? "all", statuses: statusFilters });
+  const isEmptyDirectory = total === 0 && !search && !statusFilters.length && !addedFrom && !addedTo;
   const visibleStart = students.length ? (page - 1) * 20 + 1 : 0;
   const visibleEnd = Math.min(page * 20, (page - 1) * 20 + students.length);
 
@@ -143,7 +147,9 @@ function EnrollmentPageModule({
             isEmptyDirectory={isEmptyDirectory}
             key={directoryQuery}
             search={search}
-            statusFilter={statusFilter}
+            addedFrom={addedFrom}
+            addedTo={addedTo}
+            statusFilters={statusFilters}
             students={students.map((student) => {
               const latestHandoff = student.enrollmentHandoffs[0] ?? null;
               const profile = student.studentProfile;

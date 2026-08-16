@@ -1,25 +1,62 @@
-"use client";
-
 import Link from "next/link";
 import { ChevronRight } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import type { StudentNotificationItem } from "@/lib/notifications/types";
 import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
+import { markAllNotificationsReadAction } from "@/modules/student/actions";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
-import { studentNotificationItems } from "@/modules/student/notification-data";
+
+function NotificationEntry({ item }: { item: StudentNotificationItem }) {
+  const content = (
+    <>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-secondary-900">
+            {item.title}
+          </p>
+          {item.unread ? (
+            <span aria-label="Belum dibaca" className="size-2 rounded-full bg-student-status-attention-border" />
+          ) : null}
+        </div>
+        <p className="mt-1 text-sm leading-6 text-secondary-600">
+          {item.detail}
+        </p>
+        <p className="mt-2 text-xs text-secondary-500">{item.time}</p>
+      </div>
+
+      <ChevronRight aria-hidden="true" className="mt-1 hidden size-4 text-secondary-400 md:block" />
+    </>
+  );
+
+  return (
+    <Link
+      className="flex items-start gap-4 rounded-2xl border border-primary-100 bg-white px-5 py-4 transition-colors hover:bg-primary-50/40"
+      href={`/notifications/${item.id}`}
+      prefetch={false}
+    >
+      {content}
+    </Link>
+  );
+}
 
 function NotificationsPageModule({
+  items,
   session,
+  unreadCount,
 }: {
+  items: StudentNotificationItem[];
   session: SessionContext;
+  unreadCount: number;
 }) {
-  const items = studentNotificationItems;
+  const hasUnread = unreadCount > 0;
 
   return (
     <StudentWorkspaceShell
       activeLabel="Notifikasi"
       breadcrumbLabel="Notifikasi"
+      notificationItems={items}
+      notificationUnreadCount={unreadCount}
       searchPlaceholder="Cari notifikasi atau update belajar..."
       session={session}
     >
@@ -30,48 +67,23 @@ function NotificationsPageModule({
               Notifikasi
             </h1>
           </div>
-          <Button size="sm" type="button" variant="ghost">
-            Tandai sudah dibaca
-          </Button>
+          <form action={markAllNotificationsReadAction}>
+            <Button disabled={!hasUnread} size="sm" type="submit" variant="ghost">
+              Tandai sudah dibaca
+            </Button>
+          </form>
         </div>
 
-        <div className="grid gap-4">
-          {items.map((item) => (
-            <Link
-              key={`${item.title}-${item.time}`}
-              href={item.href}
-              className="flex items-start gap-4 rounded-2xl border border-primary-100 bg-white px-5 py-4 transition-colors hover:bg-primary-50/40"
-            >
-              <div
-                className={cn(
-                  "flex size-10 shrink-0 items-center justify-center rounded-xl border",
-                  item.unread
-                    ? "border-primary-200 bg-primary-50 text-primary-800"
-                    : "border-primary-100 bg-white text-secondary-500",
-                )}
-              >
-                <item.icon className="size-4.5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-secondary-900">
-                    {item.title}
-                  </p>
-                  {item.unread ? (
-                    <span className="size-2 rounded-full bg-student-status-attention-border" />
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm leading-6 text-secondary-600">
-                  {item.detail}
-                </p>
-                <p className="mt-2 text-xs text-secondary-500">{item.time}</p>
-              </div>
-
-              <ChevronRight className="mt-1 hidden size-4 text-secondary-400 md:block" />
-            </Link>
-          ))}
-        </div>
+        {items.length > 0 ? (
+          <div className="grid gap-4">
+            {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-primary-200 bg-white/70 px-5 py-10 text-center">
+            <p className="text-sm font-semibold text-secondary-900">Belum ada notifikasi</p>
+            <p className="mt-1 text-sm leading-6 text-secondary-600">Update dari kelas dan aktivitas belajar akan muncul di sini.</p>
+          </div>
+        )}
       </section>
     </StudentWorkspaceShell>
   );

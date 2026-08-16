@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { UserStatus } from "@/generated/prisma/client";
+import { cn } from "@/lib/utils";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 
 import { StudentPasswordDialog } from "./student-password-dialog";
@@ -24,11 +25,17 @@ import {
 type PendingAction = "ban" | "delete" | "unban";
 
 function StudentAccountActions({
+  compact = false,
+  directoryQuery = "",
   returnPath,
+  showPasswordAction = true,
   status,
   studentId,
 }: {
+  compact?: boolean;
+  directoryQuery?: string;
   returnPath: string;
+  showPasswordAction?: boolean;
   status: UserStatus;
   studentId: string;
 }) {
@@ -49,15 +56,25 @@ function StudentAccountActions({
       ? "This will restore access for this student. Existing sessions will remain revoked."
       : "This will remove the student from the directory and revoke access to the account.";
   const actionLabel = isBan ? "Ban User" : isUnban ? "Unban User" : "Delete User";
+  const dangerButtonClassName = cn(
+    "inline-flex min-h-11 items-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
+    compact
+      ? "w-full justify-center rounded-xl px-3 text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-fg focus-visible:outline-student-status-danger-border"
+      : "text-danger-700 hover:text-danger-800 focus-visible:outline-danger-300",
+  );
+  const restoreButtonClassName = cn(
+    "inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 transition-colors hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300",
+    compact && "w-full justify-center rounded-xl px-3 hover:bg-primary-50",
+  );
 
   return (
     <>
-      <div className="mt-8 flex w-full max-w-sm flex-col items-start gap-2">
-        <StudentPasswordDialog returnPath={returnPath} studentId={studentId} />
+      <div className={cn("mt-8 flex w-full max-w-sm flex-col items-start gap-2", compact && "mt-3 max-w-none gap-1")}>
+        {showPasswordAction ? <StudentPasswordDialog returnPath={returnPath} studentId={studentId} /> : null}
 
         {status === "active" ? (
           <button
-            className="inline-flex min-h-11 items-center text-sm font-semibold text-danger-700 transition-colors hover:text-danger-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-300"
+            className={dangerButtonClassName}
             onClick={() => setPendingAction("ban")}
             type="button"
           >
@@ -65,7 +82,7 @@ function StudentAccountActions({
           </button>
         ) : status === "disabled" ? (
           <button
-            className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 transition-colors hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+            className={restoreButtonClassName}
             onClick={() => setPendingAction("unban")}
             type="button"
           >
@@ -74,7 +91,7 @@ function StudentAccountActions({
         ) : null}
 
         <button
-          className="inline-flex min-h-11 items-center text-sm font-semibold text-danger-700 transition-colors hover:text-danger-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-300"
+          className={dangerButtonClassName}
           onClick={() => setPendingAction("delete")}
           type="button"
         >
@@ -98,6 +115,7 @@ function StudentAccountActions({
 
           <form action={formAction}>
             <input name="confirmation" type="hidden" value={confirmation} />
+            <input name="directoryQuery" type="hidden" value={directoryQuery} />
             <input name="returnPath" type="hidden" value={returnPath} />
             <input name="userId" type="hidden" value={studentId} />
             <AlertDialogFooter>

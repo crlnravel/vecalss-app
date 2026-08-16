@@ -739,12 +739,64 @@ async function sectionSnapshots(client, tryoutId) {
   return snapshots;
 }
 
+async function normalizeSeededAttemptTiming(client, attemptId) {
+  await client.query(
+    `UPDATE tryout_attempts
+     SET server_started_at = NOW() - INTERVAL '8 days' - INTERVAL '4 hours',
+         server_deadline_at = NOW() - INTERVAL '8 days' - INTERVAL '1 hour',
+         submitted_at = NOW() - INTERVAL '8 days'
+     WHERE id = $1`,
+    [attemptId],
+  );
+  await client.query(
+    `UPDATE tryout_attempt_test_runs AS run
+     SET server_started_at = timeline.started_at,
+         server_deadline_at = timeline.started_at + (timeline.duration_seconds * INTERVAL '1 second'),
+         sealed_at = timeline.started_at + (timeline.time_spent_seconds * INTERVAL '1 second')
+     FROM (
+       SELECT run.id,
+              NOW() - INTERVAL '8 days' - INTERVAL '2 hours' - ((run.sequence_no - 1) * INTERVAL '10 minutes') AS started_at,
+              section.duration_seconds,
+              LEAST(GREATEST(section.duration_seconds - 120, 240), section.duration_seconds - 60) AS time_spent_seconds
+       FROM tryout_attempt_test_runs AS run
+       JOIN tryout_sections AS section ON section.id = run.tryout_section_id
+       WHERE run.attempt_id = $1
+     ) AS timeline
+     WHERE run.id = timeline.id`,
+    [attemptId],
+  );
+  await client.query(
+    `UPDATE tryout_answers AS answer
+     SET answered_at = run.server_started_at + INTERVAL '3 minutes',
+         synced_at = run.server_started_at + INTERVAL '3 minutes'
+     FROM tryout_attempt_test_runs AS run
+     WHERE answer.attempt_id = $1
+       AND answer.attempt_test_run_id = run.id`,
+    [attemptId],
+  );
+  await client.query(
+    `UPDATE tryout_integrity_events AS event
+     SET created_at = run.server_started_at + CASE event.server_sequence
+       WHEN 1 THEN INTERVAL '1 minute'
+       WHEN 2 THEN INTERVAL '5 minutes'
+       ELSE INTERVAL '6 minutes'
+     END
+     FROM tryout_attempt_test_runs AS run
+     WHERE event.run_id = run.id
+       AND run.attempt_id = $1`,
+    [attemptId],
+  );
+}
+
 async function seedCompletedAttempt(client, { admissionId, deliverySessionId, scorePattern, studentId, tryoutId }) {
   const existing = await client.query(
     "SELECT id FROM tryout_attempts WHERE delivery_session_id = $1 AND student_id = $2",
     [deliverySessionId, studentId],
   );
-  if (existing.rowCount) return existing.rows[0].id;
+  if (existing.rowCount) {
+    await normalizeSeededAttemptTiming(client, existing.rows[0].id);
+    return existing.rows[0].id;
+  }
   const sections = await sectionSnapshots(client, tryoutId);
   if (sections.length !== 7 || scorePattern.length !== sections.length) throw new Error("The assessment seed expects seven score inputs.");
   const normalizedScores = sections.map((section, sectionIndex) => {
@@ -835,6 +887,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
       );
     }
   }
+  await normalizeSeededAttemptTiming(client, attemptId);
   return attemptId;
 }
 

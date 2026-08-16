@@ -10,6 +10,7 @@ import {
   ArrowSquareOut as PhosphorExternalLink,
   ArrowUp as PhosphorArrowUp,
   ArrowUpRight as PhosphorArrowUpRight,
+  ArrowsIn as PhosphorArrowsIn,
   ArrowsOut as PhosphorArrowsOut,
   Archive as PhosphorArchive,
   At as PhosphorAtSign,
@@ -75,6 +76,7 @@ import {
   NotePencil as PhosphorNotebookPen,
   Package as PhosphorPackage,
   PaperPlaneRight as PhosphorSendHorizontal,
+  Play as PhosphorPlay,
   PenNib as PhosphorPenTool,
   Pencil as PhosphorPencil,
   Plus as PhosphorPlus,
@@ -199,6 +201,7 @@ export const LockKeyhole = PhosphorLockKeyhole;
 export const LockOpen = PhosphorLockOpen;
 export const LogOut = PhosphorSignOut;
 export const Maximize2 = PhosphorArrowsOut;
+export const Minimize2 = PhosphorArrowsIn;
 export const Menu = PhosphorList;
 export const MessageCircle = PhosphorMessageCircle;
 export const MessageCircleMore = PhosphorMessageCircleMore;
@@ -214,6 +217,7 @@ export const PanelLeftIcon = PhosphorPanelLeft;
 export const PanelLeftOpen = PhosphorPanelLeft;
 export const PenTool = PhosphorPenTool;
 export const Pencil = PhosphorPencil;
+export const Play = PhosphorPlay;
 export const Plus = PhosphorPlus;
 export const RefreshCw = PhosphorRefreshCw;
 export const RotateCcw = PhosphorRotateCcw;

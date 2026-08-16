@@ -29,5 +29,20 @@ function getTryoutState(tryout: ParticipantTryout, now: number): TryoutState {
   return "upcoming";
 }
 
-export { formatDuration, formatSchedule, getTryoutState };
+function canEnterParticipantWaitingRoom(tryout: ParticipantTryout) {
+  if (tryout.admissionStatus !== "active") return false;
+  const assignment = tryout.assignments[0];
+  if (!assignment) return false;
+  return Boolean(
+    assignment.attempt ||
+      (assignment.status === "active" && !assignment.isExpired),
+  );
+}
+
+export {
+  canEnterParticipantWaitingRoom,
+  formatDuration,
+  formatSchedule,
+  getTryoutState,
+};
 export type { TryoutState };

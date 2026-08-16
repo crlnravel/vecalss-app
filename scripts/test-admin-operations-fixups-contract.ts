@@ -122,11 +122,14 @@ const safeDirectory = parseDirectoryParams({
   status: "active",
 });
 assert.deepEqual(safeDirectory, {
+  addedFrom: null,
+  addedTo: null,
   focus: validId,
   invalid: false,
   page: 4,
   search: "sailor@example.test",
   status: "active",
+  statuses: ["active"],
 });
 assert.equal(parseDirectoryParams({ q: "x".repeat(MAX_DIRECTORY_QUERY_LENGTH + 1) }).invalid, true);
 assert.equal(parseDirectoryParams({ page: "9007199254740992" }).invalid, true);
@@ -134,11 +137,17 @@ assert.equal(parseDirectoryParams({ page: "1001" }).page, MAX_DIRECTORY_PAGE);
 assert.equal(parseDirectoryParams({ focus: "not-a-uuid" }).invalid, true);
 assert.equal(parseDirectoryParams({ status: "not-a-status" }).invalid, true);
 assert.equal(parseDirectoryQuery(`?q=${encodeURIComponent("sailor")}&status=active&page=2&focus=${validId}`).page, 2);
+assert.deepEqual(parseDirectoryQuery("?status=active&status=disabled").statuses, ["active", "disabled"]);
+assert.equal(parseDirectoryQuery("?addedFrom=2026-08-09&addedTo=2026-08-10").invalid, false);
 assert.equal(parseDirectoryQuery("?q=one&q=two").invalid, true);
 assert.equal(parseDirectoryQuery(`?q=${"x".repeat(321)}`).invalid, true);
 assert.equal(
   buildDirectoryQuery(safeDirectory),
   `?q=sailor%40example.test&status=active&page=4&focus=${validId}`,
+);
+assert.equal(
+  buildDirectoryQuery(parseDirectoryQuery("?status=active&status=disabled&addedFrom=2026-08-09&addedTo=2026-08-10")),
+  "?status=active&status=disabled&addedFrom=2026-08-09&addedTo=2026-08-10",
 );
 
 assert.match(validation, /MAX_DIRECTORY_QUERY_LENGTH/);

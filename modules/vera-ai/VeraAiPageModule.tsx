@@ -96,7 +96,6 @@ import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentNotificationPopover } from "@/modules/student/components/student-notification-popover";
-import { studentNotificationItems } from "@/modules/student/notification-data";
 
 import {
   veraContextSources,
@@ -693,7 +692,7 @@ function VeraTopBar({
         </Button>
         <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
           <VeraUsagePopover />
-          <StudentNotificationPopover items={studentNotificationItems} />
+          <StudentNotificationPopover />
           <StudentAccountMenu extraItem="notifications" session={session} />
         </div>
       </div>

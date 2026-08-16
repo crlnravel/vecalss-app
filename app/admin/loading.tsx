@@ -13,11 +13,11 @@ function LoadingBlock({ className }: { className: string }) {
 function AdminLoading() {
   return (
     <SidebarProvider>
-      <div aria-busy="true" aria-label="Loading admin dashboard" className="flex min-h-svh w-full bg-secondary-50 text-secondary-900">
+      <div aria-busy="true" aria-label="Loading admin dashboard" className="flex min-h-svh w-full bg-primary-50 text-secondary-900">
         <AdminPortalNav activeSection="overview" />
 
         <SidebarInset className="bg-transparent">
-          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl">
+          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-primary-50/90 backdrop-blur-xl">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
               <SidebarTrigger className="shrink-0" />
               <div className="flex min-w-0 flex-1 items-center gap-3">

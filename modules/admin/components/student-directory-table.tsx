@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
+import type { DateRange } from "react-day-picker";
 
 import {
   AlertDialog,
@@ -15,15 +16,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { UserStatus } from "@/generated/prisma/client";
-import { ArrowUpRight, CalendarDays, ChevronRight, Clock3, Plus, ShieldCheck, Target, UserRound, X } from "@/lib/icons";
+import { ChevronRight, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { bulkUpdateStudentEnrollmentStatusAction } from "@/modules/admin/actions";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
+
+import { CopyValueButton } from "./copy-value-button";
+import { StudentAccountActions } from "./student-account-actions";
 
 type StudentPreviewHandoff = {
   expiresAt: string | null;
@@ -73,7 +79,7 @@ function highlightSearchMatches(text: string, query: string): ReactNode {
     }
 
     parts.push(
-      <mark className="rounded-sm bg-student-status-attention-bg px-0.5 text-inherit" key={`search-match-${matchNumber}`}>
+      <mark className="rounded-sm bg-student-status-attention-bg text-inherit" key={`search-match-${matchNumber}`}>
         {text.slice(matchIndex, matchIndex + normalizedQuery.length)}
       </mark>,
     );
@@ -133,39 +139,74 @@ function formatCreatedDate(value: string) {
   });
 }
 
-function directoryHref({ search, status }: { search: string; status: UserStatus | "all" }) {
+function parseDateInput(value: string | null): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function toDateInput(value: Date | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, "0"), String(value.getDate()).padStart(2, "0")].join("-");
+}
+
+function dateRangeFromQuery(addedFrom: string | null, addedTo: string | null): DateRange | undefined {
+  const from = parseDateInput(addedFrom);
+  const to = parseDateInput(addedTo);
+  if (from) {
+    return { from, to };
+  }
+
+  return to ? { from: to, to } : undefined;
+}
+
+function formatDateFilter(addedFrom: string | null, addedTo: string | null) {
+  const from = parseDateInput(addedFrom);
+  const to = parseDateInput(addedTo);
+  const formatter = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" });
+
+  if (!from && !to) {
+    return "";
+  }
+
+  if (!to || !from || to.getTime() === from.getTime()) {
+    return formatter.format(from ?? to);
+  }
+
+  return `${formatter.format(from)} – ${formatter.format(to)}`;
+}
+
+function directoryHref({
+  addedFrom,
+  addedTo,
+  search,
+  statuses,
+}: {
+  addedFrom: string | null;
+  addedTo: string | null;
+  search: string;
+  statuses: readonly UserStatus[];
+}) {
   const params = new URLSearchParams();
   if (search) {
     params.set("q", search);
   }
-  if (status !== "all") {
-    params.set("status", status);
+  statuses.forEach((status) => params.append("status", status));
+  if (addedFrom) {
+    params.set("addedFrom", addedFrom);
   }
-  const query = params.toString();
-  return query ? `/admin/enrollment?${query}` : "/admin/enrollment";
-}
-
-function formatPreviewDate(value: string | null) {
-  if (!value) {
-    return "Not recorded";
+  if (addedTo) {
+    params.set("addedTo", addedTo);
   }
-
-  return new Date(value).toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatPreviewDateTime(value: string | null) {
-  if (!value) {
-    return "Not recorded";
-  }
-
-  return new Date(value).toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return query ? `/admin/enrollment${query}` : "/admin/enrollment";
 }
 
 function getInitials(fullName: string) {
@@ -181,16 +222,12 @@ function getInitials(fullName: string) {
   return initials || "S";
 }
 
-function handoffTone(status: string): StudentStatusTone {
-  if (status === "released") {
-    return "success";
+function displayStudentId(id: string) {
+  if (id.length <= 22) {
+    return id;
   }
 
-  if (status === "expired" || status === "revoked") {
-    return "danger";
-  }
-
-  return "attention";
+  return `${id.slice(0, 10)}…${id.slice(-8)}`;
 }
 
 function StudentPreviewPanel({
@@ -203,142 +240,47 @@ function StudentPreviewPanel({
   const detailHref = backQuery
     ? `/admin/enrollment/${student.id}?from=${encodeURIComponent(backQuery)}`
     : `/admin/enrollment/${student.id}`;
-  const latestHandoff = student.latestHandoff;
 
   return (
-    <SheetContent className="w-[min(100%,34rem)] max-w-full p-0 sm:max-w-xl" side="right">
+    <SheetContent
+      className="w-[min(100%,34rem)] max-w-full p-0 sm:max-w-xl"
+      closeButtonClassName="cursor-pointer border-0 bg-transparent text-secondary-900 hover:border-0 hover:bg-transparent hover:text-primary-700 focus-visible:border-transparent focus-visible:ring-primary-300/40"
+      side="right"
+    >
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="border-b border-primary-100 px-5 pb-5 pt-6 pr-16 sm:px-6 sm:pb-6 sm:pr-16">
-          <div className="flex min-w-0 items-start gap-3">
+        <header className="px-5 pb-6 pt-6 pr-16 sm:px-6 sm:pb-7 sm:pr-16">
+          <div className="flex min-w-0 items-start">
             <span
               aria-hidden="true"
-              className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary-700 text-base font-bold text-white shadow-[0_12px_26px_-18px_rgba(1,76,56,0.75)]"
+              className="grid size-20 shrink-0 place-items-center rounded-2xl bg-primary-50 text-xl font-bold text-primary-800 ring-1 ring-inset ring-primary-100"
             >
               {getInitials(student.fullName)}
             </span>
-            <div className="min-w-0">
-              <SheetTitle className="text-xl font-semibold leading-tight tracking-[-0.03em] text-secondary-950 sm:text-2xl">
-                {student.fullName}
-              </SheetTitle>
-              <SheetDescription className="mt-1 truncate text-sm text-secondary-600">
-                {student.email}
-              </SheetDescription>
-              <span className={cn("mt-3 inline-flex items-center gap-2 font-semibold capitalize", statusTextClassName(student.tone))}>
-                <span aria-hidden="true" className={cn("size-2 rounded-full", statusDotClassName(student.tone))} />
-                {formatStatus(student.status)}
-              </span>
-            </div>
           </div>
-          <div className="mt-5 flex items-center gap-2 text-xs font-semibold text-primary-800">
-            <ShieldCheck aria-hidden="true" size={16} />
-            Admin access only
+          <div className="mt-3 flex min-w-0 items-center gap-1.5">
+            <code className="min-w-0 truncate text-xs font-medium text-secondary-600" title={student.id}>
+              {displayStudentId(student.id)}
+            </code>
+            <CopyValueButton ariaLabel="Copy account ID" iconOnly value={student.id} />
           </div>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-7 px-5 py-6 sm:px-6">
-            <section aria-labelledby="student-preview-enrollment-heading">
-              <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
-                  <Target aria-hidden="true" size={18} />
-                </span>
-                <div>
-                  <h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900" id="student-preview-enrollment-heading">
-                    Enrollment snapshot
-                  </h2>
-                  <p className="mt-1 text-sm leading-5 text-secondary-600">The current learning context for this account.</p>
-                </div>
-              </div>
-              <dl className="mt-4 divide-y divide-primary-100 border-y border-primary-100">
-                <div className="grid gap-1 py-3.5 sm:grid-cols-[minmax(8rem,0.6fr)_minmax(0,1fr)] sm:gap-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-secondary-500">Target exam</dt>
-                  <dd className="font-medium text-secondary-900">
-                    {student.targetExamName ?? "Not set"}
-                    {student.targetExamDate ? <time className="mt-0.5 block text-xs font-normal text-secondary-600" dateTime={student.targetExamDate}>{formatPreviewDate(student.targetExamDate)}</time> : null}
-                  </dd>
-                </div>
-                <div className="grid gap-1 py-3.5 sm:grid-cols-[minmax(8rem,0.6fr)_minmax(0,1fr)] sm:gap-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-secondary-500">University</dt>
-                  <dd className="font-medium text-secondary-900">{student.targetUniversity ?? "Not set"}</dd>
-                </div>
-                <div className="grid gap-1 py-3.5 sm:grid-cols-[minmax(8rem,0.6fr)_minmax(0,1fr)] sm:gap-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-secondary-500">Major</dt>
-                  <dd className="font-medium text-secondary-900">{student.targetMajor ?? "Not set"}</dd>
-                </div>
-                <div className="grid gap-1 py-3.5 sm:grid-cols-[minmax(8rem,0.6fr)_minmax(0,1fr)] sm:gap-4">
-                  <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-secondary-500">Onboarding</dt>
-                  <dd className="font-medium capitalize text-secondary-900">{student.onboardingStatus ? formatStatus(student.onboardingStatus) : "Not started"}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section aria-labelledby="student-preview-account-heading">
-              <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
-                  <UserRound aria-hidden="true" size={18} />
-                </span>
-                <div>
-                  <h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900" id="student-preview-account-heading">
-                    Account health
-                  </h2>
-                  <p className="mt-1 text-sm leading-5 text-secondary-600">Access and sign-in details at a glance.</p>
-                </div>
-              </div>
-              <dl className="mt-4 divide-y divide-primary-100 border-y border-primary-100">
-                <div className="flex items-start justify-between gap-4 py-3.5 text-sm">
-                  <dt className="text-secondary-600">Added</dt>
-                  <dd className="text-right font-medium text-secondary-900"><time dateTime={student.createdAt}>{formatPreviewDate(student.createdAt)}</time></dd>
-                </div>
-                <div className="flex items-start justify-between gap-4 py-3.5 text-sm">
-                  <dt className="text-secondary-600">Last sign-in</dt>
-                  <dd className="text-right font-medium text-secondary-900">{formatPreviewDateTime(student.lastLoginAt)}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4 py-3.5 text-sm">
-                  <dt className="text-secondary-600">Password</dt>
-                  <dd className="text-right font-medium text-secondary-900">{student.mustChangePassword ? "Change required" : "Set"}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section aria-labelledby="student-preview-handoff-heading">
-              <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
-                  <Clock3 aria-hidden="true" size={18} />
-                </span>
-                <div>
-                  <h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900" id="student-preview-handoff-heading">
-                    Credential handoff
-                  </h2>
-                  <p className="mt-1 text-sm leading-5 text-secondary-600">The latest one-time access delivery.</p>
-                </div>
-              </div>
-              {latestHandoff ? (
-                <div className="mt-4 rounded-2xl border border-primary-100 bg-secondary-50/60 px-4 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={cn("inline-flex items-center gap-2 text-sm font-semibold capitalize", statusTextClassName(handoffTone(latestHandoff.status)))}>
-                      <span aria-hidden="true" className={cn("size-2 rounded-full", statusDotClassName(handoffTone(latestHandoff.status)))} />
-                      {formatStatus(latestHandoff.status)}
-                    </span>
-                    <span className="text-xs font-medium text-secondary-500">{formatStatus(latestHandoff.method)}</span>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 border-t border-primary-100 pt-3 text-xs text-secondary-600">
-                    <CalendarDays aria-hidden="true" size={15} />
-                    {latestHandoff.expiresAt ? `Expires ${formatPreviewDate(latestHandoff.expiresAt)}` : "No expiry recorded"}
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-4 border-y border-primary-100 py-4 text-sm leading-6 text-secondary-600">No credential handoff has been created for this account.</p>
-              )}
-            </section>
-          </div>
-        </div>
-
-        <footer className="border-t border-primary-100 bg-white px-5 py-4 sm:px-6">
-          <Link className={buttonVariants({ className: "w-full justify-between", size: "sm", variant: "brand" })} href={detailHref}>
-            Open full details
-            <ArrowUpRight aria-hidden="true" size={16} />
+          <SheetTitle className="mt-2 text-xl font-semibold leading-tight tracking-[-0.03em] text-secondary-950 sm:text-2xl">
+            {student.fullName}
+          </SheetTitle>
+          <SheetDescription className="mt-1 truncate text-sm text-secondary-600">
+            {student.email}
+          </SheetDescription>
+          <Link className={buttonVariants({ className: "mt-5 w-full", size: "sm", variant: "brand" })} href={detailHref}>
+            Open
           </Link>
-        </footer>
+          <StudentAccountActions
+            compact
+            directoryQuery={backQuery}
+            returnPath=""
+            showPasswordAction={false}
+            status={student.status}
+            studentId={student.id}
+          />
+        </header>
       </div>
     </SheetContent>
   );
@@ -425,18 +367,23 @@ function BulkStudentActions({
 }
 
 function StudentFilterPanel({
+  addedFrom,
+  addedTo,
   clearFiltersHref,
-  clearStatusHref,
+  statusFilters,
   search,
-  statusFilter,
 }: {
+  addedFrom: string | null;
+  addedTo: string | null;
   clearFiltersHref: string;
-  clearStatusHref: string;
   search: string;
-  statusFilter: UserStatus | "all";
+  statusFilters: readonly UserStatus[];
 }) {
   const router = useRouter();
   const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [draftStatuses, setDraftStatuses] = useState<UserStatus[]>(() => [...statusFilters]);
+  const [draftDateRange, setDraftDateRange] = useState<DateRange | undefined>(() => dateRangeFromQuery(addedFrom, addedTo));
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -444,14 +391,23 @@ function StudentFilterPanel({
     const formData = new FormData(event.currentTarget);
     const params = new URLSearchParams();
     const query = formData.get("q");
-    const status = formData.get("status");
+    const statuses = formData.getAll("status").filter((value): value is string => typeof value === "string" && value !== "all");
+    const addedFromValue = formData.get("addedFrom");
+    const addedToValue = formData.get("addedTo");
 
     if (typeof query === "string" && query) {
       params.set("q", query);
     }
 
-    if (typeof status === "string" && status && status !== "all") {
-      params.set("status", status);
+    statuses.forEach((status) => {
+      params.append("status", status);
+    });
+
+    if (typeof addedFromValue === "string" && addedFromValue) {
+      params.set("addedFrom", addedFromValue);
+      params.set("addedTo", typeof addedToValue === "string" && addedToValue ? addedToValue : addedFromValue);
+    } else if (typeof addedToValue === "string" && addedToValue) {
+      params.set("addedTo", addedToValue);
     }
 
     const queryString = params.toString();
@@ -460,15 +416,23 @@ function StudentFilterPanel({
 
   return (
     <div aria-label="Student filter fields" className="grid gap-1" role="list">
-      <Popover onOpenChange={setStatusPopoverOpen} open={statusPopoverOpen}>
+      <Popover
+        onOpenChange={(open) => {
+          setStatusPopoverOpen(open);
+          if (open) {
+            setDraftStatuses([...statusFilters]);
+          }
+        }}
+        open={statusPopoverOpen}
+      >
         <PopoverTrigger
           render={
             <Button
               aria-haspopup="dialog"
-              className="group h-10 w-full justify-between rounded-xl px-3 text-left hover:bg-primary-50/60"
+              className="group h-9 w-full justify-between rounded-lg px-2.5 text-left text-xs hover:bg-primary-50/60"
               onMouseEnter={() => setStatusPopoverOpen(true)}
               type="button"
-              variant={statusFilter !== "all" ? "contextSelected" : "ghost"}
+              variant={statusFilters.length ? "contextSelected" : "ghost"}
             />
           }
         >
@@ -477,35 +441,87 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(22rem,calc(100vw-2rem))] gap-3 rounded-xl p-3"
+          className="w-[min(18rem,calc(100vw-2rem))] gap-2 rounded-lg p-2"
           side="left"
-          sideOffset={8}
+          sideOffset={6}
         >
-          <form action="/admin/enrollment" className="grid gap-3" method="get" onSubmit={handleSubmit}>
+          <form action="/admin/enrollment" className="grid gap-2" method="get" onSubmit={handleSubmit}>
             <input name="q" type="hidden" value={search} />
-            <div aria-label="Status" className="grid gap-1" role="radiogroup">
+            {addedFrom ? <input name="addedFrom" type="hidden" value={addedFrom} /> : null}
+            {addedTo ? <input name="addedTo" type="hidden" value={addedTo} /> : null}
+            <div aria-label="Status" className="grid gap-0.5" role="group">
               {(["active", "disabled", "locked"] as UserStatus[]).map((status) => (
-                <label className="flex h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium capitalize text-secondary-800 transition-colors hover:bg-primary-50/60" key={status}>
-                  <input className="peer sr-only" defaultChecked={statusFilter === status} name="status" type="radio" value={status} />
+                <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium capitalize text-secondary-800 transition-colors hover:bg-primary-50/60" key={status}>
+                  <Checkbox
+                    checked={draftStatuses.includes(status)}
+                    className="size-4 rounded-[4px]"
+                    onCheckedChange={(checked) => {
+                      setDraftStatuses((current) => checked === true
+                        ? current.includes(status) ? current : [...current, status]
+                        : current.filter((selectedStatus) => selectedStatus !== status));
+                    }}
+                  />
                   <span>{formatStatus(status)}</span>
-                  <span aria-hidden="true" className="invisible ml-auto size-1.5 rounded-full bg-primary-700 peer-checked:visible" />
+                  {draftStatuses.includes(status) ? <input name="status" type="hidden" value={status} /> : null}
                 </label>
               ))}
             </div>
-            <div className="flex w-full items-center gap-2">
-              {statusFilter !== "all" ? (
-                <Link
-                  aria-label="Clear status filter"
-                  className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-                  href={clearStatusHref}
-                >
-                  <X aria-hidden="true" size={16} />
-                </Link>
-              ) : null}
-              <Link className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
+            <div className="flex w-full items-center gap-1.5 pt-1">
+              <Link className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
                 Clear
               </Link>
-              <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
+              <Button className="min-w-0 flex-[2]" size="xs" type="submit" variant="brand">Apply</Button>
+            </div>
+          </form>
+        </PopoverContent>
+      </Popover>
+
+      <Popover
+        onOpenChange={(open) => {
+          setDatePopoverOpen(open);
+          if (open) {
+            setDraftDateRange(dateRangeFromQuery(addedFrom, addedTo));
+          }
+        }}
+        open={datePopoverOpen}
+      >
+        <PopoverTrigger
+          render={
+            <Button
+              aria-haspopup="dialog"
+              className="group h-9 w-full justify-between rounded-lg px-2.5 text-left text-xs hover:bg-primary-50/60"
+              onMouseEnter={() => setDatePopoverOpen(true)}
+              type="button"
+              variant={addedFrom || addedTo ? "contextSelected" : "ghost"}
+            />
+          }
+        >
+          <span className="font-medium text-secondary-900">Added</span>
+          <ChevronRight aria-hidden="true" className="text-secondary-400 transition-transform group-aria-expanded:translate-x-0.5" size={16} />
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-[min(20rem,calc(100vw-2rem))] gap-2 rounded-lg p-2"
+          side="left"
+          sideOffset={6}
+        >
+          <form action="/admin/enrollment" className="grid gap-2" method="get" onSubmit={handleSubmit}>
+            <input name="q" type="hidden" value={search} />
+            {statusFilters.map((status) => <input key={status} name="status" type="hidden" value={status} />)}
+            <input name="addedFrom" type="hidden" value={toDateInput(draftDateRange?.from)} />
+            <input name="addedTo" type="hidden" value={toDateInput(draftDateRange?.to)} />
+            <Calendar
+              aria-label="Added date"
+              defaultMonth={draftDateRange?.from ?? new Date()}
+              mode="range"
+              onSelect={setDraftDateRange}
+              selected={draftDateRange}
+            />
+            <div className="flex w-full items-center gap-1.5 pt-1">
+              <Link className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
+                Clear
+              </Link>
+              <Button className="min-w-0 flex-[2]" size="xs" type="submit" variant="brand">Apply</Button>
             </div>
           </form>
         </PopoverContent>
@@ -515,34 +531,48 @@ function StudentFilterPanel({
 }
 
 function StudentDirectoryTable({
+  addedFrom,
+  addedTo,
   backQuery,
   dataQuery,
   focus,
   isEmptyDirectory,
   search,
-  statusFilter,
+  statusFilters,
   students,
 }: {
+  addedFrom: string | null;
+  addedTo: string | null;
   backQuery: string;
   dataQuery: string;
   focus: string | null;
   isEmptyDirectory: boolean;
   search: string;
-  statusFilter: UserStatus | "all";
+  statusFilters: UserStatus[];
   students: StudentDirectoryItem[];
 }) {
   const [previewStudent, setPreviewStudent] = useState<StudentDirectoryItem | null>(null);
-  const clearSearchHref = directoryHref({ search: "", status: statusFilter });
-  const clearStatusHref = directoryHref({ search, status: "all" });
-  const clearFiltersHref = directoryHref({ search: "", status: "all" });
+  const clearSearchHref = directoryHref({ addedFrom, addedTo, search: "", statuses: statusFilters });
+  const clearStatusHref = directoryHref({ addedFrom, addedTo, search, statuses: [] });
+  const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, search, statuses: statusFilters });
+  const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, search: "", statuses: [] });
   const filters: DataTableFilter[] = [];
 
-  if (statusFilter !== "all") {
+  if (statusFilters.length) {
     filters.push({
       href: clearStatusHref,
       id: "status",
       label: "Status",
-      value: formatStatus(statusFilter),
+      value: statusFilters.map(formatStatus).join(" or "),
+    });
+  }
+
+  if (addedFrom || addedTo) {
+    filters.push({
+      href: clearDateHref,
+      id: "added",
+      label: "Added",
+      value: formatDateFilter(addedFrom, addedTo),
     });
   }
 
@@ -565,6 +595,7 @@ function StudentDirectoryTable({
       hideable: false,
       id: "student",
       label: "Student",
+      width: 28,
     },
     {
       cell: (student) => (
@@ -575,6 +606,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[28%]",
       id: "email",
       label: "Email",
+      width: 28,
     },
     {
       cell: (student) => <time dateTime={student.createdAt}>{formatCreatedDate(student.createdAt)}</time>,
@@ -582,6 +614,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[17%]",
       id: "added",
       label: "Added",
+      width: 17,
     },
     {
       cell: (student) => (
@@ -593,6 +626,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[17%]",
       id: "status",
       label: "Status",
+      width: 17,
     },
     {
       cell: (student) => {
@@ -614,15 +648,17 @@ function StudentDirectoryTable({
       headerClassName: "w-[10%] text-right",
       id: "action",
       label: "Action",
+      width: 10,
     },
   ];
 
   const filterPanel = (
     <StudentFilterPanel
+      addedFrom={addedFrom}
+      addedTo={addedTo}
       clearFiltersHref={clearFiltersHref}
-      clearStatusHref={clearStatusHref}
       search={search}
-      statusFilter={statusFilter}
+      statusFilters={statusFilters}
     />
   );
 
@@ -673,7 +709,11 @@ function StudentDirectoryTable({
         search={{
           action: "/admin/enrollment",
           clearHref: clearSearchHref,
-          hiddenFields: statusFilter === "all" ? undefined : { status: statusFilter },
+          hiddenFields: {
+            ...(statusFilters.length ? { status: statusFilters } : {}),
+            ...(addedFrom ? { addedFrom } : {}),
+            ...(addedTo ? { addedTo } : {}),
+          },
           label: "Global student search",
           placeholder: "Search students by name or email…",
           value: search,

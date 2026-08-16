@@ -10,6 +10,7 @@ import {
   FileText,
   LoaderCircle,
   LockKeyhole,
+  Play,
   SkipForward,
   Video,
 } from "@/lib/icons";
@@ -172,7 +173,7 @@ function SubjectSelector({
   const [isPending, startTransition] = useTransition();
 
   const handleCourseChange = (slug: string) => {
-    if (slug === course.slug) {
+    if (slug === course.slug || isPending) {
       return;
     }
 
@@ -182,11 +183,18 @@ function SubjectSelector({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu disabled={isPending}>
       <DropdownMenuTrigger
+        aria-busy={isPending}
+        disabled={isPending}
         render={
           <button
-            className="group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 border-[#d6e5db] bg-white px-4 py-3 text-left shadow-[0_18px_42px_-32px_rgba(23,107,77,0.5)] outline-none transition-[transform,border-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 hover:border-[#9dcab0] hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus:border-[#9dcab0] focus:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] data-popup-open:-translate-y-0.5 data-popup-open:border-[#9dcab0] data-popup-open:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5"
+            className={cn(
+              "group flex min-h-[5.75rem] w-full items-center gap-4 rounded-[2rem] border-2 px-4 py-3 text-left outline-none transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 ease-out focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/25 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995] motion-reduce:transition-none sm:min-h-[6.5rem] sm:gap-5 sm:rounded-[2.35rem] sm:px-5",
+              isPending
+                ? "cursor-wait border-[#e0eae3] bg-[#f7faf8] opacity-70 shadow-[0_12px_30px_-26px_rgba(23,107,77,0.35)]"
+                : "border-[#d6e5db] bg-white shadow-[0_18px_42px_-32px_rgba(23,107,77,0.5)] motion-safe:hover:-translate-y-0.5 hover:border-[#9dcab0] hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] data-popup-open:-translate-y-0.5 data-popup-open:border-[#9dcab0] data-popup-open:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)]",
+            )}
             type="button"
           />
         }
@@ -195,21 +203,18 @@ function SubjectSelector({
           <span className="block text-[0.68rem] font-bold tracking-[0.16em] text-[#98a1b1] uppercase sm:text-xs">
             Materi
           </span>
-          <span className="mt-1 block truncate text-xl leading-tight font-extrabold tracking-[-0.035em] text-[#1b2534] sm:hidden">
-            {course.title}
+          <span className="mt-1 flex min-w-0 items-center gap-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-[#1b2534] sm:hidden">
+            <span className="truncate">{course.title}</span>
+            {isPending ? <LoaderCircle aria-label="Memuat materi" className="size-4 shrink-0 animate-spin text-[#5f776a]" role="status" /> : null}
           </span>
-          <span className="mt-1 hidden truncate text-lg leading-tight font-extrabold tracking-[-0.025em] text-[#1b2534] sm:block md:text-xl">
-            {course.description} ({course.title})
+          <span className="mt-1 hidden min-w-0 items-center gap-2 text-lg leading-tight font-extrabold tracking-[-0.025em] text-[#1b2534] sm:flex md:text-xl">
+            <span className="truncate">{course.description} ({course.title})</span>
+            {isPending ? <LoaderCircle aria-label="Memuat materi" className="size-5 shrink-0 animate-spin text-[#5f776a]" role="status" /> : null}
           </span>
         </span>
-        {isPending ? (
-          <LoaderCircle
-            aria-label="Memuat materi"
-            className="size-6 shrink-0 animate-spin text-[#5f776a]"
-          />
-        ) : (
+        {!isPending ? (
           <ChevronDown className="size-6 shrink-0 text-[#5f776a] transition-transform motion-reduce:transform-none group-data-popup-open:rotate-180" />
-        )}
+        ) : null}
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
@@ -346,10 +351,10 @@ function LearningPathStage({
   const href = `/courses/${course.slug}/${lesson.id}`;
 
   return (
-    <li className="group/stage relative grid min-h-[27rem] grid-rows-[9rem_1fr] sm:min-h-[32rem] sm:grid-rows-[11rem_1fr]">
+    <li className="relative grid min-h-[27rem] grid-rows-[9rem_1fr] sm:min-h-[32rem] sm:grid-rows-[11rem_1fr]">
       <article
         className={cn(
-          "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 transition-[transform,border-color,box-shadow] duration-200 ease-out motion-safe:group-hover/stage:-translate-y-0.5 motion-safe:group-focus-within/stage:-translate-y-0.5 motion-reduce:transition-none sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
+          "relative z-10 flex min-h-28 w-[min(31rem,calc(100%-1rem))] items-center gap-4 self-start rounded-[2rem] border px-5 py-4 sm:min-h-32 sm:gap-5 sm:rounded-[2.25rem] sm:px-6",
           isEven
             ? "justify-self-start sm:ml-[8%] lg:ml-[12%]"
             : "justify-self-end sm:mr-[8%] lg:mr-[12%]",
@@ -379,30 +384,20 @@ function LearningPathStage({
         </span>
 
         <div className="min-w-0 flex-1">
-          {isLocked ? (
-            <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl">
-              {lesson.title}
-            </h2>
-          ) : (
-            <Link
-              className="group/card-reading block rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-              href={href}
-            >
-              <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance underline decoration-white/35 underline-offset-4 sm:text-2xl">
-                {lesson.title}
-              </h2>
-              <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
-                <FileText className="size-3.5" /> Bacaan PDF
-              </span>
-            </Link>
-          )}
-          {isLocked ? (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[#89958e] sm:text-sm">
-              <span className="inline-flex items-center gap-1.5">
-                <FileText className="size-3.5" /> Bacaan PDF
-              </span>
-            </div>
-          ) : null}
+          <h2 className={cn(
+            "line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.035em] text-balance sm:text-2xl",
+            isLocked && "text-[#7b8780]",
+          )}>
+            {lesson.title}
+          </h2>
+          <div className={cn(
+            "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm",
+            isLocked ? "text-[#89958e]" : "text-current/85",
+          )}>
+            <span className="inline-flex items-center gap-1.5">
+              <FileText className="size-3.5" /> Bacaan PDF
+            </span>
+          </div>
           {lesson.optionalVideo && !isLocked ? (
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold sm:text-sm">
               <a
@@ -460,7 +455,7 @@ function LearningPathStage({
             aria-label={`${lesson.title} terkunci`}
             className="relative grid size-24 place-items-center rounded-[2rem] border-4 border-white bg-[#eef1ef] text-[#9aa49f] shadow-[0_9px_0_#d4dad6,0_24px_42px_-24px_rgba(61,78,69,0.44)] sm:size-28 sm:rounded-[2.35rem]"
           >
-            <BookOpen className="size-10 sm:size-12" strokeWidth={2.2} />
+            <Play className="size-10 sm:size-12" strokeWidth={2.2} />
             <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#dfe5e1]">
               <LockKeyhole className="size-4" />
             </span>
@@ -469,14 +464,14 @@ function LearningPathStage({
           <Link
             aria-label={`${isCompleted ? "Baca ulang" : "Baca"} ${lesson.title}`}
             className={cn(
-              "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white text-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
+              "group relative grid size-24 place-items-center rounded-[2rem] border-4 border-white outline-none transition-[transform,background-color,box-shadow] duration-200 focus-visible:ring-4 focus-visible:ring-[#2f8a5d]/30 motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-1 motion-reduce:transition-none sm:size-28 sm:rounded-[2.35rem]",
               isCompleted
-                ? "bg-[#2f8a5d] shadow-[0_9px_0_#176b4d,0_28px_46px_-24px_rgba(23,107,77,0.65)] hover:bg-[#267a52] motion-safe:active:shadow-[0_3px_0_#176b4d]"
-                : "bg-[#176b4d] shadow-[0_10px_0_#0f563b,0_30px_50px_-22px_rgba(23,107,77,0.72)] hover:bg-[#0f563b] motion-safe:active:shadow-[0_3px_0_#0f563b]",
+                ? "bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[0_9px_0_#7abda8,0_28px_46px_-24px_rgba(23,107,77,0.65)] motion-safe:active:shadow-[0_3px_0_#7abda8]"
+                : "bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[0_10px_0_#7abda8,0_30px_50px_-22px_rgba(23,107,77,0.72)] motion-safe:active:shadow-[0_3px_0_#7abda8]",
             )}
             href={href}
           >
-            <BookOpen className="size-10 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.2} />
+            <Play className="size-10 transition-transform duration-200 motion-safe:group-hover:scale-110 sm:size-12" strokeWidth={2.2} />
             {isCompleted ? (
               <span className="absolute -right-2 -bottom-2 grid size-9 place-items-center rounded-full border-4 border-[#f7faf8] bg-[#e6f4eb] text-[#176b4d]">
                 <Check className="size-4" strokeWidth={3} />
@@ -484,10 +479,6 @@ function LearningPathStage({
             ) : null}
           </Link>
         )}
-
-        <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#d8e6dc] bg-white px-3 py-1.5 text-xs font-bold text-[#65756c] shadow-[0_10px_24px_-20px_rgba(23,107,77,0.5)]">
-          <BookOpen className="size-3.5" /> Baca PDF
-        </span>
       </div>
     </li>
   );

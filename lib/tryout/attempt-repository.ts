@@ -27,7 +27,9 @@ function remainingSeconds(deadline: Date | null, now: Date) {
 
 async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
   // A stable participant lock serializes starts before overlapping-session rows exist.
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
+  // pg_advisory_xact_lock returns PostgreSQL `void`; executeRaw consumes the
+  // command result without asking Prisma to deserialize that value.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
 }
 
 async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, now: Date, expired = false) {
@@ -287,7 +289,7 @@ async function recordTryoutIntegrityEvent(attemptId: string, runId: string, even
       const entered = await tx.tryoutIntegrityEvent.findFirst({ where: { eventType: TryoutIntegrityEventType.fullscreen_entered, runId }, select: { id: true } });
       if (!entered) return { ignored: true, serverSequence: null };
     }
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${runId}, 0))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${runId}, 0))`;
     const previous = await tx.tryoutIntegrityEvent.aggregate({ _max: { serverSequence: true }, where: { runId } });
     const event = await tx.tryoutIntegrityEvent.create({ data: { eventType, runId, serverSequence: (previous._max.serverSequence ?? 0) + 1 } });
     return { ignored: false, serverSequence: event.serverSequence };

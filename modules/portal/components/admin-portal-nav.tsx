@@ -4,8 +4,10 @@ import Link from "next/link";
 import type { ComponentType } from "react";
 import {
   BookOpenCheck,
+  Bell,
   ClipboardList,
   History,
+  Image,
   LayoutDashboard,
   Users,
 } from "@/lib/icons";
@@ -23,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "audit-logs";
+type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs";
 
 type AdminNavigationItem = {
   href: string;
@@ -34,7 +36,9 @@ type AdminNavigationItem = {
 
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
+  { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifications" },
   { href: "/admin/imports", icon: ClipboardList, id: "imports", label: "Imports" },
+  { href: "/admin/media", icon: Image, id: "media", label: "Media" },
   { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Audit logs" },
 ];
 

@@ -7,6 +7,8 @@ const MAX_DIRECTORY_PAGE = 1_000;
 type DirectoryParamValue = string | string[] | undefined | null;
 
 type DirectoryParamsInput = {
+  addedFrom?: DirectoryParamValue;
+  addedTo?: DirectoryParamValue;
   focus?: DirectoryParamValue;
   page?: DirectoryParamValue;
   q?: DirectoryParamValue;
@@ -14,14 +16,22 @@ type DirectoryParamsInput = {
 };
 
 type DirectoryParams = {
+  addedFrom: string | null;
+  addedTo: string | null;
   focus: string | null;
   invalid: boolean;
   page: number;
   search: string;
   status: UserStatus | "all";
+  statuses: UserStatus[];
 };
 
-type DirectoryQueryOptions = Pick<DirectoryParams, "focus" | "page" | "search" | "status">;
+type DirectoryQueryOptions = Pick<DirectoryParams, "focus" | "page" | "search" | "status">
+  & {
+    addedFrom?: string | null;
+    addedTo?: string | null;
+    statuses?: readonly UserStatus[];
+  };
 
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
@@ -48,6 +58,28 @@ function readSingle(value: DirectoryParamValue) {
   return { invalid: false, value };
 }
 
+function readMany(value: DirectoryParamValue) {
+  if (value === undefined || value === null) {
+    return { invalid: false, values: [] as string[] };
+  }
+
+  const values = Array.isArray(value) ? value : [value];
+  if (values.some((item) => typeof item !== "string")) {
+    return { invalid: true, values: [] as string[] };
+  }
+
+  return { invalid: false, values };
+}
+
+function isDateOnly(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
   let invalid = false;
   const rawQuery = readSingle(input.q);
@@ -56,14 +88,56 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
     invalid = true;
   }
 
-  const rawStatus = readSingle(input.status);
+  const rawStatus = readMany(input.status);
   let status: UserStatus | "all" = "all";
+  const statuses: UserStatus[] = [];
   if (rawStatus.invalid) {
     invalid = true;
-  } else if (rawStatus.value && rawStatus.value !== "all") {
-    if ((Object.values(UserStatus) as string[]).includes(rawStatus.value)) {
-      status = rawStatus.value as UserStatus;
+  } else if (rawStatus.values.length) {
+    if (rawStatus.values.length === 1 && rawStatus.values[0] === "all") {
+      status = "all";
+    } else if (rawStatus.values.includes("all")) {
+      invalid = true;
     } else {
+      rawStatus.values.forEach((value) => {
+        if ((Object.values(UserStatus) as string[]).includes(value)) {
+          const parsedStatus = value as UserStatus;
+          if (!statuses.includes(parsedStatus)) {
+            statuses.push(parsedStatus);
+          }
+        } else {
+          invalid = true;
+        }
+      });
+
+      status = statuses[0] ?? "all";
+    }
+  }
+
+  const rawAddedFrom = readSingle(input.addedFrom);
+  const rawAddedTo = readSingle(input.addedTo);
+  let addedFrom: string | null = null;
+  let addedTo: string | null = null;
+  if (rawAddedFrom.invalid || rawAddedTo.invalid) {
+    invalid = true;
+  } else {
+    if (rawAddedFrom.value !== null) {
+      if (isDateOnly(rawAddedFrom.value)) {
+        addedFrom = rawAddedFrom.value;
+      } else {
+        invalid = true;
+      }
+    }
+
+    if (rawAddedTo.value !== null) {
+      if (isDateOnly(rawAddedTo.value)) {
+        addedTo = rawAddedTo.value;
+      } else {
+        invalid = true;
+      }
+    }
+
+    if (addedFrom && addedTo && addedFrom > addedTo) {
       invalid = true;
     }
   }
@@ -98,17 +172,29 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
   }
 
   return {
+    addedFrom,
+    addedTo,
     focus,
     invalid,
     page,
     search: invalid && search.length > MAX_DIRECTORY_QUERY_LENGTH ? "" : search,
     status,
+    statuses,
   };
 }
 
 function parseDirectoryQuery(query: string): DirectoryParams {
   if (!query || query.length > 320 || !query.startsWith("?")) {
-    return { focus: null, invalid: Boolean(query), page: 1, search: "", status: "all" };
+    return {
+      addedFrom: null,
+      addedTo: null,
+      focus: null,
+      invalid: Boolean(query),
+      page: 1,
+      search: "",
+      status: "all",
+      statuses: [],
+    };
   }
 
   const params = new URLSearchParams(query.slice(1));
@@ -118,6 +204,8 @@ function parseDirectoryQuery(query: string): DirectoryParams {
   };
 
   return parseDirectoryParams({
+    addedFrom: valueFor("addedFrom"),
+    addedTo: valueFor("addedTo"),
     focus: valueFor("focus"),
     page: valueFor("page"),
     q: valueFor("q"),
@@ -125,10 +213,13 @@ function parseDirectoryQuery(query: string): DirectoryParams {
   });
 }
 
-function buildDirectoryQuery({ focus, page, search, status }: DirectoryQueryOptions): string {
+function buildDirectoryQuery({ addedFrom, addedTo, focus, page, search, status, statuses }: DirectoryQueryOptions): string {
   const params = new URLSearchParams();
   if (search) params.set("q", search);
-  if (status !== "all") params.set("status", status);
+  const selectedStatuses = statuses?.length ? statuses : status !== "all" ? [status] : [];
+  selectedStatuses.forEach((selectedStatus) => params.append("status", selectedStatus));
+  if (addedFrom) params.set("addedFrom", addedFrom);
+  if (addedTo) params.set("addedTo", addedTo);
   if (page > 1) params.set("page", String(page));
   if (focus) params.set("focus", focus);
   const query = params.toString();

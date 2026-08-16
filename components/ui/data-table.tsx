@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useTransition,
   type ChangeEvent,
   type ComponentProps,
   type FormEvent,
@@ -29,6 +30,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ListFilter,
+  LoaderCircle,
   MoreHorizontal,
   Search,
   TableIcon,
@@ -46,6 +48,7 @@ type DataTableColumn<T> = {
   id: string;
   label: string;
   hideable?: boolean;
+  width?: number;
 };
 
 type DataTableFilter = {
@@ -58,7 +61,7 @@ type DataTableFilter = {
 type DataTableSearch = {
   action?: string;
   clearHref?: string;
-  hiddenFields?: Readonly<Record<string, string>>;
+  hiddenFields?: Readonly<Record<string, string | readonly string[]>>;
   label?: string;
   placeholder?: string;
   value?: string;
@@ -153,6 +156,8 @@ function DataTable<T>({
   const router = useRouter();
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchValue, setSearchValue] = useState(() => search?.value ?? "");
+  const [isSearchDebouncing, setIsSearchDebouncing] = useState(false);
+  const [isSearchPending, startSearchTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [visibleColumnIds, setVisibleColumnIds] = useState<Set<string>>(
     () => new Set(columns.filter((column) => column.defaultVisible !== false).map((column) => column.id)),
@@ -160,6 +165,7 @@ function DataTable<T>({
 
   const visibleIds = rows.map((row) => getRowId(row));
   const visibleColumns = columns.filter((column) => visibleColumnIds.has(column.id));
+  const visibleColumnWidthTotal = visibleColumns.reduce((total, column) => total + (column.width ?? 1), 0);
   const selectedVisibleCount = visibleIds.filter((id) => selectedIds.has(id)).length;
   const selectedRows = rows.filter((row) => selectedIds.has(getRowId(row)));
   const areAllVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
@@ -209,6 +215,7 @@ function DataTable<T>({
     : null;
 
   const cancelPendingSearch = () => {
+    setIsSearchDebouncing(false);
     if (searchDebounceRef.current !== null) {
       clearTimeout(searchDebounceRef.current);
       searchDebounceRef.current = null;
@@ -235,14 +242,16 @@ function DataTable<T>({
 
     if (search.hiddenFields) {
       Object.entries(search.hiddenFields).forEach(([name, hiddenValue]) => {
-        if (hiddenValue) {
-          params.set(name, hiddenValue);
-        }
+        const values = Array.isArray(hiddenValue) ? hiddenValue : [hiddenValue];
+        values.filter(Boolean).forEach((value) => params.append(name, value));
       });
     }
 
     target.search = params.toString();
-    router.replace(`${target.pathname}${target.search}`, { scroll: false });
+    setIsSearchDebouncing(false);
+    startSearchTransition(() => {
+      router.replace(`${target.pathname}${target.search}`, { scroll: false });
+    });
   };
 
   const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -250,6 +259,7 @@ function DataTable<T>({
     setSearchValue(nextValue);
 
     cancelPendingSearch();
+    setIsSearchDebouncing(true);
 
     searchDebounceRef.current = setTimeout(() => {
       searchDebounceRef.current = null;
@@ -267,8 +277,12 @@ function DataTable<T>({
     <>
       <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
         {search ? (
-          <form action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get" onSubmit={handleSearchSubmit}>
-            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400" size={17} />
+          <form aria-busy={isSearchDebouncing || isSearchPending} action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get" onSubmit={handleSearchSubmit}>
+            {isSearchDebouncing || isSearchPending ? (
+              <LoaderCircle aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin text-secondary-400" size={17} />
+            ) : (
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400" size={17} />
+            )}
             <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Search table"}</label>
             <input
               className="h-10 w-full border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-400 focus-visible:bg-primary-50/35 focus-visible:ring-0"
@@ -279,9 +293,14 @@ function DataTable<T>({
               type="search"
               value={searchValue}
             />
-            {search.hiddenFields ? Object.entries(search.hiddenFields).map(([name, value]) => (
-              <input key={name} name={name} type="hidden" value={value} />
-            )) : null}
+            {search.hiddenFields
+              ? Object.entries(search.hiddenFields).flatMap(([name, hiddenValue]) => {
+                  const values = Array.isArray(hiddenValue) ? hiddenValue : [hiddenValue];
+                  return values.map((value, index) => (
+                    <input key={`${name}-${index}`} name={name} type="hidden" value={value} />
+                  ));
+                })
+              : null}
             {search.value && search.clearHref ? (
               <Link
                 aria-label="Clear table search"
@@ -303,7 +322,7 @@ function DataTable<T>({
               >
                 <ListFilter aria-hidden="true" />
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-xl p-3">
+              <PopoverContent align="end" className="w-[min(19rem,calc(100vw-2rem))] gap-2 rounded-lg p-2">
                 {filterPanel}
               </PopoverContent>
             </Popover>
@@ -400,6 +419,7 @@ function DataTable<T>({
                   column.headerClassName,
                 )}
                 key={column.id}
+                style={{ width: `${((column.width ?? 1) / visibleColumnWidthTotal) * 100}%` }}
               >
                 {column.label}
               </TableHead>

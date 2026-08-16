@@ -20,6 +20,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import {
+  canEnterParticipantWaitingRoom,
   formatDuration,
   formatSchedule,
   getTryoutState,
@@ -110,7 +111,7 @@ function ParticipantTryoutWorkspace({
       session={session}
       showSearch={false}
     >
-      <section className="relative isolate min-h-[22rem] overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_62%,#2f8a5d_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_rgba(1,76,56,0.72)] sm:px-8 sm:py-10 lg:min-h-[24rem] lg:px-10 lg:py-12">
+      <section className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(120deg,#014c38_0%,#176b4d_62%,#2f8a5d_100%)] px-5 py-8 text-white shadow-[0_28px_70px_-42px_rgba(1,76,56,0.72)] sm:px-8 sm:py-10 lg:min-h-[18rem] lg:px-10 lg:py-12">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 right-[-3rem] size-64 rounded-full border-[18px] border-[#b7ddc3]/15 sm:size-80"
@@ -185,14 +186,25 @@ function ParticipantTryoutWorkspace({
               );
               const primarySession =
                 tryout.assignments[0] ?? tryout.sessions[0];
-              const attempt = tryout.assignments[0]?.attempt;
-              const href =
-                attempt?.status === "in_progress"
-                  ? `/tryout/attempt/${attempt.id}`
-                  : attempt && attempt.status !== "in_progress"
-                    ? `/tryout/attempt/${attempt.id}/result`
-                    : `/tryout/${tryout.id}`;
-              const actionLabel = "Daftar";
+              const assignment = tryout.assignments[0];
+              const hasEnrolledAssignment =
+                tryout.admissionStatus === "active" && Boolean(assignment);
+              const canEnterWaiting = canEnterParticipantWaitingRoom(tryout);
+              const attempt = assignment?.attempt;
+              const href = canEnterWaiting
+                ? `/tryout/${tryout.id}/waiting`
+                : `/tryout/${tryout.id}`;
+              const actionLabel = attempt?.status === "in_progress"
+                ? "Lanjutkan"
+                : attempt
+                  ? "Lihat hasil"
+                  : canEnterWaiting
+                    ? "Mulai"
+                    : hasEnrolledAssignment
+                      ? "Selesai"
+                      : tryout.admissionStatus === "active"
+                        ? "Menunggu"
+                        : "Daftar";
 
               return (
                 <article

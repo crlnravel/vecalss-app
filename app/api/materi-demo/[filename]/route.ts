@@ -16,7 +16,7 @@ const DEMO_BYTES =
  * Production/managed PDFs use the normal student-safe delivery route.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ filename: string }> },
 ) {
   if (process.env.NODE_ENV === "production") {
@@ -32,11 +32,13 @@ export async function GET(
     return new Response("The local Materi demo PDF fixture is unavailable.", { status: 404 });
   }
 
+  const isDownload = new URL(request.url).searchParams.get("download") === "1";
+
   return new Response(DEMO_BYTES, {
     headers: {
       Accept: "application/pdf",
       "Cache-Control": "no-store",
-      "Content-Disposition": `inline; filename="${DEMO_FILENAME}"`,
+      "Content-Disposition": `${isDownload ? "attachment" : "inline"}; filename="${DEMO_FILENAME}"`,
       "Content-Length": String(DEMO_BYTES.byteLength),
       "Content-Type": "application/pdf",
     },

@@ -105,6 +105,9 @@ both document-only and document-plus-video coverage.
 - `/change-password`
 - `/onboarding`
 - `/dashboard`
+- `/notifications`
+- `/notifications/[notificationId]`
+- `/admin/notifications`
 - `/admin/enrollment`
 - `/admin/enrollment/new`
 - `/mentor/dashboard`

@@ -50,7 +50,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
                 <TooltipContent>Tryout terdiri dari tujuh Test dan menggunakan versi Paket Soal yang sudah siap.</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button aria-label="Buat Tryout" render={<Link href="/mentor/tryout/create" />} size="icon-sm" title="Buat Tryout" variant="brand">
+            <Button aria-label="Buat Tryout" nativeButton={false} render={<Link href="/mentor/tryout/create" />} size="icon-sm" title="Buat Tryout" variant="brand">
               <Plus />
             </Button>
           </>

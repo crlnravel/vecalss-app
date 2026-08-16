@@ -109,6 +109,7 @@ function ParticipantTryoutRegistrationModule({
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pendaftaran tryout" session={session} showSearch={false}>
       <Button
         aria-label="Kembali ke detail tryout"
+        nativeButton={false}
         render={<Link href={`/tryout/${tryout.id}`} />}
         size="icon"
         title="Kembali ke detail tryout"

@@ -14,6 +14,7 @@ import {
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
@@ -153,7 +154,6 @@ function CourseLessonPlayerModule({
           lessonStatus={lessonStatus}
           nextLesson={nextLesson}
           onComplete={handleComplete}
-          onFeedback={setFeedback}
           pending={isPending}
         />
       )}
@@ -168,7 +168,6 @@ function LessonPlayer({
   lessonStatus,
   nextLesson,
   onComplete,
-  onFeedback,
   pending,
 }: {
   course: Course;
@@ -177,45 +176,9 @@ function LessonPlayer({
   lessonStatus: LessonProgressStatus | undefined;
   nextLesson?: CourseLesson;
   onComplete: () => void;
-  onFeedback: (feedback: Feedback | null) => void;
   pending: boolean;
 }) {
   const isCompleted = lessonStatus === "completed";
-
-  const handleShare = async () => {
-    const url = window.location.href;
-
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({
-          text: `${lesson.title} · ${course.description}`,
-          title: lesson.title,
-          url,
-        });
-        onFeedback({ tone: "success", text: "Tautan pelajaran siap dibagikan." });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          onFeedback({ tone: "neutral", text: "Berbagi dibatalkan." });
-          return;
-        }
-      }
-    }
-
-    try {
-      if (typeof navigator.clipboard?.writeText !== "function") {
-        throw new Error("Clipboard API unavailable");
-      }
-
-      await navigator.clipboard.writeText(url);
-      onFeedback({ tone: "success", text: "Tautan pelajaran disalin." });
-    } catch {
-      onFeedback({
-        tone: "error",
-        text: "Tautan belum bisa disalin. Salin URL dari bilah alamat.",
-      });
-    }
-  };
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
@@ -232,27 +195,45 @@ function LessonPlayer({
 
       <MateriLessonPresentation
         action={(
-          <>
-            <Button
-              aria-label="Bagikan"
-              className="size-12 rounded-xl border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5]"
-              onClick={handleShare}
-              size="icon-lg"
-              title="Bagikan"
-              type="button"
-              variant="outline"
-            >
-              <Share2 aria-hidden="true" className="size-5" />
-            </Button>
-            <Link
-              aria-label="Tanya Vera"
-              className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-[#b7ddc3] bg-white text-[#176b4d] outline-none transition hover:bg-[#f3faf5] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-              href="/vera-ai"
-              title="Tanya Vera"
+          <Tooltip>
+            <TooltipTrigger
+              render={(
+                <Button
+                  aria-label="Tanya Vera"
+                  className="size-12 min-h-12 min-w-12 rounded-xl border-[#b7ddc3] bg-white text-[#176b4d] hover:bg-[#f3faf5]"
+                  nativeButton={false}
+                  render={<Link href="/vera-ai" />}
+                  size="icon"
+                  title="Tanya Vera"
+                  variant="outline"
+                />
+              )}
             >
               <MessageCircle aria-hidden="true" className="size-5" />
-            </Link>
-          </>
+            </TooltipTrigger>
+            <TooltipContent>Tanya Vera</TooltipContent>
+          </Tooltip>
+        )}
+        completionAction={(
+          <Button
+            className={cn(
+              "min-h-14 min-w-0 flex-1 rounded-[1.15rem] px-4 text-sm font-extrabold sm:text-base",
+              isCompleted
+                ? "bg-[#e6f4eb] text-[#176b4d] hover:bg-[#e6f4eb]"
+                : "bg-[#176b4d] text-white hover:bg-[#0f563b]",
+            )}
+            disabled={isCompleted || pending}
+            onClick={onComplete}
+            size="lg"
+            type="button"
+          >
+            {isCompleted ? (
+              <CheckCircle2 className="size-5" data-icon="inline-start" />
+            ) : (
+              <Check className="size-5" data-icon="inline-start" />
+            )}
+            {isCompleted ? "Sudah selesai membaca" : pending ? "Menyimpan…" : "Selesai membaca"}
+          </Button>
         )}
         document={lesson.document}
         documentDeliveryUrl={getStudentDocumentDeliveryUrl(course.slug, lesson.id, lesson.document)}
@@ -262,42 +243,17 @@ function LessonPlayer({
         videoUrl={lesson.optionalVideo?.mediaUrl}
       />
 
-      <section className="mt-8 rounded-[1.8rem] border border-[#d9e5de] bg-white px-5 py-7 text-center md:mt-10 md:px-8 md:py-9">
-        <p className="text-xs font-bold tracking-[0.14em] text-[#718077] uppercase">
-          Tandai progres membaca
-        </p>
-        <Button
-          className={cn(
-            "mt-4 min-h-16 w-full rounded-[1.15rem] px-7 text-base font-extrabold",
-            isCompleted
-              ? "bg-[#e6f4eb] text-[#176b4d] hover:bg-[#e6f4eb]"
-              : "bg-[#176b4d] text-white hover:bg-[#0f563b]",
-          )}
-          disabled={isCompleted || pending}
-          onClick={onComplete}
-          size="lg"
-          type="button"
+      <FeedbackNotice feedback={feedback} />
+
+      {isCompleted && nextLesson ? (
+        <Link
+          className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#e6f4eb] px-4 text-sm font-bold text-[#176b4d] outline-none transition hover:bg-[#d7eddf] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+          href={`/courses/${course.slug}/${nextLesson.id}`}
         >
-          {isCompleted ? (
-            <CheckCircle2 className="size-5" data-icon="inline-start" />
-          ) : (
-            <Check className="size-5" data-icon="inline-start" />
-          )}
-          {isCompleted ? "Sudah selesai membaca" : pending ? "Menyimpan…" : "Selesai membaca"}
-        </Button>
-
-        <FeedbackNotice feedback={feedback} />
-
-        {isCompleted && nextLesson ? (
-          <Link
-            className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#e6f4eb] px-4 text-sm font-bold text-[#176b4d] outline-none transition hover:bg-[#d7eddf] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-            href={`/courses/${course.slug}/${nextLesson.id}`}
-          >
-            Lanjut ke bacaan berikutnya
-            <ArrowLeft className="size-4 rotate-180" />
-          </Link>
-        ) : null}
-      </section>
+          Lanjut ke bacaan berikutnya
+          <ArrowLeft className="size-4 rotate-180" />
+        </Link>
+      ) : null}
 
     </article>
   );

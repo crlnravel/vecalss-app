@@ -94,6 +94,7 @@ function MateriVideoPreview({
 
 function MateriLessonPresentation({
   action,
+  completionAction,
   document,
   documentDeliveryUrl,
   managedDocumentPreview,
@@ -106,6 +107,7 @@ function MateriLessonPresentation({
   videoUrl,
 }: {
   action?: ReactNode;
+  completionAction?: ReactNode;
   document?: MateriDocument | null;
   documentDeliveryUrl?: string;
   managedDocumentPreview?: ReactNode;
@@ -151,9 +153,20 @@ function MateriLessonPresentation({
 
       {isDocumentMode ? (
         <section aria-label="Dokumen Materi" className="mt-7 space-y-3 md:mt-9">
-          {managedDocumentPreview ?? (
+          {managedDocumentPreview ? (
+            <>
+              {managedDocumentPreview}
+              {completionAction || action ? (
+                <div className="flex items-center gap-2" role="group">
+                  {completionAction}
+                  {action}
+                </div>
+              ) : null}
+            </>
+          ) : (
             <StudentPdfPreview
               actions={action}
+              completionAction={completionAction}
               document={document ?? null}
               documentDeliveryUrl={documentDeliveryUrl}
               title={title}
@@ -175,8 +188,9 @@ function MateriLessonPresentation({
 
       {isDocumentMode ? <MateriVideoPreview title={title} videoUrls={videoUrls} /> : null}
 
-      {!isDocumentMode && action ? (
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+      {!isDocumentMode && (completionAction || action) ? (
+        <div className="mt-5 flex items-center gap-2">
+          {completionAction}
           {action}
           {providerLink}
         </div>

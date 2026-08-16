@@ -19,10 +19,13 @@ function safeBackHref(value: unknown) {
   }
 
   const query = buildDirectoryQuery({
+    addedFrom: parsed.addedFrom,
+    addedTo: parsed.addedTo,
     focus: null,
     page: parsed.page,
     search: parsed.search,
     status: parsed.status,
+    statuses: parsed.statuses,
   });
 
   return query ? `/admin/enrollment${query}` : "/admin/enrollment";

@@ -384,7 +384,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
                   </div>
                 ))}
               </div>
-              <Button className="mx-auto mt-6 flex" render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
+              <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
             </section>
           ) : (
             <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white">

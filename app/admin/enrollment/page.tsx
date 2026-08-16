@@ -4,6 +4,16 @@ import { parseDirectoryParams } from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
 import { EnrollmentPageModule } from "@/modules/admin/EnrollmentPageModule";
 
+function startOfDate(value: string) {
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
+function endOfDate(value: string) {
+  const date = startOfDate(value);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date;
+}
+
 export default async function EnrollmentPage({
   searchParams,
 }: {
@@ -16,8 +26,10 @@ export default async function EnrollmentPage({
     page: resolvedSearchParams.page,
     q: resolvedSearchParams.q,
     status: resolvedSearchParams.status,
+    addedFrom: resolvedSearchParams.addedFrom,
+    addedTo: resolvedSearchParams.addedTo,
   });
-  const { page, search, status } = directory;
+  const { addedFrom, addedTo, page, search, statuses } = directory;
   const pageSize = 20;
   const studentWhere: Prisma.UserWhereInput = {
     roleAssignments: {
@@ -26,7 +38,15 @@ export default async function EnrollmentPage({
         role: RoleName.student,
       },
     },
-    ...(status !== "all" ? { status } : {}),
+    ...(statuses.length ? { status: { in: statuses } } : {}),
+    ...(addedFrom || addedTo
+      ? {
+          createdAt: {
+            ...(addedFrom ? { gte: startOfDate(addedFrom) } : {}),
+            ...(addedTo ? { lt: endOfDate(addedTo) } : {}),
+          },
+        }
+      : {}),
     ...(search
       ? {
           OR: [
@@ -117,7 +137,9 @@ export default async function EnrollmentPage({
       pageCount={Math.max(1, Math.ceil(total / pageSize))}
       session={session}
       search={search}
-      statusFilter={status}
+      addedFrom={addedFrom}
+      addedTo={addedTo}
+      statusFilters={statuses}
       students={students}
       total={total}
     />

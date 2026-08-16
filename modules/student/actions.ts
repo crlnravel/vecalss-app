@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 
 import { OnboardingStatus } from "@/generated/prisma/client";
 import { requireStudentSession } from "@/lib/auth/access";
+import { markAllStudentNotificationsRead } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 import type { FormState } from "@/modules/auth/form-state";
 
 function readOptionalId(formData: FormData, key: string) {
@@ -221,4 +223,16 @@ async function skipOnboardingAction() {
   redirect("/dashboard");
 }
 
-export { saveOnboardingAction, saveProfileAction, skipOnboardingAction };
+async function markAllNotificationsReadAction() {
+  const session = await requireStudentSession();
+  await markAllStudentNotificationsRead(session.user.id);
+  revalidatePath("/notifications");
+  revalidatePath("/notifications/[notificationId]", "page");
+}
+
+export {
+  markAllNotificationsReadAction,
+  saveOnboardingAction,
+  saveProfileAction,
+  skipOnboardingAction,
+};

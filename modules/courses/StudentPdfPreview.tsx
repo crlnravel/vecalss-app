@@ -1,7 +1,8 @@
 "use client";
 
-import { Download, ExternalLink, FileText, LoaderCircle, RefreshCw } from "@/lib/icons";
-import { useEffect, useMemo, useState } from "react";
+import { Download, Expand, ExternalLink, FileText, LoaderCircle, Minimize2, RefreshCw } from "@/lib/icons";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -9,16 +10,30 @@ import {
   type MateriDocument,
 } from "@/lib/materi/contract";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type DocumentPreviewState = "loading" | "ready" | "unavailable";
 
 type StudentPdfPreviewProps = {
   actions?: ReactNode;
   className?: string;
+  completionAction?: ReactNode;
   document: MateriDocument | null;
   documentDeliveryUrl?: string;
   title: string;
 };
+
+const StudentPdfDocument = dynamic(
+  () => import("./StudentPdfDocument").then((module) => module.StudentPdfDocument),
+  {
+    loading: () => (
+      <div className="flex min-h-[22rem] items-center justify-center px-6 text-center text-sm font-semibold text-[#285641]">
+        Menyiapkan halaman PDF…
+      </div>
+    ),
+    ssr: false,
+  },
+);
 
 type DeliveryPayload = {
   documentUrl?: unknown;
@@ -40,6 +55,7 @@ function isHttpDocumentUrl(value: unknown): value is string {
 function StudentPdfPreview({
   actions,
   className,
+  completionAction,
   document,
   documentDeliveryUrl,
   title,
@@ -49,6 +65,9 @@ function StudentPdfPreview({
   const [resolvedKey, setResolvedKey] = useState<string | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const documentName = document?.originalName?.trim() || "Dokumen Materi";
   const isManaged = document?.sourceKind === "managed" && Boolean(document.managedAssetId);
@@ -69,7 +88,9 @@ function StudentPdfPreview({
           ? "ready"
           : "loading";
   const previewUrl = shouldResolveDelivery ? resolvedUrl : hostedUrl;
-  const downloadUrl = shouldResolveDelivery ? resolvedDownloadUrl ?? previewUrl : hostedUrl;
+  const downloadUrl = shouldResolveDelivery
+    ? resolvedDownloadUrl ?? getDownloadUrl(previewUrl)
+    : getDownloadUrl(hostedUrl);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,26 +151,66 @@ function StudentPdfPreview({
     };
   }, [document?.sourceKind, documentDeliveryUrl, hostedUrl, isHosted, isManaged, requestKey, shouldResolveDelivery]);
 
-  const iframeTitle = useMemo(
+  useEffect(() => {
+    if (typeof globalThis.document === "undefined") return;
+
+    const updateFullscreenState = () => {
+      setIsFullscreen(globalThis.document.fullscreenElement === previewRef.current);
+    };
+
+    setFullscreenAvailable(Boolean(globalThis.document.fullscreenEnabled && previewRef.current?.requestFullscreen));
+    updateFullscreenState();
+    globalThis.document.addEventListener("fullscreenchange", updateFullscreenState);
+
+    return () => globalThis.document.removeEventListener("fullscreenchange", updateFullscreenState);
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    const preview = previewRef.current;
+    if (!preview || !fullscreenAvailable) return;
+
+    try {
+      if (globalThis.document.fullscreenElement === preview) {
+        await globalThis.document.exitFullscreen();
+        return;
+      }
+
+      if (globalThis.document.fullscreenElement) {
+        await globalThis.document.exitFullscreen();
+      }
+      await preview.requestFullscreen();
+    } catch {
+      setIsFullscreen(false);
+    }
+  };
+
+  const previewTitle = useMemo(
     () => `Preview PDF: ${title.trim() || documentName}`,
     [documentName, title],
   );
 
   return (
-    <div className={cn("flex w-full flex-col gap-4 p-4", className)}>
-      <div className="relative overflow-hidden rounded-2xl border border-[#d9e5de] bg-white">
+    <div
+      ref={previewRef}
+      className={cn(
+        "flex w-full flex-col gap-4 p-4",
+        className,
+        isFullscreen && "h-screen min-h-0 bg-[#f7faf8]",
+      )}
+    >
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-2xl border border-[#d9e5de] bg-white",
+          isFullscreen && "min-h-0 flex-1 rounded-none border-0 bg-[#f7faf8]",
+        )}
+      >
         {state === "loading" ? (
           <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
             <LoaderCircle aria-hidden="true" className="size-7 animate-spin text-[#2f8a5d] motion-reduce:animate-none" />
             <p className="font-semibold text-[#285641]">Menyiapkan PDF untuk dibaca…</p>
           </div>
         ) : state === "ready" && previewUrl ? (
-          <iframe
-            className="h-[min(68vh,52rem)] min-h-[22rem] w-full bg-white md:min-h-[34rem]"
-            sandbox=""
-            src={previewUrl}
-            title={iframeTitle}
-          />
+          <StudentPdfDocument file={previewUrl} fullscreen={isFullscreen} title={previewTitle} />
         ) : (
           <div className="flex min-h-[22rem] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-[#66766e] md:min-h-[34rem]">
             <FileText aria-hidden="true" className="size-9 text-[#9ab4a4]" />
@@ -169,38 +230,100 @@ function StudentPdfPreview({
         )}
       </div>
 
-      {state === "ready" && previewUrl ? (
-        <div aria-label="Aksi dokumen PDF" className="flex flex-nowrap items-center justify-center gap-2" role="group">
-          <a
-            aria-label="Buka PDF"
-            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-            href={previewUrl}
-            rel="noreferrer"
-            target="_blank"
-            title="Buka PDF"
-          >
-            <ExternalLink aria-hidden="true" className="size-5" />
-          </a>
-          <a
-            aria-label="Download PDF"
-            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#176b4d] text-white hover:bg-[#0f563b] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-            download={documentName}
-            href={downloadUrl ?? previewUrl}
-            title="Download PDF"
-          >
-            <Download aria-hidden="true" className="size-5" />
-          </a>
-          {actions}
+      {completionAction || actions || (state === "ready" && previewUrl) ? (
+        <div className="flex items-center gap-2" role="group">
+          {completionAction}
+          {actions || (state === "ready" && previewUrl) ? (
+            <div aria-label={state === "ready" ? "Aksi dokumen PDF" : "Aksi bacaan"} className="flex shrink-0 items-center gap-1" role="group">
+              {state === "ready" && previewUrl ? (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={(
+                        <a
+                          aria-label="Buka PDF"
+                          className="inline-flex size-12 min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+                          href={previewUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                          title="Buka PDF"
+                        />
+                      )}
+                    >
+                      <ExternalLink aria-hidden="true" className="size-5" />
+                    </TooltipTrigger>
+                    <TooltipContent>Buka PDF</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={(
+                        <a
+                          aria-label="Download PDF"
+                          className="inline-flex size-12 min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+                          download={documentName}
+                          href={downloadUrl ?? previewUrl}
+                          title="Download PDF"
+                        />
+                      )}
+                    >
+                      <Download aria-hidden="true" className="size-5" />
+                    </TooltipTrigger>
+                    <TooltipContent>Download PDF</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={(
+                        <button
+                          aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
+                          className="inline-flex size-12 min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={!fullscreenAvailable}
+                          onClick={handleToggleFullscreen}
+                          title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
+                          type="button"
+                        />
+                      )}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 aria-hidden="true" className="size-5" />
+                      ) : (
+                        <Expand aria-hidden="true" className="size-5" />
+                      )}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
+                    </TooltipContent>
+                  </Tooltip>
+                </>
+              ) : null}
+              {actions}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
-      <p className="text-center text-xs leading-5 text-[#718077]">
+      <p className="text-left text-xs leading-5 text-[#718077]">
         {state === "ready"
           ? "Jika pratinjau tidak muncul di browser atau ponselmu, buka atau download PDF menggunakan tombol di atas."
           : "Dokumen hanya ditampilkan setelah sumber PDF tersedia dan dapat diakses oleh siswa."}
       </p>
     </div>
   );
+}
+
+function getDownloadUrl(value: string | null) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    if (url.pathname.startsWith("/api/materi-demo/")) {
+      url.searchParams.set("download", "1");
+      return url.toString();
+    }
+  } catch {
+    return value;
+  }
+
+  return value;
 }
 
 export { StudentPdfPreview };

@@ -905,7 +905,7 @@ async function lockClaimedRow(tx: Prisma.TransactionClient, claim: RowClaim) {
 async function lockEmailAndFindUsers(tx: Prisma.TransactionClient, email: string) {
   // hashtextextended is stable inside PostgreSQL and gives a signed bigint for
   // pg_advisory_xact_lock without carrying user-controlled SQL into the query.
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${email}, 0))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${email}, 0))`;
   return tx.$queryRaw<Array<{
     id: string;
     email: string;
