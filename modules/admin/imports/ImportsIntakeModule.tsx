@@ -215,7 +215,7 @@ function ImportsIntakeModule({
           ) : null}
 
           <div>
-            <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2." : "1."} Download the CSV template</p>
+            <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Get the CSV template" : "1. Download the CSV template"}</p>
             <a
               className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
               download={template.fileName}
@@ -227,7 +227,7 @@ function ImportsIntakeModule({
           </div>
 
           <div className={showRoleSelect ? "pt-4 lg:col-span-2" : "pt-2"}>
-            <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3." : "2."} Upload the file</p>
+            <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3. Upload the file" : "2. Upload the file"}</p>
             <p className="mt-2 text-xs leading-5 text-secondary-600">CSV only, up to 2 MiB and 500 data rows.</p>
             <label
               className={`mt-4 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${isDragging ? "border-primary-400 bg-primary-100" : "border-primary-200 bg-primary-50/50 hover:border-primary-300 hover:bg-primary-50"} ${busy ? "cursor-not-allowed opacity-70" : ""}`}

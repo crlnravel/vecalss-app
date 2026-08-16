@@ -15,6 +15,7 @@ import {
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentBannerContent } from "@/lib/student/banner-content";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
 import {
@@ -37,10 +38,12 @@ const courseIcons = {
 const courseCategoryLabel = "TPA";
 
 function CourseCataloguePageModule({
+  banner,
   courses,
   progress,
   session,
 }: {
+  banner: StudentBannerContent;
   courses: Course[];
   progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
@@ -60,11 +63,10 @@ function CourseCataloguePageModule({
           />
           <div className="relative max-w-2xl">
             <h1 className="text-4xl leading-tight font-extrabold tracking-[-0.045em] md:text-5xl">
-              Materi
+              {banner.title}
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-7 text-[#e7f5eb] md:text-base">
-              Pilih subtes yang ingin dipelajari, lalu ikuti jalur materi secara
-              berurutan sampai selesai.
+              {banner.description}
             </p>
           </div>
         </header>

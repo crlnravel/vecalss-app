@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   ArrowsOut,
   CalendarBlank,
   Check,
@@ -16,7 +17,6 @@ import {
   ListChecks,
   LockKey,
   PaperPlaneTilt,
-  Play,
   SpinnerGap,
   UserCircle,
   Warning,
@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
 import {
   Dialog,
   DialogContent,
@@ -184,7 +185,7 @@ function ParticipantAttemptStatusScreen({
 
   return (
     <main className="min-h-svh bg-[#f7faf8] px-4 py-8 text-secondary-900 sm:px-6 lg:py-12">
-      <div className="mx-auto grid max-w-4xl gap-6">
+      <div className="mx-auto grid w-full max-w-[78rem] gap-8">
         <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_26px_80px_-46px_rgba(1,76,56,0.3)]">
           <div className="bg-[linear-gradient(120deg,#014c38_0%,#176b4d_68%,#2f8a5d_100%)] p-6 text-white sm:p-8">
             <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-4xl">{title}</h1>
@@ -232,24 +233,40 @@ function ParticipantAttemptStatusScreen({
             <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
           </section>
         ) : (
-          <div className="grid gap-3">
-              {runs.map((candidate) => {
-                const isNext = candidate.id === nextRun?.id;
-                const isComplete = ["sealed", "expired"].includes(candidate.status);
-                return (
-                  <article className="grid gap-4 rounded-[1.5rem] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.38)] sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
-                    <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>{isComplete ? <Check /> : candidate.sequenceNo}</span>
-                    <div>
-                      <h2 className="font-semibold">{candidate.section.title}</h2>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
-                        <span className="inline-flex items-center gap-1.5"><ListChecks aria-hidden="true" className="size-4 text-primary-700" />{candidate.section.questionCount} soal</span>
-                        <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4 text-primary-700" />{formatDuration(candidate.section.durationSeconds)}</span>
-                      </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {runs.map((candidate) => {
+              const isNext = candidate.id === nextRun?.id;
+              const isComplete = ["sealed", "expired"].includes(candidate.status);
+              return (
+                <article className={cn(studentCatalogueCardVariants({ variant: "kuis" }), "text-left")} key={candidate.id}>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
+                      {isComplete ? <Check aria-hidden="true" className="size-7 md:size-9" /> : <ListChecks aria-hidden="true" className="size-7 md:size-9" />}
+                    </span>
+                    <span className="rounded-full bg-primary-50 px-3 py-2 text-xs font-extrabold tracking-[0.1em] text-primary-800">Bagian {candidate.sequenceNo}</span>
+                  </div>
+
+                  <div className="mt-8">
+                    <h2 className="line-clamp-2 text-3xl leading-[0.98] font-extrabold tracking-[-0.035em] text-secondary-900 md:text-4xl">{candidate.section.title}</h2>
+                    <p className="mt-3 max-w-[30ch] text-sm leading-6 text-secondary-500">{isComplete ? "Bagian ini sudah selesai dan terkunci." : isNext ? "Siap dikerjakan." : "Menunggu bagian sebelumnya."}</p>
+                  </div>
+
+                  <div className="mt-auto flex items-end justify-between gap-4 pt-8">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-secondary-600">
+                      <span className="inline-flex items-center gap-1.5"><ListChecks aria-hidden="true" className="size-4" />{candidate.section.questionCount} soal</span>
+                      <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4" />{formatDuration(candidate.section.durationSeconds)}</span>
                     </div>
-                    {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
-                  </article>
-                );
-              })}
+                    {isNext ? (
+                      <Button aria-label={`Mulai bagian ${candidate.section.title}`} className="grid size-11 shrink-0 place-items-center rounded-full p-0" disabled={busy} onClick={() => onBegin(candidate.id)} size="icon" title={`Mulai bagian ${candidate.section.title}`} variant="brand">
+                        {busy ? <SpinnerGap className="animate-spin" /> : <ArrowUpRight aria-hidden="true" className="size-5" />}
+                      </Button>
+                    ) : (
+                      <span className="shrink-0 text-sm font-semibold text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>

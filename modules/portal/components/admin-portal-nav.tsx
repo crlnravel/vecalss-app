@@ -10,6 +10,7 @@ import {
   Image,
   LayoutDashboard,
   Users,
+  SlidersHorizontal,
 } from "@/lib/icons";
 
 import {
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs";
+type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners";
 
 type AdminNavigationItem = {
   href: string;
@@ -45,6 +46,10 @@ const adminOperationNavigation: AdminNavigationItem[] = [
 const adminDirectoryNavigation: AdminNavigationItem[] = [
   { href: "/admin/enrollment", icon: Users, id: "students", label: "Students" },
   { href: "/admin/kapten", icon: BookOpenCheck, id: "kapten", label: "Kapten" },
+];
+
+const adminContentNavigation: AdminNavigationItem[] = [
+  { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Student banners" },
 ];
 
 function AdminNavigationGroup({
@@ -108,6 +113,11 @@ function AdminPortalNav({
           activeSection={activeSection}
           items={adminDirectoryNavigation}
           label="Directories"
+        />
+        <AdminNavigationGroup
+          activeSection={activeSection}
+          items={adminContentNavigation}
+          label="Content"
         />
       </SidebarContent>
     </Sidebar>

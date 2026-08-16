@@ -17,6 +17,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { Input } from "@/components/ui/input";
 import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentBannerContent } from "@/lib/student/banner-content";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import {
@@ -57,9 +58,11 @@ function TryoutCardArtwork() {
 }
 
 function ParticipantTryoutWorkspace({
+  banner,
   initialTryouts,
   session,
 }: {
+  banner: StudentBannerContent;
   initialTryouts: ParticipantTryout[];
   session: SessionContext;
 }) {
@@ -132,11 +135,10 @@ function ParticipantTryoutWorkspace({
         </div>
         <div className="relative max-w-3xl lg:max-w-[60%]">
           <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
-            Tryout
+            {banner.title}
           </h1>
           <p className="mt-5 max-w-2xl text-sm leading-6 text-[#e7f5eb] sm:text-base sm:leading-7">
-            Pilih tryout sesuai kebutuhanmu, tetapkan target kampus, lalu mulai
-            mengerjakan. Semua progres akan tersimpan otomatis.
+            {banner.description}
           </p>
         </div>
       </section>

@@ -49,7 +49,7 @@ function CreateStudentForm({
         <HandoffDeliveryNotice state={state} />
       ) : null}
 
-      <div className="grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]">
+      <div className={embedded ? "grid gap-5 sm:grid-cols-2" : "grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]"}>
         <Field>
           <FieldLabel htmlFor="student-full-name">Student name</FieldLabel>
           <FieldInput

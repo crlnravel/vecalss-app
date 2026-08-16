@@ -45,6 +45,10 @@ import type {
   University,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import {
+  resolveStudentBannerText,
+  type StudentBannerContent,
+} from "@/lib/student/banner-content";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 
 const Bar = dynamic(() => import("recharts").then((module) => module.Bar));
@@ -151,14 +155,21 @@ function getExamDaysLeft(profile: DashboardProfile) {
 }
 
 function DashboardPageModule({
+  banner,
   profile,
   session,
 }: {
+  banner: StudentBannerContent;
   profile: DashboardProfile;
   session: SessionContext;
 }) {
   const firstName = getFirstName(session.user.fullName);
   const examDaysLeft = getExamDaysLeft(profile);
+  const target = [
+    profile.targetMajor?.name,
+    profile.targetUniversity?.shortName ?? profile.targetUniversity?.name,
+  ].filter(Boolean).join(" - ") || "target belajarmu";
+  const bannerVariables = { firstName, target };
 
   return (
     <StudentWorkspaceShell
@@ -186,10 +197,10 @@ function DashboardPageModule({
             <div className="grid gap-10">
               <div>
                 <CardTitle className="max-w-3xl text-4xl leading-[1.08] font-semibold text-secondary-900 md:text-5xl xl:text-6xl">
-                  Halo, {firstName}. Lanjutkan rute belajarmu.
+                  {resolveStudentBannerText(banner.title, bannerVariables)}
                 </CardTitle>
                 <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600 md:text-base">
-                  Semangat mengejar <span className="font-bold">Ilmu Komputer - UI </span>ya!
+                  {resolveStudentBannerText(banner.description, bannerVariables)}
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-3">

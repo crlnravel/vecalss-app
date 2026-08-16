@@ -15,6 +15,7 @@ import {
 } from "@/lib/icons";
 
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentBannerContent } from "@/lib/student/banner-content";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
@@ -33,9 +34,11 @@ const subjectIcons = {
 const subjectGroupOrder = ["TPS", "TPA"] as const;
 
 function QuizCataloguePageModule({
+  banner,
   session,
   subjects,
 }: {
+  banner: StudentBannerContent;
   session: SessionContext;
   subjects: QuizSubject[];
 }) {
@@ -65,11 +68,10 @@ function QuizCataloguePageModule({
           />
           <div className="relative z-10 max-w-[42rem]">
             <h1 className="text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
-              Kuis
+              {banner.title}
             </h1>
             <p className="mt-5 max-w-[48ch] text-sm leading-7 text-primary-100 md:text-base">
-              Temukan kuis berdasarkan mata pelajaran dan materi yang ingin kamu
-              pelajari.
+              {banner.description}
             </p>
           </div>
 
