@@ -17,15 +17,19 @@ import {
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Field,
   FieldInput,
@@ -315,7 +319,7 @@ function QuestionBankBuilderScreen({ actions, builderState, mode, session, state
         <TabsContent className="m-0" value="content"><section className="grid gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]"><div className="order-2"><div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div><Tabs className="mt-5 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}><TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList><TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent><TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent></Tabs></div><QuestionBankInventory activeQuestionId={state.activeQuestionId} builderState={builderState} inventoryPageCount={state.inventoryPageCount} onAddQuestion={actions.addQuestion} onNextPage={actions.onNextPage} onOpenQuestion={actions.onOpenQuestion} onPreviousPage={actions.onPreviousPage} onRemoveQuestion={actions.onRemoveQuestion} paginatedQuestions={state.paginatedQuestions} visibleInventoryPage={state.visibleInventoryPage} /></section></TabsContent>
       </Tabs>
       <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
-      <Dialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><DialogContent className="gap-5 border-red-100 bg-white p-6 sm:max-w-3xl" showCloseButton={false}><Alert className="border-red-200 bg-transparent text-secondary-900" variant="destructive"><CircleHelp className="text-red-700" /><AlertTitle><DialogTitle className="font-semibold text-secondary-900">{confirmation?.title}</DialogTitle></AlertTitle><AlertDescription className="mt-1 text-red-700"><DialogDescription className="whitespace-normal text-red-700 sm:whitespace-nowrap">{confirmation?.description}</DialogDescription></AlertDescription></Alert><DialogFooter><Button onClick={actions.closeConfirmation} type="button" variant="brandOutline">Batal</Button><Button className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25" onClick={actions.confirmPendingAction} type="button" variant="destructive">{confirmation?.confirmLabel}</Button></DialogFooter></DialogContent></Dialog>
+      <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </MentorWorkspaceShell>
   );
 }

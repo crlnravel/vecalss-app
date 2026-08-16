@@ -15,11 +15,16 @@ import {
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 import { saveQuizAnswerAction, submitQuizAction } from "./actions";
@@ -263,52 +268,22 @@ function QuizOngoingScreen({
 }: QuizOngoingScreenProps) {
   return (
     <div className="min-h-svh bg-white text-secondary-900">
-      <Dialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
-        <DialogContent
-          className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-3xl bg-white p-0 shadow-xl sm:max-w-md"
-          showCloseButton={false}
-        >
-          <div className="px-5 py-5">
-            <div className="min-w-0">
-              <div className="flex items-start justify-between gap-4">
-                <DialogTitle className="text-2xl leading-tight font-semibold text-secondary-900">
-                  Keluar dari Latihan?
-                </DialogTitle>
-                <button
-                  aria-label="Tutup modal"
-                  className="inline-flex size-8 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-secondary-50 hover:text-secondary-500"
-                  onClick={() => onExitDialogChange(false)}
-                  type="button"
-                >
-                  <span className="text-2xl leading-none">×</span>
-                </button>
-              </div>
-
-              <DialogDescription className="mt-2 text-base leading-[1.5] font-medium text-secondary-500">
-                Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
-                Sayang banget kan!🥲
-              </DialogDescription>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 border-t border-primary-100 bg-[#fbfbfb] px-5 py-4">
-            <button
-              className="inline-flex h-10 min-w-[96px] items-center justify-center rounded-full px-5 text-base font-semibold text-secondary-500 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
-              onClick={() => onExitDialogChange(false)}
-              type="button"
-            >
-              Batal
-            </button>
-            <button
-              className="inline-flex h-10 min-w-[132px] items-center justify-center rounded-full bg-student-status-danger-solid-bg px-5 text-base font-semibold text-student-status-danger-solid-fg transition-colors hover:bg-student-status-danger-solid-bg/90 focus-visible:ring-3 focus-visible:ring-student-status-danger-solid-bg/25"
-              onClick={() => onExit}
-              type="button"
-            >
-              Ya, Keluar
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
+        <AlertDialogContent variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia>
+            <AlertDialogTitle>Keluar dari Latihan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin mau keluar? Progres kamu di sesi ini bakal hilang lho.
+              Sayang banget kan!🥲
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Periksa lagi</AlertDialogCancel>
+            <AlertDialogAction onClick={onExit} variant="destructive">Ya, Keluar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid min-h-svh gap-0 lg:grid-cols-[288px_minmax(0,1fr)]">
         <aside className="flex flex-col border-b border-primary-100 bg-[#fcfdfc] lg:border-r lg:border-b-0">

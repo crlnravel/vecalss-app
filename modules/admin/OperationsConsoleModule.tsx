@@ -11,10 +11,8 @@ import {
   CircleAlert,
   Clock3,
   FileClock,
-  RefreshCw,
   ShieldCheck,
   UserPlus,
-  Users,
   X,
 } from "@/lib/icons";
 
@@ -24,7 +22,6 @@ import type { ExamEvent } from "@/generated/prisma/client";
 import type {
   AdminOperationsSnapshot,
   OperationsAttentionItem,
-  OperationsRecentImport,
 } from "@/lib/admin/operations";
 import {
   removeResolvedAttentionItems,
@@ -48,8 +45,6 @@ import { findVisibleFocusTarget, firstVisibleFocusTarget, isVisibleFocusTarget }
 import { HandoffDeliveryNotice } from "./components/handoff-delivery-notice";
 
 type OperationKey = "add-student" | "add-kapten" | "import-roster" | "exceptions";
-
-const SNAPSHOT_STALE_AFTER_MS = 5 * 60 * 1000;
 
 const operationLabels: Record<OperationKey, { detail: string; label: string }> = {
   "add-kapten": {
@@ -76,103 +71,6 @@ function formatDate(value: string) {
     timeStyle: "short",
     timeZone: "UTC",
   }).format(new Date(value));
-}
-
-type SnapshotStatus = "checking" | "fresh" | "stale" | "error";
-
-function getSnapshotAgeMs(value: string, now = Date.now()) {
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? Math.max(0, now - timestamp) : Number.POSITIVE_INFINITY;
-}
-
-function SnapshotStatusBar({
-  lastUpdatedAt,
-  refreshHref,
-}: {
-  lastUpdatedAt: string;
-  refreshHref: string;
-}) {
-  const [status, setStatus] = useState<SnapshotStatus>("checking");
-
-  useEffect(() => {
-    const checkAge = () => {
-      const age = getSnapshotAgeMs(lastUpdatedAt);
-      setStatus(
-        age === Number.POSITIVE_INFINITY
-          ? "error"
-          : age >= SNAPSHOT_STALE_AFTER_MS
-            ? "stale"
-            : "fresh",
-      );
-    };
-
-    checkAge();
-    const interval = window.setInterval(checkAge, 30_000);
-    return () => window.clearInterval(interval);
-  }, [lastUpdatedAt]);
-
-  const timestamp = Number.isFinite(Date.parse(lastUpdatedAt))
-    ? `Last read ${formatDate(lastUpdatedAt)} UTC`
-    : "Last read unavailable";
-  const statusLabel = status === "stale"
-    ? "Snapshot stale"
-    : status === "error"
-      ? "Snapshot time unavailable"
-      : status === "checking"
-        ? "Checking snapshot"
-        : "Snapshot current";
-  const statusClassName = status === "stale"
-    ? ADMIN_STATUS_CLASS_NAMES.warning
-    : status === "error"
-      ? ADMIN_STATUS_CLASS_NAMES.danger
-      : "border-white/15 bg-white/[0.08] text-primary-100";
-  const dotClassName = status === "stale"
-    ? "bg-student-status-attention-solid-bg"
-    : status === "error"
-      ? "bg-student-status-danger-solid-bg"
-      : "bg-primary-300";
-
-  return (
-    <div aria-live="polite" className={`flex flex-wrap items-center justify-end gap-x-2 gap-y-1 rounded-xl border px-3 py-2 text-xs ${statusClassName}`}>
-      <span aria-hidden="true" className={`size-2 rounded-full ${dotClassName}`} />
-      <span className="font-semibold">{statusLabel}</span>
-      <span className="text-[0.72rem] opacity-85">{timestamp}</span>
-      {status === "stale" ? <span className="basis-full text-[0.72rem]">Refresh before acting on this queue.</span> : null}
-      {status === "error" ? <span className="basis-full text-[0.72rem]">Retry to recover the read timestamp.</span> : null}
-      <Link
-        aria-label="Refresh operations snapshot"
-        className="ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 font-semibold text-current hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-        href={refreshHref}
-      >
-        <RefreshCw size={14} />
-        Refresh
-      </Link>
-    </div>
-  );
-}
-
-function MetricCard({
-  accent,
-  detail,
-  label,
-  value,
-}: {
-  accent: "mint" | "pending" | "sun";
-  detail: string;
-  label: string;
-  value: number;
-}) {
-  return (
-    <article className="relative min-w-0 overflow-hidden rounded-3xl border border-white/15 bg-white/[0.075] px-3 py-4 sm:px-5">
-      <span
-        aria-hidden="true"
-        className={`absolute right-4 top-4 size-2.5 rounded-full ${accent === "sun" ? "bg-student-status-attention-solid-bg" : accent === "pending" ? "bg-student-status-attention-solid-bg" : "bg-primary-300"}`}
-      />
-      <p className="max-w-[16ch] break-words text-xs font-semibold uppercase tracking-[0.13em] text-primary-100">{label}</p>
-      <p className="mt-3 text-2xl font-semibold leading-none tracking-[-0.04em] text-white sm:text-3xl xl:text-4xl">{value.toLocaleString("en-US")}</p>
-      <p className="mt-1.5 break-words text-xs leading-5 text-primary-200">{detail}</p>
-    </article>
-  );
 }
 
 function OperationControl({
@@ -386,57 +284,13 @@ function MobileAttentionQueue({
   );
 }
 
-function importStatusClassName(status: string) {
-  if (status === "completed") {
-    return ADMIN_STATUS_FILL_CLASS_NAMES.success;
-  }
-
-  if (status === "queued" || status === "processing") {
-    return "bg-student-status-success-bg text-student-status-success-fg";
-  }
-
-  if (status === "failed" || status === "partial" || status === "draft") {
-    return ADMIN_STATUS_FILL_CLASS_NAMES.warning;
-  }
-
-  return ADMIN_STATUS_FILL_CLASS_NAMES.neutral;
-}
-
-function RecentImportsLedger({ recentImports }: { recentImports: OperationsRecentImport[] }) {
-  return (
-    <div className="mt-6 border-t border-primary-200 pt-5">
-      <h3 className="text-base font-semibold text-secondary-900">Recent imports</h3>
-      {recentImports.length === 0 ? (
-        <p className="mt-3 rounded-3xl border border-dashed border-primary-200 bg-white/65 px-4 py-4 text-sm leading-6 text-secondary-600">No roster imports have been recorded yet.</p>
-      ) : (
-        <ol className="mt-3 divide-y divide-primary-200">
-          {recentImports.map((item) => (
-            <li key={item.id}>
-              <Link className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0 focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={item.href}>
-                <FileClock aria-hidden="true" className="mt-0.5 shrink-0 text-primary-800" size={16} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-secondary-900">{item.sourceFilename}</span>
-                  <span className="mt-1 block truncate text-xs leading-5 text-secondary-600">{item.role === "kapten" ? "Kapten" : "Students"} · {item.rowCount} rows · Updated {formatDate(item.updatedAt)} UTC</span>
-                </span>
-                <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${importStatusClassName(item.status)}`}>{item.statusLabel}</span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
 function ActivityPanel({
   audits,
-  recentImports,
 }: {
   audits: AdminOperationsSnapshot["audits"];
-  recentImports: OperationsRecentImport[];
 }) {
   return (
-    <section className="rounded-4xl border border-primary-100 bg-primary-50 p-5 sm:p-6">
+    <section>
       <div className="flex items-start justify-between gap-4">
         <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Recent activity</h2>
         <ShieldCheck aria-hidden="true" className="text-primary-600" size={20} />
@@ -445,7 +299,7 @@ function ActivityPanel({
         <p className="mt-5 rounded-3xl border border-primary-200 bg-white/65 px-4 py-5 text-sm leading-6 text-secondary-600">No audit activity has been recorded yet.</p>
       ) : (
         <ol className="mt-4 space-y-3">
-          {audits.map((audit) => (
+          {audits.slice(0, 10).map((audit) => (
             <li className="flex gap-3" key={audit.id}>
               <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-primary-600" />
               <div className="min-w-0">
@@ -456,7 +310,12 @@ function ActivityPanel({
           ))}
         </ol>
       )}
-      <RecentImportsLedger recentImports={recentImports} />
+      <div className="mt-5 flex justify-center">
+        <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/audit-logs">
+          See more
+          <ArrowUpRight aria-hidden="true" size={16} />
+        </Link>
+      </div>
     </section>
   );
 }
@@ -536,7 +395,7 @@ function HandoffAttentionAction({
             <input className="mt-1" name="confirmation" required type="checkbox" value={isAwaitingAcknowledgement ? "acknowledge" : "reissue"} />
             <span>{isAwaitingAcknowledgement ? "I confirm this handoff was delivered." : "I understand the current handoff will be revoked."}</span>
           </label>
-          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brand">
+          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant={isAwaitingAcknowledgement ? "brand" : "destructive"}>
             {pending ? "Saving…" : isAwaitingAcknowledgement ? "Acknowledge handoff" : "Reissue handoff"}
           </Button>
         </form>
@@ -623,7 +482,7 @@ function ImportAttentionAction({
           <input className="mt-1" name="confirmation" required type="checkbox" value="confirm" />
           <span>{isDraft ? "I understand this draft will be cancelled." : "I understand the failed rows will be queued again."}</span>
         </label>
-        <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brand">
+        <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant={isDraft ? "destructive" : "brand"}>
           {pending ? "Updating…" : actionLabel}
         </Button>
       </form>
@@ -699,16 +558,14 @@ function OperationDetailSheet({
 
 function OperationsConsoleModule({
   examEvents,
-  refreshHref,
-  selectedOperation: initialOperation = "exceptions",
+  selectedOperation: initialOperation,
   snapshot,
 }: {
   examEvents: ExamEvent[];
-  refreshHref: string;
   selectedOperation?: OperationKey;
   snapshot: AdminOperationsSnapshot;
 }) {
-  const [selectedOperation, setSelectedOperation] = useState<OperationKey>(initialOperation);
+  const [selectedOperation, setSelectedOperation] = useState<OperationKey | null>(initialOperation ?? null);
   const [selectedItem, setSelectedItem] = useState<OperationsAttentionItem | null>(null);
   const [resolvedAttentionState, setResolvedAttentionState] = useState<{ ids: Set<string>; snapshotAt: string }>(() => ({ ids: new Set(), snapshotAt: snapshot.lastUpdatedAt }));
   const [reissuedAttentionState, setReissuedAttentionState] = useState<{ replacements: Map<string, string>; snapshotAt: string }>(() => ({ replacements: new Map(), snapshotAt: snapshot.lastUpdatedAt }));
@@ -757,10 +614,10 @@ function OperationsConsoleModule({
       : current);
   }
 
-  function selectOperation(nextOperation: OperationKey) {
+  function selectOperation(nextOperation: OperationKey | null) {
     setSelectedOperation(nextOperation);
     const params = new URLSearchParams(window.location.search);
-    if (nextOperation === "exceptions") {
+    if (nextOperation === null || nextOperation === "exceptions") {
       params.delete("operation");
     } else {
       params.set("operation", nextOperation);
@@ -769,10 +626,6 @@ function OperationsConsoleModule({
     window.history.replaceState(null, "", query ? `/admin?${query}` : "/admin");
   }
 
-  const operationHeading = operationLabels[selectedOperation];
-  const currentRefreshHref = selectedOperation === "exceptions"
-    ? "/admin"
-    : `/admin?operation=${selectedOperation}`;
   const resolvedAttentionIds = resolvedAttentionState.snapshotAt === snapshot.lastUpdatedAt
     ? resolvedAttentionState.ids
     : new Set<string>();
@@ -795,36 +648,10 @@ function OperationsConsoleModule({
 
   return (
     <div className="space-y-6">
-      <p aria-live="polite" className="sr-only" data-attention-queue-announcement="true">{attentionQueueAnnouncement}</p>
-      <section className="overflow-hidden rounded-5xl bg-primary-700 p-5 shadow-[0_28px_68px_-44px_rgba(1,76,56,0.72)] sm:p-6 lg:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-[50ch]">
-            <h1 className="text-3xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-4xl">
-              Enrollment at a glance.
-            </h1>
-            <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-primary-200">
-              <span aria-hidden="true" className="size-2 rounded-full bg-primary-300" /> Live PostgreSQL snapshot
-            </div>
-            <p className="mt-3 max-w-[44ch] text-sm leading-6 text-primary-100">
-              Monitor enrollment and resolve the next exception.
-            </p>
-          </div>
-          <SnapshotStatusBar lastUpdatedAt={snapshot.lastUpdatedAt} refreshHref={currentRefreshHref || refreshHref} />
-        </div>
-        <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
-          <MetricCard accent="mint" detail="Active student roles" label="Active students" value={snapshot.counts.activeStudents} />
-          <MetricCard accent="mint" detail="Active Kapten roles" label="Active Kapten" value={snapshot.counts.activeKapten} />
-          <MetricCard accent="pending" detail="Pending credential handoffs" label="Awaiting handoff" value={snapshot.counts.awaitingHandoff} />
-          <MetricCard accent="sun" detail="Draft or failed imports" label="Imports needing review" value={snapshot.counts.importsNeedingReview} />
-        </div>
-      </section>
-
+      {selectedOperation === "exceptions" ? <p aria-live="polite" className="sr-only" data-attention-queue-announcement="true">{attentionQueueAnnouncement}</p> : null}
       <section>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Quick actions</h2>
-          </div>
-          <p className="text-xs leading-5 text-secondary-600">Selected: <span className="font-semibold text-secondary-900">{operationHeading.label}</span></p>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Quick actions</h2>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <OperationControl active={selectedOperation === "add-student"} icon={UserPlus} onSelect={() => selectOperation("add-student")} operation="add-student" />
@@ -840,7 +667,7 @@ function OperationsConsoleModule({
             <div>
               <h2 className="text-xl font-semibold text-secondary-900" id="operation-student-heading">Add student</h2>
             </div>
-            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation("exceptions")} type="button"><X size={17} /></button>
+            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation(null)} type="button"><X size={17} /></button>
           </div>
           <CreateStudentForm examEvents={examEvents} />
         </section>
@@ -852,7 +679,7 @@ function OperationsConsoleModule({
             <div>
               <h2 className="text-xl font-semibold text-secondary-900" id="operation-kapten-heading">Add Kapten</h2>
             </div>
-            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation("exceptions")} type="button"><X size={17} /></button>
+            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation(null)} type="button"><X size={17} /></button>
           </div>
           <CreateKaptenForm />
         </section>
@@ -877,25 +704,7 @@ function OperationsConsoleModule({
         </>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
-        <div className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Directories</h2>
-            </div>
-            <span className="text-xs text-secondary-600">Search and manage accounts</span>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Link className="flex min-h-16 items-center justify-between rounded-3xl border border-primary-100 bg-secondary-50 px-4 text-sm font-semibold text-secondary-900 hover:border-primary-200 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/enrollment">
-              Students <span className="grid size-9 place-items-center rounded-xl bg-white text-primary-800"><Users size={17} /></span>
-            </Link>
-            <Link className="flex min-h-16 items-center justify-between rounded-3xl border border-primary-100 bg-secondary-50 px-4 text-sm font-semibold text-secondary-900 hover:border-primary-200 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/kapten">
-              Kapten <span className="grid size-9 place-items-center rounded-xl bg-white text-primary-800"><Users size={17} /></span>
-            </Link>
-          </div>
-        </div>
-        <ActivityPanel audits={snapshot.audits} recentImports={snapshot.recentImports} />
-      </div>
+      <ActivityPanel audits={snapshot.audits} />
 
       <OperationDetailSheet item={selectedItem} onClose={() => setSelectedItem(null)} onReissued={reconcileReissuedHandoff} onResolved={resolveAttention} />
     </div>

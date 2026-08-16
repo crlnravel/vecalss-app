@@ -754,7 +754,7 @@ function MateriSubjectCatalogueScreen({
           onOpenChange={actions.onCloseBulkDialog}
           open={Boolean(bulkIntent)}
         >
-          <DialogContent showCloseButton={!isBulkPending}>
+          <DialogContent pending={isBulkPending} showCloseButton={!isBulkPending} variant="info">
             <DialogHeader>
               <DialogTitle>{confirmation.title}</DialogTitle>
               <DialogDescription>{confirmation.description}</DialogDescription>

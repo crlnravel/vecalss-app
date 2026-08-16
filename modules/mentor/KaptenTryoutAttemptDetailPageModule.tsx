@@ -181,7 +181,7 @@ function KaptenTryoutAttemptDetailPageModule({
         }}
         open={Boolean(voidRunId)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent variant="danger">
           <AlertDialogHeader>
             <AlertDialogTitle>Void run CAT?</AlertDialogTitle>
             <AlertDialogDescription>

@@ -251,7 +251,7 @@ function KaptenTryoutParticipantDetailPageModule({
         }}
         open={Boolean(confirmation)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent variant="danger">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmation?.kind === "reject"

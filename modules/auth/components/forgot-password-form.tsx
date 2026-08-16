@@ -14,9 +14,11 @@ import { SubmitButton } from "./submit-button";
 function ForgotPasswordForm({
   audience,
   backHref,
+  defaultEmail,
 }: {
   audience: LoginAudience;
   backHref: string;
+  defaultEmail?: string;
 }) {
   const [state, formAction] = useActionState(forgotPasswordAction, EMPTY_FORM_STATE);
 
@@ -41,7 +43,7 @@ function ForgotPasswordForm({
         <FieldLabel htmlFor="forgot-email">Account email</FieldLabel>
         <FieldInput
           autoComplete="email"
-          defaultValue={state.fields?.email ?? ""}
+          defaultValue={state.fields?.email ?? defaultEmail ?? ""}
           id="forgot-email"
           name="email"
           placeholder={

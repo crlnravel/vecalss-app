@@ -15,11 +15,11 @@ export const metadata: Metadata = {
 
 const operationKeys: OperationKey[] = ["add-student", "add-kapten", "import-roster", "exceptions"];
 
-function readOperation(value: string | string[] | undefined): OperationKey {
+function readOperation(value: string | string[] | undefined): OperationKey | undefined {
   const candidate = Array.isArray(value) ? value[0] : value;
   return candidate && operationKeys.includes(candidate as OperationKey)
     ? candidate as OperationKey
-    : "exceptions";
+    : undefined;
 }
 
 export default async function AdminHomePage({
@@ -38,23 +38,16 @@ export default async function AdminHomePage({
     }),
   ]);
 
-  const refreshQuery = new URLSearchParams();
-  if (operation !== "exceptions") {
-    refreshQuery.set("operation", operation);
-  }
-  const refreshHref = refreshQuery.toString() ? `/admin?${refreshQuery.toString()}` : "/admin";
-
   return (
     <PortalShell
       activeAdminSection="overview"
       audience="admin"
-      description="Enrollment, handoffs, and imports at a glance."
+      description="Quick actions and recent activity."
       session={session}
       title="Dashboard"
     >
       <OperationsConsoleModule
         examEvents={examEvents}
-        refreshHref={refreshHref}
         selectedOperation={operation}
         snapshot={snapshot}
       />

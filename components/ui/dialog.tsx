@@ -6,6 +6,7 @@ import { XIcon } from "@/lib/icons";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { modalVariantClasses, type ModalVariant } from "@/components/ui/modal-variants";
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -31,7 +32,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/30 duration-100 supports-backdrop-filter:backdrop-blur-sm data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0",
+        "fixed inset-0 isolate z-50 bg-secondary-900/35 duration-150 supports-backdrop-filter:backdrop-blur-sm data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0",
         className,
       )}
       {...props}
@@ -42,24 +43,31 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  pending = false,
   showCloseButton = true,
+  variant = "default",
   ...props
 }: DialogPrimitive.Popup.Props & {
+  pending?: boolean;
   showCloseButton?: boolean;
+  variant?: ModalVariant;
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        aria-busy={pending || undefined}
+        data-variant={variant}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-5xl bg-popover p-6 text-ui-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 duration-100 outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 sm:max-w-md dark:ring-foreground/10",
+          "fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100svh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-y-auto rounded-5xl border bg-popover p-6 text-ui-sm text-popover-foreground shadow-[0_24px_80px_-36px_rgba(1,76,56,0.38)] ring-1 ring-foreground/5 duration-150 outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 sm:max-w-md dark:ring-foreground/10",
+          modalVariantClasses[variant],
           className,
         )}
         {...props}
       >
         {children}
-        {showCloseButton && (
+        {showCloseButton && !pending && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
@@ -83,7 +91,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-1.5", className)}
+      className={cn("flex flex-col gap-2", className)}
       {...props}
     />
   );
@@ -108,7 +116,7 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
+        <DialogPrimitive.Close render={<Button variant="brandOutline" />}>
           Tutup
         </DialogPrimitive.Close>
       )}
@@ -120,7 +128,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-heading text-ui-title leading-none", className)}
+      className={cn("font-heading text-ui-title leading-tight", className)}
       {...props}
     />
   );
@@ -134,7 +142,7 @@ function DialogDescription({
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        "text-ui-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "text-ui-sm leading-6 text-secondary-600 *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
         className,
       )}
       {...props}

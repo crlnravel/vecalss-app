@@ -2,7 +2,6 @@ import { ExternalLink } from "@/lib/icons";
 import type { ReactNode } from "react";
 
 import type { MateriDocument } from "@/lib/materi/contract";
-import { StudentBadge } from "@/components/ui/student-badge";
 
 import { StudentPdfPreview } from "./StudentPdfPreview";
 
@@ -121,7 +120,7 @@ function MateriLessonPresentation({
   const videoUrls = getVideoUrls(videoUrl ?? "");
   const isDocumentMode = document !== undefined;
   const subjectDetails = isDocumentMode
-    ? `Materi ${subject} · Bacaan PDF`
+    ? null
     : showDuration && duration
       ? `Materi ${subject} · ${duration}`
       : `Materi ${subject}`;
@@ -144,25 +143,17 @@ function MateriLessonPresentation({
             Bagian{position === undefined ? "" : ` ${position + 1}`}
           </p>
         ) : null}
-        <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[#121a29] text-balance md:text-4xl lg:text-[2.8rem]`}>
+        <h1 className={`${showSectionLabel ? "mt-2" : ""} max-w-[32ch] text-3xl leading-tight font-extrabold tracking-[-0.045em] text-[#121a29] text-balance md:text-4xl lg:text-[2.25rem]`}>
           {title.trim() || "Materi tanpa judul"}
         </h1>
-        <p className="mt-2 text-base text-[#66766e] md:text-lg">{subjectDetails}</p>
+        {subjectDetails ? <p className="mt-2 text-base text-[#66766e] md:text-lg">{subjectDetails}</p> : null}
       </header>
 
       {isDocumentMode ? (
         <section aria-label="Dokumen Materi" className="mt-7 space-y-3 md:mt-9">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold tracking-[0.14em] text-[#698078] uppercase">Bacaan utama</p>
-              <p className="mt-1 text-sm font-semibold text-[#285641]">{document?.originalName?.trim() || "Dokumen Materi"}</p>
-            </div>
-            <StudentBadge tone="category">
-              PDF
-            </StudentBadge>
-          </div>
           {managedDocumentPreview ?? (
             <StudentPdfPreview
+              actions={action}
               document={document ?? null}
               documentDeliveryUrl={documentDeliveryUrl}
               title={title}
@@ -184,8 +175,8 @@ function MateriLessonPresentation({
 
       {isDocumentMode ? <MateriVideoPreview title={title} videoUrls={videoUrls} /> : null}
 
-      {action ? (
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {!isDocumentMode && action ? (
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           {action}
           {providerLink}
         </div>

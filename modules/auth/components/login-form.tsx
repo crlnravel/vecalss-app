@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { LoginAudience } from "@/lib/auth/types";
 
-import { loginAdminAction, loginStudentAction, loginTutorAction } from "../actions";
+import { loginAction, loginAdminAction, loginTutorAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
@@ -27,13 +27,13 @@ function LoginForm({
   returnTo?: string | null;
   registerUrl: string;
 }) {
-  const loginAction = audience === "admin"
+  const selectedLoginAction = audience === "admin"
     ? loginAdminAction
     : audience === "tutor"
       ? loginTutorAction
-      : loginStudentAction;
+      : loginAction;
   const [state, formAction] = useActionState(
-    loginAction,
+    selectedLoginAction,
     EMPTY_FORM_STATE,
   );
   const forgotPasswordHref = audience === "admin"
@@ -73,7 +73,7 @@ function LoginForm({
               ? "admin@vecalss.id"
               : isTutorLogin
                 ? "kapten@vecalss.id"
-                : "student@vecalss.id"
+                : "email@vecalss.id"
           }
           required
           type="email"

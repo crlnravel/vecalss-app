@@ -39,6 +39,17 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -108,6 +119,8 @@ type UploadStatus = {
   progress: number;
   total: number;
 };
+
+type MediaMutation = "create-folder" | "rename" | "move" | "trash";
 
 const jakartaMonthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"] as const;
 
@@ -220,6 +233,7 @@ function MediaLibraryScreen({
   mediaLabel,
   moveRequest,
   moveTargetId,
+  mutationPending,
   newFolderName,
   notice,
   previewAsset,
@@ -243,6 +257,7 @@ function MediaLibraryScreen({
   mediaLabel: string;
   moveRequest: MoveRequest | null;
   moveTargetId: string;
+  mutationPending: MediaMutation | null;
   newFolderName: string;
   notice: string | null;
   previewAsset: MediaAssetDto | null;
@@ -256,6 +271,7 @@ function MediaLibraryScreen({
   viewState: { isDragging: boolean; isDrive: boolean; isLoading: boolean; isPicker: boolean };
 }) {
   const { isDragging, isDrive, isLoading, isPicker } = viewState;
+  const isMutationPending = (mutation: MediaMutation) => mutationPending === mutation;
   const renderItemMenu = (item: { id: string; kind: "asset" | "folder"; name: string; parentId: string | null }) => (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${item.name}`} size="icon-sm" variant="ghost" />}><MoreHorizontal /></DropdownMenuTrigger>
@@ -294,11 +310,11 @@ function MediaLibraryScreen({
           </div> : <Empty className="min-h-[22rem] border-0"><EmptyHeader><EmptyMedia variant="icon">{query ? <Search /> : <FileImage />}</EmptyMedia><EmptyTitle>{query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : "Folder ini masih kosong"}</EmptyTitle><EmptyDescription>{query ? "Coba nama file lain atau hapus pencarian." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}</EmptyDescription></EmptyHeader>{!query ? <EmptyContent><Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload {mediaLabel}</Button></EmptyContent> : null}</Empty>}
         </div>
       </div>
-      <Dialog onOpenChange={actions.setFolderDialogOpen} open={folderDialogOpen}><DialogContent><DialogHeader><DialogTitle>Folder baru</DialogTitle><DialogDescription>Buat folder di lokasi yang sedang dibuka.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="new-media-folder">Nama folder</FieldLabel><FieldInput autoFocus id="new-media-folder" onChange={(event) => actions.setNewFolderName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleCreateFolder(); }} value={newFolderName} /></Field><DialogFooter><Button onClick={() => actions.setFolderDialogOpen(false)} variant="brandOutline">Batal</Button><Button disabled={!newFolderName.trim()} onClick={() => void actions.handleCreateFolder()} variant="brand">Buat folder</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog onOpenChange={(open) => { if (!open) actions.setEditingItem(null); }} open={Boolean(editingItem)}><DialogContent><DialogHeader><DialogTitle>Ganti nama</DialogTitle><DialogDescription>Nama baru tidak mengubah lokasi file di R2.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="rename-media-item">Nama</FieldLabel><FieldInput autoFocus id="rename-media-item" onChange={(event) => actions.setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleRename(); }} value={editingName} /></Field><DialogFooter><Button onClick={() => actions.setEditingItem(null)} variant="brandOutline">Batal</Button><Button disabled={!editingName.trim()} onClick={() => void actions.handleRename()} variant="brand">Simpan</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog onOpenChange={(open) => { if (!open) actions.setMoveRequest(null); }} open={Boolean(moveRequest)}><DialogContent><DialogHeader><DialogTitle>Pindahkan item</DialogTitle><DialogDescription>Pilih folder tujuan untuk “{moveRequest?.name}”.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="move-media-item">Folder tujuan</FieldLabel><select aria-label="Folder tujuan" className={fieldControlClassName} id="move-media-item" onChange={(event) => actions.setMoveTargetId(event.target.value)} value={moveTargetId}><option value="">Root library</option>{moveTargetOptions}</select></Field><DialogFooter><Button onClick={() => actions.setMoveRequest(null)} variant="brandOutline">Batal</Button><Button onClick={() => void actions.handleMove()} variant="brand">Pindahkan</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog onOpenChange={(open) => { if (!open) actions.setTrashRequest(null); }} open={Boolean(trashRequest)}><DialogContent><DialogHeader><DialogTitle>Masukkan ke Sampah?</DialogTitle><DialogDescription>“{trashRequest?.name}” tidak akan muncul di library atau picker baru. Referensi Bank Soal yang sudah ada tetap dapat membacanya.</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => actions.setTrashRequest(null)} variant="brandOutline">Batal</Button><Button onClick={() => void actions.handleTrash()} variant="destructive"><Trash2 data-icon="inline-start" />Masukkan Sampah</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog onOpenChange={(open) => { if (!open) actions.setPreviewAsset(null); }} open={Boolean(previewAsset)}><DialogContent className="sm:max-w-4xl"><DialogHeader><DialogTitle>{previewAsset?.name}</DialogTitle><DialogDescription>{previewAsset ? `${formatMediaBytes(previewAsset.sizeBytes)} · ${previewAsset.mimeType} · diupload oleh ${previewAsset.uploadedBy}` : "Preview media"}</DialogDescription></DialogHeader><div className="flex min-h-64 items-center justify-center overflow-hidden rounded-3xl bg-primary-50/70">{previewAsset?.previewUrl && isPdfMimeType(previewAsset.mimeType) ? <div className="flex w-full flex-col gap-4 p-4"><iframe className="h-[60vh] min-h-96 w-full rounded-2xl border border-primary-100 bg-white" sandbox="" src={previewAsset.previewUrl} title={`Preview ${previewAsset.name}`} /><div className="flex flex-wrap items-center justify-center gap-2"><a className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 text-sm font-semibold text-primary-900 hover:bg-primary-50" href={previewAsset.previewUrl} rel="noreferrer" target="_blank"><FileText className="size-4" />Buka PDF</a><a className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800" download={previewAsset.name} href={previewAsset.previewUrl}>Download PDF</a></div></div> : previewAsset?.previewUrl ? <div className="relative min-h-64 w-full"><NextImage alt={previewAsset.name} className="object-contain" fill sizes="(min-width: 1024px) 60vw, 90vw" src={previewAsset.previewUrl} unoptimized /></div> : <div className="flex flex-col items-center gap-2 text-secondary-500"><ImageOff className="size-8" /><span>Preview belum tersedia</span></div>}</div>{isPicker && previewAsset ? <DialogFooter><Button onClick={() => actions.onSelect?.(previewAsset)} variant="brand">Pilih {isPdfMimeType(previewAsset.mimeType) ? "PDF" : "gambar"}</Button></DialogFooter> : null}</DialogContent></Dialog>
+      <Dialog onOpenChange={(open) => { if (open || !mutationPending) actions.setFolderDialogOpen(open); }} open={folderDialogOpen}><DialogContent pending={isMutationPending("create-folder")} showCloseButton={!isMutationPending("create-folder")} variant="default"><DialogHeader><DialogTitle>Folder baru</DialogTitle><DialogDescription>Buat folder di lokasi yang sedang dibuka.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="new-media-folder">Nama folder</FieldLabel><FieldInput autoFocus disabled={isMutationPending("create-folder")} id="new-media-folder" onChange={(event) => actions.setNewFolderName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleCreateFolder(); }} value={newFolderName} /></Field><DialogFooter><Button disabled={isMutationPending("create-folder")} onClick={() => actions.setFolderDialogOpen(false)} variant="brandOutline">Batal</Button><Button disabled={!newFolderName.trim() || isMutationPending("create-folder")} onClick={() => void actions.handleCreateFolder()} variant="brand">{isMutationPending("create-folder") ? "Menyimpan…" : "Buat folder"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setEditingItem(null); } }} open={Boolean(editingItem)}><DialogContent pending={isMutationPending("rename")} showCloseButton={!isMutationPending("rename")} variant="default"><DialogHeader><DialogTitle>Ganti nama</DialogTitle><DialogDescription>Nama baru tidak mengubah lokasi file di R2.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="rename-media-item">Nama</FieldLabel><FieldInput autoFocus disabled={isMutationPending("rename")} id="rename-media-item" onChange={(event) => actions.setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void actions.handleRename(); }} value={editingName} /></Field><DialogFooter><Button disabled={isMutationPending("rename")} onClick={() => actions.setEditingItem(null)} variant="brandOutline">Batal</Button><Button disabled={!editingName.trim() || isMutationPending("rename")} onClick={() => void actions.handleRename()} variant="brand">{isMutationPending("rename") ? "Menyimpan…" : "Simpan"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog onOpenChange={(open) => { if (open || !mutationPending) { if (!open) actions.setMoveRequest(null); } }} open={Boolean(moveRequest)}><DialogContent pending={isMutationPending("move")} showCloseButton={!isMutationPending("move")} variant="default"><DialogHeader><DialogTitle>Pindahkan item</DialogTitle><DialogDescription>Pilih folder tujuan untuk “{moveRequest?.name}”.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="move-media-item">Folder tujuan</FieldLabel><select aria-label="Folder tujuan" className={fieldControlClassName} disabled={isMutationPending("move")} id="move-media-item" onChange={(event) => actions.setMoveTargetId(event.target.value)} value={moveTargetId}><option value="">Root library</option>{moveTargetOptions}</select></Field><DialogFooter><Button disabled={isMutationPending("move")} onClick={() => actions.setMoveRequest(null)} variant="brandOutline">Batal</Button><Button disabled={isMutationPending("move")} onClick={() => void actions.handleMove()} variant="brand">{isMutationPending("move") ? "Memindahkan…" : "Pindahkan"}</Button></DialogFooter></DialogContent></Dialog>
+      <AlertDialog onOpenChange={(open) => { if ((open || !mutationPending) && !open) actions.setTrashRequest(null); }} open={Boolean(trashRequest)}><AlertDialogContent pending={isMutationPending("trash")} size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Masukkan ke Sampah?</AlertDialogTitle><AlertDialogDescription>“{trashRequest?.name}” tidak akan muncul di library atau picker baru. Referensi Bank Soal yang sudah ada tetap dapat membacanya.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={isMutationPending("trash")}>Batal</AlertDialogCancel><AlertDialogAction disabled={isMutationPending("trash")} onClick={() => void actions.handleTrash()} variant="destructive">{isMutationPending("trash") ? "Memproses…" : "Masukkan Sampah"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <Dialog onOpenChange={(open) => { if (!open) actions.setPreviewAsset(null); }} open={Boolean(previewAsset)}><DialogContent className="sm:max-w-4xl" variant="info"><DialogHeader><DialogTitle>{previewAsset?.name}</DialogTitle><DialogDescription>{previewAsset ? `${formatMediaBytes(previewAsset.sizeBytes)} · ${previewAsset.mimeType} · diupload oleh ${previewAsset.uploadedBy}` : "Preview media"}</DialogDescription></DialogHeader><div className="flex min-h-64 items-center justify-center overflow-hidden rounded-3xl bg-primary-50/70">{previewAsset?.previewUrl && isPdfMimeType(previewAsset.mimeType) ? <div className="flex w-full flex-col gap-4 p-4"><iframe className="h-[60vh] min-h-96 w-full rounded-2xl border border-primary-100 bg-white" sandbox="" src={previewAsset.previewUrl} title={`Preview ${previewAsset.name}`} /><div className="flex flex-wrap items-center justify-center gap-2"><a className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 text-sm font-semibold text-primary-900 hover:bg-primary-50" href={previewAsset.previewUrl} rel="noreferrer" target="_blank"><FileText className="size-4" />Buka PDF</a><a className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800" download={previewAsset.name} href={previewAsset.previewUrl}>Download PDF</a></div></div> : previewAsset?.previewUrl ? <div className="relative min-h-64 w-full"><NextImage alt={previewAsset.name} className="object-contain" fill sizes="(min-width: 1024px) 60vw, 90vw" src={previewAsset.previewUrl} unoptimized /></div> : <div className="flex flex-col items-center gap-2 text-secondary-500"><ImageOff className="size-8" /><span>Preview belum tersedia</span></div>}</div>{isPicker && previewAsset ? <DialogFooter><Button onClick={() => actions.onSelect?.(previewAsset)} variant="brand">Pilih {isPdfMimeType(previewAsset.mimeType) ? "PDF" : "gambar"}</Button></DialogFooter> : null}</DialogContent></Dialog>
     </section>
   );
 }
@@ -338,6 +354,7 @@ function MediaLibrary({
   const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null);
   const [moveTargetId, setMoveTargetId] = useState<string>("");
   const [trashRequest, setTrashRequest] = useState<TrashRequest | null>(null);
+  const [mutationPending, setMutationPending] = useState<MediaMutation | null>(null);
   const [previewAsset, setPreviewAsset] = useState<MediaAssetDto | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const latestLoadRequestId = useRef(0);
@@ -399,17 +416,25 @@ function MediaLibrary({
     setRefreshVersion((value) => value + 1);
   };
 
-  const runMutation = async (body: Record<string, unknown>, successMessage: string) => {
+  const runMutation = async (mutation: MediaMutation, body: Record<string, unknown>, successMessage: string) => {
+    if (mutationPending) return false;
+    setMutationPending(mutation);
     setError(null);
-    await postMediaAction(scope, body);
-    refreshLibrary(successMessage);
+    try {
+      await postMediaAction(scope, body);
+      refreshLibrary(successMessage);
+      return true;
+    } finally {
+      setMutationPending(null);
+    }
   };
 
   const handleCreateFolder = async () => {
     try {
-      await runMutation({ action: "create-folder", name: newFolderName, parentId: folderId }, "Folder baru dibuat.");
-      setFolderDialogOpen(false);
-      setNewFolderName("");
+      if (await runMutation("create-folder", { action: "create-folder", name: newFolderName, parentId: folderId }, "Folder baru dibuat.")) {
+        setFolderDialogOpen(false);
+        setNewFolderName("");
+      }
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Folder belum dapat dibuat.");
     }
@@ -418,15 +443,15 @@ function MediaLibrary({
   const handleRename = async () => {
     if (!editingItem) return;
     try {
-      await runMutation(
+      if (await runMutation(
+        "rename",
         {
           action: editingItem.kind === "asset" ? "rename-asset" : "rename-folder",
           [`${editingItem.kind}Id`]: editingItem.id,
           name: editingName,
         },
         "Nama diperbarui.",
-      );
-      setEditingItem(null);
+      )) setEditingItem(null);
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Nama belum dapat diperbarui.");
     }
@@ -435,15 +460,15 @@ function MediaLibrary({
   const handleMove = async () => {
     if (!moveRequest) return;
     try {
-      await runMutation(
+      if (await runMutation(
+        "move",
         {
           action: moveRequest.kind === "asset" ? "move-asset" : "move-folder",
           [`${moveRequest.kind}Id`]: moveRequest.id,
           [moveRequest.kind === "asset" ? "folderId" : "parentId"]: moveTargetId || null,
         },
         "Item dipindahkan.",
-      );
-      setMoveRequest(null);
+      )) setMoveRequest(null);
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dipindahkan.");
     }
@@ -452,14 +477,14 @@ function MediaLibrary({
   const handleTrash = async () => {
     if (!trashRequest) return;
     try {
-      await runMutation(
+      if (await runMutation(
+        "trash",
         {
           action: trashRequest.kind === "asset" ? "trash-asset" : "trash-folder",
           [`${trashRequest.kind}Id`]: trashRequest.id,
         },
         "Item dimasukkan ke Sampah.",
-      );
-      setTrashRequest(null);
+      )) setTrashRequest(null);
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dimasukkan ke Sampah.");
     }
@@ -585,6 +610,7 @@ function MediaLibrary({
     mediaLabel={mediaLabel}
     moveRequest={moveRequest}
     moveTargetId={moveTargetId}
+    mutationPending={mutationPending}
     newFolderName={newFolderName}
     notice={notice}
     previewAsset={previewAsset}
@@ -623,7 +649,7 @@ function MediaPickerDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl" variant="info">
         <DialogHeader><DialogTitle>{pickerTitle}</DialogTitle><DialogDescription>Pilih dari library Kapten atau upload {isPdfPicker ? "PDF baru" : "gambar baru"}.</DialogDescription></DialogHeader>
         <MediaLibrary allowedMimeTypes={allowedMimeTypes} onSelect={handleSelect} scope="kapten" selectedAssetId={selectedAssetId} variant="picker" />
       </DialogContent>

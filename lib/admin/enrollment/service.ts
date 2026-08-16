@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import {
   buildEnrollmentInviteUrl,
+  completeEnrollmentHandoffsForUser,
   createEnrollmentHandoff,
   releaseEnrollmentHandoff,
   revokeOpenEnrollmentHandoffs,
@@ -18,6 +19,7 @@ import {
   hashPassword,
   hashToken,
   normalizeEmail,
+  validatePassword,
 } from "@/lib/auth/crypto";
 
 const MAX_EMAIL_LENGTH = 254;
@@ -61,6 +63,17 @@ type StudentEnrollmentUpdateInput = {
   email: string;
   fullName: string;
   targetExamEventId?: string | null;
+  userId: string;
+};
+
+type DeleteStudentEnrollmentInput = {
+  actorUserId: string;
+  userId: string;
+};
+
+type ChangeStudentEnrollmentPasswordInput = {
+  actorUserId: string;
+  password: string;
   userId: string;
 };
 
@@ -508,6 +521,145 @@ async function updateKaptenEnrollment(input: KaptenEnrollmentUpdateInput) {
   }
 }
 
+async function deleteStudentEnrollment(input: DeleteStudentEnrollmentInput) {
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${input.userId}::uuid FOR UPDATE`;
+    await assertEnrollmentRole(tx, input.userId, "student");
+
+    const current = await tx.user.findUnique({
+      select: {
+        softDeletedAt: true,
+        status: true,
+      },
+      where: { id: input.userId },
+    });
+
+    if (
+      !current
+      || current.softDeletedAt !== null
+      || current.status === UserStatus.soft_deleted
+    ) {
+      throw new EnrollmentServiceError("not_found", "The student account could not be found.");
+    }
+
+    const now = new Date();
+
+    await tx.user.update({
+      data: {
+        passwordUpdatedAt: now,
+        softDeletedAt: now,
+        status: UserStatus.soft_deleted,
+      },
+      where: { id: input.userId },
+    });
+
+    await revokeOpenEnrollmentHandoffs(tx, input.userId, input.actorUserId);
+    await tx.authSession.updateMany({
+      data: {
+        revokedAt: now,
+        status: SessionStatus.revoked,
+      },
+      where: {
+        status: SessionStatus.active,
+        userId: input.userId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        action: "student_enrollment.deleted",
+        actorUserId: input.actorUserId,
+        metadata: {
+          method: "admin_delete",
+          role: "student",
+          userId: input.userId,
+        } as Prisma.InputJsonValue,
+        targetId: input.userId,
+        targetType: "user",
+      },
+    });
+  });
+}
+
+async function changeStudentEnrollmentPassword(input: ChangeStudentEnrollmentPasswordInput) {
+  const validationError = validatePassword(input.password);
+
+  if (validationError) {
+    throw new EnrollmentServiceError("invalid_field", validationError);
+  }
+
+  const passwordHash = await hashPassword(input.password);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${input.userId}::uuid FOR UPDATE`;
+    await assertEnrollmentRole(tx, input.userId, "student");
+
+    const current = await tx.user.findUnique({
+      select: {
+        softDeletedAt: true,
+        status: true,
+      },
+      where: { id: input.userId },
+    });
+
+    if (
+      !current
+      || current.softDeletedAt !== null
+      || current.status === UserStatus.soft_deleted
+    ) {
+      throw new EnrollmentServiceError("not_found", "The student account could not be found.");
+    }
+
+    const now = new Date();
+
+    await tx.user.update({
+      data: {
+        failedLoginCount: 0,
+        lockedUntil: null,
+        mustChangePassword: false,
+        passwordHash,
+        passwordUpdatedAt: now,
+        status: current.status === UserStatus.locked ? UserStatus.active : current.status,
+      },
+      where: { id: input.userId },
+    });
+
+    await tx.passwordResetToken.updateMany({
+      data: { usedAt: now },
+      where: {
+        usedAt: null,
+        userId: input.userId,
+      },
+    });
+
+    await completeEnrollmentHandoffsForUser(tx, input.userId, input.actorUserId);
+
+    await tx.authSession.updateMany({
+      data: {
+        revokedAt: now,
+        status: SessionStatus.revoked,
+      },
+      where: {
+        status: SessionStatus.active,
+        userId: input.userId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        action: "student_enrollment.password_changed",
+        actorUserId: input.actorUserId,
+        metadata: {
+          method: "admin_password_change",
+          userId: input.userId,
+        } as Prisma.InputJsonValue,
+        targetId: input.userId,
+        targetType: "user",
+      },
+    });
+  });
+}
+
 async function setEnrollmentStatus(input: SetEnrollmentStatusInput) {
   if (!input.confirmed) {
     throw new EnrollmentServiceError(
@@ -734,6 +886,8 @@ export {
   EnrollmentServiceError,
   createKaptenEnrollment,
   createStudentEnrollment,
+  changeStudentEnrollmentPassword,
+  deleteStudentEnrollment,
   setEnrollmentStatus,
   setEnrollmentStatusBulk,
   setKaptenEnrollmentStatus,
@@ -749,6 +903,8 @@ export type {
   EnrollmentStatusBulkResult,
   KaptenEnrollmentInput,
   KaptenEnrollmentUpdateInput,
+  DeleteStudentEnrollmentInput,
+  ChangeStudentEnrollmentPasswordInput,
   SetEnrollmentStatusInput,
   StudentEnrollmentInput,
   StudentEnrollmentUpdateInput,

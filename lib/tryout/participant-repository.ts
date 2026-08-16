@@ -24,6 +24,9 @@ type ParticipantTryoutAssignment = {
   availableUntil: Date;
   fullscreenPrompt: boolean;
   id: string;
+  isDefaultOpenRegistration: boolean;
+  isAvailableNow: boolean;
+  isExpired: boolean;
   name: string;
   rankingRule: string;
   resultReleasePolicy: string;
@@ -84,6 +87,7 @@ const tryoutInclude = {
       availableUntil: true,
       fullscreenPrompt: true,
       id: true,
+      isDefaultOpenRegistration: true,
       name: true,
       rankingRule: true,
       resultReleasePolicy: true,
@@ -119,6 +123,7 @@ function serializeTryout(
   studentId: string,
 ): ParticipantTryout {
   const admission = tryout.admissions[0];
+  const now = new Date();
   return {
     admissionMode: tryout.admissionMode,
     admissionStatus: admission?.status ?? null,
@@ -132,6 +137,11 @@ function serializeTryout(
         availableUntil: deliverySession.availableUntil,
         fullscreenPrompt: deliverySession.fullscreenPrompt,
         id: deliverySession.id,
+        isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
+        isAvailableNow:
+          deliverySession.availableFrom <= now &&
+          deliverySession.availableUntil > now,
+        isExpired: deliverySession.availableUntil <= now,
         name: deliverySession.name,
         rankingRule: deliverySession.rankingRule,
         resultReleasePolicy: deliverySession.resultReleasePolicy,
@@ -159,6 +169,11 @@ function serializeTryout(
       availableUntil: deliverySession.availableUntil,
       fullscreenPrompt: deliverySession.fullscreenPrompt,
       id: deliverySession.id,
+      isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
+      isAvailableNow:
+        deliverySession.availableFrom <= now &&
+        deliverySession.availableUntil > now,
+      isExpired: deliverySession.availableUntil <= now,
       name: deliverySession.name,
       rankingRule: deliverySession.rankingRule,
       resultReleasePolicy: deliverySession.resultReleasePolicy,

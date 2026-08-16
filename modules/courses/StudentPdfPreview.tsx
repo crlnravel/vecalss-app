@@ -2,6 +2,7 @@
 
 import { Download, ExternalLink, FileText, LoaderCircle, RefreshCw } from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   isValidHostedPdfUrl,
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 type DocumentPreviewState = "loading" | "ready" | "unavailable";
 
 type StudentPdfPreviewProps = {
+  actions?: ReactNode;
   className?: string;
   document: MateriDocument | null;
   documentDeliveryUrl?: string;
@@ -36,6 +38,7 @@ function isHttpDocumentUrl(value: unknown): value is string {
 }
 
 function StudentPdfPreview({
+  actions,
   className,
   document,
   documentDeliveryUrl,
@@ -167,24 +170,27 @@ function StudentPdfPreview({
       </div>
 
       {state === "ready" && previewUrl ? (
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div aria-label="Aksi dokumen PDF" className="flex flex-nowrap items-center justify-center gap-2" role="group">
           <a
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#c8dfd0] bg-white px-4 text-sm font-semibold text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+            aria-label="Buka PDF"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
             href={previewUrl}
             rel="noreferrer"
             target="_blank"
+            title="Buka PDF"
           >
-            <ExternalLink className="size-4" />
-            Buka PDF
+            <ExternalLink aria-hidden="true" className="size-5" />
           </a>
           <a
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#176b4d] px-4 text-sm font-semibold text-white hover:bg-[#0f563b] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+            aria-label="Download PDF"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#176b4d] text-white hover:bg-[#0f563b] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
             download={documentName}
             href={downloadUrl ?? previewUrl}
+            title="Download PDF"
           >
-            <Download className="size-4" />
-            Download PDF
+            <Download aria-hidden="true" className="size-5" />
           </a>
+          {actions}
         </div>
       ) : null}
 

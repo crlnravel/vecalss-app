@@ -21,15 +21,18 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -71,6 +74,7 @@ type ConfirmationRequest = {
   description: string;
   onConfirm: () => void;
   title: string;
+  variant: "danger" | "warning";
 };
 
 const emptyLocalQuestion: LocalQuestionForm = {
@@ -212,6 +216,7 @@ function createQuizBuilderActions({
         description: "Mengubah subject akan menghapus Question Bank dan semua soal yang sudah dipilih.",
         onConfirm: () => applySubject(nextSubjectCode, true),
         title: "Ubah subject quiz?",
+        variant: "danger",
       });
       return;
     }
@@ -239,6 +244,7 @@ function createQuizBuilderActions({
         description: "Mengganti Question Bank akan menghapus semua soal yang sudah dipilih, termasuk soal lokal.",
         onConfirm: () => applySourceBank(nextSourceBankId),
         title: "Ganti Question Bank?",
+        variant: "danger",
       });
       return;
     }
@@ -691,7 +697,7 @@ function QuizBuilderHeader({
               {state.isDraft ? (
                 <DropdownMenuItem disabled={Boolean(state.publishError)} onClick={actions.onPublish}><Upload />Terbitkan</DropdownMenuItem>
               ) : state.quizStatus === "published" ? (
-                <DropdownMenuItem onClick={() => actions.onSetConfirmationRequest({ confirmLabel: "Batalkan publikasi", description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.", onConfirm: actions.onUnpublish, title: "Batalkan publikasi quiz?" })}>Batalkan publikasi</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => actions.onSetConfirmationRequest({ confirmLabel: "Batalkan publikasi", description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.", onConfirm: actions.onUnpublish, title: "Batalkan publikasi quiz?", variant: "warning" })}>Batalkan publikasi</DropdownMenuItem>
               ) : null}
               {state.quizStatus !== "archived" ? <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("restore")}>Pulihkan</DropdownMenuItem>}
               <DropdownMenuSeparator />
@@ -913,12 +919,12 @@ function QuizBuilderConfirmationDialog({
   request: ConfirmationRequest | null;
 }) {
   return (
-    <Dialog onOpenChange={(isOpen) => { if (!isOpen) actions.onCloseConfirmation(); }} open={Boolean(request)}>
-      <DialogContent className="gap-5 border-red-100 bg-white p-6 sm:max-w-3xl" showCloseButton={false}>
-        <Alert className="border-red-200 bg-transparent text-secondary-900" variant="destructive"><CircleHelp className="text-red-700" /><AlertTitle><DialogTitle className="font-semibold text-secondary-900">{request?.title}</DialogTitle></AlertTitle><AlertDescription className="mt-1 text-red-700"><DialogDescription className="whitespace-normal text-red-700 sm:whitespace-nowrap">{request?.description}</DialogDescription></AlertDescription></Alert>
-        <DialogFooter><Button onClick={actions.onCloseConfirmation} type="button" variant="brandOutline">Batal</Button><Button className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25" onClick={actions.onConfirmPendingAction} type="button" variant="destructive">{request?.confirmLabel}</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <AlertDialog onOpenChange={(isOpen) => { if (!isOpen) actions.onCloseConfirmation(); }} open={Boolean(request)}>
+      <AlertDialogContent size="sm" variant={request?.variant ?? "danger"}>
+        <AlertDialogHeader><AlertDialogMedia variant={request?.variant ?? "danger"}><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{request?.title}</AlertDialogTitle><AlertDialogDescription>{request?.description}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel onClick={actions.onCloseConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.onConfirmPendingAction} variant={request?.variant === "warning" ? "brand" : "destructive"}>{request?.confirmLabel}</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

@@ -21,16 +21,6 @@ const ATTENTION_IMPORT_STATUSES = [
   EnrollmentImportStatus.failed,
 ] as const;
 
-const RECENT_IMPORT_STATUSES = [
-  EnrollmentImportStatus.draft,
-  EnrollmentImportStatus.queued,
-  EnrollmentImportStatus.processing,
-  EnrollmentImportStatus.completed,
-  EnrollmentImportStatus.partial,
-  EnrollmentImportStatus.failed,
-  EnrollmentImportStatus.cancelled,
-] as const;
-
 const ACTIVE_ROLE_ASSIGNMENT = {
   revokedAt: null,
 } as const;
@@ -59,18 +49,6 @@ type OperationsAuditItem = {
   occurredAt: string;
 };
 
-type OperationsRecentImport = {
-  createdAt: string;
-  href: string;
-  id: string;
-  rowCount: number;
-  role: OperationsRole;
-  sourceFilename: string;
-  status: string;
-  statusLabel: string;
-  updatedAt: string;
-};
-
 type AdminOperationsSnapshot = {
   counts: {
     activeKapten: number;
@@ -82,7 +60,6 @@ type AdminOperationsSnapshot = {
   attentionTotal: number;
   audits: OperationsAuditItem[];
   lastUpdatedAt: string;
-  recentImports: OperationsRecentImport[];
 };
 
 const AUDIT_LOG_PAGE_SIZE = 25;
@@ -181,7 +158,6 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
     importsNeedingReview,
     handoffs,
     imports,
-    recentImports,
     audits,
   ] = await Promise.all([
     prisma.$queryRaw<Array<{ snapshotAt: Date }>>(Prisma.sql`SELECT CURRENT_TIMESTAMP AS "snapshotAt"`),
@@ -267,20 +243,6 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
       take: 12,
       where: { status: { in: [...ATTENTION_IMPORT_STATUSES] } },
     }),
-    prisma.enrollmentImport.findMany({
-      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-      select: {
-        createdAt: true,
-        id: true,
-        role: true,
-        rowCount: true,
-        sourceFilename: true,
-        status: true,
-        updatedAt: true,
-      },
-      take: 8,
-      where: { status: { in: [...RECENT_IMPORT_STATUSES] } },
-    }),
     prisma.auditLog.findMany({
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: {
@@ -289,7 +251,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
         id: true,
         occurredAt: true,
       },
-      take: 8,
+      take: 10,
     }),
   ]);
 
@@ -353,17 +315,6 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
       importsNeedingReview,
     },
     lastUpdatedAt: snapshotAt.toISOString(),
-    recentImports: recentImports.map((item) => ({
-      createdAt: item.createdAt.toISOString(),
-      href: `/admin/imports?focus=${encodeURIComponent(item.id)}`,
-      id: item.id,
-      rowCount: item.rowCount,
-      role: item.role === "tutor" ? "kapten" : "student",
-      sourceFilename: item.sourceFilename,
-      status: item.status,
-      statusLabel: formatImportStatus(item.status),
-      updatedAt: item.updatedAt.toISOString(),
-    })),
   };
 }
 
@@ -504,7 +455,6 @@ async function getAdminDirectoryPage({
 export {
   ATTENTION_HANDOFF_STATUSES,
   ATTENTION_IMPORT_STATUSES,
-  RECENT_IMPORT_STATUSES,
   AUDIT_LOG_PAGE_SIZE,
   getAdminAuditLogPage,
   getAdminDirectoryPage,
@@ -518,6 +468,5 @@ export type {
   AdminOperationsSnapshot,
   OperationsAttentionItem,
   OperationsAuditItem,
-  OperationsRecentImport,
   OperationsRole,
 };

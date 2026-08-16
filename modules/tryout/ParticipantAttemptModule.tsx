@@ -587,24 +587,24 @@ function ParticipantAttemptScreen({
       </div>
 
       <Dialog onOpenChange={setPaletteOpen} open={paletteOpen}>
-        <DialogContent>
+        <DialogContent variant="info">
           <DialogHeader><DialogTitle>Daftar soal</DialogTitle><DialogDescription>Pilih nomor soal untuk berpindah.</DialogDescription></DialogHeader>
           <QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={(nextIndex) => { onIndexChange(nextIndex); setPaletteOpen(false); }} />
         </DialogContent>
       </Dialog>
 
-      <AlertDialog onOpenChange={setSubmitOpen} open={submitOpen}>
-        <AlertDialogContent>
+      <AlertDialog onOpenChange={(open) => { if (!busy) setSubmitOpen(open); }} open={submitOpen}>
+        <AlertDialogContent pending={busy} variant="warning">
           <AlertDialogHeader>
-            <AlertDialogMedia className="bg-student-status-attention-bg text-student-status-attention-fg"><Warning /></AlertDialogMedia>
+            <AlertDialogMedia variant="warning"><Warning /></AlertDialogMedia>
             <AlertDialogTitle>Kirim dan kunci bagian ini?</AlertDialogTitle>
             <AlertDialogDescription>
               Bagian yang dikirim tidak dapat dibuka lagi. Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum dijawab</strong> dan <strong className="text-secondary-900">{markedCount} soal ditandai</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant="brandOutline">Periksa lagi</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void submit()} variant="brand">Kirim bagian</AlertDialogAction>
+            <AlertDialogCancel disabled={busy} variant="brandOutline">Periksa lagi</AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Kirim bagian"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -55,11 +55,21 @@ import {
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { StudentBadge } from "@/components/ui/student-badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -1254,7 +1264,7 @@ function ContextWorkspace({
         </div>
       </WorkspacePanel>
 
-      <Dialog
+      <AlertDialog
         onOpenChange={(open) => {
           if (!open) {
             setPendingRemovalIds([]);
@@ -1262,32 +1272,32 @@ function ContextWorkspace({
         }}
         open={pendingRemovalIds.length > 0}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
+        <AlertDialogContent size="sm" variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia>
+            <AlertDialogTitle>
               {pendingRemovalIds.length === 1
                 ? "Hapus konteks ini?"
                 : `Hapus ${pendingRemovalIds.length} konteks?`}
-            </DialogTitle>
-            <DialogDescription>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
               Konteks akan dihapus dari perpustakaan dan dilepas dari sesi belajar
               yang menggunakannya.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
               onClick={() => setPendingRemovalIds([])}
-              variant="brandOutline"
             >
               Batal
-            </Button>
-            <Button onClick={confirmRemoval} variant="destructive">
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoval} variant="destructive">
               <Trash2 data-icon="inline-start" />
               Hapus konteks
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -1854,6 +1864,7 @@ function FullscreenArtifactDialog({
       <DialogContent
         className="inset-3 left-3 top-3 h-[calc(100svh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-[2rem] border border-primary-100 bg-white p-0 sm:max-w-none"
         showCloseButton={false}
+        variant="info"
       >
         <DialogHeader className="sr-only">
           <DialogTitle>{tool.outputTitle}</DialogTitle>
@@ -2026,6 +2037,7 @@ function AddContextDialog({
       <DialogContent
         className="flex h-[calc(100svh-1.5rem)] max-h-[720px] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden rounded-[1.5rem] border border-primary-200 bg-background p-0 shadow-[0_28px_72px_-38px_rgba(1,76,56,0.5)] sm:h-[calc(100svh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:rounded-[1.75rem] xl:max-w-[1120px]"
         showCloseButton={false}
+        variant="default"
       >
         <div className="flex min-h-24 shrink-0 items-center bg-background px-5 py-5 pr-16 md:min-h-28 md:px-8 md:py-6">
           <DialogHeader className="gap-1.5">

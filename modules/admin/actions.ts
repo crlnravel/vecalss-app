@@ -12,8 +12,10 @@ import {
 } from "@/lib/admin/handoffs/service";
 import { buildDirectoryQuery, parseDirectoryQuery, parseUuid } from "@/lib/admin/operations/validation";
 import {
+  changeStudentEnrollmentPassword,
   createKaptenEnrollment,
   createStudentEnrollment,
+  deleteStudentEnrollment,
   setKaptenEnrollmentStatus,
   setStudentEnrollmentStatus,
   setStudentEnrollmentStatusBulk,
@@ -25,6 +27,19 @@ import type { FormState } from "@/modules/auth/form-state";
 function readTextField(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function withFieldError(
+  fields: Record<string, string>,
+  message: string,
+  fieldErrors: Record<string, string>,
+): FormState {
+  return {
+    fieldErrors,
+    fields,
+    message,
+    status: "error",
+  };
 }
 
 function readOptionalId(formData: FormData, key: string) {
@@ -66,6 +81,10 @@ function readHandoffMethod(formData: FormData) {
 
 function isConfirmed(formData: FormData, expected: "deactivate" | "reactivate") {
   return readTextField(formData, "confirmation") === expected;
+}
+
+function isDeleteConfirmed(formData: FormData) {
+  return readTextField(formData, "confirmation") === "delete";
 }
 
 function isHandoffConfirmed(formData: FormData, expected: "acknowledge" | "reissue") {
@@ -333,15 +352,19 @@ async function updateStudentEnrollmentAction(formData: FormData) {
   const userId = readUuidField(formData, "userId");
   const returnPath = userId ? readStudentReturnPath(formData, userId) : null;
   const directoryQuery = readDirectoryQuery(formData);
-  const fullName = readTextField(formData, "fullName");
+  const providedFullName = readTextField(formData, "fullName");
+  const firstName = readTextField(formData, "firstName");
+  const lastName = readTextField(formData, "lastName");
+  const fullName = providedFullName || [firstName, lastName].filter(Boolean).join(" ");
   const email = readTextField(formData, "email");
   const targetExamEventId = readOptionalId(formData, "targetExamEventId");
+  const missingName = !providedFullName && !firstName;
 
   if (!userId) {
     redirect(buildEnrollmentRedirect({ error: "invalid-user", query: directoryQuery }));
   }
 
-  if (!fullName || !email) {
+  if (missingName || !fullName || !email) {
     redirect(
       buildEnrollmentRedirect({
         error: "missing-fields",
@@ -391,6 +414,71 @@ async function updateStudentEnrollmentAction(formData: FormData) {
       focus: returnPath ? undefined : userId,
       notice: "student-updated",
       path: returnPath ?? undefined,
+      query: directoryQuery,
+    }),
+  );
+}
+
+async function changeStudentEnrollmentPasswordAction(
+  _previousState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireAdminSession();
+  const userId = readUuidField(formData, "userId");
+  const returnPath = userId ? readStudentReturnPath(formData, userId) : null;
+  const directoryQuery = readDirectoryQuery(formData);
+  const password = readTextField(formData, "password");
+  const confirmPassword = readTextField(formData, "confirmPassword");
+
+  if (!userId) {
+    redirect(buildEnrollmentRedirect({ error: "invalid-user", query: directoryQuery }));
+  }
+
+  if (!password || !confirmPassword) {
+    return withFieldError(
+      {},
+      "Enter and confirm the new password.",
+      {
+        ...(password ? {} : { password: "New password is required." }),
+        ...(confirmPassword ? {} : { confirmPassword: "Confirm password is required." }),
+      },
+    );
+  }
+
+  if (password !== confirmPassword) {
+    return withFieldError(
+      {},
+      "The passwords do not match.",
+      { confirmPassword: "Passwords do not match." },
+    );
+  }
+
+  try {
+    await changeStudentEnrollmentPassword({
+      actorUserId: session.user.id,
+      password,
+      userId,
+    });
+  } catch (error) {
+    return {
+      message:
+        error instanceof Error
+          ? error.message
+          : "We're sorry, we couldn't update the student password. Please try again.",
+      status: "error",
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/enrollment");
+  if (returnPath) {
+    revalidatePath(returnPath);
+  }
+
+  redirect(
+    buildEnrollmentRedirect({
+      notice: "student-password-updated",
+      path: returnPath ?? `/admin/enrollment/${userId}`,
       query: directoryQuery,
     }),
   );
@@ -498,6 +586,35 @@ async function reactivateStudentEnrollmentAction(formData: FormData) {
       query: directoryQuery,
     }),
   );
+}
+
+async function deleteStudentEnrollmentAction(formData: FormData) {
+  const session = await requireAdminSession();
+  const userId = readUuidField(formData, "userId");
+  const directoryQuery = readDirectoryQuery(formData);
+
+  if (!userId) {
+    redirect(buildEnrollmentRedirect({ error: "invalid-user", query: directoryQuery }));
+  }
+
+  if (!isDeleteConfirmed(formData)) {
+    redirect(buildEnrollmentRedirect({ error: "delete-confirmation", path: "/admin/enrollment", query: directoryQuery }));
+  }
+
+  try {
+    await deleteStudentEnrollment({
+      actorUserId: session.user.id,
+      userId,
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    redirect(buildEnrollmentRedirect({ error: "delete-failed", path: "/admin/enrollment", query: directoryQuery }));
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/enrollment");
+
+  redirect(buildEnrollmentRedirect({ notice: "student-deleted", path: "/admin/enrollment", query: directoryQuery }));
 }
 
 async function bulkUpdateStudentEnrollmentStatusAction(formData: FormData) {
@@ -678,8 +795,10 @@ async function reissueEnrollmentHandoffAction(
 export {
   acknowledgeEnrollmentHandoffAction,
   bulkUpdateStudentEnrollmentStatusAction,
+  changeStudentEnrollmentPasswordAction,
   createKaptenEnrollmentAction,
   createStudentEnrollmentAction,
+  deleteStudentEnrollmentAction,
   deactivateKaptenEnrollmentAction,
   deactivateStudentEnrollmentAction,
   reactivateKaptenEnrollmentAction,

@@ -240,7 +240,7 @@ function KaptenTryoutSessionDetailPageModule({
         }}
         open={Boolean(confirmation)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent variant="info">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmation === "open" ? "Buka sesi?" : "Rilis hasil?"}

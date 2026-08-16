@@ -11,6 +11,9 @@ export default async function ForgotPasswordPage({
     : resolvedSearchParams.audience === "tutor"
       ? "tutor"
       : "student";
+  const defaultEmail = typeof resolvedSearchParams.email === "string"
+    ? resolvedSearchParams.email
+    : undefined;
 
-  return <ForgotPasswordPageModule audience={audience} />;
+  return <ForgotPasswordPageModule audience={audience} defaultEmail={defaultEmail} />;
 }

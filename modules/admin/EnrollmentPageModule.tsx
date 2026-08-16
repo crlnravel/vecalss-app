@@ -41,6 +41,7 @@ function statusTone(status: UserStatus): StudentStatusTone {
 
 const noticeMessages: Record<string, string> = {
   "student-deactivated": "Student access has been disabled and active sessions were revoked.",
+  "student-deleted": "Student account deleted.",
   "student-reactivated": "Student access has been restored.",
   "students-disabled": "Selected student access has been disabled and active sessions were revoked.",
   "students-reactivated": "Selected student access has been restored.",
@@ -52,6 +53,8 @@ const errorMessages: Record<string, string> = {
   "bulk-status-confirmation": "Confirm the bulk status change before continuing.",
   "bulk-status-failed": "We couldn't update the selected student accounts. Refresh the directory and try again.",
   "bulk-status-no-change": "None of the selected accounts can be changed in that direction. Refresh the directory and try again.",
+  "delete-confirmation": "Confirm that you want to delete this student account.",
+  "delete-failed": "We're sorry, we couldn't delete that student account. Please try again.",
   "invalid-directory-query": "That directory filter is invalid or too broad. The safe directory view has been restored.",
   "invalid-user": "That account identifier is invalid. Reload the directory and try again.",
   "missing-fields": "Please add the student's name and email before updating.",

@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { AlertTriangle, Bell, LayoutDashboard, LogOut, Settings, UserRound } from "@/lib/icons";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +37,23 @@ type AccountMenuAudience = "admin" | "student" | "tutor";
 const studentAccountMenuItemClassName =
   "hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50";
 
+function LogoutDialogFooter({ onPendingChange }: { onPendingChange: (pending: boolean) => void }) {
+  const { pending } = useFormStatus();
+
+  useEffect(() => {
+    onPendingChange(pending);
+  }, [onPendingChange, pending]);
+
+  return (
+    <AlertDialogFooter>
+      <AlertDialogCancel disabled={pending} type="button">Batal</AlertDialogCancel>
+      <AlertDialogAction disabled={pending} type="submit" variant="destructive">
+        {pending ? "Keluar…" : "Ya, keluar"}
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  );
+}
+
 function StudentAccountMenu({
   audience = "student",
   extraItem,
@@ -44,6 +65,7 @@ function StudentAccountMenu({
 }) {
   const initials = getInitials(session.user.fullName);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isTutor = audience === "tutor";
   const isAdmin = audience === "admin";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
@@ -124,43 +146,21 @@ function StudentAccountMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
-        <DialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-4xl bg-white p-0 sm:max-w-[440px]">
-          <div className="flex items-start gap-3 px-5 py-5 md:px-6 md:py-6">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700">
-              <AlertTriangle className="size-6" />
-            </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-xl font-semibold text-secondary-900">
-                Keluar dari akun?
-              </DialogTitle>
-              <DialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
-                Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : "belajar"} di dashboard.
-              </DialogDescription>
-            </div>
-          </div>
-
-          <DialogFooter className="flex-row justify-end border-t border-primary-100 bg-secondary-50/60 px-5 py-4 md:px-6">
-            <DialogClose
-              render={
-                <Button type="button" variant="ghost">
-                  Batal
-                </Button>
-              }
-            />
-            <form action={logoutAction}>
-              <input name="audience" type="hidden" value={audience} />
-              <Button
-                className="border-student-status-danger-solid-bg bg-student-status-danger-solid-bg text-student-status-danger-solid-fg hover:bg-student-status-danger-solid-bg/90 focus-visible:border-student-status-danger-solid-bg focus-visible:ring-student-status-danger-solid-bg/25"
-                type="submit"
-                variant="destructive"
-              >
-                Ya, keluar
-              </Button>
-            </form>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog onOpenChange={(open) => { if (!isLoggingOut) setIsLogoutDialogOpen(open); }} open={isLogoutDialogOpen}>
+        <AlertDialogContent pending={isLoggingOut} variant="warning">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
+            <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kamu perlu masuk kembali untuk melanjutkan {isAdmin ? "mengelola operasional" : isTutor ? "mengelola konten" : "belajar"} di dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form action={logoutAction}>
+            <input name="audience" type="hidden" value={audience} />
+            <LogoutDialogFooter onPendingChange={setIsLoggingOut} />
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

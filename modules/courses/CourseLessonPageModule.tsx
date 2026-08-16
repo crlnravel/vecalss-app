@@ -232,16 +232,27 @@ function LessonPlayer({
 
       <MateriLessonPresentation
         action={(
-          <Button
-          className="rounded-full border-[#d9e5de] bg-white px-5 text-[#285641] hover:bg-[#f3faf5]"
-          onClick={handleShare}
-          size="lg"
-          type="button"
-          variant="outline"
-        >
-          <Share2 data-icon="inline-start" />
-          Bagikan
-          </Button>
+          <>
+            <Button
+              aria-label="Bagikan"
+              className="size-12 rounded-xl border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5]"
+              onClick={handleShare}
+              size="icon-lg"
+              title="Bagikan"
+              type="button"
+              variant="outline"
+            >
+              <Share2 aria-hidden="true" className="size-5" />
+            </Button>
+            <Link
+              aria-label="Tanya Vera"
+              className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-[#b7ddc3] bg-white text-[#176b4d] outline-none transition hover:bg-[#f3faf5] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+              href="/vera-ai"
+              title="Tanya Vera"
+            >
+              <MessageCircle aria-hidden="true" className="size-5" />
+            </Link>
+          </>
         )}
         document={lesson.document}
         documentDeliveryUrl={getStudentDocumentDeliveryUrl(course.slug, lesson.id, lesson.document)}
@@ -257,7 +268,7 @@ function LessonPlayer({
         </p>
         <Button
           className={cn(
-            "mt-4 min-h-14 min-w-[min(100%,20rem)] rounded-[1.15rem] px-7 text-base font-extrabold",
+            "mt-4 min-h-16 w-full rounded-[1.15rem] px-7 text-base font-extrabold",
             isCompleted
               ? "bg-[#e6f4eb] text-[#176b4d] hover:bg-[#e6f4eb]"
               : "bg-[#176b4d] text-white hover:bg-[#0f563b]",
@@ -288,12 +299,6 @@ function LessonPlayer({
         ) : null}
       </section>
 
-      <Link
-        className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#b7ddc3] bg-white px-4 text-sm font-semibold text-[#176b4d] outline-none transition hover:bg-[#f3faf5] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 motion-reduce:transform-none"
-        href="/vera-ai"
-      >
-        <MessageCircle className="size-5" /> Tanya Vera
-      </Link>
     </article>
   );
 }

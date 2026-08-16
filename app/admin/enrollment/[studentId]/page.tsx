@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { EnrollmentHandoffStatus, Prisma, RoleName } from "@/generated/prisma/client";
+import { Prisma, RoleName } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
 import { buildDirectoryQuery, parseDirectoryQuery, parseUuid } from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
@@ -28,29 +28,16 @@ function safeBackHref(value: unknown) {
   return query ? `/admin/enrollment${query}` : "/admin/enrollment";
 }
 
-const studentInclude = {
-  enrollmentHandoffs: {
-    orderBy: { createdAt: "desc" },
-    select: {
-      expiresAt: true,
-      id: true,
-      method: true,
-      sourceImportRowId: true,
-      status: true,
-    },
-    take: 1,
-    where: {
-      status: {
-        in: [
-          EnrollmentHandoffStatus.pending,
-          EnrollmentHandoffStatus.released,
-          EnrollmentHandoffStatus.expired,
-        ],
-      },
-    },
-  },
+const studentSelect = {
+  createdAt: true,
+  email: true,
+  fullName: true,
+  id: true,
+  phone: true,
+  status: true,
   studentProfile: {
-    include: {
+    select: {
+      targetExamEventId: true,
       targetExamEvent: {
         select: {
           examDate: true,
@@ -58,7 +45,8 @@ const studentInclude = {
         },
       },
       targetMajor: {
-        include: {
+        select: {
+          name: true,
           university: {
             select: {
               name: true,
@@ -75,7 +63,7 @@ const studentInclude = {
       },
     },
   },
-} satisfies Prisma.UserInclude;
+} satisfies Prisma.UserSelect;
 
 export default async function StudentDetailPage({
   params,
@@ -110,7 +98,7 @@ export default async function StudentDetailPage({
       where: { isActive: true },
     }),
     prisma.user.findFirst({
-      include: studentInclude,
+      select: studentSelect,
       where: studentWhere,
     }),
   ]);

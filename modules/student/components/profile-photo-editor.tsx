@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -148,11 +149,12 @@ function ProfilePhotoEditor({ initials }: ProfilePhotoEditorProps) {
         }}
         open={isUploadDialogOpen}
       >
-        <DialogContent className="max-w-[32rem] border border-primary-100 bg-[#fbfffd] shadow-[0_24px_80px_-30px_rgba(1,76,56,0.45)]">
+        <DialogContent className="max-w-[32rem] border border-primary-100 bg-[#fbfffd] shadow-[0_24px_80px_-30px_rgba(1,76,56,0.45)]" variant="default">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-secondary-950">
               Unggah foto profil
             </DialogTitle>
+            <DialogDescription>Pilih gambar yang ingin digunakan sebagai foto profil.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">

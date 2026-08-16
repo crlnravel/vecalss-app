@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Archive, Ellipsis, FilePenLine, LibraryBig, Pencil, Plus, Trash2, Upload } from "@/lib/icons";
+import { Archive, CircleHelp, Ellipsis, FilePenLine, LibraryBig, Pencil, Plus, Trash2, Upload } from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
 import { CatalogueFilter, CatalogueSearchInput, PageIntro, PaginationControls, StatusPill } from "@/modules/mentor/components/kapten-ui";
@@ -34,6 +34,7 @@ function KaptenQuestionBankPageModule({ initialEntries, session }: { initialEntr
   const [page, setPage] = useState(1);
   const [pending, setPending] = useState<{ bank: KaptenQuestionBank; action: "publish" | "unpublish" | "archive" | "restore" | "delete" } | null>(null);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
   const banks = entries.map(({ bank }) => bank);
   const filtered = banks.filter((bank) => {
     const covered = coverage(entries, bank.id);
@@ -59,26 +60,33 @@ function KaptenQuestionBankPageModule({ initialEntries, session }: { initialEntr
   }
 
   async function apply() {
-    if (!pending) return;
+    if (!pending || isApplying) return;
+    setIsApplying(true);
     const { action, bank } = pending;
-    if (action === "delete") {
-      const result = await deleteQuestionBankAction(bank.id);
+    try {
+      if (action === "delete") {
+        const result = await deleteQuestionBankAction(bank.id);
+        if (!result.ok) { setLifecycleError(result.message); return; }
+        setEntries((current) => current.filter((entry) => entry.bank.id !== bank.id));
+        setLifecycleError(null); setPending(null);
+        return;
+      }
+      const result = await updateQuestionBankLifecycleAction(bank.id, action);
       if (!result.ok) { setLifecycleError(result.message); return; }
-      setEntries((current) => current.filter((entry) => entry.bank.id !== bank.id));
+      setEntries((current) => current.map((entry) => entry.bank.id === bank.id ? { ...entry, bank: { ...entry.bank, status: result.result.status } } : entry));
       setLifecycleError(null); setPending(null);
-      return;
+    } finally {
+      setIsApplying(false);
     }
-    const result = await updateQuestionBankLifecycleAction(bank.id, action);
-    if (!result.ok) { setLifecycleError(result.message); return; }
-    setEntries((current) => current.map((entry) => entry.bank.id === bank.id ? { ...entry, bank: { ...entry.bank, status: result.result.status } } : entry));
-    setLifecycleError(null); setPending(null);
   }
 
   const actionCopy = pending?.action === "delete" ? ["Hapus Bank Soal?", "Bank dan semua soalnya akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.", "Hapus permanen"]
     : pending?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan muncul sebagai sumber Quiz dan Tryout.", "Terbitkan"]
     : pending?.action === "unpublish" ? ["Kembalikan ke draf?", "Bank tidak lagi muncul sebagai sumber baru.", "Batalkan terbit"]
-      : pending?.action === "archive" ? ["Arsipkan bank?", "Bank hilang dari pencarian sumber, tanpa menghapus soalnya.", "Arsipkan"]
+        : pending?.action === "archive" ? ["Arsipkan bank?", "Bank hilang dari pencarian sumber, tanpa menghapus soalnya.", "Arsipkan"]
         : ["Pulihkan bank?", "Bank kembali sebagai draf dan perlu diterbitkan lagi.", "Pulihkan"];
+  const isDanger = pending?.action === "delete";
+  const dialogVariant = isDanger ? "danger" : pending?.action === "archive" ? "warning" : "info";
 
   return <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" searchPlaceholder="Cari bank soal..." session={session}>
     <div className="space-y-3">
@@ -117,7 +125,7 @@ function KaptenQuestionBankPageModule({ initialEntries, session }: { initialEntr
     </section>
     {filtered.length > 0 ? <PaginationControls onPageChange={setPage} page={visiblePage} pageCount={totalPages} /> : null}
     </div>
-    <Dialog onOpenChange={(open) => { if (!open) { setLifecycleError(null); setPending(null); } }} open={Boolean(pending)}><DialogContent><DialogHeader><DialogTitle>{actionCopy[0]}</DialogTitle><DialogDescription>{actionCopy[1]}</DialogDescription></DialogHeader>{lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{lifecycleError}</p> : null}<DialogFooter><Button onClick={() => { setLifecycleError(null); setPending(null); }} type="button" variant="brandOutline">Batal</Button><Button onClick={apply} type="button" variant="brand">{actionCopy[2]}</Button></DialogFooter></DialogContent></Dialog>
+    <AlertDialog onOpenChange={(open) => { if (!open && !isApplying) { setLifecycleError(null); setPending(null); } }} open={Boolean(pending)}><AlertDialogContent pending={isApplying} size="sm" variant={dialogVariant}><AlertDialogHeader><AlertDialogMedia variant={dialogVariant}><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{actionCopy[0]}</AlertDialogTitle><AlertDialogDescription>{actionCopy[1]}</AlertDialogDescription></AlertDialogHeader>{lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{lifecycleError}</p> : null}<AlertDialogFooter><AlertDialogCancel disabled={isApplying} onClick={() => { setLifecycleError(null); setPending(null); }}>Batal</AlertDialogCancel><AlertDialogAction disabled={isApplying} onClick={apply} variant={isDanger ? "destructive" : "brand"}>{isApplying ? "Memproses…" : actionCopy[2]}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </MentorWorkspaceShell>;
 }
 

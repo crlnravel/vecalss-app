@@ -30,7 +30,13 @@ function getForgotPasswordCopy(audience: LoginAudience) {
   };
 }
 
-function ForgotPasswordPageModule({ audience = "student" }: { audience?: LoginAudience }) {
+function ForgotPasswordPageModule({
+  audience = "student",
+  defaultEmail,
+}: {
+  audience?: LoginAudience;
+  defaultEmail?: string;
+}) {
   const copy = getForgotPasswordCopy(audience);
 
   return (
@@ -42,6 +48,7 @@ function ForgotPasswordPageModule({ audience = "student" }: { audience?: LoginAu
       <ForgotPasswordForm
         audience={audience}
         backHref={copy.backHref}
+        defaultEmail={defaultEmail}
       />
     </AuthShell>
   );

@@ -30,30 +30,23 @@ function AdminLoading() {
 
           <ScrollArea className="h-[calc(100svh-4rem)]">
             <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
-              <section className="overflow-hidden rounded-5xl bg-primary-700 p-5 shadow-[0_28px_68px_-44px_rgba(1,76,56,0.72)] sm:p-6 lg:p-7">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="max-w-[50ch]">
-                    <LoadingBlock className="h-10 w-64 bg-primary-600 sm:h-12 sm:w-80" />
-                    <LoadingBlock className="mt-4 h-3 w-40 bg-primary-500" />
-                    <LoadingBlock className="mt-4 h-4 w-full max-w-[420px] bg-primary-600" />
-                  </div>
-                  <LoadingBlock className="h-11 w-full max-w-[250px] bg-primary-600" />
-                </div>
-                <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <div className="relative min-w-0 overflow-hidden rounded-2xl border border-white/15 bg-white/[0.075] px-3 py-4 sm:px-5" key={index}>
-                      <LoadingBlock className="h-3 w-3/5 bg-primary-500" />
-                      <LoadingBlock className="mt-4 h-8 w-1/2 bg-primary-600" />
-                      <LoadingBlock className="mt-3 h-3 w-4/5 bg-primary-600" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-
               <section>
                 <LoadingBlock className="h-7 w-40" />
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {Array.from({ length: 4 }, (_, index) => <LoadingBlock className="h-[88px] bg-white shadow-[0_18px_34px_-30px_rgba(1,76,56,0.45)]" key={index} />)}
+                </div>
+              </section>
+
+              <section>
+                <div className="flex items-start justify-between gap-4">
+                  <LoadingBlock className="h-7 w-44" />
+                  <LoadingBlock className="size-5 rounded-full" />
+                </div>
+                <div className="mt-5 space-y-3">
+                  {Array.from({ length: 10 }, (_, index) => <LoadingBlock className="h-10 w-full" key={index} />)}
+                </div>
+                <div className="mt-5 flex justify-center">
+                  <LoadingBlock className="h-11 w-24" />
                 </div>
               </section>
             </main>

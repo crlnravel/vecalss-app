@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { Search } from "@/lib/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,12 +13,15 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -308,7 +310,7 @@ function MentorWorkspaceShell({
         </div>
       </SidebarProvider>
 
-      <Dialog
+      <AlertDialog
         onOpenChange={(isOpen) => {
           if (!isOpen) {
             dismissConfirmation();
@@ -316,38 +318,36 @@ function MentorWorkspaceShell({
         }}
         open={isConfirmationOpen}
       >
-        <DialogContent
+        <AlertDialogContent
           className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"
-          showCloseButton={false}
+          variant="danger"
         >
-          <div>
-            <DialogTitle className="font-semibold text-secondary-900">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-semibold text-secondary-900">
               Keluar dari editor?
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
               Perubahan yang belum disimpan akan hilang jika Anda meninggalkan
               halaman ini.
-            </DialogDescription>
-          </div>
-          <DialogFooter>
-            <Button
-              className="border-red-700 bg-red-700 text-white hover:bg-red-800 focus-visible:border-red-700 focus-visible:ring-red-700/25"
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
               onClick={confirmPendingNavigation}
               type="button"
               variant="destructive"
             >
               Keluar
-            </Button>
-            <Button
+            </AlertDialogAction>
+            <AlertDialogCancel
               onClick={dismissConfirmation}
               type="button"
-              variant="brandOutline"
             >
               Batal
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -64,7 +64,7 @@ function getChangePasswordErrorMessage(error: unknown) {
 async function handleLoginAction(
   _previousState: FormState,
   formData: FormData,
-  requiredRole: RoleName,
+  requiredRole?: RoleName,
 ): Promise<FormState> {
   const email = readTextField(formData, "email");
   const password = readTextField(formData, "password");
@@ -83,9 +83,11 @@ async function handleLoginAction(
     );
   }
 
-  const result = await authenticateUser(email, password, {
-    requiredRole,
-  });
+  const result = await authenticateUser(
+    email,
+    password,
+    requiredRole ? { requiredRole } : undefined,
+  );
 
   if (!result.ok) {
     if (result.code === "service_unavailable") {
@@ -118,6 +120,14 @@ async function handleLoginAction(
   }
 
   redirect(returnTo && !result.user.mustChangePassword ? returnTo : getDefaultHomePath(result.user));
+}
+
+/**
+ * The public login page accepts any active Vecalss role. The authenticated
+ * user's role assignments determine the destination through getDefaultHomePath.
+ */
+async function loginAction(previousState: FormState, formData: FormData): Promise<FormState> {
+  return handleLoginAction(previousState, formData);
 }
 
 async function loginStudentAction(previousState: FormState, formData: FormData): Promise<FormState> {
@@ -279,6 +289,7 @@ export {
   changePasswordAction,
   forgotPasswordAction,
   getResetTokenStatus,
+  loginAction,
   loginAdminAction,
   loginStudentAction,
   loginTutorAction,

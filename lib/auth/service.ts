@@ -192,7 +192,9 @@ async function authenticateUser(
       .map((assignment) => assignment.role);
     const hasSupportedRole = options.requiredRole
       ? activeRoles.includes(options.requiredRole)
-      : activeRoles.some((role) => role === RoleName.admin || role === RoleName.student);
+      : activeRoles.some(
+        (role) => role === RoleName.admin || role === RoleName.tutor || role === RoleName.student,
+      );
 
     if (
       user.status === UserStatus.disabled

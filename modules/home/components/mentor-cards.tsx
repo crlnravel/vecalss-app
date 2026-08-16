@@ -77,6 +77,7 @@ function MentorCards({ members }: MentorCardsProps) {
             <DialogContent
               className="max-h-[calc(100vh-2rem)] max-w-[940px] gap-0 overflow-hidden rounded-5xl border border-[#014C38]/12 bg-[#fbf8ef] p-0 text-[#014C38] shadow-[0_32px_110px_-46px_rgba(0,0,0,0.6)] sm:max-w-[940px]"
               showCloseButton
+              variant="info"
             >
               <div className="grid max-h-[calc(100vh-2rem)] overflow-y-auto lg:grid-cols-[0.82fr_1fr]">
                 <div className="relative min-h-[310px] bg-transparent lg:min-h-[640px]">

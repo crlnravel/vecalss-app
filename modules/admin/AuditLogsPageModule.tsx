@@ -159,7 +159,7 @@ function AuditLogDetailDialog({
 }) {
   return (
     <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(audit)}>
-      <DialogContent className="max-h-[min(720px,calc(100svh-2rem))] max-w-2xl overflow-y-auto p-0">
+      <DialogContent className="max-h-[min(720px,calc(100svh-2rem))] max-w-2xl overflow-y-auto p-0" variant="info">
         {audit ? (
           <>
             <DialogHeader className="border-b border-primary-100 px-6 py-5 pr-14">

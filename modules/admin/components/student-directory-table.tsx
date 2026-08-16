@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import {
   AlertDialog,
@@ -52,6 +52,45 @@ type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
 
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
+}
+
+function highlightSearchMatches(text: string, query: string): ReactNode {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    return text;
+  }
+
+  const lowerText = text.toLowerCase();
+  const lowerQuery = normalizedQuery.toLowerCase();
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = lowerText.indexOf(lowerQuery);
+  let matchNumber = 0;
+
+  while (matchIndex !== -1) {
+    if (matchIndex > cursor) {
+      parts.push(text.slice(cursor, matchIndex));
+    }
+
+    parts.push(
+      <mark className="rounded-sm bg-student-status-attention-bg px-0.5 text-inherit" key={`search-match-${matchNumber}`}>
+        {text.slice(matchIndex, matchIndex + normalizedQuery.length)}
+      </mark>,
+    );
+    cursor = matchIndex + normalizedQuery.length;
+    matchNumber += 1;
+    matchIndex = lowerText.indexOf(lowerQuery, cursor);
+  }
+
+  if (!matchNumber) {
+    return text;
+  }
+
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+
+  return parts;
 }
 
 function statusTextClassName(tone: StudentStatusTone) {
@@ -345,7 +384,7 @@ function BulkStudentActions({
         }}
         open={pendingAction !== null}
       >
-        <AlertDialogContent size="sm">
+        <AlertDialogContent size="sm" variant={isDeactivation ? "warning" : "info"}>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {isDeactivation ? "Disable selected students?" : "Reactivate selected students?"}
@@ -498,15 +537,6 @@ function StudentDirectoryTable({
   const clearFiltersHref = directoryHref({ search: "", status: "all" });
   const filters: DataTableFilter[] = [];
 
-  if (search) {
-    filters.push({
-      href: clearSearchHref,
-      id: "search",
-      label: "Search",
-      value: `“${search}”`,
-    });
-  }
-
   if (statusFilter !== "all") {
     filters.push({
       href: clearStatusHref,
@@ -527,7 +557,7 @@ function StudentDirectoryTable({
             {getInitials(student.fullName)}
           </span>
           <span className="block max-w-[14rem] truncate font-semibold text-secondary-900" title={student.fullName}>
-            {student.fullName}
+            {highlightSearchMatches(student.fullName, search)}
           </span>
         </span>
       ),
@@ -539,7 +569,7 @@ function StudentDirectoryTable({
     {
       cell: (student) => (
         <span className="block max-w-[20rem] truncate text-secondary-700" title={student.email}>
-          {student.email}
+          {highlightSearchMatches(student.email, search)}
         </span>
       ),
       headerClassName: "w-[28%]",

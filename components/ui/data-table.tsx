@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ComponentProps, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ComponentProps,
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -139,6 +150,9 @@ function DataTable<T>({
   selectionActions,
   tableClassName,
 }: DataTableProps<T>) {
+  const router = useRouter();
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchValue, setSearchValue] = useState(() => search?.value ?? "");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [visibleColumnIds, setVisibleColumnIds] = useState<Set<string>>(
     () => new Set(columns.filter((column) => column.defaultVisible !== false).map((column) => column.id)),
@@ -194,20 +208,76 @@ function DataTable<T>({
       })
     : null;
 
+  const cancelPendingSearch = () => {
+    if (searchDebounceRef.current !== null) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+  };
+
+  useEffect(() => () => {
+    if (searchDebounceRef.current !== null) {
+      clearTimeout(searchDebounceRef.current);
+    }
+  }, []);
+
+  const navigateToSearch = (value: string) => {
+    if (!search) {
+      return;
+    }
+
+    const target = new URL(search.action ?? window.location.pathname, window.location.origin);
+    const params = new URLSearchParams();
+
+    if (value) {
+      params.set("q", value);
+    }
+
+    if (search.hiddenFields) {
+      Object.entries(search.hiddenFields).forEach(([name, hiddenValue]) => {
+        if (hiddenValue) {
+          params.set(name, hiddenValue);
+        }
+      });
+    }
+
+    target.search = params.toString();
+    router.replace(`${target.pathname}${target.search}`, { scroll: false });
+  };
+
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.currentTarget.value;
+    setSearchValue(nextValue);
+
+    cancelPendingSearch();
+
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null;
+      navigateToSearch(nextValue);
+    }, 350);
+  };
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    cancelPendingSearch();
+    navigateToSearch(searchValue);
+  };
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
         {search ? (
-          <form action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get">
+          <form action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get" onSubmit={handleSearchSubmit}>
             <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400" size={17} />
             <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Search table"}</label>
             <input
               className="h-10 w-full border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-400 focus-visible:bg-primary-50/35 focus-visible:ring-0"
-              defaultValue={search.value}
               id="data-table-search"
               name="q"
+              onChange={handleSearchChange}
               placeholder={search.placeholder ?? "Search this table…"}
               type="search"
+              value={searchValue}
             />
             {search.hiddenFields ? Object.entries(search.hiddenFields).map(([name, value]) => (
               <input key={name} name={name} type="hidden" value={value} />
@@ -217,6 +287,7 @@ function DataTable<T>({
                 aria-label="Clear table search"
                 className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
                 href={search.clearHref}
+                onClick={cancelPendingSearch}
               >
                 <X aria-hidden="true" size={14} />
               </Link>

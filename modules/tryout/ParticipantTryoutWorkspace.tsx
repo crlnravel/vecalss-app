@@ -131,7 +131,7 @@ function ParticipantTryoutWorkspace({
         </div>
         <div className="relative max-w-3xl lg:max-w-[60%]">
           <h1 className="max-w-[15ch] font-heading text-4xl leading-[1.02] font-extrabold tracking-[-0.045em] text-balance sm:text-5xl lg:text-6xl">
-            Bersiap menghadapi ujian dengan pengalaman yang terasa nyata.
+            Tryout
           </h1>
           <p className="mt-5 max-w-2xl text-sm leading-6 text-[#e7f5eb] sm:text-base sm:leading-7">
             Pilih tryout sesuai kebutuhanmu, tetapkan target kampus, lalu mulai
