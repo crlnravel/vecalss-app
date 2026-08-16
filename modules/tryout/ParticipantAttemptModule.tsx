@@ -13,9 +13,7 @@ import {
   ClockCountdown,
   Flag,
   FloppyDisk,
-  GridFour,
   ListChecks,
-  LockKey,
   PaperPlaneTilt,
   SpinnerGap,
   UserCircle,
@@ -23,7 +21,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { unstable_rethrow } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -39,14 +37,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import {
+  AssessmentAnswerOption,
+  AssessmentQuestionNavigation,
+  AssessmentUtilityPill,
+  AssessmentWorkspace,
+} from "@/modules/assessment/AssessmentWorkspace";
+import type { AssessmentQuestionMarkerItem } from "@/modules/assessment/AssessmentWorkspace";
 import {
   recordTryoutIntegrityEventAction,
   saveTryoutAnswerAction,
@@ -103,56 +101,6 @@ function formatDuration(seconds: number) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return hours ? `${hours} jam${remainingMinutes ? ` ${remainingMinutes} menit` : ""}` : `${minutes} menit`;
-}
-
-function QuestionPalette({
-  answers,
-  currentIndex,
-  items,
-  marked,
-  onSelect,
-}: {
-  answers: Set<string>;
-  currentIndex: number;
-  items: Item[];
-  marked: Set<string>;
-  onSelect: (index: number) => void;
-}) {
-  return (
-    <div>
-      <div className="grid grid-cols-5 gap-2">
-        {items.map((item, itemIndex) => {
-          const isCurrent = itemIndex === currentIndex;
-          const isAnswered = answers.has(item.id);
-          const isMarked = marked.has(item.id);
-          return (
-            <Button
-              aria-label={`Soal ${itemIndex + 1}${isAnswered ? ", sudah dijawab" : ", belum dijawab"}${isMarked ? ", ditandai" : ""}`}
-              aria-pressed={isCurrent}
-              className={cn(
-                "relative rounded-xl font-mono",
-                isCurrent && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg ring-2 ring-student-status-attention-border/30",
-                !isCurrent && isAnswered && "border-primary-700 bg-primary-700 text-white hover:bg-primary-800",
-              )}
-              key={item.id}
-              onClick={() => onSelect(itemIndex)}
-              size="icon-sm"
-              variant={isCurrent || isAnswered ? "contextSelected" : "context"}
-            >
-              {itemIndex + 1}
-              {isMarked ? <span className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-white bg-student-status-attention-fg" /> : null}
-            </Button>
-          );
-        })}
-      </div>
-      <div className="mt-5 grid gap-2 text-xs text-secondary-600">
-        <span className="flex items-center gap-2"><span className="size-3 rounded border border-primary-200 bg-white" />Belum dijawab</span>
-        <span className="flex items-center gap-2"><span className="size-3 rounded bg-primary-700" />Sudah dijawab</span>
-        <span className="flex items-center gap-2"><span className="size-3 rounded border-2 border-student-status-attention-border bg-student-status-attention-bg" />Sedang dibuka</span>
-        <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-student-status-attention-fg" />Ditandai</span>
-      </div>
-    </div>
-  );
 }
 
 function ParticipantAttemptStatusScreen({
@@ -282,9 +230,10 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const [now, setNow] = useState(() => Date.now());
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [exitOpen, setExitOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const activeRunRef = useRef<string | null>(null);
+  const router = useRouter();
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -510,6 +459,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       answerIds={answerIds}
       busy={busy}
       enterFullscreen={enterFullscreen}
+      exitOpen={exitOpen}
       index={index}
       item={item}
       items={items}
@@ -518,13 +468,13 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       message={message}
       now={now}
       onIndexChange={setIndex}
+      onExit={() => router.push("/tryout")}
       onToggleMarked={toggleMarked}
-      paletteOpen={paletteOpen}
       run={run}
       save={save}
       saveState={saveState}
       selected={selected}
-      setPaletteOpen={setPaletteOpen}
+      setExitOpen={setExitOpen}
       setSubmitOpen={setSubmitOpen}
       snapshot={snapshot}
       submit={submit}
@@ -543,6 +493,7 @@ function ParticipantAttemptScreen({
   answerIds,
   busy,
   enterFullscreen,
+  exitOpen,
   index,
   item,
   items,
@@ -551,13 +502,13 @@ function ParticipantAttemptScreen({
   message,
   now,
   onIndexChange,
+  onExit,
   onToggleMarked,
-  paletteOpen,
   run,
   save,
   saveState,
   selected,
-  setPaletteOpen,
+  setExitOpen,
   setSubmitOpen,
   snapshot,
   submit,
@@ -570,6 +521,7 @@ function ParticipantAttemptScreen({
   answerIds: Set<string>;
   busy: boolean;
   enterFullscreen: () => void;
+  exitOpen: boolean;
   index: number;
   item: Item;
   items: Item[];
@@ -578,13 +530,13 @@ function ParticipantAttemptScreen({
   message: string;
   now: number;
   onIndexChange: (index: number) => void;
+  onExit: () => void;
   onToggleMarked: () => void;
-  paletteOpen: boolean;
   run: ActiveRun;
   save: (optionId: string) => void;
   saveState: "idle" | "saving" | "saved" | "error";
   selected: string | null;
-  setPaletteOpen: (open: boolean) => void;
+  setExitOpen: (open: boolean) => void;
   setSubmitOpen: (open: boolean) => void;
   snapshot: Snapshot | undefined;
   submit: () => void;
@@ -594,107 +546,176 @@ function ParticipantAttemptScreen({
   runCount: number;
   unansweredCount: number;
 }) {
+  const navigationItems: AssessmentQuestionMarkerItem[] = items.map((candidate, candidateIndex) => ({
+    id: candidate.id,
+    number: candidateIndex + 1,
+    state: candidateIndex === index
+      ? "active"
+      : marked.has(candidate.id)
+        ? "flagged"
+        : answerIds.has(candidate.id)
+          ? "answered"
+          : "empty",
+  }));
+
   return (
-    <main className="min-h-svh bg-[#f4f7f5] text-secondary-900">
-      <header className="sticky top-0 z-30 border-b border-primary-100 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex min-h-16 max-w-[1440px] items-center gap-3 px-4 sm:px-6 lg:px-8">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-secondary-500">{tryoutTitle} · Bagian {run.sequenceNo}/{runCount}</p>
-            <p className="mt-0.5 truncate font-semibold">{run.section.title}</p>
+    <AssessmentWorkspace
+      content={
+        <div className="mx-auto flex w-full max-w-[1550px] flex-col gap-5">
+          <div className="flex flex-wrap items-center gap-3 font-medium text-sm">
+            <span className="font-semibold tracking-[0.08em] text-primary-700 uppercase">
+              Soal {Math.min(index + 1, items.length)} dari {items.length}
+            </span>
+            <span className="text-secondary-300">•</span>
+            <span className="font-medium text-secondary-400">{run.section.subtest.name}</span>
+            <span className="text-secondary-300">|</span>
+            {snapshot?.testType === "cbt" ? (
+              <AssessmentUtilityPill
+                active={marked.has(item.id)}
+                icon={Flag}
+                label={marked.has(item.id) ? "Ditandai" : "Tandai"}
+                onClick={onToggleMarked}
+              />
+            ) : null}
+            <p
+              aria-live="polite"
+              className={cn(
+                "flex min-h-9 items-center gap-2 text-xs font-medium",
+                saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500",
+              )}
+            >
+              {saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : null}
+              {saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : null}
+              {saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : null}
+              {saveState === "idle" ? <><FloppyDisk />Simpan otomatis</> : null}
+            </p>
           </div>
-          <div className={cn("flex min-h-11 items-center gap-2 rounded-xl px-3 font-mono text-lg font-semibold tabular-nums", timerUrgent ? "bg-student-status-danger-bg text-student-status-danger-fg" : "bg-student-status-attention-bg text-student-status-attention-fg")} aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}>
-            <ClockCountdown />
-            <span className="hidden font-sans text-xs font-bold sm:inline">{timerUrgent ? "Segera habis" : "Sisa waktu"}</span>
-            {formatTimer(run.serverDeadlineAt, now)}
-          </div>
-          {run.fullscreenPrompt ? <Button aria-label="Masuk layar penuh" className="hidden sm:inline-flex" onClick={() => void enterFullscreen()} size="icon" variant="brandOutline"><ArrowsOut /></Button> : null}
-        </div>
-      </header>
 
-      <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:px-8 lg:py-7">
-        <div className="min-w-0">
-          <div className="grid gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.08em] text-primary-700 uppercase">Soal {Math.min(index + 1, items.length)} dari {items.length}</p>
-              <p className="mt-1 text-sm text-secondary-500">{answerIds.size} dijawab · {markedCount} ditandai</p>
+          {snapshot?.instructions ? (
+            <aside className="rounded-2xl border border-primary-100 bg-primary-50 p-4 text-sm leading-6 text-secondary-700">
+              <strong>Petunjuk:</strong> {snapshot.instructions}
+            </aside>
+          ) : null}
+          {message ? (
+            <p className="flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status">
+              <WarningCircle />{message}
+            </p>
+          ) : null}
+
+          <div className="space-y-5">
+            <div className="space-y-5 border-t border-primary-100 pt-5 pb-6 font-medium text-secondary-800">
+              <p className="whitespace-pre-wrap text-lg leading-[1.85]">{item.prompt}</p>
             </div>
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <p aria-live="polite" className={cn("flex min-h-9 items-center gap-2 text-xs font-medium", saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500")}>{saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : <><FloppyDisk />Simpan otomatis</>}</p>
-              {snapshot?.testType === "cbt" ? <Button className="lg:hidden" onClick={() => setPaletteOpen(true)} variant="brandOutline"><GridFour />Daftar soal</Button> : null}
-            </div>
-          </div>
 
-          {snapshot?.instructions ? <aside className="mt-4 rounded-2xl border border-primary-100 bg-primary-50 p-4 text-sm leading-6 text-secondary-700"><strong>Petunjuk:</strong> {snapshot.instructions}</aside> : null}
-          {message ? <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status"><WarningCircle />{message}</p> : null}
-
-          <section className="mt-4 rounded-[1.75rem] border border-primary-100 bg-white p-5 sm:p-7 lg:p-8">
-            <p className="whitespace-pre-wrap text-base leading-7 sm:text-lg sm:leading-8">{item.prompt}</p>
-            <div className="mt-7 grid gap-3">
+            <div className="grid gap-4">
               {item.options.map((option) => (
-                <Button
-                  aria-pressed={selected === option.id}
-                  className="h-auto min-h-14 w-full justify-start whitespace-normal rounded-2xl px-4 py-3 text-left text-base leading-6"
-                  disabled={saveState === "saving"}
+                <AssessmentAnswerOption
+                  disabled={saveState === "saving" || busy}
                   key={option.id}
                   onClick={() => void save(option.id)}
-                  variant={selected === option.id ? "contextSelected" : "context"}
-                >
-                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold", selected === option.id ? "border-primary-700 bg-primary-700 text-white" : "border-primary-200 bg-primary-50 text-primary-800")}>{option.choiceKey}</span>
-                  <span>{option.content}</span>
-                </Button>
+                  option={{ id: option.id, key: option.choiceKey, text: option.content }}
+                  selected={selected === option.id}
+                />
               ))}
             </div>
-          </section>
-
-          <footer className="mt-4 flex flex-col gap-3 rounded-2xl border border-primary-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          </div>
+        </div>
+      }
+      dialog={
+        <>
+          <AlertDialog onOpenChange={(open) => { if (!busy) setExitOpen(open); }} open={exitOpen}>
+            <AlertDialogContent variant="danger">
+              <AlertDialogHeader>
+                <AlertDialogMedia variant="danger"><Warning /></AlertDialogMedia>
+                <AlertDialogTitle>Keluar dari tryout?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Jawaban yang sudah tersimpan tetap aman. Kamu bisa kembali lagi untuk melanjutkan bagian ini.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Tetap mengerjakan</AlertDialogCancel>
+                <AlertDialogAction onClick={onExit} variant="destructive">Ya, Keluar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <AlertDialog onOpenChange={(open) => { if (!busy) setSubmitOpen(open); }} open={submitOpen}>
+            <AlertDialogContent pending={busy} variant="warning">
+              <AlertDialogHeader>
+                <AlertDialogMedia variant="warning"><Warning /></AlertDialogMedia>
+                <AlertDialogTitle>Kirim dan kunci bagian ini?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Bagian yang dikirim tidak dapat dibuka lagi. Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum dijawab</strong> dan <strong className="text-secondary-900">{markedCount} soal ditandai</strong>.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={busy} variant="brandOutline">Periksa lagi</AlertDialogCancel>
+                <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Kirim bagian"}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      }
+      exitControl={
+        <Button
+          aria-label="Keluar dari tryout"
+          onClick={() => setExitOpen(true)}
+          size="icon-sm"
+          title="Keluar dari tryout"
+          variant="ghost"
+        >
+          <ArrowLeft />
+        </Button>
+      }
+      footer={
+        <div className="sticky bottom-0 z-10 border-t border-primary-100 bg-white/96 px-4 py-4 backdrop-blur md:px-8 lg:px-10">
+          <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
             {snapshot?.testType === "cbt" ? (
               <div className="grid grid-cols-2 gap-2 sm:flex">
-                <Button disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} variant="brandOutline"><ArrowLeft />Sebelumnya</Button>
-                <Button disabled={busy || saveState === "saving" || index >= items.length - 1} onClick={() => onIndexChange(index + 1)} variant="brandOutline">Berikutnya<ArrowRight /></Button>
+                <Button disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft data-icon="inline-start" />Soal Sebelumnya</Button>
+                <Button disabled={busy || saveState === "saving" || index >= items.length - 1} onClick={() => onIndexChange(index + 1)} size="lg" variant="brandOutline">Soal Selanjutnya<ArrowRight data-icon="inline-end" /></Button>
               </div>
             ) : <p className="text-sm text-secondary-600">Pilih jawaban untuk memuat soal adaptif berikutnya.</p>}
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              {snapshot?.testType === "cbt" ? <Button aria-pressed={marked.has(item.id)} onClick={onToggleMarked} variant={marked.has(item.id) ? "contextSelected" : "context"}><Flag />{marked.has(item.id) ? "Ditandai" : "Tandai"}</Button> : null}
-              <Button disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} variant="brand"><PaperPlaneTilt />Kirim bagian</Button>
+            <div className="grid grid-cols-1 gap-2 sm:flex">
+              <Button disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand"><PaperPlaneTilt />Kirim bagian</Button>
             </div>
-          </footer>
+          </div>
         </div>
+      }
+      header={
+        <div className="flex items-center justify-between border-b border-primary-100 px-4 py-4 md:px-8 lg:px-10">
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-3xl leading-none font-semibold text-secondary-900 md:text-4xl">
+              {tryoutTitle}
+            </h2>
+            <p className="mt-2 truncate text-sm text-secondary-500">
+              {run.section.title} · Bagian {run.sequenceNo}/{runCount}
+            </p>
+          </div>
 
-        {snapshot?.testType === "cbt" ? (
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-[1.5rem] border border-primary-100 bg-white p-5">
-              <p className="text-xs font-bold tracking-[0.12em] text-primary-700 uppercase">Daftar soal</p>
-              <p className="mt-2 text-sm text-secondary-500">Pilih nomor untuk berpindah dalam bagian ini.</p>
-              <div className="mt-5"><QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={onIndexChange} /></div>
-              <Button className="mt-6 w-full" onClick={() => setSubmitOpen(true)} variant="brandOutline"><LockKey />Akhiri bagian</Button>
+          <div className="flex items-center gap-2">
+            <div
+              aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-sm font-semibold tabular-nums shadow-sm",
+                timerUrgent
+                  ? "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg"
+                  : "border-primary-100 bg-white text-secondary-700",
+              )}
+            >
+              <ClockCountdown className="size-4" />
+              <span>{formatTimer(run.serverDeadlineAt, now)}</span>
             </div>
-          </aside>
-        ) : null}
-      </div>
-
-      <Dialog onOpenChange={setPaletteOpen} open={paletteOpen}>
-        <DialogContent variant="info">
-          <DialogHeader><DialogTitle>Daftar soal</DialogTitle><DialogDescription>Pilih nomor soal untuk berpindah.</DialogDescription></DialogHeader>
-          <QuestionPalette answers={answerIds} currentIndex={index} items={items} marked={marked} onSelect={(nextIndex) => { onIndexChange(nextIndex); setPaletteOpen(false); }} />
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog onOpenChange={(open) => { if (!busy) setSubmitOpen(open); }} open={submitOpen}>
-        <AlertDialogContent pending={busy} variant="warning">
-          <AlertDialogHeader>
-            <AlertDialogMedia variant="warning"><Warning /></AlertDialogMedia>
-            <AlertDialogTitle>Kirim dan kunci bagian ini?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bagian yang dikirim tidak dapat dibuka lagi. Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum dijawab</strong> dan <strong className="text-secondary-900">{markedCount} soal ditandai</strong>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy} variant="brandOutline">Periksa lagi</AlertDialogCancel>
-            <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Kirim bagian"}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </main>
+            {run.fullscreenPrompt ? <Button aria-label="Masuk layar penuh" className="hidden sm:inline-flex" onClick={() => void enterFullscreen()} size="icon" variant="brandOutline"><ArrowsOut /></Button> : null}
+          </div>
+        </div>
+      }
+      navigation={
+        <AssessmentQuestionNavigation
+          items={navigationItems}
+          onSelect={(number) => onIndexChange(number - 1)}
+        />
+      }
+    />
   );
 }
 

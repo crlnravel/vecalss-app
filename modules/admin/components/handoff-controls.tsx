@@ -74,7 +74,7 @@ function HandoffControls({
         </dl>
       ) : null}
       {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
-      {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice state={state} /> : null}
+      {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
       {sourceImportRowId ? (
         <p className="rounded-2xl border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
           Reissue is paused for import-sourced handoffs until the authenticated handoff-file recovery workflow is reachable. This protects the only sealed credential deliverable.

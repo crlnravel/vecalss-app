@@ -7,7 +7,11 @@ import {
   STUDENT_BANNER_KEYS,
   type StudentBannerSet,
 } from "@/lib/student/banner-content";
-import { updateStudentBannerContents } from "@/lib/student/banner-repository";
+import { validateStudentBannerFields } from "@/lib/student/banner-validation";
+import {
+  StudentBannerConflictError,
+  updateStudentBannerContents,
+} from "@/lib/student/banner-repository";
 import type { FormState } from "@/modules/auth/form-state";
 
 function readTextField(formData: FormData, key: string) {
@@ -17,10 +21,13 @@ function readTextField(formData: FormData, key: string) {
 
 function buildFields(formData: FormData) {
   return Object.fromEntries(
-    STUDENT_BANNER_KEYS.flatMap((key) => [
-      [`${key}.title`, readTextField(formData, `${key}.title`)],
-      [`${key}.description`, readTextField(formData, `${key}.description`)],
-    ]),
+    [
+      ["version", readTextField(formData, "version")],
+      ...STUDENT_BANNER_KEYS.flatMap((key) => [
+        [`${key}.title`, readTextField(formData, `${key}.title`)],
+        [`${key}.description`, readTextField(formData, `${key}.description`)],
+      ]),
+    ],
   );
 }
 
@@ -33,38 +40,13 @@ function buildBanners(fields: Record<string, string>): StudentBannerSet {
   ) as StudentBannerSet;
 }
 
-function validateFields(fields: Record<string, string>) {
-  const fieldErrors: Record<string, string> = {};
-
-  for (const key of STUDENT_BANNER_KEYS) {
-    const titleField = `${key}.title`;
-    const descriptionField = `${key}.description`;
-    const title = fields[titleField] ?? "";
-    const description = fields[descriptionField] ?? "";
-
-    if (!title) {
-      fieldErrors[titleField] = "Heading is required.";
-    } else if (title.length > 180) {
-      fieldErrors[titleField] = "Heading must be 180 characters or fewer.";
-    }
-
-    if (!description) {
-      fieldErrors[descriptionField] = "Supporting text is required.";
-    } else if (description.length > 1000) {
-      fieldErrors[descriptionField] = "Supporting text must be 1,000 characters or fewer.";
-    }
-  }
-
-  return fieldErrors;
-}
-
 async function updateStudentBannersAction(
   _previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const session = await requireAdminSession();
   const fields = buildFields(formData);
-  const fieldErrors = validateFields(fields);
+  const fieldErrors = validateStudentBannerFields(fields);
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -76,9 +58,10 @@ async function updateStudentBannersAction(
   }
 
   try {
-    await updateStudentBannerContents({
+    const result = await updateStudentBannerContents({
       actorUserId: session.user.id,
       banners: buildBanners(fields),
+      expectedVersion: fields.version || null,
     });
 
     revalidatePath("/dashboard");
@@ -88,11 +71,19 @@ async function updateStudentBannersAction(
     revalidatePath("/admin/student-banners");
 
     return {
-      fields,
+      fields: { ...fields, version: result.updatedAt },
       message: "Student banner copy saved. Students will see the update on their next page load.",
       status: "success",
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof StudentBannerConflictError) {
+      return {
+        fields,
+        message: "These banners changed since you opened the editor. Refresh the page before saving again.",
+        status: "error",
+      };
+    }
+
     return {
       fields,
       message: "The banner copy could not be saved. Refresh the page and try again.",

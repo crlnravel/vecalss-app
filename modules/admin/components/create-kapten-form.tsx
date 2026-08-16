@@ -29,7 +29,7 @@ function CreateKaptenForm() {
       </div>
 
       {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
-      {state.temporaryPassword || state.inviteUrl ? <HandoffDeliveryNotice state={state} /> : null}
+      {state.temporaryPassword || state.inviteUrl ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>

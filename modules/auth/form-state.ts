@@ -8,6 +8,7 @@ type FormState = {
   resetUrl?: string;
   status: "error" | "idle" | "success";
   temporaryPassword?: string;
+  userId?: string;
 };
 
 const EMPTY_FORM_STATE: FormState = {

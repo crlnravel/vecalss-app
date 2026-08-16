@@ -138,20 +138,44 @@
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Workspace Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The default high-confidence action for starting or continuing a learning task.",
+      "description": "The default high-confidence action for student, Kapten, and admin workspace tasks.",
       "html": "<button class='ds-btn-primary' type='button'><span>Mulai belajar</span><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6'></path></svg></button>",
-      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:12px 16px;border:1px solid transparent;border-radius:12px;background:var(--primary-700);color:#fff;font:700 14px/1.2 var(--font-voyage-sans),sans-serif;transition:transform 150ms ease,background-color 150ms ease,box-shadow 150ms ease}.ds-btn-primary svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-btn-primary:hover{background:#013D2E;transform:translateY(-2px);box-shadow:0 12px 24px -18px rgba(1,76,56,.75)}.ds-btn-primary:focus-visible{outline:3px solid rgba(65,153,125,.45);outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px);box-shadow:none}"
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:12px 16px;border:1px solid transparent;border-radius:12px;background:#014C38;color:#fff;font:500 14px/1.5 var(--font-voyage-sans),sans-serif;transition:transform 150ms ease,background-color 150ms ease,box-shadow 150ms ease}.ds-btn-primary svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-btn-primary:hover{background:#013D2E;transform:translateY(-1px);box-shadow:0 12px 24px -18px rgba(1,76,56,.75)}.ds-btn-primary:focus-visible{outline:3px solid rgba(65,153,125,.45);outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px);box-shadow:none}.ds-btn-primary:disabled{cursor:not-allowed;opacity:.5}"
     },
     {
-      "name": "Outline Button",
+      "name": "Workspace Outline Button",
       "kind": "button",
       "refersTo": "button-outline",
       "description": "A quieter peer action that keeps the primary action visually dominant.",
       "html": "<button class='ds-btn-outline' type='button'><span>Lihat semua</span></button>",
       "css": ".ds-btn-outline{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:12px 16px;border:1px solid #D6E5DB;border-radius:12px;background:#fff;color:#173C2D;font:600 14px/1.2 var(--font-voyage-sans),sans-serif;transition:transform 150ms ease,background-color 150ms ease,border-color 150ms ease}.ds-btn-outline:hover{border-color:#B7DDC3;background:#EEF8F1;transform:translateY(-1px)}.ds-btn-outline:focus-visible{outline:3px solid rgba(65,153,125,.35);outline-offset:2px}.ds-btn-outline:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Marketing Pill Button",
+      "kind": "button",
+      "refersTo": "button-marketing",
+      "description": "A pill-shaped entry or conversion action reserved for public marketing surfaces.",
+      "html": "<a class='ds-btn-marketing' href='#'><span>Mulai belajar</span><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6'></path></svg></a>",
+      "css": ".ds-btn-marketing{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:56px;padding:16px 28px;border:1px solid transparent;border-radius:999px;background:#014C38;color:#fff;font:700 16px/1.2 var(--font-voyage-sans),sans-serif;text-decoration:none;transition:transform 150ms ease,background-color 150ms ease,box-shadow 150ms ease}.ds-btn-marketing:hover{background:#013D2E;transform:translateY(-1px);box-shadow:0 16px 30px -22px rgba(1,76,56,.7)}.ds-btn-marketing:focus-visible{outline:3px solid rgba(65,153,125,.45);outline-offset:3px}.ds-btn-marketing:active{transform:translateY(1px);box-shadow:none}"
+    },
+    {
+      "name": "Onboarding Warm-Sun Button",
+      "kind": "button",
+      "refersTo": "button-onboarding",
+      "description": "A pill-shaped step action that makes first-run progress feel warm and decisive.",
+      "html": "<button class='ds-btn-onboarding' type='button'><span>Lanjut</span><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6'></path></svg></button>",
+      "css": ".ds-btn-onboarding{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:14px 24px;border:1px solid transparent;border-radius:999px;background:#FFD766;color:#5B4B18;font:700 16px/1.2 var(--font-voyage-sans),sans-serif;transition:transform 150ms ease,background-color 150ms ease,box-shadow 150ms ease}.ds-btn-onboarding:hover{background:#FFE28C;transform:translateY(-1px);box-shadow:0 16px 30px -22px rgba(166,116,0,.65)}.ds-btn-onboarding:focus-visible{outline:3px solid rgba(65,153,125,.5);outline-offset:3px}.ds-btn-onboarding:active{transform:translateY(1px);box-shadow:none}.ds-btn-onboarding:disabled{cursor:not-allowed;background:#E2ECE5;color:#718077;opacity:.8}"
+    },
+    {
+      "name": "Learning Tactile Button",
+      "kind": "button",
+      "refersTo": "button-learning-attention",
+      "description": "A progress-specific action with a tactile press cue; use it for skip, completion, or milestone moments.",
+      "html": "<button class='ds-btn-learning' type='button'><span>Lewati ke sini</span><svg aria-hidden='true' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6'></path></svg></button>",
+      "css": ".ds-btn-learning{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:12px 16px;border:1px solid transparent;border-radius:12px;background:#FFD766;color:#5B4B18;font:500 14px/1.5 var(--font-voyage-sans),sans-serif;box-shadow:0 4px 0 #D9AD32;transition:transform 150ms ease,background-color 150ms ease,box-shadow 150ms ease}.ds-btn-learning:hover{background:#FFE28C}.ds-btn-learning:focus-visible{outline:3px solid rgba(217,173,50,.4);outline-offset:3px}.ds-btn-learning:active{transform:translateY(3px);box-shadow:none}"
     },
     {
       "name": "Search Input",
@@ -208,21 +232,27 @@
       { "name": "The Sea-Glass Contrast Rule", "body": "Use pale mint gradients to support hierarchy, never as a substitute for text contrast. Primary actions, headings, and progress states must remain anchored in deep green.", "section": "colors" },
       { "name": "The One Warm Accent Rule", "body": "Warm sun is an event color. Do not let it become a second competing brand palette across ordinary cards or navigation.", "section": "colors" },
       { "name": "The Bold-Then-Readable Rule", "body": "Let headings carry the personality through weight and scale; never make supporting copy compete through decoration or compressed line length.", "section": "typography" },
-      { "name": "The Soft-Lift Rule", "body": "Resting surfaces should feel light; motion and shadow should explain affordance, state, or progress rather than decorate every edge.", "section": "elevation" }
+      { "name": "The Soft-Lift Rule", "body": "Resting surfaces should feel light; motion and shadow should explain affordance, state, or progress rather than decorate every edge.", "section": "elevation" },
+      { "name": "The Three Button Families Rule", "body": "Pills belong to marketing and onboarding, compact rounded controls belong to workspace and admin tasks, and tactile larger-corner controls belong to learning progress. Keep the shared color, focus, and disabled contract across all three.", "section": "components" }
     ],
     "dos": [
       "**Do** use Voyage Deep for the primary action and the clearest progress cue.",
       "**Do** pair deep green anchors with sea-glass gradients so the page feels bright without losing structure.",
       "**Do** use illustration, tilt, and motion when they clarify progress, state, or the next step.",
       "**Do** keep body copy calm, readable, and comfortably spaced beneath bold headings.",
-      "**Do** carry the same tactile language into Kapten and admin surfaces while reducing decorative density for operational work."
+      "**Do** carry the same tactile language into Kapten and admin surfaces while reducing decorative density for operational work.",
+      "**Do** select the button family from the surface: marketing/onboarding pills, workspace/admin controls, or learning tactile actions.",
+      "**Do** keep button color, border, focus, disabled, and loading states on named tokens or shared variants."
     ],
     "donts": [
       "**Don't** turn the product into a generic admin panel of dense tables, tiny labels, or analytics-first blocks.",
       "**Don't** over-gamify the experience with cartoon overload, noisy rewards, or decoration that competes with learning tasks.",
       "**Don't** use green gradients as low-contrast text backgrounds or as noise on every surface.",
       "**Don't** copy the Materi zig-zag road onto screens whose job is editing, reviewing, or managing content.",
-      "**Don't** remove the tactile hover, focus, and press cues from interactive learning controls without replacing them with an equally clear state signal."
+      "**Don't** remove the tactile hover, focus, and press cues from interactive learning controls without replacing them with an equally clear state signal.",
+      "**Don't** use marketing pills as the default shape for admin, Kapten, or student workspace actions.",
+      "**Don't** mix strong dark borders, solid fills, and equal emphasis in a secondary action group.",
+      "**Don't** hard-code route-specific button colors when a family token already expresses the intended meaning."
     ]
   }
 }

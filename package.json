@@ -29,6 +29,7 @@
     "test:materi-lock-boundary": "tsx scripts/test-materi-lock-boundary.ts",
     "test:materi-builder-validation": "tsx scripts/test-materi-builder-validation.ts",
     "test:media-domain": "tsx scripts/test-media-domain.ts",
+    "test:student-banner-validation": "tsx scripts/test-student-banner-validation.ts",
     "test:admin-handoff-envelope": "tsx scripts/test-admin-handoff-envelope.ts",
     "test:admin-handoff-foundation": "tsx scripts/test-admin-handoff-foundation.ts",
     "test:admin-enrollment": "tsx scripts/test-admin-enrollment-contract.ts",

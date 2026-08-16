@@ -13,6 +13,8 @@ colors:
   muted-ink: "#5F776A"
   soft-border: "#D6E5DB"
   warm-sun: "#FFD766"
+  warm-sun-ink: "#5B4B18"
+  voyage-deep-hover: "#013D2E"
 typography:
   display:
     fontFamily: "Manrope, Plus Jakarta Sans, sans-serif"
@@ -37,6 +39,11 @@ typography:
     fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: 1.75
+  action:
+    fontFamily: "Plus Jakarta Sans, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 700
+    lineHeight: 1.2
   label:
     fontFamily: "Plus Jakarta Sans, sans-serif"
     fontSize: "0.75rem"
@@ -60,13 +67,48 @@ components:
   button-primary:
     backgroundColor: "{colors.voyage-deep}"
     textColor: "{colors.surface}"
-    typography: "{typography.title}"
+    typography: "{typography.body}"
     rounded: "{rounded.sm}"
     padding: "12px 16px"
     height: "44px"
   button-outline:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+    padding: "12px 16px"
+    height: "44px"
+  button-marketing:
+    backgroundColor: "{colors.voyage-deep}"
+    textColor: "{colors.surface}"
+    typography: "{typography.action}"
+    rounded: "{rounded.pill}"
+    padding: "16px 28px"
+    height: "56px"
+  button-marketing-compact:
+    backgroundColor: "{colors.voyage-deep}"
+    textColor: "{colors.surface}"
+    typography: "{typography.body}"
+    rounded: "{rounded.pill}"
+    padding: "10px 20px"
+    height: "44px"
+  button-onboarding:
+    backgroundColor: "{colors.warm-sun}"
+    textColor: "{colors.warm-sun-ink}"
+    typography: "{typography.action}"
+    rounded: "{rounded.pill}"
+    padding: "14px 24px"
+    height: "52px"
+  button-learning-primary:
+    backgroundColor: "{colors.voyage-forest}"
+    textColor: "{colors.surface}"
+    typography: "{typography.action}"
+    rounded: "{rounded.md}"
+    padding: "12px 20px"
+    height: "48px"
+  button-learning-attention:
+    backgroundColor: "{colors.warm-sun}"
+    textColor: "{colors.warm-sun-ink}"
     typography: "{typography.body}"
     rounded: "{rounded.sm}"
     padding: "12px 16px"
@@ -276,14 +318,32 @@ surfaces unless a document preview or native media frame requires them.
 
 ### Buttons
 
-- **Shape:** Friendly rounded corners (12px), with pill variants for prominent
-  marketing or completion actions.
-- **Primary:** Voyage Deep fill, white text, 44px minimum height, and generous
-  horizontal padding. Use Voyage Forest or the deeper hover state for feedback.
-- **Hover / Focus:** A small lift or tonal shift; keep the focus ring explicit
-  and green-tinted. Pressable learning actions may use a short downward press.
-- **Secondary / Ghost:** White or transparent surfaces with a soft green border
-  or mint hover wash. They should never compete with the primary action.
+Buttons use three intentional families. The family follows the surface and
+the user's job; it is not chosen ad hoc by route.
+
+- **Workspace / admin:** Use 12px corners, a 44px default height, and the
+  shared `button-primary`, `button-outline`, or ghost variants. Primary is
+  Voyage Deep with white text. Outline is a white surface with a 1px Soft
+  Border and Ink text. Ghost controls are transparent at rest and use a
+  Sea-Glass Wash hover state. Compact utilities may use 40px or 36px only
+  when the surrounding density makes the reduced target clear; important
+  actions stay at least 44px.
+- **Marketing / onboarding:** Use the pill silhouette for high-confidence
+  entry and conversion actions. Marketing hero actions are typically 56px;
+  compact header actions are 44px. Onboarding uses Warm Sun with Warm-Sun Ink
+  for the main step action, while its secondary “skip” action remains a quiet
+  text control. These pills do not spread into ordinary workspace screens.
+- **Learning journey:** Use Voyage Forest or Voyage Deep for primary progress
+  actions. Larger 20–36px corners and tactile offset shadows are reserved for
+  journey nodes, completion, and other progress landmarks. Warm Sun is the
+  attention/skip cue, not a second everyday primary.
+- **Shared states:** Every family keeps an explicit green-tinted focus ring,
+  a visible disabled treatment, and a short tonal or lift response on hover.
+  Learning actions may add a short downward press; reduced motion removes
+  translation while preserving color, border, and loading-state changes.
+- **Labeling:** Use a verb-led label that describes the result (“Mulai
+  belajar”, “Simpan”, “Lihat program”). Keep one primary action per group and
+  let secondary/ghost controls recede through surface and border treatment.
 
 ### Chips
 
@@ -417,6 +477,11 @@ locked, or next; do not use it as a generic decorative badge.
   headings.
 - **Do** carry the same tactile language into Kapten and admin surfaces while
   reducing decorative density for operational work.
+- **Do** choose the button family from the surface: pill for marketing and
+  onboarding, compact rounded controls for workspace/admin, and tactile
+  larger-corner controls for learning progress.
+- **Do** keep button colors, borders, focus rings, and disabled states on named
+  tokens or shared variants; if a new exception is needed, name it first.
 
 ### Don't:
 
@@ -432,3 +497,9 @@ locked, or next; do not use it as a generic decorative badge.
   empty, error, unavailable, or not-found messages.
 - **Don't** remove the tactile hover, focus, and press cues from interactive
   learning controls without replacing them with an equally clear state signal.
+- **Don't** use marketing pills as the default shape for admin, Kapten, or
+  student workspace actions.
+- **Don't** make a secondary action look like a primary by mixing strong dark
+  borders, solid fills, and equal emphasis in the same action group.
+- **Don't** hard-code route-specific button hex values when an existing family
+  token already expresses the intended meaning.

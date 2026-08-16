@@ -61,12 +61,15 @@ const bannerDefinitions: Array<{
   },
 ];
 
-function toFormFields(banners: StudentBannerSet) {
+function toFormFields(banners: StudentBannerSet, version: string | null) {
   return Object.fromEntries(
-    bannerDefinitions.flatMap(({ key }) => [
-      [`${key}.title`, banners[key].title],
-      [`${key}.description`, banners[key].description],
-    ]),
+    [
+      ["version", version ?? ""],
+      ...bannerDefinitions.flatMap(({ key }) => [
+        [`${key}.title`, banners[key].title],
+        [`${key}.description`, banners[key].description],
+      ]),
+    ],
   );
 }
 
@@ -137,13 +140,15 @@ function BannerEditorCard({
 function StudentBannersPageModule({
   banners,
   session,
+  version,
 }: {
   banners: StudentBannerSet;
   session: SessionContext;
+  version: string | null;
 }) {
   const [state, formAction] = useActionState(updateStudentBannersAction, {
     ...EMPTY_FORM_STATE,
-    fields: toFormFields(banners),
+    fields: toFormFields(banners, version),
   });
 
   return (
@@ -172,7 +177,8 @@ function StudentBannersPageModule({
           </p>
         </div>
 
-        <form action={formAction} className="space-y-6">
+        <form action={formAction} className="space-y-6" key={state.fields?.version ?? version ?? "new"}>
+          <input name="version" type="hidden" value={state.fields?.version ?? version ?? ""} readOnly />
           {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
 
           <div className="grid gap-5 xl:grid-cols-2">

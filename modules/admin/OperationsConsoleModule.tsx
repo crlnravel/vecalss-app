@@ -386,7 +386,7 @@ function HandoffAttentionAction({
       </p>
       {state.message ? <FormNotice compact tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
       {state.status === "success" && hasReissued ? (
-        <HandoffDeliveryNotice onAcknowledged={() => acknowledgeAndRefresh(state.handoffId ?? item.id)} state={state} />
+        <HandoffDeliveryNotice key={state.handoffId} onAcknowledged={() => acknowledgeAndRefresh(state.handoffId ?? item.id)} state={state} />
       ) : null}
       {state.status !== "success" ? (
         <form action={formAction} className="space-y-3">

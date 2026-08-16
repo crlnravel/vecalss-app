@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { EnrollmentHandoffMethod } from "@/generated/prisma/client";
@@ -11,9 +12,13 @@ import { FormNotice } from "@/modules/auth/components/form-notice";
 
 function HandoffDeliveryNotice({
   onAcknowledged,
+  onRecovery,
+  recoveryHref,
   state,
 }: {
   onAcknowledged?: () => void;
+  onRecovery?: () => void;
+  recoveryHref?: string;
   state: FormState;
 }) {
   const [acknowledgement, acknowledgeAction, pending] = useActionState(
@@ -21,6 +26,7 @@ function HandoffDeliveryNotice({
     EMPTY_FORM_STATE,
   );
   const successHandled = useRef(false);
+  const [recoveryConfirmed, setRecoveryConfirmed] = useState(false);
   const method = state.handoffMethod as EnrollmentHandoffMethod | undefined;
   const secret = method === "invite_link" ? state.inviteUrl : state.temporaryPassword;
 
@@ -65,6 +71,44 @@ function HandoffDeliveryNotice({
             {pending ? "Saving…" : "Acknowledge handoff"}
           </Button>
         </form>
+      ) : null}
+      {acknowledgement.status === "error" ? (
+        <div className="space-y-3 rounded-2xl border border-student-status-danger-border bg-white/60 p-3 text-xs leading-5 text-secondary-700">
+          <p>
+            This handoff needs follow-up before it can be shared. It may have expired or been replaced; check the student details before sending it.
+          </p>
+          {recoveryHref ? (
+            <Link
+              className="inline-flex min-h-10 items-center rounded-xl border border-primary-200 px-3 font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+              href={recoveryHref}
+            >
+              Open student details
+            </Link>
+          ) : null}
+          {onRecovery ? (
+            <>
+              <label className="flex items-start gap-2">
+                <input
+                  checked={recoveryConfirmed}
+                  className="mt-1"
+                  onChange={(event) => setRecoveryConfirmed(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>I will use student details to confirm or reissue this handoff before sharing it.</span>
+              </label>
+              <Button
+                className="min-h-10"
+                disabled={!recoveryConfirmed}
+                onClick={onRecovery}
+                size="sm"
+                type="button"
+                variant="brandOutline"
+              >
+                Dismiss after planning follow-up
+              </Button>
+            </>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

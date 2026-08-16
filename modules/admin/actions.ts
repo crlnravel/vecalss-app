@@ -262,6 +262,7 @@ async function createStudentEnrollmentAction(
         : "Student account created. Share the temporary password securely because it will not be shown again.",
       status: "success",
       temporaryPassword: result.temporaryPassword ?? undefined,
+      userId: result.userId,
     };
   } catch (error) {
     return {
@@ -338,6 +339,7 @@ async function createKaptenEnrollmentAction(
         : "Kapten account created. Share the temporary password securely because it will not be shown again.",
       status: "success",
       temporaryPassword: result.temporaryPassword ?? undefined,
+      userId: result.userId,
     };
   } catch (error) {
     return {
@@ -846,6 +848,7 @@ async function reissueEnrollmentHandoffAction(
       temporaryPassword: result.method === EnrollmentHandoffMethod.temporary_password
         ? result.secret ?? undefined
         : undefined,
+      userId: result.userId,
     };
   } catch (error) {
     return {
