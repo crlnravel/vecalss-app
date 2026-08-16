@@ -18,6 +18,13 @@ import {
 
 type ImportRole = "student" | "tutor";
 
+type ImportsIntakeModuleProps = {
+  embedded?: boolean;
+  initialRole?: ImportRole;
+  onBusyChange?: (busy: boolean) => void;
+  showRoleSelect?: boolean;
+};
+
 const templateForRole: Record<ImportRole, { fileName: string; label: string; version: string }> = {
   student: { fileName: "students.v1.csv", label: "Students", version: "students.v1" },
   tutor: { fileName: "kapten.v1.csv", label: "Kapten", version: "kapten.v1" },
@@ -58,10 +65,15 @@ function redirectedPath(response: Response) {
   }
 }
 
-function ImportsIntakeModule() {
+function ImportsIntakeModule({
+  embedded = false,
+  initialRole = "student",
+  onBusyChange,
+  showRoleSelect = true,
+}: ImportsIntakeModuleProps = {}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [role, setRole] = useState<ImportRole>("student");
+  const [role, setRole] = useState<ImportRole>(initialRole);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -115,6 +127,7 @@ function ImportsIntakeModule() {
     }
 
     setBusy(true);
+    onBusyChange?.(true);
     setFeedback({ message: "Uploading the CSV and checking its rows…", tone: "info" });
     try {
       const body = new FormData();
@@ -160,18 +173,22 @@ function ImportsIntakeModule() {
       setFeedback({ message: "The upload could not reach the server. No accounts were changed.", tone: "error" });
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
 
   return (
-    <section aria-labelledby="import-siswa-heading" className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
-      <div className="border-b border-primary-100 px-5 py-6 sm:px-8 sm:py-7">
-        <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Import Siswa</h2>
-      </div>
+    <section aria-labelledby={embedded ? undefined : "import-siswa-heading"} className={embedded ? "" : `${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+      {!embedded ? (
+        <div className="border-b border-primary-100 px-5 py-6 sm:px-8 sm:py-7">
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Import Siswa</h2>
+        </div>
+      ) : null}
 
-      <form className="px-5 py-6 sm:px-8 sm:py-8" onSubmit={handleUpload}>
-        <div className="grid gap-8 lg:grid-cols-2 lg:gap-x-16">
-          <div className="lg:pr-8">
+      <form className={embedded ? "" : "px-5 py-6 sm:px-8 sm:py-8"} onSubmit={handleUpload}>
+        <div className={showRoleSelect ? "grid gap-8 lg:grid-cols-2 lg:gap-x-16" : "grid gap-5"}>
+          {showRoleSelect ? (
+            <div className="lg:pr-8">
             <div className="flex items-center gap-1.5">
               <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Choose a role</label>
               <Tooltip>
@@ -194,10 +211,11 @@ function ImportsIntakeModule() {
               </select>
               <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-primary-700" size={18} />
             </div>
-          </div>
+            </div>
+          ) : null}
 
           <div>
-            <p className="text-sm font-semibold text-secondary-900">2. Get the CSV template</p>
+            <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2." : "1."} Download the CSV template</p>
             <a
               className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
               download={template.fileName}
@@ -208,8 +226,8 @@ function ImportsIntakeModule() {
             </a>
           </div>
 
-          <div className="pt-4 lg:col-span-2">
-            <p className="text-sm font-semibold text-secondary-900">3. Upload the file</p>
+          <div className={showRoleSelect ? "pt-4 lg:col-span-2" : "pt-2"}>
+            <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3." : "2."} Upload the file</p>
             <p className="mt-2 text-xs leading-5 text-secondary-600">CSV only, up to 2 MiB and 500 data rows.</p>
             <label
               className={`mt-4 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${isDragging ? "border-primary-400 bg-primary-100" : "border-primary-200 bg-primary-50/50 hover:border-primary-300 hover:bg-primary-50"} ${busy ? "cursor-not-allowed opacity-70" : ""}`}

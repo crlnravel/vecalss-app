@@ -4,17 +4,21 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowsOut,
+  CalendarBlank,
   Check,
   CheckCircle,
+  Clock,
   CircleNotch,
   ClockCountdown,
   Flag,
   FloppyDisk,
   GridFour,
+  ListChecks,
   LockKey,
   PaperPlaneTilt,
   Play,
   SpinnerGap,
+  UserCircle,
   Warning,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -75,6 +79,9 @@ type State = {
   attemptId: string;
   runs: RunSummary[];
   status: string;
+  tryoutDescription: string | null;
+  tryoutEventName: string | null;
+  tryoutOrganizer: string;
   tryoutTitle: string;
 };
 
@@ -88,6 +95,13 @@ function formatTimer(deadline: Date | string | null, now: number) {
 
 function remainingSeconds(deadline: Date | string | null, now: number) {
   return deadline ? Math.max(0, Math.ceil((new Date(deadline).getTime() - now) / 1000)) : 0;
+}
+
+function formatDuration(seconds: number) {
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return hours ? `${hours} jam${remainingMinutes ? ` ${remainingMinutes} menit` : ""}` : `${minutes} menit`;
 }
 
 function QuestionPalette({
@@ -143,32 +157,65 @@ function QuestionPalette({
 function ParticipantAttemptStatusScreen({
   attemptId,
   busy,
-  completedRuns,
   finished,
   message,
   nextRun,
   onBegin,
   runs,
+  tryoutDescription,
+  tryoutEventName,
+  tryoutOrganizer,
   title,
 }: {
   attemptId: string;
   busy: boolean;
-  completedRuns: number;
   finished: boolean;
   message: string;
   nextRun?: RunSummary;
   onBegin: (runId: string) => void;
   runs: RunSummary[];
+  tryoutDescription: string | null;
+  tryoutEventName: string | null;
+  tryoutOrganizer: string;
   title: string;
 }) {
+  const totalQuestions = runs.reduce((total, run) => total + run.section.questionCount, 0);
+  const totalDuration = runs.reduce((total, run) => total + run.section.durationSeconds, 0);
+
   return (
     <main className="min-h-svh bg-[#f7faf8] px-4 py-8 text-secondary-900 sm:px-6 lg:py-12">
       <div className="mx-auto grid max-w-4xl gap-6">
-        <header className="text-center">
-          <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">{title}</p>
-          <h1 className="mt-3 font-heading text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">{finished ? "Jawaban sedang diproses" : completedRuns ? "Bagian selesai. Tarik napas sejenak." : "Ujian siap dimulai"}</h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-secondary-600 sm:text-base">{finished ? "Sistem sedang menyiapkan skor, peringkat, dan review jawabanmu." : "Timer hanya berjalan untuk bagian yang sedang aktif. Bagian yang telah dikirim tetap terkunci."}</p>
-        </header>
+        <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_26px_80px_-46px_rgba(1,76,56,0.3)]">
+          <div className="bg-[linear-gradient(120deg,#014c38_0%,#176b4d_68%,#2f8a5d_100%)] p-6 text-white sm:p-8">
+            <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-4xl">{title}</h1>
+            {tryoutDescription ? <p className="mt-4 max-w-2xl text-sm leading-6 text-primary-50 sm:text-base">{tryoutDescription}</p> : null}
+          </div>
+          <dl className="grid divide-y divide-primary-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+            <div className="flex items-center gap-3 p-5 sm:p-6">
+              <ListChecks aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+              <div className="min-w-0"><dt className="text-xs text-secondary-500">Total soal</dt><dd className="mt-1 font-semibold">{totalQuestions} soal</dd></div>
+            </div>
+            <div className="flex items-center gap-3 p-5 sm:p-6">
+              <Clock aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+              <div className="min-w-0"><dt className="text-xs text-secondary-500">Total durasi</dt><dd className="mt-1 font-semibold">{formatDuration(totalDuration)}</dd></div>
+            </div>
+            <div className="flex items-center gap-3 p-5 sm:p-6">
+              <UserCircle aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+              <div className="min-w-0"><dt className="text-xs text-secondary-500">Disusun oleh</dt><dd className="mt-1 truncate font-semibold" title={tryoutOrganizer}>{tryoutOrganizer}</dd></div>
+            </div>
+            {tryoutEventName ? (
+              <div className="flex items-center gap-3 p-5 sm:p-6">
+                <CalendarBlank aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+                <div className="min-w-0"><dt className="text-xs text-secondary-500">Event</dt><dd className="mt-1 truncate font-semibold" title={tryoutEventName}>{tryoutEventName}</dd></div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-5 sm:p-6">
+                <ListChecks aria-hidden="true" className="size-5 shrink-0 text-primary-700" />
+                <div className="min-w-0"><dt className="text-xs text-secondary-500">Bagian</dt><dd className="mt-1 font-semibold">{runs.length} bagian</dd></div>
+              </div>
+            )}
+          </dl>
+        </section>
 
         {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><WarningCircle />{message}</p> : null}
 
@@ -185,25 +232,25 @@ function ParticipantAttemptStatusScreen({
             <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
           </section>
         ) : (
-          <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white">
-            <div className="flex items-center justify-between gap-4 border-b border-primary-100 bg-primary-50 p-5 sm:p-6">
-              <div><p className="text-sm font-semibold">Progres ujian</p><p className="mt-1 text-sm text-secondary-500">{completedRuns} dari {runs.length} bagian selesai</p></div>
-              <span className="font-mono text-2xl font-semibold text-primary-800">{completedRuns}/{runs.length}</span>
-            </div>
-            <div className="grid divide-y divide-primary-100">
+          <div className="grid gap-3">
               {runs.map((candidate) => {
                 const isNext = candidate.id === nextRun?.id;
                 const isComplete = ["sealed", "expired"].includes(candidate.status);
                 return (
-                  <div className="grid gap-4 p-5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
+                  <article className="grid gap-4 rounded-[1.5rem] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.38)] sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
                     <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>{isComplete ? <Check /> : candidate.sequenceNo}</span>
-                    <div><h2 className="font-semibold">{candidate.section.title}</h2><p className="mt-1 text-sm text-secondary-500">{candidate.section.questionCount} soal · {Math.round(candidate.section.durationSeconds / 60)} menit · {candidate.section.testType.toUpperCase()}</p></div>
+                    <div>
+                      <h2 className="font-semibold">{candidate.section.title}</h2>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
+                        <span className="inline-flex items-center gap-1.5"><ListChecks aria-hidden="true" className="size-4 text-primary-700" />{candidate.section.questionCount} soal</span>
+                        <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4 text-primary-700" />{formatDuration(candidate.section.durationSeconds)}</span>
+                      </div>
+                    </div>
                     {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
-                  </div>
+                  </article>
                 );
               })}
-            </div>
-          </section>
+          </div>
         )}
       </div>
     </main>
@@ -429,10 +476,9 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   }
 
   const nextRun = state.runs.find((candidate) => candidate.status === "pending");
-  const completedRuns = state.runs.filter((candidate) => ["sealed", "expired"].includes(candidate.status)).length;
 
   if (!run) {
-    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={busy} completedRuns={completedRuns} finished={state.status !== "in_progress"} message={message} nextRun={nextRun} onBegin={begin} runs={state.runs} title={state.tryoutTitle} />;
+    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={busy} finished={state.status !== "in_progress"} message={message} nextRun={nextRun} onBegin={begin} runs={state.runs} title={state.tryoutTitle} tryoutDescription={state.tryoutDescription} tryoutEventName={state.tryoutEventName} tryoutOrganizer={state.tryoutOrganizer} />;
   }
 
   if (!item) {
@@ -553,7 +599,7 @@ function ParticipantAttemptScreen({
           <div className="grid gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-[0.08em] text-primary-700 uppercase">Soal {Math.min(index + 1, items.length)} dari {items.length}</p>
-              <p className="mt-1 text-sm text-secondary-500">{snapshot?.testType === "cat" ? "CAT · jawaban tidak dapat diubah setelah dikirim" : `${answerIds.size} dijawab · ${markedCount} ditandai`}</p>
+              <p className="mt-1 text-sm text-secondary-500">{answerIds.size} dijawab · {markedCount} ditandai</p>
             </div>
             <div className="flex items-center justify-between gap-2 sm:justify-end">
               <p aria-live="polite" className={cn("flex min-h-9 items-center gap-2 text-xs font-medium", saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500")}>{saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : <><FloppyDisk />Simpan otomatis</>}</p>

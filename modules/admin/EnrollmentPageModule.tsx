@@ -1,17 +1,19 @@
 import Link from "next/link";
 
-import { ChevronLeft, ChevronRight, Plus } from "@/lib/icons";
+import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { EnrollmentHandoff, ExamEvent, Major, StudentProfile, University, User, UserStatus } from "@/generated/prisma/client";
-import { buildDirectoryQuery } from "@/lib/admin/operations/validation";
+import { buildDirectoryQuery, type DirectoryPageSize } from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
+import { AddStudentDialog } from "./components/add-student-dialog";
 import { FocusRestorer } from "./components/focus-restorer";
+import { StudentPageSizeSelect } from "./components/student-page-size-select";
 import { StudentDirectoryTable } from "./components/student-directory-table";
 
-type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "id" | "lastLoginAt" | "mustChangePassword" | "status"> & {
+export type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "id" | "lastLoginAt" | "mustChangePassword" | "status"> & {
   enrollmentHandoffs: Pick<EnrollmentHandoff, "expiresAt" | "method" | "status">[];
   studentProfile: (Pick<StudentProfile, "onboardingStatus"> & {
     targetExamEvent: Pick<ExamEvent, "examDate" | "name"> | null;
@@ -20,6 +22,7 @@ type EnrolledStudent = Pick<User, "createdAt" | "email" | "fullName" | "id" | "l
     }) | null;
     targetUniversity: Pick<University, "name" | "shortName"> | null;
   }) | null;
+  temporary?: boolean;
 };
 type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
 
@@ -62,12 +65,46 @@ const errorMessages: Record<string, string> = {
   "update-failed": "We're sorry, we couldn't update that student account. Please try again.",
 };
 
+type PaginationItem = number | "ellipsis";
+
+function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  const visiblePages = new Set([1, pageCount, page - 1, page, page + 1]);
+  const sortedPages = [...visiblePages]
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= pageCount)
+    .sort((left, right) => left - right);
+  const items: PaginationItem[] = [];
+
+  sortedPages.forEach((pageNumber, index) => {
+    if (index > 0 && pageNumber - sortedPages[index - 1] > 1) {
+      items.push("ellipsis");
+    }
+    items.push(pageNumber);
+  });
+
+  return items;
+}
+
+function withDemoQuery(query: string, demo: boolean) {
+  if (!demo) {
+    return query;
+  }
+
+  return `${query}${query ? "&" : "?"}demo=1`;
+}
+
 function EnrollmentPageModule({
+  examEvents,
   error,
   focus,
   notice,
   page,
   pageCount,
+  pageSize,
+  demo,
   session,
   search,
   addedFrom,
@@ -78,11 +115,14 @@ function EnrollmentPageModule({
 }: {
   addedFrom: string | null;
   addedTo: string | null;
+  examEvents: Array<Pick<ExamEvent, "id" | "name">>;
   error?: string | null;
   focus?: string | null;
   notice?: string | null;
   page: number;
   pageCount: number;
+  pageSize: DirectoryPageSize;
+  demo: boolean;
   session: SessionContext;
   search: string;
   statusFilters: UserStatus[];
@@ -90,14 +130,15 @@ function EnrollmentPageModule({
   total: number;
 }) {
   const pageHref = (nextPage: number) => {
-    const query = buildDirectoryQuery({ addedFrom, addedTo, focus: null, page: nextPage, search, status: statusFilters[0] ?? "all", statuses: statusFilters });
+    const query = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, focus: null, page: nextPage, pageSize, search, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
     return query ? `/admin/enrollment${query}` : "/admin/enrollment";
   };
-  const directoryQuery = buildDirectoryQuery({ addedFrom, addedTo, focus: focus ?? null, page, search, status: statusFilters[0] ?? "all", statuses: statusFilters });
-  const backQuery = buildDirectoryQuery({ addedFrom, addedTo, focus: null, page, search, status: statusFilters[0] ?? "all", statuses: statusFilters });
+  const directoryQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, focus: focus ?? null, page, pageSize, search, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
+  const backQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, focus: null, page, pageSize, search, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
   const isEmptyDirectory = total === 0 && !search && !statusFilters.length && !addedFrom && !addedTo;
-  const visibleStart = students.length ? (page - 1) * 20 + 1 : 0;
-  const visibleEnd = Math.min(page * 20, (page - 1) * 20 + students.length);
+  const visibleStart = students.length ? (page - 1) * pageSize + 1 : 0;
+  const visibleEnd = Math.min(page * pageSize, (page - 1) * pageSize + students.length);
+  const paginationItems = getPaginationItems(page, pageCount);
 
   return (
     <PortalShell
@@ -119,14 +160,7 @@ function EnrollmentPageModule({
           <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl" id="students-heading">
             Students
           </h1>
-          <Link
-            aria-label="Add student"
-            className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
-            href="/admin/enrollment/new"
-            title="Add student"
-          >
-            <Plus aria-hidden="true" size={18} />
-          </Link>
+          <AddStudentDialog examEvents={examEvents} />
         </header>
 
         <p aria-live="polite" className="sr-only" id="student-directory-announcement">
@@ -136,6 +170,11 @@ function EnrollmentPageModule({
           <div id="student-directory-notice" tabIndex={-1}>
             <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice>
           </div>
+        ) : null}
+        {demo ? (
+          <FormNotice compact tone="neutral">
+            Temporary demo data is active. Remove <code className="font-semibold">demo=1</code> from the URL to return to live students.
+          </FormNotice>
         ) : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
@@ -149,6 +188,8 @@ function EnrollmentPageModule({
             search={search}
             addedFrom={addedFrom}
             addedTo={addedTo}
+            demo={demo}
+            pageSize={pageSize}
             statusFilters={statusFilters}
             students={students.map((student) => {
               const latestHandoff = student.enrollmentHandoffs[0] ?? null;
@@ -184,24 +225,54 @@ function EnrollmentPageModule({
           />
 
           <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p className="text-xs tabular-nums text-secondary-600">
-              <span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="text-xs tabular-nums text-secondary-600">
+                <span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}
+              </p>
+              <StudentPageSizeSelect pageSize={pageSize} query={backQuery} />
+            </div>
             {pageCount > 1 ? (
-              <nav aria-label="Student directory pages" className="flex items-center gap-3">
-                <span aria-current="page" className="text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
-                <span className="flex items-center gap-1">
+              <nav aria-label="Student directory pages" className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
+                <div className="flex min-w-0 items-center gap-0.5">
                   {page > 1 ? (
-                    <Link aria-label="Previous student directory page" className={buttonVariants({ className: "size-8 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}>
+                    <Link aria-label="Previous student directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}>
                       <ChevronLeft aria-hidden="true" size={16} />
                     </Link>
                   ) : null}
+                  <ol className="flex items-center gap-0.5">
+                    {paginationItems.map((item, index) => item === "ellipsis" ? (
+                      <li key={`ellipsis-${index}`}>
+                        <span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400">
+                          <MoreHorizontal size={16} />
+                        </span>
+                        <span className="sr-only">More pages</span>
+                      </li>
+                    ) : (
+                      <li key={item}>
+                        <Link
+                          aria-current={item === page ? "page" : undefined}
+                          aria-label={`Go to page ${item}`}
+                          className={buttonVariants({
+                            className: item === page
+                              ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800"
+                              : "size-9 rounded-lg p-0 text-secondary-700 hover:bg-primary-50 hover:text-primary-800",
+                            size: "icon-sm",
+                            variant: item === page ? "brand" : "ghost",
+                          })}
+                          href={pageHref(item)}
+                        >
+                          {item}
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
                   {page < pageCount ? (
-                    <Link aria-label="Next student directory page" className={buttonVariants({ className: "size-8 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}>
+                    <Link aria-label="Next student directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}>
                       <ChevronRight aria-hidden="true" size={16} />
                     </Link>
                   ) : null}
-                </span>
+                </div>
               </nav>
             ) : null}
           </div>

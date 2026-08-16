@@ -23,6 +23,7 @@ function safeBackHref(value: unknown) {
     addedTo: parsed.addedTo,
     focus: null,
     page: parsed.page,
+    pageSize: parsed.pageSize,
     search: parsed.search,
     status: parsed.status,
     statuses: parsed.statuses,

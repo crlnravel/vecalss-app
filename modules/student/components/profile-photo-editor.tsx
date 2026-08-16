@@ -93,7 +93,8 @@ function ProfilePhotoEditor({ initials }: ProfilePhotoEditorProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 pt-2">
+    <div className="flex flex-col items-start gap-3 pt-2">
+      <p className="text-base leading-7 text-primary-900">Profile picture</p>
       <div className="group/photo relative">
         <Avatar className="size-32 overflow-hidden border border-primary-100 shadow-[0_18px_44px_-24px_rgba(1,76,56,0.32)]">
           {committedPhotoSrc ? (
@@ -127,7 +128,7 @@ function ProfilePhotoEditor({ initials }: ProfilePhotoEditorProps) {
         </TooltipProvider>
       </div>
 
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex w-32 items-center justify-center gap-2">
         <Button
           aria-label="Hapus foto"
           size="icon-sm"

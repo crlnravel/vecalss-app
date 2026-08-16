@@ -109,5 +109,4 @@ both document-only and document-plus-video coverage.
 - `/notifications/[notificationId]`
 - `/admin/notifications`
 - `/admin/enrollment`
-- `/admin/enrollment/new`
 - `/mentor/dashboard`

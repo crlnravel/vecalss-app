@@ -225,7 +225,14 @@ async function attemptState(attemptId: string, studentId: string) {
       where: { id: attemptId, studentId },
       include: {
         deliverySession: { select: { fullscreenPrompt: true } },
-        tryout: { select: { title: true } },
+        tryout: {
+          select: {
+            createdBy: { select: { fullName: true } },
+            description: true,
+            examEvent: { select: { name: true } },
+            title: true,
+          },
+        },
       },
     });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
@@ -265,6 +272,9 @@ async function attemptState(attemptId: string, studentId: string) {
       activeRun: exposed,
       attemptId,
       status: (await tx.tryoutAttempt.findUniqueOrThrow({ where: { id: attemptId }, select: { status: true } })).status,
+      tryoutDescription: attempt.tryout.description,
+      tryoutEventName: attempt.tryout.examEvent?.name ?? null,
+      tryoutOrganizer: attempt.tryout.createdBy.fullName,
       tryoutTitle: attempt.tryout.title,
       runs: runs.map((run) => ({
         id: run.id,

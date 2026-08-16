@@ -1,9 +1,13 @@
 import { UserStatus } from "@/generated/prisma/client";
+import {
+  DEFAULT_DIRECTORY_PAGE_SIZE,
+  DIRECTORY_PAGE_SIZE_OPTIONS,
+  type DirectoryPageSize,
+} from "./directory-page-constants";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAX_DIRECTORY_QUERY_LENGTH = 120;
 const MAX_DIRECTORY_PAGE = 1_000;
-
 type DirectoryParamValue = string | string[] | undefined | null;
 
 type DirectoryParamsInput = {
@@ -11,6 +15,7 @@ type DirectoryParamsInput = {
   addedTo?: DirectoryParamValue;
   focus?: DirectoryParamValue;
   page?: DirectoryParamValue;
+  pageSize?: DirectoryParamValue;
   q?: DirectoryParamValue;
   status?: DirectoryParamValue;
 };
@@ -21,6 +26,7 @@ type DirectoryParams = {
   focus: string | null;
   invalid: boolean;
   page: number;
+  pageSize: DirectoryPageSize;
   search: string;
   status: UserStatus | "all";
   statuses: UserStatus[];
@@ -30,6 +36,7 @@ type DirectoryQueryOptions = Pick<DirectoryParams, "focus" | "page" | "search" |
   & {
     addedFrom?: string | null;
     addedTo?: string | null;
+    pageSize?: DirectoryPageSize;
     statuses?: readonly UserStatus[];
   };
 
@@ -160,6 +167,23 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
     }
   }
 
+  const rawPageSize = readSingle(input.pageSize);
+  let pageSize: DirectoryPageSize = DEFAULT_DIRECTORY_PAGE_SIZE;
+  if (rawPageSize.invalid) {
+    invalid = true;
+  } else if (rawPageSize.value !== null) {
+    if (!/^\d+$/u.test(rawPageSize.value)) {
+      invalid = true;
+    } else {
+      const requestedPageSize = Number(rawPageSize.value);
+      if (DIRECTORY_PAGE_SIZE_OPTIONS.includes(requestedPageSize as DirectoryPageSize)) {
+        pageSize = requestedPageSize as DirectoryPageSize;
+      } else {
+        invalid = true;
+      }
+    }
+  }
+
   const rawFocus = readSingle(input.focus);
   let focus: string | null = null;
   if (rawFocus.invalid) {
@@ -177,6 +201,7 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
     focus,
     invalid,
     page,
+    pageSize,
     search: invalid && search.length > MAX_DIRECTORY_QUERY_LENGTH ? "" : search,
     status,
     statuses,
@@ -191,6 +216,7 @@ function parseDirectoryQuery(query: string): DirectoryParams {
       focus: null,
       invalid: Boolean(query),
       page: 1,
+      pageSize: DEFAULT_DIRECTORY_PAGE_SIZE,
       search: "",
       status: "all",
       statuses: [],
@@ -208,18 +234,20 @@ function parseDirectoryQuery(query: string): DirectoryParams {
     addedTo: valueFor("addedTo"),
     focus: valueFor("focus"),
     page: valueFor("page"),
+    pageSize: valueFor("pageSize"),
     q: valueFor("q"),
     status: valueFor("status"),
   });
 }
 
-function buildDirectoryQuery({ addedFrom, addedTo, focus, page, search, status, statuses }: DirectoryQueryOptions): string {
+function buildDirectoryQuery({ addedFrom, addedTo, focus, page, pageSize, search, status, statuses }: DirectoryQueryOptions): string {
   const params = new URLSearchParams();
   if (search) params.set("q", search);
   const selectedStatuses = statuses?.length ? statuses : status !== "all" ? [status] : [];
   selectedStatuses.forEach((selectedStatus) => params.append("status", selectedStatus));
   if (addedFrom) params.set("addedFrom", addedFrom);
   if (addedTo) params.set("addedTo", addedTo);
+  if (pageSize && pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE) params.set("pageSize", String(pageSize));
   if (page > 1) params.set("page", String(page));
   if (focus) params.set("focus", focus);
   const query = params.toString();
@@ -229,10 +257,12 @@ function buildDirectoryQuery({ addedFrom, addedTo, focus, page, search, status, 
 export {
   MAX_DIRECTORY_PAGE,
   MAX_DIRECTORY_QUERY_LENGTH,
+  DEFAULT_DIRECTORY_PAGE_SIZE,
+  DIRECTORY_PAGE_SIZE_OPTIONS,
   buildDirectoryQuery,
   isUuid,
   parseDirectoryParams,
   parseDirectoryQuery,
   parseUuid,
 };
-export type { DirectoryParams, DirectoryParamsInput, DirectoryParamValue, DirectoryQueryOptions };
+export type { DirectoryPageSize, DirectoryParams, DirectoryParamsInput, DirectoryParamValue, DirectoryQueryOptions };

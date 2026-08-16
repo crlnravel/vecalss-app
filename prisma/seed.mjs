@@ -39,6 +39,17 @@ const DEMO_STUDENTS = [
   { email: "salma@vecalss.local", fullName: "Salma Maharani", key: "revoked" },
 ];
 
+const ADDITIONAL_STUDENTS = [
+  { email: "arya@vecalss.local", fullName: "Arya Wibowo" },
+  { email: "intan@vecalss.local", fullName: "Intan Permata" },
+  { email: "kevin@vecalss.local", fullName: "Kevin Halim" },
+  { email: "putri@vecalss.local", fullName: "Putri Anggraeni" },
+  { email: "rangga@vecalss.local", fullName: "Rangga Maulana" },
+  { email: "syifa@vecalss.local", fullName: "Syifa Nuraini" },
+];
+
+const SEEDED_STUDENTS = [...DEMO_STUDENTS, ...ADDITIONAL_STUDENTS];
+
 function requireDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
 
@@ -755,7 +766,7 @@ async function main() {
 
     const demoPasswordHash = await hashPassword("Student12345!");
     const demoStudentEntries = await Promise.all(
-      DEMO_STUDENTS.map(async (demoStudent) => {
+      SEEDED_STUDENTS.map(async (demoStudent) => {
         const demoStudentId = await upsertUser(client, {
           email: demoStudent.email,
           fullName: demoStudent.fullName,
@@ -778,7 +789,7 @@ async function main() {
           targetUniversityId: uiId,
           userId: demoStudentId,
         });
-        return [demoStudent.key, demoStudentId];
+        return [demoStudent.key ?? demoStudent.email, demoStudentId];
       }),
     );
     const demoStudentIds = Object.fromEntries(demoStudentEntries);
@@ -843,6 +854,7 @@ async function main() {
 
     console.log("Vecalss seed completed.\n");
     console.log(`Demonstration content: ${assessmentSummary.questionCount} questions, ${assessmentSummary.quizCount} quizzes, ${assessmentSummary.versionCount} reusable packages, 2 delivery sessions, and 6 participant states.\n`);
+    console.log(`Student accounts: ${2 + SEEDED_STUDENTS.length} seeded students, including ${ADDITIONAL_STUDENTS.length} additional enrolled demo students.\n`);
     console.table([
       {
         email: DEFAULT_ADMIN.email,

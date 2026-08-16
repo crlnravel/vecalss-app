@@ -134,6 +134,11 @@ function SidebarProvider({
           {
             "--sidebar-width": SIDEBAR_WIDTH,
             "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+            "--sidebar-offset": isMobile
+              ? "0px"
+              : open
+                ? SIDEBAR_WIDTH
+                : SIDEBAR_WIDTH_ICON,
             ...style,
           } as React.CSSProperties
         }

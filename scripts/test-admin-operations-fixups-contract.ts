@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import {
   MAX_DIRECTORY_PAGE,
   MAX_DIRECTORY_QUERY_LENGTH,
+  DEFAULT_DIRECTORY_PAGE_SIZE,
+  DIRECTORY_PAGE_SIZE_OPTIONS,
   buildDirectoryQuery,
   isUuid,
   parseDirectoryParams,
@@ -24,7 +26,7 @@ import {
 } from "@/lib/admin/imports/processing";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [route, validation, actions, operationsService, handoffService, consoleModule, focusRestorer, focusTarget, loading, handoffControls, deliveryNotice, studentModule, kaptenModule, importsPage, cancelRoute, retryRoute, sheet, nav, access, dbContract, createStudentForm, createKaptenForm] = await Promise.all([
+const [route, validation, actions, operationsService, handoffService, consoleModule, focusRestorer, focusTarget, loading, handoffControls, deliveryNotice, studentModule, kaptenModule, importsPage, cancelRoute, retryRoute, sheet, nav, access, dbContract, createStudentForm, createKaptenForm, studentDirectoryTable] = await Promise.all([
   readFile(resolve(root, "app/api/admin/handoffs/[handoffId]/reissue/route.ts"), "utf8"),
   readFile(resolve(root, "lib/admin/operations/validation.ts"), "utf8"),
   readFile(resolve(root, "modules/admin/actions.ts"), "utf8"),
@@ -47,6 +49,7 @@ const [route, validation, actions, operationsService, handoffService, consoleMod
   readFile(resolve(root, "scripts/test-admin-import-processing-db.ts"), "utf8"),
   readFile(resolve(root, "modules/admin/components/create-student-form.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/components/create-kapten-form.tsx"), "utf8"),
+  readFile(resolve(root, "modules/admin/components/student-directory-table.tsx"), "utf8"),
 ]);
 
 const validId = "550e8400-e29b-41d4-a716-446655440000";
@@ -114,6 +117,8 @@ assert.deepEqual(removeResolvedAttentionItems(replacementAttention, new Set()), 
 assert.deepEqual(removeResolvedAttentionItems(replacementAttention, new Set([replacementHandoffId])), []);
 assert.equal(MAX_DIRECTORY_QUERY_LENGTH, 120);
 assert.equal(MAX_DIRECTORY_PAGE, 1_000);
+assert.equal(DEFAULT_DIRECTORY_PAGE_SIZE, 20);
+assert.deepEqual(DIRECTORY_PAGE_SIZE_OPTIONS, [10, 20, 50]);
 
 const safeDirectory = parseDirectoryParams({
   focus: validId,
@@ -127,6 +132,7 @@ assert.deepEqual(safeDirectory, {
   focus: validId,
   invalid: false,
   page: 4,
+  pageSize: DEFAULT_DIRECTORY_PAGE_SIZE,
   search: "sailor@example.test",
   status: "active",
   statuses: ["active"],
@@ -134,9 +140,12 @@ assert.deepEqual(safeDirectory, {
 assert.equal(parseDirectoryParams({ q: "x".repeat(MAX_DIRECTORY_QUERY_LENGTH + 1) }).invalid, true);
 assert.equal(parseDirectoryParams({ page: "9007199254740992" }).invalid, true);
 assert.equal(parseDirectoryParams({ page: "1001" }).page, MAX_DIRECTORY_PAGE);
+assert.equal(parseDirectoryParams({ pageSize: "50" }).pageSize, 50);
+assert.equal(parseDirectoryParams({ pageSize: "25" }).invalid, true);
 assert.equal(parseDirectoryParams({ focus: "not-a-uuid" }).invalid, true);
 assert.equal(parseDirectoryParams({ status: "not-a-status" }).invalid, true);
 assert.equal(parseDirectoryQuery(`?q=${encodeURIComponent("sailor")}&status=active&page=2&focus=${validId}`).page, 2);
+assert.equal(parseDirectoryQuery("?pageSize=10").pageSize, 10);
 assert.deepEqual(parseDirectoryQuery("?status=active&status=disabled").statuses, ["active", "disabled"]);
 assert.equal(parseDirectoryQuery("?addedFrom=2026-08-09&addedTo=2026-08-10").invalid, false);
 assert.equal(parseDirectoryQuery("?q=one&q=two").invalid, true);
@@ -148,6 +157,10 @@ assert.equal(
 assert.equal(
   buildDirectoryQuery(parseDirectoryQuery("?status=active&status=disabled&addedFrom=2026-08-09&addedTo=2026-08-10")),
   "?status=active&status=disabled&addedFrom=2026-08-09&addedTo=2026-08-10",
+);
+assert.equal(
+  buildDirectoryQuery({ ...safeDirectory, pageSize: 50 }),
+  `?q=sailor%40example.test&status=active&pageSize=50&page=4&focus=${validId}`,
 );
 
 assert.match(validation, /MAX_DIRECTORY_QUERY_LENGTH/);
@@ -221,13 +234,13 @@ assert.match(handoffControls, /confirmation/);
 assert.match(handoffControls, /className="min-h-11"/);
 assert.match(deliveryNotice, /confirmation/);
 assert.match(deliveryNotice, /className="min-h-11"/);
-assert.match(studentModule, /data-directory-row/);
 assert.match(studentModule, /directoryQuery/);
-assert.match(studentModule, /min-h-11/);
+assert.match(studentModule, /pageSize/);
+assert.match(studentDirectoryTable, /data-directory-row/);
 assert.match(kaptenModule, /data-directory-row/);
 assert.match(kaptenModule, /directoryQuery/);
 assert.match(kaptenModule, /min-h-11/);
-assert.match(importsPage, /parseUuid/);
+assert.match(importsPage, /ImportsIntakeModule/);
 assert.match(cancelRoute, /cancelEnrollmentImport/);
 assert.match(cancelRoute, /revalidatePath\("\/admin"\)/);
 assert.match(retryRoute, /retryEnrollmentImport/);

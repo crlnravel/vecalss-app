@@ -23,7 +23,8 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { UserStatus } from "@/generated/prisma/client";
-import { ChevronRight, Plus, XIcon } from "@/lib/icons";
+import { ChevronRight, XIcon } from "@/lib/icons";
+import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
 import { cn } from "@/lib/utils";
 import { bulkUpdateStudentEnrollmentStatusAction } from "@/modules/admin/actions";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -186,11 +187,15 @@ function formatDateFilter(addedFrom: string | null, addedTo: string | null) {
 function directoryHref({
   addedFrom,
   addedTo,
+  demo,
+  pageSize,
   search,
   statuses,
 }: {
   addedFrom: string | null;
   addedTo: string | null;
+  demo: boolean;
+  pageSize: DirectoryPageSize;
   search: string;
   statuses: readonly UserStatus[];
 }) {
@@ -204,6 +209,12 @@ function directoryHref({
   }
   if (addedTo) {
     params.set("addedTo", addedTo);
+  }
+  if (demo) {
+    params.set("demo", "1");
+  }
+  if (pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE) {
+    params.set("pageSize", String(pageSize));
   }
   const query = params.toString() ? `?${params.toString()}` : "";
   return query ? `/admin/enrollment${query}` : "/admin/enrollment";
@@ -383,12 +394,16 @@ function StudentFilterPanel({
   addedFrom,
   addedTo,
   clearFiltersHref,
+  demo,
+  pageSize,
   statusFilters,
   search,
 }: {
   addedFrom: string | null;
   addedTo: string | null;
   clearFiltersHref: string;
+  demo: boolean;
+  pageSize: DirectoryPageSize;
   search: string;
   statusFilters: readonly UserStatus[];
 }) {
@@ -421,6 +436,13 @@ function StudentFilterPanel({
       params.set("addedTo", typeof addedToValue === "string" && addedToValue ? addedToValue : addedFromValue);
     } else if (typeof addedToValue === "string" && addedToValue) {
       params.set("addedTo", addedToValue);
+    }
+
+    if (pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE) {
+      params.set("pageSize", String(pageSize));
+    }
+    if (demo) {
+      params.set("demo", "1");
     }
 
     const queryString = params.toString();
@@ -548,8 +570,10 @@ function StudentDirectoryTable({
   addedTo,
   backQuery,
   dataQuery,
+  demo,
   focus,
   isEmptyDirectory,
+  pageSize,
   search,
   statusFilters,
   students,
@@ -558,17 +582,19 @@ function StudentDirectoryTable({
   addedTo: string | null;
   backQuery: string;
   dataQuery: string;
+  demo: boolean;
   focus: string | null;
   isEmptyDirectory: boolean;
+  pageSize: DirectoryPageSize;
   search: string;
   statusFilters: UserStatus[];
   students: StudentDirectoryItem[];
 }) {
   const [previewStudent, setPreviewStudent] = useState<StudentDirectoryItem | null>(null);
-  const clearSearchHref = directoryHref({ addedFrom, addedTo, search: "", statuses: statusFilters });
-  const clearStatusHref = directoryHref({ addedFrom, addedTo, search, statuses: [] });
-  const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, search, statuses: statusFilters });
-  const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, search: "", statuses: [] });
+  const clearSearchHref = directoryHref({ addedFrom, addedTo, demo, pageSize, search: "", statuses: statusFilters });
+  const clearStatusHref = directoryHref({ addedFrom, addedTo, demo, pageSize, search, statuses: [] });
+  const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, demo, pageSize, search, statuses: statusFilters });
+  const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, demo, pageSize, search: "", statuses: [] });
   const filters: DataTableFilter[] = [];
 
   if (statusFilters.length) {
@@ -643,6 +669,10 @@ function StudentDirectoryTable({
     },
     {
       cell: (student) => {
+        if (demo) {
+          return <span className="font-medium text-secondary-400">Demo</span>;
+        }
+
         const detailHref = backQuery
           ? `/admin/enrollment/${student.id}?from=${encodeURIComponent(backQuery)}`
           : `/admin/enrollment/${student.id}`;
@@ -670,6 +700,8 @@ function StudentDirectoryTable({
       addedFrom={addedFrom}
       addedTo={addedTo}
       clearFiltersHref={clearFiltersHref}
+      demo={demo}
+      pageSize={pageSize}
       search={search}
       statusFilters={statusFilters}
     />
@@ -683,17 +715,9 @@ function StudentDirectoryTable({
         </h3>
         <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">
           {isEmptyDirectory
-            ? "Open the Add student page to create the first account and choose its handoff."
+            ? "Use the Add student button above to create the first account and choose its handoff."
             : "Try another name, email, or status filter to find the account you need."}
         </p>
-        {isEmptyDirectory ? (
-          <div className="mt-5">
-            <Link className={buttonVariants({ className: "min-h-10", size: "sm", variant: "brand" })} href="/admin/enrollment/new">
-              <Plus aria-hidden="true" size={17} />
-              Create first student
-            </Link>
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -708,7 +732,7 @@ function StudentDirectoryTable({
         filterPanel={filterPanel}
         filters={filters}
         getRowId={(student) => student.id}
-        onRowClick={setPreviewStudent}
+        onRowClick={demo ? undefined : setPreviewStudent}
         rowClassName={(student) => cn(
           focus === student.id && "bg-primary-50/70 shadow-[inset_0_0_0_2px_rgba(26,107,60,0.18)]",
         )}
@@ -726,12 +750,14 @@ function StudentDirectoryTable({
             ...(statusFilters.length ? { status: statusFilters } : {}),
             ...(addedFrom ? { addedFrom } : {}),
             ...(addedTo ? { addedTo } : {}),
+            ...(demo ? { demo: "1" } : {}),
+            ...(pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE ? { pageSize: String(pageSize) } : {}),
           },
           label: "Global student search",
           placeholder: "Search students by name or email…",
           value: search,
         }}
-        selection
+        selection={!demo}
         selectionActions={({ rows }) => (
           <BulkStudentActions dataQuery={dataQuery} selectedStudents={rows} />
         )}

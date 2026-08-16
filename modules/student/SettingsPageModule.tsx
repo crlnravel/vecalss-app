@@ -147,7 +147,6 @@ function SettingsPageModule({
   const [targetExamEventId, setTargetExamEventId] = useState(() => profile.targetExamEventId ?? "");
   const [targetUniversityId, setTargetUniversityId] = useState(() => profile.targetUniversityId ?? "");
   const [targetMajorId, setTargetMajorId] = useState(() => profile.targetMajorId ?? "");
-  const [timezone, setTimezone] = useState(() => profile.timezone);
 
   const availableMajors = useMemo(
     () => (targetUniversityId ? majors.filter((major) => major.universityId === targetUniversityId) : majors),
@@ -169,19 +168,16 @@ function SettingsPageModule({
       fullName.trim() !== session.user.fullName.trim() ||
       targetExamEventId !== (profile.targetExamEventId ?? "") ||
       targetUniversityId !== (profile.targetUniversityId ?? "") ||
-      targetMajorId !== (profile.targetMajorId ?? "") ||
-      timezone !== profile.timezone,
+      targetMajorId !== (profile.targetMajorId ?? ""),
     [
       fullName,
       profile.targetExamEventId,
       profile.targetMajorId,
       profile.targetUniversityId,
-      profile.timezone,
       session.user.fullName,
       targetExamEventId,
       targetMajorId,
       targetUniversityId,
-      timezone,
     ],
   );
 
@@ -190,7 +186,6 @@ function SettingsPageModule({
     setTargetExamEventId(profile.targetExamEventId ?? "");
     setTargetUniversityId(profile.targetUniversityId ?? "");
     setTargetMajorId(profile.targetMajorId ?? "");
-    setTimezone(profile.timezone);
   }
 
   return (
@@ -307,41 +302,21 @@ function SettingsPageModule({
           </div>
         </ProfileSection>
 
-        <ProfileSection
-          id="preferensi"
-          title="Preferensi belajar"
-        >
-          <div className="rounded-4xl border border-primary-100 bg-white p-5 shadow-[0_18px_54px_-42px_rgba(1,76,56,0.45)] md:p-6">
-            <SelectField
-              id="profile-timezone"
-              label="Zona waktu"
-              name="timezone"
-              onChange={setTimezone}
-              options={[
-                { label: "WIB — Asia/Jakarta", value: "Asia/Jakarta" },
-                { label: "WITA — Asia/Makassar", value: "Asia/Makassar" },
-                { label: "WIT — Asia/Jayapura", value: "Asia/Jayapura" },
-              ]}
-              value={timezone}
-            />
-          </div>
-        </ProfileSection>
-
         {hasUnsavedChanges ? (
           <div
             aria-live="polite"
-            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:inset-x-0 sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
             role="status"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]">
-                <AlertCircle className="size-7" strokeWidth={2.2} />
+              <span className="grid size-10 shrink-0 place-items-center text-[#176b4d]">
+                <AlertCircle className="size-5" strokeWidth={2.2} />
               </span>
               <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
               <Button
-                className="text-secondary-600 hover:bg-primary-50 hover:text-primary-800"
+                className="w-32 justify-center text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-solid-bg"
                 onClick={handleResetChanges}
                 size="sm"
                 type="button"
@@ -349,7 +324,7 @@ function SettingsPageModule({
               >
                 Batal
               </Button>
-              <SubmitButton pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
+              <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
                 Simpan
               </SubmitButton>
             </div>

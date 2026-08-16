@@ -13,23 +13,31 @@ import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
 import { createStudentEnrollmentAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
-function CreateStudentForm({ examEvents }: { examEvents: ExamEvent[] }) {
+function CreateStudentForm({
+  embedded = false,
+  examEvents,
+}: {
+  embedded?: boolean;
+  examEvents: Array<Pick<ExamEvent, "id" | "name">>;
+}) {
   const [state, formAction] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
 
   return (
     <form
       action={formAction}
-      className={`${ADMIN_CARD_CLASS_NAME} space-y-5 overflow-hidden p-6`}
+      className={`${embedded ? "" : `${ADMIN_CARD_CLASS_NAME} overflow-hidden p-6`} space-y-5`}
       id="create-student-account"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Create a student account</h2>
-          <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-600">
-            Add an approved student, set an exam goal, and choose the credential handoff.
-          </p>
+      {!embedded ? (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Create a student account</h2>
+            <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-600">
+              Add an approved student, set an exam goal, and choose the credential handoff.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {state.message ? (
         <FormNotice tone={state.status === "success" ? "success" : "danger"}>

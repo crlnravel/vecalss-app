@@ -43,7 +43,7 @@ function TryoutCardArtwork() {
     >
       <Image
         alt=""
-        className="object-cover object-center mix-blend-multiply saturate-[0.88] transition-transform duration-700 ease-out group-hover:scale-[1.05] motion-reduce:transition-none"
+        className="object-cover object-center mix-blend-multiply saturate-[0.88]"
         fill
         sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
         src="/brand/tryout-placeholder-banner.jpg"

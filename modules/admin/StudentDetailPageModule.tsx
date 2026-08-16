@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 import {
-  ArrowLeft,
   Buildings,
   CalendarDays,
+  ChevronLeft,
   Target,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
@@ -17,16 +17,13 @@ import type {
   UserStatus,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
-import { StudentBadge } from "@/components/ui/student-badge";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
-import {
-  updateStudentEnrollmentAction,
-} from "./actions";
 import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 import { CopyValueButton } from "./components/copy-value-button";
 import { StudentAccountActions } from "./components/student-account-actions";
+import { StudentDetailForm } from "./components/student-detail-form";
 
 type StudentDetail = Pick<
   User,
@@ -43,8 +40,6 @@ type StudentDetail = Pick<
     targetUniversity: Pick<University, "name" | "shortName"> | null;
   }) | null;
 };
-
-type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
 
 const noticeMessages: Record<string, string> = {
   "student-deactivated": "Student access has been disabled and active sessions were revoked.",
@@ -74,24 +69,24 @@ function splitStudentName(fullName: string) {
   };
 }
 
-function statusTone(status: UserStatus): StudentStatusTone {
+function formatStatus(status: UserStatus) {
+  return status.replaceAll("_", " ");
+}
+
+function statusTextClassName(status: UserStatus) {
   if (status === "active") {
-    return "success";
+    return "text-student-status-success-fg";
   }
 
   if (status === "disabled" || status === "soft_deleted") {
-    return "danger";
+    return "text-student-status-danger-fg";
   }
 
   if (status === "locked") {
-    return "attention";
+    return "text-student-status-attention-fg";
   }
 
-  return "neutral";
-}
-
-function formatStatus(status: UserStatus) {
-  return status.replaceAll("_", " ");
+  return "text-secondary-700";
 }
 
 function formatDate(value: Date | null) {
@@ -183,11 +178,13 @@ function StudentDetailPageModule({
       <div className="space-y-6">
         <nav aria-label="Student navigation">
           <Link
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl px-2 text-sm font-semibold text-secondary-700 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+            aria-label="Back to Students"
+            className="inline-flex size-11 cursor-pointer items-center justify-center rounded-xl text-secondary-700 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
             href={backHref}
+            title="Back to Students"
           >
-            <ArrowLeft aria-hidden="true" size={17} />
-            Back to Students
+            <ChevronLeft aria-hidden="true" size={22} />
+            <span className="sr-only">Back to Students</span>
           </Link>
         </nav>
 
@@ -195,7 +192,7 @@ function StudentDetailPageModule({
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
         <div className="grid min-w-0 items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(220px,0.32fr)_minmax(0,1fr)] xl:gap-x-14">
-          <aside className="min-w-0 lg:sticky lg:top-24">
+          <aside className="min-w-0">
             <div className="flex flex-col items-start">
               <div className="min-w-0 max-w-full">
                 <h1 className="min-w-0 max-w-full break-words text-2xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-3xl">
@@ -219,7 +216,7 @@ function StudentDetailPageModule({
                   <span className="font-medium text-secondary-900">ID</span>
                   <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
                     <code className="min-w-0 truncate font-mono text-xs text-secondary-700">{displayId(student.id)}</code>
-                    <CopyValueButton ariaLabel="Copy student ID" label="Copy" value={student.id} />
+                    <CopyValueButton ariaLabel="Copy student ID" iconOnly value={student.id} />
                   </div>
                 </div>
                 <div className="min-w-0 space-y-2 text-sm">
@@ -232,19 +229,21 @@ function StudentDetailPageModule({
                   <span className="font-medium text-secondary-900">Password</span>
                   <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
                     <span aria-label="Hidden password" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
-                    <CopyValueButton ariaLabel="Copy hidden password" label="Copy" value={maskedPassword} />
+                    <CopyValueButton ariaLabel="Copy hidden password" iconOnly value={maskedPassword} />
                   </div>
                 </div>
                 <div className="min-w-0 space-y-2 text-sm">
                   <span className="font-medium text-secondary-900">Status</span>
-                  <div className={`${detailFieldClassName} flex min-h-[52px] items-center`}>
-                    <StudentBadge size="sm" tone={statusTone(student.status)}>{formatStatus(student.status)}</StudentBadge>
+                  <div className="flex min-h-[52px] items-center">
+                    <span className={`text-base font-bold ${statusTextClassName(student.status)}`}>
+                      {formatStatus(student.status)}
+                    </span>
                   </div>
                 </div>
               </div>
             </DetailSection>
 
-            <form action={updateStudentEnrollmentAction} className="min-w-0 space-y-6">
+            <StudentDetailForm>
               <input name="userId" type="hidden" value={student.id} />
               <input name="returnPath" type="hidden" value={returnPath} />
 
@@ -280,7 +279,7 @@ function StudentDetailPageModule({
                   <label className="min-w-0 space-y-2 text-sm md:col-span-2">
                     <span className="font-medium text-secondary-900">Target exam</span>
                     <select
-                      className={`${detailFieldClassName} pr-12`}
+                      className={`${detailFieldClassName} cursor-pointer pr-12`}
                       defaultValue={profile?.targetExamEventId ?? ""}
                       name="targetExamEventId"
                     >
@@ -317,7 +316,7 @@ function StudentDetailPageModule({
               <div className="flex justify-end">
                 <Button className="min-w-32" type="submit" variant="brand">Save changes</Button>
               </div>
-            </form>
+            </StudentDetailForm>
           </div>
         </div>
       </div>

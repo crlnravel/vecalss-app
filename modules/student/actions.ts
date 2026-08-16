@@ -126,7 +126,6 @@ async function saveProfileAction(
   const targetExamEventId = readOptionalId(formData, "targetExamEventId");
   let targetUniversityId = readOptionalId(formData, "targetUniversityId");
   const targetMajorId = readOptionalId(formData, "targetMajorId");
-  const timezone = readOptionalText(formData, "timezone") || "Asia/Jakarta";
 
   if (!fullName) {
     return {
@@ -197,7 +196,6 @@ async function saveProfileAction(
         targetExamEventId,
         targetMajorId,
         targetUniversityId,
-        timezone,
       },
       where: { userId: session.user.id },
     }),

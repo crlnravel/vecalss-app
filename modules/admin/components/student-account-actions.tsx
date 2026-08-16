@@ -57,13 +57,13 @@ function StudentAccountActions({
       : "This will remove the student from the directory and revoke access to the account.";
   const actionLabel = isBan ? "Ban User" : isUnban ? "Unban User" : "Delete User";
   const dangerButtonClassName = cn(
-    "inline-flex min-h-11 items-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
+    "inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
     compact
       ? "w-full justify-center rounded-xl px-3 text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-fg focus-visible:outline-student-status-danger-border"
-      : "text-danger-700 hover:text-danger-800 focus-visible:outline-danger-300",
+      : "text-student-status-danger-fg hover:text-student-status-danger-solid-bg focus-visible:outline-student-status-danger-border",
   );
   const restoreButtonClassName = cn(
-    "inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 transition-colors hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300",
+    "inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary-700 transition-colors hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300",
     compact && "w-full justify-center rounded-xl px-3 hover:bg-primary-50",
   );
 
