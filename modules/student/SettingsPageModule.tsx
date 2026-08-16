@@ -185,6 +185,14 @@ function SettingsPageModule({
     ],
   );
 
+  function handleResetChanges() {
+    setFullName(session.user.fullName);
+    setTargetExamEventId(profile.targetExamEventId ?? "");
+    setTargetUniversityId(profile.targetUniversityId ?? "");
+    setTargetMajorId(profile.targetMajorId ?? "");
+    setTimezone(profile.timezone);
+  }
+
   return (
     <StudentWorkspaceShell
       activeLabel="Profil"
@@ -195,15 +203,12 @@ function SettingsPageModule({
     >
       <form action={formAction} className="space-y-8">
         <ProfileFormContent>
-        <header className="flex flex-col gap-5 pb-6 md:flex-row md:items-end md:justify-between">
+        <header className="flex flex-col gap-5 pb-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">Profil</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary-500 md:text-base">
-              Kelola identitas akun dan target belajar yang kamu pilih saat onboarding.
-            </p>
           </div>
           <SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">
-            Simpan profil
+            Simpan
           </SubmitButton>
         </header>
 
@@ -325,17 +330,29 @@ function SettingsPageModule({
         {hasUnsavedChanges ? (
           <div
             aria-live="polite"
-            className="fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] backdrop-blur-md sm:inset-x-auto sm:right-6 sm:left-auto sm:w-[390px] sm:max-w-[calc(100vw-3rem)]"
+            className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:inset-x-0 sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            role="status"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700">
-                <AlertCircle className="size-4" />
+              <span className="grid size-14 shrink-0 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]">
+                <AlertCircle className="size-7" strokeWidth={2.2} />
               </span>
               <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
             </div>
-            <SubmitButton className="shrink-0" pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
-              Simpan
-            </SubmitButton>
+            <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
+              <Button
+                className="text-secondary-600 hover:bg-primary-50 hover:text-primary-800"
+                onClick={handleResetChanges}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Batal
+              </Button>
+              <SubmitButton pendingLabel="Menyimpan..." size="sm" type="submit" variant="brand">
+                Simpan
+              </SubmitButton>
+            </div>
           </div>
         ) : null}
         </ProfileFormContent>

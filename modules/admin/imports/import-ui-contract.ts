@@ -127,7 +127,12 @@ function classifyImportSessionRecovery({
   status: number;
 }): ImportSessionRecoveryKind | null {
   if (errorCode === "invalid_origin") return null;
-  if (status === 401 || redirectPath?.startsWith("/admin/login")) return "expired";
+  if (
+    status === 401
+    || redirectPath?.startsWith("/login")
+    || redirectPath?.startsWith("/admin/login")
+    || redirectPath?.startsWith("/mentor/login")
+  ) return "expired";
   if (status === 403) return "forbidden";
   if (redirectPath && !redirectPath.startsWith("/api/admin/")) return "forbidden";
   return null;
@@ -146,7 +151,7 @@ function getBoundedKaptenBioPreview(value: string, maxLength = MAX_KAPTEN_BIO_PR
 }
 
 function getImportLoginRecoveryHref(returnTo: string) {
-  return `/admin/login?notice=signed-out&returnTo=${encodeURIComponent(returnTo)}`;
+  return `/login?notice=signed-out&returnTo=${encodeURIComponent(returnTo)}`;
 }
 
 function getHandoffDeliveryState(rows: HandoffRowSnapshot[]): "action_needed" | "all_acknowledged" | "not_applicable" | "terminal" {

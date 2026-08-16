@@ -17,27 +17,28 @@ first coherent account lifecycle slice for:
 
 ## Demonstration Data
 
-Run the complete seed before a product demonstration or usability session:
+Run the complete reset and seed before a product demonstration or usability session:
 
 ```bash
 pnpm db:seed
 pnpm db:verify-demo
 ```
 
-The seed is safe to run repeatedly. It prepares all seven UTBK subjects, the
-Materi catalogue, 21 reviewed questions, seven quizzes, seven reusable question
-packages, a published seven-test tryout, an open delivery session, released
-historical results, and participant records in active, pending, rejected, and
-revoked states.
+`pnpm db:seed` resets the database, reapplies all migrations, and runs the
+complete demo seed. It recreates all seven UTBK subjects, the Materi catalogue,
+21 reviewed questions, seven quizzes, seven reusable question packages, a
+published seven-test tryout, an open delivery session, released historical
+results, and participant records in active, pending, rejected, and revoked
+states. Existing database data is deleted by the reset.
 
 Use these accounts for the principal test journeys:
 
 | Journey | Account | Password | Start page |
 | --- | --- | --- | --- |
-| Administrator enrollment | `admin@vecalss.local` | `Admin12345!` | `/admin/login` |
+| Administrator enrollment | `admin@vecalss.local` | `Admin12345!` | `/login` |
 | Returning student with learning history | `student@vecalss.local` | `Student12345!` | `/login` |
 | New student completing first login | `newstudent@vecalss.local` | `TempStudent123!` | `/login` |
-| Tutor authoring and tryout operations | `tutor@vecalss.local` | `Tutor12345!` | `/mentor/login` |
+| Tutor authoring and tryout operations | `tutor@vecalss.local` | `Tutor12345!` | `/login` |
 
 The assessment-only command expects the accounts and Materi taxonomy to exist.
 Use `pnpm db:seed-assessment` only when refreshing assessment data in an already
@@ -99,7 +100,6 @@ both document-only and document-plus-video coverage.
 ## Current Routes
 
 - `/login`
-- `/admin/login`
 - `/forgot-password`
 - `/reset-password/[token]`
 - `/change-password`

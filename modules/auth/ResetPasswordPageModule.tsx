@@ -10,7 +10,7 @@ import { ResetPasswordForm } from "./components/reset-password-form";
 function getResetPasswordCopy(audience: LoginAudience) {
   if (audience === "admin") {
     return {
-      backHref: "/admin/login",
+      backHref: "/login",
       description:
         "Choose a new admin password to restore access. Reset links expire after 15 minutes and can only be used once.",
       requestNewLinkHref: "/forgot-password?audience=admin",
@@ -20,7 +20,7 @@ function getResetPasswordCopy(audience: LoginAudience) {
 
   if (audience === "tutor") {
     return {
-      backHref: "/mentor/login",
+      backHref: "/login",
       description:
         "Choose a new Kapten password to restore access to the content workspace.",
       requestNewLinkHref: "/forgot-password?audience=tutor",

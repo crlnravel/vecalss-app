@@ -49,6 +49,49 @@ const mentorRootHrefByLabel: Record<string, string> = {
   Pengaturan: "/mentor/settings",
 };
 
+function MentorNavigationConfirmDialog({
+  onCancel,
+  onConfirm,
+  onOpenChange,
+  open,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={open}>
+      <AlertDialogContent
+        className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"
+        variant="danger"
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-semibold text-secondary-900">
+            Keluar dari editor?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
+            Perubahan yang belum disimpan akan hilang jika Anda meninggalkan
+            halaman ini.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction
+            onClick={onConfirm}
+            type="button"
+            variant="destructive"
+          >
+            Keluar
+          </AlertDialogAction>
+          <AlertDialogCancel onClick={onCancel} type="button">
+            Batal
+          </AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function MentorWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
@@ -310,44 +353,16 @@ function MentorWorkspaceShell({
         </div>
       </SidebarProvider>
 
-      <AlertDialog
+      <MentorNavigationConfirmDialog
+        onCancel={dismissConfirmation}
+        onConfirm={confirmPendingNavigation}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
             dismissConfirmation();
           }
         }}
         open={isConfirmationOpen}
-      >
-        <AlertDialogContent
-          className="gap-5 border-red-100 bg-white p-6 sm:max-w-lg"
-          variant="danger"
-        >
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-semibold text-secondary-900">
-              Keluar dari editor?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="mt-2 text-sm leading-6 text-secondary-500">
-              Perubahan yang belum disimpan akan hilang jika Anda meninggalkan
-              halaman ini.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction
-              onClick={confirmPendingNavigation}
-              type="button"
-              variant="destructive"
-            >
-              Keluar
-            </AlertDialogAction>
-            <AlertDialogCancel
-              onClick={dismissConfirmation}
-              type="button"
-            >
-              Batal
-            </AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
     </>
   );
 }

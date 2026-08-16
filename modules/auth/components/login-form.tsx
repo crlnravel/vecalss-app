@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
-import type { LoginAudience } from "@/lib/auth/types";
 
-import { loginAction, loginAdminAction, loginTutorAction } from "../actions";
+import { loginAction } from "../actions";
 import { EMPTY_FORM_STATE } from "../form-state";
 import { FormNotice } from "./form-notice";
 import { SubmitButton } from "./submit-button";
@@ -17,36 +16,18 @@ type LoginNotice = {
 };
 
 function LoginForm({
-  audience,
   notice,
   returnTo,
   registerUrl,
 }: {
-  audience: LoginAudience;
   notice?: LoginNotice | null;
   returnTo?: string | null;
   registerUrl: string;
 }) {
-  const selectedLoginAction = audience === "admin"
-    ? loginAdminAction
-    : audience === "tutor"
-      ? loginTutorAction
-      : loginAction;
-  const [state, formAction] = useActionState(
-    selectedLoginAction,
-    EMPTY_FORM_STATE,
-  );
-  const forgotPasswordHref = audience === "admin"
-    ? "/forgot-password?audience=admin"
-    : audience === "tutor"
-      ? "/forgot-password?audience=tutor"
-      : "/forgot-password";
-  const isAdminLogin = audience === "admin";
-  const isTutorLogin = audience === "tutor";
+  const [state, formAction] = useActionState(loginAction, EMPTY_FORM_STATE);
 
   return (
     <form action={formAction} className="space-y-5">
-      <input name="audience" type="hidden" value={audience} />
       {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
 
       {notice ? (
@@ -68,13 +49,7 @@ function LoginForm({
           defaultValue={state.fields?.email ?? ""}
           id="login-email"
           name="email"
-          placeholder={
-            isAdminLogin
-              ? "admin@vecalss.id"
-              : isTutorLogin
-                ? "kapten@vecalss.id"
-                : "email@vecalss.id"
-          }
+          placeholder="email@vecalss.id"
           required
           type="email"
         />
@@ -102,7 +77,7 @@ function LoginForm({
       <div className="flex items-center justify-end pt-1">
         <Link
           className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 hover:text-primary-800"
-          href={forgotPasswordHref}
+          href="/forgot-password"
         >
           Lupa password?
         </Link>
@@ -115,44 +90,18 @@ function LoginForm({
         type="submit"
         variant="brand"
       >
-        {isAdminLogin ? "Masuk admin" : isTutorLogin ? "Masuk Kapten" : "Masuk"}
+        Masuk
       </SubmitButton>
 
       <p className="text-center text-sm leading-6 text-secondary-600">
-        {isAdminLogin ? (
-          <>
-            Akun siswa? Gunakan{" "}
-            <Link
-              className="font-semibold text-primary-700 hover:text-primary-800"
-              href="/login"
-            >
-              halaman masuk siswa
-            </Link>
-            .
-          </>
-        ) : isTutorLogin ? (
-          <>
-            Akun siswa? Gunakan{" "}
-            <Link
-              className="font-semibold text-primary-700 hover:text-primary-800"
-              href="/login"
-            >
-              halaman masuk siswa
-            </Link>
-            .
-          </>
-        ) : (
-          <>
-            Butuh akun? Daftar melalui{" "}
-            <Link
-              className="font-semibold text-primary-700 hover:text-primary-800"
-              href={registerUrl}
-            >
-              formulir pendaftaran
-            </Link>
-            .
-          </>
-        )}
+        Butuh akun? Daftar melalui{" "}
+        <Link
+          className="font-semibold text-primary-700 hover:text-primary-800"
+          href={registerUrl}
+        >
+          formulir pendaftaran
+        </Link>
+        .
       </p>
     </form>
   );

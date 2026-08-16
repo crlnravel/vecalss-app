@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Input } from "@/components/ui/input";
-import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card";
+import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
 import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";

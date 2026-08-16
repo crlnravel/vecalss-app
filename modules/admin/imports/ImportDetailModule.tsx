@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -130,9 +130,12 @@ function rowIssueLabel(code: string | null) {
 }
 
 function ImportInputSummary({ input }: { input: ImportStatusDto["rows"][number]["input"] }) {
-  const entries = Object.entries(input)
-    .filter(([key, value]) => key !== "email" && value !== null && value !== "")
-    .map(([key, value]) => ({ key, value: String(value) }));
+  const entries = Object.entries(input).reduce<Array<{ key: string; value: string }>>((result, [key, value]) => {
+    if (key !== "email" && value !== null && value !== "") {
+      result.push({ key, value: String(value) });
+    }
+    return result;
+  }, []);
 
   if (entries.length === 0) return null;
 
@@ -303,6 +306,15 @@ function ImportRowTable({
   selectedInvalidRows: Set<string>;
 }) {
   const invalidRows = importStatus.rows.filter((row) => row.status === "invalid");
+  const toggleInvalidRows = () => {
+    const clearSelection = selectedInvalidRows.size === invalidRows.length;
+    for (const row of invalidRows) {
+      if (clearSelection || !selectedInvalidRows.has(row.rowId)) {
+        onToggleInvalid(row.rowId);
+      }
+    }
+  };
+
   return (
     <div className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
       <div className="flex flex-col gap-3 border-b border-primary-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
@@ -311,7 +323,7 @@ function ImportRowTable({
           <p className="mt-1 text-sm leading-6 text-secondary-600">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
         </div>
         {invalidRows.length > 0 ? (
-          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-3 text-sm font-semibold text-student-status-attention-fg hover:bg-student-status-attention-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border" onClick={() => invalidRows.filter((row) => selectedInvalidRows.size === invalidRows.length || !selectedInvalidRows.has(row.rowId)).forEach((row) => onToggleInvalid(row.rowId))} type="button">
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-3 text-sm font-semibold text-student-status-attention-fg hover:bg-student-status-attention-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border" onClick={toggleInvalidRows} type="button">
             <CircleAlert aria-hidden="true" size={15} />
             {selectedInvalidRows.size === invalidRows.length ? "Clear invalid selection" : "Select invalid rows"}
           </button>
@@ -788,6 +800,284 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
   );
 }
 
+type ImportStatusLoader = (options?: { source?: "manual" | "poll" | "resume" }) => Promise<boolean>;
+
+type ImportDetailViewProps = {
+  cancelArmed: boolean;
+  cancelBusy: boolean;
+  cancelImport: () => Promise<void>;
+  cancelMessage: string;
+  confirmBusy: boolean;
+  confirmImport: () => Promise<void>;
+  confirmMessage: string;
+  handoffMethod: HandoffMethod;
+  heartbeatIsStale: boolean;
+  importStatus: ImportStatusDto;
+  lastFetchedAt: number;
+  loadStatus: ImportStatusLoader;
+  onCancelArmedChange: (armed: boolean) => void;
+  onHandoffMethodChange: (method: HandoffMethod) => void;
+  onSessionIssueChange: (kind: "expired" | "forbidden" | null) => void;
+  onToggleInvalid: (rowId: string) => void;
+  pollError: boolean;
+  readIsStale: boolean;
+  refreshing: boolean;
+  selectedInvalidRows: Set<string>;
+  sessionIssue: "expired" | "forbidden" | null;
+  skipBusy: boolean;
+  skipInvalidRows: () => Promise<void>;
+  skipMessage: string;
+};
+
+function ImportDetailView({
+  cancelArmed,
+  cancelBusy,
+  cancelImport,
+  cancelMessage,
+  confirmBusy,
+  confirmImport,
+  confirmMessage,
+  handoffMethod,
+  heartbeatIsStale,
+  importStatus,
+  lastFetchedAt,
+  loadStatus,
+  onCancelArmedChange,
+  onHandoffMethodChange,
+  onSessionIssueChange,
+  onToggleInvalid,
+  pollError,
+  readIsStale,
+  refreshing,
+  selectedInvalidRows,
+  sessionIssue,
+  skipBusy,
+  skipInvalidRows,
+  skipMessage,
+}: ImportDetailViewProps) {
+  const invalidRows = importStatus.rows.filter((row) => row.status === "invalid");
+  const canConfirm = canConfirmImport(importStatus.status, importStatus.rowCount, importStatus.counts);
+  const copy = statusCopy(importStatus.status);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Link className="inline-flex min-h-11 w-fit items-center rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`}>
+          <ArrowLeft aria-hidden="true" size={15} />
+          Back to imports
+        </Link>
+        <div className="flex items-center gap-2">
+          <button aria-label="Refresh import status" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={refreshing} onClick={() => void loadStatus()} type="button">
+            <RefreshCw aria-hidden="true" size={15} />
+            {refreshing ? "Refreshing…" : "Refresh status"}
+          </button>
+          <span className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${toneClasses(copy.tone)}`}><span aria-hidden="true">{statusIcon(importStatus.status)}</span>{copy.label}</span>
+        </div>
+      </div>
+
+      {sessionIssue ? <ImportSessionRecoveryNotice importId={importStatus.importId} kind={sessionIssue} onRefresh={() => window.location.reload()} /> : null}
+      {pollError && !sessionIssue && !readIsStale ? <div className={`flex items-start gap-3 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></div> : null}
+      <WorkerHealthNotice importStatus={importStatus} lastFetchedAt={lastFetchedAt} heartbeatStale={heartbeatIsStale} statusReadStale={readIsStale} />
+
+      <ImportStatusBanner importStatus={importStatus} />
+      <ImportProgressPanel importStatus={importStatus} />
+
+      <section aria-labelledby="import-summary-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900" id="import-summary-heading">{importStatus.sourceFilename}</h1>
+            <p className="mt-1 text-sm text-secondary-600">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
+          </div>
+          <p className="text-xs text-secondary-600">Preview created {formatDate(importStatus.createdAt)}</p>
+        </div>
+        <div className="mt-5"><CountStrip counts={importStatus.counts} mode={importStatus.status === "draft" ? "preview" : "result"} /></div>
+      </section>
+
+      {importStatus.status === "draft" ? (
+        <>
+          <ImportRowTable importStatus={importStatus} onToggleInvalid={onToggleInvalid} selectedInvalidRows={selectedInvalidRows} />
+          <section aria-labelledby="confirm-import-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
+                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
+              </div>
+              <div
+                className={`flex max-w-sm items-start gap-2 text-sm leading-5 ${importStatus.counts.invalid ? "text-student-status-attention-fg" : "text-student-status-success-fg"}`}
+                role="status"
+              >
+                {importStatus.counts.invalid ? <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" /> : <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
+                <span>
+                  <strong className="block font-semibold">
+                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows need review` : "Ready to confirm"}
+                  </strong>
+                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">Skip invalid rows before confirming.</span> : null}
+                </span>
+              </div>
+            </div>
+
+            {invalidRows.length > 0 ? (
+              <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
+                <p className="font-semibold">Confirmation is blocked until invalid rows are skipped</p>
+                <p className="mt-1 text-xs leading-5">Select the rows you intentionally want to leave out, then use “Skip selected invalid rows.” Duplicate, role-conflict, and malformed rows are never silently accepted.</p>
+                <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-student-status-attention-solid-bg px-4 text-sm font-semibold text-student-status-attention-solid-fg hover:bg-student-status-attention-solid-bg/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</button>
+                {skipMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5" role="status">{skipMessage}</p> : null}
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "invite_link" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
+                <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("invite_link")} type="radio" value="invite_link" />
+                <span><span className="block text-sm font-semibold text-secondary-900">Invite link</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · expires after 24 hours · recipient sets a password</span></span>
+              </label>
+              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "temporary_password" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
+                <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("temporary_password")} type="radio" value="temporary_password" />
+                <span><span className="block text-sm font-semibold text-secondary-900">Temporary password</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · shown once · recipient must change it on first login</span></span>
+              </label>
+            </div>
+
+            <div className={`${ADMIN_INSET_CLASS_NAME} mt-5 px-4 py-4`}>
+              <p className="text-sm font-semibold text-secondary-900">Confirmation counts</p>
+              <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-secondary-600">New <strong className="text-secondary-900">{importStatus.counts.create}</strong></span><span className="text-secondary-600">Updates <strong className="text-secondary-900">{importStatus.counts.update}</strong></span><span className="text-secondary-600">Failed <strong className={importStatus.counts.failed ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.failed}</strong></span><span className="text-secondary-600">Skipped <strong className="text-secondary-900">{importStatus.counts.skipped}</strong></span><span className="text-secondary-600">Unresolved <strong className={importStatus.counts.invalid ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.invalid}</strong></span></div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-danger-border px-4 text-sm font-semibold text-student-status-danger-fg hover:bg-student-status-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => void cancelImport()} type="button"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</button>
+                {cancelArmed ? <button className="ml-2 inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-secondary-600 hover:bg-secondary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => onCancelArmedChange(false)} type="button">Keep draft</button> : null}
+                {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Abandoning…" : cancelMessage}</p> : null}
+              </div>
+              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} type="button"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</button>
+            </div>
+            {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
+          </section>
+        </>
+      ) : (
+        <>
+          <section aria-labelledby="result-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">{copy.detail}</p></div></div>
+            <div className="mt-5"><CountStrip counts={importStatus.counts} mode="result" /></div>
+            {importStatus.lastErrorMessage ? <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`}><p className="font-semibold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></div> : null}
+          </section>
+          {importStatus.status === "completed" || importStatus.status === "partial" || importStatus.status === "failed" ? <HandoffDeliveryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} /> : null}
+          <RetryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} />
+          <ImportRowTable importStatus={importStatus} onToggleInvalid={() => undefined} selectedInvalidRows={new Set()} />
+        </>
+      )}
+    </div>
+  );
+}
+
+type ImportDetailActionSetters = {
+  setConfirmBusy: (busy: boolean) => void;
+  setConfirmMessage: (message: string) => void;
+  setPollError: (hasError: boolean) => void;
+  setSelectedInvalidRows: (value: Set<string> | ((current: Set<string>) => Set<string>)) => void;
+  setSessionIssue: (issue: "expired" | "forbidden" | null) => void;
+  setSkipBusy: (busy: boolean) => void;
+  setSkipMessage: (message: string) => void;
+};
+
+function useImportDetailActions({
+  canConfirm,
+  handoffMethod,
+  importId,
+  loadStatus,
+  selectedInvalidRows,
+  setters,
+}: {
+  canConfirm: boolean;
+  handoffMethod: HandoffMethod;
+  importId: string;
+  loadStatus: ImportStatusLoader;
+  selectedInvalidRows: Set<string>;
+  setters: ImportDetailActionSetters;
+}) {
+  const {
+    setConfirmBusy,
+    setConfirmMessage,
+    setPollError,
+    setSelectedInvalidRows,
+    setSessionIssue,
+    setSkipBusy,
+    setSkipMessage,
+  } = setters;
+
+  const toggleInvalidRow = useCallback((rowId: string) => {
+    setSelectedInvalidRows((current) => {
+      const next = new Set(current);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }, [setSelectedInvalidRows]);
+
+  const skipInvalidRows = useCallback(async () => {
+    if (!selectedInvalidRows.size) return;
+    setSkipBusy(true);
+    setSkipMessage("Marking the selected invalid rows as skipped…");
+    try {
+      const response = await fetch(`/api/admin/imports/${encodeURIComponent(importId)}/rows/skip`, {
+        body: JSON.stringify({ rowIds: [...selectedInvalidRows] }),
+        cache: "no-store",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = await readJson(response);
+      const recovery = responseSessionIssue(response, payload);
+      if (recovery) {
+        setSessionIssue(recovery);
+        setPollError(false);
+        return;
+      }
+      if (!response.ok) {
+        setSkipMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The invalid rows could not be skipped."));
+        return;
+      }
+      setSelectedInvalidRows(new Set());
+      setSkipMessage("Selected invalid rows are now skipped. Review the counts before confirming.");
+      await loadStatus();
+    } catch {
+      setSkipMessage("The skip action could not reach the server. Refresh and try again.");
+    } finally {
+      setSkipBusy(false);
+    }
+  }, [importId, loadStatus, selectedInvalidRows, setPollError, setSelectedInvalidRows, setSessionIssue, setSkipBusy, setSkipMessage]);
+
+  const confirmImport = useCallback(async () => {
+    if (!canConfirm) return;
+    setConfirmBusy(true);
+    setConfirmMessage("Saving the handoff method and queueing this import…");
+    try {
+      const response = await fetch(`/api/admin/imports/${encodeURIComponent(importId)}/confirm`, {
+        body: JSON.stringify({ handoffMethod }),
+        cache: "no-store",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = await readJson(response);
+      const recovery = responseSessionIssue(response, payload);
+      if (recovery) {
+        setSessionIssue(recovery);
+        setPollError(false);
+        return;
+      }
+      if (!response.ok) {
+        setConfirmMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The import could not be confirmed."));
+        return;
+      }
+      setConfirmMessage("Import queued. This page will poll the database status and stop on a terminal result.");
+      await loadStatus();
+    } catch {
+      setConfirmMessage("The confirmation could not reach the server. Refresh before trying again.");
+    } finally {
+      setConfirmBusy(false);
+    }
+  }, [canConfirm, handoffMethod, importId, loadStatus, setConfirmBusy, setConfirmMessage, setPollError, setSessionIssue]);
+
+  return { confirmImport, skipInvalidRows, toggleInvalidRow };
+}
+
 function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto }) {
   const router = useRouter();
   const [importStatus, setImportStatus] = useState(initialImport);
@@ -979,82 +1269,25 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     };
   }, [loadStatus, settlePriorityRefreshWaiters]);
 
-  const invalidRows = useMemo(() => importStatus.rows.filter((row) => row.status === "invalid"), [importStatus.rows]);
-  const canConfirm = canConfirmImport(importStatus.status, importStatus.rowCount, importStatus.counts);
-  const copy = statusCopy(importStatus.status);
   const readIsStale = isImportPollingStatus(importStatus.status) && pollError && clock - lastFetchedAt > 30_000;
 
-  function toggleInvalidRow(rowId: string) {
-    setSelectedInvalidRows((current) => {
-      const next = new Set(current);
-      if (next.has(rowId)) next.delete(rowId);
-      else next.add(rowId);
-      return next;
-    });
-  }
-
-  async function skipInvalidRows() {
-    if (!selectedInvalidRows.size) return;
-    setSkipBusy(true);
-    setSkipMessage("Marking the selected invalid rows as skipped…");
-    try {
-      const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/rows/skip`, {
-        body: JSON.stringify({ rowIds: [...selectedInvalidRows] }),
-        cache: "no-store",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = await readJson(response);
-      const recovery = responseSessionIssue(response, payload);
-      if (recovery) {
-        setSessionIssue(recovery);
-        setPollError(false);
-        return;
-      }
-      if (!response.ok) {
-        setSkipMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The invalid rows could not be skipped."));
-        return;
-      }
-      setSelectedInvalidRows(new Set());
-      setSkipMessage("Selected invalid rows are now skipped. Review the counts before confirming.");
-      await loadStatus();
-    } catch {
-      setSkipMessage("The skip action could not reach the server. Refresh and try again.");
-    } finally {
-      setSkipBusy(false);
-    }
-  }
-
-  async function confirmImport() {
-    if (!canConfirm) return;
-    setConfirmBusy(true);
-    setConfirmMessage("Saving the handoff method and queueing this import…");
-    try {
-      const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/confirm`, {
-        body: JSON.stringify({ handoffMethod }),
-        cache: "no-store",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = await readJson(response);
-      const recovery = responseSessionIssue(response, payload);
-      if (recovery) {
-        setSessionIssue(recovery);
-        setPollError(false);
-        return;
-      }
-      if (!response.ok) {
-        setConfirmMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The import could not be confirmed."));
-        return;
-      }
-      setConfirmMessage("Import queued. This page will poll the database status and stop on a terminal result.");
-      await loadStatus();
-    } catch {
-      setConfirmMessage("The confirmation could not reach the server. Refresh before trying again.");
-    } finally {
-      setConfirmBusy(false);
-    }
-  }
+  const canConfirm = canConfirmImport(importStatus.status, importStatus.rowCount, importStatus.counts);
+  const { confirmImport, skipInvalidRows, toggleInvalidRow } = useImportDetailActions({
+    canConfirm,
+    handoffMethod,
+    importId: importStatus.importId,
+    loadStatus,
+    selectedInvalidRows,
+    setters: {
+      setConfirmBusy,
+      setConfirmMessage,
+      setPollError,
+      setSelectedInvalidRows,
+      setSessionIssue,
+      setSkipBusy,
+      setSkipMessage,
+    },
+  });
 
   async function cancelImport() {
     if (!cancelArmed) {
@@ -1092,112 +1325,33 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link className="inline-flex min-h-11 w-fit items-center rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`}>
-          <ArrowLeft aria-hidden="true" size={15} />
-          Back to imports
-        </Link>
-        <div className="flex items-center gap-2">
-          <button aria-label="Refresh import status" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={refreshing} onClick={() => void loadStatus()} type="button">
-            <RefreshCw aria-hidden="true" size={15} />
-            {refreshing ? "Refreshing…" : "Refresh status"}
-          </button>
-          <span className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${toneClasses(copy.tone)}`}><span aria-hidden="true">{statusIcon(importStatus.status)}</span>{copy.label}</span>
-        </div>
-      </div>
-
-      {sessionIssue ? <ImportSessionRecoveryNotice importId={importStatus.importId} kind={sessionIssue} onRefresh={() => window.location.reload()} /> : null}
-      {pollError && !sessionIssue && !readIsStale ? <div className={`flex items-start gap-3 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></div> : null}
-      <WorkerHealthNotice importStatus={importStatus} lastFetchedAt={lastFetchedAt} heartbeatStale={heartbeatIsStale} statusReadStale={readIsStale} />
-
-      <ImportStatusBanner importStatus={importStatus} />
-      <ImportProgressPanel importStatus={importStatus} />
-
-      <section aria-labelledby="import-summary-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900" id="import-summary-heading">{importStatus.sourceFilename}</h1>
-            <p className="mt-1 text-sm text-secondary-600">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
-          </div>
-          <p className="text-xs text-secondary-600">Preview created {formatDate(importStatus.createdAt)}</p>
-        </div>
-        <div className="mt-5"><CountStrip counts={importStatus.counts} mode={importStatus.status === "draft" ? "preview" : "result"} /></div>
-      </section>
-
-      {importStatus.status === "draft" ? (
-        <>
-          <ImportRowTable importStatus={importStatus} onToggleInvalid={toggleInvalidRow} selectedInvalidRows={selectedInvalidRows} />
-          <section aria-labelledby="confirm-import-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
-                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
-              </div>
-              <div
-                className={`flex max-w-sm items-start gap-2 text-sm leading-5 ${importStatus.counts.invalid ? "text-student-status-attention-fg" : "text-student-status-success-fg"}`}
-                role="status"
-              >
-                {importStatus.counts.invalid ? <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" /> : <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
-                <span>
-                  <strong className="block font-semibold">
-                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows need review` : "Ready to confirm"}
-                  </strong>
-                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">Skip invalid rows before confirming.</span> : null}
-                </span>
-              </div>
-            </div>
-
-            {invalidRows.length > 0 ? (
-              <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
-                <p className="font-semibold">Confirmation is blocked until invalid rows are skipped</p>
-                <p className="mt-1 text-xs leading-5">Select the rows you intentionally want to leave out, then use “Skip selected invalid rows.” Duplicate, role-conflict, and malformed rows are never silently accepted.</p>
-                <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-student-status-attention-solid-bg px-4 text-sm font-semibold text-student-status-attention-solid-fg hover:bg-student-status-attention-solid-bg/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</button>
-                {skipMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5" role="status">{skipMessage}</p> : null}
-              </div>
-            ) : null}
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "invite_link" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
-                <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => setHandoffMethod("invite_link")} type="radio" value="invite_link" />
-                <span><span className="block text-sm font-semibold text-secondary-900">Invite link</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · expires after 24 hours · recipient sets a password</span></span>
-              </label>
-              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "temporary_password" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
-                <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => setHandoffMethod("temporary_password")} type="radio" value="temporary_password" />
-                <span><span className="block text-sm font-semibold text-secondary-900">Temporary password</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · shown once · recipient must change it on first login</span></span>
-              </label>
-            </div>
-
-            <div className={`${ADMIN_INSET_CLASS_NAME} mt-5 px-4 py-4`}>
-              <p className="text-sm font-semibold text-secondary-900">Confirmation counts</p>
-              <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-secondary-600">New <strong className="text-secondary-900">{importStatus.counts.create}</strong></span><span className="text-secondary-600">Updates <strong className="text-secondary-900">{importStatus.counts.update}</strong></span><span className="text-secondary-600">Failed <strong className={importStatus.counts.failed ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.failed}</strong></span><span className="text-secondary-600">Skipped <strong className="text-secondary-900">{importStatus.counts.skipped}</strong></span><span className="text-secondary-600">Unresolved <strong className={importStatus.counts.invalid ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.invalid}</strong></span></div>
-            </div>
-
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-danger-border px-4 text-sm font-semibold text-student-status-danger-fg hover:bg-student-status-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => void cancelImport()} type="button"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</button>
-                {cancelArmed ? <button className="ml-2 inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-secondary-600 hover:bg-secondary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => setCancelArmed(false)} type="button">Keep draft</button> : null}
-                {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Abandoning…" : cancelMessage}</p> : null}
-              </div>
-              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} type="button"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</button>
-            </div>
-            {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
-          </section>
-        </>
-      ) : (
-        <>
-          <section aria-labelledby="result-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
-            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">{copy.detail}</p></div></div>
-            <div className="mt-5"><CountStrip counts={importStatus.counts} mode="result" /></div>
-            {importStatus.lastErrorMessage ? <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`}><p className="font-semibold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></div> : null}
-          </section>
-          {importStatus.status === "completed" || importStatus.status === "partial" || importStatus.status === "failed" ? <HandoffDeliveryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={setSessionIssue} /> : null}
-          <RetryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={setSessionIssue} />
-          <ImportRowTable importStatus={importStatus} onToggleInvalid={() => undefined} selectedInvalidRows={new Set()} />
-        </>
-      )}
-    </div>
+    <ImportDetailView
+      cancelArmed={cancelArmed}
+      cancelBusy={cancelBusy}
+      cancelImport={cancelImport}
+      cancelMessage={cancelMessage}
+      confirmBusy={confirmBusy}
+      confirmImport={confirmImport}
+      confirmMessage={confirmMessage}
+      handoffMethod={handoffMethod}
+      heartbeatIsStale={heartbeatIsStale}
+      importStatus={importStatus}
+      lastFetchedAt={lastFetchedAt}
+      loadStatus={loadStatus}
+      onCancelArmedChange={setCancelArmed}
+      onHandoffMethodChange={setHandoffMethod}
+      onSessionIssueChange={setSessionIssue}
+      onToggleInvalid={toggleInvalidRow}
+      pollError={pollError}
+      readIsStale={readIsStale}
+      refreshing={refreshing}
+      selectedInvalidRows={selectedInvalidRows}
+      sessionIssue={sessionIssue}
+      skipBusy={skipBusy}
+      skipInvalidRows={skipInvalidRows}
+      skipMessage={skipMessage}
+    />
   );
 }
 
-export { ImportDetailModule, actionErrorMessages, canConfirmImport, getImportPollDelayMs, isImportPollingStatus };
+export { ImportDetailModule };

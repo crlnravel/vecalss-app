@@ -157,13 +157,7 @@ async function releaseImportHandoffFile(
     }
 
     const now = new Date();
-    const released: Array<{
-      email: string;
-      fullName: string;
-      secret: string;
-      handoffId: string;
-    }> = [];
-    for (const row of rows) {
+    const released = await Promise.all(rows.map(async (row) => {
       if (!row.handoffId || !row.resultUserId) {
         throw new EnrollmentImportHandoffFileError("invalid_selection");
       }
@@ -216,13 +210,13 @@ async function releaseImportHandoffFile(
         tx,
         userId: handoff.user_id,
       });
-      released.push({
+      return {
         email: user.email,
         fullName: user.fullName,
         handoffId: handoff.id,
         secret,
-      });
-    }
+      };
+    }));
 
     const header = imported.handoffMethod === EnrollmentHandoffMethod.invite_link
       ? ["email", "full_name", "invite_url"]
@@ -287,10 +281,9 @@ async function acknowledgeImportHandoffs(
       throw new EnrollmentImportHandoffFileError("handoff_not_releasable");
     }
 
-    let acknowledgedCount = 0;
     const acknowledgedAt = new Date();
-    for (const row of rows) {
-      if (!row.handoffId || row.handoff?.acknowledgedAt) continue;
+    const acknowledgementResults = await Promise.all(rows.map(async (row) => {
+      if (!row.handoffId || row.handoff?.acknowledgedAt) return 0;
       const updated = await tx.enrollmentHandoff.updateMany({
         data: { acknowledgedAt },
         where: {
@@ -299,17 +292,17 @@ async function acknowledgeImportHandoffs(
           status: EnrollmentHandoffStatus.released,
         },
       });
-      if (updated.count === 1) {
-        acknowledgedCount += 1;
-        await writeHandoffAudit({
-          action: "enrollment_handoff.acknowledged",
-          actorUserId: input.actorUserId,
-          handoffId: row.handoffId,
-          metadata: { source: "import_file" },
-          tx,
-        });
-      }
-    }
+      if (updated.count !== 1) return 0;
+      await writeHandoffAudit({
+        action: "enrollment_handoff.acknowledged",
+        actorUserId: input.actorUserId,
+        handoffId: row.handoffId,
+        metadata: { source: "import_file" },
+        tx,
+      });
+      return 1;
+    }));
+    const acknowledgedCount = acknowledgementResults.reduce<number>((total, result) => total + result, 0);
 
     return { acknowledgedCount, importId: input.importId };
   });

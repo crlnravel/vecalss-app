@@ -6,7 +6,7 @@ import { ForgotPasswordForm } from "./components/forgot-password-form";
 function getForgotPasswordCopy(audience: LoginAudience) {
   if (audience === "admin") {
     return {
-      backHref: "/admin/login",
+      backHref: "/login",
       description:
         "Request a fresh admin password reset link. Delivery is still stubbed in development, but the token rules already match the production flow.",
       title: "Recover admin access without leaving the app shell",
@@ -15,7 +15,7 @@ function getForgotPasswordCopy(audience: LoginAudience) {
 
   if (audience === "tutor") {
     return {
-      backHref: "/mentor/login",
+      backHref: "/login",
       description:
         "Request a fresh Kapten password reset link and return to the content workspace.",
       title: "Recover Kapten access without leaving the app shell",

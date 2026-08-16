@@ -774,9 +774,7 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
   const lockedUserIds = [...userIds].sort((left, right) => left.localeCompare(right));
 
   return prisma.$transaction(async (tx) => {
-    for (const userId of lockedUserIds) {
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
-    }
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ANY(${lockedUserIds}::uuid[]) ORDER BY id FOR UPDATE`;
 
     const accounts = await tx.user.findMany({
       select: {
@@ -826,9 +824,9 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
     });
 
     if (input.nextStatus === UserStatus.disabled) {
-      for (const userId of eligibleUserIds) {
-        await revokeOpenEnrollmentHandoffs(tx, userId, input.actorUserId);
-      }
+      await Promise.all(
+        eligibleUserIds.map((userId) => revokeOpenEnrollmentHandoffs(tx, userId, input.actorUserId)),
+      );
 
       await tx.authSession.updateMany({
         data: {

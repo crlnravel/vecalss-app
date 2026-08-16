@@ -22,7 +22,7 @@ export default async function AdminImportDetailPage({
   const importId = parseUuid(rawImportId);
   if (!importId) notFound();
   const session = await requireAdminSession(
-    `/admin/login?notice=signed-out&returnTo=${encodeURIComponent(`/admin/imports/${importId}`)}`,
+    `/login?notice=signed-out&returnTo=${encodeURIComponent(`/admin/imports/${importId}`)}`,
   );
 
   let importStatus;

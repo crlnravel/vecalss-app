@@ -846,7 +846,7 @@ async function main() {
     console.table([
       {
         email: DEFAULT_ADMIN.email,
-        loginPath: "/admin/login",
+        loginPath: "/login",
         password: DEFAULT_ADMIN.password,
         role: "admin",
       },
@@ -864,7 +864,7 @@ async function main() {
       },
       {
         email: DEFAULT_TUTOR.email,
-        loginPath: "/mentor/dashboard",
+        loginPath: "/login",
         password: DEFAULT_TUTOR.password,
         role: "tutor",
       },

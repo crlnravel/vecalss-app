@@ -3,14 +3,7 @@ import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
 import type { AuthenticatedUser, LoginAudience } from "./types";
 
 function getLoginPathForAudience(audience: LoginAudience) {
-  if (audience === "admin") {
-    return "/admin/login";
-  }
-
-  if (audience === "tutor") {
-    return "/mentor/login";
-  }
-
+  void audience;
   return "/login";
 }
 

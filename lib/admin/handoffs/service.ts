@@ -754,9 +754,8 @@ async function expireEnrollmentHandoffs(now = new Date()) {
         status: { in: [...OPEN_HANDOFF_STATUSES] },
       },
     });
-    let expiredCount = 0;
 
-    for (const candidate of candidates) {
+    const expirationResults = await Promise.all(candidates.map(async (candidate) => {
       const updated = await tx.enrollmentHandoff.updateMany({
         data: {
           secretEnvelope: Prisma.DbNull,
@@ -770,21 +769,20 @@ async function expireEnrollmentHandoffs(now = new Date()) {
         },
       });
 
-      if (updated.count === 1) {
-        expiredCount += 1;
-        await writeHandoffAudit({
-          action: "enrollment_handoff.expired",
-          handoffId: candidate.id,
-          metadata: {
-            method: EnrollmentHandoffMethod.invite_link,
-          },
-          tx,
-          userId: candidate.userId,
-        });
-      }
-    }
+      if (updated.count !== 1) return 0;
+      await writeHandoffAudit({
+        action: "enrollment_handoff.expired",
+        handoffId: candidate.id,
+        metadata: {
+          method: EnrollmentHandoffMethod.invite_link,
+        },
+        tx,
+        userId: candidate.userId,
+      });
+      return 1;
+    }));
 
-    return expiredCount;
+    return expirationResults.reduce<number>((total, result) => total + result, 0);
   });
 }
 
@@ -810,8 +808,8 @@ async function rewrapPendingEnrollmentHandoffs(input?: {
       FOR UPDATE
     `;
 
-    for (const row of rows) {
-      const envelope = rewrapEnrollmentHandoffSecret(
+    const rewrapped = rows.map((row) => ({
+      envelope: rewrapEnrollmentHandoffSecret(
         row.secret_envelope,
         {
           handoffId: row.id,
@@ -819,13 +817,14 @@ async function rewrapPendingEnrollmentHandoffs(input?: {
           userId: row.user_id,
         },
         input?.keyRing,
-      );
+      ),
+      row,
+    }));
 
-      await tx.enrollmentHandoff.update({
+    await Promise.all(rewrapped.map(({ envelope, row }) => tx.enrollmentHandoff.update({
         data: { secretEnvelope: envelope as Prisma.InputJsonValue },
         where: { id: row.id },
-      });
-    }
+      })));
 
     return rows.length;
   });

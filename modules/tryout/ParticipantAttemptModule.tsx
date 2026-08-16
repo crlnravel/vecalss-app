@@ -140,6 +140,76 @@ function QuestionPalette({
   );
 }
 
+function ParticipantAttemptStatusScreen({
+  attemptId,
+  busy,
+  completedRuns,
+  finished,
+  message,
+  nextRun,
+  onBegin,
+  runs,
+  title,
+}: {
+  attemptId: string;
+  busy: boolean;
+  completedRuns: number;
+  finished: boolean;
+  message: string;
+  nextRun?: RunSummary;
+  onBegin: (runId: string) => void;
+  runs: RunSummary[];
+  title: string;
+}) {
+  return (
+    <main className="min-h-svh bg-[#f7faf8] px-4 py-8 text-secondary-900 sm:px-6 lg:py-12">
+      <div className="mx-auto grid max-w-4xl gap-6">
+        <header className="text-center">
+          <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">{title}</p>
+          <h1 className="mt-3 font-heading text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">{finished ? "Jawaban sedang diproses" : completedRuns ? "Bagian selesai. Tarik napas sejenak." : "Ujian siap dimulai"}</h1>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-secondary-600 sm:text-base">{finished ? "Sistem sedang menyiapkan skor, peringkat, dan review jawabanmu." : "Timer hanya berjalan untuk bagian yang sedang aktif. Bagian yang telah dikirim tetap terkunci."}</p>
+        </header>
+
+        {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><WarningCircle />{message}</p> : null}
+
+        {finished ? (
+          <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {["Memeriksa jawaban", "Menghitung skor", "Menyiapkan analisis"].map((label, itemIndex) => (
+                <div className="rounded-2xl bg-primary-50 p-4 text-center" key={label}>
+                  {itemIndex === 2 ? <SpinnerGap className="mx-auto animate-spin text-2xl text-primary-700" /> : <Check className="mx-auto text-2xl text-primary-700" />}
+                  <p className="mt-2 text-sm font-semibold">{label}</p>
+                </div>
+              ))}
+            </div>
+            <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
+          </section>
+        ) : (
+          <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white">
+            <div className="flex items-center justify-between gap-4 border-b border-primary-100 bg-primary-50 p-5 sm:p-6">
+              <div><p className="text-sm font-semibold">Progres ujian</p><p className="mt-1 text-sm text-secondary-500">{completedRuns} dari {runs.length} bagian selesai</p></div>
+              <span className="font-mono text-2xl font-semibold text-primary-800">{completedRuns}/{runs.length}</span>
+            </div>
+            <div className="grid divide-y divide-primary-100">
+              {runs.map((candidate) => {
+                const isNext = candidate.id === nextRun?.id;
+                const isComplete = ["sealed", "expired"].includes(candidate.status);
+                return (
+                  <div className="grid gap-4 p-5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
+                    <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>{isComplete ? <Check /> : candidate.sequenceNo}</span>
+                    <div><h2 className="font-semibold">{candidate.section.title}</h2><p className="mt-1 text-sm text-secondary-500">{candidate.section.questionCount} soal · {Math.round(candidate.section.durationSeconds / 60)} menit · {candidate.section.testType.toUpperCase()}</p></div>
+                    {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}
+
 function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const [state, setState] = useState<State | null>(null);
   const [message, setMessage] = useState("Memulihkan tryout dari server…");
@@ -362,54 +432,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const completedRuns = state.runs.filter((candidate) => ["sealed", "expired"].includes(candidate.status)).length;
 
   if (!run) {
-    const finished = state.status !== "in_progress";
-    return (
-      <main className="min-h-svh bg-[#f7faf8] px-4 py-8 text-secondary-900 sm:px-6 lg:py-12">
-        <div className="mx-auto grid max-w-4xl gap-6">
-          <header className="text-center">
-            <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">{state.tryoutTitle}</p>
-            <h1 className="mt-3 font-heading text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">{finished ? "Jawaban sedang diproses" : completedRuns ? "Bagian selesai. Tarik napas sejenak." : "Ujian siap dimulai"}</h1>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-secondary-600 sm:text-base">{finished ? "Sistem sedang menyiapkan skor, peringkat, dan review jawabanmu." : "Timer hanya berjalan untuk bagian yang sedang aktif. Bagian yang telah dikirim tetap terkunci."}</p>
-          </header>
-
-          {message ? <p className="flex items-center gap-2 rounded-2xl border border-student-status-attention-border bg-student-status-attention-bg p-4 text-sm text-student-status-attention-fg" role="alert"><WarningCircle />{message}</p> : null}
-
-          {finished ? (
-            <section className="rounded-[2rem] border border-primary-100 bg-white p-6 sm:p-8">
-              <div className="grid gap-3 sm:grid-cols-3">
-                {["Memeriksa jawaban", "Menghitung skor", "Menyiapkan analisis"].map((label, itemIndex) => (
-                  <div className="rounded-2xl bg-primary-50 p-4 text-center" key={label}>
-                    {itemIndex === 2 ? <SpinnerGap className="mx-auto animate-spin text-2xl text-primary-700" /> : <Check className="mx-auto text-2xl text-primary-700" />}
-                    <p className="mt-2 text-sm font-semibold">{label}</p>
-                  </div>
-                ))}
-              </div>
-              <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
-            </section>
-          ) : (
-            <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white">
-              <div className="flex items-center justify-between gap-4 border-b border-primary-100 bg-primary-50 p-5 sm:p-6">
-                <div><p className="text-sm font-semibold">Progres ujian</p><p className="mt-1 text-sm text-secondary-500">{completedRuns} dari {state.runs.length} bagian selesai</p></div>
-                <span className="font-mono text-2xl font-semibold text-primary-800">{completedRuns}/{state.runs.length}</span>
-              </div>
-              <div className="grid divide-y divide-primary-100">
-                {state.runs.map((candidate) => {
-                  const isNext = candidate.id === nextRun?.id;
-                  const isComplete = ["sealed", "expired"].includes(candidate.status);
-                  return (
-                    <div className="grid gap-4 p-5 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
-                      <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>{isComplete ? <Check /> : candidate.sequenceNo}</span>
-                      <div><h2 className="font-semibold">{candidate.section.title}</h2><p className="mt-1 text-sm text-secondary-500">{candidate.section.questionCount} soal · {Math.round(candidate.section.durationSeconds / 60)} menit · {candidate.section.testType.toUpperCase()}</p></div>
-                      {isNext ? <Button disabled={busy} onClick={() => void begin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-        </div>
-      </main>
-    );
+    return <ParticipantAttemptStatusScreen attemptId={attemptId} busy={busy} completedRuns={completedRuns} finished={state.status !== "in_progress"} message={message} nextRun={nextRun} onBegin={begin} runs={state.runs} title={state.tryoutTitle} />;
   }
 
   if (!item) {

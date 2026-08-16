@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 
-import { RoleName } from "@/generated/prisma/client";
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/constants";
 import {
   getDefaultHomePath,
@@ -64,13 +63,10 @@ function getChangePasswordErrorMessage(error: unknown) {
 async function handleLoginAction(
   _previousState: FormState,
   formData: FormData,
-  requiredRole?: RoleName,
 ): Promise<FormState> {
   const email = readTextField(formData, "email");
   const password = readTextField(formData, "password");
-  const returnTo = requiredRole === RoleName.admin
-    ? getSafeAdminReturnPath(formData.get("returnTo"))
-    : null;
+  const returnTo = getSafeAdminReturnPath(formData.get("returnTo"));
 
   if (!email || !password) {
     return withFieldError(
@@ -83,11 +79,7 @@ async function handleLoginAction(
     );
   }
 
-  const result = await authenticateUser(
-    email,
-    password,
-    requiredRole ? { requiredRole } : undefined,
-  );
+  const result = await authenticateUser(email, password);
 
   if (!result.ok) {
     if (result.code === "service_unavailable") {
@@ -109,12 +101,7 @@ async function handleLoginAction(
 
     return {
       fields: { email },
-      message:
-        requiredRole === RoleName.admin
-          ? "Invalid admin credentials. Please confirm your admin access is active and try again."
-          : requiredRole === RoleName.tutor
-          ? "Invalid Kapten credentials. Please confirm your Kapten access is active and try again."
-          : "Kredensial tidak valid. Jika Anda belum terdaftar, silakan selesaikan proses pendaftaran terlebih dahulu.",
+      message: "Kredensial tidak valid. Jika Anda belum terdaftar, silakan selesaikan proses pendaftaran terlebih dahulu.",
       status: "error",
     };
   }
@@ -128,18 +115,6 @@ async function handleLoginAction(
  */
 async function loginAction(previousState: FormState, formData: FormData): Promise<FormState> {
   return handleLoginAction(previousState, formData);
-}
-
-async function loginStudentAction(previousState: FormState, formData: FormData): Promise<FormState> {
-  return handleLoginAction(previousState, formData, RoleName.student);
-}
-
-async function loginAdminAction(previousState: FormState, formData: FormData): Promise<FormState> {
-  return handleLoginAction(previousState, formData, RoleName.admin);
-}
-
-async function loginTutorAction(previousState: FormState, formData: FormData): Promise<FormState> {
-  return handleLoginAction(previousState, formData, RoleName.tutor);
 }
 
 async function forgotPasswordAction(
@@ -290,9 +265,6 @@ export {
   forgotPasswordAction,
   getResetTokenStatus,
   loginAction,
-  loginAdminAction,
-  loginStudentAction,
-  loginTutorAction,
   logoutAction,
   resetPasswordAction,
 };

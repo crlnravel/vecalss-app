@@ -319,6 +319,94 @@ function MediaLibraryScreen({
   );
 }
 
+function useMediaLibraryUploads({
+  acceptedMimeTypeSet,
+  fileInputRef,
+  folderId,
+  mediaLabel,
+  refreshLibrary,
+  scope,
+  setError,
+  setIsDragging,
+  setNotice,
+}: {
+  acceptedMimeTypeSet: ReadonlySet<SupportedMediaMimeType>;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  folderId: string | null;
+  mediaLabel: string;
+  refreshLibrary: (message?: string) => void;
+  scope: MediaScope;
+  setError: (value: string | null) => void;
+  setIsDragging: (dragging: boolean) => void;
+  setNotice: (value: string | null) => void;
+}) {
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
+
+  const handleFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setError(null);
+    setNotice(null);
+
+    const uploadNext = async (index: number): Promise<boolean> => {
+      const file = files[index];
+      if (!file) return true;
+      const validation = validateMediaUpload({ fileName: file.name, mimeType: file.type, sizeBytes: file.size });
+      if (!validation.isValid) {
+        setError(`${file.name}: ${validation.error}`);
+        setUploadStatus(null);
+        return false;
+      }
+      if (!acceptedMimeTypeSet.has(file.type as SupportedMediaMimeType)) {
+        setError(`${file.name}: Pilih ${mediaLabel} yang sesuai dengan picker ini.`);
+        setUploadStatus(null);
+        return false;
+      }
+
+      setUploadStatus({ current: index + 1, fileName: file.name, progress: 0, total: files.length });
+      try {
+        const ticket = await postMediaAction<MediaUploadTicket>(scope, {
+          action: "request-upload",
+          fileName: file.name,
+          folderId,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        });
+        const dimensions = isImageMimeType(file.type)
+          ? await readImageDimensions(file)
+          : { height: null, width: null };
+        await putFile(file, ticket.uploadUrl, (progress) => {
+          setUploadStatus({ current: index + 1, fileName: file.name, progress, total: files.length });
+        });
+        await postMediaAction(scope, {
+          action: "finalize-upload",
+          assetId: ticket.assetId,
+          height: dimensions.height,
+          width: dimensions.width,
+        });
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : `Upload ${mediaLabel} gagal.`);
+        setUploadStatus(null);
+        return false;
+      }
+      return uploadNext(index + 1);
+    };
+
+    if (!(await uploadNext(0))) return;
+
+    setUploadStatus(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    refreshLibrary(files.length === 1 ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diupload.` : `${files.length} ${mediaLabel} berhasil diupload.`);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    void handleFiles(Array.from(event.dataTransfer.files));
+  };
+
+  return { handleDrop, handleFiles, uploadStatus };
+}
+
 function MediaLibrary({
   appearance = "default",
   allowedMimeTypes,
@@ -346,7 +434,6 @@ function MediaLibrary({
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
@@ -415,6 +502,18 @@ function MediaLibrary({
     if (message) setNotice(message);
     setRefreshVersion((value) => value + 1);
   };
+
+  const { handleDrop, handleFiles, uploadStatus } = useMediaLibraryUploads({
+    acceptedMimeTypeSet,
+    fileInputRef,
+    folderId,
+    mediaLabel,
+    refreshLibrary,
+    scope,
+    setError,
+    setIsDragging,
+    setNotice,
+  });
 
   const runMutation = async (mutation: MediaMutation, body: Record<string, unknown>, successMessage: string) => {
     if (mutationPending) return false;
@@ -488,68 +587,6 @@ function MediaLibrary({
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Item belum dapat dimasukkan ke Sampah.");
     }
-  };
-
-  const handleFiles = async (files: File[]) => {
-    if (files.length === 0) return;
-    setError(null);
-    setNotice(null);
-
-    const uploadNext = async (index: number): Promise<boolean> => {
-      const file = files[index];
-      if (!file) return true;
-      const validation = validateMediaUpload({ fileName: file.name, mimeType: file.type, sizeBytes: file.size });
-      if (!validation.isValid) {
-        setError(`${file.name}: ${validation.error}`);
-        setUploadStatus(null);
-        return false;
-      }
-      if (!acceptedMimeTypeSet.has(file.type as SupportedMediaMimeType)) {
-        setError(`${file.name}: Pilih ${mediaLabel} yang sesuai dengan picker ini.`);
-        setUploadStatus(null);
-        return false;
-      }
-
-      setUploadStatus({ current: index + 1, fileName: file.name, progress: 0, total: files.length });
-      try {
-        const ticket = await postMediaAction<MediaUploadTicket>(scope, {
-          action: "request-upload",
-          fileName: file.name,
-          folderId,
-          mimeType: file.type,
-          sizeBytes: file.size,
-        });
-        const dimensions = isImageMimeType(file.type)
-          ? await readImageDimensions(file)
-          : { height: null, width: null };
-        await putFile(file, ticket.uploadUrl, (progress) => {
-          setUploadStatus({ current: index + 1, fileName: file.name, progress, total: files.length });
-        });
-        await postMediaAction(scope, {
-          action: "finalize-upload",
-          assetId: ticket.assetId,
-          height: dimensions.height,
-          width: dimensions.width,
-        });
-      } catch (uploadError) {
-        setError(uploadError instanceof Error ? uploadError.message : `Upload ${mediaLabel} gagal.`);
-        setUploadStatus(null);
-        return false;
-      }
-      return uploadNext(index + 1);
-    };
-
-    if (!(await uploadNext(0))) return;
-
-    setUploadStatus(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    refreshLibrary(files.length === 1 ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diupload.` : `${files.length} ${mediaLabel} berhasil diupload.`);
-  };
-
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    void handleFiles(Array.from(event.dataTransfer.files));
   };
 
   const handlePreview = async (asset: MediaAssetDto) => {

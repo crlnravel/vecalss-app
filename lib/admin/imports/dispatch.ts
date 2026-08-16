@@ -183,30 +183,29 @@ async function claimImportDispatches({
     `;
 
     const claimedAt = new Date();
-    const claimed: ClaimedDispatch[] = [];
-
-    for (const candidate of candidates) {
+    const claimed = await Promise.all(candidates.map(async (candidate): Promise<ClaimedDispatch> => {
       const claimToken = randomUUID();
+      const queueJobId = buildImportJobId(candidate.import_id, candidate.generation);
       await tx.enrollmentImportDispatch.update({
         data: {
           attemptCount: { increment: 1 },
           claimExpiresAt: new Date(claimedAt.getTime() + DISPATCH_CLAIM_LEASE_MS),
           claimToken,
           claimedBy: boundedWorkerId,
-          queueJobId: buildImportJobId(candidate.import_id, candidate.generation),
+          queueJobId,
         },
         where: { id: candidate.id },
       });
-      claimed.push({
+      return {
         attemptCount: candidate.attempt_count + 1,
         claimToken,
         claimedBy: boundedWorkerId,
         generation: candidate.generation,
         id: candidate.id,
         importId: candidate.import_id,
-        queueJobId: buildImportJobId(candidate.import_id, candidate.generation),
-      });
-    }
+        queueJobId,
+      };
+    }));
 
     return claimed;
   });
@@ -329,14 +328,9 @@ async function dispatchPendingImportJobs({
   workerId: string;
 }) {
   const claimed = await claimImportDispatches({ limit, workerId });
-  let enqueued = 0;
-  let failed = 0;
-  for (const dispatch of claimed) {
-    const result = await enqueueClaimedImportDispatch(queue, dispatch);
-    if (result.enqueued) enqueued += 1;
-    else failed += 1;
-  }
-  return { claimed: claimed.length, enqueued, failed };
+  const results = await Promise.all(claimed.map((dispatch) => enqueueClaimedImportDispatch(queue, dispatch)));
+  const enqueued = results.filter((result) => result.enqueued).length;
+  return { claimed: claimed.length, enqueued, failed: results.length - enqueued };
 }
 
 async function resetStaleImportDispatchClaims() {
@@ -419,7 +413,7 @@ async function reconcileImportDispatchesPass(queue: ImportQueue): Promise<Dispat
     return { missingJobs, staleClaims };
   }
 
-  for (const dispatch of currentEnqueued) {
+  const reconcileResults = await Promise.all(currentEnqueued.map(async (dispatch) => {
     const queueJobId = buildImportJobId(dispatch.import_id, dispatch.generation);
     if (dispatch.queue_job_id !== queueJobId) {
       await prisma.enrollmentImportDispatch.updateMany({
@@ -436,14 +430,14 @@ async function reconcileImportDispatchesPass(queue: ImportQueue): Promise<Dispat
       const state = typeof jobWithState.getState === "function"
         ? await jobWithState.getState()
         : null;
-      if (state !== "completed" && state !== "failed") continue;
-      if (typeof jobWithState.remove !== "function") continue;
+      if (state !== "completed" && state !== "failed") return 0;
+      if (typeof jobWithState.remove !== "function") return 0;
       await jobWithState.remove();
-      if (await resetMissingImportJob(dispatch.id)) missingJobs += 1;
-      continue;
+      return (await resetMissingImportJob(dispatch.id)) ? 1 : 0;
     }
-    if (await resetMissingImportJob(dispatch.id)) missingJobs += 1;
-  }
+    return (await resetMissingImportJob(dispatch.id)) ? 1 : 0;
+  }));
+  missingJobs = reconcileResults.reduce<number>((total, result) => total + result, 0);
 
   const last = currentEnqueued[currentEnqueued.length - 1];
   dispatchReconcileCursor = { createdAt: last.created_at, id: last.id };

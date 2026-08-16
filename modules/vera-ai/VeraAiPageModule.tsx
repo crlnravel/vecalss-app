@@ -237,6 +237,24 @@ const initialSessions: StudySession[] = [
   },
 ];
 
+function createNewStudySession(): StudySession {
+  return {
+    id: `session-${Date.now()}`,
+    title: "Sesi belajar baru",
+    updatedAt: "Baru saja",
+    sourceIds: [],
+    generatedTools: [],
+    messages: [
+      {
+        id: `new-session-${Date.now()}`,
+        role: "vera",
+        body: "Sesi baru sudah siap. Tambahkan hasil latihan, materi, atau dokumen supaya aku memahami apa yang sedang ingin kamu pelajari.",
+        createdAt: "Baru saja",
+      },
+    ],
+  };
+}
+
 const toolRequestLabels: Record<VeraToolId, string> = {
   analysis: "Analisis kelemahanku dari konteks sesi ini.",
   route: "Susun rute belajar dari konteks sesi ini.",
@@ -278,6 +296,162 @@ function buildGeneralReply(prompt: string, sourceTitles: string[]) {
   }
 
   return `Aku menggunakan ${sourceLine} untuk menjawab ini. Kita bisa memecahnya menjadi satu konsep inti, satu contoh singkat, lalu satu latihan untuk memastikan caramu berpikir sudah konsisten.`;
+}
+
+type VeraAiWorkspaceProps = {
+  activeArtifact: VeraStudioTool | null;
+  activeSession: StudySession;
+  contextDialogOpen: boolean;
+  contextSources: VeraContextSource[];
+  draft: string;
+  fullscreenArtifact: VeraStudioTool | null;
+  generatedArtifacts: VeraStudioTool[];
+  onCloseArtifact: () => void;
+  onCloseFullscreen: () => void;
+  onDraftChange: (value: string) => void;
+  onExpandArtifact: (toolId: VeraToolId) => void;
+  onGenerateTool: (toolId: VeraToolId) => void;
+  onNewSession: () => void;
+  onOpenAddContext: () => void;
+  onContextDialogOpenChange: (open: boolean) => void;
+  onOpenArtifact: (toolId: VeraToolId) => void;
+  onRemoveContexts: (sourceIds: string[]) => void;
+  onRenameSession: (title: string) => void;
+  onSaveContext: (nextSourceIds: string[], addedSources?: VeraContextSource[]) => void;
+  onSend: () => void;
+  onSelectSession: (sessionId: string) => void;
+  onSessionSidebarCollapsedChange: (collapsed: boolean) => void;
+  onSetWorkspaceTab: (tab: WorkspaceTab) => void;
+  onToggleContext: (sourceId: string, active: boolean) => void;
+  selectedSources: VeraContextSource[];
+  session: SessionContext;
+  sessionSidebarCollapsed: boolean;
+  sessions: StudySession[];
+  workspaceTab: WorkspaceTab;
+};
+
+function VeraAiWorkspace({
+  activeArtifact,
+  activeSession,
+  contextDialogOpen,
+  contextSources,
+  draft,
+  fullscreenArtifact,
+  generatedArtifacts,
+  onCloseArtifact,
+  onCloseFullscreen,
+  onDraftChange,
+  onExpandArtifact,
+  onGenerateTool,
+  onNewSession,
+  onOpenAddContext,
+  onContextDialogOpenChange,
+  onOpenArtifact,
+  onRemoveContexts,
+  onRenameSession,
+  onSaveContext,
+  onSend,
+  onSelectSession,
+  onSessionSidebarCollapsedChange,
+  onSetWorkspaceTab,
+  onToggleContext,
+  selectedSources,
+  session,
+  sessionSidebarCollapsed,
+  sessions,
+  workspaceTab,
+}: VeraAiWorkspaceProps) {
+  return (
+    <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
+      <div className="flex min-h-svh flex-col md:h-svh">
+        <VeraTopBar session={session} />
+        <h1 className="sr-only">
+          Vera AI Workspace: {activeSession.title}
+        </h1>
+
+        <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
+          <div className="flex h-full min-h-0 min-w-0 gap-3">
+            <aside
+              className={cn(
+                "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
+                sessionSidebarCollapsed ? "w-16" : "w-72",
+              )}
+            >
+              <SessionSidebar
+                activeSessionId={activeSession.id}
+                collapsed={sessionSidebarCollapsed}
+                onNewSession={onNewSession}
+                onSetCollapsed={onSessionSidebarCollapsedChange}
+                onSelectSession={onSelectSession}
+                sessions={sessions}
+              />
+            </aside>
+            <Tabs
+              className="min-h-0 min-w-0 flex-1 gap-0"
+              onValueChange={(value) => onSetWorkspaceTab(value as WorkspaceTab)}
+              value={workspaceTab}
+            >
+              <WorkspaceTabs onChange={onSetWorkspaceTab} />
+              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
+                <ChatWorkspace
+                  activeSession={activeSession}
+                  className="flex"
+                  draft={draft}
+                  onDraftChange={onDraftChange}
+                  onRenameSession={onRenameSession}
+                  onSend={onSend}
+                />
+              </TabsContent>
+              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
+                <ContextWorkspace
+                  activeSourceIds={activeSession.sourceIds}
+                  className="flex"
+                  key={`${activeSession.id}-${workspaceTab}`}
+                  onOpenAddContext={onOpenAddContext}
+                  onRemoveContexts={onRemoveContexts}
+                  onToggleContext={onToggleContext}
+                  sources={contextSources}
+                />
+              </TabsContent>
+              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
+                <StudioPanel
+                  activeArtifact={activeArtifact}
+                  className="flex"
+                  generatedArtifacts={generatedArtifacts}
+                  onCloseArtifact={onCloseArtifact}
+                  onExpandArtifact={onExpandArtifact}
+                  onGenerateTool={onGenerateTool}
+                  onOpenArtifact={onOpenArtifact}
+                  selectedSources={selectedSources}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+        </main>
+      </div>
+
+      {contextDialogOpen ? (
+        <AddContextDialog
+          onOpenChange={onContextDialogOpenChange}
+          onSave={onSaveContext}
+          open
+          availableSources={contextSources}
+          selectedSourceIds={activeSession.sourceIds}
+        />
+      ) : null}
+      <FullscreenArtifactDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            onCloseFullscreen();
+          }
+        }}
+        open={Boolean(fullscreenArtifact)}
+        selectedSources={selectedSources}
+        tool={fullscreenArtifact}
+      />
+    </div>
+  );
 }
 
 function VeraAiPageModule({ session }: { session: SessionContext }) {
@@ -374,21 +548,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
   }
 
   function handleNewSession() {
-    const nextSession: StudySession = {
-      id: `session-${Date.now()}`,
-      title: "Sesi belajar baru",
-      updatedAt: "Baru saja",
-      sourceIds: [],
-      generatedTools: [],
-      messages: [
-        {
-          id: `new-session-${Date.now()}`,
-          role: "vera",
-          body: "Sesi baru sudah siap. Tambahkan hasil latihan, materi, atau dokumen supaya aku memahami apa yang sedang ingin kamu pelajari.",
-          createdAt: "Baru saja",
-        },
-      ],
-    };
+    const nextSession = createNewStudySession();
 
     setSessions((current) => [nextSession, ...current]);
     setActiveSessionId(nextSession.id);
@@ -557,95 +717,37 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
   }
 
   return (
-    <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
-      <div className="flex min-h-svh flex-col md:h-svh">
-        <VeraTopBar session={session} />
-        <h1 className="sr-only">
-          Vera AI Workspace: {activeSession.title}
-        </h1>
-
-        <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
-          <div className="flex h-full min-h-0 min-w-0 gap-3">
-            <aside
-              className={cn(
-                "sticky top-0 hidden h-full shrink-0 self-start transition-[width] duration-200 md:block",
-                sessionSidebarCollapsed ? "w-16" : "w-72",
-              )}
-            >
-              <SessionSidebar
-                activeSessionId={activeSession.id}
-                collapsed={sessionSidebarCollapsed}
-                onNewSession={handleNewSession}
-                onSetCollapsed={setSessionSidebarCollapsed}
-                onSelectSession={handleSelectSession}
-                sessions={sessions}
-              />
-            </aside>
-            <Tabs
-              className="min-h-0 min-w-0 flex-1 gap-0"
-              onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)}
-              value={workspaceTab}
-            >
-              <WorkspaceTabs onChange={setWorkspaceTab} />
-              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="chat">
-                <ChatWorkspace
-                  activeSession={activeSession}
-                  className="flex"
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onRenameSession={handleRenameSession}
-                  onSend={handleSend}
-                />
-              </TabsContent>
-              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="context">
-                <ContextWorkspace
-                  activeSourceIds={activeSession.sourceIds}
-                  className="flex"
-                  key={`${activeSession.id}-${workspaceTab}`}
-                  onOpenAddContext={() => setContextDialogOpen(true)}
-                  onRemoveContexts={handleRemoveContexts}
-                  onToggleContext={handleToggleContext}
-                  sources={contextSources}
-                />
-              </TabsContent>
-              <TabsContent className="min-h-0 min-w-0 overflow-hidden" value="studio">
-                <StudioPanel
-                  activeArtifact={activeArtifact}
-                  className="flex"
-                  generatedArtifacts={generatedArtifacts}
-                  onCloseArtifact={() => setActiveArtifactId(null)}
-                  onExpandArtifact={(toolId) => setFullscreenArtifactId(toolId)}
-                  onGenerateTool={handleToolRequest}
-                  onOpenArtifact={handleOpenArtifact}
-                  selectedSources={selectedSources}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-
-        </main>
-      </div>
-
-      {contextDialogOpen ? (
-        <AddContextDialog
-          onOpenChange={setContextDialogOpen}
-          onSave={handleSaveContext}
-          open
-          availableSources={contextSources}
-          selectedSourceIds={activeSession.sourceIds}
-        />
-      ) : null}
-      <FullscreenArtifactDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setFullscreenArtifactId(null);
-          }
-        }}
-        open={Boolean(fullscreenArtifact)}
-        selectedSources={selectedSources}
-        tool={fullscreenArtifact}
-      />
-    </div>
+    <VeraAiWorkspace
+      activeArtifact={activeArtifact}
+      activeSession={activeSession}
+      contextDialogOpen={contextDialogOpen}
+      contextSources={contextSources}
+      draft={draft}
+      fullscreenArtifact={fullscreenArtifact}
+      generatedArtifacts={generatedArtifacts}
+      onCloseArtifact={() => setActiveArtifactId(null)}
+      onCloseFullscreen={() => setFullscreenArtifactId(null)}
+      onContextDialogOpenChange={setContextDialogOpen}
+      onDraftChange={setDraft}
+      onExpandArtifact={setFullscreenArtifactId}
+      onGenerateTool={handleToolRequest}
+      onNewSession={handleNewSession}
+      onOpenAddContext={() => setContextDialogOpen(true)}
+      onOpenArtifact={handleOpenArtifact}
+      onRemoveContexts={handleRemoveContexts}
+      onRenameSession={handleRenameSession}
+      onSaveContext={handleSaveContext}
+      onSend={handleSend}
+      onSelectSession={handleSelectSession}
+      onSessionSidebarCollapsedChange={setSessionSidebarCollapsed}
+      onSetWorkspaceTab={setWorkspaceTab}
+      onToggleContext={handleToggleContext}
+      selectedSources={selectedSources}
+      session={session}
+      sessionSidebarCollapsed={sessionSidebarCollapsed}
+      sessions={sessions}
+      workspaceTab={workspaceTab}
+    />
   );
 }
 

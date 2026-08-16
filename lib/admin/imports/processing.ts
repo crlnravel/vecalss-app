@@ -539,8 +539,7 @@ async function claimImportRows({
     `;
 
     const claimedAt = new Date();
-    const claimed: RowClaim[] = [];
-    for (const candidate of candidates) {
+    const claimed = await Promise.all(candidates.map(async (candidate): Promise<RowClaim> => {
       const claimToken = randomUUID();
       const claimExpiresAt = new Date(claimedAt.getTime() + ROW_CLAIM_LEASE_MS);
       await tx.enrollmentImportRow.update({
@@ -553,7 +552,7 @@ async function claimImportRows({
         },
         where: { id: candidate.id },
       });
-      claimed.push({
+      return {
         attemptCount: candidate.attempt_count + 1,
         claimExpiresAt,
         claimToken,
@@ -572,8 +571,8 @@ async function claimImportRows({
         role: candidate.role,
         rowNumber: candidate.row_number,
         status: EnrollmentImportRowStatus.processing,
-      });
-    }
+      };
+    }));
 
     if (claimed.length > 0) {
       await tx.enrollmentImport.updateMany({
@@ -677,10 +676,9 @@ async function reapExpiredImportRowClaims(input: ReapExpiredImportRowClaimsInput
     `;
     let reset = 0;
     let failed = 0;
-    let requeuedDispatches = 0;
     const imports = new Map<string, number>();
     const requeueImports = new Map<string, number>();
-    for (const row of candidates) {
+    const reapedRows = await Promise.all(candidates.map(async (row) => {
       const exhausted = row.attempt_count >= MAX_ROW_ATTEMPTS;
       const nextStatus = exhausted
         ? EnrollmentImportRowStatus.failed
@@ -708,13 +706,7 @@ async function reapExpiredImportRowClaims(input: ReapExpiredImportRowClaimsInput
           claimExpiresAt: { lte: new Date() },
         },
       });
-      if (updated.count !== 1) continue;
-      if (exhausted) failed += 1;
-      else {
-        reset += 1;
-        requeueImports.set(row.import_id, row.generation);
-      }
-      imports.set(row.import_id, row.generation);
+      if (updated.count !== 1) return null;
       await writeRowAudit(tx, {
         action: exhausted
           ? "enrollment_import.row_failed"
@@ -726,8 +718,18 @@ async function reapExpiredImportRowClaims(input: ReapExpiredImportRowClaimsInput
           : { reason: "worker_lease_expired" },
         rowId: row.id,
       });
+      return { exhausted, generation: row.generation, importId: row.import_id };
+    }));
+    for (const row of reapedRows) {
+      if (!row) continue;
+      imports.set(row.importId, row.generation);
+      if (row.exhausted) failed += 1;
+      else {
+        reset += 1;
+        requeueImports.set(row.importId, row.generation);
+      }
     }
-    for (const [importId, generation] of requeueImports) {
+    const requeuedDispatches = await Promise.all([...requeueImports].map(async ([importId, generation]) => {
       const updated = await tx.enrollmentImportDispatch.updateMany({
         data: {
           claimExpiresAt: null,
@@ -751,12 +753,12 @@ async function reapExpiredImportRowClaims(input: ReapExpiredImportRowClaimsInput
           },
         },
       });
-      requeuedDispatches += updated.count;
-    }
+      return updated.count;
+    }));
     return {
       failed,
       imports: [...imports.entries()],
-      requeuedDispatches,
+      requeuedDispatches: requeuedDispatches.reduce((total, count) => total + count, 0),
       reset,
       total: candidates.length,
     };
@@ -1292,10 +1294,8 @@ async function persistRetryGenerationResult(
       targetType: "enrollment_import",
     },
   });
-  for (const audit of audits) {
-    const metadata = retryAuditMetadata(audit.metadata ?? null);
-    if (!metadata || metadata.generation !== generation) continue;
-    await tx.auditLog.update({
+  const matchingAudits = audits.filter((audit) => retryAuditMetadata(audit.metadata ?? null)?.generation === generation);
+  await Promise.all(matchingAudits.map((audit) => tx.auditLog.update({
       data: {
         metadata: {
           ...(asObject(audit.metadata ?? null) ?? {}),
@@ -1303,8 +1303,7 @@ async function persistRetryGenerationResult(
         } as Prisma.InputJsonValue,
       },
       where: { id: audit.id },
-    });
-  }
+    })));
 }
 
 async function finalizeImportGeneration({
@@ -1435,7 +1434,7 @@ async function failImportGeneration({
         status: { in: [EnrollmentImportRowStatus.pending, EnrollmentImportRowStatus.processing] },
       },
     });
-    for (const row of rows) {
+    await Promise.all(rows.map(async (row) => {
       const updated = await tx.enrollmentImportRow.updateMany({
         data: {
           claimExpiresAt: null,
@@ -1451,16 +1450,15 @@ async function failImportGeneration({
           status: { in: [EnrollmentImportRowStatus.pending, EnrollmentImportRowStatus.processing] },
         },
       });
-      if (updated.count === 1) {
-        await writeRowAudit(tx, {
-          action: "enrollment_import.row_failed",
-          actorUserId: imported?.confirmedByUserId ?? null,
-          importId,
-          metadata: { errorCode, generation },
-          rowId: row.id,
-        });
-      }
-    }
+      if (updated.count !== 1) return;
+      await writeRowAudit(tx, {
+        action: "enrollment_import.row_failed",
+        actorUserId: imported?.confirmedByUserId ?? null,
+        importId,
+        metadata: { errorCode, generation },
+        rowId: row.id,
+      });
+    }));
   });
   return finalizeImportGeneration({ generation, importId, jobErrorCode: errorCode });
 }
@@ -1690,8 +1688,7 @@ async function cleanupEnrollmentImports({
       },
       take: CLEANUP_BATCH_SIZE,
     });
-    let expiredHandoffs = 0;
-    for (const handoff of expired) {
+    const expirationResults = await Promise.all(expired.map(async (handoff) => {
       const updated = await tx.enrollmentHandoff.updateMany({
         data: {
           secretEnvelope: Prisma.DbNull,
@@ -1704,17 +1701,17 @@ async function cleanupEnrollmentImports({
           status: { in: [EnrollmentHandoffStatus.pending, EnrollmentHandoffStatus.released] },
         },
       });
-      if (updated.count === 1) {
-        expiredHandoffs += 1;
-        await writeHandoffAudit({
-          action: "enrollment_handoff.expired",
-          handoffId: handoff.id,
-          metadata: { method: EnrollmentHandoffMethod.invite_link },
-          tx,
-          userId: handoff.userId,
-        });
-      }
-    }
+      if (updated.count !== 1) return 0;
+      await writeHandoffAudit({
+        action: "enrollment_handoff.expired",
+        handoffId: handoff.id,
+        metadata: { method: EnrollmentHandoffMethod.invite_link },
+        tx,
+        userId: handoff.userId,
+      });
+      return 1;
+    }));
+    const expiredHandoffs = expirationResults.reduce<number>((total, result) => total + result, 0);
 
     const terminalHandoffs = await tx.enrollmentHandoff.findMany({
       select: { id: true },
@@ -1755,7 +1752,7 @@ async function cleanupEnrollmentImports({
     let purgedRows = 0;
     let purgedDispatches = 0;
     let purgedImports = 0;
-    for (const imported of terminalImports) {
+    const cleanupResults = await Promise.all(terminalImports.map(async (imported) => {
       // The initial candidate page is only a hint. Lock and recheck the
       // terminal state/cutoff per import before reading its children so a
       // concurrent retry either wins the lock (and makes this row ineligible)
@@ -1776,7 +1773,7 @@ async function cleanupEnrollmentImports({
           )
         FOR UPDATE
       `;
-      if (locked.length !== 1) continue;
+      if (locked.length !== 1) return { dispatches: 0, imports: 0, rows: 0 };
       const rowLinks = await tx.enrollmentImportRow.findMany({
         select: { id: true },
         where: { importId: imported.id },
@@ -1787,12 +1784,21 @@ async function cleanupEnrollmentImports({
           where: { sourceImportRowId: { in: rowLinks.map((row) => row.id) } },
         });
       }
-      const dispatchResult = await tx.enrollmentImportDispatch.deleteMany({ where: { importId: imported.id } });
-      const rowResult = await tx.enrollmentImportRow.deleteMany({ where: { importId: imported.id } });
-      const importResult = await tx.enrollmentImport.deleteMany({ where: { id: imported.id } });
-      purgedDispatches += dispatchResult.count;
-      purgedRows += rowResult.count;
-      purgedImports += importResult.count;
+      return Promise.all([
+        tx.enrollmentImportDispatch.deleteMany({ where: { importId: imported.id } }),
+        tx.enrollmentImportRow.deleteMany({ where: { importId: imported.id } }),
+      ]).then(([dispatchResult, rowResult]) =>
+        tx.enrollmentImport.deleteMany({ where: { id: imported.id } }).then((importResult) => ({
+          dispatches: dispatchResult.count,
+          imports: importResult.count,
+          rows: rowResult.count,
+        })),
+      );
+    }));
+    for (const result of cleanupResults) {
+      purgedDispatches += result.dispatches;
+      purgedRows += result.rows;
+      purgedImports += result.imports;
     }
     return {
       expiredHandoffs,

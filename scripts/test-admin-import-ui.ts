@@ -46,7 +46,7 @@ const [importsPage, intakeModule, detailModule, detailPage, loadingSource, intak
   readFile(resolve(root, "lib/admin/imports/processing.ts"), "utf8"),
   readFile(resolve(root, "modules/auth/actions.ts"), "utf8"),
   readFile(resolve(root, "lib/auth/paths.ts"), "utf8"),
-  readFile(resolve(root, "app/admin/login/page.tsx"), "utf8"),
+  readFile(resolve(root, "app/login/page.tsx"), "utf8"),
 ]);
 
 assert.equal(getImportTemplateDefinition("students.v1")?.fileName, "students.v1.csv");
@@ -89,7 +89,7 @@ assert.deepEqual(
 assert.equal(classifyImportSessionRecovery({ status: 401 }), "expired");
 assert.equal(classifyImportSessionRecovery({ status: 403 }), "forbidden");
 assert.equal(classifyImportSessionRecovery({ errorCode: "invalid_origin", status: 403 }), null);
-assert.equal(classifyImportSessionRecovery({ redirectPath: "/admin/login", status: 200 }), "expired");
+assert.equal(classifyImportSessionRecovery({ redirectPath: "/login", status: 200 }), "expired");
 assert.equal(classifyImportSessionRecovery({ redirectPath: "/dashboard", status: 200 }), "forbidden");
 assert.equal(getSafeAdminReturnPath("/admin/imports/550e8400-e29b-41d4-a716-446655440000"), "/admin/imports/550e8400-e29b-41d4-a716-446655440000");
 assert.equal(getSafeAdminReturnPath("https://evil.example/"), null);

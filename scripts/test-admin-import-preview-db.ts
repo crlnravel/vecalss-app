@@ -386,7 +386,7 @@ async function main() {
       redirect: "manual",
     });
     assert.ok([307, 308].includes(softDeletedNormalSession.status));
-    assert.match(softDeletedNormalSession.headers.get("location") ?? "", /admin\/login/u);
+    assert.match(softDeletedNormalSession.headers.get("location") ?? "", /login/u);
     const afterLegacyProfileCount = await client.query<{ count: number }>(
       "SELECT COUNT(*)::int AS count FROM student_profiles WHERE user_id = $1::uuid",
       [fixture.adminId],

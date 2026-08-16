@@ -135,6 +135,173 @@ function DataTableFilterChips({
   );
 }
 
+function getDefaultVisibleColumnIds<T>(columns: readonly DataTableColumn<T>[]) {
+  const ids = new Set<string>();
+
+  for (const column of columns) {
+    if (column.defaultVisible !== false) {
+      ids.add(column.id);
+    }
+  }
+
+  return ids;
+}
+
+type DataTableGridProps<T> = {
+  areAllVisibleSelected: boolean;
+  caption: string;
+  emptyState?: ReactNode;
+  getRowId: (row: T) => string;
+  hasPartialSelection: boolean;
+  onRowClick?: (row: T) => void;
+  rowClassName?: (row: T, selected: boolean) => string | undefined;
+  rowProps?: (row: T) => ComponentProps<typeof TableRow>;
+  rowIsClickable: boolean;
+  rows: readonly T[];
+  selectedIds: Set<string>;
+  selection: boolean;
+  tableClassName?: string;
+  toggleAllVisible: (checked: boolean) => void;
+  toggleSelected: (id: string, checked: boolean) => void;
+  visibleColumnWidthTotal: number;
+  visibleColumns: readonly DataTableColumn<T>[];
+};
+
+function DataTableGrid<T>({
+  areAllVisibleSelected,
+  caption,
+  emptyState,
+  getRowId,
+  hasPartialSelection,
+  onRowClick,
+  rowClassName,
+  rowProps,
+  rowIsClickable,
+  rows,
+  selectedIds,
+  selection,
+  tableClassName,
+  toggleAllVisible,
+  toggleSelected,
+  visibleColumnWidthTotal,
+  visibleColumns,
+}: DataTableGridProps<T>) {
+  return (
+    <Table className={cn("min-w-[760px] table-fixed border-separate border-spacing-y-0", tableClassName)}>
+      <caption className="sr-only">{caption}</caption>
+      <TableHeader>
+        <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
+          {selection ? (
+            <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
+              <Checkbox
+                aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
+                aria-label={hasPartialSelection || areAllVisibleSelected ? "Clear all rows on this page" : "Select all rows on this page"}
+                checked={areAllVisibleSelected}
+                indeterminate={hasPartialSelection}
+                onCheckedChange={(checked) => {
+                  if (hasPartialSelection) {
+                    toggleAllVisible(false);
+                    return;
+                  }
+
+                  toggleAllVisible(checked === true);
+                }}
+              />
+            </TableHead>
+          ) : null}
+          {visibleColumns.map((column, index) => (
+            <TableHead
+              className={cn(
+                "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-500 sm:px-5",
+                index === 0 && !selection && "rounded-l-xl",
+                index === visibleColumns.length - 1 && "rounded-r-xl",
+                column.headerClassName,
+              )}
+              key={column.id}
+              style={{ width: `${((column.width ?? 1) / visibleColumnWidthTotal) * 100}%` }}
+            >
+              {column.label}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.length ? rows.map((row) => {
+          const id = getRowId(row);
+          const selected = selectedIds.has(id);
+          const additionalRowProps = rowProps?.(row);
+          const rowInteractionProps = rowIsClickable && onRowClick
+            ? {
+                onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+                  additionalRowProps?.onClick?.(event);
+                  if (
+                    event.defaultPrevented ||
+                    (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
+                  ) {
+                    return;
+                  }
+
+                  onRowClick(row);
+                },
+                onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+                  additionalRowProps?.onKeyDown?.(event);
+                  if (
+                    event.defaultPrevented ||
+                    (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
+                  ) {
+                    return;
+                  }
+
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onRowClick(row);
+                  }
+                },
+                tabIndex: 0,
+              }
+            : undefined;
+          return (
+            <TableRow
+              {...additionalRowProps}
+              {...rowInteractionProps}
+              aria-selected={selection ? selected : undefined}
+              className={cn(
+                "border-primary-100/55 transition-colors hover:bg-secondary-50/70",
+                selected && "bg-primary-50/60 hover:bg-primary-50/80",
+                rowIsClickable && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
+                rowClassName?.(row, selected),
+                additionalRowProps?.className,
+              )}
+              key={id}
+            >
+              {selection ? (
+                <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection">
+                  <Checkbox
+                    aria-label={`Select row ${id}`}
+                    checked={selected}
+                    onCheckedChange={(checked) => toggleSelected(id, checked === true)}
+                  />
+                </TableCell>
+              ) : null}
+              {visibleColumns.map((column) => (
+                <TableCell className={cn("px-4 py-3.5 sm:px-5", column.cellClassName)} key={column.id}>
+                  {column.cell(row)}
+                </TableCell>
+              ))}
+            </TableRow>
+          );
+        }) : (
+          <TableRow>
+            <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
+              {emptyState ?? <span className="text-sm text-secondary-500">No results found.</span>}
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+}
+
 function DataTable<T>({
   caption,
   clearFiltersHref,
@@ -160,7 +327,7 @@ function DataTable<T>({
   const [isSearchPending, startSearchTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [visibleColumnIds, setVisibleColumnIds] = useState<Set<string>>(
-    () => new Set(columns.filter((column) => column.defaultVisible !== false).map((column) => column.id)),
+    () => getDefaultVisibleColumnIds(columns),
   );
 
   const visibleIds = rows.map((row) => getRowId(row));
@@ -202,7 +369,7 @@ function DataTable<T>({
   };
 
   const resetColumns = () => {
-    setVisibleColumnIds(new Set(columns.filter((column) => column.defaultVisible !== false).map((column) => column.id)));
+    setVisibleColumnIds(getDefaultVisibleColumnIds(columns));
   };
 
   const rowIsClickable = Boolean(onRowClick);
@@ -296,8 +463,8 @@ function DataTable<T>({
             {search.hiddenFields
               ? Object.entries(search.hiddenFields).flatMap(([name, hiddenValue]) => {
                   const values = Array.isArray(hiddenValue) ? hiddenValue : [hiddenValue];
-                  return values.map((value, index) => (
-                    <input key={`${name}-${index}`} name={name} type="hidden" value={value} />
+                  return values.map((value) => (
+                    <input key={`${name}-${value}`} name={name} type="hidden" value={value} />
                   ));
                 })
               : null}
@@ -345,29 +512,36 @@ function DataTable<T>({
               ) : (
                 <>
                   <DropdownMenuLabel className="font-semibold text-secondary-900">Choose columns</DropdownMenuLabel>
-                  {columns.filter((column) => column.hideable !== false).map((column) => (
-                    <DropdownMenuCheckboxItem
-                      checked={visibleColumnIds.has(column.id)}
-                      key={column.id}
-                      onCheckedChange={(checked) => {
-                        if (!checked && visibleColumns.length <= 1) {
-                          return;
-                        }
+                  {columns.reduce<ReactNode[]>((items, column) => {
+                    if (column.hideable === false) {
+                      return items;
+                    }
 
-                        setVisibleColumnIds((current) => {
-                          const next = new Set(current);
-                          if (checked) {
-                            next.add(column.id);
-                          } else {
-                            next.delete(column.id);
+                    items.push(
+                      <DropdownMenuCheckboxItem
+                        checked={visibleColumnIds.has(column.id)}
+                        key={column.id}
+                        onCheckedChange={(checked) => {
+                          if (!checked && visibleColumns.length <= 1) {
+                            return;
                           }
-                          return next;
-                        });
-                      }}
-                    >
-                      {column.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
+
+                          setVisibleColumnIds((current) => {
+                            const next = new Set(current);
+                            if (checked) {
+                              next.add(column.id);
+                            } else {
+                              next.delete(column.id);
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        {column.label}
+                      </DropdownMenuCheckboxItem>,
+                    );
+                    return items;
+                  }, [])}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
                     Reset columns
@@ -388,118 +562,25 @@ function DataTable<T>({
 
       <DataTableFilterChips clearFiltersHref={clearFiltersHref} filters={filters} />
 
-      <Table className={cn("min-w-[760px] table-fixed border-separate border-spacing-y-0", tableClassName)}>
-        <caption className="sr-only">{caption}</caption>
-        <TableHeader>
-          <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-            {selection ? (
-              <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
-                <Checkbox
-                  aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
-                  aria-label={hasPartialSelection || areAllVisibleSelected ? "Clear all rows on this page" : "Select all rows on this page"}
-                  checked={areAllVisibleSelected}
-                  indeterminate={hasPartialSelection}
-                  onCheckedChange={(checked) => {
-                    if (hasPartialSelection) {
-                      toggleAllVisible(false);
-                      return;
-                    }
-
-                    toggleAllVisible(checked === true);
-                  }}
-                />
-              </TableHead>
-            ) : null}
-            {visibleColumns.map((column, index) => (
-              <TableHead
-                className={cn(
-                  "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-500 sm:px-5",
-                  index === 0 && !selection && "rounded-l-xl",
-                  index === visibleColumns.length - 1 && "rounded-r-xl",
-                  column.headerClassName,
-                )}
-                key={column.id}
-                style={{ width: `${((column.width ?? 1) / visibleColumnWidthTotal) * 100}%` }}
-              >
-                {column.label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length ? rows.map((row) => {
-            const id = getRowId(row);
-            const selected = selectedIds.has(id);
-            const additionalRowProps = rowProps?.(row);
-            const rowInteractionProps = rowIsClickable && onRowClick
-              ? {
-                  onClick: (event: MouseEvent<HTMLTableRowElement>) => {
-                    additionalRowProps?.onClick?.(event);
-                    if (
-                      event.defaultPrevented ||
-                      (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
-                    ) {
-                      return;
-                    }
-
-                    onRowClick(row);
-                  },
-                  onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
-                    additionalRowProps?.onKeyDown?.(event);
-                    if (
-                      event.defaultPrevented ||
-                      (event.target instanceof Element && event.target.closest("a,button,input,select,textarea,[role='button'],[role='checkbox']"))
-                    ) {
-                      return;
-                    }
-
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onRowClick(row);
-                    }
-                  },
-                  tabIndex: 0,
-                }
-              : undefined;
-            return (
-              <TableRow
-                {...additionalRowProps}
-                {...rowInteractionProps}
-                aria-selected={selection ? selected : undefined}
-                className={cn(
-                  "border-primary-100/55 transition-colors hover:bg-secondary-50/70",
-                  selected && "bg-primary-50/60 hover:bg-primary-50/80",
-                  rowIsClickable && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
-                  rowClassName?.(row, selected),
-                  additionalRowProps?.className,
-                )}
-                key={id}
-              >
-                {selection ? (
-                  <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection">
-                    <Checkbox
-                      aria-label={`Select row ${id}`}
-                      checked={selected}
-                      onCheckedChange={(checked) => toggleSelected(id, checked === true)}
-                    />
-                  </TableCell>
-                ) : null}
-                {visibleColumns.map((column) => (
-                  <TableCell className={cn("px-4 py-3.5 sm:px-5", column.cellClassName)} key={column.id}>
-                    {column.cell(row)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            );
-          }) : (
-            <TableRow>
-              <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
-                {emptyState ?? <span className="text-sm text-secondary-500">No results found.</span>}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+      <DataTableGrid
+        areAllVisibleSelected={areAllVisibleSelected}
+        caption={caption}
+        emptyState={emptyState}
+        getRowId={getRowId}
+        hasPartialSelection={hasPartialSelection}
+        onRowClick={onRowClick}
+        rowClassName={rowClassName}
+        rowIsClickable={rowIsClickable}
+        rowProps={rowProps}
+        rows={rows}
+        selectedIds={selectedIds}
+        selection={selection}
+        tableClassName={tableClassName}
+        toggleAllVisible={toggleAllVisible}
+        toggleSelected={toggleSelected}
+        visibleColumnWidthTotal={visibleColumnWidthTotal}
+        visibleColumns={visibleColumns}
+      />
     </>
   );
 }

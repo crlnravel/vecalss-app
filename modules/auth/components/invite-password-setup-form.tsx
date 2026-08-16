@@ -46,18 +46,7 @@ function InvitePasswordSetupForm({ token }: { token: string }) {
         return;
       }
 
-      const result: unknown = await response.json();
-      const loginAudience =
-        typeof result === "object"
-        && result !== null
-        && "loginAudience" in result
-        && result.loginAudience === "tutor"
-        ? "tutor"
-        : "student";
-
-      window.location.assign(
-        `${loginAudience === "tutor" ? "/mentor/login" : "/login"}?notice=invite-completed`,
-      );
+      window.location.assign("/login?notice=invite-completed");
     } catch {
       setMessage(INVALID_INVITE_MESSAGE);
     } finally {

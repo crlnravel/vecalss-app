@@ -21,9 +21,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { UserStatus } from "@/generated/prisma/client";
-import { ChevronRight, Plus } from "@/lib/icons";
+import { ChevronRight, Plus, XIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { bulkUpdateStudentEnrollmentStatusAction } from "@/modules/admin/actions";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -244,18 +244,31 @@ function StudentPreviewPanel({
   return (
     <SheetContent
       className="w-[min(100%,34rem)] max-w-full p-0 sm:max-w-xl"
-      closeButtonClassName="cursor-pointer border-0 bg-transparent text-secondary-900 hover:border-0 hover:bg-transparent hover:text-primary-700 focus-visible:border-transparent focus-visible:ring-primary-300/40"
       side="right"
+      showCloseButton={false}
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="px-5 pb-6 pt-6 pr-16 sm:px-6 sm:pb-7 sm:pr-16">
-          <div className="flex min-w-0 items-start">
+        <header className="px-5 pb-6 pt-6 sm:px-6 sm:pb-7">
+          <div className="flex min-w-0 items-start justify-between gap-4">
             <span
               aria-hidden="true"
               className="grid size-20 shrink-0 place-items-center rounded-2xl bg-primary-50 text-xl font-bold text-primary-800 ring-1 ring-inset ring-primary-100"
             >
               {getInitials(student.fullName)}
             </span>
+            <SheetClose
+              render={
+                <Button
+                  className="cursor-pointer border-0 bg-transparent text-secondary-900 hover:border-0 hover:bg-transparent hover:text-primary-700 focus-visible:border-transparent focus-visible:ring-primary-300/40"
+                  size="icon"
+                  type="button"
+                  variant="brandOutline"
+                />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">Tutup</span>
+            </SheetClose>
           </div>
           <div className="mt-3 flex min-w-0 items-center gap-1.5">
             <code className="min-w-0 truncate text-xs font-medium text-secondary-600" title={student.id}>
@@ -582,7 +595,7 @@ function StudentDirectoryTable({
         <span className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden="true"
-            className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-[0.68rem] font-bold text-primary-800 ring-1 ring-inset ring-primary-100"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-50 text-xs font-bold text-primary-800 ring-1 ring-inset ring-primary-100"
           >
             {getInitials(student.fullName)}
           </span>

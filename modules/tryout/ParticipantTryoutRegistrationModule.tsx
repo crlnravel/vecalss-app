@@ -19,7 +19,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { studentBadgeVariants } from "@/components/ui/student-badge";
+import { studentBadgeVariants } from "@/components/ui/student-badge-variants";
 import type { SessionContext } from "@/lib/auth/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";

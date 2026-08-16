@@ -138,6 +138,138 @@ function groupId(label: string) {
   );
 }
 
+type TryoutSectionGroup = ReturnType<typeof groupTryoutSections>[number];
+
+function TryoutSectionList({
+  lockedSections,
+  sectionGroups,
+}: {
+  lockedSections: boolean;
+  sectionGroups: TryoutSectionGroup[];
+}) {
+  return (
+    <div className="grid gap-0">
+      {sectionGroups.map((group) => {
+        const headingId = groupId(group.label);
+        return (
+          <section
+            aria-labelledby={headingId}
+            className="py-6 first:pt-1"
+            key={group.label}
+          >
+            <div className="flex items-center gap-4 rounded-lg py-1 text-left">
+              <span className="flex min-w-0 flex-1 items-center gap-4">
+                <h2
+                  id={headingId}
+                  className="min-w-0 font-heading text-lg leading-tight font-extrabold tracking-[-0.025em] text-secondary-900"
+                >
+                  {group.label}
+                </h2>
+                <span
+                  aria-hidden="true"
+                  className="h-px min-w-4 flex-1 bg-primary-100"
+                />
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {group.sections.map((section) => (
+                <article
+                  className="flex min-h-[5.75rem] items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 shadow-[0_12px_28px_-24px_rgba(1,76,56,0.22)] sm:px-5"
+                  key={section.sequenceNo + "-" + section.title}
+                >
+                  <div className="min-w-0">
+                    <h3 className="break-words font-heading text-base leading-5 font-extrabold tracking-[-0.02em] text-secondary-900">
+                      {section.title}
+                    </h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-secondary-700">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock className="size-4 text-primary-600" />
+                        {formatDuration(section.durationSeconds)}
+                      </span>
+                      <span aria-hidden="true" className="text-secondary-300">
+                        |
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <ListChecks className="size-4 text-primary-600" />
+                        {section.questionCount} soal
+                        <span className="sr-only">
+                          {" · " + section.testType.toUpperCase()}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {lockedSections ? (
+                    <span
+                      aria-label={
+                        section.title + " terkunci sampai kamu mendaftar"
+                      }
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600"
+                      role="img"
+                    >
+                      <LockKey className="size-5" />
+                    </span>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function TryoutTargetSection({ href }: { href: string }) {
+  return (
+    <section
+      aria-labelledby="target-jurusan"
+      className="rounded-xl bg-white p-5 shadow-[0_14px_34px_-28px_rgba(1,76,56,0.26)] sm:p-6"
+    >
+      <h2
+        id="target-jurusan"
+        className="text-center font-heading text-xl font-extrabold tracking-[-0.025em] text-secondary-900"
+      >
+        Target Jurusan
+      </h2>
+      <div className="mt-5 grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center">
+        <div className="flex min-h-36 items-center justify-center overflow-hidden rounded-2xl bg-primary-100">
+          <Image
+            alt=""
+            className="h-32 w-32 object-contain"
+            height={256}
+            src="/brand/mascot-vecalss.png"
+            width={256}
+          />
+        </div>
+        <div className="grid gap-3">
+          <Link
+            aria-label="Pilih universitas target"
+            className="flex min-h-12 items-center justify-between rounded-xl bg-primary-50 px-4 text-sm font-bold text-secondary-500 transition hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
+            href={href}
+          >
+            <span>Pilih Universitas</span>
+            <CaretDown className="size-5 text-primary-600" />
+          </Link>
+          <Link
+            aria-label="Pilih jurusan target"
+            className="flex min-h-12 items-center justify-between rounded-xl bg-primary-50 px-4 text-sm font-bold text-secondary-500 transition hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
+            href={href}
+          >
+            <span>Pilih Jurusan</span>
+            <CaretDown className="size-5 text-primary-600" />
+          </Link>
+          <p className="text-sm leading-6 text-secondary-600">
+            Target jurusan akan tersimpan di profilmu saat kamu menyelesaikan
+            pendaftaran.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ParticipantTryoutDetailModule({
   session,
   tryout,
@@ -389,76 +521,7 @@ function ParticipantTryoutDetailModule({
             </div>
           ) : null}
 
-          <div className="grid gap-0">
-            {sectionGroups.map((group) => {
-              const headingId = groupId(group.label);
-              return (
-                <section
-                  aria-labelledby={headingId}
-                  className="py-6 first:pt-1"
-                  key={group.label}
-                >
-                  <div className="flex items-center gap-4 rounded-lg py-1 text-left">
-                    <span className="flex min-w-0 flex-1 items-center gap-4">
-                      <h2
-                        id={headingId}
-                        className="min-w-0 font-heading text-lg leading-tight font-extrabold tracking-[-0.025em] text-secondary-900"
-                      >
-                        {group.label}
-                      </h2>
-                      <span
-                        aria-hidden="true"
-                        className="h-px min-w-4 flex-1 bg-primary-100"
-                      />
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {group.sections.map((section) => (
-                      <article
-                        className="flex min-h-[5.75rem] items-center justify-between gap-4 rounded-xl bg-white px-4 py-4 shadow-[0_12px_28px_-24px_rgba(1,76,56,0.22)] sm:px-5"
-                        key={section.sequenceNo + "-" + section.title}
-                      >
-                        <div className="min-w-0">
-                          <h3 className="break-words font-heading text-base leading-5 font-extrabold tracking-[-0.02em] text-secondary-900">
-                            {section.title}
-                          </h3>
-                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-secondary-700">
-                            <span className="inline-flex items-center gap-1.5">
-                              <Clock className="size-4 text-primary-600" />
-                              {formatDuration(section.durationSeconds)}
-                            </span>
-                            <span aria-hidden="true" className="text-secondary-300">
-                              |
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <ListChecks className="size-4 text-primary-600" />
-                              {section.questionCount} soal
-                              <span className="sr-only">
-                                {" · " + section.testType.toUpperCase()}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-
-                        {lockedSections ? (
-                          <span
-                            aria-label={
-                              section.title + " terkunci sampai kamu mendaftar"
-                            }
-                            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600"
-                            role="img"
-                          >
-                            <LockKey className="size-5" />
-                          </span>
-                        ) : null}
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+          <TryoutSectionList lockedSections={lockedSections} sectionGroups={sectionGroups} />
 
           {!admissionNotice && canTakeAction ? (
             actionLabel === "Daftar tryout" ? (
@@ -480,50 +543,7 @@ function ParticipantTryoutDetailModule({
           ) : null}
 
           {!admissionNotice && actionLabel === "Daftar tryout" ? (
-            <section
-              aria-labelledby="target-jurusan"
-              className="rounded-xl bg-white p-5 shadow-[0_14px_34px_-28px_rgba(1,76,56,0.26)] sm:p-6"
-            >
-              <h2
-                id="target-jurusan"
-                className="text-center font-heading text-xl font-extrabold tracking-[-0.025em] text-secondary-900"
-              >
-                Target Jurusan
-              </h2>
-              <div className="mt-5 grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center">
-                <div className="flex min-h-36 items-center justify-center overflow-hidden rounded-2xl bg-primary-100">
-                  <Image
-                    alt=""
-                    className="h-32 w-32 object-contain"
-                    height={256}
-                    src="/brand/mascot-vecalss.png"
-                    width={256}
-                  />
-                </div>
-                <div className="grid gap-3">
-                  <Link
-                    aria-label="Pilih universitas target"
-                    className="flex min-h-12 items-center justify-between rounded-xl bg-primary-50 px-4 text-sm font-bold text-secondary-500 transition hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
-                    href={actionHref}
-                  >
-                    <span>Pilih Universitas</span>
-                    <CaretDown className="size-5 text-primary-600" />
-                  </Link>
-                  <Link
-                    aria-label="Pilih jurusan target"
-                    className="flex min-h-12 items-center justify-between rounded-xl bg-primary-50 px-4 text-sm font-bold text-secondary-500 transition hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
-                    href={actionHref}
-                  >
-                    <span>Pilih Jurusan</span>
-                    <CaretDown className="size-5 text-primary-600" />
-                  </Link>
-                  <p className="text-sm leading-6 text-secondary-600">
-                    Target jurusan akan tersimpan di profilmu saat kamu
-                    menyelesaikan pendaftaran.
-                  </p>
-                </div>
-              </div>
-            </section>
+            <TryoutTargetSection href={actionHref} />
           ) : null}
         </div>
       </div>

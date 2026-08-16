@@ -37,13 +37,13 @@ export default async function AdminNotificationsPage() {
     },
     where: { isActive: true },
   });
-  const cohorts = cohortRows
-    .map((cohort) => ({
-      activeStudentCount: new Set(cohort.students.map((student) => student.studentId)).size,
-      id: cohort.id,
-      name: cohort.name,
-    }))
-    .filter((cohort) => cohort.activeStudentCount > 0);
+  const cohorts: Array<{ activeStudentCount: number; id: string; name: string }> = [];
+  for (const cohort of cohortRows) {
+    const activeStudentCount = new Set(cohort.students.map((student) => student.studentId)).size;
+    if (activeStudentCount > 0) {
+      cohorts.push({ activeStudentCount, id: cohort.id, name: cohort.name });
+    }
+  }
 
   return (
     <NotificationsPageModule
