@@ -65,12 +65,14 @@ const operationLabels: Record<OperationKey, { detail: string; label: string }> =
   },
 };
 
+const operationsDateFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
+
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(value));
+  return operationsDateFormatter.format(new Date(value));
 }
 
 function OperationControl({
@@ -336,8 +338,6 @@ function HandoffAttentionAction({
   const action = isAcknowledgement
     ? acknowledgeEnrollmentHandoffAction
     : reissueEnrollmentHandoffAction;
-  const [state, formAction, pending] = useActionState(action, EMPTY_FORM_STATE);
-  const successHandled = useRef(false);
   const router = useRouter();
 
   const acknowledgeAndRefresh = useCallback((handoffId: string) => {
@@ -345,28 +345,23 @@ function HandoffAttentionAction({
     router.refresh();
   }, [onAcknowledged, router]);
 
-  useEffect(() => {
-    if (state.status !== "success") {
-      successHandled.current = false;
-      return;
+  const actionWithSuccess = useCallback(async (previousState: typeof EMPTY_FORM_STATE, formData: FormData) => {
+    const nextState = await action(previousState, formData);
+    if (nextState.status === "success") {
+      const handoffId = nextState.handoffId ?? item.id;
+      if (isAcknowledgement) {
+        acknowledgeAndRefresh(handoffId);
+      } else {
+        // Reissue creates a replacement handoff in the same transaction. Keep
+        // the local queue open until that replacement is acknowledged, then
+        // reconcile the server snapshot so closing this sheet cannot hide it.
+        onReissued(handoffId);
+        router.refresh();
+      }
     }
-
-    if (successHandled.current) {
-      return;
-    }
-    successHandled.current = true;
-
-    const handoffId = state.handoffId ?? item.id;
-    if (isAcknowledgement) {
-      acknowledgeAndRefresh(handoffId);
-    } else {
-      onReissued(handoffId);
-      // Reissue creates a replacement handoff in the same transaction. Keep
-      // the local queue open until that replacement is acknowledged, then
-      // reconcile the server snapshot so closing this sheet cannot hide it.
-      router.refresh();
-    }
-  }, [acknowledgeAndRefresh, isAcknowledgement, item.id, onReissued, router, state.handoffId, state.status]);
+    return nextState;
+  }, [acknowledgeAndRefresh, action, isAcknowledgement, item.id, onReissued, router]);
+  const [state, formAction, pending] = useActionState(actionWithSuccess, EMPTY_FORM_STATE);
 
   if (item.sourceImportRowId && !isAwaitingAcknowledgement) {
     return (
@@ -571,44 +566,45 @@ function OperationsConsoleModule({
   const [reissuedAttentionState, setReissuedAttentionState] = useState<{ replacements: Map<string, string>; snapshotAt: string }>(() => ({ replacements: new Map(), snapshotAt: snapshot.lastUpdatedAt }));
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    if (selectedItem === null) {
-      const fallback = findVisibleFocusTarget({
-        heading: document.getElementById("attention-queue-heading"),
-        notice: firstVisibleFocusTarget("[data-attention-queue-notice]"),
-        preferNotice: true,
-        rowSelector: "[data-attention-row]",
-        target: isVisibleFocusTarget(lastTrigger.current) ? lastTrigger.current : null,
-        triggerSelector: "[data-attention-trigger]",
-      });
-      fallback?.focus();
-    }
-  }, [selectedItem]);
-
   function openItem(item: OperationsAttentionItem, trigger: HTMLButtonElement) {
     lastTrigger.current = trigger;
     setSelectedItem(item);
   }
 
-  function resolveAttention(itemId: string, close: boolean) {
-    setResolvedAttentionState((current) => {
-      const next = current.snapshotAt === snapshot.lastUpdatedAt ? new Set(current.ids) : new Set<string>();
-      next.add(itemId);
-      return { ids: next, snapshotAt: snapshot.lastUpdatedAt };
+  function restoreAttentionFocus() {
+    const fallback = findVisibleFocusTarget({
+      heading: document.getElementById("attention-queue-heading"),
+      notice: firstVisibleFocusTarget("[data-attention-queue-notice]"),
+      preferNotice: true,
+      rowSelector: "[data-attention-row]",
+      target: isVisibleFocusTarget(lastTrigger.current) ? lastTrigger.current : null,
+      triggerSelector: "[data-attention-trigger]",
     });
+    fallback?.focus();
+  }
+
+  function closeSelectedItem() {
+    setSelectedItem(null);
+    window.requestAnimationFrame(restoreAttentionFocus);
+  }
+
+  function resolveAttention(itemId: string, close: boolean) {
+    setResolvedAttentionState((current) => ({
+      ids: new Set(current.snapshotAt === snapshot.lastUpdatedAt ? [...current.ids, itemId] : [itemId]),
+      snapshotAt: snapshot.lastUpdatedAt,
+    }));
     if (close) {
-      setSelectedItem(null);
+      closeSelectedItem();
     }
   }
 
   function reconcileReissuedHandoff(itemId: string, replacementHandoffId: string) {
-    setReissuedAttentionState((current) => {
-      const replacements = current.snapshotAt === snapshot.lastUpdatedAt
-        ? new Map(current.replacements)
-        : new Map<string, string>();
-      replacements.set(itemId, replacementHandoffId);
-      return { replacements, snapshotAt: snapshot.lastUpdatedAt };
-    });
+    setReissuedAttentionState((current) => ({
+      replacements: new Map(current.snapshotAt === snapshot.lastUpdatedAt
+        ? [...current.replacements, [itemId, replacementHandoffId]]
+        : [[itemId, replacementHandoffId]]),
+      snapshotAt: snapshot.lastUpdatedAt,
+    }));
     setSelectedItem((current) => current && current.id === itemId
       ? replaceReissuedHandoff(current, replacementHandoffId)
       : current);
@@ -706,7 +702,7 @@ function OperationsConsoleModule({
 
       <ActivityPanel audits={snapshot.audits} />
 
-      <OperationDetailSheet item={selectedItem} onClose={() => setSelectedItem(null)} onReissued={reconcileReissuedHandoff} onResolved={resolveAttention} />
+      <OperationDetailSheet item={selectedItem} onClose={closeSelectedItem} onReissued={reconcileReissuedHandoff} onResolved={resolveAttention} />
     </div>
   );
 }

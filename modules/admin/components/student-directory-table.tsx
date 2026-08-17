@@ -58,6 +58,12 @@ type StudentDirectoryItem = {
 
 type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
 
+const studentDirectoryDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
 }
@@ -172,17 +178,16 @@ function dateRangeFromQuery(addedFrom: string | null, addedTo: string | null): D
 function formatDateFilter(addedFrom: string | null, addedTo: string | null) {
   const from = parseDateInput(addedFrom);
   const to = parseDateInput(addedTo);
-  const formatter = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" });
 
   if (!from && !to) {
     return "";
   }
 
   if (!to || !from || to.getTime() === from.getTime()) {
-    return formatter.format(from ?? to);
+    return studentDirectoryDateFormatter.format(from ?? to);
   }
 
-  return `${formatter.format(from)} – ${formatter.format(to)}`;
+  return `${studentDirectoryDateFormatter.format(from)} – ${studentDirectoryDateFormatter.format(to)}`;
 }
 
 function directoryHref({
@@ -472,7 +477,8 @@ function StudentFilterPanel({
   };
 
   return (
-    <div aria-label="Student filter fields" className="grid gap-1" role="list">
+    <fieldset className="grid gap-1">
+      <legend className="sr-only">Student filter fields</legend>
       <Popover
         onOpenChange={(open) => {
           setStatusPopoverOpen(open);
@@ -573,7 +579,7 @@ function StudentFilterPanel({
             <input name="addedTo" type="hidden" value={toDateInput(draftDateRange?.to)} />
             <Calendar
               aria-label="Added date"
-              defaultMonth={draftDateRange?.from ?? new Date()}
+              defaultMonth={draftDateRange?.from}
               mode="range"
               onSelect={setDraftDateRange}
               selected={draftDateRange}
@@ -587,7 +593,7 @@ function StudentFilterPanel({
           </form>
         </PopoverContent>
       </Popover>
-    </div>
+    </fieldset>
   );
 }
 

@@ -16,6 +16,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
@@ -35,12 +36,14 @@ function CourseLessonPageModule({
   course,
   courses,
   lesson,
+  notificationFeed,
   progress,
   session,
 }: {
   course: Course;
   courses: Course[];
   lesson: CourseLesson;
+  notificationFeed?: StudentNotificationFeed;
   progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
@@ -49,6 +52,7 @@ function CourseLessonPageModule({
       course={course}
       courses={courses}
       lesson={lesson}
+      notificationFeed={notificationFeed}
       progress={progress}
       session={session}
     />
@@ -59,12 +63,14 @@ function CourseLessonPlayerModule({
   course,
   courses,
   lesson,
+  notificationFeed,
   progress,
   session,
 }: {
   course: Course;
   courses: Course[];
   lesson: CourseLesson;
+  notificationFeed?: StudentNotificationFeed;
   progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
@@ -137,6 +143,7 @@ function CourseLessonPlayerModule({
       activeLabel="Materi"
       breadcrumbLabel={`${course.title} · ${lesson.title}`}
       mainClassName="max-w-[112rem] gap-0 bg-white px-4 py-7 md:px-8 lg:px-10 lg:py-9"
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari bacaan di materi ini..."
       session={session}
     >

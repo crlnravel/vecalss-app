@@ -140,23 +140,36 @@ function ImportsIntakeModule({
         headers: { Accept: "application/json" },
         method: "POST",
       });
-      const payload: unknown = await response.json().catch(() => null);
-      const recovery = classifyImportSessionRecovery({
-        errorCode: typeof responseErrorCode(payload) === "string" ? responseErrorCode(payload) as string : null,
+      const initialRecovery = classifyImportSessionRecovery({
+        errorCode: null,
         redirectPath: redirectedPath(response),
         status: response.status,
       });
-      if (recovery) {
-        setSessionIssue(recovery);
-        setFeedback({ message: recovery === "expired" ? "Your admin session expired. Sign in again to continue this import." : "Your account no longer has permission to create imports.", tone: "error" });
+      if (initialRecovery) {
+        setSessionIssue(initialRecovery);
+        setFeedback({ message: initialRecovery === "expired" ? "Your admin session expired. Sign in again to continue this import." : "Your account no longer has permission to create imports.", tone: "error" });
         return;
       }
-      setSessionIssue(null);
       if (!response.ok) {
+        const payload: unknown = await response.json().catch(() => null);
+        const errorCode = responseErrorCode(payload);
+        const recovery = classifyImportSessionRecovery({
+          errorCode: typeof errorCode === "string" ? errorCode : null,
+          redirectPath: redirectedPath(response),
+          status: response.status,
+        });
+        if (recovery) {
+          setSessionIssue(recovery);
+          setFeedback({ message: recovery === "expired" ? "Your admin session expired. Sign in again to continue this import." : "Your account no longer has permission to create imports.", tone: "error" });
+          return;
+        }
         const code = responseErrorCode(payload);
         setFeedback({ message: readPreviewError(code), tone: "error" });
         return;
       }
+
+      const payload: unknown = await response.json().catch(() => null);
+      setSessionIssue(null);
 
       const draft = payload && typeof payload === "object" && "draft" in payload
         ? (payload as { draft?: { importId?: unknown } }).draft

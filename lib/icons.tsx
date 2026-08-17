@@ -70,8 +70,6 @@ import {
   LockKey as PhosphorLockKeyhole,
   LockOpen as PhosphorLockOpen,
   MagnifyingGlass as PhosphorSearch,
-  MagnifyingGlassMinus as PhosphorZoomOut,
-  MagnifyingGlassPlus as PhosphorZoomIn,
   Minus as PhosphorMinus,
   NotePencil as PhosphorNotebookPen,
   Package as PhosphorPackage,
@@ -102,7 +100,6 @@ import {
   UserCircle as PhosphorUserRound,
   UserPlus as PhosphorUserPlus,
   Users as PhosphorUsers,
-  UsersFour as PhosphorUsersRound,
   Video as PhosphorVideo,
   Warning as PhosphorAlertTriangle,
   WarningCircle as PhosphorAlertCircle,
@@ -155,7 +152,6 @@ export const ChevronRightIcon = PhosphorChevronRight;
 export const CircleAlert = PhosphorCircleAlert;
 export const CircleCheckBig = PhosphorCheckCircle;
 export const CircleHelp = PhosphorCircleHelp;
-export const CircleNotch = PhosphorLoaderCircle;
 export const CircleX = PhosphorCircleX;
 export const Clipboard = PhosphorClipboard;
 export const ClipboardList = PhosphorClipboardList;
@@ -183,7 +179,6 @@ export const GripVertical = PhosphorGripVertical;
 export const History = PhosphorHistory;
 export const House = PhosphorHouse;
 export const Image = PhosphorImage;
-export const ImageIcon = PhosphorImage;
 export const ImageOff = PhosphorImageOff;
 export const ImagePlus = PhosphorImagePlus;
 export const Info = PhosphorInfo;
@@ -243,10 +238,7 @@ export const Upload = PhosphorUpload;
 export const UserPlus = PhosphorUserPlus;
 export const UserRound = PhosphorUserRound;
 export const Users = PhosphorUsers;
-export const UsersRound = PhosphorUsersRound;
 export const Video = PhosphorVideo;
 export const X = PhosphorX;
 export const XIcon = PhosphorX;
 export const Zap = PhosphorZap;
-export const ZoomIn = PhosphorZoomIn;
-export const ZoomOut = PhosphorZoomOut;

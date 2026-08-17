@@ -15,6 +15,7 @@ import {
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { StudentBannerContent } from "@/lib/student/banner-content";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
@@ -40,11 +41,13 @@ const courseCategoryLabel = "TPA";
 function CourseCataloguePageModule({
   banner,
   courses,
+  notificationFeed,
   progress,
   session,
 }: {
   banner: StudentBannerContent;
   courses: Course[];
+  notificationFeed?: StudentNotificationFeed;
   progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
@@ -52,6 +55,7 @@ function CourseCataloguePageModule({
     <CourseWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel="Materi"
+      notificationFeed={notificationFeed}
       showSearch={false}
       session={session}
     >

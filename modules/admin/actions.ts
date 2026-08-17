@@ -703,31 +703,32 @@ async function bulkUpdateStudentEnrollmentStatusAction(formData: FormData) {
     redirect(buildEnrollmentRedirect({ error: "bulk-status-confirmation", query: directoryQuery }));
   }
 
+  let result: Awaited<ReturnType<typeof setStudentEnrollmentStatusBulk>>;
   try {
-    const result = await setStudentEnrollmentStatusBulk({
+    result = await setStudentEnrollmentStatusBulk({
       actorUserId: session.user.id,
       confirmed: true,
       nextStatus,
       userIds: studentIds,
     });
-
-    if (result.changedCount === 0) {
-      redirect(buildEnrollmentRedirect({ error: "bulk-status-no-change", query: directoryQuery }));
-    }
-
-    revalidatePath("/admin");
-    revalidatePath("/admin/enrollment");
-
-    redirect(
-      buildEnrollmentRedirect({
-        notice: nextStatus === UserStatus.disabled ? "students-disabled" : "students-reactivated",
-        query: directoryQuery,
-      }),
-    );
   } catch (error) {
     unstable_rethrow(error);
     redirect(buildEnrollmentRedirect({ error: "bulk-status-failed", query: directoryQuery }));
   }
+
+  if (result.changedCount === 0) {
+    redirect(buildEnrollmentRedirect({ error: "bulk-status-no-change", query: directoryQuery }));
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/enrollment");
+
+  redirect(
+    buildEnrollmentRedirect({
+      notice: nextStatus === UserStatus.disabled ? "students-disabled" : "students-reactivated",
+      query: directoryQuery,
+    }),
+  );
 }
 
 async function deactivateKaptenEnrollmentAction(formData: FormData) {

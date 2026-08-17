@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
+import { getStudentNotificationFeed } from "@/lib/notifications/service";
 import { getPublishedCourseCatalogue, getPublishedLesson } from "@/lib/materi/repository";
 import { getCourseProgressSnapshots } from "@/lib/materi/progress";
 import { CourseLessonPageModule } from "@/modules/courses/CourseLessonPageModule";
@@ -19,9 +20,10 @@ export default async function CourseLessonPage({
   } catch {
     notFound();
   }
-  const [publishedCourses, publishedLesson] = await Promise.all([
+  const [publishedCourses, publishedLesson, notificationFeed] = await Promise.all([
     getPublishedCourseCatalogue(),
     getPublishedLesson(slug, lessonId),
+    getStudentNotificationFeed({ userId: session.user.id }),
   ]);
   const courses = toCourseCatalogue(publishedCourses);
   const course = getCourseBySlug(courses, slug);
@@ -47,6 +49,7 @@ export default async function CourseLessonPage({
       course={course}
       courses={courses}
       lesson={lesson}
+      notificationFeed={notificationFeed}
       progress={progress}
       session={session}
     />

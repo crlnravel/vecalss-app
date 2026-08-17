@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { studentBadgeVariants } from "@/components/ui/student-badge-variants";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 import { registerForTryoutWithTargetAction } from "@/modules/tryout/participant-actions";
@@ -32,6 +33,7 @@ function ParticipantTryoutRegistrationModule({
   initialMajorId,
   initialUniversityId,
   majors,
+  notificationFeed,
   session,
   tryout,
   universities,
@@ -39,6 +41,7 @@ function ParticipantTryoutRegistrationModule({
   initialMajorId: string | null;
   initialUniversityId: string | null;
   majors: MajorOption[];
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   tryout: ParticipantTryout;
   universities: UniversityOption[];
@@ -106,7 +109,7 @@ function ParticipantTryoutRegistrationModule({
   };
 
   return (
-    <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pendaftaran tryout" session={session} showSearch={false}>
+    <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Pendaftaran tryout" notificationFeed={notificationFeed} session={session} showSearch={false}>
       <Button
         aria-label="Kembali ke detail tryout"
         nativeButton={false}

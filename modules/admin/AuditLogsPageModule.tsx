@@ -60,6 +60,10 @@ function formatAuditTime(value: string) {
   return auditTimeFormatter.format(new Date(value));
 }
 
+function pageHref(nextPage: number) {
+  return nextPage === 1 ? "/admin/audit-logs" : `/admin/audit-logs?page=${nextPage}`;
+}
+
 type AuditLogTableRow = {
   actorLabel: string;
   entry: AdminAuditLogEntry;
@@ -295,7 +299,6 @@ function AuditLogsPageModule({
   });
   const visibleStart = entries.length ? (page - 1) * pageSize + 1 : 0;
   const visibleEnd = entries.length ? visibleStart + entries.length - 1 : 0;
-  const pageHref = (nextPage: number) => nextPage === 1 ? "/admin/audit-logs" : `/admin/audit-logs?page=${nextPage}`;
   const activeSort = sorting[0];
   const activeSortLabel = activeSort?.id === "event" ? "Event" : activeSort?.id === "when" ? "When" : activeSort?.id === "actor" ? "Who" : null;
   const sortingStatus = activeSortLabel

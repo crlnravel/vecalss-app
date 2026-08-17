@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
+import { getStudentNotificationFeed } from "@/lib/notifications/service";
 import { participantTryoutDetail } from "@/lib/tryout/participant-repository";
 import { ParticipantTryoutDetailModule } from "@/modules/tryout/ParticipantTryoutDetailModule";
 import { canEnterParticipantWaitingRoom } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils";
@@ -14,10 +15,13 @@ export default async function ParticipantTryoutDetailPage({
   params: Promise<{ tryoutId: string }>;
 }) {
   const [{ tryoutId }, session] = await Promise.all([params, requireStudentSession()]);
-  const tryout = await participantTryoutDetail(tryoutId, session.user.id);
+  const [tryout, notificationFeed] = await Promise.all([
+    participantTryoutDetail(tryoutId, session.user.id),
+    getStudentNotificationFeed({ userId: session.user.id }),
+  ]);
   if (!tryout) notFound();
   if (canEnterParticipantWaitingRoom(tryout)) {
     redirect(`/tryout/${tryout.id}/waiting`);
   }
-  return <ParticipantTryoutDetailModule session={session} tryout={tryout} />;
+  return <ParticipantTryoutDetailModule notificationFeed={notificationFeed} session={session} tryout={tryout} />;
 }

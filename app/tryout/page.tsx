@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireStudentSession } from "@/lib/auth/access";
+import { getStudentNotificationFeed } from "@/lib/notifications/service";
 import { getStudentBannerContents } from "@/lib/student/banner-repository";
 import { participantTryoutCatalogue } from "@/lib/tryout/participant-repository";
 
@@ -13,15 +14,17 @@ export const metadata: Metadata = {
 
 export default async function TryoutPage() {
   const session = await requireStudentSession();
-  const [initialTryouts, banners] = await Promise.all([
+  const [initialTryouts, banners, notificationFeed] = await Promise.all([
     participantTryoutCatalogue(session.user.id),
     getStudentBannerContents(),
+    getStudentNotificationFeed({ userId: session.user.id }),
   ]);
 
   return (
     <ParticipantTryoutWorkspace
       initialTryouts={initialTryouts}
       banner={banners.tryout}
+      notificationFeed={notificationFeed}
       session={session}
     />
   );

@@ -148,25 +148,27 @@ async function getStudentNotificationFeed({
   return prisma.$transaction(async (tx) => {
     const now = new Date();
     const where = activeNotificationWhere(userId, now);
-    const notifications = await tx.notification.findMany({
-      orderBy: [{ priority: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-      select: {
-        body: true,
-        createdAt: true,
-        deepLink: true,
-        id: true,
-        readAt: true,
-        title: true,
-      },
-      take: normalizeLimit(limit),
-      where,
-    });
-    const unreadCount = await tx.notification.count({
-      where: {
-        ...where,
-        readAt: null,
-      },
-    });
+    const [notifications, unreadCount] = await Promise.all([
+      tx.notification.findMany({
+        orderBy: [{ priority: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        select: {
+          body: true,
+          createdAt: true,
+          deepLink: true,
+          id: true,
+          readAt: true,
+          title: true,
+        },
+        take: normalizeLimit(limit),
+        where,
+      }),
+      tx.notification.count({
+        where: {
+          ...where,
+          readAt: null,
+        },
+      }),
+    ]);
 
     return {
       items: notifications.map((notification) => ({

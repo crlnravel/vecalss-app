@@ -70,7 +70,7 @@ const errorMessages: Record<string, string> = {
   "update-failed": "We're sorry, we couldn't update that student account. Please try again.",
 };
 
-type PaginationItem = number | "ellipsis";
+type PaginationItem = number | "ellipsis-before" | "ellipsis-after";
 
 function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
   if (pageCount <= 7) {
@@ -85,7 +85,7 @@ function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
 
   sortedPages.forEach((pageNumber, index) => {
     if (index > 0 && pageNumber - sortedPages[index - 1] > 1) {
-      items.push("ellipsis");
+      items.push(pageNumber > page ? "ellipsis-after" : "ellipsis-before");
     }
     items.push(pageNumber);
   });
@@ -252,8 +252,8 @@ function EnrollmentPageModule({
                     </Link>
                   ) : null}
                   <ol className="flex items-center gap-0.5">
-                    {paginationItems.map((item, index) => item === "ellipsis" ? (
-                      <li key={`ellipsis-${index}`}>
+                    {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
+                      <li key={item}>
                         <span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400">
                           <MoreHorizontal size={16} />
                         </span>

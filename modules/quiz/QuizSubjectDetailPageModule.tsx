@@ -11,14 +11,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 import { type QuizItem, type QuizSubject } from "./data";
 
 function QuizSubjectDetailPageModule({
+  notificationFeed,
   session,
   subject,
 }: {
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   subject: QuizSubject;
 }) {
@@ -31,6 +34,7 @@ function QuizSubjectDetailPageModule({
     <CourseWorkspaceShell
       activeLabel="Kuis"
       breadcrumbLabel={subject.title}
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari kuis di subjek ini..."
       session={session}
     >

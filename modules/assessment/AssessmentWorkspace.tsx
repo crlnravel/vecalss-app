@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 import {
   LayoutGrid,
@@ -27,6 +27,11 @@ type AssessmentQuestionMarker = {
 
 type AssessmentResultMarkerState = "correct" | "current" | "incorrect" | "neutral" | "unanswered";
 
+function pointFor(event: PointerEvent<SVGSVGElement>) {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  return `${event.clientX - bounds.left},${event.clientY - bounds.top}`;
+}
+
 function AssessmentWorkspace({
   annotation,
   content,
@@ -49,20 +54,22 @@ function AssessmentWorkspace({
       {dialog}
 
       <div className="flex min-h-svh flex-col">
-        <div className="relative">
-          {exitControl ? (
-            <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 sm:left-6 lg:left-8">
-              {exitControl}
+        <div className="relative border-b border-primary-100 bg-secondary-50">
+          <div className="relative">
+            {exitControl ? (
+              <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 sm:left-6 lg:left-8">
+                {exitControl}
+              </div>
+            ) : null}
+            {header}
+          </div>
+
+          {navigation ? (
+            <div className="px-4 pb-4 sm:px-6 lg:px-8">
+              <div className="mx-auto w-full max-w-[1000px]">{navigation}</div>
             </div>
           ) : null}
-          {header}
         </div>
-
-        {navigation ? (
-          <div className="border-b border-primary-100 bg-secondary-50 px-4 py-4 sm:px-6 lg:px-8">
-            <div className="mx-auto w-full max-w-[1000px]">{navigation}</div>
-          </div>
-        ) : null}
 
         <main className="flex min-h-0 flex-1 flex-col bg-secondary-50">
           <div className="flex-1 px-4 py-8 pb-32 sm:px-6 md:py-10 md:pb-36 lg:px-12 xl:px-16">{content}</div>
@@ -86,7 +93,10 @@ function AssessmentQuestionNavigation({
   label?: ReactNode;
   onSelect: (number: number) => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pickerButtonRef = useRef<HTMLButtonElement>(null);
+  const pickerDialogRef = useRef<HTMLDialogElement>(null);
   const activeNumber = items.find((marker) => marker.state === "active")?.number;
 
   useEffect(() => {
@@ -95,10 +105,29 @@ function AssessmentQuestionNavigation({
     activeMarker?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [activeNumber]);
 
+  useEffect(() => {
+    const dialog = pickerDialogRef.current;
+    if (!pickerOpen || !dialog) return;
+    dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [pickerOpen]);
+
+  function closePicker() {
+    setPickerOpen(false);
+    window.requestAnimationFrame(() => pickerButtonRef.current?.focus());
+  }
+
+  function selectFromPicker(number: number) {
+    onSelect(number);
+    closePicker();
+  }
+
   return (
-    <nav aria-label={typeof label === "string" ? label : "Navigasi soal"}>
+    <nav aria-label={typeof label === "string" ? label : "Navigasi soal"} className="relative">
       <div className="flex min-w-0 items-center gap-5">
-        <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto rounded-full border border-primary-100 bg-secondary-50 px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto rounded-full border border-primary-100 bg-secondary-50 px-2 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex min-w-max items-center gap-2">
             {items.map((marker) => (
               <AssessmentQuestionMarker
@@ -109,9 +138,61 @@ function AssessmentQuestionNavigation({
             ))}
           </div>
         </div>
-        <LayoutGrid aria-hidden="true" className="size-6 shrink-0 text-primary-700" />
+        <button
+          aria-expanded={pickerOpen}
+          aria-label="Daftar semua soal"
+          className={cn(
+            "inline-flex size-10 shrink-0 items-center justify-center rounded-full text-primary-700 transition-colors focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+            pickerOpen && "bg-primary-700/15",
+          )}
+          onClick={() => setPickerOpen((open) => !open)}
+          ref={pickerButtonRef}
+          type="button"
+        >
+          <LayoutGrid aria-hidden="true" className="size-6" />
+        </button>
       </div>
       {description ? <div className="mt-2 hidden text-sm text-secondary-500 md:block">{description}</div> : null}
+      {pickerOpen ? (
+        <>
+          <button
+              aria-label="Tutup daftar soal"
+              className="fixed inset-0 z-40 cursor-default bg-secondary-900/50"
+            onClick={closePicker}
+            type="button"
+          />
+          <dialog
+            aria-label="Pilih nomor soal"
+            className="absolute top-[calc(100%+1.25rem)] right-0 z-50 m-0 w-[min(40rem,calc(100vw-2rem))] rounded-[2rem] border border-primary-200 bg-secondary-900 p-6 text-white shadow-[0_24px_70px_-28px_rgba(0,0,0,0.65)]"
+            onCancel={(event) => {
+              event.preventDefault();
+              closePicker();
+            }}
+            ref={pickerDialogRef}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold sm:text-2xl">Pilih nomor soal</h2>
+              <button
+                aria-label="Tutup daftar soal"
+                className="inline-flex size-10 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none"
+                onClick={closePicker}
+                type="button"
+              >
+                <X className="size-7" />
+              </button>
+            </div>
+            <div className="mt-6 grid grid-cols-5 gap-3 sm:gap-4">
+              {items.map((marker) => (
+                <AssessmentQuestionPickerMarker
+                  key={marker.id ?? marker.number}
+                  marker={marker}
+                  onClick={() => selectFromPicker(marker.number)}
+                />
+              ))}
+            </div>
+          </dialog>
+        </>
+      ) : null}
     </nav>
   );
 }
@@ -128,7 +209,7 @@ function AssessmentQuestionMarker({
   return (
     <button
       className={cn(
-        "flex size-11 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+        "flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
         marker.state === "active" &&
           "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_rgba(1,76,56,0.75)] ring-2 ring-primary-200 ring-offset-2",
         marker.state === "answered" && "border-primary-300 bg-primary-50 text-primary-800",
@@ -147,6 +228,33 @@ function AssessmentQuestionMarker({
   );
 }
 
+function AssessmentQuestionPickerMarker({
+  marker,
+  onClick,
+}: {
+  marker: AssessmentQuestionMarker;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-current={marker.state === "active" ? "step" : undefined}
+      className={cn(
+        "flex aspect-square min-h-0 items-center justify-center rounded-[1.15rem] border-2 text-lg font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-xl",
+        marker.state === "active" && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_rgba(1,76,56,0.8)]",
+        marker.state === "answered" && "border-primary-200 bg-primary-50 text-primary-800",
+        marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
+        marker.state === "locked" && "border-secondary-700 bg-secondary-800 text-secondary-400",
+        marker.state === "empty" && "border-secondary-700 bg-secondary-800 text-secondary-200 hover:border-primary-300 hover:bg-secondary-700",
+      )}
+      disabled={marker.state === "locked"}
+      onClick={onClick}
+      type="button"
+    >
+      {marker.number}
+    </button>
+  );
+}
+
 function AssessmentAnnotationOverlay({
   open,
   onClose,
@@ -157,22 +265,24 @@ function AssessmentAnnotationOverlay({
   const [color, setColor] = useState("#014c38");
   const [strokes, setStrokes] = useState<Array<{ color: string; points: string[] }>>([]);
   const [activeStroke, setActiveStroke] = useState<string[] | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseEvent = useEffectEvent(onClose);
 
   useEffect(() => {
     if (!open) return;
 
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const handleCancel = (event: Event) => {
+      event.preventDefault();
+      onCloseEvent();
+    };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
       if (event.key !== "Tab") return;
       const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
         "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
@@ -194,21 +304,19 @@ function AssessmentAnnotationOverlay({
     };
 
     const focusTimer = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    dialog.addEventListener("cancel", handleCancel);
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.cancelAnimationFrame(focusTimer);
+      dialog.removeEventListener("cancel", handleCancel);
       window.removeEventListener("keydown", handleKeyDown);
+      if (dialog.open) dialog.close();
       returnFocusRef.current?.focus();
       returnFocusRef.current = null;
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) return null;
-
-  function pointFor(event: PointerEvent<SVGSVGElement>) {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return `${event.clientX - bounds.left},${event.clientY - bounds.top}`;
-  }
 
   function beginStroke(event: PointerEvent<SVGSVGElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -228,7 +336,11 @@ function AssessmentAnnotationOverlay({
   }
 
   return (
-    <div aria-label="Mode coretan" aria-modal="true" className="fixed inset-0 z-50" ref={dialogRef} role="dialog">
+    <dialog
+      aria-label="Mode coretan"
+      className="fixed inset-0 z-50 m-0 h-full w-full max-w-none border-0 bg-transparent p-0"
+      ref={dialogRef}
+    >
       <div className="absolute inset-0 bg-secondary-900/55" />
       <svg
         aria-label="Area coretan"
@@ -312,7 +424,7 @@ function AssessmentAnnotationOverlay({
           <PenTool className="size-4" /> Coretan aktif · seret untuk menandai
         </span>
       </div>
-    </div>
+    </dialog>
   );
 }
 
@@ -501,7 +613,7 @@ function AssessmentAnswerOption({
   return (
     <button
       className={cn(
-        "group flex min-h-[6.25rem] w-full items-start gap-4 rounded-[1.75rem] border bg-white px-5 py-5 text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-6",
+        "group flex min-h-[5.5rem] w-full items-center gap-3 rounded-[1.5rem] border bg-white px-4 py-4 text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-5",
         selected ? "border-primary-300 bg-primary-50" : "border-primary-100",
       )}
       disabled={disabled}
@@ -510,7 +622,7 @@ function AssessmentAnswerOption({
     >
       <span
         className={cn(
-          "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
+          "flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
           selected
             ? "border-primary-700 bg-primary-700 text-white"
             : "border-secondary-200 bg-secondary-50 text-secondary-500 group-hover:border-primary-300 group-hover:bg-white",
@@ -518,7 +630,7 @@ function AssessmentAnswerOption({
       >
         {option.key}
       </span>
-      <span className="text-lg leading-[1.7] font-medium text-secondary-800 sm:text-xl">{option.text}</span>
+      <span className="text-lg leading-[1.5] font-medium text-secondary-800 sm:text-xl">{option.text}</span>
     </button>
   );
 }

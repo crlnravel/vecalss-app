@@ -403,10 +403,10 @@ function QuizOngoingScreen({
       }
       footer={
         <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20 px-4 md:bottom-7 md:px-8">
-          <div className="pointer-events-auto mx-auto grid w-full max-w-[570px] grid-cols-[1fr_7rem_1fr] items-center gap-3 rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
+          <div className="pointer-events-auto mx-auto grid w-full max-w-[540px] grid-cols-[1fr_6rem_1fr] items-center gap-2 rounded-[1.25rem] border border-primary-100 bg-white p-2 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
             <Button
               aria-label="Soal sebelumnya"
-              className="h-16 w-full justify-center"
+              className="h-12 w-full justify-center"
               disabled={currentQuestion === 1}
               onClick={() => onGoToQuestion(currentQuestion - 1)}
               size="lg"
@@ -417,20 +417,20 @@ function QuizOngoingScreen({
             </Button>
             <button
               aria-label="Coretan (sementara dinonaktifkan)"
-              className="flex min-w-20 cursor-not-allowed flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-secondary-400 opacity-60"
+              className="flex min-w-16 cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[0.7rem] font-semibold text-secondary-400 opacity-60"
               disabled
               title="Coretan sementara dinonaktifkan"
               type="button"
             >
-              <span className="grid size-12 place-items-center rounded-full border-2 border-secondary-300">
-                <PenTool className="size-7" />
+              <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
+                <PenTool className="size-6" />
               </span>
               Coretan
             </button>
             {currentQuestion === quiz.questionCount ? (
               <Button
                 aria-label="Selesai"
-                className="h-16 w-full justify-center"
+                className="h-12 w-full justify-center"
                 disabled={viewState.submitting || savingQuestionSet.size > 0}
                 onClick={() => onSubmitDialogChange(true)}
                 size="lg"
@@ -439,7 +439,7 @@ function QuizOngoingScreen({
                 Selesai
               </Button>
             ) : (
-              <Button aria-label="Soal selanjutnya" className="h-16 w-full justify-center" onClick={() => onGoToQuestion(currentQuestion + 1)} size="lg" variant="brand">
+              <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" onClick={() => onGoToQuestion(currentQuestion + 1)} size="lg" variant="brand">
                 <span className="sr-only">Selanjutnya</span>
                 <ChevronRight />
               </Button>
@@ -448,7 +448,7 @@ function QuizOngoingScreen({
         </div>
       }
       header={
-        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 border-b border-primary-100 bg-white px-16 py-4 sm:min-h-24">
+        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 bg-white px-16 py-4 sm:min-h-24">
           <h2 className="sr-only">{quiz.title} · {subjectTitle}</h2>
           <BrandLockup />
 

@@ -8,4 +8,9 @@ type StudentNotificationItem = {
   unread: boolean;
 };
 
-export type { StudentNotificationItem };
+type StudentNotificationFeed = {
+  items: StudentNotificationItem[];
+  unreadCount: number;
+};
+
+export type { StudentNotificationFeed, StudentNotificationItem };

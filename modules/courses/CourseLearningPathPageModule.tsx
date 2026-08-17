@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 
 import { CourseWorkspaceShell } from "./CourseWorkspaceShell";
@@ -40,11 +41,13 @@ import { hydrateCourseProgress, useCourseProgress } from "./progress-storage";
 function CourseLearningPathPageModule({
   course,
   courses,
+  notificationFeed,
   progress,
   session,
 }: {
   course: Course;
   courses: Course[];
+  notificationFeed?: StudentNotificationFeed;
   progress: Record<string, CourseProgressSnapshot>;
   session: SessionContext;
 }) {
@@ -98,6 +101,7 @@ function CourseLearningPathPageModule({
       activeLabel="Materi"
       breadcrumbLabel={course.title}
       mainClassName="max-w-none gap-0 p-0 lg:p-0"
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari bacaan di materi ini..."
       session={session}
     >

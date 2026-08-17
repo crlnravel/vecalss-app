@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import type { ExamEvent } from "@/generated/prisma/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { FileText, Plus, UserPlus, Users } from "@/lib/icons";
+import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
 import { CreateStudentForm } from "./create-student-form";
+import { createStudentEnrollmentAction } from "../actions";
 import { ImportsIntakeModule } from "../imports/ImportsIntakeModule";
 
 type AddStudentMode = "bulk" | "single";
@@ -22,8 +24,13 @@ function AddStudentDialog({
   const [mode, setMode] = useState<AddStudentMode>("single");
   const [open, setOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [handoffPending, setHandoffPending] = useState(false);
-  const [singleBusy, setSingleBusy] = useState(false);
+  const [singleState, singleFormAction, singleBusy] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
+  const [acknowledgedHandoffId, setAcknowledgedHandoffId] = useState<string | null>(null);
+  const handoffPending = Boolean(
+    singleState.handoffId &&
+      (singleState.temporaryPassword || singleState.inviteUrl) &&
+      acknowledgedHandoffId !== singleState.handoffId,
+  );
   const modeTabRefs = useRef<Record<AddStudentMode, HTMLButtonElement | null>>({ bulk: null, single: null });
   const operationBusy = singleBusy || bulkBusy;
   const dialogLocked = operationBusy || handoffPending;
@@ -36,8 +43,7 @@ function AddStudentDialog({
     if (!nextOpen) {
       setMode("single");
       setBulkBusy(false);
-      setHandoffPending(false);
-      setSingleBusy(false);
+      setAcknowledgedHandoffId(null);
     }
     setOpen(nextOpen);
   }
@@ -148,7 +154,16 @@ function AddStudentDialog({
                 <FileText aria-hidden="true" className="mt-0.5 shrink-0 text-primary-700" size={18} />
                 <p className="text-sm leading-6 text-secondary-700">Add an approved student, set an exam goal, and choose how their first credentials should be delivered.</p>
               </div>
-              <CreateStudentForm embedded examEvents={examEvents} onBusyChange={setSingleBusy} onHandoffChange={setHandoffPending} />
+              <CreateStudentForm
+                controller={{
+                  formAction: singleFormAction,
+                  onHandoffResolved: setAcknowledgedHandoffId,
+                  pending: singleBusy,
+                  state: singleState,
+                }}
+                embedded
+                examEvents={examEvents}
+              />
             </div>
             <div aria-busy={bulkBusy || undefined} aria-labelledby="bulk-student-import-tab" hidden={mode !== "bulk"} id="bulk-student-import-panel" inert={mode !== "bulk" || bulkBusy || undefined} role="tabpanel">
               <ImportsIntakeModule embedded initialRole="student" onBusyChange={setBulkBusy} showRoleSelect={false} />

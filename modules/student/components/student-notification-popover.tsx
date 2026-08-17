@@ -20,14 +20,12 @@ const EMPTY_NOTIFICATION_ITEMS: StudentNotificationItem[] = [];
 
 function StudentNotificationPopover({
   items,
-  live = true,
   unreadCount,
 }: {
   items?: StudentNotificationItem[];
-  live?: boolean;
   unreadCount?: number;
 }) {
-  const liveFeed = useStudentNotifications(items ?? EMPTY_NOTIFICATION_ITEMS, { enabled: live, limit: 5 });
+  const liveFeed = useStudentNotifications(items ?? EMPTY_NOTIFICATION_ITEMS, { initialUnreadCount: unreadCount });
   const renderedItems = liveFeed.items;
   const renderedUnreadCount = unreadCount ?? liveFeed.unreadCount;
 

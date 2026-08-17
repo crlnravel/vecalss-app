@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertTriangle, Bell, LayoutDashboard, LogOut, Settings, UserRound } from "@/lib/icons";
 
@@ -37,12 +37,8 @@ type AccountMenuAudience = "admin" | "student" | "tutor";
 const studentAccountMenuItemClassName =
   "hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50";
 
-function LogoutDialogFooter({ onPendingChange }: { onPendingChange: (pending: boolean) => void }) {
+function LogoutDialogFooter() {
   const { pending } = useFormStatus();
-
-  useEffect(() => {
-    onPendingChange(pending);
-  }, [onPendingChange, pending]);
 
   return (
     <AlertDialogFooter>
@@ -65,7 +61,6 @@ function StudentAccountMenu({
 }) {
   const initials = getInitials(session.user.fullName);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isTutor = audience === "tutor";
   const isAdmin = audience === "admin";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
@@ -146,8 +141,8 @@ function StudentAccountMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AlertDialog onOpenChange={(open) => { if (!isLoggingOut) setIsLogoutDialogOpen(open); }} open={isLogoutDialogOpen}>
-        <AlertDialogContent pending={isLoggingOut} variant="warning">
+      <AlertDialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
+        <AlertDialogContent variant="warning">
           <AlertDialogHeader>
             <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
             <AlertDialogTitle>Keluar dari akun?</AlertDialogTitle>
@@ -157,7 +152,7 @@ function StudentAccountMenu({
           </AlertDialogHeader>
           <form action={logoutAction}>
             <input name="audience" type="hidden" value={audience} />
-            <LogoutDialogFooter onPendingChange={setIsLoggingOut} />
+            <LogoutDialogFooter />
           </form>
         </AlertDialogContent>
       </AlertDialog>

@@ -45,6 +45,7 @@ import type {
   University,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import {
   resolveStudentBannerText,
   type StudentBannerContent,
@@ -156,10 +157,12 @@ function getExamDaysLeft(profile: DashboardProfile) {
 
 function DashboardPageModule({
   banner,
+  notificationFeed,
   profile,
   session,
 }: {
   banner: StudentBannerContent;
+  notificationFeed?: StudentNotificationFeed;
   profile: DashboardProfile;
   session: SessionContext;
 }) {
@@ -177,6 +180,7 @@ function DashboardPageModule({
       activeLabel="Beranda"
       breadcrumbLabel="Beranda Siswa"
       mainClassName="gap-8 lg:gap-9"
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
       session={session}
     >

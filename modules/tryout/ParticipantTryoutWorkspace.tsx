@@ -17,6 +17,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { Input } from "@/components/ui/input";
 import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { StudentBannerContent } from "@/lib/student/banner-content";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -60,10 +61,12 @@ function TryoutCardArtwork() {
 function ParticipantTryoutWorkspace({
   banner,
   initialTryouts,
+  notificationFeed,
   session,
 }: {
   banner: StudentBannerContent;
   initialTryouts: ParticipantTryout[];
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
 }) {
   const [filter, setFilter] = useState<CatalogueFilter>("all");
@@ -110,6 +113,7 @@ function ParticipantTryoutWorkspace({
       activeLabel="Tryout"
       breadcrumbLabel="Tryout"
       mainClassName="gap-8"
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari tryout..."
       session={session}
       showSearch={false}

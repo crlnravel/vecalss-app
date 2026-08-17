@@ -26,6 +26,7 @@ import type {
   University,
 } from "@/generated/prisma/client";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { saveProfileAction } from "@/modules/student/actions";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
@@ -135,11 +136,13 @@ function ProfileFormContent({ children }: { children: React.ReactNode }) {
 function SettingsPageModule({
   examEvents,
   majors,
+  notificationFeed,
   profile,
   session,
   universities,
 }: ProfileOptionData & {
   profile: ProfileData;
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
 }) {
   const [state, formAction] = useActionState(saveProfileAction, EMPTY_FORM_STATE);
@@ -193,6 +196,7 @@ function SettingsPageModule({
       activeLabel="Profil"
       breadcrumbLabel="Profil"
       mainClassName="max-w-[1240px] gap-6 px-3 py-6 md:px-6 lg:px-8"
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari di profil..."
       session={session}
     >

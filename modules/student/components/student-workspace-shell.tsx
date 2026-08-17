@@ -18,7 +18,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import type { SessionContext } from "@/lib/auth/types";
-import type { StudentNotificationItem } from "@/lib/notifications/types";
+import type { StudentNotificationFeed, StudentNotificationItem } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 import { useStudentNotifications } from "@/modules/student/use-student-notifications";
 import {
@@ -46,6 +46,7 @@ function StudentWorkspaceShell({
   breadcrumbLabel,
   children,
   mainClassName,
+  notificationFeed,
   notificationItems,
   notificationUnreadCount,
   searchPlaceholder = "Cari materi, bacaan, atau topik...",
@@ -57,15 +58,15 @@ function StudentWorkspaceShell({
   breadcrumbLabel: string;
   children: React.ReactNode;
   mainClassName?: string;
+  notificationFeed?: StudentNotificationFeed;
   notificationItems?: StudentNotificationItem[];
   notificationUnreadCount?: number;
   searchPlaceholder?: string;
   showSearch?: boolean;
   session: SessionContext;
 }) {
-  const liveNotificationFeed = useStudentNotifications(notificationItems, {
-    initialUnreadCount: notificationUnreadCount,
-    limit: 20,
+  const liveNotificationFeed = useStudentNotifications(notificationFeed?.items ?? notificationItems, {
+    initialUnreadCount: notificationFeed?.unreadCount ?? notificationUnreadCount,
   });
   const liveNotificationItems = liveNotificationFeed.items;
   const unreadNotificationCount = liveNotificationFeed.unreadCount;
@@ -120,7 +121,7 @@ function StudentWorkspaceShell({
                 </div>
               ) : null}
 
-              <StudentNotificationPopover items={liveNotificationItems.slice(0, 5)} live={false} unreadCount={unreadNotificationCount} />
+              <StudentNotificationPopover items={liveNotificationItems.slice(0, 5)} unreadCount={unreadNotificationCount} />
 
           <StudentAccountMenu
             extraItem={accountMenuExtraItem}

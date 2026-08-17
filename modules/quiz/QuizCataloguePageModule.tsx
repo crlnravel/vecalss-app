@@ -15,6 +15,7 @@ import {
 } from "@/lib/icons";
 
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { StudentBannerContent } from "@/lib/student/banner-content";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -35,10 +36,12 @@ const subjectGroupOrder = ["TPS", "TPA"] as const;
 
 function QuizCataloguePageModule({
   banner,
+  notificationFeed,
   session,
   subjects,
 }: {
   banner: StudentBannerContent;
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   subjects: QuizSubject[];
 }) {
@@ -53,6 +56,7 @@ function QuizCataloguePageModule({
     <CourseWorkspaceShell
       activeLabel="Kuis"
       breadcrumbLabel="Kuis"
+      notificationFeed={notificationFeed}
       searchPlaceholder="Cari subjek kuis atau topik latihan..."
       session={session}
     >

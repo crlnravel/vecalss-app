@@ -66,7 +66,6 @@ async function handleLoginAction(
 ): Promise<FormState> {
   const email = readTextField(formData, "email");
   const password = readTextField(formData, "password");
-  const returnTo = getSafeAdminReturnPath(formData.get("returnTo"));
 
   if (!email || !password) {
     return withFieldError(
@@ -106,7 +105,10 @@ async function handleLoginAction(
     };
   }
 
-  redirect(returnTo && !result.user.mustChangePassword ? returnTo : getDefaultHomePath(result.user));
+  const destination = !result.user.mustChangePassword
+    ? getSafeAdminReturnPath(formData.get("returnTo"))
+    : null;
+  redirect(destination ?? getDefaultHomePath(result.user));
 }
 
 /**

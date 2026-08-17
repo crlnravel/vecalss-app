@@ -408,8 +408,9 @@ function evaluatePreviewRows({
 
   const emailCounts = new Map<string, number>();
   for (const record of records) {
-    if (record.input.email) {
-      emailCounts.set(record.input.email, (emailCounts.get(record.input.email) ?? 0) + 1);
+    const email = record.input.email;
+    if (email) {
+      emailCounts.set(email, (emailCounts.get(email) ?? 0) + 1);
     }
   }
 
@@ -476,7 +477,14 @@ async function persistParsedEnrollmentImport(input: PersistParsedEnrollmentImpor
     throw new EnrollmentImportPreviewError("csv_row_limit");
   }
 
-  const emails = [...new Set(input.records.map((record) => record.input.email).filter(Boolean))];
+  const emailSet = new Set<string>();
+  for (const record of input.records) {
+    const email = record.input.email;
+    if (email) {
+      emailSet.add(email);
+    }
+  }
+  const emails = [...emailSet];
   const examNames = definition.role === EnrollmentImportRole.student
     ? [...new Set(input.records.map((record) => "target_exam" in record.input ? record.input.target_exam : null).filter((value): value is string => Boolean(value)))]
     : [];

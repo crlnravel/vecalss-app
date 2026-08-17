@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { ExamEvent } from "@/generated/prisma/client";
 import { ChevronDown } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
+import type { FormState } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
@@ -24,6 +25,13 @@ import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 type StudentDropdownOption = {
   label: string;
   value: string;
+};
+
+type CreateStudentFormController = {
+  formAction: (payload: FormData) => void;
+  onHandoffResolved?: (handoffId: string) => void;
+  pending: boolean;
+  state: FormState;
 };
 
 function StudentDropdownField({
@@ -74,39 +82,34 @@ function StudentDropdownField({
 }
 
 function CreateStudentForm({
+  controller,
   embedded = false,
   examEvents,
-  onBusyChange,
-  onHandoffChange,
 }: {
+  controller?: CreateStudentFormController;
   embedded?: boolean;
   examEvents: Array<Pick<ExamEvent, "id" | "name">>;
-  onBusyChange?: (busy: boolean) => void;
-  onHandoffChange?: (active: boolean) => void;
 }) {
-  const [state, formAction, pending] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
+  const [localState, localFormAction, localPending] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
+  const state = controller?.state ?? localState;
+  const formAction = controller?.formAction ?? localFormAction;
+  const pending = controller?.pending ?? localPending;
   const [targetExamEventId, setTargetExamEventId] = useState("");
   const [handoffMethod, setHandoffMethod] = useState<"invite_link" | "temporary_password">("temporary_password");
   const [acknowledgedHandoffId, setAcknowledgedHandoffId] = useState<string | null>(null);
+  const onHandoffResolved = controller?.onHandoffResolved;
   const handoffActive = Boolean(
     state.handoffId &&
       (state.temporaryPassword || state.inviteUrl) &&
       acknowledgedHandoffId !== state.handoffId,
   );
 
-  useEffect(() => {
-    onBusyChange?.(pending);
-  }, [onBusyChange, pending]);
-
-  useEffect(() => {
-    onHandoffChange?.(handoffActive);
-  }, [handoffActive, onHandoffChange]);
-
   const handleHandoffResolved = useCallback(() => {
     if (state.handoffId) {
       setAcknowledgedHandoffId(state.handoffId);
+      onHandoffResolved?.(state.handoffId);
     }
-  }, [state.handoffId]);
+  }, [onHandoffResolved, state.handoffId]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     if (pending || handoffActive) {
@@ -114,7 +117,6 @@ function CreateStudentForm({
       return;
     }
 
-    onBusyChange?.(true);
   }
 
   return (
@@ -223,3 +225,4 @@ function CreateStudentForm({
 }
 
 export { CreateStudentForm };
+export type { CreateStudentFormController };

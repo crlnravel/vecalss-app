@@ -8,10 +8,13 @@ import { updateStudentEnrollmentAction } from "@/modules/admin/actions";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 
 function serializeForm(form: HTMLFormElement) {
-  return Array.from(new FormData(form).entries())
-    .filter(([name]) => !name.startsWith("$ACTION_"))
-    .map(([name, value]) => `${name}\u0000${typeof value === "string" ? value : value.name}`)
-    .join("\u0001");
+  const fields: string[] = [];
+  for (const [name, value] of new FormData(form).entries()) {
+    if (!name.startsWith("$ACTION_")) {
+      fields.push(`${name}\u0000${typeof value === "string" ? value : value.name}`);
+    }
+  }
+  return fields.join("\u0001");
 }
 
 function StudentDetailForm({ children }: { children: ReactNode }) {

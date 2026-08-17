@@ -93,6 +93,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentNotificationPopover } from "@/modules/student/components/student-notification-popover";
@@ -306,6 +307,7 @@ type VeraAiWorkspaceProps = {
   draft: string;
   fullscreenArtifact: VeraStudioTool | null;
   generatedArtifacts: VeraStudioTool[];
+  notificationFeed: StudentNotificationFeed;
   onCloseArtifact: () => void;
   onCloseFullscreen: () => void;
   onDraftChange: (value: string) => void;
@@ -338,6 +340,7 @@ function VeraAiWorkspace({
   draft,
   fullscreenArtifact,
   generatedArtifacts,
+  notificationFeed,
   onCloseArtifact,
   onCloseFullscreen,
   onDraftChange,
@@ -364,7 +367,7 @@ function VeraAiWorkspace({
   return (
     <div className="vera-ai-motion min-h-svh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
       <div className="flex min-h-svh flex-col md:h-svh">
-        <VeraTopBar session={session} />
+        <VeraTopBar notificationFeed={notificationFeed} session={session} />
         <h1 className="sr-only">
           Vera AI Workspace: {activeSession.title}
         </h1>
@@ -454,7 +457,7 @@ function VeraAiWorkspace({
   );
 }
 
-function VeraAiPageModule({ session }: { session: SessionContext }) {
+function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: StudentNotificationFeed; session: SessionContext }) {
   const searchParams = useSearchParams();
   const requestedArtifact = searchParams.get("artifact");
   const requestedToolParam = searchParams.get("tool");
@@ -725,6 +728,7 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
       draft={draft}
       fullscreenArtifact={fullscreenArtifact}
       generatedArtifacts={generatedArtifacts}
+      notificationFeed={notificationFeed}
       onCloseArtifact={() => setActiveArtifactId(null)}
       onCloseFullscreen={() => setFullscreenArtifactId(null)}
       onContextDialogOpenChange={setContextDialogOpen}
@@ -752,8 +756,10 @@ function VeraAiPageModule({ session }: { session: SessionContext }) {
 }
 
 function VeraTopBar({
+  notificationFeed,
   session,
 }: {
+  notificationFeed: StudentNotificationFeed;
   session: SessionContext;
 }) {
   return (
@@ -794,7 +800,7 @@ function VeraTopBar({
         </Button>
         <div className="flex items-center gap-1.5 rounded-full border border-primary-100 bg-white px-1.5 py-1 shadow-sm">
           <VeraUsagePopover />
-          <StudentNotificationPopover />
+          <StudentNotificationPopover items={notificationFeed.items} unreadCount={notificationFeed.unreadCount} />
           <StudentAccountMenu extraItem="notifications" session={session} />
         </div>
       </div>
@@ -2027,9 +2033,13 @@ function AddContextDialog({
   const [materialQuery, setMaterialQuery] = useState("");
   const [practicePage, setPracticePage] = useState(1);
   const [materialPage, setMaterialPage] = useState(1);
+  const selectedSourceIdSet = useMemo(
+    () => new Set(selectedSourceIds),
+    [selectedSourceIds],
+  );
   const existingUploadedSource = availableSources.find(
     (source) =>
-      selectedSourceIds.includes(source.id) &&
+      selectedSourceIdSet.has(source.id) &&
       (source.id === "external-notes" || source.id.startsWith("uploaded-")),
   );
   const [uploadedSource, setUploadedSource] =
@@ -2110,8 +2120,9 @@ function AddContextDialog({
       });
       setDraftSourceIds((current) => {
         const next = current.filter((id) => id !== sourceId);
+        const nextIdSet = new Set(next);
         const replacement = [...pendingAddedSourceIdSet].find(
-          (id) => id !== sourceId && !next.includes(id),
+          (id) => id !== sourceId && !nextIdSet.has(id),
         );
 
         return replacement && next.length < MAX_CONTEXTS_PER_SESSION

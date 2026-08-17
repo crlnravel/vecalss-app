@@ -61,12 +61,13 @@ function filterTemporaryDemoStudents(
   const searchNeedle = search.toLowerCase();
   const from = addedFrom ? startOfDate(addedFrom) : null;
   const to = addedTo ? endOfDate(addedTo) : null;
+  const statusSet = new Set(statuses);
 
   return students.filter((student) => {
     const matchesSearch = !searchNeedle
       || student.fullName.toLowerCase().includes(searchNeedle)
       || student.email.toLowerCase().includes(searchNeedle);
-    const matchesStatus = !statuses.length || statuses.includes(student.status);
+    const matchesStatus = !statuses.length || statusSet.has(student.status);
     const matchesFrom = !from || student.createdAt >= from;
     const matchesTo = !to || student.createdAt < to;
 

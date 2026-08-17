@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type {
   ParticipantTryout,
   ParticipantTryoutAssignment,
@@ -47,10 +48,12 @@ function WaitingRoomBackLink() {
 
 function ParticipantWaitingRoomModule({
   assignment,
+  notificationFeed,
   session,
   tryout,
 }: {
   assignment: ParticipantTryoutAssignment;
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   tryout: ParticipantTryout;
 }) {
@@ -98,7 +101,7 @@ function ParticipantWaitingRoomModule({
   if (attempt) {
     const resultReady = attempt.status !== "in_progress";
     return (
-      <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" session={session} showSearch={false}>
+      <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
         <WaitingRoomBackLink />
         <div className="mx-auto grid w-full max-w-3xl gap-5 rounded-[2rem] border border-primary-100 bg-white p-7 text-center sm:p-10">
           <CheckCircle aria-hidden="true" className="mx-auto text-5xl text-primary-700" />
@@ -113,7 +116,7 @@ function ParticipantWaitingRoomModule({
   }
 
   return (
-    <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" session={session} showSearch={false}>
+    <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
       <WaitingRoomBackLink />
 
       <div className="mx-auto grid w-full max-w-3xl gap-8">

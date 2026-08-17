@@ -85,6 +85,7 @@ function CreateKaptenForm() {
         <Field className="md:col-span-2">
           <FieldLabel htmlFor="kapten-bio">Bio</FieldLabel>
           <textarea
+            aria-label="Bio"
             className={`${fieldControlClassName} min-h-28 py-3`}
             defaultValue={state.fields?.bio ?? ""}
             id="kapten-bio"

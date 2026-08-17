@@ -13,6 +13,7 @@ import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { SessionContext } from "@/lib/auth/types";
+import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { ChevronLeft } from "@/lib/icons";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
@@ -271,9 +272,11 @@ function TryoutTargetSection({ href }: { href: string }) {
 }
 
 function ParticipantTryoutDetailModule({
+  notificationFeed,
   session,
   tryout,
 }: {
+  notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   tryout: ParticipantTryout;
 }) {
@@ -413,6 +416,7 @@ function ParticipantTryoutDetailModule({
       activeLabel="Tryout"
       breadcrumbLabel="Detail tryout"
       mainClassName="max-w-none gap-0 !p-0"
+      notificationFeed={notificationFeed}
       session={session}
       showSearch={false}
     >

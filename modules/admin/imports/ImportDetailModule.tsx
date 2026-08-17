@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -426,6 +426,105 @@ function WorkerHealthNotice({
   );
 }
 
+type HandoffDeliveryState = {
+  acknowledgeBusy: boolean;
+  acknowledgeIntent: boolean;
+  downloadedIds: Set<string>;
+  downloadBusy: boolean;
+  message: string;
+  reissueBusy: string | null;
+  selectedRows: Set<string>;
+  transferConfirmed: boolean;
+};
+
+type HandoffDeliveryAction =
+  | { type: "acknowledgeBusy"; value: boolean }
+  | { type: "acknowledgeIntent"; value: boolean }
+  | { type: "acknowledgeSuccess"; message: string }
+  | { type: "downloadBusy"; value: boolean }
+  | { type: "downloadSuccess"; ids: string[]; message: string }
+  | { type: "message"; value: string }
+  | { type: "reissueBusy"; value: string | null }
+  | { type: "reissueSuccess"; message: string }
+  | { type: "selectPending"; ids: string[] }
+  | { type: "toggleRow"; rowId: string }
+  | { type: "transferConfirmed"; value: boolean };
+
+const INITIAL_HANDOFF_DELIVERY_STATE: HandoffDeliveryState = {
+  acknowledgeBusy: false,
+  acknowledgeIntent: false,
+  downloadedIds: new Set(),
+  downloadBusy: false,
+  message: "",
+  reissueBusy: null,
+  selectedRows: new Set(),
+  transferConfirmed: false,
+};
+
+function handoffDeliveryReducer(
+  state: HandoffDeliveryState,
+  action: HandoffDeliveryAction,
+): HandoffDeliveryState {
+  switch (action.type) {
+    case "acknowledgeBusy":
+      return { ...state, acknowledgeBusy: action.value };
+    case "acknowledgeIntent":
+      return { ...state, acknowledgeIntent: action.value };
+    case "acknowledgeSuccess":
+      return {
+        ...state,
+        acknowledgeIntent: false,
+        acknowledgeBusy: false,
+        downloadedIds: new Set(),
+        message: action.message,
+        selectedRows: new Set(),
+        transferConfirmed: false,
+      };
+    case "downloadBusy":
+      return { ...state, downloadBusy: action.value };
+    case "downloadSuccess":
+      return {
+        ...state,
+        acknowledgeIntent: false,
+        downloadedIds: new Set(action.ids),
+        message: action.message,
+        selectedRows: new Set(),
+        transferConfirmed: false,
+      };
+    case "message":
+      return { ...state, message: action.value };
+    case "reissueBusy":
+      return { ...state, reissueBusy: action.value };
+    case "reissueSuccess":
+      return {
+        ...state,
+        downloadedIds: new Set(),
+        message: action.message,
+        reissueBusy: null,
+        selectedRows: new Set(),
+        transferConfirmed: false,
+      };
+    case "selectPending":
+      return {
+        ...state,
+        selectedRows: state.selectedRows.size === action.ids.length
+          ? new Set()
+          : new Set(action.ids),
+      };
+    case "toggleRow": {
+      const selectedRows = new Set(state.selectedRows);
+      if (selectedRows.has(action.rowId)) {
+        selectedRows.delete(action.rowId);
+      } else {
+        selectedRows.add(action.rowId);
+      }
+      return { ...state, selectedRows };
+    }
+    case "transferConfirmed":
+      return { ...state, transferConfirmed: action.value };
+  }
+}
+
 function HandoffDeliveryPanel({
   importStatus,
   onRefresh,
@@ -435,14 +534,17 @@ function HandoffDeliveryPanel({
   onRefresh: () => Promise<boolean>;
   onSessionIssue: (kind: "expired" | "forbidden") => void;
 }) {
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [acknowledgeIntent, setAcknowledgeIntent] = useState(false);
-  const [transferConfirmed, setTransferConfirmed] = useState(false);
-  const [downloadBusy, setDownloadBusy] = useState(false);
-  const [acknowledgeBusy, setAcknowledgeBusy] = useState(false);
-  const [reissueBusy, setReissueBusy] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [state, dispatch] = useReducer(handoffDeliveryReducer, INITIAL_HANDOFF_DELIVERY_STATE);
+  const {
+    acknowledgeBusy,
+    acknowledgeIntent,
+    downloadedIds,
+    downloadBusy,
+    message,
+    reissueBusy,
+    selectedRows,
+    transferConfirmed,
+  } = state;
 
   const pendingRows = importStatus.rows.filter((row) => isPendingHandoffRow(row));
   const releasedRows = importStatus.rows.filter((row) => row.handoffId && row.handoffStatus === "released" && !row.handoffAcknowledgedAt);
@@ -453,18 +555,13 @@ function HandoffDeliveryPanel({
   const method = importStatus.handoffMethod;
 
   const toggleRow = (rowId: string) => {
-    setSelectedRows((current) => {
-      const next = new Set(current);
-      if (next.has(rowId)) next.delete(rowId);
-      else next.add(rowId);
-      return next;
-    });
+    dispatch({ rowId, type: "toggleRow" });
   };
 
   async function downloadFile() {
     if (!selectedIds.length || !acknowledgeIntent) return;
-    setDownloadBusy(true);
-    setMessage("Preparing the one-time file in memory…");
+    dispatch({ type: "downloadBusy", value: true });
+    dispatch({ type: "message", value: "Preparing the one-time file in memory…" });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/handoff-file`, {
         body: JSON.stringify({ handoffIds: selectedIds }),
@@ -484,7 +581,7 @@ function HandoffDeliveryPanel({
           onSessionIssue(recovery);
           return;
         }
-        setMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The one-time file could not be released. Refresh and review the handoff state."));
+        dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The one-time file could not be released. Refresh and review the handoff state.") });
         return;
       }
       const file = await response.blob();
@@ -496,23 +593,23 @@ function HandoffDeliveryPanel({
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setDownloadedIds(new Set(selectedIds));
-      setMessage(`Downloaded ${selectedIds.length} ${selectedIds.length === 1 ? "handoff" : "handoffs"}. Transfer the file now; the credentials will not be released again.`);
-      setSelectedRows(new Set());
-      setAcknowledgeIntent(false);
-      setTransferConfirmed(false);
+      dispatch({
+        ids: selectedIds,
+        message: `Downloaded ${selectedIds.length} ${selectedIds.length === 1 ? "handoff" : "handoffs"}. Transfer the file now; the credentials will not be released again.`,
+        type: "downloadSuccess",
+      });
       await onRefresh();
     } catch {
-      setMessage("The one-time file could not be downloaded. Refresh before trying again.");
+      dispatch({ type: "message", value: "The one-time file could not be downloaded. Refresh before trying again." });
     } finally {
-      setDownloadBusy(false);
+      dispatch({ type: "downloadBusy", value: false });
     }
   }
 
   async function acknowledgeTransfer() {
     const ids = [...downloadedIds].length ? [...downloadedIds] : selectedIds;
     if (!ids.length || !transferConfirmed) return;
-    setAcknowledgeBusy(true);
+    dispatch({ type: "acknowledgeBusy", value: true });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/handoff-file/acknowledge`, {
         body: JSON.stringify({ handoffIds: ids }),
@@ -527,25 +624,21 @@ function HandoffDeliveryPanel({
         return;
       }
       if (!response.ok) {
-        setMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The acknowledgement could not be recorded. Refresh and try again."));
+        dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The acknowledgement could not be recorded. Refresh and try again.") });
         return;
       }
-      setMessage("Handoff acknowledgement recorded. The one-time credentials remain out of the app state.");
-      setDownloadedIds(new Set());
-      setSelectedRows(new Set());
-      setAcknowledgeIntent(false);
-      setTransferConfirmed(false);
+      dispatch({ message: "Handoff acknowledgement recorded. The one-time credentials remain out of the app state.", type: "acknowledgeSuccess" });
       await onRefresh();
     } catch {
-      setMessage("The acknowledgement could not reach the server. Refresh and try again.");
+      dispatch({ type: "message", value: "The acknowledgement could not reach the server. Refresh and try again." });
     } finally {
-      setAcknowledgeBusy(false);
+      dispatch({ type: "acknowledgeBusy", value: false });
     }
   }
 
   async function reissueHandoff(handoffId: string) {
-    setReissueBusy(handoffId);
-    setMessage("Creating a sealed replacement handoff…");
+    dispatch({ type: "reissueBusy", value: handoffId });
+    dispatch({ type: "message", value: "Creating a sealed replacement handoff…" });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/handoff-file/reissue`, {
         body: JSON.stringify({ handoffId }),
@@ -560,18 +653,15 @@ function HandoffDeliveryPanel({
         return;
       }
       if (!response.ok) {
-        setMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The replacement handoff could not be created."));
+        dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The replacement handoff could not be created.") });
         return;
       }
-      setMessage("Replacement handoff ready. Select it below and download the new one-time file.");
-      setDownloadedIds(new Set());
-      setSelectedRows(new Set());
-      setTransferConfirmed(false);
+      dispatch({ message: "Replacement handoff ready. Select it below and download the new one-time file.", type: "reissueSuccess" });
       await onRefresh();
     } catch {
-      setMessage("The replacement request could not reach the server. Refresh and try again.");
+      dispatch({ type: "message", value: "The replacement request could not reach the server. Refresh and try again." });
     } finally {
-      setReissueBusy(null);
+      dispatch({ type: "reissueBusy", value: null });
     }
   }
 
@@ -630,7 +720,7 @@ function HandoffDeliveryPanel({
         <div className="mt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-secondary-900">Pending new-account handoffs</p>
-            <button className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-xs font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => setSelectedRows((current) => current.size === pendingRows.length ? new Set() : new Set(pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id))))} type="button">
+            <button className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-xs font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => dispatch({ ids: pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id)), type: "selectPending" })} type="button">
               {selectedRows.size === pendingRows.length ? "Clear selection" : "Select all pending"}
             </button>
           </div>
@@ -644,7 +734,7 @@ function HandoffDeliveryPanel({
             ))}
           </div>
           <label className="mt-4 flex items-start gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 text-xs leading-5 text-secondary-600">
-            <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => setAcknowledgeIntent(event.target.checked)} type="checkbox" />
+            <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "acknowledgeIntent", value: event.target.checked })} type="checkbox" />
             <span>I will share this file through a secure channel and understand the selected credentials cannot be recovered after release.</span>
           </label>
           <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedIds.length || !acknowledgeIntent || downloadBusy} onClick={downloadFile} type="button">
@@ -671,7 +761,7 @@ function HandoffDeliveryPanel({
             ))}
           </div>
           <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-attention-fg">
-            <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => setTransferConfirmed(event.target.checked)} type="checkbox" />
+            <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => dispatch({ type: "transferConfirmed", value: event.target.checked })} type="checkbox" />
             <span>I confirm the released file was transferred through a secure channel.</span>
           </label>
           <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-4 text-sm font-semibold text-student-status-attention-fg hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
@@ -701,7 +791,7 @@ function HandoffDeliveryPanel({
           <p className="font-semibold">File downloaded</p>
           <p className="mt-1 text-xs leading-5">Confirm that the file reached the recipient. The acknowledgement records the handoff; it does not expose the credentials again.</p>
           <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-success-fg">
-            <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => setTransferConfirmed(event.target.checked)} type="checkbox" />
+            <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "transferConfirmed", value: event.target.checked })} type="checkbox" />
             <span>I confirm the released file was transferred through a secure channel.</span>
           </label>
           <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary-300 px-4 text-sm font-semibold text-primary-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
@@ -972,7 +1062,7 @@ type ImportDetailActionSetters = {
   setConfirmBusy: (busy: boolean) => void;
   setConfirmMessage: (message: string) => void;
   setPollError: (hasError: boolean) => void;
-  setSelectedInvalidRows: (value: Set<string> | ((current: Set<string>) => Set<string>)) => void;
+  setSelectedInvalidRows: (value: Set<string>) => void;
   setSessionIssue: (issue: "expired" | "forbidden" | null) => void;
   setSkipBusy: (busy: boolean) => void;
   setSkipMessage: (message: string) => void;
@@ -1004,13 +1094,11 @@ function useImportDetailActions({
   } = setters;
 
   const toggleInvalidRow = useCallback((rowId: string) => {
-    setSelectedInvalidRows((current) => {
-      const next = new Set(current);
-      if (next.has(rowId)) next.delete(rowId);
-      else next.add(rowId);
-      return next;
-    });
-  }, [setSelectedInvalidRows]);
+    const next = new Set(selectedInvalidRows);
+    if (next.has(rowId)) next.delete(rowId);
+    else next.add(rowId);
+    setSelectedInvalidRows(next);
+  }, [selectedInvalidRows, setSelectedInvalidRows]);
 
   const skipInvalidRows = useCallback(async () => {
     if (!selectedInvalidRows.size) return;
@@ -1078,23 +1166,123 @@ function useImportDetailActions({
   return { confirmImport, skipInvalidRows, toggleInvalidRow };
 }
 
+type ImportDetailState = {
+  activeSince: number | null;
+  cancelArmed: boolean;
+  cancelBusy: boolean;
+  cancelMessage: string;
+  confirmBusy: boolean;
+  confirmMessage: string;
+  handoffMethod: HandoffMethod;
+  importStatus: ImportStatusDto;
+  lastFetchedAt: number;
+  pollError: boolean;
+  refreshing: boolean;
+  selectedInvalidRows: Set<string>;
+  sessionIssue: "expired" | "forbidden" | null;
+  skipBusy: boolean;
+  skipMessage: string;
+};
+
+type ImportDetailAction =
+  | { type: "cancelArmed"; value: boolean }
+  | { type: "cancelBusy"; value: boolean }
+  | { type: "cancelMessage"; value: string }
+  | { type: "confirmBusy"; value: boolean }
+  | { type: "confirmMessage"; value: string }
+  | { type: "handoffMethod"; value: HandoffMethod }
+  | { type: "pollError"; value: boolean }
+  | { type: "refreshFinished" }
+  | { type: "refreshStarted" }
+  | { type: "selectedInvalidRows"; value: Set<string> }
+  | { type: "sessionIssue"; value: "expired" | "forbidden" | null }
+  | { type: "skipBusy"; value: boolean }
+  | { type: "skipMessage"; value: string }
+  | { fetchedAt: number; importStatus: ImportStatusDto; type: "statusLoaded" };
+
+function importDetailReducer(
+  state: ImportDetailState,
+  action: ImportDetailAction,
+): ImportDetailState {
+  switch (action.type) {
+    case "cancelArmed":
+      return { ...state, cancelArmed: action.value };
+    case "cancelBusy":
+      return { ...state, cancelBusy: action.value };
+    case "cancelMessage":
+      return { ...state, cancelMessage: action.value };
+    case "confirmBusy":
+      return { ...state, confirmBusy: action.value };
+    case "confirmMessage":
+      return { ...state, confirmMessage: action.value };
+    case "handoffMethod":
+      return { ...state, handoffMethod: action.value };
+    case "pollError":
+      return { ...state, pollError: action.value };
+    case "refreshFinished":
+      return { ...state, refreshing: false };
+    case "refreshStarted":
+      return { ...state, refreshing: true };
+    case "selectedInvalidRows":
+      return { ...state, selectedInvalidRows: action.value };
+    case "sessionIssue":
+      return { ...state, sessionIssue: action.value };
+    case "skipBusy":
+      return { ...state, skipBusy: action.value };
+    case "skipMessage":
+      return { ...state, skipMessage: action.value };
+    case "statusLoaded":
+      return {
+        ...state,
+        activeSince: isImportPollingStatus(action.importStatus.status)
+          ? state.activeSince ?? action.fetchedAt
+          : null,
+        handoffMethod: action.importStatus.handoffMethod ?? state.handoffMethod,
+        importStatus: action.importStatus,
+        lastFetchedAt: action.fetchedAt,
+        pollError: false,
+        sessionIssue: null,
+      };
+  }
+}
+
 function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto }) {
   const router = useRouter();
-  const [importStatus, setImportStatus] = useState(initialImport);
-  const [refreshing, setRefreshing] = useState(false);
-  const [pollError, setPollError] = useState(false);
-  const [sessionIssue, setSessionIssue] = useState<"expired" | "forbidden" | null>(null);
-  const [lastFetchedAt, setLastFetchedAt] = useState(() => Date.now());
+  const [state, dispatch] = useReducer(importDetailReducer, initialImport, (importStatus) => ({
+    activeSince: isImportPollingStatus(importStatus.status) ? Date.now() : null,
+    cancelArmed: false,
+    cancelBusy: false,
+    cancelMessage: "",
+    confirmBusy: false,
+    confirmMessage: "",
+    handoffMethod: importStatus.handoffMethod ?? "invite_link",
+    importStatus,
+    lastFetchedAt: Date.now(),
+    pollError: false,
+    refreshing: false,
+    selectedInvalidRows: new Set<string>(),
+    sessionIssue: null,
+    skipBusy: false,
+    skipMessage: "",
+  }));
+  const {
+    activeSince,
+    cancelArmed,
+    cancelBusy,
+    cancelMessage,
+    confirmBusy,
+    confirmMessage,
+    handoffMethod,
+    importStatus,
+    lastFetchedAt,
+    pollError,
+    refreshing,
+    selectedInvalidRows,
+    sessionIssue,
+    skipBusy,
+    skipMessage,
+  } = state;
   const [clock, setClock] = useState(() => Date.now());
-  const [selectedInvalidRows, setSelectedInvalidRows] = useState<Set<string>>(new Set());
-  const [skipBusy, setSkipBusy] = useState(false);
-  const [skipMessage, setSkipMessage] = useState("");
-  const [handoffMethod, setHandoffMethod] = useState<HandoffMethod>(initialImport.handoffMethod ?? "invite_link");
-  const [confirmBusy, setConfirmBusy] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState("");
-  const [cancelArmed, setCancelArmed] = useState(false);
-  const [cancelBusy, setCancelBusy] = useState(false);
-  const [cancelMessage, setCancelMessage] = useState("");
   const [pageVisible, setPageVisible] = useState(true);
   const pollAttemptRef = useRef(0);
   const pollAbortRef = useRef<AbortController | null>(null);
@@ -1102,7 +1290,6 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
   const pageVisibleRef = useRef(true);
   const priorityRefreshRef = useRef<"manual" | "resume" | null>(null);
   const priorityRefreshWaitersRef = useRef(new Set<() => void>());
-  const [activeSince, setActiveSince] = useState<number | null>(() => isImportPollingStatus(initialImport.status) ? Date.now() : null);
 
   const settlePriorityRefreshWaiters = useCallback(() => {
     const waiters = [...priorityRefreshWaitersRef.current];
@@ -1127,7 +1314,7 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     pollAbortRef.current?.abort();
     const controller = new AbortController();
     pollAbortRef.current = controller;
-    setRefreshing(true);
+    dispatch({ type: "refreshStarted" });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(initialImport.importId)}`, {
         cache: "no-store",
@@ -1138,31 +1325,26 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       if (controller.signal.aborted || sequence !== pollSequenceRef.current) return false;
       const recovery = responseSessionIssue(response, payload);
       if (recovery) {
-        setSessionIssue(recovery);
-        setPollError(false);
+        dispatch({ type: "sessionIssue", value: recovery });
+        dispatch({ type: "pollError", value: false });
         return false;
       }
       if (!response.ok || !payload || typeof payload !== "object" || !("import" in payload)) {
-        setPollError(true);
+        dispatch({ type: "pollError", value: true });
         return false;
       }
       const nextImport = (payload as { import: ImportStatusDto }).import;
-      setActiveSince((current) => isImportPollingStatus(nextImport.status) ? current ?? Date.now() : null);
-      setImportStatus(nextImport);
-      setHandoffMethod((current) => nextImport.handoffMethod ?? current);
-      setLastFetchedAt(Date.now());
-      setPollError(false);
-      setSessionIssue(null);
+      dispatch({ fetchedAt: Date.now(), importStatus: nextImport, type: "statusLoaded" });
       return true;
     } catch (error) {
       if (controller.signal.aborted || sequence !== pollSequenceRef.current || (error instanceof DOMException && error.name === "AbortError")) {
         return false;
       }
-      setPollError(true);
+      dispatch({ type: "pollError", value: true });
       return false;
     } finally {
       if (sequence === pollSequenceRef.current) {
-        setRefreshing(false);
+        dispatch({ type: "refreshFinished" });
         pollAbortRef.current = null;
         if (isPriorityRefresh) {
           priorityRefreshRef.current = null;
@@ -1279,23 +1461,23 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     loadStatus,
     selectedInvalidRows,
     setters: {
-      setConfirmBusy,
-      setConfirmMessage,
-      setPollError,
-      setSelectedInvalidRows,
-      setSessionIssue,
-      setSkipBusy,
-      setSkipMessage,
+      setConfirmBusy: (value) => dispatch({ type: "confirmBusy", value }),
+      setConfirmMessage: (value) => dispatch({ type: "confirmMessage", value }),
+      setPollError: (value) => dispatch({ type: "pollError", value }),
+      setSelectedInvalidRows: (value) => dispatch({ type: "selectedInvalidRows", value }),
+      setSessionIssue: (value) => dispatch({ type: "sessionIssue", value }),
+      setSkipBusy: (value) => dispatch({ type: "skipBusy", value }),
+      setSkipMessage: (value) => dispatch({ type: "skipMessage", value }),
     },
   });
 
   async function cancelImport() {
     if (!cancelArmed) {
-      setCancelArmed(true);
+      dispatch({ type: "cancelArmed", value: true });
       return;
     }
-    setCancelBusy(true);
-    setCancelMessage("Abandoning this draft…");
+    dispatch({ type: "cancelBusy", value: true });
+    dispatch({ type: "cancelMessage", value: "Abandoning this draft…" });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/cancel`, {
         cache: "no-store",
@@ -1305,22 +1487,22 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       const payload = await readJson(response);
       const recovery = responseSessionIssue(response, payload);
       if (recovery) {
-        setSessionIssue(recovery);
-        setPollError(false);
+        dispatch({ type: "sessionIssue", value: recovery });
+        dispatch({ type: "pollError", value: false });
         return;
       }
       if (!response.ok) {
-        setCancelMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The draft could not be abandoned."));
+        dispatch({ type: "cancelMessage", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The draft could not be abandoned.") });
         return;
       }
-      setCancelArmed(false);
-      setCancelMessage("Draft abandoned. No account changes were made.");
+      dispatch({ type: "cancelArmed", value: false });
+      dispatch({ type: "cancelMessage", value: "Draft abandoned. No account changes were made." });
       await loadStatus();
       router.refresh();
     } catch {
-      setCancelMessage("The cancel action could not reach the server. Refresh and try again.");
+      dispatch({ type: "cancelMessage", value: "The cancel action could not reach the server. Refresh and try again." });
     } finally {
-      setCancelBusy(false);
+      dispatch({ type: "cancelBusy", value: false });
     }
   }
 
@@ -1338,9 +1520,9 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       importStatus={importStatus}
       lastFetchedAt={lastFetchedAt}
       loadStatus={loadStatus}
-      onCancelArmedChange={setCancelArmed}
-      onHandoffMethodChange={setHandoffMethod}
-      onSessionIssueChange={setSessionIssue}
+      onCancelArmedChange={(value) => dispatch({ type: "cancelArmed", value })}
+      onHandoffMethodChange={(value) => dispatch({ type: "handoffMethod", value })}
+      onSessionIssueChange={(value) => dispatch({ type: "sessionIssue", value })}
       onToggleInvalid={toggleInvalidRow}
       pollError={pollError}
       readIsStale={readIsStale}

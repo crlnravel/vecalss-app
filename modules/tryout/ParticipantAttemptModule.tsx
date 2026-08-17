@@ -6,12 +6,10 @@ import {
   ArrowsOut,
   CalendarBlank,
   Check,
-  CheckCircle,
   Clock,
   CircleNotch,
   ClockCountdown,
   Flag,
-  FloppyDisk,
   ListChecks,
   PenNib as PenTool,
   Play,
@@ -595,29 +593,10 @@ function ParticipantAttemptScreen({
                 </div>
               </div>
 
-              <p
-                aria-live="polite"
-                className={cn(
-                  "mt-2 flex min-h-7 items-center gap-2 text-xs font-medium",
-                  saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500",
-                )}
-              >
-                {saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : null}
-                {saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : null}
-                {saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : null}
-                {saveState === "idle" ? <><FloppyDisk />Simpan otomatis</> : null}
-              </p>
-
               {message ? (
                 <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status">
                   <WarningCircle />{message}
                 </p>
-              ) : null}
-
-              {snapshot?.instructions ? (
-                <aside className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4 text-sm leading-6 text-secondary-700">
-                  <strong>Petunjuk:</strong> {snapshot.instructions}
-                </aside>
               ) : null}
 
               <p className={cn("mt-7 whitespace-pre-wrap font-medium text-secondary-800", readingTextClass)}>{item.prompt}</p>
@@ -689,10 +668,10 @@ function ParticipantAttemptScreen({
       }
       footer={
         <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20 px-4 md:bottom-7 md:px-8">
-          <div className="pointer-events-auto mx-auto grid w-full max-w-[570px] grid-cols-[1fr_7rem_1fr] items-center gap-3 rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
+          <div className="pointer-events-auto mx-auto grid w-full max-w-[540px] grid-cols-[1fr_6rem_1fr] items-center gap-2 rounded-[1.25rem] border border-primary-100 bg-white p-2 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
             <Button
               aria-label="Soal sebelumnya"
-              className="h-16 w-full justify-center"
+              className="h-12 w-full justify-center"
               disabled={busy || saveState === "saving" || index === 0}
               onClick={() => onIndexChange(index - 1)}
               size="lg"
@@ -703,20 +682,20 @@ function ParticipantAttemptScreen({
             </Button>
             <button
               aria-label="Coretan (sementara dinonaktifkan)"
-              className="flex min-w-20 cursor-not-allowed flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-secondary-400 opacity-60"
+              className="flex min-w-16 cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[0.7rem] font-semibold text-secondary-400 opacity-60"
               disabled
               title="Coretan sementara dinonaktifkan"
               type="button"
             >
-              <span className="grid size-12 place-items-center rounded-full border-2 border-secondary-300">
-                <PenTool className="size-7" />
+              <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
+                <PenTool className="size-6" />
               </span>
               Coretan
             </button>
             {isCat ? (
               <Button
                 aria-label={selected ? "Jawaban tersimpan, menyiapkan soal berikutnya" : "Pilih jawaban untuk lanjut"}
-                className="h-16 w-full justify-center"
+                className="h-12 w-full justify-center"
                 disabled
                 size="lg"
                 variant="brand"
@@ -726,7 +705,7 @@ function ParticipantAttemptScreen({
             ) : index >= items.length - 1 ? (
               <Button
                 aria-label="Selesai"
-                className="h-16 w-full justify-center"
+                className="h-12 w-full justify-center"
                 disabled={busy || saveState === "saving"}
                 onClick={() => setSubmitOpen(true)}
                 size="lg"
@@ -735,7 +714,7 @@ function ParticipantAttemptScreen({
                 Selesai
               </Button>
             ) : (
-              <Button aria-label="Soal selanjutnya" className="h-16 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand">
+              <Button aria-label="Soal selanjutnya" className="h-12 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand">
                 <span className="sr-only">Selanjutnya</span>
                 <ArrowRight />
               </Button>
@@ -744,7 +723,7 @@ function ParticipantAttemptScreen({
         </div>
       }
       header={
-        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 border-b border-primary-100 bg-white px-16 py-4 sm:min-h-24">
+        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 bg-white px-16 py-4 sm:min-h-24">
           <h2 className="sr-only">{tryoutTitle} · {run.section.title} · Bagian {run.sequenceNo}/{runCount}</h2>
           <BrandLockup />
 

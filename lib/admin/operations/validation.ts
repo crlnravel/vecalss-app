@@ -107,11 +107,14 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
     } else if (rawStatus.values.includes("all")) {
       invalid = true;
     } else {
+      const validStatuses = new Set(Object.values(UserStatus));
+      const parsedStatuses = new Set<UserStatus>();
       rawStatus.values.forEach((value) => {
-        if ((Object.values(UserStatus) as string[]).includes(value)) {
+        if (validStatuses.has(value as UserStatus)) {
           const parsedStatus = value as UserStatus;
-          if (!statuses.includes(parsedStatus)) {
+          if (!parsedStatuses.has(parsedStatus)) {
             statuses.push(parsedStatus);
+            parsedStatuses.add(parsedStatus);
           }
         } else {
           invalid = true;
