@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 
 import type { ExamEvent } from "@/generated/prisma/client";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { FileText, Plus, UserPlus, Users } from "@/lib/icons";
 
@@ -89,9 +89,6 @@ function AddStudentDialog({
         <div className="max-h-[calc(100svh-1.5rem)] overflow-y-auto">
           <DialogHeader className="border-b border-primary-100 px-5 py-6 pr-16 sm:px-8 sm:py-7">
             <DialogTitle className="text-2xl tracking-[-0.035em] text-secondary-950">Add student</DialogTitle>
-            <DialogDescription className="max-w-[58ch]">
-              Create one account or upload a prepared roster. Choose a mode to get started.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="border-b border-primary-100 bg-primary-50/55 px-5 py-4 sm:px-8 sm:py-5">

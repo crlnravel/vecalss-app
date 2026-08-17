@@ -14,5 +14,12 @@ export default async function AdminStudentBannersPage() {
   const session = await requireAdminSession();
   const snapshot = await getStudentBannerSnapshot();
 
-  return <StudentBannersPageModule banners={snapshot.banners} session={session} version={snapshot.version} />;
+  return (
+    <StudentBannersPageModule
+      banners={snapshot.banners}
+      hasUnpublishedChanges={snapshot.hasUnpublishedChanges}
+      session={session}
+      version={snapshot.version}
+    />
+  );
 }

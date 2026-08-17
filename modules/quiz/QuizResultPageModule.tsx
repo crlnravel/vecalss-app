@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Printer } from "@phosphor-icons/react";
+
 import {
+  ArrowLeft,
+  ArrowRight,
   Check,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
+  Flag,
   CircleX,
-  ZoomIn,
-  ZoomOut,
+  House,
+  RefreshCw,
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
+import {
+  AssessmentUtilityPill,
+  AssessmentResultNavigation,
+  AssessmentResultWorkspace,
+} from "@/modules/assessment/AssessmentWorkspace";
 import { cn } from "@/lib/utils";
 
 type QuizResult = {
@@ -42,30 +50,14 @@ function QuizResultPageModule({
   subjectTitle: string;
 }) {
   const [currentQuestion, setCurrentQuestion] = useState(1);
-  const [textScale, setTextScale] = useState<"compact" | "default" | "large">("default");
+  const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
+  const readingTextClass = "text-lg leading-[1.85]";
+  const explanationTextClass = "text-base leading-7";
 
-  const readingTextClass =
-    textScale === "large"
-      ? "text-xl leading-[1.9]"
-      : textScale === "compact"
-        ? "text-base leading-[1.8]"
-        : "text-lg leading-[1.85]";
-
-  const explanationTextClass =
-    textScale === "large"
-      ? "text-lg leading-8"
-      : textScale === "compact"
-        ? "text-sm leading-6"
-        : "text-base leading-7";
-
-  function updateTextScale(direction: "smaller" | "larger") {
-    setTextScale((current) => {
-      if (direction === "smaller") {
-        return current === "large" ? "default" : "compact";
-      }
-
-      return current === "compact" ? "default" : "large";
-    });
+  function toggleReport() {
+    setReportedQuestions((current) => current.includes(currentQuestion)
+      ? current.filter((number) => number !== currentQuestion)
+      : [...current, currentQuestion]);
   }
 
   if (!result.isSubmitted) {
@@ -82,7 +74,7 @@ function QuizResultPageModule({
           title="Kembali ke daftar quiz"
           variant="brand"
         >
-          <ChevronLeft />
+          <ArrowLeft />
         </Button>
       </main>
     );
@@ -93,208 +85,137 @@ function QuizResultPageModule({
   const selectedOption = question.options.find((option) => option.id === question.selectedOptionId);
   const correctOption = question.options.find((option) => option.correct);
   const isCorrect = selectedOption?.correct ?? false;
+  const markers = result.questions.map((reviewQuestion, index) => {
+    const answer = reviewQuestion.options.find((option) => option.id === reviewQuestion.selectedOptionId);
+    return {
+      id: reviewQuestion.id,
+      number: index + 1,
+      state: index + 1 === currentQuestion
+        ? "current"
+        : !answer
+          ? "unanswered"
+          : answer.correct
+            ? "correct"
+            : "incorrect",
+    } as const;
+  });
 
   return (
-    <div className="min-h-svh bg-white text-secondary-900">
-      <div className="grid min-h-svh gap-0 lg:grid-cols-[288px_minmax(0,1fr)]">
-        <aside className="flex flex-col border-b border-primary-100 bg-[#fcfdfc] lg:border-r lg:border-b-0">
-          <div className="border-b border-primary-100 px-5 py-5">
-            <Button
-              aria-label="Kembali ke daftar quiz"
-              nativeButton={false}
-              render={<Link href={`/quiz/${subjectSlug}`} />}
-              size="icon-sm"
-              title="Kembali ke daftar quiz"
-              variant="ghost"
-            >
-              <ChevronLeft />
+    <AssessmentResultWorkspace
+      headerActions={
+        <>
+          <Button
+            className="hidden sm:inline-flex"
+            nativeButton={false}
+            render={<Link href={`/quiz/${subjectSlug}`} />}
+            variant="brandOutline"
+          >
+            <RefreshCw />
+            Ulangi
+          </Button>
+          <Button
+            aria-label="Kembali ke menu quiz"
+            className="hidden sm:inline-flex"
+            nativeButton={false}
+            render={<Link href="/quiz" />}
+            title="Kembali ke menu quiz"
+            variant="brand"
+          >
+            <House />
+            Menu
+          </Button>
+        </>
+      }
+      navigation={
+        <AssessmentResultNavigation
+          items={markers}
+          label="Ringkasan soal"
+          onSelect={setCurrentQuestion}
+        />
+      }
+      score={result.score ?? 0}
+      scoreLabel="Skor Akhir"
+      summary={
+        <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1">
+          <ResultStat label="Benar" value={`${result.correctCount ?? 0}`} />
+          <ResultStat label="Dijawab" value={`${result.answeredCount}/${result.totalQuestions}`} />
+        </div>
+      }
+      title={result.title}
+    >
+      <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
+          <div className="min-w-0">
+            <p className="text-lg font-semibold text-secondary-900">Soal #{currentQuestion}</p>
+            <span className="sr-only">{subjectTitle}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <AssessmentUtilityPill active={reportedQuestions.includes(currentQuestion)} icon={Flag} label="Laporkan soal" onClick={toggleReport} />
+            <StudentBadge size="md" tone={isCorrect ? "success" : "danger"}>
+              {isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />}
+              {isCorrect ? "Benar" : selectedOption ? "Salah" : "Tidak dijawab"}
+            </StudentBadge>
+          </div>
+        </div>
+
+        <div className={cn("mt-6 font-medium text-secondary-900", readingTextClass)}>
+          <p>{question.prompt}</p>
+        </div>
+
+        <div className="mt-7 grid gap-3">
+          {question.options.map((option) => (
+            <ReviewAnswerOption
+              key={option.id}
+              option={option}
+              selected={option.id === question.selectedOptionId}
+              textClass={readingTextClass}
+            />
+          ))}
+        </div>
+
+        <section aria-label="Pembahasan" className="mt-7 rounded-3xl border border-student-status-success-border bg-student-status-success-bg/70 p-5 sm:p-6">
+          <h2 className="font-semibold text-student-status-success-fg">Pembahasan</h2>
+          <div className={cn("mt-2 text-secondary-700", explanationTextClass)}>
+            {question.explanation || "Pembahasan untuk soal ini belum tersedia."}
+          </div>
+          <div className="mt-4 grid gap-3 border-t border-student-status-success-border pt-4 text-sm sm:grid-cols-2">
+            <div>
+              <p className="font-semibold text-secondary-500">Jawabanmu</p>
+              <p className="mt-1 font-semibold text-secondary-900">{selectedOption ? `${selectedOption.key}. ${selectedOption.text}` : "Tidak dijawab"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-secondary-500">Jawaban benar</p>
+              <p className="mt-1 font-semibold text-secondary-900">{correctOption ? `${correctOption.key}. ${correctOption.text}` : "—"}</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-7 flex items-center justify-between gap-3 border-t border-primary-100 pt-5 print:hidden">
+          <Button disabled={currentQuestion === 1} onClick={() => setCurrentQuestion((number) => number - 1)} variant="brandOutline">
+            <ArrowLeft />
+            <span className="hidden sm:inline">Sebelumnya</span>
+          </Button>
+          {currentQuestion < result.totalQuestions ? (
+            <Button onClick={() => setCurrentQuestion((number) => number + 1)} variant="brand">
+              <span className="hidden sm:inline">Selanjutnya</span>
+              <ArrowRight />
             </Button>
-          </div>
-
-          <div className="px-5 py-6">
-            <p className="text-xs font-semibold tracking-[0.08em] text-primary-700 uppercase">
-              Review Jawaban
-            </p>
-            <div className="mt-4 grid grid-cols-4 gap-2.5">
-              {result.questions.map((reviewQuestion, index) => {
-                const answer = reviewQuestion.options.find(
-                  (option) => option.id === reviewQuestion.selectedOptionId,
-                );
-                const state = !answer
-                  ? "unanswered"
-                  : answer.correct
-                    ? "correct"
-                    : "incorrect";
-                const number = index + 1;
-
-                return (
-                  <QuestionMarker
-                    current={number === currentQuestion}
-                    key={reviewQuestion.id}
-                    number={number}
-                    onClick={() => setCurrentQuestion(number)}
-                    state={state}
-                  />
-                );
-              })}
-            </div>
-
-            <div className="mt-7 grid grid-cols-2 gap-2 border-t border-primary-100 pt-5">
-              <ResultStat label="Skor" value={`${result.score ?? 0}`} />
-              <ResultStat label="Benar" value={`${result.correctCount ?? 0}/${result.totalQuestions}`} />
-            </div>
-          </div>
-        </aside>
-
-        <main className="flex min-h-svh flex-col bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-primary-100 px-4 py-4 md:px-8 lg:px-10">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold tracking-[0.08em] text-primary-700 uppercase">Hasil Quiz</p>
-              <h1 className="mt-1 text-3xl leading-none font-semibold text-secondary-900 md:text-4xl">
-                {result.title}
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex-1 px-4 py-6 md:px-8 lg:px-10">
-            <div className="mx-auto flex w-full max-w-[1550px] flex-col gap-5">
-              <div className="flex flex-wrap items-center gap-3 text-base font-medium">
-                <span className="font-semibold tracking-[0.08em] text-primary-700 uppercase">Soal {currentQuestion}</span>
-                <span className="text-secondary-300">•</span>
-                <span className="text-secondary-400">{subjectTitle}</span>
-                <span className="text-secondary-300">|</span>
-                <StudentBadge size="md" tone={isCorrect ? "success" : "danger"}>
-                  {isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />}
-                  {isCorrect ? "Benar" : selectedOption ? "Belum tepat" : "Tidak dijawab"}
-                </StudentBadge>
-                <MagnifierButton
-                  ariaLabel="Perkecil ukuran font"
-                  icon={ZoomOut}
-                  onClick={() => updateTextScale("smaller")}
-                />
-                <MagnifierButton
-                  ariaLabel="Perbesar ukuran font"
-                  icon={ZoomIn}
-                  onClick={() => updateTextScale("larger")}
-                />
-              </div>
-
-              <div className="space-y-5">
-                <div className={cn("border-t border-primary-100 pt-5 pb-1 font-medium text-secondary-900", readingTextClass)}>
-                  <p>{question.prompt}</p>
-                </div>
-
-                <div className="grid gap-4">
-                  {question.options.map((option) => (
-                    <ReviewAnswerOption
-                      key={option.id}
-                      option={option}
-                      selected={option.id === question.selectedOptionId}
-                      textClass={readingTextClass}
-                    />
-                  ))}
-                </div>
-
-                <section aria-label="Pembahasan" className="rounded-3xl border border-student-status-attention-border bg-student-status-attention-bg/70 p-5 md:p-6">
-                  <div className="min-w-0">
-                    <h2 className="font-semibold text-student-status-attention-fg">Pembahasan</h2>
-                    <p className={cn("mt-1.5 text-secondary-700", explanationTextClass)}>
-                      {question.explanation || "Pembahasan untuk soal ini belum tersedia."}
-                    </p>
-                    <p className="mt-3 border-t border-student-status-attention-border pt-3 text-sm font-medium text-secondary-700">
-                      {selectedOption
-                        ? `Pilihan: ${selectedOption.key}. Kunci: ${correctOption?.key ?? "—"}.`
-                        : `Kunci: ${correctOption?.key ?? "—"}.`}
-                    </p>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
-
-          <div className="sticky bottom-0 z-10 border-t border-primary-100 bg-white/96 px-4 py-4 backdrop-blur md:px-8 lg:px-10">
-            <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
-              <Button
-                disabled={currentQuestion === 1}
-                onClick={() => setCurrentQuestion((number) => number - 1)}
-                size="lg"
-                variant="brandOutline"
-              >
-                <ChevronLeft data-icon="inline-start" />
-                Soal Sebelumnya
-              </Button>
-              {currentQuestion < result.totalQuestions ? (
-                <Button
-                  className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35"
-                  onClick={() => setCurrentQuestion((number) => number + 1)}
-                  size="lg"
-                >
-                  Soal Selanjutnya
-                  <ChevronRight data-icon="inline-end" />
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-}
-
-function QuestionMarker({
-  current,
-  number,
-  onClick,
-  state,
-}: {
-  current: boolean;
-  number: number;
-  onClick: () => void;
-  state: "correct" | "incorrect" | "unanswered";
-}) {
-  return (
-    <button
-      aria-current={current ? "step" : undefined}
-      className={cn(
-        "flex h-12 items-center justify-center rounded-2xl border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
-        state === "correct" && "border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg",
-        state === "incorrect" && "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
-        state === "unanswered" && "border-student-status-neutral-border bg-student-status-neutral-bg text-student-status-neutral-fg",
-        current && "ring-2 ring-primary-700 ring-offset-2",
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      {number}
-    </button>
-  );
-}
-
-function MagnifierButton({
-  ariaLabel,
-  icon: Icon,
-  onClick,
-}: {
-  ariaLabel: string;
-  icon: typeof ZoomIn;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-label={ariaLabel}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary-50 text-secondary-600 transition-colors hover:bg-secondary-100"
-      onClick={onClick}
-      type="button"
-    >
-      <Icon className="size-4" />
-    </button>
+          ) : (
+            <Button onClick={() => window.print()} variant="brandOutline">
+              <Printer />
+              <span className="hidden sm:inline">Cetak</span>
+            </Button>
+          )}
+        </div>
+      </article>
+    </AssessmentResultWorkspace>
   );
 }
 
 function ResultStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-primary-100 bg-white px-3 py-3">
-      <p className="text-[11px] font-medium text-secondary-500">{label}</p>
+    <div className="rounded-2xl border border-primary-100 bg-secondary-50 px-3 py-3">
+      <p className="text-xs font-medium text-secondary-500">{label}</p>
       <p className="mt-1 text-xl font-semibold text-secondary-900">{value}</p>
     </div>
   );
@@ -314,7 +235,7 @@ function ReviewAnswerOption({
   return (
     <div
       className={cn(
-        "flex w-full items-start gap-4 rounded-4xl border bg-white px-5 py-5 text-left md:px-6",
+        "flex w-full items-start gap-4 rounded-3xl border bg-white px-4 py-4 text-left sm:px-5",
         option.correct && "border-student-status-success-border bg-student-status-success-bg",
         isIncorrectSelection && "border-student-status-danger-border bg-student-status-danger-bg",
         !option.correct && !isIncorrectSelection && "border-primary-100",
@@ -330,9 +251,7 @@ function ReviewAnswerOption({
       >
         {option.correct ? <Check className="size-5" /> : option.key}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className={cn("font-medium text-secondary-800", textClass)}>{option.text}</p>
-      </div>
+      <p className={cn("min-w-0 flex-1 font-medium text-secondary-800", textClass)}>{option.text}</p>
     </div>
   );
 }

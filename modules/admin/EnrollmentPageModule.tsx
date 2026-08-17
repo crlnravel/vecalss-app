@@ -3,7 +3,12 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { EnrollmentHandoff, ExamEvent, Major, StudentProfile, University, User, UserStatus } from "@/generated/prisma/client";
-import { buildDirectoryQuery, type DirectoryPageSize } from "@/lib/admin/operations/validation";
+import {
+  buildDirectoryQuery,
+  type DirectoryPageSize,
+  type DirectorySortDirection,
+  type DirectorySortKey,
+} from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
@@ -107,6 +112,8 @@ function EnrollmentPageModule({
   demo,
   session,
   search,
+  sort,
+  direction,
   addedFrom,
   addedTo,
   statusFilters,
@@ -125,16 +132,18 @@ function EnrollmentPageModule({
   demo: boolean;
   session: SessionContext;
   search: string;
+  sort: DirectorySortKey | null;
+  direction: DirectorySortDirection;
   statusFilters: UserStatus[];
   students: EnrolledStudent[];
   total: number;
 }) {
   const pageHref = (nextPage: number) => {
-    const query = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, focus: null, page: nextPage, pageSize, search, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
+    const query = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, direction, focus: null, page: nextPage, pageSize, search, sort, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
     return query ? `/admin/enrollment${query}` : "/admin/enrollment";
   };
-  const directoryQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, focus: focus ?? null, page, pageSize, search, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
-  const backQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, focus: null, page, pageSize, search, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
+  const directoryQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, direction, focus: focus ?? null, page, pageSize, search, sort, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
+  const backQuery = withDemoQuery(buildDirectoryQuery({ addedFrom, addedTo, direction, focus: null, page, pageSize, search, sort, status: statusFilters[0] ?? "all", statuses: statusFilters }), demo);
   const isEmptyDirectory = total === 0 && !search && !statusFilters.length && !addedFrom && !addedTo;
   const visibleStart = students.length ? (page - 1) * pageSize + 1 : 0;
   const visibleEnd = Math.min(page * pageSize, (page - 1) * pageSize + students.length);
@@ -186,6 +195,8 @@ function EnrollmentPageModule({
             isEmptyDirectory={isEmptyDirectory}
             key={directoryQuery}
             search={search}
+            sort={sort}
+            direction={direction}
             addedFrom={addedFrom}
             addedTo={addedTo}
             demo={demo}

@@ -311,7 +311,7 @@ function toDatabaseQuizItem(record: { items: { id: string }[]; slug: string; tit
   return {
     completionRate: 0,
     difficulty: "Menengah",
-    duration: "Latihan mandiri",
+    duration: "",
     isCompleted,
     questionCount: record.items.length,
     slug: record.slug,

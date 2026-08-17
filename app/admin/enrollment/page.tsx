@@ -1,6 +1,10 @@
 import { EnrollmentHandoffStatus, Prisma, RoleName, UserStatus } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
-import { parseDirectoryParams } from "@/lib/admin/operations/validation";
+import {
+  parseDirectoryParams,
+  type DirectorySortDirection,
+  type DirectorySortKey,
+} from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
 import { EnrollmentPageModule, type EnrolledStudent } from "@/modules/admin/EnrollmentPageModule";
 
@@ -70,6 +74,50 @@ function filterTemporaryDemoStudents(
   });
 }
 
+function sortTemporaryDemoStudents(
+  students: EnrolledStudent[],
+  sort: DirectorySortKey | null,
+  direction: DirectorySortDirection,
+) {
+  const sortKey = sort ?? "student";
+  const sortDirection = sort ? direction : "asc";
+
+  return [...students].sort((left, right) => {
+    const comparison = sortKey === "email"
+      ? left.email.localeCompare(right.email)
+      : sortKey === "added"
+        ? left.createdAt.getTime() - right.createdAt.getTime()
+        : sortKey === "status"
+          ? left.status.localeCompare(right.status)
+          : left.fullName.localeCompare(right.fullName);
+
+    if (comparison !== 0) {
+      return sortDirection === "desc" ? -comparison : comparison;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function studentOrderBy(
+  sort: DirectorySortKey | null,
+  direction: DirectorySortDirection,
+): Prisma.UserOrderByWithRelationInput[] {
+  if (sort === "email") {
+    return [{ email: direction }, { fullName: "asc" }, { id: "asc" }];
+  }
+
+  if (sort === "added") {
+    return [{ createdAt: direction }, { fullName: "asc" }, { id: "asc" }];
+  }
+
+  if (sort === "status") {
+    return [{ status: direction }, { fullName: "asc" }, { id: "asc" }];
+  }
+
+  return [{ fullName: "asc" }, { id: "asc" }];
+}
+
 export default async function EnrollmentPage({
   searchParams,
 }: {
@@ -82,11 +130,13 @@ export default async function EnrollmentPage({
     page: resolvedSearchParams.page,
     pageSize: resolvedSearchParams.pageSize,
     q: resolvedSearchParams.q,
+    sort: resolvedSearchParams.sort,
     status: resolvedSearchParams.status,
+    direction: resolvedSearchParams.direction,
     addedFrom: resolvedSearchParams.addedFrom,
     addedTo: resolvedSearchParams.addedTo,
   });
-  const { addedFrom, addedTo, page, pageSize, search, statuses } = directory;
+  const { addedFrom, addedTo, direction, page, pageSize, search, sort, statuses } = directory;
   const demo = resolvedSearchParams.demo === "1";
   const examEvents = await prisma.examEvent.findMany({
     orderBy: [{ examDate: "asc" }, { name: "asc" }],
@@ -109,12 +159,12 @@ export default async function EnrollmentPage({
     : null;
 
   if (demo) {
-    const demoStudents = filterTemporaryDemoStudents(createTemporaryDemoStudents(), {
+    const demoStudents = sortTemporaryDemoStudents(filterTemporaryDemoStudents(createTemporaryDemoStudents(), {
       addedFrom,
       addedTo,
       search,
       statuses,
-    });
+    }), sort, direction);
     const total = demoStudents.length;
 
     return (
@@ -129,6 +179,8 @@ export default async function EnrollmentPage({
         pageSize={pageSize}
         session={session}
         search={search}
+        sort={sort}
+        direction={direction}
         addedFrom={addedFrom}
         addedTo={addedTo}
         statusFilters={statuses}
@@ -216,9 +268,7 @@ export default async function EnrollmentPage({
           },
         },
       },
-      orderBy: {
-        fullName: "asc",
-      },
+      orderBy: studentOrderBy(sort, direction),
       skip: (page - 1) * pageSize,
       take: pageSize,
       where: studentWhere,
@@ -237,6 +287,8 @@ export default async function EnrollmentPage({
       pageSize={pageSize}
       session={session}
       search={search}
+      sort={sort}
+      direction={direction}
       addedFrom={addedFrom}
       addedTo={addedTo}
       statusFilters={statuses}

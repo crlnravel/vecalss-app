@@ -1,28 +1,33 @@
 "use client";
 
+import Link from "next/link";
+import { useActionState, useRef, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import type { SessionContext } from "@/lib/auth/types";
 import {
+  ArrowUpRight,
   BookOpen,
   Gauge,
   House,
-  Info,
   ListChecks,
   type AppIcon,
 } from "@/lib/icons";
-import type {
-  StudentBannerContent,
-  StudentBannerKey,
-  StudentBannerSet,
+import {
+  resolveStudentBannerText,
+  type StudentBannerContent,
+  type StudentBannerKey,
+  type StudentBannerSet,
 } from "@/lib/student/banner-content";
-import type { SessionContext } from "@/lib/auth/types";
-import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
-import { useActionState } from "react";
 import { FormNotice } from "@/modules/auth/components/form-notice";
-import { EMPTY_FORM_STATE, type FormState } from "@/modules/auth/form-state";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
+import { EMPTY_FORM_STATE, type FormState } from "@/modules/auth/form-state";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
+import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
+import { SyntaxHighlightedInput, SyntaxHighlightedTextarea } from "./components/syntax-highlighted-field";
 import { updateStudentBannersAction } from "./student-banners-actions";
-import { ADMIN_CARD_CLASS_NAME, ADMIN_INSET_CLASS_NAME } from "./admin-ui-contract";
 
 const bannerDefinitions: Array<{
   description: string;
@@ -61,6 +66,11 @@ const bannerDefinitions: Array<{
   },
 ];
 
+const previewVariables = {
+  firstName: "Alya",
+  target: "Kedokteran UI",
+};
+
 function toFormFields(banners: StudentBannerSet, version: string | null) {
   return Object.fromEntries(
     [
@@ -70,6 +80,77 @@ function toFormFields(banners: StudentBannerSet, version: string | null) {
         [`${key}.description`, banners[key].description],
       ]),
     ],
+  );
+}
+
+function readFormText(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readBannersFromForm(form: HTMLFormElement) {
+  const formData = new FormData(form);
+
+  return {
+    banners: Object.fromEntries(
+      bannerDefinitions.map(({ key }) => [key, {
+        description: readFormText(formData, `${key}.description`),
+        title: readFormText(formData, `${key}.title`),
+      }]),
+    ) as StudentBannerSet,
+    version: readFormText(formData, "version"),
+  };
+}
+
+function BannerPreviewPanel({
+  banners,
+  onClose,
+}: {
+  banners: StudentBannerSet;
+  onClose: () => void;
+}) {
+  return (
+    <section
+      aria-label="Student banner preview"
+      className="overflow-hidden rounded-[1.75rem] border border-primary-200 bg-primary-50/60 shadow-[0_18px_45px_-32px_rgba(26,72,61,0.65)]"
+    >
+      <div className="flex flex-col gap-4 border-b border-primary-100 bg-white/75 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Preview</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-secondary-950">Student page banners</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
+            This preview uses the text currently in the form. Beranda placeholders use a sample student so you can check the final sentence.
+          </p>
+        </div>
+        <Button onClick={onClose} size="sm" type="button" variant="ghost">
+          Close preview
+        </Button>
+      </div>
+
+      <div className="grid gap-4 p-5 sm:p-6 xl:grid-cols-2">
+        {bannerDefinitions.map(({ icon: Icon, key, label, route }) => (
+          <article className="rounded-2xl border border-primary-100 bg-white p-5 shadow-sm" key={key}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
+                  <Icon aria-hidden="true" size={17} />
+                </span>
+                <p className="truncate text-sm font-semibold text-secondary-900">{label}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-medium text-secondary-600">{route}</span>
+            </div>
+            <div className="mt-5 rounded-xl bg-secondary-900 px-5 py-6 text-white">
+              <h3 className="text-xl font-semibold tracking-[-0.03em]">
+                {resolveStudentBannerText(banners[key].title, previewVariables)}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-secondary-200">
+                {resolveStudentBannerText(banners[key].description, previewVariables)}
+              </p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -106,7 +187,7 @@ function BannerEditorCard({
       <div className="mt-6 grid gap-5">
         <Field>
           <FieldLabel htmlFor={`${key}-title`}>Heading</FieldLabel>
-          <FieldInput
+          <SyntaxHighlightedInput
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
             defaultValue={state.fields?.[titleField] ?? banner.title}
@@ -120,7 +201,7 @@ function BannerEditorCard({
 
         <Field>
           <FieldLabel htmlFor={`${key}-description`}>Supporting text</FieldLabel>
-          <FieldTextarea
+          <SyntaxHighlightedTextarea
             aria-describedby={descriptionError ? `${key}-description-error` : undefined}
             aria-invalid={Boolean(descriptionError)}
             className="min-h-36"
@@ -139,10 +220,12 @@ function BannerEditorCard({
 
 function StudentBannersPageModule({
   banners,
+  hasUnpublishedChanges,
   session,
   version,
 }: {
   banners: StudentBannerSet;
+  hasUnpublishedChanges: boolean;
   session: SessionContext;
   version: string | null;
 }) {
@@ -150,6 +233,19 @@ function StudentBannersPageModule({
     ...EMPTY_FORM_STATE,
     fields: toFormFields(banners, version),
   });
+  const [previewState, setPreviewState] = useState<{
+    banners: StudentBannerSet;
+    version: string;
+  } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draftHasChanges = state.hasUnpublishedChanges ?? hasUnpublishedChanges;
+  const currentVersion = state.fields?.version ?? version ?? "";
+
+  function handlePreview() {
+    if (formRef.current) {
+      setPreviewState(readBannersFromForm(formRef.current));
+    }
+  }
 
   return (
     <PortalShell
@@ -160,24 +256,32 @@ function StudentBannersPageModule({
       title="Student banners"
     >
       <div className="space-y-7">
-        <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl">Student page banners</h1>
-            <p className="mt-2 max-w-[68ch] text-sm leading-6 text-secondary-600">
-              Keep the first message students see clear and useful across Beranda, Materi, Kuis, and Tryout.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">
+              Edit a private draft, preview it with sample student data, then publish when it is ready.
             </p>
           </div>
-          <span className="text-sm text-secondary-500">4 banners · heading + supporting text</span>
+          <Link
+            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl px-3 text-sm font-semibold text-primary-800 transition hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+            href="/admin/docs#student-banners"
+          >
+            Read documentation
+            <ArrowUpRight aria-hidden="true" size={16} />
+          </Link>
         </header>
 
-        <div className={`${ADMIN_INSET_CLASS_NAME} flex items-start gap-3 px-4 py-4 text-sm leading-6 text-secondary-700`}>
-          <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-white text-primary-700"><Info aria-hidden="true" size={15} /></span>
-          <p>
-            Beranda supports <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-primary-800">&#123;firstName&#125;</code> and <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-primary-800">&#123;target&#125;</code>. They are replaced with each student&apos;s name and study target. Other banners can use plain text.
-          </p>
-        </div>
+        {previewState?.version === currentVersion ? (
+          <BannerPreviewPanel banners={previewState.banners} onClose={() => setPreviewState(null)} />
+        ) : null}
 
-        <form action={formAction} className="space-y-6" key={state.fields?.version ?? version ?? "new"}>
+        <form
+          action={formAction}
+          className="space-y-6"
+          key={state.fields?.version ?? version ?? "new"}
+          ref={formRef}
+        >
           <input name="version" type="hidden" value={state.fields?.version ?? version ?? ""} readOnly />
           {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
 
@@ -192,11 +296,31 @@ function StudentBannersPageModule({
             ))}
           </div>
 
-          <div className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6`}>
-            <p className="text-sm leading-6 text-secondary-600">Changes are written to the student pages immediately after saving.</p>
-            <SubmitButton pendingLabel="Saving changes…" size="lg" type="submit" variant="brand">
-              Save banner copy
-            </SubmitButton>
+          <div className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between`}>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${draftHasChanges ? "bg-amber-100 text-amber-800" : "bg-primary-50 text-primary-800"}`}>
+                  {draftHasChanges ? "Unpublished draft" : "Published"}
+                </span>
+                <p className="text-sm font-medium text-secondary-900">
+                  {draftHasChanges ? "Students still see the previous published copy." : "The draft matches what students see."}
+                </p>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-secondary-600">
+                Save a draft to keep edits private. Publish when you want the new copy to appear on student pages.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handlePreview} size="lg" type="button" variant="brandOutline">
+                Preview
+              </Button>
+              <SubmitButton name="intent" pendingLabel="Saving draft…" size="lg" type="submit" value="save-draft" variant="brandOutline">
+                Save draft
+              </SubmitButton>
+              <SubmitButton name="intent" pendingLabel="Publishing…" size="lg" type="submit" value="publish" variant="brand">
+                Publish
+              </SubmitButton>
+            </div>
           </div>
         </form>
       </div>

@@ -10,7 +10,9 @@ import {
 import { validateStudentBannerFields } from "@/lib/student/banner-validation";
 import {
   StudentBannerConflictError,
-  updateStudentBannerContents,
+  StudentBannerDraftMismatchError,
+  publishStudentBannerContents,
+  saveStudentBannerDraft,
 } from "@/lib/student/banner-repository";
 import type { FormState } from "@/modules/auth/form-state";
 
@@ -40,11 +42,16 @@ function buildBanners(fields: Record<string, string>): StudentBannerSet {
   ) as StudentBannerSet;
 }
 
+function readIntent(formData: FormData) {
+  return formData.get("intent") === "publish" ? "publish" : "save-draft";
+}
+
 async function updateStudentBannersAction(
-  _previousState: FormState,
+  previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const session = await requireAdminSession();
+  const intent = readIntent(formData);
   const fields = buildFields(formData);
   const fieldErrors = validateStudentBannerFields(fields);
 
@@ -52,33 +59,66 @@ async function updateStudentBannersAction(
     return {
       fieldErrors,
       fields,
-      message: "Review the highlighted fields before saving the banner copy.",
+      hasUnpublishedChanges: previousState.hasUnpublishedChanges,
+      message: "Review the highlighted fields before saving or publishing the banner copy.",
       status: "error",
     };
   }
 
   try {
-    const result = await updateStudentBannerContents({
+    if (intent === "publish") {
+      const result = await publishStudentBannerContents({
+        actorUserId: session.user.id,
+        banners: buildBanners(fields),
+        expectedVersion: fields.version || null,
+      });
+
+      revalidatePath("/dashboard");
+      revalidatePath("/courses");
+      revalidatePath("/quiz");
+      revalidatePath("/tryout");
+      revalidatePath("/admin/student-banners");
+
+      return {
+        fields: { ...fields, version: result.updatedAt },
+        hasUnpublishedChanges: false,
+        message: "Student banner copy published. Students will see it on their next page load.",
+        published: true,
+        status: "success",
+      };
+    }
+
+    const result = await saveStudentBannerDraft({
       actorUserId: session.user.id,
       banners: buildBanners(fields),
       expectedVersion: fields.version || null,
     });
 
-    revalidatePath("/dashboard");
-    revalidatePath("/courses");
-    revalidatePath("/quiz");
-    revalidatePath("/tryout");
     revalidatePath("/admin/student-banners");
 
     return {
-      fields: { ...fields, version: result.updatedAt },
-      message: "Student banner copy saved. Students will see the update on their next page load.",
+      fields: { ...fields, version: result.draftVersion },
+      hasUnpublishedChanges: result.hasUnpublishedChanges,
+      message: result.hasUnpublishedChanges
+        ? "Draft saved. Students will continue seeing the published copy until you publish it."
+        : "Draft saved. It matches the currently published banner copy.",
+      published: false,
       status: "success",
     };
   } catch (error) {
+    if (error instanceof StudentBannerDraftMismatchError) {
+      return {
+        fields,
+        hasUnpublishedChanges: previousState.hasUnpublishedChanges,
+        message: "Save the current edits as a draft before publishing them.",
+        status: "error",
+      };
+    }
+
     if (error instanceof StudentBannerConflictError) {
       return {
         fields,
+        hasUnpublishedChanges: previousState.hasUnpublishedChanges,
         message: "These banners changed since you opened the editor. Refresh the page before saving again.",
         status: "error",
       };
@@ -86,6 +126,7 @@ async function updateStudentBannersAction(
 
     return {
       fields,
+      hasUnpublishedChanges: previousState.hasUnpublishedChanges,
       message: "The banner copy could not be saved. Refresh the page and try again.",
       status: "error",
     };

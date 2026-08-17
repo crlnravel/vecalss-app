@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  ArrowDown,
+  ArrowUp,
   ListFilter,
   LoaderCircle,
   MoreHorizontal,
@@ -47,8 +49,17 @@ type DataTableColumn<T> = {
   headerClassName?: string;
   id: string;
   label: string;
+  sortKey?: string;
   hideable?: boolean;
   width?: number;
+};
+
+type DataTableSortDirection = "asc" | "desc";
+
+type DataTableSort = {
+  direction: DataTableSortDirection;
+  href: (key: string | null, direction: DataTableSortDirection) => string;
+  key: string | null;
 };
 
 type DataTableFilter = {
@@ -85,6 +96,7 @@ type DataTableProps<T> = {
   rows: readonly T[];
   onRowClick?: (row: T) => void;
   search?: DataTableSearch;
+  sort?: DataTableSort;
   selection?: boolean;
   selectionActions?: (selection: DataTableSelection<T>) => ReactNode;
   tableClassName?: string;
@@ -160,12 +172,47 @@ type DataTableGridProps<T> = {
   rows: readonly T[];
   selectedIds: Set<string>;
   selection: boolean;
+  sort?: DataTableSort;
   tableClassName?: string;
   toggleAllVisible: (checked: boolean) => void;
   toggleSelected: (id: string, checked: boolean) => void;
   visibleColumnWidthTotal: number;
   visibleColumns: readonly DataTableColumn<T>[];
 };
+
+function DataTableSortHeader<T>({
+  column,
+  sort,
+}: {
+  column: DataTableColumn<T>;
+  sort: DataTableSort;
+}) {
+  if (!column.sortKey) {
+    return column.label;
+  }
+
+  const sorted = sort.key === column.sortKey ? sort.direction : null;
+  const nextSortKey = sorted === "desc" ? null : column.sortKey;
+  const nextDirection: DataTableSortDirection = sorted === "asc" ? "desc" : "asc";
+  const nextAction = nextSortKey === null
+    ? "clear sorting"
+    : `sort ${nextDirection === "desc" ? "descending" : "ascending"}`;
+
+  return (
+    <Link
+      aria-label={`Sort by ${column.label}; activate to ${nextAction}`}
+      className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-500 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+      href={sort.href(nextSortKey, nextDirection)}
+    >
+      <span>{column.label}</span>
+      {sorted ? (
+        <span aria-hidden="true" className="inline-flex items-center text-primary-700">
+          {sorted === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
 
 function DataTableGrid<T>({
   areAllVisibleSelected,
@@ -180,6 +227,7 @@ function DataTableGrid<T>({
   rows,
   selectedIds,
   selection,
+  sort,
   tableClassName,
   toggleAllVisible,
   toggleSelected,
@@ -211,6 +259,11 @@ function DataTableGrid<T>({
           ) : null}
           {visibleColumns.map((column, index) => (
             <TableHead
+              aria-sort={column.sortKey && sort
+                ? sort.key === column.sortKey
+                  ? sort.direction === "asc" ? "ascending" : "descending"
+                  : "none"
+                : undefined}
               className={cn(
                 "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-500 sm:px-5",
                 index === 0 && !selection && "rounded-l-xl",
@@ -220,7 +273,7 @@ function DataTableGrid<T>({
               key={column.id}
               style={{ width: `${((column.width ?? 1) / visibleColumnWidthTotal) * 100}%` }}
             >
-              {column.label}
+              {column.sortKey && sort ? <DataTableSortHeader column={column} sort={sort} /> : column.label}
             </TableHead>
           ))}
         </TableRow>
@@ -316,6 +369,7 @@ function DataTable<T>({
   rowProps,
   rows,
   search,
+  sort,
   selection = false,
   selectionActions,
   tableClassName,
@@ -575,6 +629,7 @@ function DataTable<T>({
         rows={rows}
         selectedIds={selectedIds}
         selection={selection}
+        sort={sort}
         tableClassName={tableClassName}
         toggleAllVisible={toggleAllVisible}
         toggleSelected={toggleSelected}
@@ -586,4 +641,4 @@ function DataTable<T>({
 }
 
 export { DataTable };
-export type { DataTableColumn, DataTableFilter, DataTableProps, DataTableSearch, DataTableSelection };
+export type { DataTableColumn, DataTableFilter, DataTableProps, DataTableSearch, DataTableSelection, DataTableSort, DataTableSortDirection };

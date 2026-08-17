@@ -7,6 +7,7 @@ import {
   MAX_DIRECTORY_PAGE,
   MAX_DIRECTORY_QUERY_LENGTH,
   DEFAULT_DIRECTORY_PAGE_SIZE,
+  DIRECTORY_SORT_KEYS,
   DIRECTORY_PAGE_SIZE_OPTIONS,
   buildDirectoryQuery,
   isUuid,
@@ -118,6 +119,7 @@ assert.deepEqual(removeResolvedAttentionItems(replacementAttention, new Set([rep
 assert.equal(MAX_DIRECTORY_QUERY_LENGTH, 120);
 assert.equal(MAX_DIRECTORY_PAGE, 1_000);
 assert.equal(DEFAULT_DIRECTORY_PAGE_SIZE, 20);
+assert.deepEqual(DIRECTORY_SORT_KEYS, ["student", "email", "added", "status"]);
 assert.deepEqual(DIRECTORY_PAGE_SIZE_OPTIONS, [10, 20, 50]);
 
 const safeDirectory = parseDirectoryParams({
@@ -134,6 +136,8 @@ assert.deepEqual(safeDirectory, {
   page: 4,
   pageSize: DEFAULT_DIRECTORY_PAGE_SIZE,
   search: "sailor@example.test",
+  sort: null,
+  direction: "asc",
   status: "active",
   statuses: ["active"],
 });
@@ -144,6 +148,20 @@ assert.equal(parseDirectoryParams({ pageSize: "50" }).pageSize, 50);
 assert.equal(parseDirectoryParams({ pageSize: "25" }).invalid, true);
 assert.equal(parseDirectoryParams({ focus: "not-a-uuid" }).invalid, true);
 assert.equal(parseDirectoryParams({ status: "not-a-status" }).invalid, true);
+assert.deepEqual(parseDirectoryQuery("?sort=email&direction=desc&page=2"), {
+  addedFrom: null,
+  addedTo: null,
+  direction: "desc",
+  focus: null,
+  invalid: false,
+  page: 2,
+  pageSize: DEFAULT_DIRECTORY_PAGE_SIZE,
+  search: "",
+  sort: "email",
+  status: "all",
+  statuses: [],
+});
+assert.equal(parseDirectoryParams({ direction: "desc" }).invalid, true);
 assert.equal(parseDirectoryQuery(`?q=${encodeURIComponent("sailor")}&status=active&page=2&focus=${validId}`).page, 2);
 assert.equal(parseDirectoryQuery("?pageSize=10").pageSize, 10);
 assert.deepEqual(parseDirectoryQuery("?status=active&status=disabled").statuses, ["active", "disabled"]);
@@ -157,6 +175,10 @@ assert.equal(
 assert.equal(
   buildDirectoryQuery(parseDirectoryQuery("?status=active&status=disabled&addedFrom=2026-08-09&addedTo=2026-08-10")),
   "?status=active&status=disabled&addedFrom=2026-08-09&addedTo=2026-08-10",
+);
+assert.equal(
+  buildDirectoryQuery(parseDirectoryQuery("?sort=email&direction=desc&page=2")),
+  "?sort=email&direction=desc&page=2",
 );
 assert.equal(
   buildDirectoryQuery({ ...safeDirectory, pageSize: 50 }),
@@ -253,6 +275,9 @@ assert.match(sheet, /size="icon"/);
 assert.match(nav, /Sidebar/);
 assert.match(nav, /collapsible="icon"/);
 assert.doesNotMatch(createStudentForm, /UC-18 Enrollment/);
+assert.doesNotMatch(createStudentForm, /<select/u);
+assert.match(createStudentForm, /DropdownMenuRadioGroup/u);
+assert.match(createStudentForm, /mt-1 w-full/u);
 assert.doesNotMatch(createKaptenForm, /Kapten enrollment/);
 assert.match(access, /Permission contract: an authenticated non-admin returns to their authorized home/);
 assert.match(access, /redirect\(getDefaultHomePath\(session\.user\)\)/);

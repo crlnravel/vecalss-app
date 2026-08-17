@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -8,8 +8,9 @@ import {
   ChevronRight,
   Clock3,
   Flag,
-  ZoomIn,
-  ZoomOut,
+  Minus,
+  PenTool,
+  Plus,
 } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { BrandLockup } from "@/modules/home/components/home-primitives";
 
 import {
   AssessmentAnswerOption,
+  AssessmentAnnotationOverlay,
   AssessmentIconButton,
   AssessmentQuestionNavigation,
   AssessmentUtilityPill,
@@ -63,7 +66,7 @@ function QuizOngoingPageModule({
       ),
     ),
   );
-  const [flaggedQuestions, setFlaggedQuestions] = useState<number[]>(
+  const [flaggedQuestions] = useState<number[]>(
     () => attempt.markers.reduce<number[]>((numbers, marker) => {
       if (marker.state === "flagged") numbers.push(marker.number);
       return numbers;
@@ -71,9 +74,12 @@ function QuizOngoingPageModule({
   );
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
+  const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
+  const [isAnnotationOpen, setIsAnnotationOpen] = useState(false);
   const [savingQuestions, setSavingQuestions] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const toggleAnnotation = useCallback(() => setIsAnnotationOpen((open) => !open), []);
   const savingQuestionSet = useMemo(() => new Set(savingQuestions), [savingQuestions]);
   const flaggedQuestionSet = useMemo(() => new Set(flaggedQuestions), [flaggedQuestions]);
 
@@ -99,8 +105,8 @@ function QuizOngoingPageModule({
 
   const currentSelectedOptionKey = selectedAnswers[currentQuestion] ?? null;
   const currentQuizQuestion = attempt.questions[currentQuestion - 1];
-  const isCurrentQuestionFlagged = flaggedQuestionSet.has(currentQuestion);
   const isCurrentQuestionReported = reportedQuestions.includes(currentQuestion);
+  const unansweredCount = Math.max(0, quiz.questionCount - Object.keys(selectedAnswers).length);
 
   function updateTextScale(direction: "smaller" | "larger") {
     setTextScale((current) => {
@@ -122,14 +128,6 @@ function QuizOngoingPageModule({
     }
 
     setCurrentQuestion(nextQuestion);
-  }
-
-  function toggleFlag() {
-    setFlaggedQuestions((current) =>
-      current.includes(currentQuestion)
-        ? current.filter((question) => question !== currentQuestion)
-        : [...current, currentQuestion].sort((a, b) => a - b),
-    );
   }
 
   function toggleReport() {
@@ -198,9 +196,10 @@ function QuizOngoingPageModule({
       onExitDialogChange={setIsExitDialogOpen}
       onGoToQuestion={goToQuestion}
       onSelectAnswer={selectAnswer}
+      onSubmitDialogChange={setIsSubmitDialogOpen}
       onSubmitQuiz={() => { void submitQuiz(); }}
-      onToggleFlag={toggleFlag}
       onToggleReport={toggleReport}
+      onToggleAnnotation={toggleAnnotation}
       onUpdateTextScale={updateTextScale}
       quiz={quiz}
       readingTextClass={readingTextClass}
@@ -211,10 +210,12 @@ function QuizOngoingPageModule({
       unlockedQuestionCount={unlockedQuestionCount}
       viewState={{
         dialogOpen: isExitDialogOpen,
-        flagged: isCurrentQuestionFlagged,
+        annotationOpen: isAnnotationOpen,
         reported: isCurrentQuestionReported,
+        submitDialogOpen: isSubmitDialogOpen,
         submitting: isSubmitting,
       }}
+      unansweredCount={unansweredCount}
     />
   );
 }
@@ -230,9 +231,10 @@ type QuizOngoingScreenProps = {
   onExitDialogChange: (open: boolean) => void;
   onGoToQuestion: (question: number) => void;
   onSelectAnswer: (optionId: string) => void;
+  onSubmitDialogChange: (open: boolean) => void;
   onSubmitQuiz: () => void;
-  onToggleFlag: () => void;
   onToggleReport: () => void;
+  onToggleAnnotation: () => void;
   onUpdateTextScale: (direction: "smaller" | "larger") => void;
   quiz: QuizItem;
   readingTextClass: string;
@@ -241,10 +243,12 @@ type QuizOngoingScreenProps = {
   subjectTitle: string;
   uiTextClass: string;
   unlockedQuestionCount: number;
+  unansweredCount: number;
   viewState: {
+    annotationOpen: boolean;
     dialogOpen: boolean;
-    flagged: boolean;
     reported: boolean;
+    submitDialogOpen: boolean;
     submitting: boolean;
   };
 };
@@ -260,9 +264,10 @@ function QuizOngoingScreen({
   onExitDialogChange,
   onGoToQuestion,
   onSelectAnswer,
+  onSubmitDialogChange,
   onSubmitQuiz,
-  onToggleFlag,
   onToggleReport,
+  onToggleAnnotation,
   onUpdateTextScale,
   quiz,
   readingTextClass,
@@ -271,6 +276,7 @@ function QuizOngoingScreen({
   subjectTitle,
   uiTextClass,
   unlockedQuestionCount,
+  unansweredCount,
   viewState,
 }: QuizOngoingScreenProps) {
   const questionMarkers = attempt.questions.map((question, index) => {
@@ -292,60 +298,47 @@ function QuizOngoingScreen({
   return (
     <AssessmentWorkspace
       content={
-        <div className="mx-auto flex w-full max-w-[1550px] flex-col gap-5">
-          <div className={cn("flex flex-wrap items-center gap-3 font-medium", uiTextClass)}>
-            <span className="font-semibold tracking-[0.08em] text-primary-700 uppercase">
-              Soal {currentQuestion}
-            </span>
-            <span className="text-secondary-300">•</span>
-            <span className="font-medium text-secondary-400">{subjectTitle}</span>
-            <span className="text-secondary-300">|</span>
-            <AssessmentUtilityPill
-              active={viewState.reported}
-              icon={AlertTriangle}
-              label="Laporkan"
-              onClick={onToggleReport}
-            />
-            <AssessmentUtilityPill
-              active={viewState.flagged}
-              icon={Flag}
-              label="Tandai"
-              onClick={onToggleFlag}
-            />
-            <AssessmentIconButton
-              ariaLabel="Perkecil ukuran font"
-              icon={ZoomOut}
-              onClick={() => onUpdateTextScale("smaller")}
-            />
-            <AssessmentIconButton
-              ariaLabel="Perbesar ukuran font"
-              icon={ZoomIn}
-              onClick={() => onUpdateTextScale("larger")}
-            />
-          </div>
+        <div className="mx-auto w-full max-w-[1650px]">
+          <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16">
+            <section className="min-w-0">
+              <div className="flex min-h-12 items-center justify-between gap-4">
+                <span className={cn("shrink-0 font-semibold", uiTextClass)}>Soal {currentQuestion}</span>
+                <div className="flex items-center gap-2">
+                  <AssessmentUtilityPill
+                    active={viewState.reported}
+                    icon={Flag}
+                    label="Laporkan soal"
+                    onClick={onToggleReport}
+                  />
+                  <AssessmentIconButton
+                    ariaLabel="Perkecil ukuran font"
+                    icon={Minus}
+                    onClick={() => onUpdateTextScale("smaller")}
+                  />
+                  <AssessmentIconButton
+                    ariaLabel="Perbesar ukuran font"
+                    icon={Plus}
+                    onClick={() => onUpdateTextScale("larger")}
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-5">
-            <div
-              className={cn(
-                "space-y-5 border-t border-primary-100 pt-5 pb-6 font-medium text-secondary-800",
-                readingTextClass,
-              )}
-            >
-              {currentQuizQuestion?.passage.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-            </div>
+              <div className={cn("mt-7 space-y-5 font-medium text-secondary-800", readingTextClass)}>
+                {currentQuizQuestion?.passage.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+              <div className="mt-8">
+                <p className={cn("font-medium text-secondary-900", readingTextClass)}>
+                  {currentQuizQuestion?.prompt}
+                </p>
+                <p className={cn("mt-3 font-medium text-secondary-500", uiTextClass)}>
+                  {currentQuizQuestion?.hint}
+                </p>
+              </div>
+            </section>
 
-            <div>
-              <p className={cn("font-medium text-secondary-900", readingTextClass)}>
-                {currentQuizQuestion?.prompt}
-              </p>
-              <p className={cn("mt-3 font-medium text-secondary-500", uiTextClass)}>
-                {currentQuizQuestion?.hint}
-              </p>
-            </div>
-
-            <div className="grid gap-4">
+            <section className="grid gap-4">
               {currentQuizQuestion?.options.map((option) => (
                 <AssessmentAnswerOption
                   disabled={savingQuestionSet.has(currentQuestion) || viewState.submitting}
@@ -355,13 +348,14 @@ function QuizOngoingScreen({
                   selected={option.id === currentSelectedOptionKey}
                 />
               ))}
-            </div>
+            </section>
           </div>
           {message ? <p className="mt-3 text-sm font-medium text-student-status-danger-fg">{message}</p> : null}
         </div>
       }
       dialog={
-        <AlertDialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
+        <>
+          <AlertDialog onOpenChange={onExitDialogChange} open={viewState.dialogOpen}>
           <AlertDialogContent variant="danger">
             <AlertDialogHeader>
               <AlertDialogMedia variant="danger"><AlertTriangle /></AlertDialogMedia>
@@ -376,7 +370,25 @@ function QuizOngoingScreen({
               <AlertDialogAction onClick={onExit} variant="destructive">Ya, Keluar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-        </AlertDialog>
+          </AlertDialog>
+          <AlertDialog onOpenChange={onSubmitDialogChange} open={viewState.submitDialogOpen}>
+          <AlertDialogContent pending={viewState.submitting} variant="warning">
+            <AlertDialogHeader>
+              <AlertDialogMedia variant="warning"><AlertTriangle /></AlertDialogMedia>
+              <AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan quiz ini?"}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {unansweredCount ? (
+                  <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum mengirim quiz.</>
+                ) : "Setelah dikirim, jawabanmu akan dikunci dan hasil quiz akan disiapkan."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={viewState.submitting} variant="brandOutline">Periksa lagi</AlertDialogCancel>
+              <AlertDialogAction disabled={viewState.submitting} onClick={onSubmitQuiz} variant="destructive">{viewState.submitting ? "Mengirim…" : "Tetap kirim"}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+          </AlertDialog>
+        </>
       }
       exitControl={
         <Button
@@ -390,44 +402,64 @@ function QuizOngoingScreen({
         </Button>
       }
       footer={
-        <div className="sticky bottom-0 z-10 border-t border-primary-100 bg-white/96 px-4 py-4 backdrop-blur md:px-8 lg:px-10">
-          <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20 px-4 md:bottom-7 md:px-8">
+          <div className="pointer-events-auto mx-auto grid w-full max-w-[570px] grid-cols-[1fr_7rem_1fr] items-center gap-3 rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
             <Button
+              aria-label="Soal sebelumnya"
+              className="h-16 w-full justify-center"
               disabled={currentQuestion === 1}
               onClick={() => onGoToQuestion(currentQuestion - 1)}
               size="lg"
               variant="brandOutline"
             >
-              <ChevronLeft data-icon="inline-start" />
-              Soal Sebelumnya
+              <ChevronLeft />
+              <span className="sr-only">Sebelumnya</span>
             </Button>
+            <button
+              aria-label="Coretan (sementara dinonaktifkan)"
+              className="flex min-w-20 cursor-not-allowed flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-secondary-400 opacity-60"
+              disabled
+              title="Coretan sementara dinonaktifkan"
+              type="button"
+            >
+              <span className="grid size-12 place-items-center rounded-full border-2 border-secondary-300">
+                <PenTool className="size-7" />
+              </span>
+              Coretan
+            </button>
             {currentQuestion === quiz.questionCount ? (
-              <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" disabled={viewState.submitting || savingQuestionSet.size > 0} onClick={() => onSubmitQuiz()} size="lg">
-                {viewState.submitting ? "Mengirim quiz…" : "Kirim Quiz"}
-                <ChevronRight data-icon="inline-end" />
+              <Button
+                aria-label="Selesai"
+                className="h-16 w-full justify-center"
+                disabled={viewState.submitting || savingQuestionSet.size > 0}
+                onClick={() => onSubmitDialogChange(true)}
+                size="lg"
+                variant="brand"
+              >
+                Selesai
               </Button>
             ) : (
-              <Button className="border-primary-700 bg-primary-700 text-white hover:border-primary-800 hover:bg-primary-800 focus-visible:border-primary-700 focus-visible:ring-primary-700/35" onClick={() => onGoToQuestion(currentQuestion + 1)} size="lg">
-                Soal Selanjutnya
-                <ChevronRight data-icon="inline-end" />
+              <Button aria-label="Soal selanjutnya" className="h-16 w-full justify-center" onClick={() => onGoToQuestion(currentQuestion + 1)} size="lg" variant="brand">
+                <span className="sr-only">Selanjutnya</span>
+                <ChevronRight />
               </Button>
             )}
           </div>
         </div>
       }
       header={
-        <div className="flex items-center justify-between border-b border-primary-100 px-4 py-4 md:px-8 lg:px-10">
-          <div className="min-w-0">
-            <h2 className="text-3xl leading-none font-semibold text-secondary-900 md:text-4xl">
-              {quiz.title}
-            </h2>
-          </div>
+        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 border-b border-primary-100 bg-white px-16 py-4 sm:min-h-24">
+          <h2 className="sr-only">{quiz.title} · {subjectTitle}</h2>
+          <BrandLockup />
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white px-4 py-2 text-sm font-medium text-secondary-700 shadow-sm">
+          <div className="absolute right-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm sm:right-8">
             <Clock3 className="size-4 text-secondary-500" />
             <span>{attempt.remainingTime}</span>
           </div>
         </div>
+      }
+      annotation={
+        <AssessmentAnnotationOverlay onClose={onToggleAnnotation} open={viewState.annotationOpen} />
       }
       navigation={
         <AssessmentQuestionNavigation

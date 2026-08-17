@@ -552,7 +552,9 @@ model User {
   notificationsReceived                  Notification[]
   billingAccounts                        BillingAccount[]                 @relation("StudentBilling")
   extendedBillingAccounts                BillingAccount[]                 @relation("BillingExtendedBy")
-  updatedSystemConfigs                   SystemConfig[]
+  updatedSystemConfigs                   SystemConfig[]                 @relation("SystemConfigUpdatedBy")
+  draftUpdatedSystemConfigs              SystemConfig[]                 @relation("SystemConfigDraftUpdatedBy")
+  publishedSystemConfigs                 SystemConfig[]                 @relation("SystemConfigPublishedBy")
   auditLogs                              AuditLog[]
   enrollmentHandoffs                     EnrollmentHandoff[]              @relation("EnrollmentHandoffUser")
   createdEnrollmentHandoffs              EnrollmentHandoff[]              @relation("EnrollmentHandoffCreatedBy")
@@ -2507,13 +2509,20 @@ model BillingAccount {
 }
 
 model SystemConfig {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  configKey       String   @unique @map("config_key") @db.VarChar(120)
-  configValue     Json     @map("config_value") @db.JsonB
-  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
-  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  configKey             String   @unique @map("config_key") @db.VarChar(120)
+  configValue           Json     @map("config_value") @db.JsonB
+  updatedByUserId       String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt             DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  draftValue            Json?    @map("draft_value") @db.JsonB
+  draftUpdatedByUserId  String?  @map("draft_updated_by_user_id") @db.Uuid
+  draftUpdatedAt        DateTime? @map("draft_updated_at") @db.Timestamptz
+  publishedByUserId     String?  @map("published_by_user_id") @db.Uuid
+  publishedAt           DateTime? @map("published_at") @db.Timestamptz
 
-  updatedBy User? @relation(fields: [updatedByUserId], references: [id])
+  updatedBy       User? @relation("SystemConfigUpdatedBy", fields: [updatedByUserId], references: [id])
+  draftUpdatedBy  User? @relation("SystemConfigDraftUpdatedBy", fields: [draftUpdatedByUserId], references: [id])
+  publishedBy     User? @relation("SystemConfigPublishedBy", fields: [publishedByUserId], references: [id])
 
   @@map("system_configs")
 }

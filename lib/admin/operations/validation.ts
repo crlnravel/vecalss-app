@@ -4,6 +4,11 @@ import {
   DIRECTORY_PAGE_SIZE_OPTIONS,
   type DirectoryPageSize,
 } from "./directory-page-constants";
+import {
+  DIRECTORY_SORT_KEYS,
+  type DirectorySortDirection,
+  type DirectorySortKey,
+} from "./directory-query";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAX_DIRECTORY_QUERY_LENGTH = 120;
@@ -13,10 +18,12 @@ type DirectoryParamValue = string | string[] | undefined | null;
 type DirectoryParamsInput = {
   addedFrom?: DirectoryParamValue;
   addedTo?: DirectoryParamValue;
+  direction?: DirectoryParamValue;
   focus?: DirectoryParamValue;
   page?: DirectoryParamValue;
   pageSize?: DirectoryParamValue;
   q?: DirectoryParamValue;
+  sort?: DirectoryParamValue;
   status?: DirectoryParamValue;
 };
 
@@ -28,17 +35,11 @@ type DirectoryParams = {
   page: number;
   pageSize: DirectoryPageSize;
   search: string;
+  sort: DirectorySortKey | null;
+  direction: DirectorySortDirection;
   status: UserStatus | "all";
   statuses: UserStatus[];
 };
-
-type DirectoryQueryOptions = Pick<DirectoryParams, "focus" | "page" | "search" | "status">
-  & {
-    addedFrom?: string | null;
-    addedTo?: string | null;
-    pageSize?: DirectoryPageSize;
-    statuses?: readonly UserStatus[];
-  };
 
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
@@ -184,6 +185,34 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
     }
   }
 
+  const rawSort = readSingle(input.sort);
+  let sort: DirectorySortKey | null = null;
+  if (rawSort.invalid) {
+    invalid = true;
+  } else if (rawSort.value !== null) {
+    if ((DIRECTORY_SORT_KEYS as readonly string[]).includes(rawSort.value)) {
+      sort = rawSort.value as DirectorySortKey;
+    } else {
+      invalid = true;
+    }
+  }
+
+  const rawDirection = readSingle(input.direction);
+  let direction: DirectorySortDirection = "asc";
+  if (rawDirection.invalid) {
+    invalid = true;
+  } else if (rawDirection.value !== null) {
+    if (rawDirection.value === "asc" || rawDirection.value === "desc") {
+      direction = rawDirection.value;
+    } else {
+      invalid = true;
+    }
+
+    if (!sort) {
+      invalid = true;
+    }
+  }
+
   const rawFocus = readSingle(input.focus);
   let focus: string | null = null;
   if (rawFocus.invalid) {
@@ -203,6 +232,8 @@ function parseDirectoryParams(input: DirectoryParamsInput): DirectoryParams {
     page,
     pageSize,
     search: invalid && search.length > MAX_DIRECTORY_QUERY_LENGTH ? "" : search,
+    sort,
+    direction,
     status,
     statuses,
   };
@@ -218,6 +249,8 @@ function parseDirectoryQuery(query: string): DirectoryParams {
       page: 1,
       pageSize: DEFAULT_DIRECTORY_PAGE_SIZE,
       search: "",
+      sort: null,
+      direction: "asc",
       status: "all",
       statuses: [],
     };
@@ -232,37 +265,36 @@ function parseDirectoryQuery(query: string): DirectoryParams {
   return parseDirectoryParams({
     addedFrom: valueFor("addedFrom"),
     addedTo: valueFor("addedTo"),
+    direction: valueFor("direction"),
     focus: valueFor("focus"),
     page: valueFor("page"),
     pageSize: valueFor("pageSize"),
     q: valueFor("q"),
+    sort: valueFor("sort"),
     status: valueFor("status"),
   });
-}
-
-function buildDirectoryQuery({ addedFrom, addedTo, focus, page, pageSize, search, status, statuses }: DirectoryQueryOptions): string {
-  const params = new URLSearchParams();
-  if (search) params.set("q", search);
-  const selectedStatuses = statuses?.length ? statuses : status !== "all" ? [status] : [];
-  selectedStatuses.forEach((selectedStatus) => params.append("status", selectedStatus));
-  if (addedFrom) params.set("addedFrom", addedFrom);
-  if (addedTo) params.set("addedTo", addedTo);
-  if (pageSize && pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE) params.set("pageSize", String(pageSize));
-  if (page > 1) params.set("page", String(page));
-  if (focus) params.set("focus", focus);
-  const query = params.toString();
-  return query ? `?${query}` : "";
 }
 
 export {
   MAX_DIRECTORY_PAGE,
   MAX_DIRECTORY_QUERY_LENGTH,
   DEFAULT_DIRECTORY_PAGE_SIZE,
+  DIRECTORY_SORT_KEYS,
   DIRECTORY_PAGE_SIZE_OPTIONS,
-  buildDirectoryQuery,
   isUuid,
   parseDirectoryParams,
   parseDirectoryQuery,
   parseUuid,
 };
-export type { DirectoryPageSize, DirectoryParams, DirectoryParamsInput, DirectoryParamValue, DirectoryQueryOptions };
+export { buildDirectoryQuery } from "./directory-query";
+export type { DirectoryPageSize } from "./directory-page-constants";
+export type {
+  DirectoryQueryOptions,
+  DirectorySortDirection,
+  DirectorySortKey,
+} from "./directory-query";
+export type {
+  DirectoryParams,
+  DirectoryParamsInput,
+  DirectoryParamValue,
+};

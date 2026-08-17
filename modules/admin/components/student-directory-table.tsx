@@ -25,6 +25,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@
 import type { UserStatus } from "@/generated/prisma/client";
 import { ChevronRight, XIcon } from "@/lib/icons";
 import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
+import { buildDirectoryQuery, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/directory-query";
 import { cn } from "@/lib/utils";
 import { bulkUpdateStudentEnrollmentStatusAction } from "@/modules/admin/actions";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -187,16 +188,20 @@ function formatDateFilter(addedFrom: string | null, addedTo: string | null) {
 function directoryHref({
   addedFrom,
   addedTo,
+  direction,
   demo,
   pageSize,
   search,
+  sort,
   statuses,
 }: {
   addedFrom: string | null;
   addedTo: string | null;
+  direction: DirectorySortDirection;
   demo: boolean;
   pageSize: DirectoryPageSize;
   search: string;
+  sort: DirectorySortKey | null;
   statuses: readonly UserStatus[];
 }) {
   const params = new URLSearchParams();
@@ -209,6 +214,12 @@ function directoryHref({
   }
   if (addedTo) {
     params.set("addedTo", addedTo);
+  }
+  if (sort) {
+    params.set("sort", sort);
+    if (direction === "desc") {
+      params.set("direction", direction);
+    }
   }
   if (demo) {
     params.set("demo", "1");
@@ -394,17 +405,21 @@ function StudentFilterPanel({
   addedFrom,
   addedTo,
   clearFiltersHref,
+  direction,
   demo,
   pageSize,
   statusFilters,
   search,
+  sort,
 }: {
   addedFrom: string | null;
   addedTo: string | null;
   clearFiltersHref: string;
+  direction: DirectorySortDirection;
   demo: boolean;
   pageSize: DirectoryPageSize;
   search: string;
+  sort: DirectorySortKey | null;
   statusFilters: readonly UserStatus[];
 }) {
   const router = useRouter();
@@ -436,6 +451,13 @@ function StudentFilterPanel({
       params.set("addedTo", typeof addedToValue === "string" && addedToValue ? addedToValue : addedFromValue);
     } else if (typeof addedToValue === "string" && addedToValue) {
       params.set("addedTo", addedToValue);
+    }
+
+    if (sort) {
+      params.set("sort", sort);
+      if (direction === "desc") {
+        params.set("direction", direction);
+      }
     }
 
     if (pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE) {
@@ -482,6 +504,8 @@ function StudentFilterPanel({
         >
           <form action="/admin/enrollment" className="grid gap-2" method="get" onSubmit={handleSubmit}>
             <input name="q" type="hidden" value={search} />
+            {sort ? <input name="sort" type="hidden" value={sort} /> : null}
+            {sort && direction === "desc" ? <input name="direction" type="hidden" value={direction} /> : null}
             {addedFrom ? <input name="addedFrom" type="hidden" value={addedFrom} /> : null}
             {addedTo ? <input name="addedTo" type="hidden" value={addedTo} /> : null}
             <div aria-label="Status" className="grid gap-0.5" role="group">
@@ -542,6 +566,8 @@ function StudentFilterPanel({
         >
           <form action="/admin/enrollment" className="grid gap-2" method="get" onSubmit={handleSubmit}>
             <input name="q" type="hidden" value={search} />
+            {sort ? <input name="sort" type="hidden" value={sort} /> : null}
+            {sort && direction === "desc" ? <input name="direction" type="hidden" value={direction} /> : null}
             {statusFilters.map((status) => <input key={status} name="status" type="hidden" value={status} />)}
             <input name="addedFrom" type="hidden" value={toDateInput(draftDateRange?.from)} />
             <input name="addedTo" type="hidden" value={toDateInput(draftDateRange?.to)} />
@@ -570,11 +596,13 @@ function StudentDirectoryTable({
   addedTo,
   backQuery,
   dataQuery,
+  direction,
   demo,
   focus,
   isEmptyDirectory,
   pageSize,
   search,
+  sort,
   statusFilters,
   students,
 }: {
@@ -582,19 +610,21 @@ function StudentDirectoryTable({
   addedTo: string | null;
   backQuery: string;
   dataQuery: string;
+  direction: DirectorySortDirection;
   demo: boolean;
   focus: string | null;
   isEmptyDirectory: boolean;
   pageSize: DirectoryPageSize;
   search: string;
+  sort: DirectorySortKey | null;
   statusFilters: UserStatus[];
   students: StudentDirectoryItem[];
 }) {
   const [previewStudent, setPreviewStudent] = useState<StudentDirectoryItem | null>(null);
-  const clearSearchHref = directoryHref({ addedFrom, addedTo, demo, pageSize, search: "", statuses: statusFilters });
-  const clearStatusHref = directoryHref({ addedFrom, addedTo, demo, pageSize, search, statuses: [] });
-  const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, demo, pageSize, search, statuses: statusFilters });
-  const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, demo, pageSize, search: "", statuses: [] });
+  const clearSearchHref = directoryHref({ addedFrom, addedTo, direction, demo, pageSize, search: "", sort, statuses: statusFilters });
+  const clearStatusHref = directoryHref({ addedFrom, addedTo, direction, demo, pageSize, search, sort, statuses: [] });
+  const clearDateHref = directoryHref({ addedFrom: null, addedTo: null, direction, demo, pageSize, search, sort, statuses: statusFilters });
+  const clearFiltersHref = directoryHref({ addedFrom: null, addedTo: null, direction, demo, pageSize, search: "", sort, statuses: [] });
   const filters: DataTableFilter[] = [];
 
   if (statusFilters.length) {
@@ -634,6 +664,7 @@ function StudentDirectoryTable({
       hideable: false,
       id: "student",
       label: "Student",
+      sortKey: "student",
       width: 28,
     },
     {
@@ -645,6 +676,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[28%]",
       id: "email",
       label: "Email",
+      sortKey: "email",
       width: 28,
     },
     {
@@ -653,6 +685,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[17%]",
       id: "added",
       label: "Added",
+      sortKey: "added",
       width: 17,
     },
     {
@@ -665,6 +698,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[17%]",
       id: "status",
       label: "Status",
+      sortKey: "status",
       width: 17,
     },
     {
@@ -700,9 +734,11 @@ function StudentDirectoryTable({
       addedFrom={addedFrom}
       addedTo={addedTo}
       clearFiltersHref={clearFiltersHref}
+      direction={direction}
       demo={demo}
       pageSize={pageSize}
       search={search}
+      sort={sort}
       statusFilters={statusFilters}
     />
   );
@@ -752,10 +788,32 @@ function StudentDirectoryTable({
             ...(addedTo ? { addedTo } : {}),
             ...(demo ? { demo: "1" } : {}),
             ...(pageSize !== DEFAULT_DIRECTORY_PAGE_SIZE ? { pageSize: String(pageSize) } : {}),
+            ...(sort ? { sort } : {}),
+            ...(sort && direction === "desc" ? { direction } : {}),
           },
           label: "Global student search",
           placeholder: "Search students by name or email…",
           value: search,
+        }}
+        sort={{
+          direction,
+          href: (nextSortKey, nextDirection) => {
+            const query = buildDirectoryQuery({
+              addedFrom,
+              addedTo,
+              direction: nextDirection,
+              focus: null,
+              page: 1,
+              pageSize,
+              search,
+              sort: nextSortKey as DirectorySortKey | null,
+              status: statusFilters[0] ?? "all",
+              statuses: statusFilters,
+            });
+            const demoQuery = demo ? `${query}${query ? "&" : "?"}demo=1` : query;
+            return demoQuery ? `/admin/enrollment${demoQuery}` : "/admin/enrollment";
+          },
+          key: sort,
         }}
         selection={!demo}
         selectionActions={({ rows }) => (

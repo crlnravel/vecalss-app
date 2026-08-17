@@ -3,7 +3,6 @@
 import {
   ArrowLeft,
   ArrowRight,
-  ArrowUpRight,
   ArrowsOut,
   CalendarBlank,
   Check,
@@ -14,7 +13,8 @@ import {
   Flag,
   FloppyDisk,
   ListChecks,
-  PaperPlaneTilt,
+  PenNib as PenTool,
+  Play,
   SpinnerGap,
   UserCircle,
   Warning,
@@ -36,10 +36,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
+import { Minus, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { BrandLockup } from "@/modules/home/components/home-primitives";
 import {
   AssessmentAnswerOption,
+  AssessmentAnnotationOverlay,
+  AssessmentIconButton,
   AssessmentQuestionNavigation,
   AssessmentUtilityPill,
   AssessmentWorkspace,
@@ -133,7 +136,7 @@ function ParticipantAttemptStatusScreen({
 
   return (
     <main className="min-h-svh bg-[#f7faf8] px-4 py-8 text-secondary-900 sm:px-6 lg:py-12">
-      <div className="mx-auto grid w-full max-w-[78rem] gap-8">
+      <div className="mx-auto grid w-full max-w-[72rem] gap-8">
         <section className="overflow-hidden rounded-[2rem] border border-primary-100 bg-white shadow-[0_26px_80px_-46px_rgba(1,76,56,0.3)]">
           <div className="bg-[linear-gradient(120deg,#014c38_0%,#176b4d_68%,#2f8a5d_100%)] p-6 text-white sm:p-8">
             <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-4xl">{title}</h1>
@@ -181,37 +184,23 @@ function ParticipantAttemptStatusScreen({
             <Button className="mx-auto mt-6 flex" nativeButton={false} render={<Link href={`/tryout/attempt/${attemptId}/result`} />} variant="brand">Buka hasil <ArrowRight /></Button>
           </section>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3">
             {runs.map((candidate) => {
               const isNext = candidate.id === nextRun?.id;
               const isComplete = ["sealed", "expired"].includes(candidate.status);
               return (
-                <article className={cn(studentCatalogueCardVariants({ variant: "kuis" }), "text-left")} key={candidate.id}>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-20 md:rounded-[1.6rem]">
-                      {isComplete ? <Check aria-hidden="true" className="size-7 md:size-9" /> : <ListChecks aria-hidden="true" className="size-7 md:size-9" />}
-                    </span>
-                    <span className="rounded-full bg-primary-50 px-3 py-2 text-xs font-extrabold tracking-[0.1em] text-primary-800">Bagian {candidate.sequenceNo}</span>
-                  </div>
-
-                  <div className="mt-8">
-                    <h2 className="line-clamp-2 text-3xl leading-[0.98] font-extrabold tracking-[-0.035em] text-secondary-900 md:text-4xl">{candidate.section.title}</h2>
-                    <p className="mt-3 max-w-[30ch] text-sm leading-6 text-secondary-500">{isComplete ? "Bagian ini sudah selesai dan terkunci." : isNext ? "Siap dikerjakan." : "Menunggu bagian sebelumnya."}</p>
-                  </div>
-
-                  <div className="mt-auto flex items-end justify-between gap-4 pt-8">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-secondary-600">
-                      <span className="inline-flex items-center gap-1.5"><ListChecks aria-hidden="true" className="size-4" />{candidate.section.questionCount} soal</span>
-                      <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4" />{formatDuration(candidate.section.durationSeconds)}</span>
+                <article className="grid gap-4 rounded-[1.5rem] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.38)] sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-6" key={candidate.id}>
+                  <span className={cn("flex size-11 items-center justify-center rounded-full text-sm font-bold", isComplete ? "bg-primary-700 text-white" : isNext ? "bg-student-status-attention-bg text-student-status-attention-fg" : "bg-secondary-100 text-secondary-500")}>
+                    {isComplete ? <Check /> : candidate.sequenceNo}
+                  </span>
+                  <div>
+                    <h2 className="font-semibold">{candidate.section.title}</h2>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
+                      <span className="inline-flex items-center gap-1.5"><ListChecks aria-hidden="true" className="size-4 text-primary-700" />{candidate.section.questionCount} soal</span>
+                      <span className="inline-flex items-center gap-1.5"><Clock aria-hidden="true" className="size-4 text-primary-700" />{formatDuration(candidate.section.durationSeconds)}</span>
                     </div>
-                    {isNext ? (
-                      <Button aria-label={`Mulai bagian ${candidate.section.title}`} className="grid size-11 shrink-0 place-items-center rounded-full p-0" disabled={busy} onClick={() => onBegin(candidate.id)} size="icon" title={`Mulai bagian ${candidate.section.title}`} variant="brand">
-                        {busy ? <SpinnerGap className="animate-spin" /> : <ArrowUpRight aria-hidden="true" className="size-5" />}
-                      </Button>
-                    ) : (
-                      <span className="shrink-0 text-sm font-semibold text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>
-                    )}
                   </div>
+                  {isNext ? <Button disabled={busy} onClick={() => onBegin(candidate.id)} variant="brand">{busy ? <SpinnerGap className="animate-spin" /> : <Play />}Mulai bagian</Button> : <span className="text-sm text-secondary-500">{isComplete ? "Terkunci" : "Menunggu"}</span>}
                 </article>
               );
             })}
@@ -229,11 +218,14 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [marked, setMarked] = useState<Set<string>>(new Set());
+  const [reported, setReported] = useState<Set<string>>(new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [exitOpen, setExitOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [annotationOpen, setAnnotationOpen] = useState(false);
   const activeRunRef = useRef<string | null>(null);
   const router = useRouter();
+  const toggleAnnotation = useCallback(() => setAnnotationOpen((open) => !open), []);
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -412,13 +404,14 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
     }
   };
 
-  const toggleMarked = () => {
-    if (!run || !item) return;
-    const next = new Set(marked);
-    if (next.has(item.id)) next.delete(item.id);
-    else next.add(item.id);
-    setMarked(next);
-    window.localStorage.setItem(`tryout:${attemptId}:${run.id}:marked`, JSON.stringify([...next]));
+  const toggleReport = () => {
+    if (!item) return;
+    setReported((current) => {
+      const next = new Set(current);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
   };
 
   const enterFullscreen = async () => {
@@ -457,6 +450,7 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
   return (
     <ParticipantAttemptScreen
       answerIds={answerIds}
+      annotationOpen={annotationOpen}
       busy={busy}
       enterFullscreen={enterFullscreen}
       exitOpen={exitOpen}
@@ -469,7 +463,9 @@ function ParticipantAttemptModule({ attemptId }: { attemptId: string }) {
       now={now}
       onIndexChange={setIndex}
       onExit={() => router.push("/tryout")}
-      onToggleMarked={toggleMarked}
+      onToggleAnnotation={toggleAnnotation}
+      onToggleReport={toggleReport}
+      reported={reported}
       run={run}
       save={save}
       saveState={saveState}
@@ -491,6 +487,7 @@ type ActiveRun = NonNullable<State["activeRun"]>;
 
 function ParticipantAttemptScreen({
   answerIds,
+  annotationOpen,
   busy,
   enterFullscreen,
   exitOpen,
@@ -503,7 +500,9 @@ function ParticipantAttemptScreen({
   now,
   onIndexChange,
   onExit,
-  onToggleMarked,
+  onToggleAnnotation,
+  onToggleReport,
+  reported,
   run,
   save,
   saveState,
@@ -519,6 +518,7 @@ function ParticipantAttemptScreen({
   unansweredCount,
 }: {
   answerIds: Set<string>;
+  annotationOpen: boolean;
   busy: boolean;
   enterFullscreen: () => void;
   exitOpen: boolean;
@@ -531,7 +531,9 @@ function ParticipantAttemptScreen({
   now: number;
   onIndexChange: (index: number) => void;
   onExit: () => void;
-  onToggleMarked: () => void;
+  onToggleAnnotation: () => void;
+  onToggleReport: () => void;
+  reported: Set<string>;
   run: ActiveRun;
   save: (optionId: string) => void;
   saveState: "idle" | "saving" | "saved" | "error";
@@ -546,6 +548,13 @@ function ParticipantAttemptScreen({
   runCount: number;
   unansweredCount: number;
 }) {
+  const isCat = snapshot?.testType === "cat";
+  const [textScale, setTextScale] = useState<"compact" | "default" | "large">("default");
+  const readingTextClass = textScale === "large"
+    ? "text-xl leading-[1.9]"
+    : textScale === "compact"
+      ? "text-base leading-[1.8]"
+      : "text-lg leading-[1.85]";
   const navigationItems: AssessmentQuestionMarkerItem[] = items.map((candidate, candidateIndex) => ({
     id: candidate.id,
     number: candidateIndex + 1,
@@ -561,53 +570,60 @@ function ParticipantAttemptScreen({
   return (
     <AssessmentWorkspace
       content={
-        <div className="mx-auto flex w-full max-w-[1550px] flex-col gap-5">
-          <div className="flex flex-wrap items-center gap-3 font-medium text-sm">
-            <span className="font-semibold tracking-[0.08em] text-primary-700 uppercase">
-              Soal {Math.min(index + 1, items.length)} dari {items.length}
-            </span>
-            <span className="text-secondary-300">•</span>
-            <span className="font-medium text-secondary-400">{run.section.subtest.name}</span>
-            <span className="text-secondary-300">|</span>
-            {snapshot?.testType === "cbt" ? (
-              <AssessmentUtilityPill
-                active={marked.has(item.id)}
-                icon={Flag}
-                label={marked.has(item.id) ? "Ditandai" : "Tandai"}
-                onClick={onToggleMarked}
-              />
-            ) : null}
-            <p
-              aria-live="polite"
-              className={cn(
-                "flex min-h-9 items-center gap-2 text-xs font-medium",
-                saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500",
-              )}
-            >
-              {saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : null}
-              {saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : null}
-              {saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : null}
-              {saveState === "idle" ? <><FloppyDisk />Simpan otomatis</> : null}
-            </p>
-          </div>
+        <div className="mx-auto w-full max-w-[1650px]">
+          <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.96fr)_minmax(34rem,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,0.98fr)_minmax(36rem,1fr)] xl:gap-16">
+            <section className="min-w-0">
+              <div className="flex min-h-12 items-center justify-between gap-4">
+                <span className="shrink-0 text-lg font-semibold">Soal {Math.min(index + 1, items.length)}</span>
+                <div className="flex items-center gap-2">
+                  <AssessmentUtilityPill
+                    active={reported.has(item.id)}
+                    icon={Flag}
+                    label="Laporkan soal"
+                    onClick={onToggleReport}
+                  />
+                  <AssessmentIconButton
+                    ariaLabel="Perkecil ukuran font"
+                    icon={Minus}
+                    onClick={() => setTextScale((current) => current === "large" ? "default" : "compact")}
+                  />
+                  <AssessmentIconButton
+                    ariaLabel="Perbesar ukuran font"
+                    icon={Plus}
+                    onClick={() => setTextScale((current) => current === "compact" ? "default" : "large")}
+                  />
+                </div>
+              </div>
 
-          {snapshot?.instructions ? (
-            <aside className="rounded-2xl border border-primary-100 bg-primary-50 p-4 text-sm leading-6 text-secondary-700">
-              <strong>Petunjuk:</strong> {snapshot.instructions}
-            </aside>
-          ) : null}
-          {message ? (
-            <p className="flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status">
-              <WarningCircle />{message}
-            </p>
-          ) : null}
+              <p
+                aria-live="polite"
+                className={cn(
+                  "mt-2 flex min-h-7 items-center gap-2 text-xs font-medium",
+                  saveState === "error" ? "text-student-status-danger-fg" : "text-secondary-500",
+                )}
+              >
+                {saveState === "saving" ? <><SpinnerGap className="animate-spin" />Menyimpan…</> : null}
+                {saveState === "saved" ? <><CheckCircle className="text-primary-700" />Tersimpan</> : null}
+                {saveState === "error" ? <><WarningCircle />Gagal tersimpan · pilih lagi</> : null}
+                {saveState === "idle" ? <><FloppyDisk />Simpan otomatis</> : null}
+              </p>
 
-          <div className="space-y-5">
-            <div className="space-y-5 border-t border-primary-100 pt-5 pb-6 font-medium text-secondary-800">
-              <p className="whitespace-pre-wrap text-lg leading-[1.85]">{item.prompt}</p>
-            </div>
+              {message ? (
+                <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status">
+                  <WarningCircle />{message}
+                </p>
+              ) : null}
 
-            <div className="grid gap-4">
+              {snapshot?.instructions ? (
+                <aside className="mt-5 rounded-2xl border border-primary-100 bg-primary-50 p-4 text-sm leading-6 text-secondary-700">
+                  <strong>Petunjuk:</strong> {snapshot.instructions}
+                </aside>
+              ) : null}
+
+              <p className={cn("mt-7 whitespace-pre-wrap font-medium text-secondary-800", readingTextClass)}>{item.prompt}</p>
+            </section>
+
+            <section className="grid gap-4">
               {item.options.map((option) => (
                 <AssessmentAnswerOption
                   disabled={saveState === "saving" || busy}
@@ -617,7 +633,7 @@ function ParticipantAttemptScreen({
                   selected={selected === option.id}
                 />
               ))}
-            </div>
+            </section>
           </div>
         </div>
       }
@@ -633,8 +649,8 @@ function ParticipantAttemptScreen({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Tetap mengerjakan</AlertDialogCancel>
-                <AlertDialogAction onClick={onExit} variant="destructive">Ya, Keluar</AlertDialogAction>
+                <AlertDialogCancel disabled={busy}>Tetap mengerjakan</AlertDialogCancel>
+                <AlertDialogAction disabled={busy} onClick={onExit} variant="destructive">Ya, keluar</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -642,14 +658,18 @@ function ParticipantAttemptScreen({
             <AlertDialogContent pending={busy} variant="warning">
               <AlertDialogHeader>
                 <AlertDialogMedia variant="warning"><Warning /></AlertDialogMedia>
-                <AlertDialogTitle>Kirim dan kunci bagian ini?</AlertDialogTitle>
+                <AlertDialogTitle>{unansweredCount ? "Masih ada soal yang belum terjawab" : "Selesaikan bagian ini?"}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Bagian yang dikirim tidak dapat dibuka lagi. Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum dijawab</strong> dan <strong className="text-secondary-900">{markedCount} soal ditandai</strong>.
+                  {unansweredCount ? (
+                    <>Kamu masih memiliki <strong className="text-secondary-900">{unansweredCount} soal belum terjawab</strong>. Periksa kembali sebelum menyelesaikan bagian ini.</>
+                  ) : (
+                    <>Bagian yang dikirim tidak dapat dibuka lagi. {markedCount ? <><strong className="text-secondary-900">{markedCount} soal ditandai</strong> masih menunggu pemeriksaanmu.</> : "Semua soal sudah terjawab."}</>
+                  )}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={busy} variant="brandOutline">Periksa lagi</AlertDialogCancel>
-                <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Kirim bagian"}</AlertDialogAction>
+                <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Tetap kirim"}</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -658,6 +678,7 @@ function ParticipantAttemptScreen({
       exitControl={
         <Button
           aria-label="Keluar dari tryout"
+          disabled={busy}
           onClick={() => setExitOpen(true)}
           size="icon-sm"
           title="Keluar dari tryout"
@@ -667,32 +688,67 @@ function ParticipantAttemptScreen({
         </Button>
       }
       footer={
-        <div className="sticky bottom-0 z-10 border-t border-primary-100 bg-white/96 px-4 py-4 backdrop-blur md:px-8 lg:px-10">
-          <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3">
-            {snapshot?.testType === "cbt" ? (
-              <div className="grid grid-cols-2 gap-2 sm:flex">
-                <Button disabled={busy || saveState === "saving" || index === 0} onClick={() => onIndexChange(index - 1)} size="lg" variant="brandOutline"><ArrowLeft data-icon="inline-start" />Soal Sebelumnya</Button>
-                <Button disabled={busy || saveState === "saving" || index >= items.length - 1} onClick={() => onIndexChange(index + 1)} size="lg" variant="brandOutline">Soal Selanjutnya<ArrowRight data-icon="inline-end" /></Button>
-              </div>
-            ) : <p className="text-sm text-secondary-600">Pilih jawaban untuk memuat soal adaptif berikutnya.</p>}
-            <div className="grid grid-cols-1 gap-2 sm:flex">
-              <Button disabled={busy || saveState === "saving"} onClick={() => setSubmitOpen(true)} size="lg" variant="brand"><PaperPlaneTilt />Kirim bagian</Button>
-            </div>
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20 px-4 md:bottom-7 md:px-8">
+          <div className="pointer-events-auto mx-auto grid w-full max-w-[570px] grid-cols-[1fr_7rem_1fr] items-center gap-3 rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
+            <Button
+              aria-label="Soal sebelumnya"
+              className="h-16 w-full justify-center"
+              disabled={busy || saveState === "saving" || index === 0}
+              onClick={() => onIndexChange(index - 1)}
+              size="lg"
+              variant="brandOutline"
+            >
+              <ArrowLeft />
+              <span className="sr-only">Sebelumnya</span>
+            </Button>
+            <button
+              aria-label="Coretan (sementara dinonaktifkan)"
+              className="flex min-w-20 cursor-not-allowed flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-secondary-400 opacity-60"
+              disabled
+              title="Coretan sementara dinonaktifkan"
+              type="button"
+            >
+              <span className="grid size-12 place-items-center rounded-full border-2 border-secondary-300">
+                <PenTool className="size-7" />
+              </span>
+              Coretan
+            </button>
+            {isCat ? (
+              <Button
+                aria-label={selected ? "Jawaban tersimpan, menyiapkan soal berikutnya" : "Pilih jawaban untuk lanjut"}
+                className="h-16 w-full justify-center"
+                disabled
+                size="lg"
+                variant="brand"
+              >
+                {selected ? <><SpinnerGap className="animate-spin" /><span className="sr-only">Menyiapkan soal</span></> : <><span className="sr-only">Pilih jawaban</span><ArrowRight /></>}
+              </Button>
+            ) : index >= items.length - 1 ? (
+              <Button
+                aria-label="Selesai"
+                className="h-16 w-full justify-center"
+                disabled={busy || saveState === "saving"}
+                onClick={() => setSubmitOpen(true)}
+                size="lg"
+                variant="brand"
+              >
+                Selesai
+              </Button>
+            ) : (
+              <Button aria-label="Soal selanjutnya" className="h-16 w-full justify-center" disabled={busy || saveState === "saving"} onClick={() => onIndexChange(index + 1)} size="lg" variant="brand">
+                <span className="sr-only">Selanjutnya</span>
+                <ArrowRight />
+              </Button>
+            )}
           </div>
         </div>
       }
       header={
-        <div className="flex items-center justify-between border-b border-primary-100 px-4 py-4 md:px-8 lg:px-10">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-3xl leading-none font-semibold text-secondary-900 md:text-4xl">
-              {tryoutTitle}
-            </h2>
-            <p className="mt-2 truncate text-sm text-secondary-500">
-              {run.section.title} · Bagian {run.sequenceNo}/{runCount}
-            </p>
-          </div>
+        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 border-b border-primary-100 bg-white px-16 py-4 sm:min-h-24">
+          <h2 className="sr-only">{tryoutTitle} · {run.section.title} · Bagian {run.sequenceNo}/{runCount}</h2>
+          <BrandLockup />
 
-          <div className="flex items-center gap-2">
+          <div className="absolute right-4 flex items-center gap-2 sm:right-8">
             <div
               aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}
               className={cn(
@@ -705,9 +761,12 @@ function ParticipantAttemptScreen({
               <ClockCountdown className="size-4" />
               <span>{formatTimer(run.serverDeadlineAt, now)}</span>
             </div>
-            {run.fullscreenPrompt ? <Button aria-label="Masuk layar penuh" className="hidden sm:inline-flex" onClick={() => void enterFullscreen()} size="icon" variant="brandOutline"><ArrowsOut /></Button> : null}
+            {run.fullscreenPrompt ? <Button aria-label="Masuk layar penuh" className="sr-only" onClick={() => void enterFullscreen()} size="icon" variant="brandOutline"><ArrowsOut /></Button> : null}
           </div>
         </div>
+      }
+      annotation={
+        <AssessmentAnnotationOverlay onClose={onToggleAnnotation} open={annotationOpen} />
       }
       navigation={
         <AssessmentQuestionNavigation

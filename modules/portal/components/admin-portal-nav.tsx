@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   Bell,
   ClipboardList,
+  FileText,
   History,
   Image,
   LayoutDashboard,
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners";
+type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners" | "docs";
 
 type AdminNavigationItem = {
   href: string;
@@ -50,6 +51,10 @@ const adminDirectoryNavigation: AdminNavigationItem[] = [
 
 const adminContentNavigation: AdminNavigationItem[] = [
   { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Student banners" },
+];
+
+const adminSupportNavigation: AdminNavigationItem[] = [
+  { href: "/admin/docs", icon: FileText, id: "docs", label: "Documentation" },
 ];
 
 function AdminNavigationGroup({
@@ -118,6 +123,11 @@ function AdminPortalNav({
           activeSection={activeSection}
           items={adminContentNavigation}
           label="Content"
+        />
+        <AdminNavigationGroup
+          activeSection={activeSection}
+          items={adminSupportNavigation}
+          label="Support"
         />
       </SidebarContent>
     </Sidebar>

@@ -1,10 +1,12 @@
 type FormState = {
   fieldErrors?: Record<string, string>;
   fields?: Record<string, string>;
+  hasUnpublishedChanges?: boolean;
   handoffId?: string;
   inviteUrl?: string;
   handoffMethod?: "invite_link" | "temporary_password";
   message?: string;
+  published?: boolean;
   resetUrl?: string;
   status: "error" | "idle" | "success";
   temporaryPassword?: string;

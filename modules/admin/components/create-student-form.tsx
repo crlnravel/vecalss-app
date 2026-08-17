@@ -2,9 +2,17 @@
 
 import { useActionState, useCallback, useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
-import { fieldControlClassName } from "@/components/ui/field-constants";
 import type { ExamEvent } from "@/generated/prisma/client";
+import { ChevronDown } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -12,6 +20,58 @@ import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
 
 import { createStudentEnrollmentAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
+
+type StudentDropdownOption = {
+  label: string;
+  value: string;
+};
+
+function StudentDropdownField({
+  error,
+  id,
+  label,
+  name,
+  onValueChange,
+  options,
+  value,
+}: {
+  error?: string;
+  id: string;
+  label: string;
+  name: string;
+  onValueChange: (value: string) => void;
+  options: StudentDropdownOption[];
+  value: string;
+}) {
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? "Set later";
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={label}
+          id={id}
+          render={<Button className="min-w-0 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 py-3.5 text-left text-[15px] font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuRadioGroup onValueChange={(nextValue) => onValueChange(String(nextValue))} value={value}>
+            {options.map((option) => (
+              <DropdownMenuRadioItem closeOnClick key={option.value || "empty"} value={option.value}>
+                {option.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <input name={name} type="hidden" value={value} />
+      {error ? <p className="text-sm text-danger-700">{error}</p> : null}
+    </Field>
+  );
+}
 
 function CreateStudentForm({
   embedded = false,
@@ -25,6 +85,8 @@ function CreateStudentForm({
   onHandoffChange?: (active: boolean) => void;
 }) {
   const [state, formAction, pending] = useActionState(createStudentEnrollmentAction, EMPTY_FORM_STATE);
+  const [targetExamEventId, setTargetExamEventId] = useState("");
+  const [handoffMethod, setHandoffMethod] = useState<"invite_link" | "temporary_password">("temporary_password");
   const [acknowledgedHandoffId, setAcknowledgedHandoffId] = useState<string | null>(null);
   const handoffActive = Boolean(
     state.handoffId &&
@@ -120,44 +182,38 @@ function CreateStudentForm({
             ) : null}
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="student-exam-goal">Target exam</FieldLabel>
-            <select
-              aria-label="Target exam"
-              className={fieldControlClassName}
-              defaultValue={state.fields?.targetExamEventId ?? ""}
-              id="student-exam-goal"
-              name="targetExamEventId"
-            >
-              <option value="">Set later</option>
-              {examEvents.map((examEvent) => (
-                <option key={examEvent.id} value={examEvent.id}>
-                  {examEvent.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <StudentDropdownField
+            id="student-exam-goal"
+            label="Target exam"
+            name="targetExamEventId"
+            onValueChange={setTargetExamEventId}
+            options={[
+              { label: "Set later", value: "" },
+              ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id })),
+            ]}
+            value={targetExamEventId}
+          />
 
-          <Field>
-            <FieldLabel htmlFor="student-handoff-method">Credential handoff</FieldLabel>
-            <select
-              aria-label="Credential handoff"
-              className={fieldControlClassName}
-              defaultValue={state.fields?.handoffMethod ?? "temporary_password"}
-              id="student-handoff-method"
-              name="handoffMethod"
-            >
-              <option value="temporary_password">Temporary password</option>
-              <option value="invite_link">Invite link (24 hours)</option>
-            </select>
-            {state.fieldErrors?.handoffMethod ? (
-              <p className="text-sm text-danger-700">{state.fieldErrors.handoffMethod}</p>
-            ) : null}
-          </Field>
+          <StudentDropdownField
+            error={state.fieldErrors?.handoffMethod}
+            id="student-handoff-method"
+            label="Credential handoff"
+            name="handoffMethod"
+            onValueChange={(value) => {
+              if (value === "invite_link" || value === "temporary_password") {
+                setHandoffMethod(value);
+              }
+            }}
+            options={[
+              { label: "Temporary password", value: "temporary_password" },
+              { label: "Invite link (24 hours)", value: "invite_link" },
+            ]}
+            value={handoffMethod}
+          />
         </div>
 
         <div className="mt-5 flex justify-start md:justify-end">
-          <SubmitButton disabled={handoffActive} pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
+          <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={handoffActive} pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
             Create student account
           </SubmitButton>
         </div>

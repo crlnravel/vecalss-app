@@ -21,10 +21,12 @@ function safeBackHref(value: unknown) {
   const query = buildDirectoryQuery({
     addedFrom: parsed.addedFrom,
     addedTo: parsed.addedTo,
+    direction: parsed.direction,
     focus: null,
     page: parsed.page,
     pageSize: parsed.pageSize,
     search: parsed.search,
+    sort: parsed.sort,
     status: parsed.status,
     statuses: parsed.statuses,
   });

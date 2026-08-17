@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 import { type QuizItem, type QuizSubject } from "./data";
@@ -103,24 +102,16 @@ function QuizSubjectDetailPageModule({
 
         {subject.quizzes.length ? (
           <section aria-labelledby="quiz-paket-title" className="flex flex-col gap-5">
-            <div className="flex items-end justify-between gap-4 px-1">
-              <div>
-                <h2
-                  className="text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl"
-                  id="quiz-paket-title"
-                >
-                  Paket latihan
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-secondary-500 md:text-base">
-                  Pilih satu paket untuk mulai menguji pemahamanmu.
-                </p>
-              </div>
-              <span className="hidden rounded-full bg-primary-100 px-3 py-2 text-xs font-extrabold tracking-[0.12em] text-primary-800 sm:inline-flex">
-                {subject.quizzes.length} paket
-              </span>
+            <div className="px-1">
+              <h2
+                className="text-2xl leading-tight font-extrabold tracking-[-0.03em] text-secondary-900 md:text-3xl"
+                id="quiz-paket-title"
+              >
+                Paket latihan
+              </h2>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {subject.quizzes.map((quiz) => (
                 <QuizCard key={quiz.slug} quiz={quiz} subject={subject} />
               ))}
@@ -156,52 +147,49 @@ function QuizSubjectDetailPageModule({
 
 function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
   return (
-    <article className="group flex min-h-[315px] flex-col overflow-hidden rounded-[1.75rem] border border-primary-200 bg-white text-left shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[transform,border-color,box-shadow] duration-300 motion-safe:hover:-translate-y-1.5 hover:border-primary-300 hover:shadow-[0_26px_60px_-38px_rgba(23,107,77,0.6)] motion-reduce:transition-none">
+    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-[linear-gradient(180deg,#eef8f1_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] motion-reduce:transition-none">
       <div
-        className={cn(
-          "relative overflow-hidden p-6 text-primary-900 md:p-7",
-          subject.palette,
-        )}
-      >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-10 -top-14 size-36 rounded-full border-[14px] border-white/35"
-        />
-        <div className="relative z-10 flex items-start justify-between gap-4">
-          <StudentBadge
-            className="tracking-[0.1em]"
-            tone={quizStatusTone(quiz.status)}
-          >
-            {quiz.status}
-          </StudentBadge>
-          <ArrowUpRight className="size-5 text-primary-700 transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-reduce:transition-none" />
-        </div>
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-[-18%] top-0 h-36 rounded-[50%] bg-white/65 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.25)_0%,rgba(183,221,195,0.08)_42%,rgba(47,138,93,0.08)_100%)]"
+      />
 
-        <h3 className="relative z-10 mt-8 max-w-[16ch] text-3xl leading-[1.03] font-extrabold tracking-[-0.035em] md:text-4xl">
+      <div className="relative z-10 flex flex-col p-3 sm:p-4 md:p-5">
+        <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">
           {quiz.title}
         </h3>
-        <p className="relative z-10 mt-3 max-w-[34ch] text-sm leading-6 text-primary-800">
+        <p className="mt-2 line-clamp-3 max-w-[40ch] text-xs leading-5 text-primary-800">
           Paket latihan siap pakai untuk drilling {subject.title.toLowerCase()}.
         </p>
-      </div>
 
-      <div className="flex flex-1 flex-col p-6 md:p-7">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-secondary-600">
-          <span className="inline-flex items-center gap-1.5">
-            <Clock3 className="size-4" />
-            {quiz.duration}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-2">
+          {quiz.duration ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-900/10 bg-white/65 px-3.5 py-2 text-xs font-medium text-primary-900">
+              <Clock3 className="size-4" />
+              {quiz.duration}
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-900/10 bg-white/65 px-3.5 py-2 text-xs font-medium text-primary-900">
             <ListChecks className="size-4" />
             {quiz.questionCount} soal
           </span>
-          <StudentBadge tone="category">
+          <StudentBadge className="bg-white/70 text-xs" size="md" tone="category">
             {quiz.difficulty}
+          </StudentBadge>
+          <StudentBadge
+            className="bg-white/70 text-xs"
+            size="md"
+            tone={quizStatusTone(quiz.status)}
+          >
+            {quizStatusLabel(quiz.status)}
           </StudentBadge>
         </div>
 
         <Button
-          className="mt-auto w-full justify-center"
+          className="mt-6 h-10 w-full justify-center rounded-full shadow-[0_12px_26px_-18px_rgba(1,76,56,0.7)] sm:h-11"
           nativeButton={false}
           render={
             <Link
@@ -223,6 +211,10 @@ function quizStatusTone(status: QuizItem["status"]) {
   if (status === "Perlu review") return "attention" as const;
   if (status === "Baru ditambahkan") return "info" as const;
   return "category" as const;
+}
+
+function quizStatusLabel(status: QuizItem["status"]) {
+  return status === "Baru ditambahkan" ? "Baru" : status;
 }
 
 export { QuizSubjectDetailPageModule };

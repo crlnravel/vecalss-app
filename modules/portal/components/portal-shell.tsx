@@ -25,6 +25,7 @@ import { AdminPortalNav } from "./admin-portal-nav";
 
 const adminSectionLabels = {
   "audit-logs": "Audit logs",
+  docs: "Documentation",
   imports: "Imports",
   kapten: "Kapten",
   media: "Media",
@@ -36,6 +37,7 @@ const adminSectionLabels = {
 
 const adminSectionRootHrefs = {
   "audit-logs": "/admin/audit-logs",
+  docs: "/admin/docs",
   imports: "/admin/imports",
   kapten: "/admin/kapten",
   media: "/admin/media",
@@ -54,7 +56,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners";
+  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
