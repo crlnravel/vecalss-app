@@ -8,7 +8,6 @@ import { buildDirectoryQuery } from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { FormNotice } from "@/modules/auth/components/form-notice";
-import { ActionButtonLink } from "@/modules/home/components/home-primitives";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 
@@ -117,7 +116,15 @@ function KaptenPageModule({
               <div className="rounded-3xl border border-dashed border-primary-200 bg-secondary-50 px-6 py-8 md:px-8 md:py-10">
                 <h3 className="max-w-[18ch] text-2xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-3xl">{total === 0 ? "No Kapten accounts match this view." : "No Kapten match these filters."}</h3>
                 <p className="mt-4 max-w-[58ch] text-sm leading-7 text-secondary-600 md:text-base">{total === 0 ? "Use the form above to add the first Kapten account and choose its handoff." : "Try another name, email, or status filter."}</p>
-                <div className="mt-6"><ActionButtonLink href="#create-kapten-account">Return to the create form</ActionButtonLink></div>
+                <div className="mt-6">
+                  <Button
+                    nativeButton={false}
+                    render={<Link href="#create-kapten-account" />}
+                    variant="brand"
+                  >
+                    Return to the create form
+                  </Button>
+                </div>
               </div>
             ) : kapten.map((person) => (
               <article

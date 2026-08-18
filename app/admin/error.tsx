@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { ADMIN_CARD_CLASS_NAME } from "@/modules/admin/admin-ui-contract";
 
 function AdminError({ reset }: { reset: () => void }) {
@@ -8,7 +9,7 @@ function AdminError({ reset }: { reset: () => void }) {
       <section aria-labelledby="admin-error-title" className={`${ADMIN_CARD_CLASS_NAME} w-full max-w-lg p-6 text-center sm:p-8`} role="alert">
         <h1 className="text-2xl font-semibold tracking-[-0.03em]" id="admin-error-title">The live snapshot is unavailable</h1>
         <p className="mt-3 text-sm leading-6 text-secondary-600">We could not read the current admin state. Retry the snapshot; no account action was performed.</p>
-        <button className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-700 px-5 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => reset()} type="button">Try again</button>
+        <Button className="mt-6" onClick={() => reset()} type="button" variant="brand">Try again</Button>
       </section>
     </main>
   );

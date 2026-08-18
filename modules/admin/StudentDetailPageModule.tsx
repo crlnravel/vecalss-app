@@ -177,15 +177,17 @@ function StudentDetailPageModule({
     >
       <div className="space-y-6">
         <nav aria-label="Student navigation">
-          <Link
+          <Button
             aria-label="Back to Students"
-            className="inline-flex size-11 cursor-pointer items-center justify-center rounded-xl text-secondary-700 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-            href={backHref}
+            nativeButton={false}
+            render={<Link href={backHref} />}
+            size="icon"
             title="Back to Students"
+            variant="ghost"
           >
             <ChevronLeft aria-hidden="true" size={22} />
             <span className="sr-only">Back to Students</span>
-          </Link>
+          </Button>
         </nav>
 
         {notice ? <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice> : null}

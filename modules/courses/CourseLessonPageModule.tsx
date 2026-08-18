@@ -207,12 +207,11 @@ function LessonPlayer({
               render={(
                 <Button
                   aria-label="Tanya Vera"
-                  className="size-12 min-h-12 min-w-12 rounded-xl border-[#b7ddc3] bg-white text-[#176b4d] hover:bg-[#f3faf5]"
                   nativeButton={false}
                   render={<Link href="/vera-ai" />}
                   size="icon"
                   title="Tanya Vera"
-                  variant="outline"
+                  variant="brandOutline"
                 />
               )}
             >
@@ -224,15 +223,13 @@ function LessonPlayer({
         completionAction={(
           <Button
             className={cn(
-              "min-h-14 min-w-0 flex-1 rounded-[1.15rem] px-4 text-sm font-extrabold sm:text-base",
-              isCompleted
-                ? "bg-[#e6f4eb] text-[#176b4d] hover:bg-[#e6f4eb]"
-                : "bg-[#176b4d] text-white hover:bg-[#0f563b]",
+              "min-w-0 flex-1 px-4 text-sm sm:text-base",
             )}
             disabled={isCompleted || pending}
             onClick={onComplete}
-            size="lg"
+            size="learning"
             type="button"
+            variant={isCompleted ? "learningComplete" : "learning"}
           >
             {isCompleted ? (
               <CheckCircle2 className="size-5" data-icon="inline-start" />
@@ -253,13 +250,16 @@ function LessonPlayer({
       <FeedbackNotice feedback={feedback} />
 
       {isCompleted && nextLesson ? (
-        <Link
-          className="mx-auto mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#e6f4eb] px-4 text-sm font-bold text-[#176b4d] outline-none transition hover:bg-[#d7eddf] focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-          href={`/courses/${course.slug}/${nextLesson.id}`}
+        <Button
+          className="mx-auto mt-5"
+          nativeButton={false}
+          render={<Link href={`/courses/${course.slug}/${nextLesson.id}`} />}
+          size="learning"
+          variant="learning"
         >
           Lanjut ke bacaan berikutnya
           <ArrowLeft className="size-4 rotate-180" />
-        </Link>
+        </Button>
       ) : null}
 
     </article>
@@ -305,10 +305,11 @@ function LockedLessonState({
       </p>
       {nextLesson ? (
         <Button
-          className="mt-7 rounded-[1.1rem] bg-[#176b4d] font-extrabold text-white hover:bg-[#0f563b]"
+          className="mt-7"
           nativeButton={false}
           render={<Link href={`/courses/${course.slug}/${nextLesson.id}`} />}
-          size="lg"
+          size="learning"
+          variant="learning"
         >
           Lanjut ke Bagian yang tersedia
           <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
@@ -316,7 +317,7 @@ function LockedLessonState({
       ) : (
         <Button
           aria-label="Kembali ke Materi"
-          className="mt-7 bg-[#176b4d] text-white hover:bg-[#0f563b]"
+          className="mt-7"
           nativeButton={false}
           render={<Link href={`/courses/${course.slug}`} />}
           size="icon"

@@ -2,6 +2,7 @@ import Link from "next/link";
 import ReactMarkdown, { type Components } from "react-markdown";
 
 import { ArrowLeft, ArrowUpRight } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationDetail } from "@/lib/notifications/service";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
@@ -149,15 +150,15 @@ function NotificationDetailPageModule({
           </div>
 
           {notification.external ? (
-            <a
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary-800 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-900"
-              href={notification.href}
-              rel="noreferrer"
-              target="_blank"
+            <Button
+              className="mt-8"
+              nativeButton={false}
+              render={<a href={notification.href} rel="noreferrer" target="_blank" />}
+              variant="brand"
             >
               Buka tautan Zoom
               <ArrowUpRight aria-hidden="true" className="size-4" />
-            </a>
+            </Button>
           ) : null}
         </article>
       </section>

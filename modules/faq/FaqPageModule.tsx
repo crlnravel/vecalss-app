@@ -64,7 +64,7 @@ export default function FaqPageModule() {
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
                   <ActionButtonLink href="/#contact">Ask us directly</ActionButtonLink>
-                  <ActionButtonLink href="/about" variant="brandOutline">
+                  <ActionButtonLink href="/about" variant="marketingOutline">
                     Learn about Vecalss
                   </ActionButtonLink>
                 </div>

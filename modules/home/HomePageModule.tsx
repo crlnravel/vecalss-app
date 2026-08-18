@@ -90,16 +90,14 @@ function Hero() {
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <ActionButtonLink
-                className="rounded-full !bg-[#014C38] px-7 py-4 text-base font-semibold !text-white hover:!bg-[#014C38]/90"
                 href="/login"
-                variant="brand"
+                variant="marketing"
               >
                 Mulai Belajar
               </ActionButtonLink>
               <ActionButtonLink
-                className="rounded-full border-[#014C38]/20 bg-white px-7 py-4 text-base font-semibold text-[#014C38] hover:bg-[#014C38]/5"
                 href="/#program"
-                variant="brandOutline"
+                variant="marketingOutline"
               >
                 Lihat Program
               </ActionButtonLink>
@@ -363,10 +361,9 @@ function TopAlumniSection() {
 
           <div className="flex lg:justify-end">
             <ActionButtonLink
-              className="rounded-full !bg-[#014C38] px-7 py-4 text-base font-semibold !text-white hover:!bg-[#014C38]/90"
               href="https://docs.google.com/spreadsheets/d/1bbnfOYTPHhN3obMEyrNU3yEoHzvSoJ5fCjtNWCiPdHM/edit?gid=0#gid=0"
               target="_blank"
-              variant="brand"
+              variant="marketing"
             >
               Lihat Top 90 dan Alumni Lainnya...
               <ArrowRight className="ml-2 size-4" />
@@ -528,9 +525,8 @@ function FinalCTA() {
             Bergabung ke misi belajar konsisten bersama Vecalss.
           </p>
           <ActionButtonLink
-            className="mt-8 rounded-full !bg-white px-7 py-4 text-base font-semibold !text-[#014C38] hover:!bg-white/90"
             href="/login"
-            variant="brandOutline"
+            variant="marketingOnDark"
           >
             Ikut Misi Belajar
             <ArrowRight className="ml-2 size-4" />

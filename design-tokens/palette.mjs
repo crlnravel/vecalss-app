@@ -1,4 +1,19 @@
 export const palette = {
+  voyage: {
+    deep: "#014c38",
+    "deep-hover": "#013d2e",
+    forest: "#176b4d",
+    leaf: "#2f8a5d",
+    "sea-glass": "#b7ddc3",
+    "sea-glass-wash": "#eef8f1",
+    canvas: "#f7faf8",
+    surface: "#ffffff",
+    ink: "#173c2d",
+    "muted-ink": "#5f776a",
+    "soft-border": "#d6e5db",
+    "warm-sun": "#ffd766",
+    "warm-sun-ink": "#5b4b18",
+  },
   primary: {
     50: "#eef7f3",
     100: "#d7ebe3",

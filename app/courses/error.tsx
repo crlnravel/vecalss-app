@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { Button } from "@/components/ui/button";
+
 export default function CoursesError({
   error,
   unstable_retry,
@@ -18,7 +20,7 @@ export default function CoursesError({
       <div className="max-w-md rounded-3xl border border-[#d9e5de] bg-white p-8">
         <h1 className="text-xl font-semibold">Materi belum dapat dimuat</h1>
         <p className="mt-3 text-sm leading-6 text-[#667085]">Coba lagi sebentar. Progres belajarmu di perangkat ini tetap tersimpan.</p>
-        <button className="mt-6 rounded-xl bg-[#075f46] px-4 py-2.5 text-sm font-semibold text-white" onClick={unstable_retry} type="button">Coba lagi</button>
+        <Button className="mt-6" onClick={unstable_retry} type="button" variant="brand">Coba lagi</Button>
       </div>
     </main>
   );

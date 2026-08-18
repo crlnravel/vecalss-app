@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import type { UserStatus } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -56,47 +57,42 @@ function StudentAccountActions({
       ? "This will restore access for this student. Existing sessions will remain revoked."
       : "This will remove the student from the directory and revoke access to the account.";
   const actionLabel = isBan ? "Ban User" : isUnban ? "Unban User" : "Delete User";
-  const dangerButtonClassName = cn(
-    "inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
-    compact
-      ? "w-full justify-center rounded-xl px-3 text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-fg focus-visible:outline-student-status-danger-border"
-      : "text-student-status-danger-fg hover:text-student-status-danger-solid-bg focus-visible:outline-student-status-danger-border",
-  );
-  const restoreButtonClassName = cn(
-    "inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary-700 transition-colors hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300",
-    compact && "w-full justify-center rounded-xl px-3 hover:bg-primary-50",
-  );
-
   return (
     <>
       <div className={cn("mt-8 flex w-full max-w-sm flex-col items-start gap-2", compact && "mt-3 max-w-none gap-1")}>
         {showPasswordAction ? <StudentPasswordDialog returnPath={returnPath} studentId={studentId} /> : null}
 
         {status === "active" ? (
-          <button
-            className={dangerButtonClassName}
+          <Button
+            className={compact ? "w-full" : "justify-start"}
             onClick={() => setPendingAction("ban")}
+            size="default"
             type="button"
+            variant="dangerOutline"
           >
             Ban User
-          </button>
+          </Button>
         ) : status === "disabled" ? (
-          <button
-            className={restoreButtonClassName}
+          <Button
+            className={cn(compact ? "w-full" : "justify-start", "text-primary-700 hover:text-primary-800")}
             onClick={() => setPendingAction("unban")}
+            size="default"
             type="button"
+            variant="ghost"
           >
             Unban User
-          </button>
+          </Button>
         ) : null}
 
-        <button
-          className={dangerButtonClassName}
+        <Button
+          className={compact ? "w-full" : "justify-start"}
           onClick={() => setPendingAction("delete")}
+          size="default"
           type="button"
+          variant="dangerOutline"
         >
           Delete User
-        </button>
+        </Button>
       </div>
 
       <AlertDialog

@@ -313,10 +313,15 @@ function ActivityPanel({
         </ol>
       )}
       <div className="mt-5 flex justify-center">
-        <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/audit-logs">
+        <Button
+          nativeButton={false}
+          render={<Link href="/admin/audit-logs" />}
+          size="default"
+          variant="ghost"
+        >
           See more
           <ArrowUpRight aria-hidden="true" size={16} />
-        </Link>
+        </Button>
       </div>
     </section>
   );
@@ -535,14 +540,20 @@ function OperationDetailSheet({
               )}
             </div>
             <div className="mt-auto space-y-3 pt-6">
-              <Link className="flex min-h-12 items-center justify-between rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white transition hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={item.href}>
+              <Button
+                className="w-full justify-between"
+                nativeButton={false}
+                render={<Link href={item.href} />}
+                size="lg"
+                variant="brand"
+              >
                 Open relevant workspace
                 <ArrowUpRight size={17} />
-              </Link>
-              <button className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary-200 bg-white px-4 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={onClose} type="button">
+              </Button>
+              <Button className="w-full" onClick={onClose} variant="brandOutline">
                 <X size={16} />
                 Keep queue open
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -663,7 +674,7 @@ function OperationsConsoleModule({
             <div>
               <h2 className="text-xl font-semibold text-secondary-900" id="operation-student-heading">Add student</h2>
             </div>
-            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation(null)} type="button"><X size={17} /></button>
+            <Button aria-label="Close selected operation" onClick={() => selectOperation(null)} size="icon" variant="ghost"><X size={17} /></Button>
           </div>
           <CreateStudentForm examEvents={examEvents} />
         </section>
@@ -675,7 +686,7 @@ function OperationsConsoleModule({
             <div>
               <h2 className="text-xl font-semibold text-secondary-900" id="operation-kapten-heading">Add Kapten</h2>
             </div>
-            <button aria-label="Close selected operation" className="grid size-11 place-items-center rounded-xl text-secondary-600 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => selectOperation(null)} type="button"><X size={17} /></button>
+            <Button aria-label="Close selected operation" onClick={() => selectOperation(null)} size="icon" variant="ghost"><X size={17} /></Button>
           </div>
           <CreateKaptenForm />
         </section>
@@ -688,7 +699,15 @@ function OperationsConsoleModule({
               <h2 className="text-xl font-semibold text-secondary-900">Import roster</h2>
               <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Choose Students or Kapten on the imports workspace, then review the preview before any account changes occur.</p>
             </div>
-            <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href="/admin/imports">Open imports <ArrowUpRight size={16} /></Link>
+            <Button
+              className="shrink-0"
+              nativeButton={false}
+              render={<Link href="/admin/imports" />}
+              size="default"
+              variant="brand"
+            >
+              Open imports <ArrowUpRight size={16} />
+            </Button>
           </div>
         </section>
       ) : null}

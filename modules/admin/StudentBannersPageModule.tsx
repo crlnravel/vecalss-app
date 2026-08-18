@@ -263,13 +263,16 @@ function StudentBannersPageModule({
               Edit a private draft, preview it with sample student data, then publish when it is ready.
             </p>
           </div>
-          <Link
-            className="inline-flex min-h-11 w-fit items-center gap-2 rounded-xl px-3 text-sm font-semibold text-primary-800 transition hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-            href="/admin/docs#student-banners"
+          <Button
+            className="w-fit"
+            nativeButton={false}
+            render={<Link href="/admin/docs#student-banners" />}
+            size="default"
+            variant="ghost"
           >
             Read documentation
             <ArrowUpRight aria-hidden="true" size={16} />
-          </Link>
+          </Button>
         </header>
 
         {previewState?.version === currentVersion ? (

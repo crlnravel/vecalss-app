@@ -9,6 +9,7 @@ import {
   isValidHostedPdfUrl,
   type MateriDocument,
 } from "@/lib/materi/contract";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -217,14 +218,15 @@ function StudentPdfPreview({
             <p className="font-semibold text-[#285641]">PDF belum dapat ditampilkan.</p>
             <p className="max-w-[48ch] leading-6">{unavailableMessage}</p>
             {isManaged ? (
-              <button
-                className="mt-1 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#c8dfd0] bg-white px-4 text-sm font-semibold text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
+              <Button
+                className="mt-1"
                 onClick={() => setRequestVersion((version) => version + 1)}
-                type="button"
+                size="default"
+                variant="brandOutline"
               >
                 <RefreshCw className="size-4" />
                 Coba lagi
-              </button>
+              </Button>
             ) : null}
           </div>
         )}
@@ -240,13 +242,13 @@ function StudentPdfPreview({
                   <Tooltip>
                     <TooltipTrigger
                       render={(
-                        <a
+                        <Button
                           aria-label="Buka PDF"
-                          className="inline-flex size-12 min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-                          href={previewUrl}
-                          rel="noreferrer"
-                          target="_blank"
+                          nativeButton={false}
+                          render={<a href={previewUrl} rel="noreferrer" target="_blank" />}
+                          size="icon-lg"
                           title="Buka PDF"
+                          variant="brandOutline"
                         />
                       )}
                     >
@@ -257,12 +259,13 @@ function StudentPdfPreview({
                   <Tooltip>
                     <TooltipTrigger
                       render={(
-                        <a
+                        <Button
                           aria-label="Download PDF"
-                          className="inline-flex size-12 min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30"
-                          download={documentName}
-                          href={downloadUrl ?? previewUrl}
+                          nativeButton={false}
+                          render={<a download={documentName} href={downloadUrl ?? previewUrl} />}
+                          size="icon-lg"
                           title="Download PDF"
+                          variant="brandOutline"
                         />
                       )}
                     >
@@ -273,13 +276,13 @@ function StudentPdfPreview({
                   <Tooltip>
                     <TooltipTrigger
                       render={(
-                        <button
+                        <Button
                           aria-label={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
-                          className="inline-flex size-12 min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-[#c8dfd0] bg-white text-[#285641] hover:bg-[#f3faf5] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#2f8a5d]/30 disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={!fullscreenAvailable}
                           onClick={handleToggleFullscreen}
+                          size="icon-lg"
                           title={isFullscreen ? "Keluar layar penuh" : "Lihat layar penuh"}
-                          type="button"
+                          variant="brandOutline"
                         />
                       )}
                     >

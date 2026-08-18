@@ -216,11 +216,11 @@ function ContactForm() {
           >
             {([isSubmitting, canSubmit]) => (
               <Button
-                className="w-full rounded-full bg-[#014C38] py-3.5 text-sm font-semibold text-white hover:bg-[#014C38]/90"
+                className="w-full"
                 disabled={isSubmitting || !canSubmit}
                 size="marketing"
                 type="submit"
-                variant="brand"
+                variant="marketing"
               >
                 {isSubmitting ? "Memeriksa..." : "Kirim Pesan"}
               </Button>

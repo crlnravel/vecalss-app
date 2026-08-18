@@ -407,10 +407,10 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
 
   const tokenHash = hashToken(rawToken);
 
-  if (!consumePasswordResetRateLimit({
+  if (!(await consumePasswordResetRateLimit({
     identity: getTrustedInviteIdentity(),
     tokenHash,
-  })) {
+  }))) {
     throw new Error("This reset link is invalid or has already expired.");
   }
 

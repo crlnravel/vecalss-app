@@ -78,12 +78,14 @@ function HandoffDeliveryNotice({
             This handoff needs follow-up before it can be shared. It may have expired or been replaced; check the student details before sending it.
           </p>
           {recoveryHref ? (
-            <Link
-              className="inline-flex min-h-10 items-center rounded-xl border border-primary-200 px-3 font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-              href={recoveryHref}
+            <Button
+              nativeButton={false}
+              render={<Link href={recoveryHref} />}
+              size="sm"
+              variant="brandOutline"
             >
               Open student details
-            </Link>
+            </Button>
           ) : null}
           {onRecovery ? (
             <>

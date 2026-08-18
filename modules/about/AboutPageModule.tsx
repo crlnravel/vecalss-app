@@ -104,7 +104,7 @@ export default function AboutPageModule() {
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
                   <ActionButtonLink href="/#contact">Talk with the team</ActionButtonLink>
-                  <ActionButtonLink href="/faq" variant="brandOutline">
+                  <ActionButtonLink href="/faq" variant="marketingOutline">
                     Explore the FAQ
                   </ActionButtonLink>
                 </div>

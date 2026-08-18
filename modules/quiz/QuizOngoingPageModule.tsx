@@ -206,6 +206,7 @@ function QuizOngoingPageModule({
       savingQuestionSet={savingQuestionSet}
       selectedAnswers={selectedAnswers}
       subjectTitle={subjectTitle}
+      textScale={textScale}
       uiTextClass={uiTextClass}
       unlockedQuestionCount={unlockedQuestionCount}
       viewState={{
@@ -241,6 +242,7 @@ type QuizOngoingScreenProps = {
   savingQuestionSet: Set<number>;
   selectedAnswers: Record<number, string>;
   subjectTitle: string;
+  textScale: "compact" | "default" | "large";
   uiTextClass: string;
   unlockedQuestionCount: number;
   unansweredCount: number;
@@ -274,6 +276,7 @@ function QuizOngoingScreen({
   savingQuestionSet,
   selectedAnswers,
   subjectTitle,
+  textScale,
   uiTextClass,
   unlockedQuestionCount,
   unansweredCount,
@@ -346,6 +349,7 @@ function QuizOngoingScreen({
                   onClick={() => void onSelectAnswer(option.id)}
                   option={option}
                   selected={option.id === currentSelectedOptionKey}
+                  textScale={textScale}
                 />
               ))}
             </section>
@@ -366,7 +370,7 @@ function QuizOngoingScreen({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Periksa lagi</AlertDialogCancel>
+              <AlertDialogCancel>Kembali</AlertDialogCancel>
               <AlertDialogAction onClick={onExit} variant="destructive">Ya, Keluar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -383,8 +387,8 @@ function QuizOngoingScreen({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={viewState.submitting} variant="brandOutline">Periksa lagi</AlertDialogCancel>
-              <AlertDialogAction disabled={viewState.submitting} onClick={onSubmitQuiz} variant="destructive">{viewState.submitting ? "Mengirim…" : "Tetap kirim"}</AlertDialogAction>
+              <AlertDialogCancel disabled={viewState.submitting} variant="brandOutline">Kembali</AlertDialogCancel>
+              <AlertDialogAction disabled={viewState.submitting} onClick={onSubmitQuiz} variant="destructive">{viewState.submitting ? "Mengirim…" : "Kirim"}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
           </AlertDialog>
@@ -417,7 +421,7 @@ function QuizOngoingScreen({
             </Button>
             <button
               aria-label="Coretan (sementara dinonaktifkan)"
-              className="flex min-w-16 cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[0.7rem] font-semibold text-secondary-400 opacity-60"
+              className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60"
               disabled
               title="Coretan sementara dinonaktifkan"
               type="button"
@@ -425,7 +429,6 @@ function QuizOngoingScreen({
               <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
                 <PenTool className="size-6" />
               </span>
-              Coretan
             </button>
             {currentQuestion === quiz.questionCount ? (
               <Button
@@ -448,11 +451,13 @@ function QuizOngoingScreen({
         </div>
       }
       header={
-        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 bg-white px-16 py-4 sm:min-h-24">
+        <div className="relative flex min-h-20 items-center justify-center bg-white px-12 py-2 sm:min-h-20 sm:px-16">
           <h2 className="sr-only">{quiz.title} · {subjectTitle}</h2>
-          <BrandLockup />
+          <div className="scale-75">
+            <BrandLockup />
+          </div>
 
-          <div className="absolute right-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm sm:right-8">
+          <div className="absolute right-4 inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-700 px-3 py-1.5 text-sm font-semibold text-white shadow-sm sm:right-8">
             <Clock3 className="size-4 text-secondary-500" />
             <span>{attempt.remainingTime}</span>
           </div>

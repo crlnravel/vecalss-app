@@ -1,0 +1,35 @@
+FROM node:22-bookworm-slim AS dependencies
+
+WORKDIR /app
+RUN corepack enable
+RUN corepack prepare pnpm@10.33.0 --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY scripts/install-git-hooks.mjs ./scripts/install-git-hooks.mjs
+# The repository's prepare hook is a local Git-hook installer. CI disables it
+# during the dependency layer, before the full source tree is copied in.
+RUN CI=1 pnpm install --frozen-lockfile
+
+FROM dependencies AS builder
+
+ARG DATABASE_URL=postgresql://vecalss:vecalss@postgres.invalid:5432/vecalss
+ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+ENV DATABASE_URL=${DATABASE_URL}
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY . .
+RUN pnpm build
+
+FROM node:22-bookworm-slim AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=builder /app/.next/standalone ./
+
+EXPOSE 3000
+CMD ["node", "server.js"]

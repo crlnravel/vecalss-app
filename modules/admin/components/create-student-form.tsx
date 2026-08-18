@@ -11,8 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ExamEvent } from "@/generated/prisma/client";
-import { ChevronDown } from "@/lib/icons";
+import { ChevronDown, CircleHelp } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import type { FormState } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -36,6 +37,7 @@ type CreateStudentFormController = {
 
 function StudentDropdownField({
   error,
+  help,
   id,
   label,
   name,
@@ -44,6 +46,7 @@ function StudentDropdownField({
   value,
 }: {
   error?: string;
+  help?: string;
   id: string;
   label: string;
   name: string;
@@ -55,7 +58,17 @@ function StudentDropdownField({
 
   return (
     <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <div className="flex items-center gap-1.5">
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        {help ? (
+          <Tooltip>
+            <TooltipTrigger render={<Button aria-label={`${label} guidance`} size="icon-xs" type="button" variant="ghost" />}>
+              <CircleHelp aria-hidden="true" size={15} />
+            </TooltipTrigger>
+            <TooltipContent>{help}</TooltipContent>
+          </Tooltip>
+        ) : null}
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={label}
@@ -96,6 +109,8 @@ function CreateStudentForm({
   const pending = controller?.pending ?? localPending;
   const [targetExamEventId, setTargetExamEventId] = useState("");
   const [handoffMethod, setHandoffMethod] = useState<"invite_link" | "temporary_password">("temporary_password");
+  const [fullName, setFullName] = useState(() => state.fields?.fullName ?? "");
+  const [email, setEmail] = useState(() => state.fields?.email ?? "");
   const [acknowledgedHandoffId, setAcknowledgedHandoffId] = useState<string | null>(null);
   const onHandoffResolved = controller?.onHandoffResolved;
   const handoffActive = Boolean(
@@ -103,6 +118,7 @@ function CreateStudentForm({
       (state.temporaryPassword || state.inviteUrl) &&
       acknowledgedHandoffId !== state.handoffId,
   );
+  const isFormComplete = fullName.trim().length > 0 && email.trim().length > 0;
 
   const handleHandoffResolved = useCallback(() => {
     if (state.handoffId) {
@@ -158,11 +174,12 @@ function CreateStudentForm({
           <Field>
             <FieldLabel htmlFor="student-full-name">Student name</FieldLabel>
             <FieldInput
-              defaultValue={state.fields?.fullName ?? ""}
               id="student-full-name"
               name="fullName"
+              onChange={(event) => setFullName(event.currentTarget.value)}
               placeholder="Alya Ramadhani"
               required
+              value={fullName}
             />
             {state.fieldErrors?.fullName ? (
               <p className="text-sm text-danger-700">{state.fieldErrors.fullName}</p>
@@ -172,12 +189,13 @@ function CreateStudentForm({
           <Field>
             <FieldLabel htmlFor="student-email">Student email</FieldLabel>
             <FieldInput
-              defaultValue={state.fields?.email ?? ""}
               id="student-email"
               name="email"
+              onChange={(event) => setEmail(event.currentTarget.value)}
               placeholder="alya@student.vecalss.id"
               required
               type="email"
+              value={email}
             />
             {state.fieldErrors?.email ? (
               <p className="text-sm text-danger-700">{state.fieldErrors.email}</p>
@@ -198,6 +216,7 @@ function CreateStudentForm({
 
           <StudentDropdownField
             error={state.fieldErrors?.handoffMethod}
+            help="Choose how the student receives their first login credentials."
             id="student-handoff-method"
             label="Credential handoff"
             name="handoffMethod"
@@ -215,7 +234,7 @@ function CreateStudentForm({
         </div>
 
         <div className="mt-5 flex justify-start md:justify-end">
-          <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={handoffActive} pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
+          <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
             Create student account
           </SubmitButton>
         </div>

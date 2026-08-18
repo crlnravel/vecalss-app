@@ -85,10 +85,10 @@ export async function POST(
   }
 
   const tokenHash = hashToken(token);
-  if (!consumeInviteRateLimit({
+  if (!(await consumeInviteRateLimit({
     identity: getTrustedInviteIdentity(),
     tokenHash,
-  })) {
+  }))) {
     return invalidInviteResponse(429);
   }
 

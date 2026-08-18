@@ -19,6 +19,7 @@ import {
   Timer,
   X,
 } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
 import {
@@ -203,10 +204,15 @@ function ImportSessionRecoveryNotice({
         <p className="mt-1 max-w-[68ch] text-sm leading-6">{kind === "expired" ? "Sign in again to return to this import review. The import ID stays in this page context; credentials are never included in the recovery link." : "This admin account can no longer review the import. Sign in with an active admin account or return to the admin home."}</p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
-        <Link className="inline-flex min-h-11 items-center rounded-xl border border-student-status-danger-border px-3 text-sm font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" href={getImportLoginRecoveryHref(`/admin/imports/${encodeURIComponent(importId)}`)}>
+        <Button
+          nativeButton={false}
+          render={<Link href={getImportLoginRecoveryHref(`/admin/imports/${encodeURIComponent(importId)}`)} />}
+          size="default"
+          variant="dangerOutline"
+        >
           {kind === "expired" ? "Sign in again" : "Sign in as admin"}
-        </Link>
-        <button className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={onRefresh} type="button">Refresh page</button>
+        </Button>
+        <Button onClick={onRefresh} size="default" variant="dangerOutline">Refresh page</Button>
       </div>
     </section>
   );
@@ -323,10 +329,10 @@ function ImportRowTable({
           <p className="mt-1 text-sm leading-6 text-secondary-600">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
         </div>
         {invalidRows.length > 0 ? (
-          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-3 text-sm font-semibold text-student-status-attention-fg hover:bg-student-status-attention-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border" onClick={toggleInvalidRows} type="button">
+          <Button onClick={toggleInvalidRows} size="default" variant="attentionOutline">
             <CircleAlert aria-hidden="true" size={15} />
             {selectedInvalidRows.size === invalidRows.length ? "Clear invalid selection" : "Select invalid rows"}
-          </button>
+          </Button>
         ) : null}
       </div>
       <div className="overflow-x-auto">
@@ -720,9 +726,9 @@ function HandoffDeliveryPanel({
         <div className="mt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-secondary-900">Pending new-account handoffs</p>
-            <button className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-xs font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => dispatch({ ids: pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id)), type: "selectPending" })} type="button">
+            <Button className="text-xs" onClick={() => dispatch({ ids: pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id)), type: "selectPending" })} size="default" variant="ghost">
               {selectedRows.size === pendingRows.length ? "Clear selection" : "Select all pending"}
-            </button>
+            </Button>
           </div>
           <div className="mt-2 divide-y divide-primary-100 rounded-2xl border border-primary-100">
             {pendingRows.map((row) => (
@@ -737,10 +743,10 @@ function HandoffDeliveryPanel({
             <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "acknowledgeIntent", value: event.target.checked })} type="checkbox" />
             <span>I will share this file through a secure channel and understand the selected credentials cannot be recovered after release.</span>
           </label>
-          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedIds.length || !acknowledgeIntent || downloadBusy} onClick={downloadFile} type="button">
+          <Button className="mt-3" disabled={!selectedIds.length || !acknowledgeIntent || downloadBusy} onClick={downloadFile} type="button" variant="brand">
             <Download aria-hidden="true" size={16} />
             {downloadBusy ? "Preparing file…" : `Download selected (${selectedIds.length})`}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -756,7 +762,7 @@ function HandoffDeliveryPanel({
                   <span className="truncate">Row {row.rowNumber} · {row.normalizedEmail}</span>
                 </label>
                 <span className="font-semibold">Already released</span>
-                {row.handoffId ? <button className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-student-status-attention-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} type="button">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</button> : null}
+                {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} size="default" type="button" variant="attentionOutline">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</Button> : null}
               </div>
             ))}
           </div>
@@ -764,10 +770,10 @@ function HandoffDeliveryPanel({
             <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => dispatch({ type: "transferConfirmed", value: event.target.checked })} type="checkbox" />
             <span>I confirm the released file was transferred through a secure channel.</span>
           </label>
-          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-attention-border px-4 text-sm font-semibold text-student-status-attention-fg hover:bg-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
+          <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button" variant="attentionOutline">
             <Check aria-hidden="true" size={16} />
             {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -779,7 +785,7 @@ function HandoffDeliveryPanel({
             {expiredRows.map((row) => (
               <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-student-status-danger-border bg-white/50 px-3 py-2" key={row.rowId}>
                 <span className="truncate text-xs">Row {row.rowNumber} · {row.normalizedEmail}</span>
-                {row.handoffId ? <button className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-xs font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border disabled:cursor-not-allowed disabled:opacity-55" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} type="button">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</button> : null}
+                {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} size="default" type="button" variant="dangerOutline">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</Button> : null}
               </div>
             ))}
           </div>
@@ -794,10 +800,10 @@ function HandoffDeliveryPanel({
             <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "transferConfirmed", value: event.target.checked })} type="checkbox" />
             <span>I confirm the released file was transferred through a secure channel.</span>
           </label>
-          <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary-300 px-4 text-sm font-semibold text-primary-800 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button">
+          <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button" variant="brandOutline">
             <Check aria-hidden="true" size={16} />
             {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -880,10 +886,10 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
       </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex min-h-11 items-center gap-2 text-xs text-secondary-600"><input checked={retryAll} className="size-4 accent-student-status-danger-solid-bg" onChange={(event) => setRetryAll(event.target.checked)} type="checkbox" /> Retry all failed rows</label>
-        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-student-status-danger-solid-bg px-4 text-sm font-semibold text-white hover:bg-danger-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border disabled:cursor-not-allowed disabled:opacity-55" disabled={busy || (!retryAll && !selectedRows.size)} onClick={retryRows} type="button">
+        <Button disabled={busy || (!retryAll && !selectedRows.size)} onClick={retryRows} type="button" variant="destructive">
           <RotateCcw aria-hidden="true" size={16} />
           {busy ? "Queueing retry…" : retryAll ? "Retry all failed" : `Retry selected (${selectedRows.size})`}
-        </button>
+        </Button>
       </div>
       {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
     </section>
@@ -952,15 +958,21 @@ function ImportDetailView({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link className="inline-flex min-h-11 w-fit items-center rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`}>
+        <Button
+          className="w-fit"
+          nativeButton={false}
+          render={<Link href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`} />}
+          size="default"
+          variant="ghost"
+        >
           <ArrowLeft aria-hidden="true" size={15} />
           Back to imports
-        </Link>
+        </Button>
         <div className="flex items-center gap-2">
-          <button aria-label="Refresh import status" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={refreshing} onClick={() => void loadStatus()} type="button">
+          <Button aria-label="Refresh import status" disabled={refreshing} onClick={() => void loadStatus()} size="default" variant="brandOutline">
             <RefreshCw aria-hidden="true" size={15} />
             {refreshing ? "Refreshing…" : "Refresh status"}
-          </button>
+          </Button>
           <span className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${toneClasses(copy.tone)}`}><span aria-hidden="true">{statusIcon(importStatus.status)}</span>{copy.label}</span>
         </div>
       </div>
@@ -1010,7 +1022,7 @@ function ImportDetailView({
               <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
                 <p className="font-semibold">Confirmation is blocked until invalid rows are skipped</p>
                 <p className="mt-1 text-xs leading-5">Select the rows you intentionally want to leave out, then use “Skip selected invalid rows.” Duplicate, role-conflict, and malformed rows are never silently accepted.</p>
-                <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-student-status-attention-solid-bg px-4 text-sm font-semibold text-student-status-attention-solid-fg hover:bg-student-status-attention-solid-bg/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-attention-border disabled:cursor-not-allowed disabled:opacity-55" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</button>
+                <Button className="mt-3" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button" variant="attention"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</Button>
                 {skipMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5" role="status">{skipMessage}</p> : null}
               </div>
             ) : null}
@@ -1033,11 +1045,11 @@ function ImportDetailView({
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-student-status-danger-border px-4 text-sm font-semibold text-student-status-danger-fg hover:bg-student-status-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => void cancelImport()} type="button"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</button>
-                {cancelArmed ? <button className="ml-2 inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-secondary-600 hover:bg-secondary-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" onClick={() => onCancelArmedChange(false)} type="button">Keep draft</button> : null}
+                <Button onClick={() => void cancelImport()} type="button" variant="dangerOutline"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</Button>
+                {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="ghost">Keep draft</Button> : null}
                 {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Abandoning…" : cancelMessage}</p> : null}
               </div>
-              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-55" disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} type="button"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</button>
+              <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="brand"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</Button>
             </div>
             {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
           </section>

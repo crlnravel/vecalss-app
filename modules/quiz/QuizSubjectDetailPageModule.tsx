@@ -193,15 +193,15 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
         </div>
 
         <Button
-          className="mt-6 h-10 w-full justify-center rounded-full shadow-[0_12px_26px_-18px_rgba(1,76,56,0.7)] sm:h-11"
+          className="mt-6 w-full justify-center"
           nativeButton={false}
           render={
             <Link
               href={`/quiz/${subject.slug}/${quiz.slug}${quiz.isCompleted ? "/result" : ""}`}
             />
           }
-          size="lg"
-          variant="brand"
+          size="learning"
+          variant="learning"
         >
           {quiz.isCompleted ? "Cek hasil" : "Kerjakan"}
           <ArrowUpRight className="size-4" data-icon="inline-end" />

@@ -52,6 +52,11 @@ prepared demonstration database.
 - `SEED_*`: Optional overrides for the dummy admin, student, and tutor credentials created by
   `pnpm db:seed`.
 
+For local role testing, you can set `DEBUG=true` in `.env`. The avatar menu will
+then show a development-only account switcher for active seeded accounts. It
+is disabled by default and also requires `NODE_ENV=development`; the server
+checks both conditions before listing accounts or changing the session.
+
 ## Verification
 
 Use this sequence to verify the current auth/onboarding/enrollment slice:
@@ -110,3 +115,26 @@ both document-only and document-plus-video coverage.
 - `/admin/notifications`
 - `/admin/enrollment`
 - `/mentor/dashboard`
+
+## Two-API-instance scalability simulation
+
+The repository includes a disposable Docker harness with two production Next
+servers sharing one Redis instance. It sends concurrent requests for the same
+rate-limit token through both containers and verifies the shared 12-attempt
+limit plus the 64-key shard bound.
+
+```bash
+pnpm test:scalability
+```
+
+The command builds the standalone image, starts `redis`, `api1`, and `api2`,
+runs the load driver, then removes only its compose project and Redis data.
+The runner generates an ephemeral simulation secret when one is not supplied;
+the API ports are kept inside the Compose network, and direct Compose use
+requires an explicit `SCALABILITY_SIMULATION_SECRET` of at least 32
+characters. The simulation endpoint is disabled unless the compose-only
+simulation flag and secret are present.
+
+The same standalone contract is used by the regular production scripts:
+`pnpm build` prepares the traced assets and `pnpm start` launches
+`.next/standalone/server.js`.

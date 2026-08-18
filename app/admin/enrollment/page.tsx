@@ -1,5 +1,11 @@
+import { unstable_cache } from "next/cache";
+
 import { EnrollmentHandoffStatus, Prisma, RoleName, UserStatus } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
+import {
+  ADMIN_ACTIVE_EXAM_EVENTS_CACHE_TAG,
+  ADMIN_STUDENT_DIRECTORY_CACHE_TAG,
+} from "@/lib/admin/operations/directory-cache";
 import {
   parseDirectoryParams,
   type DirectorySortDirection,
@@ -119,6 +125,271 @@ function studentOrderBy(
   return [{ fullName: "asc" }, { id: "asc" }];
 }
 
+type EnrolledStudentProfile = NonNullable<EnrolledStudent["studentProfile"]>;
+
+type CachedEnrolledStudent = {
+  createdAt: string;
+  email: string;
+  fullName: string;
+  id: string;
+  lastLoginAt: string | null;
+  mustChangePassword: boolean;
+  status: EnrolledStudent["status"];
+  enrollmentHandoffs: Array<{
+    expiresAt: string | null;
+    method: EnrolledStudent["enrollmentHandoffs"][number]["method"];
+    status: EnrolledStudent["enrollmentHandoffs"][number]["status"];
+  }>;
+  studentProfile: {
+    onboardingStatus: EnrolledStudentProfile["onboardingStatus"];
+    targetExamEvent: {
+      examDate: string | null;
+      name: string;
+    } | null;
+    targetMajor: {
+      name: string;
+      university: {
+        name: string;
+        shortName: string | null;
+      };
+    } | null;
+    targetUniversity: {
+      name: string;
+      shortName: string | null;
+    } | null;
+  } | null;
+};
+
+type CachedStudentDirectoryPage = {
+  students: CachedEnrolledStudent[];
+  total: number;
+};
+
+function buildStudentWhere({
+  addedFrom,
+  addedTo,
+  search,
+  statuses,
+}: {
+  addedFrom: string | null;
+  addedTo: string | null;
+  search: string;
+  statuses: readonly UserStatus[];
+}): Prisma.UserWhereInput {
+  return {
+    roleAssignments: {
+      some: {
+        revokedAt: null,
+        role: RoleName.student,
+      },
+    },
+    ...(statuses.length ? { status: { in: [...statuses] } } : {}),
+    ...(addedFrom || addedTo
+      ? {
+          createdAt: {
+            ...(addedFrom ? { gte: startOfDate(addedFrom) } : {}),
+            ...(addedTo ? { lt: endOfDate(addedTo) } : {}),
+          },
+        }
+      : {}),
+    ...(search
+      ? {
+          OR: [
+            { email: { contains: search, mode: "insensitive" } },
+            { fullName: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    softDeletedAt: null,
+  };
+}
+
+function serializeStudent(student: EnrolledStudent): CachedEnrolledStudent {
+  return {
+    createdAt: student.createdAt.toISOString(),
+    email: student.email,
+    fullName: student.fullName,
+    id: student.id,
+    lastLoginAt: student.lastLoginAt?.toISOString() ?? null,
+    mustChangePassword: student.mustChangePassword,
+    status: student.status,
+    enrollmentHandoffs: student.enrollmentHandoffs.map((handoff) => ({
+      expiresAt: handoff.expiresAt?.toISOString() ?? null,
+      method: handoff.method,
+      status: handoff.status,
+    })),
+    studentProfile: student.studentProfile
+      ? {
+          onboardingStatus: student.studentProfile.onboardingStatus,
+          targetExamEvent: student.studentProfile.targetExamEvent
+            ? {
+                examDate: student.studentProfile.targetExamEvent.examDate?.toISOString() ?? null,
+                name: student.studentProfile.targetExamEvent.name,
+              }
+            : null,
+          targetMajor: student.studentProfile.targetMajor
+            ? {
+                name: student.studentProfile.targetMajor.name,
+                university: {
+                  name: student.studentProfile.targetMajor.university.name,
+                  shortName: student.studentProfile.targetMajor.university.shortName,
+                },
+              }
+            : null,
+          targetUniversity: student.studentProfile.targetUniversity
+            ? {
+                name: student.studentProfile.targetUniversity.name,
+                shortName: student.studentProfile.targetUniversity.shortName,
+              }
+            : null,
+        }
+      : null,
+  };
+}
+
+function hydrateStudents(students: CachedEnrolledStudent[]): EnrolledStudent[] {
+  return students.map((student) => ({
+    createdAt: new Date(student.createdAt),
+    email: student.email,
+    fullName: student.fullName,
+    id: student.id,
+    lastLoginAt: student.lastLoginAt ? new Date(student.lastLoginAt) : null,
+    mustChangePassword: student.mustChangePassword,
+    status: student.status,
+    enrollmentHandoffs: student.enrollmentHandoffs.map((handoff) => ({
+      expiresAt: handoff.expiresAt ? new Date(handoff.expiresAt) : null,
+      method: handoff.method,
+      status: handoff.status,
+    })),
+    studentProfile: student.studentProfile
+      ? {
+          onboardingStatus: student.studentProfile.onboardingStatus,
+          targetExamEvent: student.studentProfile.targetExamEvent
+            ? {
+                examDate: student.studentProfile.targetExamEvent.examDate
+                  ? new Date(student.studentProfile.targetExamEvent.examDate)
+                  : null,
+                name: student.studentProfile.targetExamEvent.name,
+              }
+            : null,
+          targetMajor: student.studentProfile.targetMajor
+            ? {
+                name: student.studentProfile.targetMajor.name,
+                university: student.studentProfile.targetMajor.university,
+              }
+            : null,
+          targetUniversity: student.studentProfile.targetUniversity,
+        }
+      : null,
+  }));
+}
+
+const getCachedStudentDirectoryPage = unstable_cache(
+  async (
+    page: number,
+    pageSize: number,
+    search: string,
+    statuses: UserStatus[],
+    addedFrom: string | null,
+    addedTo: string | null,
+    sort: DirectorySortKey | null,
+    direction: DirectorySortDirection,
+  ): Promise<CachedStudentDirectoryPage> => {
+    const where = buildStudentWhere({ addedFrom, addedTo, search, statuses });
+    const [total, students] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        select: {
+          createdAt: true,
+          email: true,
+          fullName: true,
+          id: true,
+          lastLoginAt: true,
+          mustChangePassword: true,
+          status: true,
+          enrollmentHandoffs: {
+            orderBy: { createdAt: "desc" },
+            select: {
+              expiresAt: true,
+              method: true,
+              status: true,
+            },
+            take: 1,
+            where: {
+              status: {
+                in: [
+                  EnrollmentHandoffStatus.pending,
+                  EnrollmentHandoffStatus.released,
+                  EnrollmentHandoffStatus.expired,
+                ],
+              },
+            },
+          },
+          studentProfile: {
+            include: {
+              targetExamEvent: {
+                select: {
+                  examDate: true,
+                  name: true,
+                },
+              },
+              targetMajor: {
+                select: {
+                  name: true,
+                  university: {
+                    select: {
+                      name: true,
+                      shortName: true,
+                    },
+                  },
+                },
+              },
+              targetUniversity: {
+                select: {
+                  name: true,
+                  shortName: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: studentOrderBy(sort, direction),
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        where,
+      }),
+    ]);
+
+    return {
+      students: students.map(serializeStudent),
+      total,
+    };
+  },
+  ["admin-student-directory-page"],
+  {
+    revalidate: 10,
+    tags: [ADMIN_STUDENT_DIRECTORY_CACHE_TAG],
+  },
+);
+
+const getCachedActiveExamEvents = unstable_cache(
+  async () => prisma.examEvent.findMany({
+    orderBy: [{ examDate: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+    },
+    where: {
+      isActive: true,
+    },
+  }),
+  ["admin-active-exam-events"],
+  {
+    revalidate: 300,
+    tags: [ADMIN_ACTIVE_EXAM_EVENTS_CACHE_TAG],
+  },
+);
+
 export default async function EnrollmentPage({
   searchParams,
 }: {
@@ -139,16 +410,7 @@ export default async function EnrollmentPage({
   });
   const { addedFrom, addedTo, direction, page, pageSize, search, sort, statuses } = directory;
   const demo = resolvedSearchParams.demo === "1";
-  const examEvents = await prisma.examEvent.findMany({
-    orderBy: [{ examDate: "asc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-    },
-    where: {
-      isActive: true,
-    },
-  });
+  const examEvents = await getCachedActiveExamEvents();
   const error = directory.invalid
     ? "invalid-directory-query"
     : typeof resolvedSearchParams.error === "string"
@@ -191,90 +453,18 @@ export default async function EnrollmentPage({
     );
   }
 
-  const studentWhere: Prisma.UserWhereInput = {
-    roleAssignments: {
-      some: {
-        revokedAt: null,
-        role: RoleName.student,
-      },
-    },
-    ...(statuses.length ? { status: { in: statuses } } : {}),
-    ...(addedFrom || addedTo
-      ? {
-          createdAt: {
-            ...(addedFrom ? { gte: startOfDate(addedFrom) } : {}),
-            ...(addedTo ? { lt: endOfDate(addedTo) } : {}),
-          },
-        }
-      : {}),
-    ...(search
-      ? {
-          OR: [
-            { email: { contains: search, mode: "insensitive" } },
-            { fullName: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-    softDeletedAt: null,
-  };
-  const [total, students] = await Promise.all([
-    prisma.user.count({ where: studentWhere }),
-    prisma.user.findMany({
-      include: {
-        enrollmentHandoffs: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            expiresAt: true,
-            id: true,
-            method: true,
-            sourceImportRowId: true,
-            status: true,
-          },
-          take: 1,
-          where: {
-            status: {
-              in: [
-                EnrollmentHandoffStatus.pending,
-                EnrollmentHandoffStatus.released,
-                EnrollmentHandoffStatus.expired,
-              ],
-            },
-          },
-        },
-        studentProfile: {
-          include: {
-            targetExamEvent: {
-              select: {
-                examDate: true,
-                name: true,
-              },
-            },
-            targetMajor: {
-              select: {
-                name: true,
-                university: {
-                  select: {
-                    name: true,
-                    shortName: true,
-                  },
-                },
-              },
-            },
-            targetUniversity: {
-              select: {
-                name: true,
-                shortName: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: studentOrderBy(sort, direction),
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      where: studentWhere,
-    }),
-  ]);
+  const cachedDirectory = await getCachedStudentDirectoryPage(
+    page,
+    pageSize,
+    search,
+    [...statuses].sort(),
+    addedFrom,
+    addedTo,
+    sort,
+    direction,
+  );
+  const students = hydrateStudents(cachedDirectory.students);
+  const total = cachedDirectory.total;
 
   return (
     <EnrollmentPageModule

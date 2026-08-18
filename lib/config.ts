@@ -39,9 +39,19 @@ function getRegistrationFormUrl() {
 
 const isProduction = process.env.NODE_ENV === "production";
 
+function isDebugEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.DEBUG?.trim() === "true";
+}
+
+function isDebugAccountSwitcherEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.NODE_ENV === "development" && isDebugEnabled(env);
+}
+
 export {
   DEFAULT_APP_BASE_URL,
   getAppBaseUrl,
   getRegistrationFormUrl,
+  isDebugAccountSwitcherEnabled,
+  isDebugEnabled,
   isProduction,
 };

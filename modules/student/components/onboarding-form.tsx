@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 
 import type { ExamEvent, Major, University } from "@/generated/prisma/client";
+import { Button } from "@/components/ui/button";
 import { saveOnboardingAction, skipOnboardingAction } from "@/modules/student/actions";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
@@ -184,9 +185,9 @@ function OnboardingForm({
             <p className="mt-5 max-w-sm text-base leading-7 text-slate-500">
               Jawab beberapa pertanyaan singkat supaya Vecalss bisa menyiapkan arah belajar yang pas buatmu.
             </p>
-            <button className="mt-9 inline-flex min-h-14 w-full max-w-sm items-center justify-center gap-2 rounded-full bg-[#ffda59] px-6 text-base font-extrabold text-slate-900 shadow-[0_16px_30px_-18px_rgba(166,116,0,.65)] transition hover:-translate-y-0.5 hover:bg-[#ffd348] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#29b9cc]" onClick={() => setStep(1)} type="button">
+            <Button className="mt-9 w-full max-w-sm" onClick={() => setStep(1)} size="onboarding" type="button" variant="onboarding">
               Mulai <ArrowRight size={19} weight="bold" />
-            </button>
+            </Button>
             <div className="mt-5"><SkipOnboardingButton>Lewati dulu</SkipOnboardingButton></div>
           </section>
         ) : null}
@@ -208,9 +209,9 @@ function OnboardingForm({
               {examEvents.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Target ujian belum tersedia. Kamu tetap bisa memilih kampus dan jurusan.</p> : null}
             </div>
             <div className="mt-8 flex flex-col items-center gap-4">
-              <button className="inline-flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-[#ffda59] px-6 font-extrabold text-slate-900 transition hover:bg-[#ffd348] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400" disabled={!canAdvanceFromTargets} onClick={() => setStep(2)} type="button">
+              <Button className="w-full" disabled={!canAdvanceFromTargets} onClick={() => setStep(2)} size="onboarding" type="button" variant="onboarding">
                 Lanjut <ArrowRight size={18} weight="bold" />
-              </button>
+              </Button>
               <SkipOnboardingButton>Lewati dulu</SkipOnboardingButton>
             </div>
           </section>
@@ -237,7 +238,7 @@ function OnboardingForm({
             </select>
             {chosenUniversity ? <p className="mt-3 text-sm text-slate-500">Keren, <span className="font-bold text-slate-700">{chosenUniversity.shortName ?? chosenUniversity.name}</span> masuk daftar tujuanmu.</p> : null}
             <div className="mt-9 flex flex-col items-center gap-4">
-              <button className="inline-flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-[#ffda59] px-6 font-extrabold text-slate-900 transition hover:bg-[#ffd348]" onClick={() => setStep(3)} type="button">Lanjut <ArrowRight size={18} weight="bold" /></button>
+              <Button className="w-full" onClick={() => setStep(3)} size="onboarding" type="button" variant="onboarding">Lanjut <ArrowRight size={18} weight="bold" /></Button>
               <button className="text-sm font-medium text-slate-400 hover:text-slate-600" onClick={() => setStep(3)} type="button">Lewati dulu</button>
             </div>
           </section>
@@ -256,7 +257,7 @@ function OnboardingForm({
               <input name="targetExamEventId" type="hidden" value={examId} />
               <input name="targetUniversityId" type="hidden" value={universityId} />
               <input name="targetMajorId" type="hidden" value={majorId} />
-              <button className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[#ffda59] px-6 text-base font-extrabold text-slate-900 shadow-[0_16px_30px_-18px_rgba(166,116,0,.65)] transition hover:-translate-y-0.5 hover:bg-[#ffd348] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#29b9cc]" type="submit">Mulai belajar <ArrowRight size={19} weight="bold" /></button>
+              <Button className="w-full" size="onboarding" type="submit" variant="onboarding">Mulai belajar <ArrowRight size={19} weight="bold" /></Button>
               <button className="text-sm font-medium text-slate-400 hover:text-slate-600" formAction={skipOnboardingAction} type="submit">Atur nanti aja</button>
             </form>
           </section>

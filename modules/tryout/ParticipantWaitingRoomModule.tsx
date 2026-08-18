@@ -35,14 +35,16 @@ const rules = [
 
 function WaitingRoomBackLink() {
   return (
-    <Link
+    <Button
       aria-label="Kembali ke katalog tryout"
-      className="inline-flex size-11 items-center justify-center rounded-xl text-secondary-600 transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-      href="/tryout"
+      nativeButton={false}
+      render={<Link href="/tryout" />}
+      size="icon"
       title="Kembali ke katalog tryout"
+      variant="ghost"
     >
       <ChevronLeft aria-hidden="true" className="size-5" />
-    </Link>
+    </Button>
   );
 }
 

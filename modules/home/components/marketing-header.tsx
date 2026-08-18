@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Menu } from "@/lib/icons";
+import { buttonVariants } from "@/components/ui/button-variants";
 
 import { marketingNavItems } from "../data";
 
@@ -67,10 +68,7 @@ function MarketingHeader({
 
           {showLandingCta && loginItem ? (
             <span className="inline-flex">
-              <Link
-                className="inline-flex min-h-11 items-center rounded-full bg-[#014C38] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#014C38]/90"
-                href={loginItem.href}
-              >
+              <Link className={buttonVariants({ size: "marketingCompact", variant: "marketing" })} href={loginItem.href}>
                 {loginItem.label}
               </Link>
             </span>
@@ -93,10 +91,7 @@ function MarketingHeader({
                 </Link>
               ))}
               {showLandingCta && loginItem ? (
-                <Link
-                  className="mt-2 inline-flex min-h-11 items-center justify-center rounded-full bg-[#014C38] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#014C38]/90"
-                  href={loginItem.href}
-                >
+                <Link className={buttonVariants({ size: "marketingCompact", variant: "marketing" })} href={loginItem.href}>
                   {loginItem.label}
                 </Link>
               ) : null}

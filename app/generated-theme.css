@@ -2,6 +2,19 @@
 /* DO NOT EDIT */
 
 :root {
+  --voyage-deep: oklch(0.370 0.075 167.9);
+  --voyage-deep-hover: oklch(0.321 0.063 170.0);
+  --voyage-forest: oklch(0.471 0.092 163.9);
+  --voyage-leaf: oklch(0.567 0.111 158.0);
+  --voyage-sea-glass: oklch(0.863 0.054 155.2);
+  --voyage-sea-glass-wash: oklch(0.970 0.014 155.6);
+  --voyage-canvas: oklch(0.982 0.004 157.2);
+  --voyage-surface: oklch(1.000 0.000 0.0);
+  --voyage-ink: oklch(0.324 0.051 164.4);
+  --voyage-muted-ink: oklch(0.546 0.035 161.3);
+  --voyage-soft-border: oklch(0.908 0.021 156.8);
+  --voyage-warm-sun: oklch(0.892 0.138 89.9);
+  --voyage-warm-sun-ink: oklch(0.419 0.071 91.4);
   --primary-50: oklch(0.968 0.011 167.8);
   --primary-100: oklch(0.923 0.024 169.9);
   --primary-200: oklch(0.844 0.050 171.8);
@@ -82,6 +95,19 @@
 }
 
 @theme inline {
+  --color-voyage-deep: var(--voyage-deep);
+  --color-voyage-deep-hover: var(--voyage-deep-hover);
+  --color-voyage-forest: var(--voyage-forest);
+  --color-voyage-leaf: var(--voyage-leaf);
+  --color-voyage-sea-glass: var(--voyage-sea-glass);
+  --color-voyage-sea-glass-wash: var(--voyage-sea-glass-wash);
+  --color-voyage-canvas: var(--voyage-canvas);
+  --color-voyage-surface: var(--voyage-surface);
+  --color-voyage-ink: var(--voyage-ink);
+  --color-voyage-muted-ink: var(--voyage-muted-ink);
+  --color-voyage-soft-border: var(--voyage-soft-border);
+  --color-voyage-warm-sun: var(--voyage-warm-sun);
+  --color-voyage-warm-sun-ink: var(--voyage-warm-sun-ink);
   --color-primary-50: var(--primary-50);
   --color-primary-100: var(--primary-100);
   --color-primary-200: var(--primary-200);

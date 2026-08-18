@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ArrowDownToLine, ChevronDown, CircleHelp, FileUp, Upload } from "@/lib/icons";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -205,7 +206,7 @@ function ImportsIntakeModule({
             <div className="flex items-center gap-1.5">
               <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Choose a role</label>
               <Tooltip>
-                <TooltipTrigger render={<button aria-label="Role import guidance" className="inline-flex size-6 items-center justify-center rounded-full text-secondary-500 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300" type="button" />}>
+                <TooltipTrigger render={<Button aria-label="Role import guidance" size="icon-xs" type="button" variant="ghost" />}>
                   <CircleHelp aria-hidden="true" size={15} />
                 </TooltipTrigger>
                 <TooltipContent>Each file can contain one role only.</TooltipContent>
@@ -229,14 +230,16 @@ function ImportsIntakeModule({
 
           <div>
             <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Get the CSV template" : "1. Download the CSV template"}</p>
-            <a
-              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary-200 px-3.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-              download={template.fileName}
-              href={`/api/admin/imports/templates/${template.version}`}
+            <Button
+              className="mt-4"
+              nativeButton={false}
+              render={<a download={template.fileName} href={`/api/admin/imports/templates/${template.version}`} />}
+              size="default"
+              variant="brandOutline"
             >
               <ArrowDownToLine aria-hidden="true" size={16} />
               Download template
-            </a>
+            </Button>
           </div>
 
           <div className={showRoleSelect ? "pt-4 lg:col-span-2" : "pt-2"}>
@@ -275,10 +278,10 @@ function ImportsIntakeModule({
               <span className="mt-1 text-xs leading-5 text-secondary-600">{file ? "Ready to upload" : "CSV only · up to 2 MiB · 500 data rows"}</span>
             </label>
             <p className="sr-only" id="roster-upload-help">Drop a CSV file here or browse for one. A preview will explain each row before confirmation.</p>
-            <button className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 disabled:cursor-not-allowed disabled:opacity-60" disabled={busy || !file} type="submit">
+            <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="brand">
               <FileUp aria-hidden="true" size={17} />
               {busy ? "Uploading…" : "Upload"}
-            </button>
+            </Button>
             <p aria-live="polite" className={`mt-3 min-h-5 text-xs leading-5 ${feedback.tone === "error" ? "text-student-status-danger-fg" : "text-secondary-600"}`} role={feedback.tone === "error" ? "alert" : undefined}>{feedback.message}</p>
           </div>
         </div>
@@ -290,10 +293,15 @@ function ImportsIntakeModule({
               <p className="mt-1">{sessionIssue === "expired" ? "Sign in again to return to the imports workspace." : "Use an active admin account or return to the admin home."}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="inline-flex min-h-11 items-center rounded-xl border border-student-status-danger-border px-3 font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" href={sessionIssue === "expired" ? getImportLoginRecoveryHref("/admin/imports") : "/admin"}>
+              <Button
+                nativeButton={false}
+                render={<Link href={sessionIssue === "expired" ? getImportLoginRecoveryHref("/admin/imports") : "/admin"} />}
+                size="default"
+                variant="dangerOutline"
+              >
                 {sessionIssue === "expired" ? "Sign in again" : "Return to Admin home"}
-              </Link>
-              <button className="inline-flex min-h-11 items-center rounded-xl px-3 font-semibold text-student-status-danger-fg hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-student-status-danger-border" onClick={() => window.location.reload()} type="button">Refresh page</button>
+              </Button>
+              <Button onClick={() => window.location.reload()} size="default" variant="dangerOutline">Refresh page</Button>
             </div>
           </div>
         ) : null}

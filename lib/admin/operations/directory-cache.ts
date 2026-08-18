@@ -1,0 +1,4 @@
+const ADMIN_STUDENT_DIRECTORY_CACHE_TAG = "admin-student-directory";
+const ADMIN_ACTIVE_EXAM_EVENTS_CACHE_TAG = "admin-active-exam-events";
+
+export { ADMIN_ACTIVE_EXAM_EVENTS_CACHE_TAG, ADMIN_STUDENT_DIRECTORY_CACHE_TAG };

@@ -201,8 +201,9 @@ function DataTableSortHeader<T>({
   return (
     <Link
       aria-label={`Sort by ${column.label}; activate to ${nextAction}`}
-      className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-500 transition-colors hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+      className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-500 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
       href={sort.href(nextSortKey, nextDirection)}
+      prefetch={false}
     >
       <span>{column.label}</span>
       {sorted ? (

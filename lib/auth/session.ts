@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 
 import { RoleName, SessionStatus, UserStatus } from "@/generated/prisma/client";
-import { isProduction } from "@/lib/config";
+import { isDebugAccountSwitcherEnabled, isProduction } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -60,6 +60,77 @@ async function createSession(userId: string) {
         userId,
       },
     });
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  await setSessionCookie(rawToken);
+
+  return session;
+}
+
+/**
+ * Replace the current browser session with another active user's session.
+ *
+ * The new session is created before the previous session is revoked inside
+ * one transaction, so a failed account-state check leaves the caller signed
+ * in with the original session.
+ */
+async function switchSessionToUser(userId: string) {
+  if (!isDebugAccountSwitcherEnabled()) {
+    return null;
+  }
+
+  const cookieStore = await cookies();
+  const previousToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const previousTokenHash = previousToken ? hashToken(previousToken) : null;
+  const rawToken = createOpaqueToken();
+  const refreshTokenHash = hashToken(rawToken);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000);
+
+  const session = await prisma.$transaction(async (tx) => {
+    const users = await tx.$queryRaw<Array<{
+      soft_deleted_at: Date | null;
+      status: UserStatus;
+    }>>`
+      SELECT status, soft_deleted_at
+      FROM users
+      WHERE id = ${userId}::uuid
+      FOR UPDATE
+    `;
+
+    const user = users[0];
+    if (!user || user.status !== UserStatus.active || user.soft_deleted_at !== null) {
+      return null;
+    }
+
+    const nextSession = await tx.authSession.create({
+      data: {
+        expiresAt,
+        issuedAt: now,
+        refreshTokenHash,
+        status: SessionStatus.active,
+        userId,
+      },
+    });
+
+    if (previousTokenHash) {
+      await tx.authSession.updateMany({
+        data: {
+          revokedAt: now,
+          status: SessionStatus.revoked,
+        },
+        where: {
+          refreshTokenHash: previousTokenHash,
+          status: SessionStatus.active,
+        },
+      });
+    }
+
+    return nextSession;
   });
 
   if (!session) {
@@ -383,5 +454,6 @@ export {
   hasRole,
   revokeAllUserSessions,
   revokeCurrentSession,
+  switchSessionToUser,
   setSessionCookie,
 };

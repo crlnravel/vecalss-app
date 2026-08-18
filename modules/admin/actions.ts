@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { EnrollmentHandoffMethod, UserStatus } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
+import { ADMIN_STUDENT_DIRECTORY_CACHE_TAG } from "@/lib/admin/operations/directory-cache";
 import {
   EnrollmentHandoffStateError,
   acknowledgeEnrollmentHandoff,
@@ -104,6 +105,10 @@ function readDirectoryQuery(formData: FormData) {
 
   const parsed = parseDirectoryQuery(value);
   return parsed.invalid ? "" : buildDirectoryQuery(parsed);
+}
+
+function invalidateStudentDirectoryCache() {
+  updateTag(ADMIN_STUDENT_DIRECTORY_CACHE_TAG);
 }
 
 function handoffErrorMessage(error: unknown) {
@@ -245,6 +250,7 @@ async function createStudentEnrollmentAction(
     });
 
     revalidatePath("/admin/enrollment");
+    invalidateStudentDirectoryCache();
     revalidatePath("/admin");
 
     return {
@@ -471,6 +477,7 @@ async function updateStudentEnrollmentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/enrollment");
+  invalidateStudentDirectoryCache();
   if (returnPath) {
     revalidatePath(returnPath);
   }
@@ -537,6 +544,7 @@ async function changeStudentEnrollmentPasswordAction(
 
   revalidatePath("/admin");
   revalidatePath("/admin/enrollment");
+  invalidateStudentDirectoryCache();
   if (returnPath) {
     revalidatePath(returnPath);
   }
@@ -607,6 +615,7 @@ async function deactivateStudentEnrollmentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/enrollment");
+  invalidateStudentDirectoryCache();
   if (returnPath) {
     revalidatePath(returnPath);
   }
@@ -640,6 +649,7 @@ async function reactivateStudentEnrollmentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/enrollment");
+  invalidateStudentDirectoryCache();
   if (returnPath) {
     revalidatePath(returnPath);
   }
@@ -679,6 +689,7 @@ async function deleteStudentEnrollmentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/enrollment");
+  invalidateStudentDirectoryCache();
 
   redirect(buildEnrollmentRedirect({ notice: "student-deleted", path: "/admin/enrollment", query: directoryQuery }));
 }
@@ -722,6 +733,7 @@ async function bulkUpdateStudentEnrollmentStatusAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/enrollment");
+  invalidateStudentDirectoryCache();
 
   redirect(
     buildEnrollmentRedirect({
@@ -795,6 +807,7 @@ async function acknowledgeEnrollmentHandoffAction(
     });
     revalidatePath("/admin");
     revalidatePath("/admin/enrollment");
+    invalidateStudentDirectoryCache();
     revalidatePath(`/admin/enrollment/${acknowledged.userId}`);
     revalidatePath("/admin/kapten");
     return {
@@ -833,6 +846,7 @@ async function reissueEnrollmentHandoffAction(
     });
     revalidatePath("/admin");
     revalidatePath("/admin/enrollment");
+    invalidateStudentDirectoryCache();
     revalidatePath(`/admin/enrollment/${result.userId}`);
     revalidatePath("/admin/kapten");
 

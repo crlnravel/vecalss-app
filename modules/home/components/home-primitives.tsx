@@ -20,13 +20,17 @@ type NavigationDotsProps = {
 
 type ActionButtonLinkProps = Omit<React.ComponentProps<typeof Link>, "className"> & {
   className?: string;
-  variant?: "brand" | "brandOutline" | "inverseOutline";
+  variant?:
+    | "inverseOutline"
+    | "marketing"
+    | "marketingOnDark"
+    | "marketingOutline";
 };
 
 function ActionButtonLink({
   children,
   className,
-  variant = "brand",
+  variant = "marketing",
   ...props
 }: ActionButtonLinkProps) {
   return (

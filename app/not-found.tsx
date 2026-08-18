@@ -100,7 +100,7 @@ export default function NotFound() {
                 </p>
 
                 <ActionButtonLink
-                  className="mt-6 min-h-14 rounded-2xl px-6 text-base font-bold shadow-[0_18px_34px_-20px_rgba(1,76,56,0.55)] sm:mt-8"
+                  className="mt-6 sm:mt-8"
                   href="/"
                 >
                   Kembali ke beranda

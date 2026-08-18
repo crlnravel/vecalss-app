@@ -28,7 +28,7 @@ function ParticipantTryoutRegistrationPrompt({ href }: { href: string }) {
   return (
     <>
       <Button
-        className="h-12 w-full rounded-xl !bg-primary-700 text-base font-extrabold text-white shadow-none hover:!bg-primary-800 focus-visible:ring-primary-200"
+        className="w-full"
         onClick={() => setOpen(true)}
         size="lg"
         variant="brand"

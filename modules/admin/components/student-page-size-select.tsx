@@ -2,11 +2,20 @@
 
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   DEFAULT_DIRECTORY_PAGE_SIZE,
   DIRECTORY_PAGE_SIZE_OPTIONS,
   type DirectoryPageSize,
 } from "@/lib/admin/operations/directory-page-constants";
+import { ChevronDown } from "@/lib/icons";
 
 function StudentPageSizeSelect({
   pageSize,
@@ -33,21 +42,27 @@ function StudentPageSizeSelect({
   };
 
   return (
-    <label className="inline-flex items-center gap-2 text-xs text-secondary-600">
+    <div className="inline-flex items-center gap-2 text-xs text-secondary-600">
       <span>Rows per page</span>
-      <select
-        aria-label="Rows per page"
-        className="h-8 cursor-pointer rounded-lg border border-primary-100 bg-white px-2 text-xs font-semibold text-secondary-800 outline-none transition-colors hover:border-primary-300 focus-visible:border-primary-500 focus-visible:ring-3 focus-visible:ring-primary-500/20"
-        onChange={(event) => handleChange(event.currentTarget.value)}
-        value={pageSize}
-      >
-        {DIRECTORY_PAGE_SIZE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Rows per page"
+          render={<Button className="h-8 min-w-16 justify-between rounded-lg border-primary-100 bg-white px-2 text-xs font-semibold text-secondary-800 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
+        >
+          <span>{pageSize}</span>
+          <ChevronDown aria-hidden="true" className="size-3.5 text-secondary-500" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-(--anchor-width)">
+          <DropdownMenuRadioGroup onValueChange={handleChange} value={String(pageSize)}>
+            {DIRECTORY_PAGE_SIZE_OPTIONS.map((option) => (
+              <DropdownMenuRadioItem closeOnClick key={option} value={String(option)}>
+                {option}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 

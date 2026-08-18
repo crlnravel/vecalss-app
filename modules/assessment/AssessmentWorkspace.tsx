@@ -54,7 +54,7 @@ function AssessmentWorkspace({
       {dialog}
 
       <div className="flex min-h-svh flex-col">
-        <div className="relative border-b border-primary-100 bg-secondary-50">
+        <div className="relative border-b border-primary-100 bg-white">
           <div className="relative">
             {exitControl ? (
               <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 sm:left-6 lg:left-8">
@@ -65,8 +65,8 @@ function AssessmentWorkspace({
           </div>
 
           {navigation ? (
-            <div className="px-4 pb-4 sm:px-6 lg:px-8">
-              <div className="mx-auto w-full max-w-[1000px]">{navigation}</div>
+            <div className="bg-white px-4 pb-2 sm:px-6 lg:px-8">
+              <div className="mx-auto w-full max-w-[calc(100vw-2rem)] lg:max-w-[50vw]">{navigation}</div>
             </div>
           ) : null}
         </div>
@@ -127,7 +127,7 @@ function AssessmentQuestionNavigation({
   return (
     <nav aria-label={typeof label === "string" ? label : "Navigasi soal"} className="relative">
       <div className="flex min-w-0 items-center gap-5">
-        <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto rounded-full border border-primary-100 bg-secondary-50 px-2 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto rounded-full border border-primary-100 bg-white px-2 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex min-w-max items-center gap-2">
             {items.map((marker) => (
               <AssessmentQuestionMarker
@@ -156,32 +156,32 @@ function AssessmentQuestionNavigation({
       {pickerOpen ? (
         <>
           <button
-              aria-label="Tutup daftar soal"
-              className="fixed inset-0 z-40 cursor-default bg-secondary-900/50"
+            aria-label="Tutup daftar soal"
+            className="fixed inset-0 z-40 cursor-default bg-secondary-900/50"
             onClick={closePicker}
             type="button"
           />
           <dialog
             aria-label="Pilih nomor soal"
-            className="absolute top-[calc(100%+1.25rem)] right-0 z-50 m-0 w-[min(40rem,calc(100vw-2rem))] rounded-[2rem] border border-primary-200 bg-secondary-900 p-6 text-white shadow-[0_24px_70px_-28px_rgba(0,0,0,0.65)]"
+            className="fixed inset-auto top-1/2 right-4 bottom-auto left-auto z-50 m-0 max-h-[calc(100svh-2rem)] w-[min(26rem,calc(100vw-2rem))] -translate-y-1/2 overflow-y-auto rounded-[1.5rem] border border-primary-200 bg-secondary-900 p-4 text-white shadow-[0_24px_70px_-28px_rgba(0,0,0,0.65)] sm:right-8"
             onCancel={(event) => {
               event.preventDefault();
               closePicker();
             }}
             ref={pickerDialogRef}
           >
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold sm:text-2xl">Pilih nomor soal</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Pilih nomor soal</h2>
               <button
                 aria-label="Tutup daftar soal"
-                className="inline-flex size-10 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none"
+                className="inline-flex size-9 items-center justify-center rounded-full text-secondary-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none"
                 onClick={closePicker}
                 type="button"
               >
-                <X className="size-7" />
+                <X className="size-6" />
               </button>
             </div>
-            <div className="mt-6 grid grid-cols-5 gap-3 sm:gap-4">
+            <div className="mt-4 grid grid-cols-5 gap-2.5 sm:gap-3">
               {items.map((marker) => (
                 <AssessmentQuestionPickerMarker
                   key={marker.id ?? marker.number}
@@ -209,7 +209,7 @@ function AssessmentQuestionMarker({
   return (
     <button
       className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+        "flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
         marker.state === "active" &&
           "border-primary-400 bg-primary-700 text-white shadow-[0_10px_20px_-14px_rgba(1,76,56,0.75)] ring-2 ring-primary-200 ring-offset-2",
         marker.state === "answered" && "border-primary-300 bg-primary-50 text-primary-800",
@@ -239,7 +239,7 @@ function AssessmentQuestionPickerMarker({
     <button
       aria-current={marker.state === "active" ? "step" : undefined}
       className={cn(
-        "flex aspect-square min-h-0 items-center justify-center rounded-[1.15rem] border-2 text-lg font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-xl",
+        "flex aspect-square min-h-0 items-center justify-center rounded-xl border-2 text-base font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-300/40 focus-visible:outline-none sm:text-lg",
         marker.state === "active" && "border-primary-300 bg-primary-500 text-white shadow-[0_12px_24px_-16px_rgba(1,76,56,0.8)]",
         marker.state === "answered" && "border-primary-200 bg-primary-50 text-primary-800",
         marker.state === "flagged" && "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg",
@@ -604,16 +604,30 @@ function AssessmentAnswerOption({
   onClick,
   option,
   selected,
+  textScale = "default",
 }: {
   disabled?: boolean;
   onClick: () => void;
   option: { id: string; key: string; text: ReactNode };
   selected: boolean;
+  textScale?: "compact" | "default" | "large";
 }) {
+  const optionScaleClass = textScale === "large"
+    ? "min-h-[4.75rem] px-4 py-3"
+    : textScale === "compact"
+      ? "min-h-[3.75rem] px-3 py-2"
+      : "min-h-[4.25rem] px-3 py-2.5";
+  const optionTextClass = textScale === "large"
+    ? "text-lg leading-[1.45]"
+    : textScale === "compact"
+      ? "text-sm leading-[1.35]"
+      : "text-base leading-[1.35]";
+
   return (
     <button
       className={cn(
-        "group flex min-h-[5.5rem] w-full items-center gap-3 rounded-[1.5rem] border bg-white px-4 py-4 text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none md:px-5",
+        "group flex w-full items-center gap-2.5 rounded-[1.25rem] border bg-white text-left shadow-none transition-all duration-200 hover:border-primary-300 hover:bg-primary-50/60 focus-visible:ring-3 focus-visible:ring-primary-400/20 focus-visible:outline-none",
+        optionScaleClass,
         selected ? "border-primary-300 bg-primary-50" : "border-primary-100",
       )}
       disabled={disabled}
@@ -622,7 +636,7 @@ function AssessmentAnswerOption({
     >
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
+          "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
           selected
             ? "border-primary-700 bg-primary-700 text-white"
             : "border-secondary-200 bg-secondary-50 text-secondary-500 group-hover:border-primary-300 group-hover:bg-white",
@@ -630,7 +644,7 @@ function AssessmentAnswerOption({
       >
         {option.key}
       </span>
-      <span className="text-lg leading-[1.5] font-medium text-secondary-800 sm:text-xl">{option.text}</span>
+      <span className={cn("font-medium text-secondary-800", optionTextClass)}>{option.text}</span>
     </button>
   );
 }

@@ -4,6 +4,8 @@ import localFont from "next/font/local";
 
 import { ConditionalSpeedInsights } from "@/components/conditional-speed-insights";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { DebugAccountSwitcherProvider } from "@/components/debug-account-switcher-provider";
+import { isDebugAccountSwitcherEnabled } from "@/lib/config";
 
 import "./globals.css";
 
@@ -43,7 +45,11 @@ export default function RootLayout({
       className={`${jakarta.variable} ${manrope.variable} ${sportsWorld.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <DebugAccountSwitcherProvider enabled={isDebugAccountSwitcherEnabled()}>
+            {children}
+          </DebugAccountSwitcherProvider>
+        </TooltipProvider>
         <ConditionalSpeedInsights />
       </body>
     </html>

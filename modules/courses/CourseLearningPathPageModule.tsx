@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
@@ -416,14 +417,16 @@ function LearningPathStage({
             </div>
           ) : null}
           {isLocked ? (
-            <button
-              className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#ffd766] px-4 text-xs font-extrabold text-[#5b4b18] shadow-[0_4px_0_#d9ad32] outline-none transition-[transform,background-color,box-shadow] duration-150 hover:bg-[#ffe28c] focus-visible:ring-4 focus-visible:ring-[#d9ad32]/30 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transition-none sm:text-sm"
+            <Button
+              className="mt-3 sm:text-sm"
               disabled={pending}
               onClick={onSkip}
+              size="learningAttention"
               type="button"
+              variant="learningAttention"
             >
               {pending ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <SkipForward className="size-4" />} {pending ? "Menyimpan…" : "Lewati ke sini"}
-            </button>
+            </Button>
           ) : null}
         </div>
       </article>

@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { changeStudentEnrollmentPasswordAction } from "@/modules/admin/actions";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
@@ -96,13 +97,13 @@ function StudentPasswordDialog({
 
   return (
     <>
-      <button
-        className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-secondary-900 transition-colors hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
+      <Button
         onClick={() => setOpen(true)}
-        type="button"
+        size="default"
+        variant="ghost"
       >
         Change Password
-      </button>
+      </Button>
 
       <AlertDialog onOpenChange={setOpen} open={open}>
         {open ? <StudentPasswordForm returnPath={returnPath} studentId={studentId} /> : null}

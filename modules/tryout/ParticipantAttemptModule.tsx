@@ -610,6 +610,7 @@ function ParticipantAttemptScreen({
                   onClick={() => void save(option.id)}
                   option={{ id: option.id, key: option.choiceKey, text: option.content }}
                   selected={selected === option.id}
+                  textScale={textScale}
                 />
               ))}
             </section>
@@ -647,8 +648,8 @@ function ParticipantAttemptScreen({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={busy} variant="brandOutline">Periksa lagi</AlertDialogCancel>
-                <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Tetap kirim"}</AlertDialogAction>
+                <AlertDialogCancel disabled={busy} variant="brandOutline">Kembali</AlertDialogCancel>
+                <AlertDialogAction disabled={busy} onClick={() => void submit()} variant="destructive">{busy ? "Memproses…" : "Kirim"}</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -682,7 +683,7 @@ function ParticipantAttemptScreen({
             </Button>
             <button
               aria-label="Coretan (sementara dinonaktifkan)"
-              className="flex min-w-16 cursor-not-allowed flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[0.7rem] font-semibold text-secondary-400 opacity-60"
+              className="inline-flex min-w-16 cursor-not-allowed items-center justify-center rounded-xl px-2 py-1 text-secondary-400 opacity-60"
               disabled
               title="Coretan sementara dinonaktifkan"
               type="button"
@@ -690,7 +691,6 @@ function ParticipantAttemptScreen({
               <span className="grid size-10 place-items-center rounded-full border-2 border-secondary-300">
                 <PenTool className="size-6" />
               </span>
-              Coretan
             </button>
             {isCat ? (
               <Button
@@ -723,15 +723,17 @@ function ParticipantAttemptScreen({
         </div>
       }
       header={
-        <div className="relative flex min-h-20 items-center justify-center border-t-4 border-primary-700 bg-white px-16 py-4 sm:min-h-24">
+        <div className="relative flex min-h-20 items-center justify-center bg-white px-12 py-2 sm:min-h-20 sm:px-16">
           <h2 className="sr-only">{tryoutTitle} · {run.section.title} · Bagian {run.sequenceNo}/{runCount}</h2>
-          <BrandLockup />
+          <div className="scale-75">
+            <BrandLockup />
+          </div>
 
           <div className="absolute right-4 flex items-center gap-2 sm:right-8">
             <div
               aria-label={`Sisa waktu ${formatTimer(run.serverDeadlineAt, now)}`}
               className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-sm font-semibold tabular-nums shadow-sm",
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-sm font-semibold tabular-nums shadow-sm",
                 timerUrgent
                   ? "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg"
                   : "border-primary-100 bg-white text-secondary-700",

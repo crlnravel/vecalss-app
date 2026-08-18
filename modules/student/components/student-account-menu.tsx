@@ -3,8 +3,18 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { AlertTriangle, Bell, LayoutDashboard, LogOut, Settings, UserRound } from "@/lib/icons";
+import {
+  AlertTriangle,
+  Bell,
+  LayoutDashboard,
+  LoaderCircle,
+  LogOut,
+  Settings,
+  UserRound,
+  Users,
+} from "@/lib/icons";
 
+import { useDebugAccountSwitcher } from "@/components/debug-account-switcher-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +28,15 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +52,30 @@ import { getInitials } from "@/modules/student/components/student-sidebar-utils"
 
 type StudentAccountMenuItem = "notifications";
 type AccountMenuAudience = "admin" | "student" | "tutor";
+type DebugAccount = {
+  email: string;
+  fullName: string;
+  id: string;
+  mustChangePassword: boolean;
+  onboardingStatus: string | null;
+  roles: string[];
+};
+
+type DebugAccountsResponse = {
+  accounts?: DebugAccount[];
+  error?: string;
+};
+
+type DebugSwitchAccountResponse = {
+  destination?: string;
+  error?: string;
+};
+
+const debugRoleLabels: Record<string, string> = {
+  admin: "Admin",
+  student: "Siswa",
+  tutor: "Kapten",
+};
 
 const studentAccountMenuItemClassName =
   "hover:bg-primary-50 focus:bg-primary-50 data-highlighted:bg-primary-50";
@@ -50,6 +93,21 @@ function LogoutDialogFooter() {
   );
 }
 
+function AccountRoleLabels({ roles }: { roles: string[] }) {
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {roles.map((role) => (
+        <span
+          className="rounded-full bg-primary-50 px-2 py-1 text-ui-xs font-semibold text-primary-800"
+          key={role}
+        >
+          {debugRoleLabels[role] ?? role}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function StudentAccountMenu({
   audience = "student",
   extraItem,
@@ -60,11 +118,83 @@ function StudentAccountMenu({
   session: SessionContext;
 }) {
   const initials = getInitials(session.user.fullName);
+  const debugAccountSwitcherEnabled = useDebugAccountSwitcher();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isDebugSwitcherOpen, setIsDebugSwitcherOpen] = useState(false);
+  const [debugAccounts, setDebugAccounts] = useState<DebugAccount[] | null>(null);
+  const [debugAccountsError, setDebugAccountsError] = useState<string | null>(null);
+  const [isLoadingDebugAccounts, setIsLoadingDebugAccounts] = useState(false);
+  const [switchingAccountId, setSwitchingAccountId] = useState<string | null>(null);
   const isTutor = audience === "tutor";
   const isAdmin = audience === "admin";
   const profileHref = isTutor ? "/mentor/settings#akun" : "/settings#profil";
   const settingsHref = "/mentor/settings";
+
+  async function loadDebugAccounts() {
+    if (debugAccounts || isLoadingDebugAccounts) {
+      return;
+    }
+
+    setIsLoadingDebugAccounts(true);
+    setDebugAccountsError(null);
+
+    try {
+      const response = await fetch("/api/debug/accounts", {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      const payload = (await response.json()) as DebugAccountsResponse;
+
+      if (!response.ok || !Array.isArray(payload.accounts)) {
+        throw new Error(payload.error ?? "Daftar akun debug belum dapat dimuat.");
+      }
+
+      setDebugAccounts(payload.accounts);
+    } catch (error) {
+      setDebugAccountsError(
+        error instanceof Error
+          ? error.message
+          : "Daftar akun debug belum dapat dimuat.",
+      );
+    } finally {
+      setIsLoadingDebugAccounts(false);
+    }
+  }
+
+  function openDebugSwitcher() {
+    setDebugAccountsError(null);
+    setIsDebugSwitcherOpen(true);
+    void loadDebugAccounts();
+  }
+
+  async function switchAccount(userId: string) {
+    setSwitchingAccountId(userId);
+    setDebugAccountsError(null);
+
+    try {
+      const response = await fetch("/api/debug/switch-account", {
+        body: JSON.stringify({ userId }),
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json()) as DebugSwitchAccountResponse;
+
+      if (!response.ok || !payload.destination) {
+        throw new Error(payload.error ?? "Akun belum dapat diganti.");
+      }
+
+      window.location.assign(payload.destination);
+    } catch (error) {
+      setDebugAccountsError(
+        error instanceof Error ? error.message : "Akun belum dapat diganti.",
+      );
+      setSwitchingAccountId(null);
+    }
+  }
 
   return (
     <>
@@ -131,6 +261,18 @@ function StudentAccountMenu({
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuGroup>
+          {debugAccountSwitcherEnabled ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className={studentAccountMenuItemClassName}
+                onClick={openDebugSwitcher}
+              >
+                <Users />
+                Ganti akun (debug)
+              </DropdownMenuItem>
+            </>
+          ) : null}
           <DropdownMenuItem
             className={studentAccountMenuItemClassName}
             onClick={() => setIsLogoutDialogOpen(true)}
@@ -140,6 +282,91 @@ function StudentAccountMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {debugAccountSwitcherEnabled ? (
+        <Dialog
+          onOpenChange={(open) => {
+            if (switchingAccountId === null) {
+              setIsDebugSwitcherOpen(open);
+            }
+          }}
+          open={isDebugSwitcherOpen}
+        >
+          <DialogContent
+            className="max-w-lg"
+            pending={switchingAccountId !== null}
+            showCloseButton={false}
+            variant="info"
+          >
+            <DialogHeader>
+              <DialogTitle>Ganti akun untuk development</DialogTitle>
+              <DialogDescription>
+                Pilih akun aktif untuk menguji tampilan dan izin tiap role. Fitur ini hanya tersedia saat NODE_ENV=development dan DEBUG=true.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div aria-live="polite" className="min-h-24">
+              {isLoadingDebugAccounts ? (
+                <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-secondary-600">
+                  <LoaderCircle className="animate-spin" />
+                  Memuat akun…
+                </div>
+              ) : debugAccountsError ? (
+                <p
+                  className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg"
+                  role="alert"
+                >
+                  {debugAccountsError}
+                </p>
+              ) : debugAccounts?.length ? (
+                <div className="grid max-h-[min(28rem,calc(100svh-18rem))] gap-2 overflow-y-auto pr-1">
+                  {debugAccounts.map((account) => {
+                    const isCurrentAccount = account.id === session.user.id;
+                    const isSwitching = switchingAccountId === account.id;
+
+                    return (
+                      <Button
+                        className="h-auto min-h-16 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left"
+                        disabled={switchingAccountId !== null || isCurrentAccount}
+                        key={account.id}
+                        onClick={() => void switchAccount(account.id)}
+                        type="button"
+                        variant={isCurrentAccount ? "contextSelected" : "context"}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">{account.fullName}</span>
+                          <span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">
+                            {account.email}
+                          </span>
+                          <span className="mt-2 block">
+                            <AccountRoleLabels roles={account.roles} />
+                          </span>
+                        </span>
+                        <span className="shrink-0 pt-0.5 text-xs font-semibold text-secondary-500">
+                          {isSwitching ? "Memproses…" : isCurrentAccount ? "Aktif" : "Pilih"}
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm leading-6 text-secondary-600">
+                  Belum ada akun aktif yang bisa dipilih.
+                </p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <DialogClose
+                disabled={switchingAccountId !== null}
+                render={<Button type="button" variant="brandOutline" />}
+              >
+                Tutup
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <AlertDialog onOpenChange={setIsLogoutDialogOpen} open={isLogoutDialogOpen}>
         <AlertDialogContent variant="warning">

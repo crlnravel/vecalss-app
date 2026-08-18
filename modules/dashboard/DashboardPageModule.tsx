@@ -435,7 +435,7 @@ function ChapterSkillsSection() {
                     </EmptyDescription>
                   </EmptyHeader>
                   <EmptyContent>
-                    <Button className="rounded-full bg-primary-700 px-5 font-semibold text-white hover:bg-primary-800" nativeButton={false} render={<Link href="/quiz" />} size="sm">
+                    <Button nativeButton={false} render={<Link href="/quiz" />} size="sm" variant="brand">
                       Latihan Sekarang
                     </Button>
                   </EmptyContent>
@@ -464,7 +464,7 @@ function RecentActivitySection() {
               <EmptyDescription>Yuk, mulai progress belajarmu sekarang!</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button className="rounded-full bg-primary-700 px-5 font-semibold text-white hover:bg-primary-800" nativeButton={false} render={<Link href="/courses" />} size="sm">
+              <Button nativeButton={false} render={<Link href="/courses" />} size="sm" variant="brand">
                 Lihat Materi
               </Button>
             </EmptyContent>

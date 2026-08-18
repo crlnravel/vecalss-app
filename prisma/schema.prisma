@@ -563,6 +563,9 @@ model User {
   matchedEnrollmentImportRows            EnrollmentImportRow[]            @relation("EnrollmentImportRowMatchedUser")
   resultEnrollmentImportRows             EnrollmentImportRow[]            @relation("EnrollmentImportRowResultUser")
 
+  @@index([fullName, id], map: "users_directory_full_name_id_idx")
+  @@index([createdAt, id], map: "users_directory_created_at_id_idx")
+  @@index([status, fullName, id], map: "users_directory_status_full_name_id_idx")
   @@map("users")
 }
 
@@ -630,6 +633,7 @@ model RoleAssignment {
   assignedBy User? @relation("RolesAssignedBy", fields: [assignedByUserId], references: [id])
 
   @@index([userId, role])
+  @@index([role, revokedAt, userId], map: "role_assignments_directory_role_idx")
   @@map("role_assignments")
 }
 

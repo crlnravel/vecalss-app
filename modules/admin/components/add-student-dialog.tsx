@@ -5,7 +5,7 @@ import { useActionState, useRef, useState } from "react";
 import type { ExamEvent } from "@/generated/prisma/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { FileText, Plus, UserPlus, Users } from "@/lib/icons";
+import { Plus, UserPlus, Users } from "@/lib/icons";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 
 import { CreateStudentForm } from "./create-student-form";
@@ -150,10 +150,6 @@ function AddStudentDialog({
 
           <div className="px-5 py-6 sm:px-8 sm:py-7">
             <div aria-busy={singleBusy || undefined} aria-labelledby="single-student-import-tab" hidden={mode !== "single"} id="single-student-import-panel" inert={mode !== "single" || operationBusy || undefined} role="tabpanel">
-              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/65 px-4 py-3.5">
-                <FileText aria-hidden="true" className="mt-0.5 shrink-0 text-primary-700" size={18} />
-                <p className="text-sm leading-6 text-secondary-700">Add an approved student, set an exam goal, and choose how their first credentials should be delivered.</p>
-              </div>
               <CreateStudentForm
                 controller={{
                   formAction: singleFormAction,
