@@ -861,6 +861,16 @@ type QuestionRevisionLifecycleStatus = "draft" | "review" | "ready" | "retired";
 
 async function updateQuestionRevisionLifecycle(id: string, targetStatus: QuestionRevisionLifecycleStatus, actorId: string) {
   return prisma.$transaction(async (tx) => {
+    // Ready edits lock the Question through the Bank aggregate. Take the same
+    // row lock before reading the revision so a lifecycle command cannot make
+    // a stale decision about which revision is current.
+    await tx.$queryRaw`
+      SELECT q.id
+      FROM questions q
+      JOIN question_revisions r ON r.question_id = q.id
+      WHERE r.id = ${id}::uuid
+      FOR UPDATE OF q, r
+    `;
     const revision = await tx.questionRevision.findUnique({
       where: { id },
       include: {
