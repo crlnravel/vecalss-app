@@ -177,16 +177,17 @@ CREATE INDEX "question_revisions_status_content_digest_idx" ON "question_revisio
 
 ALTER TABLE "two_pl_question_calibrations"
   ADD COLUMN "question_revision_id" UUID,
-  ADD COLUMN "content_digest" VARCHAR(128);
+  ADD COLUMN "content_digest" VARCHAR(128),
+  ADD COLUMN "source_revision_provenance" "question_revision_provenance" NOT NULL DEFAULT 'authored'::question_revision_provenance;
 
 UPDATE "two_pl_question_calibrations" calibration
 SET
   question_revision_id = question.current_revision_id,
   content_digest = revision.content_digest,
   -- The legacy row has no evidence that its parameters were recorded for
-  -- this exact revision. Keep the compatibility pointer for auditability,
-  -- but force an explicit re-approval before it can power CAT.
-  approval_state = 'rejected'
+  -- this exact revision. Keep its existing approval-state value for schema
+  -- compatibility, but quarantine it with explicit unknown provenance.
+  source_revision_provenance = 'legacy_unknown'::question_revision_provenance
 FROM questions question
 JOIN question_revisions revision ON revision.id = question.current_revision_id
 WHERE question.id = calibration.question_id;

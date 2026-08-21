@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma, QuestionRevisionStatus } from "@/generated/prisma/client";
+import { Prisma, QuestionRevisionProvenance, QuestionRevisionStatus } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
 
@@ -45,10 +45,11 @@ async function approveTwoPlCalibration(input: TwoPlCalibrationInput, actorId: st
           difficulty: new Prisma.Decimal(difficulty),
           discrimination: new Prisma.Decimal(discrimination),
           recordedByUserId: actorId,
+          sourceRevisionProvenance: QuestionRevisionProvenance.authored,
         },
       });
     }
-    return tx.twoPlQuestionCalibration.create({ data: { approvedByUserId: actorId, auditReason: reason, contentDigest: revision.contentDigest, difficulty: new Prisma.Decimal(difficulty), discrimination: new Prisma.Decimal(discrimination), modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: question.id, questionRevisionId: revision.id, recordedByUserId: actorId } });
+    return tx.twoPlQuestionCalibration.create({ data: { approvedByUserId: actorId, auditReason: reason, contentDigest: revision.contentDigest, difficulty: new Prisma.Decimal(difficulty), discrimination: new Prisma.Decimal(discrimination), modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: question.id, questionRevisionId: revision.id, recordedByUserId: actorId, sourceRevisionProvenance: QuestionRevisionProvenance.authored } });
   });
 }
 

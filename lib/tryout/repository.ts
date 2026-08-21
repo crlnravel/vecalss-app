@@ -211,7 +211,7 @@ async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: 
   const revisionIds = version.items.map((item) => item.sourceQuestionRevisionId!);
   const [revisions, calibrations] = await Promise.all([
     tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
-    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, id: true, questionId: true, questionRevisionId: true } }),
+    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, id: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
   ]);
   const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
@@ -222,7 +222,8 @@ async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: 
       || revision.questionId !== item.sourceQuestionId
       || revision.contentDigest !== item.sourceContentDigest
       || calibration.questionId !== item.sourceQuestionId
-      || calibration.contentDigest !== item.sourceContentDigest;
+      || calibration.contentDigest !== item.sourceContentDigest
+      || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
   })) throw new TryoutValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
 }
 async function saveTryout(input: SaveTryoutInput, actorId: string) {

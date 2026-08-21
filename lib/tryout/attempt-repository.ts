@@ -132,7 +132,7 @@ async function catRunSnapshot(tx: Prisma.TransactionClient, section: { catItemCo
   const revisionIds = section.items.map((item) => item.sourceQuestionRevisionId!);
   const [revisions, calibrations] = await Promise.all([
     tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
-    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, id: true, questionId: true, questionRevisionId: true } }),
+    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, id: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
   ]);
   const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
@@ -143,7 +143,8 @@ async function catRunSnapshot(tx: Prisma.TransactionClient, section: { catItemCo
       || revision.questionId !== item.sourceQuestionId
       || revision.contentDigest !== item.sourceContentDigest
       || calibration.questionId !== item.sourceQuestionId
-      || calibration.contentDigest !== item.sourceContentDigest;
+      || calibration.contentDigest !== item.sourceContentDigest
+      || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
   })) throw new TryoutAttemptValidationError("Pool CAT memiliki parameter 2PL kanonis yang belum disetujui untuk QuestionRevision dan digest yang tepat.");
   const parameters = section.items.map((item) => {
     const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);

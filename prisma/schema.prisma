@@ -1253,6 +1253,7 @@ model TwoPlQuestionCalibration {
   discrimination     Decimal  @db.Decimal(10, 6)
   difficulty         Decimal  @db.Decimal(10, 6)
   approvalState      String   @default("approved") @map("approval_state") @db.VarChar(24)
+  sourceRevisionProvenance QuestionRevisionProvenance @default(authored) @map("source_revision_provenance")
   recordedByUserId   String   @map("recorded_by_user_id") @db.Uuid
   approvedByUserId   String   @map("approved_by_user_id") @db.Uuid
   approvedAt         DateTime @default(now()) @map("approved_at") @db.Timestamptz
