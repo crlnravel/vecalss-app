@@ -4,11 +4,13 @@
 
 - Objective: preserve the completed AS-03 normalized Attempt/Scoring/Release
   states for canonical StandaloneQuiz and Tryout only; do not start AS-09.
-- Workspace: main at 7f60c43 (AS-03 implementation is cb1eb8f), with unrelated
+- Workspace: main at b9cff36 (AS-03 implementation is cb1eb8f; hardening is
+  7f60c43), with unrelated
   preview/harness/document changes present. Preserve those changes; all AS-03
   paths below are committed by explicit pathspec.
 - AS-03 migration: prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql
-  remains pending. No database mutation was performed in this continuation.
+  remains pending. No configured external database mutation was performed in
+  this continuation; the migration was replayed only in an isolated local DB.
 - Runtime hardening completed:
   - Tryout run snapshots now include explanation text and explanationAssetId.
   - Final seven-run sealing calls materializeTryoutAttemptInTransaction inside
@@ -59,9 +61,9 @@
   and release states`); follow-up hardening is `7f60c43` (`fix: close AS-03
   release boundaries`). The migration remains pending on the configured
   external database and was not applied.
-- Next actions: commit the follow-up, then deploy the migration only after
-  backup/rollback approval and run DB-backed Kuis and seven-section Tryout
-  smoke tests against the deployment target.
+- Next actions: deploy the migration only after backup/rollback approval and
+  run DB-backed Kuis and seven-section Tryout smoke tests against the
+  deployment target.
 
 ## Current Objective
 
