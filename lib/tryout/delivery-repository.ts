@@ -13,6 +13,7 @@ import {
   QuestionRevisionStatus,
 } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
+import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import { prisma } from "@/lib/prisma";
 
 class TryoutDeliveryValidationError extends Error {}
@@ -51,8 +52,30 @@ async function audit(tx: Prisma.TransactionClient, input: { action: string; admi
 }
 
 async function assertStudent(tx: Prisma.TransactionClient, studentId: string) {
-  const profile = await tx.studentProfile.findUnique({ where: { userId: studentId }, select: { userId: true } });
-  if (!profile) throw new TryoutDeliveryValidationError("Peserta harus merupakan akun student dengan StudentProfile.");
+  const student = await tx.user.findUnique({
+    select: {
+      previewPurpose: true,
+      studentProfile: { select: { userId: true } },
+    },
+    where: { id: studentId },
+  });
+  if (!student?.studentProfile) throw new TryoutDeliveryValidationError("Peserta harus merupakan akun student dengan StudentProfile.");
+  if (isManagedPreviewPurpose(student.previewPurpose)) {
+    throw new TryoutDeliveryValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+  }
+}
+
+async function assertAdmissionStudentIsNotManagedPreview(
+  tx: Prisma.TransactionClient,
+  admissionId: string,
+) {
+  const admission = await tx.tryoutAdmission.findUnique({
+    select: { student: { select: { previewPurpose: true } } },
+    where: { id: admissionId },
+  });
+  if (isManagedPreviewPurpose(admission?.student.previewPurpose)) {
+    throw new TryoutDeliveryValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+  }
 }
 
 async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: string) {
@@ -212,6 +235,7 @@ async function decideTryoutAdmission(admissionId: string, decision: "approve" | 
   return prisma.$transaction(async (tx) => {
     const admission = await tx.tryoutAdmission.findUnique({ where: { id: admissionId } });
     if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
+    await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
     if (admission.status !== TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Hanya pendaftaran menunggu persetujuan yang dapat diputuskan.");
     const status = decision === "approve" ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.rejected;
     const updated = await tx.tryoutAdmission.update({ where: { id: admissionId }, data: { decidedAt: new Date(), decidedByUserId: actorId, status } });
@@ -240,6 +264,7 @@ async function assignTryoutDeliverySession(input: AssignmentInput, actorId: stri
       tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } }),
     ]);
     if (!admission || !session || admission.tryoutId !== session.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
+    await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
     if (admission.status !== TryoutAdmissionStatus.active || session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif dan sesi aktif diperlukan untuk penugasan.");
     const assignment = await tx.tryoutDeliveryAssignment.upsert({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, create: { admissionId: input.admissionId, assignedByUserId: actorId, deliverySessionId: input.deliverySessionId }, update: { assignedByUserId: actorId, assignedAt: new Date(), revokeReason: null, revokedAt: null, status: TryoutAssignmentStatus.active } });
     await audit(tx, { action: "delivery_session.assigned", actorId, admissionId: admission.id, after: { assignmentId: assignment.id, status: assignment.status }, deliverySessionId: session.id, reason: auditReason, tryoutId: admission.tryoutId });
@@ -255,6 +280,7 @@ async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: str
       include: { admission: true, deliverySession: true },
     });
     if (!assignment) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
+    await assertAdmissionStudentIsNotManagedPreview(tx, assignment.admissionId);
     if (assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
     const existingAttempt = await tx.tryoutAttempt.findUnique({
       where: { deliverySessionId_studentId: { deliverySessionId: assignment.deliverySessionId, studentId: assignment.admission.studentId } },
@@ -285,6 +311,7 @@ async function createTryoutRetake(input: RetakeInput, actorId: string, reason: s
   return prisma.$transaction(async (tx) => {
     const admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
     if (!admission || admission.status !== TryoutAdmissionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif diperlukan untuk membuat retake.");
+    await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
     const existing = await tx.tryoutDeliverySession.findFirst({ where: { name, tryoutId: admission.tryoutId }, select: { id: true } });
     if (existing) throw new TryoutDeliveryValidationError("Nama sesi retake sudah digunakan pada Tryout ini.");
     const session = await tx.tryoutDeliverySession.create({ data: { availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration: false, name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, status: TryoutDeliverySessionStatus.active, tryoutId: admission.tryoutId, updatedByUserId: actorId } });

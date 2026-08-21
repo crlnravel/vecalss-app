@@ -88,6 +88,7 @@ assert.match(previewReadBoundarySource, /data:\s*await read\(context\)/u);
 
 for (const entryPoint of [
   "getAdminPreviewBeranda",
+  "getAdminPreviewBannerEditor",
   "getAdminPreviewMateriCatalogue",
   "getAdminPreviewMateriCatalogueSurface",
   "getAdminPreviewMateriCourse",

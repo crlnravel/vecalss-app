@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireAdminSession } from "@/lib/auth/access";
+import {
+  requireAdminSession,
+  requireAdminStudentPreviewContext,
+} from "@/lib/auth/access";
+import {
+  isAdminStudentPreviewUnavailableError,
+} from "@/lib/admin/student-preview";
 import {
   STUDENT_BANNER_KEYS,
   type StudentBannerSet,
@@ -46,11 +52,25 @@ function readIntent(formData: FormData) {
   return formData.get("intent") === "publish" ? "publish" : "save-draft";
 }
 
-async function updateStudentBannersAction(
+function revalidatePreviewBannerPaths() {
+  revalidatePath("/admin/student-preview");
+  revalidatePath("/admin/student-preview/courses");
+  revalidatePath("/admin/student-preview/quiz");
+  revalidatePath("/admin/student-preview/tryout");
+}
+
+function revalidatePublishedBannerPaths() {
+  revalidatePath("/dashboard");
+  revalidatePath("/courses");
+  revalidatePath("/quiz");
+  revalidatePath("/tryout");
+}
+
+async function runUpdateStudentBannersAction(
   previousState: FormState,
   formData: FormData,
+  actorUserId: string,
 ): Promise<FormState> {
-  const session = await requireAdminSession();
   const intent = readIntent(formData);
   const fields = buildFields(formData);
   const fieldErrors = validateStudentBannerFields(fields);
@@ -68,15 +88,13 @@ async function updateStudentBannersAction(
   try {
     if (intent === "publish") {
       const result = await publishStudentBannerContents({
-        actorUserId: session.user.id,
+        actorUserId,
         banners: buildBanners(fields),
         expectedVersion: fields.version || null,
       });
 
-      revalidatePath("/dashboard");
-      revalidatePath("/courses");
-      revalidatePath("/quiz");
-      revalidatePath("/tryout");
+      revalidatePublishedBannerPaths();
+      revalidatePreviewBannerPaths();
       revalidatePath("/admin/student-banners");
 
       return {
@@ -89,12 +107,13 @@ async function updateStudentBannersAction(
     }
 
     const result = await saveStudentBannerDraft({
-      actorUserId: session.user.id,
+      actorUserId,
       banners: buildBanners(fields),
       expectedVersion: fields.version || null,
     });
 
     revalidatePath("/admin/student-banners");
+    revalidatePreviewBannerPaths();
 
     return {
       fields: { ...fields, version: result.draftVersion },
@@ -133,4 +152,39 @@ async function updateStudentBannersAction(
   }
 }
 
-export { updateStudentBannersAction };
+async function updateStudentBannersAction(
+  previousState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireAdminSession();
+  return runUpdateStudentBannersAction(previousState, formData, session.user.id);
+}
+
+async function updateAdminStudentPreviewBannersAction(
+  previousState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const context = await requireAdminStudentPreviewContext();
+    return runUpdateStudentBannersAction(
+      previousState,
+      formData,
+      context.actor.session.user.id,
+    );
+  } catch (error) {
+    if (isAdminStudentPreviewUnavailableError(error)) {
+      return {
+        ...previousState,
+        message: error.message,
+        status: "error",
+      };
+    }
+
+    throw error;
+  }
+}
+
+export {
+  updateAdminStudentPreviewBannersAction,
+  updateStudentBannersAction,
+};

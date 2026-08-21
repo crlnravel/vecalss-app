@@ -15,7 +15,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { buildAdminStudentPreviewExit, buildAdminStudentPreviewRoute } from "@/lib/student/preview-routes";
+import {
+  buildAdminStudentPreviewBannerEditorRoute,
+  buildAdminStudentPreviewExit,
+  buildAdminStudentPreviewRoute,
+} from "@/lib/student/preview-routes";
 import type { StudentSurfaceContext } from "@/lib/student/surface-context";
 import { StudentAccountMenu } from "@/modules/student/components/student-account-menu";
 import { StudentSidebar } from "@/modules/student/components/student-sidebar";
@@ -41,7 +45,7 @@ function AdminStudentPreviewShell({
   const rootHref = buildAdminStudentPreviewRoute(previewRootByLabel[activeLabel]);
   const isRootPage = breadcrumbLabel === activeLabel;
   const adminExitHref = buildAdminStudentPreviewExit("/admin");
-  const bannerExitHref = buildAdminStudentPreviewExit("/admin/student-banners");
+  const bannerEditorHref = buildAdminStudentPreviewBannerEditorRoute();
 
   return (
     <SidebarProvider>
@@ -100,7 +104,7 @@ function AdminStudentPreviewShell({
                 <div className="flex flex-wrap gap-2">
                   <Button
                     nativeButton={false}
-                    render={<Link href={bannerExitHref} />}
+                    render={<Link href={bannerEditorHref} />}
                     variant="ghost"
                   >
                     Edit banners

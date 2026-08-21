@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireStudentSession } from "@/lib/auth/access";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
-import { getStudentBannerContents } from "@/lib/student/banner-repository";
+import { getPublishedStudentBannerContents } from "@/lib/student/banner-repository";
 import { participantTryoutCatalogue } from "@/lib/tryout/participant-repository";
 
 import { ParticipantTryoutWorkspace } from "@/modules/tryout/ParticipantTryoutWorkspace";
@@ -16,7 +16,7 @@ export default async function TryoutPage() {
   const session = await requireStudentSession();
   const [initialTryouts, banners, notificationFeed] = await Promise.all([
     participantTryoutCatalogue(session.user.id),
-    getStudentBannerContents(),
+    getPublishedStudentBannerContents(),
     getStudentNotificationFeed({ userId: session.user.id }),
   ]);
 

@@ -93,6 +93,23 @@ function buildAdminStudentPreviewMateriRoute(slug: string, lessonId?: string) {
   return buildAdminStudentPreviewRoute(path);
 }
 
+function buildAdminStudentPreviewQuizRoute(subjectSlug?: string, quizSlug?: string) {
+  const basePath = "/quiz";
+  if (subjectSlug === undefined) return buildAdminStudentPreviewRoute(basePath);
+
+  const subjectPath = `${basePath}/${encodePreviewPathSegment(subjectSlug)}`;
+  if (quizSlug === undefined) return buildAdminStudentPreviewRoute(subjectPath);
+
+  return buildAdminStudentPreviewRoute(`${subjectPath}/${encodePreviewPathSegment(quizSlug)}`);
+}
+
+function buildAdminStudentPreviewTryoutRoute(tryoutId?: string) {
+  const path = tryoutId === undefined
+    ? "/tryout"
+    : `/tryout/${encodePreviewPathSegment(tryoutId)}`;
+  return buildAdminStudentPreviewRoute(path);
+}
+
 function buildAdminStudentPreviewMateriDocumentRoute(
   slug: string,
   lessonId: string,
@@ -108,6 +125,10 @@ function buildAdminStudentPreviewMateriDocumentRoute(
   }
 
   return `${documentPath}?assetId=${encodeURIComponent(normalizedAssetId)}`;
+}
+
+function buildAdminStudentPreviewBannerEditorRoute() {
+  return `${ADMIN_STUDENT_PREVIEW_PREFIX}?edit=banners`;
 }
 
 function buildAdminStudentPreviewExit(exit: Exclude<AdminStudentPreviewApprovedExit, "logout">) {
@@ -154,9 +175,12 @@ export {
   ADMIN_STUDENT_PREVIEW_APPROVED_EXITS,
   ADMIN_STUDENT_PREVIEW_PREFIX,
   buildAdminStudentPreviewExit,
+  buildAdminStudentPreviewBannerEditorRoute,
   buildAdminStudentPreviewMateriDocumentRoute,
   buildAdminStudentPreviewMateriRoute,
+  buildAdminStudentPreviewQuizRoute,
   buildAdminStudentPreviewRoute,
+  buildAdminStudentPreviewTryoutRoute,
   buildStudentSurfaceRoute,
   isAdminStudentPreviewRoute,
   isAllowedAdminStudentPreviewNavigation,

@@ -1,3 +1,6 @@
+import "server-only";
+
+import { unstable_noStore } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -66,7 +69,7 @@ function isUniqueConstraintError(error: unknown) {
     && error.code === "P2002";
 }
 
-async function getStudentBannerSnapshot() {
+async function readStudentBannerSnapshot() {
   const config = await prisma.systemConfig.findUnique({
     select: {
       configValue: true,
@@ -92,7 +95,18 @@ async function getStudentBannerSnapshot() {
   };
 }
 
-async function getStudentBannerContents() {
+async function getStudentBannerSnapshot() {
+  unstable_noStore();
+  return readStudentBannerSnapshot();
+}
+
+/**
+ * Published student rendering has its own entry point and is deliberately
+ * never allowed to read draftValue. The no-store policy keeps a request that
+ * has observed a private admin draft from populating a shared response cache.
+ */
+async function getPublishedStudentBannerContents() {
+  unstable_noStore();
   const config = await prisma.systemConfig.findUnique({
     select: { configValue: true },
     where: { configKey: STUDENT_BANNERS_CONFIG_KEY },
@@ -100,6 +114,36 @@ async function getStudentBannerContents() {
 
   return normalizeStudentBanners(config?.configValue);
 }
+
+/**
+ * Admin-preview rendering has a separate loader even though it currently
+ * reads the same published column. Keeping the boundary explicit prevents a
+ * future draft-aware preview change from accidentally widening ordinary
+ * student rendering, and no-store keeps the preview response private.
+ */
+async function getAdminStudentPreviewBannerContents() {
+  unstable_noStore();
+  const config = await prisma.systemConfig.findUnique({
+    select: { configValue: true },
+    where: { configKey: STUDENT_BANNERS_CONFIG_KEY },
+  });
+
+  return normalizeStudentBanners(config?.configValue);
+}
+
+/**
+ * The editor is the only preview entry point allowed to read draftValue.
+ * It is uncached by design; draft responses must never share tags, cache
+ * entries, or serialized loader output with published student pages.
+ */
+async function getAdminStudentPreviewBannerSnapshot() {
+  unstable_noStore();
+  return readStudentBannerSnapshot();
+}
+
+// Kept as a compatibility alias for callers outside the four student pages;
+// new published loaders should use the explicit name above.
+const getStudentBannerContents = getPublishedStudentBannerContents;
 
 async function saveStudentBannerDraft({
   actorUserId,
@@ -310,6 +354,9 @@ async function publishStudentBannerContents({
 }
 
 export {
+  getAdminStudentPreviewBannerContents,
+  getAdminStudentPreviewBannerSnapshot,
+  getPublishedStudentBannerContents,
   getStudentBannerContents,
   getStudentBannerSnapshot,
   StudentBannerConflictError,

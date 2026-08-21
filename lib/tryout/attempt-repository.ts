@@ -2,6 +2,7 @@ import "server-only";
 
 import { AssessmentAttemptState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
+import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import { materializeFrozenAnswers, normalizeCatAbility, normalizeCbtScore, TRYOUT_CAT_SCORING_VERSION, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 import { prisma } from "@/lib/prisma";
 
@@ -205,6 +206,13 @@ async function catRunSnapshot(tx: Prisma.TransactionClient, section: { catItemCo
 async function startTryoutAttempt(deliverySessionId: string, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
+    const student = await tx.user.findUnique({
+      select: { previewPurpose: true },
+      where: { id: studentId },
+    });
+    if (isManagedPreviewPurpose(student?.previewPurpose)) {
+      throw new TryoutAttemptValidationError("Akun preview admin tidak dapat memulai attempt learner.");
+    }
     await lockStudent(tx, studentId);
     const assignment = await tx.tryoutDeliveryAssignment.findFirst({
       where: { deliverySessionId, status: TryoutAssignmentStatus.active, admission: { status: "active", studentId } },

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { requireStudentSession } from "@/lib/auth/access";
 import { prisma } from "@/lib/prisma";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
-import { getStudentBannerContents } from "@/lib/student/banner-repository";
+import { getPublishedStudentBannerContents } from "@/lib/student/banner-repository";
 import { DashboardPageModule } from "@/modules/dashboard/DashboardPageModule";
 
 export default async function DashboardPage() {
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
         userId: session.user.id,
       },
     }),
-    getStudentBannerContents(),
+    getPublishedStudentBannerContents(),
     getStudentNotificationFeed({ userId: session.user.id }),
   ]);
 

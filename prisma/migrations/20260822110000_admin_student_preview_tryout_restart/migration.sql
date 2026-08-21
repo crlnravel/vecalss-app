@@ -64,12 +64,14 @@ DECLARE
   preview_purpose TEXT;
   admission_tryout_id UUID;
   admission_student_id UUID;
+  session_tryout_id UUID;
   expected_key TEXT;
 BEGIN
-  SELECT u."preview_purpose", ad."tryout_id", ad."student_id"
-    INTO preview_purpose, admission_tryout_id, admission_student_id
+  SELECT u."preview_purpose", ad."tryout_id", ad."student_id", ds."tryout_id"
+    INTO preview_purpose, admission_tryout_id, admission_student_id, session_tryout_id
     FROM "tryout_admissions" ad
     JOIN "users" u ON u."id" = ad."student_id"
+    JOIN "tryout_delivery_sessions" ds ON ds."id" = NEW."delivery_session_id"
     WHERE ad."id" = NEW."admission_id";
 
   IF preview_purpose IS NULL THEN
@@ -84,28 +86,34 @@ BEGIN
   IF preview_purpose <> 'admin.student-preview' THEN
     RAISE EXCEPTION USING
       ERRCODE = 'insufficient_privilege',
-      MESSAGE = 'managed_preview_assignment_path_forbidden';
+    MESSAGE = 'managed_preview_assignment_path_forbidden';
+  END IF;
+
+  IF session_tryout_id IS DISTINCT FROM admission_tryout_id THEN
+    RAISE EXCEPTION USING
+      ERRCODE = 'check_violation',
+      MESSAGE = 'assignment_session_tryout_mismatch';
   END IF;
 
   expected_key := 'admin.student-preview:' || admission_student_id::text || ':' || admission_tryout_id::text;
 
-  IF NEW."status" = 'active'::"tryout_assignment_status" THEN
+  IF NEW."status"::text = 'active' THEN
     IF NEW."preview_current_key" IS DISTINCT FROM expected_key THEN
       RAISE EXCEPTION USING
         ERRCODE = 'check_violation',
         MESSAGE = 'active_preview_assignment_requires_current_key',
         DETAIL = format('expected=%s', expected_key);
     END IF;
-  ELSIF NEW."status" = 'superseded'::"tryout_assignment_status" THEN
+  ELSIF NEW."status"::text = 'superseded' THEN
     IF NEW."preview_current_key" IS NOT NULL THEN
       RAISE EXCEPTION USING
         ERRCODE = 'check_violation',
         MESSAGE = 'superseded_preview_assignment_must_be_keyless';
     END IF;
-  ELSIF NEW."preview_current_key" IS NOT NULL THEN
+  ELSE
     RAISE EXCEPTION USING
       ERRCODE = 'check_violation',
-      MESSAGE = 'non_active_preview_assignment_must_be_keyless';
+      MESSAGE = 'preview_assignment_status_must_be_active_or_superseded';
   END IF;
 
   RETURN NEW;
@@ -180,4 +188,3 @@ CREATE TRIGGER "admin_preview_tryout_restarts_scope_guard"
 BEFORE INSERT OR UPDATE ON "admin_preview_tryout_restarts"
 FOR EACH ROW
 EXECUTE FUNCTION "protect_admin_preview_tryout_restart_scope"();
-

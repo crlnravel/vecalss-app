@@ -142,7 +142,9 @@ function BannerPreviewPanel({
                 <p className="truncate text-sm font-semibold text-secondary-900">{label}</p>
               </div>
               <span className="shrink-0 rounded-full bg-secondary-100 px-2.5 py-1 text-xs font-medium text-secondary-600">
-                {previewMode ? buildAdminStudentPreviewRoute(route) : route}
+                {previewMode
+                  ? buildAdminStudentPreviewRoute(key === "beranda" ? "/" : route)
+                  : route}
               </span>
             </div>
             <div className="mt-5 rounded-xl bg-secondary-900 px-5 py-6 text-white">

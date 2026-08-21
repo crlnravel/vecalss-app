@@ -26,6 +26,24 @@ function sanitizePreviewFileName(value: string | null | undefined) {
   return sanitized ? sanitized.slice(0, 255) : null;
 }
 
+/**
+ * Stored assessment media is untrusted in the admin context. Only HTTPS
+ * image URLs are allowed through the student-shaped preview DTO; managed
+ * assets without a public URL remain absent rather than exposing an internal
+ * asset/object reference to the browser.
+ */
+function sanitizePreviewImageUrl(value: string | null | undefined) {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" || !url.hostname || url.username || url.password) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function sanitizePreviewVideo(value: string | null | undefined): MateriVideo | null {
   if (typeof value !== "string" || !value.trim()) return null;
 
@@ -58,6 +76,7 @@ function sanitizePreviewVideo(value: string | null | undefined): MateriVideo | n
 
 export {
   sanitizePreviewFileName,
+  sanitizePreviewImageUrl,
   sanitizePreviewText,
   sanitizePreviewVideo,
 };

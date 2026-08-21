@@ -23,7 +23,8 @@ import {
 } from "@/lib/media/r2";
 import { prisma } from "@/lib/prisma";
 import {
-  getStudentBannerContents,
+  getAdminStudentPreviewBannerContents,
+  getAdminStudentPreviewBannerSnapshot,
 } from "@/lib/student/banner-repository";
 import type { AdminStudentPreviewContext } from "@/lib/admin/student-preview";
 import {
@@ -37,7 +38,7 @@ import { PreviewReadBoundary } from "./preview-read-boundary";
 const PREVIEW_DOCUMENT_MIME_TYPE = "application/pdf" as const;
 
 type AdminPreviewBerandaRead = {
-  banner: Awaited<ReturnType<typeof getStudentBannerContents>>;
+  banner: Awaited<ReturnType<typeof getAdminStudentPreviewBannerContents>>;
   firstName: string;
   profile: {
     displayName: string;
@@ -47,6 +48,8 @@ type AdminPreviewBerandaRead = {
     targetUniversity: string | null;
   };
 };
+
+type AdminPreviewBannerEditorRead = Awaited<ReturnType<typeof getAdminStudentPreviewBannerSnapshot>>;
 
 type AdminPreviewContentBlock = {
   body: string;
@@ -73,7 +76,7 @@ type AdminPreviewMateriCourse = {
 };
 
 type AdminPreviewMateriCatalogueRead = {
-  banner: Awaited<ReturnType<typeof getStudentBannerContents>>;
+  banner: Awaited<ReturnType<typeof getAdminStudentPreviewBannerContents>>;
   courses: AdminPreviewMateriCourse[];
 };
 
@@ -175,7 +178,7 @@ async function readAdminPreviewBeranda(context: AdminStudentPreviewContext): Pro
       },
       where: { userId: context.student.id },
     }),
-    getStudentBannerContents(),
+    getAdminStudentPreviewBannerContents(),
   ]);
 
   const displayName = sanitizePreviewText(profile?.displayName) || sanitizePreviewText(context.student.displayName) || "Voyager";
@@ -293,6 +296,15 @@ async function getAdminPreviewBeranda() {
   return PreviewReadBoundary.run(readAdminPreviewBeranda);
 }
 
+/**
+ * Drafts are exposed only through this explicit editor loader. It remains
+ * behind the preview capability boundary and the repository loader is
+ * uncached, so draft JSON cannot contaminate published student responses.
+ */
+async function getAdminPreviewBannerEditor() {
+  return PreviewReadBoundary.run(async () => getAdminStudentPreviewBannerSnapshot());
+}
+
 async function getAdminPreviewMateriCatalogue() {
   return PreviewReadBoundary.run(readAdminPreviewMateriCatalogue);
 }
@@ -301,7 +313,7 @@ async function getAdminPreviewMateriCatalogueSurface() {
   return PreviewReadBoundary.run(async () => {
     const [courses, banner] = await Promise.all([
       readAdminPreviewMateriCatalogue(),
-      getStudentBannerContents(),
+      getAdminStudentPreviewBannerContents(),
     ]);
     return { banner, courses } satisfies AdminPreviewMateriCatalogueRead;
   });
@@ -469,6 +481,7 @@ async function getAdminPreviewMateriDocument(input: {
 export {
   AdminStudentPreviewDocumentError,
   getAdminPreviewBeranda,
+  getAdminPreviewBannerEditor,
   getAdminPreviewMateriCatalogue,
   getAdminPreviewMateriCatalogueSurface,
   getAdminPreviewMateriCourse,
@@ -478,6 +491,7 @@ export {
 
 export type {
   AdminPreviewBerandaRead,
+  AdminPreviewBannerEditorRead,
   AdminPreviewContentBlock,
   AdminPreviewMateriCourse,
   AdminPreviewMateriCatalogueRead,
