@@ -63,9 +63,14 @@
   release boundaries`). The approved migration was executed transactionally
   and registered as applied; `prisma migrate status` now reports only the
   unrelated admin-preview migration as pending.
-- Next actions: run DB-backed Kuis and seven-section Tryout smoke tests against
-  the deployment target, then continue with AS-09 when the release-boundary
-  smoke is satisfactory.
+- Deployment verification: all 29 migrations report up to date. The entire
+  configured database was intentionally reset and reseeded after approval,
+  with fresh runtime provenance in the assessment seed. `pnpm db:verify-demo`
+  passes. The Kuis result path returned a scored/released attempt (67, three
+  frozen questions), and the Tryout result path returned a scored/released
+  attempt (68.68, seven runs, seven typed breakdowns).
+- Next actions: continue normal assessment QA, then implement AS-09's durable
+  AssessmentRelease pin when the release-boundary smoke remains satisfactory.
 
 ## Current Objective
 

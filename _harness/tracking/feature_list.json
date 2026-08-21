@@ -46,7 +46,7 @@
       "description": "Materialize snapshot-backed scoring and independent attempt/scoring/release states for Kuis and Tryout",
       "dependencies": ["feat-001"],
       "status": "complete",
-      "evidence": "cb1eb8f + 7f60c43; snapshot-backed materialization, session-level release hardening, conservative migration replay/seed verification, focused invariants, full lint/build, commit hook pass, and approved external migration application; DB-backed smoke testing remains pending"
+      "evidence": "cb1eb8f + 7f60c43; snapshot-backed materialization, session-level release hardening, seed runtime provenance fixes, all 29 migrations applied, configured-database reset/reseed, db:verify-demo, Kuis result smoke (67), seven-section Tryout scoring/release smoke (68.68 with 7 runs/7 typed breakdowns), focused invariants, and full lint/build"
     }
   ]
 }

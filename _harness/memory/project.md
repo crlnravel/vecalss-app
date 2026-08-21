@@ -59,5 +59,9 @@ Store only settled decisions, conventions, and important context that emerged du
   sums against frozen snapshots, and range-bounds numeric casts. The physical
   QuestionRevision seed insert also requires an explicit NULL ready_at value.
   An isolated local PostgreSQL replay of all migrations plus seed and
-  `db:verify-demo` passed; DB-backed Kuis/Tryout smoke testing remains pending
-  after external deployment.
+  `db:verify-demo` passed in isolated local PostgreSQL and after configured
+  database reset/reseed. The seed now writes runtime scoring/release state,
+  typed Tryout run and breakdown fields, and frozen Kuis answer materialization.
+  DB-backed Kuis smoke returned a scored/released 67 result; seven-section
+  Tryout smoke returned a scored/released 68.68 result with seven runs and
+  seven typed breakdowns.

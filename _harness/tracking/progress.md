@@ -29,9 +29,11 @@
   - Follow-up hardening closes per-run deadline aggregation, session-level
     release/ranking consistency, CAT owner authorization, numeric range guards,
     and the QuestionRevision seed insert arity defect.
-  - Implementation is `cb1eb8f` plus hardening `7f60c43`; isolated local
-    PostgreSQL migration replay, seed, and `pnpm db:verify-demo` pass. The
-    external migration is applied; DB-backed smoke testing remains pending.
+  - Implementation is `cb1eb8f` plus hardening `7f60c43`; isolated local and
+    configured-database migration replay, seed, and `pnpm db:verify-demo` pass.
+    The entire configured database was reset/reseeded after approval. Kuis DB
+    result smoke passes at 67; Tryout DB release smoke passes at 68.68 with
+    seven runs and seven typed breakdowns.
 - [ ] Runtime browser/DB fixture verification for admin preview
   - Details: Requires a seeded authenticated admin session and preview fixture.
   - Blockers: No local E2E/DB fixture harness is available in this workspace.
@@ -40,12 +42,12 @@
 
 1. Run seeded browser QA for each preview surface and banner save flow.
 2. Run the allowlisted database/event diff around ordinary browsing and restart.
-3. Run DB-backed Kuis and seven-section Tryout smoke tests against the applied
-   AS-03 deployment.
+3. Continue assessment QA and then implement AS-09 durable AssessmentRelease
+   pins.
 
 ## Blockers / Risks
 
-- [ ] Runtime verification fixture: contract, typecheck, lint, and production build checks pass; DB-backed AS-03 smoke checks remain pending.
+- [x] Runtime verification fixture: all 29 migrations, full seed, `db:verify-demo`, Kuis result smoke, and seven-section Tryout scoring/release smoke pass against the configured database.
 - [ ] Preview content is treated as untrusted and sanitized/allowlisted before admin-context rendering.
 
 ## Decisions Made
@@ -74,4 +76,4 @@
 
 ## Notes for Next Session
 
-Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`, and its approved migration is applied. Preserve the unrelated staged preview/document changes; the admin-preview migration is still pending. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data destructively.
+Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`, and all migrations are applied. The configured database was intentionally reset/reseeded after explicit approval; preserve the unrelated staged preview/document changes. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data again without explicit approval.

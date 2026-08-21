@@ -611,12 +611,17 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
     );
     const attemptResult = await client.query(
       `INSERT INTO standalone_quiz_attempts (
-         participation_id, attempt_no, status, policy_snapshot, form_item_order, form_snapshot,
-         correct_count, score, submitted_at, created_at, updated_at
+         participation_id, attempt_no, status, attempt_state, scoring_state, release_state,
+         policy_snapshot, form_item_order, form_snapshot,
+         correct_count, wrong_count, unanswered_count, max_points, earned_points, score,
+         scoring_version, scoring_provenance, release_at, submitted_at, created_at, updated_at
        ) VALUES (
          $1,
          1,
          'submitted',
+         'submitted'::assessment_attempt_state,
+         'scored'::assessment_scoring_state,
+         'released'::assessment_result_release_state,
          (SELECT jsonb_build_object(
             'attemptsAllowed', attempts_allowed,
             'correctAnswerVisibility', correct_answer_visibility,
@@ -658,7 +663,14 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
             WHERE items.quiz_id = $5
          ), '{"version":1,"items":[]}'::jsonb),
          $2,
+         (SELECT COUNT(*)::int FROM standalone_quiz_items WHERE quiz_id = $5) - $2,
+         0,
+         (SELECT COUNT(*)::numeric FROM standalone_quiz_items WHERE quiz_id = $5),
+         $2,
          $3,
+         'kuis-frozen-form-v1',
+         'runtime'::assessment_scoring_provenance,
+         NOW() - ($4::int * INTERVAL '1 day'),
          NOW() - ($4::int * INTERVAL '1 day'),
          NOW() - ($4::int * INTERVAL '1 day'),
          NOW() - ($4::int * INTERVAL '1 day')
@@ -668,9 +680,10 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
     );
     for (const [index, item] of itemResult.rows.entries()) {
       await client.query(
-        `INSERT INTO standalone_quiz_answers (attempt_id, quiz_item_id, selected_option_id)
-         VALUES ($1, $2, $3)`,
-        [attemptResult.rows[0].id, item.id, fixture.correctPattern[index] ? item.correct_option_id : item.wrong_option_id],
+        `INSERT INTO standalone_quiz_answers (
+           attempt_id, quiz_item_id, selected_option_id, is_correct, points_awarded, scoring_version
+         ) VALUES ($1, $2, $3, $4, $5, 'kuis-frozen-form-v1')`,
+        [attemptResult.rows[0].id, item.id, fixture.correctPattern[index] ? item.correct_option_id : item.wrong_option_id, fixture.correctPattern[index], fixture.correctPattern[index] ? 1 : 0],
       );
     }
   }
@@ -798,10 +811,13 @@ async function upsertDeliverySession(client, { name, relativeWindow, release, st
     `INSERT INTO tryout_delivery_sessions (
        tryout_id, name, available_from, available_until, result_release_policy,
        ranking_rule, is_default_open_registration, fullscreen_prompt, status,
+       release_state, release_reason,
        created_by_user_id, updated_by_user_id, released_at, released_by_user_id
      ) VALUES (
        $1, $2, NOW() + ($3::int * INTERVAL '1 day'), NOW() + ($4::int * INTERVAL '1 day'),
        $5::tryout_result_release_policy, 'cohort', $6, $7, $8::tryout_delivery_session_status,
+       CASE WHEN $10::boolean THEN 'released'::assessment_result_release_state ELSE 'hidden'::assessment_result_release_state END,
+       CASE WHEN $10::boolean THEN 'Seeded runtime result bundle.' ELSE NULL END,
        $9::uuid, $9::uuid, CASE WHEN $10::boolean THEN NOW() - INTERVAL '6 days' ELSE NULL END,
        CASE WHEN $10::boolean THEN $9::uuid ELSE NULL END
      )
@@ -813,6 +829,8 @@ async function upsertDeliverySession(client, { name, relativeWindow, release, st
            is_default_open_registration = EXCLUDED.is_default_open_registration,
            fullscreen_prompt = EXCLUDED.fullscreen_prompt,
            status = EXCLUDED.status,
+           release_state = EXCLUDED.release_state,
+           release_reason = EXCLUDED.release_reason,
            updated_by_user_id = EXCLUDED.updated_by_user_id,
            released_at = EXCLUDED.released_at,
            released_by_user_id = EXCLUDED.released_by_user_id,
@@ -955,17 +973,36 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     return normalizeSeedCbtScore(score, maxScore);
   });
   const finalScore = aggregateSeedTryoutScores(normalizedScores);
+  const aggregateCounts = sections.reduce((totals, section, sectionIndex) => {
+    const score = scorePattern[sectionIndex];
+    const isCat = section.test_type === "cat";
+    const deliveredCount = isCat ? 2 : section.content.items.length;
+    const correctCount = isCat ? Math.min(2, Math.max(0, score)) : score;
+    totals.correctCount += correctCount;
+    totals.wrongCount += deliveredCount - correctCount;
+    totals.rawScore += isCat ? (correctCount === 2 ? 0.72 : -0.15) : score;
+    return totals;
+  }, { correctCount: 0, rawScore: 0, wrongCount: 0 });
   const attemptResult = await client.query(
     `INSERT INTO tryout_attempts (
        tryout_id, delivery_session_id, admission_id, student_id, status,
-       server_started_at, server_deadline_at, submitted_at, score,
+       attempt_state, scoring_state, release_state,
+       server_started_at, server_deadline_at, submitted_at,
+       correct_count, wrong_count, unanswered_count, raw_score, scaled_score, normalized_score, score,
+       scoring_version, scoring_provenance, release_at,
        percentile_cohort, release_policy_snapshot, content_snapshot
      ) VALUES (
-       $1, $2, $3, $4, 'scored', NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days',
-       NOW() - INTERVAL '8 days', $5, $6,
-       $7::jsonb, $8::jsonb
+       $1, $2, $3, $4, 'scored',
+       'submitted'::assessment_attempt_state,
+       'scored'::assessment_scoring_state,
+       'released'::assessment_result_release_state,
+       NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days',
+       $6, $7, 0, $8, $5, $5, $5,
+       'normalized-test-mean-v1', 'runtime'::assessment_scoring_provenance,
+       NOW() - INTERVAL '6 days',
+       $9, $10::jsonb, $11::jsonb
      ) RETURNING id`,
-    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ tryoutId, tryoutRevision: 1 })],
+    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, aggregateCounts.correctCount, aggregateCounts.wrongCount, aggregateCounts.rawScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ tryoutId, tryoutRevision: 1 })],
   );
   const attemptId = attemptResult.rows[0].id;
   for (const [sectionIndex, section] of sections.entries()) {
@@ -976,6 +1013,9 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     const wrongCount = (isCat ? 2 : section.content.items.length) - correctCount;
     const ability = isCat ? (correctCount === 2 ? 0.72 : -0.15) : null;
     const normalizedScore = normalizedScores[sectionIndex];
+    const maxScore = isCat ? null : section.content.items.reduce((total, item) => total + Number(item.points), 0);
+    const rawScore = isCat ? ability : score;
+    const scoringVersion = isCat ? "2pl-map-v1" : "cbt-frozen-item-points-v1";
     const calculationInput = isCat
       ? { modelVersion: "2pl-canonical-v1", selectedItemIds, updates: [] }
       : { totalItems: section.content.items.length };
@@ -986,12 +1026,17 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
       `INSERT INTO tryout_attempt_test_runs (
          attempt_id, tryout_section_id, sequence_no, status, server_started_at,
          server_deadline_at, sealed_at, content_snapshot, calculation_input,
-         calculation_result, calculation_version, cat_state, cat_snapshot,
+         calculation_result, calculation_version, scoring_state, scoring_version,
+         scoring_provenance, correct_count, wrong_count, unanswered_count,
+         raw_score, max_score, scaled_score, normalized_score,
+         cat_state, cat_snapshot,
          calculation_releaseable
        ) VALUES (
          $1, $2, $3, 'sealed', NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days',
          NOW() - INTERVAL '8 days', $4::jsonb, $5::jsonb, $6::jsonb, $7,
-         $8::tryout_cat_run_state, $9::jsonb, TRUE
+         'scored'::assessment_scoring_state, $7, 'runtime'::assessment_scoring_provenance,
+         $8, $9, $10, $11, $12, $13, $13,
+         $14::tryout_cat_run_state, $15::jsonb, TRUE
        ) RETURNING id`,
       [
         attemptId,
@@ -1000,7 +1045,13 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         JSON.stringify(section.content),
         JSON.stringify(calculationInput),
         JSON.stringify(calculationResult),
-        isCat ? "2pl-map-v1" : "cbt-frozen-item-points-v1",
+        scoringVersion,
+        correctCount,
+        wrongCount,
+        0,
+        rawScore,
+        maxScore,
+        normalizedScore,
         isCat ? "ready" : "not_applicable",
         isCat ? JSON.stringify({ currentAbility: ability, initialAbility: 0, modelVersion: "2pl-canonical-v1", parameters: [], selectedItemIds, updates: [] }) : null,
       ],
@@ -1012,16 +1063,17 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
       await client.query(
         `INSERT INTO tryout_answers (
            attempt_id, attempt_test_run_id, tryout_id, tryout_item_id,
-           selected_option_id, is_correct, points_awarded, answered_at, synced_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days')`,
-        [attemptId, runResult.rows[0].id, tryoutId, item.id, selected.id, selected.isCorrect, selected.isCorrect ? 1 : 0],
+           selected_option_id, is_correct, points_awarded, scoring_version, answered_at, synced_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days')`,
+        [attemptId, runResult.rows[0].id, tryoutId, item.id, selected.id, selected.isCorrect, selected.isCorrect ? 1 : 0, scoringVersion],
       );
     }
     await client.query(
       `INSERT INTO tryout_score_breakdowns (
-         attempt_id, subtest_id, correct_count, wrong_count, unanswered_count, raw_score, scaled_score
-       ) VALUES ($1, $2, $3::int, $4::int, 0, $5::numeric, $6::numeric)`,
-      [attemptId, section.subtest_id, correctCount, wrongCount, isCat ? ability : score, normalizedScore],
+         attempt_id, subtest_id, correct_count, wrong_count, unanswered_count, raw_score, scaled_score,
+         normalized_score, scoring_version, scoring_provenance
+       ) VALUES ($1, $2, $3::int, $4::int, 0, $5::numeric, $6::numeric, $6::numeric, $7, 'runtime'::assessment_scoring_provenance)`,
+      [attemptId, section.subtest_id, correctCount, wrongCount, isCat ? ability : score, normalizedScore, scoringVersion],
     );
     if (sectionIndex === 0) {
       await client.query(
