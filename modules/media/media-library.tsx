@@ -435,9 +435,9 @@ function MediaLibraryScreen({
                   <DropdownMenuTrigger render={<Button className="gap-2" variant="brandOutline" />}><ListFilter className="size-4" />Urutkan: {sortLabel}<ChevronDown className="size-4" /></DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuRadioGroup onValueChange={(value) => setSortMode(value as MediaSortMode)} value={sortMode}>
-                      <DropdownMenuRadioItem value="updated">Terbaru</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="size">Ukuran terbesar</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem closeOnClick value="updated">Terbaru</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem closeOnClick value="name">Nama A–Z</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem closeOnClick value="size">Ukuran terbesar</DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -445,9 +445,9 @@ function MediaLibraryScreen({
                   <DropdownMenuTrigger render={<Button className="gap-2" variant="brandOutline" />}><SlidersHorizontal className="size-4" />Filter: {filterLabel}<ChevronDown className="size-4" /></DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-44">
                     <DropdownMenuRadioGroup onValueChange={(value) => setAssetFilter(value as MediaAssetFilter)} value={assetFilter}>
-                      <DropdownMenuRadioItem value="all">Semua media</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="images">Gambar</DropdownMenuRadioItem>
-                      {acceptedMimeTypes.some((mimeType) => isPdfMimeType(mimeType)) ? <DropdownMenuRadioItem value="pdf">PDF</DropdownMenuRadioItem> : null}
+                      <DropdownMenuRadioItem closeOnClick value="all">Semua media</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem closeOnClick value="images">Gambar</DropdownMenuRadioItem>
+                      {acceptedMimeTypes.some((mimeType) => isPdfMimeType(mimeType)) ? <DropdownMenuRadioItem closeOnClick value="pdf">PDF</DropdownMenuRadioItem> : null}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
