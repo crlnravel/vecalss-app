@@ -7,6 +7,7 @@ const quizRepository = await readFile(new URL("../lib/quiz/repository.ts", impor
 const scoring = await readFile(new URL("../lib/tryout/scoring.ts", import.meta.url), "utf8");
 const attemptRepository = await readFile(new URL("../lib/tryout/attempt-repository.ts", import.meta.url), "utf8");
 const resultRepository = await readFile(new URL("../lib/tryout/result-repository.ts", import.meta.url), "utf8");
+const mentorActions = await readFile(new URL("../modules/mentor/tryout-actions.ts", import.meta.url), "utf8");
 
 for (const state of ["AssessmentAttemptState", "AssessmentScoringState", "AssessmentResultReleaseState", "AssessmentScoringProvenance"]) {
   assert.match(schema, new RegExp(`enum ${state}`));
@@ -40,7 +41,7 @@ assert.match(resultRepository, /findFirst\(\{ where: \{ attemptId, subtestId: ru
 assert.match(resultRepository, /exactly seven|length !== 7/);
 assert.match(resultRepository, /synchronizeAttemptReleaseState/);
 assert.match(resultRepository, /synchronizeAttemptReleaseState\(attemptId, studentId/);
-assert.match(resultRepository, /attempt\.studentId !== studentId/);
+assert.match(resultRepository, /where: \{ id: attemptId, studentId \}/);
 assert.match(resultRepository, /releaseState: AssessmentResultReleaseState\.released/);
 assert.match(resultRepository, /tryoutAttempt\.updateMany/);
 assert.match(migration, /attempt\.scoring_state = 'scored'::assessment_scoring_state/);
@@ -57,6 +58,16 @@ assert.match(attemptRepository, /expireForSessionCap[\s\S]*markAttemptSubmittedI
 assert.match(resultRepository, /hasCanonicalSevenRunSet/);
 assert.match(resultRepository, /createdByUserId !== actorId/);
 assert.match(resultRepository, /items\.length === selectedItemIds\.size/);
-assert.match(resultRepository, /attempt\.scoreBreakdowns\.length === 7/);
+assert.match(resultRepository, /input\.breakdowns\.length !== 7/);
+assert.match(resultRepository, /hasCanonicalSevenBreakdownSet/);
+assert.match(resultRepository, /synchronizeTryoutSessionReleaseState/);
+assert.match(attemptRepository, /markAttemptSubmittedIfComplete\(tx, sealed\.attemptId, now, true\)/);
+assert.match(attemptRepository, /createdByUserId !== actorId/);
+assert.match(mentorActions, /retryCatTestRun\(runId, session\.user\.id, reason, session\.user\.roles\.includes\(RoleName\.admin\)\)/);
+assert.match(mentorActions, /voidCatTestRun\(runId, session\.user\.id, reason, session\.user\.roles\.includes\(RoleName\.admin\)\)/);
+assert.match(migration, /SUM\(run\.raw_score\)/);
+assert.match(migration, /COUNT\(DISTINCT selected_item\)/);
+assert.match(migration, /canonical_breakdowns/);
+assert.match(migration, /breakdown\.scoring_version IS NOT NULL/);
 
 console.log("AS-03 scoring and release invariants passed.");

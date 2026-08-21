@@ -22,10 +22,15 @@
   - Runtime: Kuis materialization and Tryout CBT/CAT scoring are snapshot-backed;
     Tryout final-run sealing now performs transaction-local seven-run aggregation.
   - Migration: 20260822100000_normalize_assessment_scoring_release is pending.
-    It now quarantines malformed legacy JSON, proves canonical seven-section
-    runs, materializes breakdowns, and withholds incomplete/rankingless releases.
-  - Committed as `cb1eb8f`; full lint/build passed with 0 errors and 459 existing
-    warnings. Apply/smoke-test only with explicit deployment approval.
+    It quarantines malformed/contradictory legacy JSON, proves canonical
+    seven-section runs and frozen CAT selections, updates existing typed
+    breakdown rows idempotently, and withholds incomplete/rankingless releases.
+  - Follow-up hardening closes per-run deadline aggregation, session-level
+    release/ranking consistency, CAT owner authorization, numeric range guards,
+    and the QuestionRevision seed insert arity defect.
+  - Implementation is `cb1eb8f` plus the pending follow-up commit; isolated
+    local PostgreSQL migration replay, seed, and `pnpm db:verify-demo` pass.
+    External migration deployment/smoke-test still requires explicit approval.
 - [ ] Runtime browser/DB fixture verification for admin preview
   - Details: Requires a seeded authenticated admin session and preview fixture.
   - Blockers: No local E2E/DB fixture harness is available in this workspace.
@@ -68,4 +73,4 @@
 
 ## Notes for Next Session
 
-Preview implementation committed as `c46fb98`; AS-03 is committed as `cb1eb8f`. Preserve the unrelated staged preview/document changes and do not apply the pending migration without deployment approval. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data destructively.
+Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with a post-fix follow-up commit. Preserve the unrelated staged preview/document changes and do not apply the pending migration without deployment approval. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data destructively.

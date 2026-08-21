@@ -4,8 +4,9 @@
 
 - Objective: preserve the completed AS-03 normalized Attempt/Scoring/Release
   states for canonical StandaloneQuiz and Tryout only; do not start AS-09.
-- Workspace: main at cb1eb8f, with unrelated preview/harness/document changes
-  present. Preserve those changes; AS-03 was committed by explicit pathspec.
+- Workspace: main at 4590e1c before the AS-03 post-fix commit, with unrelated
+  preview/harness/document changes present. Preserve those changes; all AS-03
+  paths below are committed by explicit pathspec.
 - AS-03 migration: prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql
   remains pending. No database mutation was performed in this continuation.
 - Runtime hardening completed:
@@ -24,6 +25,12 @@
     answer/run/breakdown fields.
   - Kuis scheduled release transitions are locked and student-scoped before
     result reads; due results cannot remain persisted as scheduled forever.
+  - Tryout automatic/scheduled/immediate release is synchronized at the locked
+    delivery-session boundary, with one stable release timestamp and ranking
+    only over the released bundle; CAT retry/void commands enforce owner-or-
+    admin authorization inside their transactions.
+  - A valid run that expires at its own server deadline still triggers final
+    seven-run aggregation; failed/ambiguous expiration remains review-required.
 - Migration hardening completed:
   - guarded boolean/numeric JSON casts quarantine malformed rows;
   - canonical seven-section/run identity and explanation checks gate legacy
@@ -32,19 +39,28 @@
   - seven distinct subject sections are required before a legacy aggregate is
     considered provable;
   - typed Tryout breakdowns are inserted idempotently before release state is
-    preserved;
-  - legacy release state requires scoring, seven breakdowns, and a non-none
-    ranking rule.
+    preserved; existing legacy rows are updated from canonical runs and
+    release readiness requires canonical subtests plus typed numeric fields;
+  - legacy run JSON is accepted only for known runtime versions and is checked
+    against frozen-answer counts, snapshot points, CAT ability, and normalized
+    score math; duplicate/foreign CAT selections and answer rows are
+    quarantined; raw-score aggregation matches runtime sum semantics;
+  - numeric casts are range-bounded and legacy release state requires scoring,
+    seven typed canonical breakdowns, and a non-none ranking rule.
+- Post-fix review: `reviews/as03-scoring-release-postfix-review` found six
+  P1/P2 boundary issues; all are addressed in the follow-up changes below.
 - Verification passing: Prisma generate/validate, tsc, focused ESLint, AS-03
-  invariants, Tryout scoring/release/package invariants, full lint/build, and
-  the commit hook. Full lint has 0 errors and 459 existing warnings.
-- AS-03 commit: `cb1eb8f` (`fix: normalize assessment scoring and release
-  states`). The migration remains pending and was not applied. A fresh
-  post-fix adversarial review is still being finalized; do not apply the
-  pending migration without explicit deployment instruction.
-- Next actions: read the post-fix review artifact when delivered, then deploy
-  the migration only after backup/rollback approval and run DB-backed Kuis and
-  seven-section Tryout smoke tests.
+  invariants, Tryout scoring/release/package invariants, full lint/build, the
+  complete 29-migration replay in an isolated local PostgreSQL instance, and
+  seeded `pnpm db:verify-demo` against that local instance. Full lint has 0
+  errors and 459 existing warnings. The seed SQL arity defect in the physical
+  QuestionRevision insert was also fixed and the seed replay now passes.
+- AS-03 implementation commit: `cb1eb8f` (`fix: normalize assessment scoring
+  and release states`). Follow-up hardening is ready to commit; the migration
+  remains pending on the configured external database and was not applied.
+- Next actions: commit the follow-up, then deploy the migration only after
+  backup/rollback approval and run DB-backed Kuis and seven-section Tryout
+  smoke tests against the deployment target.
 
 ## Current Objective
 

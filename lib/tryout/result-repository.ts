@@ -31,6 +31,7 @@ function explanationsComplete(run: { catSnapshot: Prisma.JsonValue | null; conte
 
 type CanonicalSection = { id: string; sequenceNo: number; subtestId: string };
 type CanonicalRun = { sequenceNo: number; tryoutSectionId: string; section: { id: string; sequenceNo: number; subtestId: string; tryoutId: string } };
+type ReleaseBreakdown = { normalizedScore: Prisma.Decimal | null; rawScore: Prisma.Decimal | null; scaledScore: Prisma.Decimal | null; scoringProvenance: AssessmentScoringProvenance; scoringVersion: string | null; subtestId: string };
 
 function hasCanonicalSevenRunSet(input: { tryoutId: string; tryout: { sections: CanonicalSection[] }; runs: CanonicalRun[] }) {
   const sections = input.tryout.sections;
@@ -48,6 +49,21 @@ function hasCanonicalSevenRunSet(input: { tryoutId: string; tryout: { sections: 
     seenSequences.add(run.sequenceNo);
     return true;
   }) && seenSections.size === 7 && seenSequences.size === 7;
+}
+
+function hasCanonicalSevenBreakdownSet(input: { tryout: { sections: CanonicalSection[] }; breakdowns: ReleaseBreakdown[] }) {
+  if (input.breakdowns.length !== 7) return false;
+  const expectedSubtests = new Set(input.tryout.sections.map((section) => section.subtestId));
+  const actualSubtests = new Set(input.breakdowns.map((breakdown) => breakdown.subtestId));
+  return input.tryout.sections.length === 7
+    && expectedSubtests.size === 7
+    && actualSubtests.size === 7
+    && [...actualSubtests].every((subtestId) => expectedSubtests.has(subtestId))
+    && input.breakdowns.every((breakdown) => breakdown.normalizedScore !== null
+      && breakdown.rawScore !== null
+      && breakdown.scaledScore !== null
+      && Boolean(breakdown.scoringVersion)
+      && breakdown.scoringProvenance !== AssessmentScoringProvenance.legacy_unknown);
 }
 
 function terminalAttemptStateIsCalculable(attempt: { attemptState: AssessmentAttemptState; status: AttemptStatus }) {
@@ -95,7 +111,7 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
     include: {
       deliverySession: { select: { availableUntil: true, rankingRule: true, releaseState: true, releasedAt: true, resultReleasePolicy: true, scheduledReleaseAt: true, tryout: { select: { defaultResultReleasePolicy: true } } } },
       runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } }, orderBy: { sequenceNo: "asc" } },
-      scoreBreakdowns: { select: { id: true } },
+      scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } },
       tryout: { select: { createdByUserId: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
     },
   });
@@ -110,8 +126,8 @@ async function materializeTryoutAttemptInTransaction(tx: Prisma.TransactionClien
   if (attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || run.scoringState !== AssessmentScoringState.scored || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided || run.normalizedScore === null)) return review("Semua tujuh Test harus tersegel, termaterialisasi, dan tidak void sebelum hasil dapat dihitung.");
   const scores = attempt.runs.map((run) => Number(run.normalizedScore));
   const finalScore = aggregateTryoutScores(scores);
-  const existingBreakdowns = attempt.scoreBreakdowns.length;
-  if (attempt.scoringState === AssessmentScoringState.scored && attempt.score !== null && attempt.scoringVersion === TRYOUT_SCORE_AGGREGATION_VERSION && existingBreakdowns === 7) {
+  const hasTypedBreakdowns = hasCanonicalSevenBreakdownSet({ tryout: attempt.tryout, breakdowns: attempt.scoreBreakdowns });
+  if (attempt.scoringState === AssessmentScoringState.scored && attempt.score !== null && attempt.scoringVersion === TRYOUT_SCORE_AGGREGATION_VERSION && hasTypedBreakdowns) {
     return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, finalScore: Number(attempt.score), runScores: scores, state: "existing" };
   }
   for (const run of attempt.runs) await upsertTryoutBreakdown(tx, attemptId, run);
@@ -148,13 +164,13 @@ async function calculateTryoutAttempt(attemptId: string, actorId: string, reason
 }
 
 async function sessionReleaseReadiness(tx: Prisma.TransactionClient, deliverySessionId: string) {
-  const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: { tryout: { select: { defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } }, attempts: { include: { runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } }, scoreBreakdowns: { select: { id: true } } } } } });
+  const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: { tryout: { select: { defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } }, attempts: { include: { runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } }, scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } } } } } });
   if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
   const policy = effectivePolicy(session);
   if (session.rankingRule === "none") throw new TryoutResultValidationError("Aturan peringkat sesi harus dipilih sebelum paket hasil dapat dirilis.");
   if (!session.attempts.length) throw new TryoutResultValidationError("Belum ada attempt pada sesi ini untuk dirilis.");
   for (const attempt of session.attempts) {
-    if (attempt.score === null || attempt.scoringState !== AssessmentScoringState.scored || !terminalAttemptStateIsCalculable(attempt) || attempt.scoreBreakdowns.length !== 7 || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || attempt.runs.some((run) => run.scoringState !== AssessmentScoringState.scored || run.normalizedScore === null || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !explanationsComplete(run))) {
+    if (attempt.score === null || attempt.scoringState !== AssessmentScoringState.scored || !terminalAttemptStateIsCalculable(attempt) || !hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns }) || !hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs }) || attempt.runs.some((run) => run.scoringState !== AssessmentScoringState.scored || run.normalizedScore === null || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided || (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !explanationsComplete(run))) {
       throw new TryoutResultValidationError("Rilis diblokir: seluruh attempt harus selesai, terhitung valid, tidak void, dan memiliki penjelasan untuk semua item yang dikirim.");
     }
   }
@@ -180,7 +196,7 @@ async function releaseTryoutSessionResults(deliverySessionId: string, actorId: s
 }
 
 function rankAttempts(attempts: Array<{ id: string; releaseState?: AssessmentResultReleaseState; score: Prisma.Decimal | null; scoringState?: AssessmentScoringState }>, attemptId: string) {
-  const scored = attempts.filter((attempt) => attempt.score !== null && (attempt.scoringState === undefined || attempt.scoringState === AssessmentScoringState.scored) && (attempt.releaseState === undefined || attempt.releaseState === AssessmentResultReleaseState.released)).sort((left, right) => Number(right.score) - Number(left.score));
+  const scored = attempts.filter((attempt) => attempt.score !== null && (attempt.scoringState === undefined || attempt.scoringState === AssessmentScoringState.scored) && (attempt.releaseState === undefined || attempt.releaseState === AssessmentResultReleaseState.released)).sort((left, right) => Number(right.score) - Number(left.score) || left.id.localeCompare(right.id));
   if (scored.length < 2) return { rank: null, state: "unavailable" as const, total: scored.length };
   let rank = 0;
   let previous: number | null = null;
@@ -193,47 +209,53 @@ function rankAttempts(attempts: Array<{ id: string; releaseState?: AssessmentRes
   return { rank: null, state: "unavailable" as const, total: scored.length };
 }
 
-async function synchronizeAttemptReleaseState(attemptId: string, studentId: string, now: Date) {
+async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, now: Date) {
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM tryout_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
-    const attempt = await tx.tryoutAttempt.findUnique({
-      where: { id: attemptId },
-      include: {
-        deliverySession: { include: { tryout: { select: { defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } } } },
-        runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } },
-        scoreBreakdowns: { select: { id: true } },
-      },
-    });
-    if (!attempt || attempt.studentId !== studentId) return null;
-    const policy = effectivePolicy(attempt.deliverySession);
-    const ready = attempt.deliverySession.rankingRule !== "none"
-      && terminalAttemptStateIsCalculable(attempt)
-      && attempt.scoringState === AssessmentScoringState.scored
-      && attempt.score !== null
-      && attempt.scoreBreakdowns.length === 7
-      && hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout: attempt.deliverySession.tryout, runs: attempt.runs })
-      && attempt.runs.every((run) => run.scoringState === AssessmentScoringState.scored && run.normalizedScore !== null && run.calculationReleaseable && run.catState !== TryoutCatRunState.voided && (run.status === TryoutAttemptTestRunStatus.sealed || run.status === TryoutAttemptTestRunStatus.expired) && explanationsComplete(run));
-    let releaseState: AssessmentResultReleaseState = AssessmentResultReleaseState.hidden;
-    let releaseAt: Date | null = null;
-    if (ready && policy === "manual" && attempt.deliverySession.releaseState === AssessmentResultReleaseState.released) {
-      releaseState = AssessmentResultReleaseState.released;
-      releaseAt = attempt.deliverySession.releasedAt;
-    } else if (ready && policy === "immediate") {
-      releaseState = AssessmentResultReleaseState.released;
-      releaseAt = now;
-    } else if (ready && policy === "scheduled") {
-      if (!attempt.deliverySession.scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
-      releaseState = attempt.deliverySession.scheduledReleaseAt <= now ? AssessmentResultReleaseState.released : AssessmentResultReleaseState.scheduled;
-      releaseAt = attempt.deliverySession.scheduledReleaseAt;
-    } else if (ready && policy === "automatic_at_end") {
-      releaseState = attempt.deliverySession.availableUntil <= now ? AssessmentResultReleaseState.released : AssessmentResultReleaseState.scheduled;
-      releaseAt = attempt.deliverySession.availableUntil;
+    await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${deliverySessionId}::uuid FOR UPDATE`;
+    const session = await tx.tryoutDeliverySession.findUnique({ where: { id: deliverySessionId }, include: { tryout: { select: { id: true, defaultResultReleasePolicy: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } }, attempts: { include: { runs: { include: { section: { select: { id: true, sequenceNo: true, subtestId: true, tryoutId: true } } } }, scoreBreakdowns: { select: { normalizedScore: true, rawScore: true, scaledScore: true, scoringProvenance: true, scoringVersion: true, subtestId: true } } } } } });
+    if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
+    const policy = effectivePolicy(session);
+    const releaseableAttemptIds = session.attempts.filter((attempt) => attempt.score !== null
+        && attempt.scoringState === AssessmentScoringState.scored
+        && terminalAttemptStateIsCalculable(attempt)
+        && hasCanonicalSevenBreakdownSet({ tryout: session.tryout, breakdowns: attempt.scoreBreakdowns })
+        && hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs })
+        && attempt.runs.every((run) => run.scoringState === AssessmentScoringState.scored && run.normalizedScore !== null && run.calculationReleaseable && run.catState !== TryoutCatRunState.voided && (run.status === TryoutAttemptTestRunStatus.sealed || run.status === TryoutAttemptTestRunStatus.expired) && explanationsComplete(run)))
+      .map((attempt) => attempt.id);
+    const ready = session.rankingRule !== "none"
+      && session.attempts.length > 0
+      && releaseableAttemptIds.length === session.attempts.length;
+    if (policy === "scheduled" && !session.scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
+    const thresholdReached = policy === "immediate"
+      || (policy === "automatic_at_end" && session.availableUntil <= now)
+      || (policy === "scheduled" && session.scheduledReleaseAt !== null && session.scheduledReleaseAt <= now)
+      || (policy === "manual" && session.releaseState === AssessmentResultReleaseState.released);
+    let releaseState = session.releaseState;
+    let releaseAt = session.releasedAt;
+    if (session.releaseState !== AssessmentResultReleaseState.released && ready) {
+      if (thresholdReached && policy !== "manual") {
+        releaseState = AssessmentResultReleaseState.released;
+        releaseAt = session.releasedAt ?? (policy === "scheduled" ? session.scheduledReleaseAt : policy === "automatic_at_end" ? session.availableUntil : now);
+      } else if (!thresholdReached && policy !== "manual") {
+        releaseState = AssessmentResultReleaseState.scheduled;
+        releaseAt = policy === "scheduled" ? session.scheduledReleaseAt : policy === "automatic_at_end" ? session.availableUntil : null;
+      }
     }
-    if (attempt.releaseState !== releaseState || attempt.releaseAt?.getTime() !== releaseAt?.getTime()) {
-      return tx.tryoutAttempt.update({ where: { id: attempt.id }, data: { releaseAt, releaseState } });
+    if (releaseState === AssessmentResultReleaseState.released && releaseAt === null) releaseAt = now;
+    if (releaseState !== session.releaseState || releaseAt?.getTime() !== session.releasedAt?.getTime()) {
+      await tx.tryoutDeliverySession.update({ where: { id: session.id }, data: { releaseState, releasedAt: releaseAt ?? undefined, releaseReason: session.releaseReason ?? (releaseState === AssessmentResultReleaseState.released ? "Rilis otomatis setelah seluruh bundle valid." : undefined) } });
     }
-    return attempt;
+    if ((releaseState === AssessmentResultReleaseState.released || releaseState === AssessmentResultReleaseState.scheduled) && releaseableAttemptIds.length > 0) {
+      await tx.tryoutAttempt.updateMany({ where: { id: { in: releaseableAttemptIds } }, data: { releaseAt, releaseState } });
+    }
+    return { deliverySessionId: session.id, releaseAt, releaseState, ready };
   });
+}
+
+async function synchronizeAttemptReleaseState(attemptId: string, studentId: string, now: Date) {
+  const attempt = await prisma.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { deliverySessionId: true } });
+  if (!attempt) return null;
+  return synchronizeTryoutSessionReleaseState(attempt.deliverySessionId, now);
 }
 
 async function participantTryoutResult(attemptId: string, studentId: string) {
@@ -257,7 +279,7 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
           },
         },
       },
-      tryout: { select: { title: true } },
+      tryout: { select: { title: true, sections: { select: { id: true, sequenceNo: true, subtestId: true }, orderBy: { sequenceNo: "asc" } } } },
       runs: {
         include: { answers: { select: { isCorrect: true, pointsAwarded: true, selectedOptionId: true, tryoutItemId: true } }, section: { include: { subtest: true } } },
         orderBy: { sequenceNo: "asc" },
@@ -272,7 +294,9 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
   if (policy === "scheduled" && !scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
   const released = attempt.releaseState === AssessmentResultReleaseState.released
     && attempt.scoringState === AssessmentScoringState.scored
-    && attempt.score !== null;
+    && attempt.score !== null
+    && hasCanonicalSevenBreakdownSet({ tryout: attempt.tryout, breakdowns: attempt.scoreBreakdowns })
+    && hasCanonicalSevenRunSet({ tryoutId: attempt.tryoutId, tryout: attempt.tryout, runs: attempt.runs });
   if (!released) return { attemptId, policy, releaseAt: attempt.releaseAt?.toISOString() ?? null, releaseState: attempt.releaseState, released: false, scoringState: attempt.scoringState, status: policy === "manual" ? "Menunggu rilis operator." : policy === "automatic_at_end" ? "Hasil dibuka setelah sesi ditutup dan semua perhitungan valid." : policy === "scheduled" ? "Hasil menunggu jadwal rilis dan perhitungan lengkap." : "Hasil sedang menunggu perhitungan lengkap." };
   const ranking = rankAttempts(attempt.deliverySession.attempts, attempt.id);
   return {

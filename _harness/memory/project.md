@@ -50,9 +50,13 @@ Store only settled decisions, conventions, and important context that emerged du
 - AS-03 migration 20260822100000_normalize_assessment_scoring_release is
   intentionally pending until explicit deployment approval. AS-09 durable
   AssessmentRelease remains a later slice.
-- AS-03 implementation is committed as `cb1eb8f`. The migration quarantines
-  malformed JSON/CAT selections, requires canonical seven distinct subjects,
-  materializes typed breakdowns idempotently, and synchronizes due Kuis release
-  state under a student-scoped lock. Full lint/build passed with 0 errors and
-  459 existing warnings; DB-backed migration/smoke verification remains for
-  deployment.
+- AS-03 implementation is committed as `cb1eb8f`; the post-fix follow-up adds
+  session-level Tryout release synchronization, stable release timestamps,
+  final-run deadline aggregation, CAT owner/admin mutation checks, and typed
+  release-bundle validation. The migration now quarantines malformed or
+  contradictory legacy JSON/CAT selections, requires canonical seven distinct
+  subjects, updates existing typed breakdowns idempotently, proves raw-score
+  sums against frozen snapshots, and range-bounds numeric casts. The physical
+  QuestionRevision seed insert also requires an explicit NULL ready_at value.
+  An isolated local PostgreSQL replay of all migrations plus seed and
+  `db:verify-demo` passed; the configured external migration remains pending.

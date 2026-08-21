@@ -116,7 +116,10 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
       wrongCount: scored.wrongCount,
     },
   });
-  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, !expired);
+  // A run that reaches its own deadline can still be a valid, fully
+  // materialized run. Let the seventh valid run trigger attempt aggregation;
+  // only the failed/ambiguous paths below intentionally suppress it.
+  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, true);
   return sealed;
 }
 
@@ -158,7 +161,10 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
   const normalizedScore = normalizeCatAbility(current.currentAbility);
   const result = { ability: current.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: current.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: current.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, parameters: current.parameters, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: current.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
-  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, !expired);
+  // A run that reaches its own deadline can still be a valid, fully
+  // materialized run. Let the seventh valid run trigger attempt aggregation;
+  // only the failed/ambiguous paths above intentionally suppress it.
+  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, true);
   return sealed;
 }
 
@@ -512,11 +518,12 @@ async function sealTryoutTestRun(attemptId: string, runId: string, studentId: st
 }
 
 function auditJson(value: unknown) { return value as Prisma.InputJsonValue; }
-async function retryCatTestRun(runId: string, actorId: string, reason: string) {
+async function retryCatTestRun(runId: string, actorId: string, reason: string, allowCrossOwner = false) {
   if (!reason.trim()) throw new TryoutAttemptValidationError("Alasan audit retry CAT wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, section: { select: { testType: true } } } });
+    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, attempt: { select: { tryout: { select: { createdByUserId: true } } } }, section: { select: { testType: true } } } });
     if (!run || run.section.testType !== TryoutTestType.cat || run.catState === TryoutCatRunState.voided) throw new TryoutAttemptValidationError("Hanya run CAT gagal yang dapat dicoba ulang.");
+    if (run.attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutAttemptValidationError("Anda tidak dapat mengulang CAT Tryout milik Kapten lain.");
     const before = { catFailureReason: run.catFailureReason, catState: run.catState };
     const snapshot = catSnapshot(run.catSnapshot);
     const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
@@ -541,11 +548,12 @@ async function retryCatTestRun(runId: string, actorId: string, reason: string) {
     return { catState: updated.catState, releaseable: updated.calculationReleaseable, runId };
   });
 }
-async function voidCatTestRun(runId: string, actorId: string, reason: string) {
+async function voidCatTestRun(runId: string, actorId: string, reason: string, allowCrossOwner = false) {
   if (!reason.trim()) throw new TryoutAttemptValidationError("Alasan audit void CAT wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { section: { select: { testType: true } } } });
+    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { attempt: { select: { tryout: { select: { createdByUserId: true } } } }, section: { select: { testType: true } } } });
     if (!run || run.section.testType !== TryoutTestType.cat) throw new TryoutAttemptValidationError("Hanya run CAT dapat divoid.");
+    if (run.attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutAttemptValidationError("Anda tidak dapat me-void CAT Tryout milik Kapten lain.");
     const updated = await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: "Run CAT divoid oleh operator berwenang.", catState: TryoutCatRunState.voided, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: reason.trim(), scoringState: AssessmentScoringState.review_required } });
     await tx.tryoutAttempt.update({ where: { id: updated.attemptId }, data: { releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Run CAT di-void oleh operator.", scoringState: AssessmentScoringState.review_required } });
     await tx.tryoutCatResolutionAudit.create({ data: { action: "void", actorUserId: actorId, after: auditJson({ catState: updated.catState }), before: auditJson({ catState: run.catState }), reason: reason.trim(), runId } });

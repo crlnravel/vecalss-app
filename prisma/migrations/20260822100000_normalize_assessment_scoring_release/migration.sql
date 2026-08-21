@@ -262,7 +262,11 @@ FROM (
     END AS is_correct,
     CASE
       WHEN (item_row->>'points') ~ '^-?[0-9]+(\.[0-9]+)?$'
-        THEN (item_row->>'points')::numeric
+        THEN CASE
+          WHEN (item_row->>'points')::numeric BETWEEN -9999.99 AND 9999.99
+            THEN (item_row->>'points')::numeric
+          ELSE NULL
+        END
       ELSE NULL
     END AS points
   FROM tryout_answers answer_row
@@ -318,44 +322,46 @@ WHERE run_row.id = counts.id;
 -- calculation JSON remains intact for replay and audit.
 UPDATE tryout_attempt_test_runs run_row
 SET
-  correct_count = CASE
-    WHEN jsonb_typeof(run_row.calculation_result->'correctCount') = 'number'
-      AND (run_row.calculation_result->>'correctCount') ~ '^-?[0-9]+$'
-      THEN (run_row.calculation_result->>'correctCount')::integer
-    ELSE run_row.correct_count
-  END,
-  wrong_count = CASE
-    WHEN jsonb_typeof(run_row.calculation_result->'wrongCount') = 'number'
-      AND (run_row.calculation_result->>'wrongCount') ~ '^-?[0-9]+$'
-      THEN (run_row.calculation_result->>'wrongCount')::integer
-    ELSE run_row.wrong_count
-  END,
-  unanswered_count = CASE
-    WHEN jsonb_typeof(run_row.calculation_result->'unansweredCount') = 'number'
-      AND (run_row.calculation_result->>'unansweredCount') ~ '^-?[0-9]+$'
-      THEN (run_row.calculation_result->>'unansweredCount')::integer
-    ELSE run_row.unanswered_count
-  END,
   raw_score = CASE
     WHEN jsonb_typeof(run_row.calculation_result->'score') = 'number'
-      THEN (run_row.calculation_result->>'score')::numeric
+      THEN CASE
+        WHEN (run_row.calculation_result->>'score')::numeric BETWEEN -999999.9999 AND 999999.9999
+          THEN (run_row.calculation_result->>'score')::numeric
+        ELSE run_row.raw_score
+      END
     WHEN jsonb_typeof(run_row.calculation_result->'ability') = 'number'
-      THEN (run_row.calculation_result->>'ability')::numeric
+      THEN CASE
+        WHEN (run_row.calculation_result->>'ability')::numeric BETWEEN -999999.9999 AND 999999.9999
+          THEN (run_row.calculation_result->>'ability')::numeric
+        ELSE run_row.raw_score
+      END
     ELSE run_row.raw_score
   END,
   max_score = CASE
     WHEN jsonb_typeof(run_row.calculation_result->'maxScore') = 'number'
-      THEN (run_row.calculation_result->>'maxScore')::numeric
+      THEN CASE
+        WHEN (run_row.calculation_result->>'maxScore')::numeric BETWEEN -999999.9999 AND 999999.9999
+          THEN (run_row.calculation_result->>'maxScore')::numeric
+        ELSE run_row.max_score
+      END
     ELSE run_row.max_score
   END,
   scaled_score = CASE
     WHEN jsonb_typeof(run_row.calculation_result->'normalizedScore') = 'number'
-      THEN (run_row.calculation_result->>'normalizedScore')::numeric
+      THEN CASE
+        WHEN (run_row.calculation_result->>'normalizedScore')::numeric BETWEEN 0 AND 100
+          THEN (run_row.calculation_result->>'normalizedScore')::numeric
+        ELSE run_row.scaled_score
+      END
     ELSE run_row.scaled_score
   END,
   normalized_score = CASE
     WHEN jsonb_typeof(run_row.calculation_result->'normalizedScore') = 'number'
-      THEN (run_row.calculation_result->>'normalizedScore')::numeric
+      THEN CASE
+        WHEN (run_row.calculation_result->>'normalizedScore')::numeric BETWEEN 0 AND 100
+          THEN (run_row.calculation_result->>'normalizedScore')::numeric
+        ELSE run_row.normalized_score
+      END
     ELSE run_row.normalized_score
   END,
   scoring_version = COALESCE(run_row.calculation_version, 'legacy-calculation-json'),
@@ -365,8 +371,70 @@ SET
 WHERE run_row.status::text IN ('sealed', 'expired')
   AND run_row.calculation_releaseable
   AND run_row.cat_state::text <> 'voided'
+  AND run_row.calculation_version IN ('cbt-frozen-item-points-v1', '2pl-map-v1')
   AND jsonb_typeof(run_row.calculation_result) = 'object'
   AND jsonb_typeof(run_row.calculation_result->'normalizedScore') = 'number'
+  AND (run_row.calculation_result->>'normalizedScore')::numeric BETWEEN 0 AND 100
+  AND (
+    run_row.cat_snapshot IS NOT NULL
+    OR run_row.raw_score = (
+      SELECT COALESCE(SUM(answer_row.points_awarded), 0)::numeric
+      FROM tryout_answers answer_row
+      WHERE answer_row.attempt_test_run_id = run_row.id
+    )
+  )
+  AND (
+    run_row.cat_snapshot IS NULL
+    OR (
+      jsonb_typeof(run_row.cat_snapshot->'currentAbility') = 'number'
+      AND run_row.raw_score = (run_row.cat_snapshot->>'currentAbility')::numeric
+    )
+  )
+  AND (
+    run_row.cat_snapshot IS NOT NULL
+    OR (
+      run_row.max_score IS NOT NULL
+      AND run_row.max_score > 0
+      AND run_row.normalized_score = ROUND(LEAST(100, GREATEST(0, (run_row.raw_score / run_row.max_score) * 100)), 2)
+    )
+  )
+  AND run_row.max_score = (
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN (item_row->>'points') ~ '^-?[0-9]+(\.[0-9]+)?$'
+          THEN CASE
+            WHEN (item_row->>'points')::numeric BETWEEN -9999.99 AND 9999.99
+              THEN (item_row->>'points')::numeric
+            ELSE 0
+          END
+        ELSE 0
+      END
+    ), 0)::numeric
+    FROM jsonb_array_elements(
+      CASE
+        WHEN jsonb_typeof(run_row.content_snapshot->'items') = 'array' THEN run_row.content_snapshot->'items'
+        ELSE '[]'::jsonb
+      END
+    ) item_row
+    WHERE run_row.cat_snapshot IS NULL
+      OR EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(
+          CASE
+            WHEN jsonb_typeof(run_row.cat_snapshot->'selectedItemIds') = 'array' THEN run_row.cat_snapshot->'selectedItemIds'
+            ELSE '[]'::jsonb
+          END
+        ) selected_item
+        WHERE selected_item = item_row->>'id'
+      )
+  )
+  AND (
+    run_row.cat_snapshot IS NULL
+    OR (
+      jsonb_typeof(run_row.cat_snapshot->'currentAbility') = 'number'
+      AND run_row.normalized_score = ROUND(LEAST(100, GREATEST(0, (1 / (1 + EXP(-((run_row.cat_snapshot->>'currentAbility')::numeric)))) * 100)), 2)
+    )
+  )
   AND NOT EXISTS (
     SELECT 1
     FROM tryout_answers answer_row
@@ -397,7 +465,7 @@ WITH canonical_sections AS (
     COALESCE(SUM(run.wrong_count), 0)::integer AS wrong_count,
     COALESCE(SUM(run.unanswered_count), 0)::integer AS unanswered_count,
     AVG(run.normalized_score)::numeric(7,2) AS normalized_score,
-    AVG(run.raw_score)::numeric(10,4) AS raw_score
+    SUM(run.raw_score)::numeric(10,4) AS raw_score
   FROM tryout_attempts attempt
   JOIN canonical_sections expected ON expected.tryout_id = attempt.tryout_id AND expected.section_count = 7
   JOIN tryout_attempt_test_runs run ON run.attempt_id = attempt.id
@@ -441,6 +509,42 @@ WITH canonical_sections AS (
           )
         )
       )
+    )
+    AND (
+      run.cat_snapshot IS NULL
+      OR CASE
+        WHEN jsonb_typeof(run.cat_snapshot->'selectedItemIds') = 'array'
+          THEN jsonb_array_length(run.cat_snapshot->'selectedItemIds') = (
+            SELECT COUNT(DISTINCT selected_item)::integer
+            FROM jsonb_array_elements_text(run.cat_snapshot->'selectedItemIds') selected_item
+          )
+        ELSE FALSE
+      END
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM tryout_answers answer_row
+      WHERE answer_row.attempt_test_run_id = run.id
+        AND (
+          (
+            run.cat_snapshot IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements_text(run.cat_snapshot->'selectedItemIds') selected_item
+              WHERE selected_item = answer_row.tryout_item_id::text
+            )
+          )
+          OR NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(run.content_snapshot->'items') = 'array' THEN run.content_snapshot->'items'
+                ELSE '[]'::jsonb
+              END
+            ) item_row
+            WHERE item_row->>'id' = answer_row.tryout_item_id::text
+          )
+        )
     )
     AND NOT EXISTS (
       SELECT 1
@@ -500,8 +604,69 @@ FROM matching_attempts matching
 WHERE attempt.id = matching.id;
 
 -- Materialize one typed breakdown per canonical Test before any historical
--- release is preserved. This makes the reporting contract independent of the
--- legacy calculation JSON and keeps the insert idempotent.
+-- release is preserved. Existing legacy rows are updated from the canonical
+-- run first; the insert below only fills a missing row. This makes the
+-- reporting contract independent of the legacy calculation JSON and keeps the
+-- operation idempotent even though topic_id is nullable in the legacy key.
+WITH canonical_breakdowns AS (
+  SELECT
+    run.attempt_id,
+    section.subtest_id,
+    COALESCE(run.correct_count, 0) AS correct_count,
+    COALESCE(run.wrong_count, 0) AS wrong_count,
+    COALESCE(run.unanswered_count, 0) AS unanswered_count,
+    run.raw_score,
+    run.scaled_score,
+    run.normalized_score,
+    COALESCE(run.scoring_version, 'normalized-test-mean-v1') AS scoring_version
+  FROM tryout_attempt_test_runs run
+  JOIN tryout_attempts attempt ON attempt.id = run.attempt_id
+  JOIN tryout_sections section
+    ON section.id = run.tryout_section_id
+   AND section.tryout_id = attempt.tryout_id
+   AND section.sequence_no = run.sequence_no
+  WHERE attempt.scoring_state = 'scored'::assessment_scoring_state
+    AND attempt.scoring_provenance = 'legacy_provable'::assessment_scoring_provenance
+    AND run.scoring_state = 'scored'::assessment_scoring_state
+    AND run.normalized_score IS NOT NULL
+)
+UPDATE tryout_score_breakdowns existing
+SET
+  correct_count = canonical.correct_count,
+  wrong_count = canonical.wrong_count,
+  unanswered_count = canonical.unanswered_count,
+  raw_score = canonical.raw_score,
+  scaled_score = canonical.scaled_score,
+  normalized_score = canonical.normalized_score,
+  scoring_version = canonical.scoring_version,
+  scoring_provenance = 'legacy_provable'::assessment_scoring_provenance
+FROM canonical_breakdowns canonical
+WHERE existing.attempt_id = canonical.attempt_id
+  AND existing.subtest_id = canonical.subtest_id
+  AND existing.topic_id IS NULL;
+
+WITH canonical_breakdowns AS (
+  SELECT
+    run.attempt_id,
+    section.subtest_id,
+    COALESCE(run.correct_count, 0) AS correct_count,
+    COALESCE(run.wrong_count, 0) AS wrong_count,
+    COALESCE(run.unanswered_count, 0) AS unanswered_count,
+    run.raw_score,
+    run.scaled_score,
+    run.normalized_score,
+    COALESCE(run.scoring_version, 'normalized-test-mean-v1') AS scoring_version
+  FROM tryout_attempt_test_runs run
+  JOIN tryout_attempts attempt ON attempt.id = run.attempt_id
+  JOIN tryout_sections section
+    ON section.id = run.tryout_section_id
+   AND section.tryout_id = attempt.tryout_id
+   AND section.sequence_no = run.sequence_no
+  WHERE attempt.scoring_state = 'scored'::assessment_scoring_state
+    AND attempt.scoring_provenance = 'legacy_provable'::assessment_scoring_provenance
+    AND run.scoring_state = 'scored'::assessment_scoring_state
+    AND run.normalized_score IS NOT NULL
+)
 INSERT INTO tryout_score_breakdowns (
   attempt_id,
   subtest_id,
@@ -516,32 +681,23 @@ INSERT INTO tryout_score_breakdowns (
   scoring_provenance
 )
 SELECT
-  run.attempt_id,
-  section.subtest_id,
+  canonical.attempt_id,
+  canonical.subtest_id,
   NULL,
-  COALESCE(run.correct_count, 0),
-  COALESCE(run.wrong_count, 0),
-  COALESCE(run.unanswered_count, 0),
-  run.raw_score,
-  run.scaled_score,
-  run.normalized_score,
-  COALESCE(run.scoring_version, 'normalized-test-mean-v1'),
+  canonical.correct_count,
+  canonical.wrong_count,
+  canonical.unanswered_count,
+  canonical.raw_score,
+  canonical.scaled_score,
+  canonical.normalized_score,
+  canonical.scoring_version,
   'legacy_provable'::assessment_scoring_provenance
-FROM tryout_attempt_test_runs run
-JOIN tryout_attempts attempt ON attempt.id = run.attempt_id
-JOIN tryout_sections section
-  ON section.id = run.tryout_section_id
- AND section.tryout_id = attempt.tryout_id
- AND section.sequence_no = run.sequence_no
-WHERE attempt.scoring_state = 'scored'::assessment_scoring_state
-  AND attempt.scoring_provenance = 'legacy_provable'::assessment_scoring_provenance
-  AND run.scoring_state = 'scored'::assessment_scoring_state
-  AND run.normalized_score IS NOT NULL
-  AND NOT EXISTS (
+FROM canonical_breakdowns canonical
+WHERE NOT EXISTS (
     SELECT 1
     FROM tryout_score_breakdowns existing
-    WHERE existing.attempt_id = run.attempt_id
-      AND existing.subtest_id = section.subtest_id
+    WHERE existing.attempt_id = canonical.attempt_id
+      AND existing.subtest_id = canonical.subtest_id
       AND existing.topic_id IS NULL
   );
 
@@ -565,27 +721,42 @@ SET release_state = CASE
   ELSE 'hidden'::assessment_result_release_state
 END;
 
+WITH breakdown_status AS (
+  SELECT
+    attempt_row.id AS attempt_id,
+    COUNT(breakdown.id) = 7
+      AND COUNT(DISTINCT breakdown.subtest_id) = 7
+      AND COUNT(breakdown.id) FILTER (WHERE breakdown.subtest_id IN (
+        SELECT section.subtest_id
+        FROM tryout_sections section
+        WHERE section.tryout_id = attempt_row.tryout_id
+      )) = 7
+      AND COALESCE(BOOL_AND(
+        breakdown.normalized_score IS NOT NULL
+        AND breakdown.raw_score IS NOT NULL
+        AND breakdown.scaled_score IS NOT NULL
+        AND breakdown.scoring_version IS NOT NULL
+        AND breakdown.scoring_provenance <> 'legacy_unknown'::assessment_scoring_provenance
+      ), FALSE) AS is_ready
+  FROM tryout_attempts attempt_row
+  LEFT JOIN tryout_score_breakdowns breakdown
+    ON breakdown.attempt_id = attempt_row.id
+   AND breakdown.topic_id IS NULL
+  GROUP BY attempt_row.id, attempt_row.tryout_id
+)
 UPDATE tryout_attempts attempt
 SET release_state = CASE
   WHEN session.release_state = 'released'::assessment_result_release_state
     AND attempt.scoring_state = 'scored'::assessment_scoring_state
     AND attempt.score IS NOT NULL
     AND session.ranking_rule::text <> 'none'
-    AND (
-      SELECT COUNT(*)
-      FROM tryout_score_breakdowns breakdown
-      WHERE breakdown.attempt_id = attempt.id
-    ) = 7
+    AND breakdown.is_ready
     THEN 'released'::assessment_result_release_state
   WHEN session.release_state = 'scheduled'::assessment_result_release_state
     AND attempt.scoring_state = 'scored'::assessment_scoring_state
     AND attempt.score IS NOT NULL
     AND session.ranking_rule::text <> 'none'
-    AND (
-      SELECT COUNT(*)
-      FROM tryout_score_breakdowns breakdown
-      WHERE breakdown.attempt_id = attempt.id
-    ) = 7
+    AND breakdown.is_ready
     THEN 'scheduled'::assessment_result_release_state
   ELSE 'hidden'::assessment_result_release_state
 END,
@@ -594,26 +765,20 @@ release_at = CASE
     AND attempt.scoring_state = 'scored'::assessment_scoring_state
     AND attempt.score IS NOT NULL
     AND session.ranking_rule::text <> 'none'
-    AND (
-      SELECT COUNT(*)
-      FROM tryout_score_breakdowns breakdown
-      WHERE breakdown.attempt_id = attempt.id
-    ) = 7
+    AND breakdown.is_ready
     THEN session.released_at
   WHEN session.release_state = 'scheduled'::assessment_result_release_state
     AND attempt.scoring_state = 'scored'::assessment_scoring_state
     AND attempt.score IS NOT NULL
     AND session.ranking_rule::text <> 'none'
-    AND (
-      SELECT COUNT(*)
-      FROM tryout_score_breakdowns breakdown
-      WHERE breakdown.attempt_id = attempt.id
-    ) = 7
+    AND breakdown.is_ready
     THEN session.scheduled_release_at
   ELSE NULL
 END
-FROM tryout_delivery_sessions session
-WHERE attempt.delivery_session_id = session.id;
+FROM tryout_delivery_sessions session,
+  breakdown_status breakdown
+WHERE attempt.delivery_session_id = session.id
+  AND breakdown.attempt_id = attempt.id;
 
 CREATE INDEX standalone_quiz_attempts_scoring_state_idx
   ON standalone_quiz_attempts (scoring_state, release_state);

@@ -347,7 +347,7 @@ async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
            id, question_id, revision_no, status, provenance, stem, question_type,
            difficulty, explanation, content_digest, created_by_user_id,
            updated_by_user_id, ready_at
-         ) VALUES ($1, $2, $3, 'draft', 'authored', $4, 'single_choice', $5::difficulty_level, $6, $7, $8, $8)`,
+         ) VALUES ($1, $2, $3, 'draft', 'authored', $4, 'single_choice', $5::difficulty_level, $6, $7, $8, $8, NULL)`,
         [revisionId, questionId, revisionNo, question.stem, question.difficulty, question.explanation, contentDigest, tutorId],
       );
       for (const option of options) {
