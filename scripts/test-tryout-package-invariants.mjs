@@ -48,9 +48,10 @@ assert.match(repository, /questionBank\.findUnique\(\{ where: \{ id: pkg\.source
 assert.match(scoredMigration, /source_bank_id uuid NOT NULL/);
 assert.match(scoredMigration, /point_value numeric\(6,2\) NOT NULL CHECK \(point_value > 0\)/);
 assert.match(scoredMigration, /question_bank IS DISTINCT FROM source_bank/);
-assert.match(attemptRepository, /const score = correctAnswers\.reduce/);
-assert.match(attemptRepository, /calculationVersion: "cbt-frozen-item-points-v1"/);
-assert.match(attemptRepository, /calculationVersion: "2pl-map-v1"/);
+assert.match(attemptRepository, /materializeFrozenAnswers/);
+assert.match(attemptRepository, /calculationVersion: TRYOUT_CBT_SCORING_VERSION/);
+assert.match(attemptRepository, /calculationVersion: TRYOUT_CAT_SCORING_VERSION/);
+assert.match(attemptRepository, /scoringState: AssessmentScoringState\.scored/);
 
 // CAT has one server-owned 2PL profile. Authoring supplies only the item
 // count; publish, delivery opening, and attempt creation must all bind and

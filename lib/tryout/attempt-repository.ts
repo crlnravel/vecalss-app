@@ -1,10 +1,11 @@
 import "server-only";
 
-import { AssessmentAttemptState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
-import { materializeFrozenAnswers, normalizeCatAbility, normalizeCbtScore, TRYOUT_CAT_SCORING_VERSION, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import { materializeFrozenAnswers, normalizeCatAbility, TRYOUT_CAT_SCORING_VERSION, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 import { prisma } from "@/lib/prisma";
+import { materializeTryoutAttemptInTransaction } from "@/lib/tryout/result-repository";
 
 class TryoutAttemptValidationError extends Error {}
 
@@ -13,6 +14,8 @@ const activeAttemptStatuses = [AttemptStatus.in_progress] as const;
 
 type ItemSnapshot = {
   difficulty: string;
+  explanation?: string | null;
+  explanationAssetId?: string | null;
   id: string;
   options: Array<{ choiceKey: string; content: string; id: string; isCorrect: boolean; sortOrder: number }>;
   points: string;
@@ -37,13 +40,26 @@ async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
 }
 
-async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
+async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, attemptId: string, now: Date, autoCalculate = true) {
   const [remaining, reviewRequired] = await Promise.all([
     tx.tryoutAttemptTestRun.count({ where: { attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } }),
     tx.tryoutAttemptTestRun.count({ where: { attemptId, scoringState: AssessmentScoringState.review_required } }),
   ]);
   if (remaining) return;
-  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: AssessmentAttemptState.submitted, scoringState: reviewRequired ? AssessmentScoringState.review_required : AssessmentScoringState.pending, status: AttemptStatus.submitted, submittedAt: now } });
+  const current = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, select: { attemptState: true, status: true, studentId: true } });
+  if (!current || current.attemptState === AssessmentAttemptState.abandoned || current.attemptState === AssessmentAttemptState.void || current.status === AttemptStatus.abandoned) return;
+  const nextAttemptState = current.attemptState === AssessmentAttemptState.expired
+    ? AssessmentAttemptState.expired
+    : current.attemptState === AssessmentAttemptState.auto_submitted
+      ? AssessmentAttemptState.auto_submitted
+      : AssessmentAttemptState.submitted;
+  const nextStatus = current.status === AttemptStatus.expired
+    ? AttemptStatus.expired
+    : current.status === AttemptStatus.auto_submitted
+      ? AttemptStatus.auto_submitted
+      : AttemptStatus.submitted;
+  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: nextAttemptState, releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringState: reviewRequired ? AssessmentScoringState.review_required : AssessmentScoringState.pending, status: nextStatus, submittedAt: now } });
+  if (autoCalculate) await materializeTryoutAttemptInTransaction(tx, attemptId, current.studentId, "Perhitungan otomatis setelah tujuh Test tersegel.", false);
 }
 
 async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, now: Date, expired = false) {
@@ -69,7 +85,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
         status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
       },
     });
-    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now);
+    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
     return failed;
   }
   for (const answer of run.answers) {
@@ -100,7 +116,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
       wrongCount: scored.wrongCount,
     },
   });
-  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now);
+  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, !expired);
   return sealed;
 }
 
@@ -122,7 +138,7 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
   if (!snapshot || !Number.isFinite(snapshot.currentAbility)) {
     await failCatRun(tx, run.id, "Snapshot CAT tidak dapat dihitung ulang.");
     const failed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
-    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now);
+    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
     return failed;
   }
   const current = catSnapshot(run.catSnapshot)!;
@@ -131,7 +147,7 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
   if (scored.invalid || scored.normalizedScore === null) {
     const failed = await failCatRun(tx, run.id, "Jawaban CAT tidak dapat dicocokkan dengan snapshot item yang dibekukan.");
     const sealedFailed = await tx.tryoutAttemptTestRun.update({ where: { id: failed.id }, data: { sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
-    await markAttemptSubmittedIfComplete(tx, sealedFailed.attemptId, now);
+    await markAttemptSubmittedIfComplete(tx, sealedFailed.attemptId, now, !expired);
     return sealedFailed;
   }
   for (const answer of run.answers) {
@@ -142,7 +158,7 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
   const normalizedScore = normalizeCatAbility(current.currentAbility);
   const result = { ability: current.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: current.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: current.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, parameters: current.parameters, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: current.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
-  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now);
+  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now, !expired);
   return sealed;
 }
 
@@ -150,7 +166,8 @@ async function expireForSessionCap(tx: Prisma.TransactionClient, attemptId: stri
   const active = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } });
   if (active) await calculateAndSealRun(tx, active.id, now, true);
   await tx.tryoutAttemptTestRun.updateMany({ where: { attemptId, status: TryoutAttemptTestRunStatus.pending }, data: { scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Test tidak pernah dibuka sebelum batas waktu sesi.", scoringState: AssessmentScoringState.review_required, sealedAt: now, status: TryoutAttemptTestRunStatus.expired } });
-  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: AssessmentAttemptState.expired, autoSubmittedAt: now, scoringReviewReason: "Satu atau lebih Test tidak memiliki perhitungan sebelum batas waktu sesi.", scoringState: AssessmentScoringState.review_required, status: AttemptStatus.expired } });
+  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: AssessmentAttemptState.expired, autoSubmittedAt: now, releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringReviewReason: null, scoringState: AssessmentScoringState.pending, status: AttemptStatus.expired } });
+  await markAttemptSubmittedIfComplete(tx, attemptId, now, true);
 }
 
 async function synchronizeAttempt(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
@@ -165,11 +182,11 @@ async function synchronizeAttempt(tx: Prisma.TransactionClient, attemptId: strin
   return attempt;
 }
 
-function snapshotSection(section: { id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; testType: string; items: Array<{ difficulty: string; id: string; prompt: string; points: Prisma.Decimal; sortOrder: number; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; options: Array<{ id: string; choiceKey: string; content: string; isCorrect: boolean; sortOrder: number }> }> }) {
+function snapshotSection(section: { id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; testType: string; items: Array<{ difficulty: string; explanation: string | null; explanationAssetId: string | null; id: string; prompt: string; points: Prisma.Decimal; sortOrder: number; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; options: Array<{ id: string; choiceKey: string; content: string; isCorrect: boolean; sortOrder: number }> }> }) {
   return {
     durationSeconds: section.durationSeconds,
     instructions: section.instructions,
-    items: section.items.map((item) => ({ difficulty: item.difficulty, id: item.id, options: item.options.map((option) => ({ choiceKey: option.choiceKey, content: option.content, id: option.id, isCorrect: option.isCorrect, sortOrder: option.sortOrder })), points: item.points.toString(), prompt: item.prompt, sortOrder: item.sortOrder, sourceContentDigest: item.sourceContentDigest, sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId, sourceRevisionProvenance: item.sourceRevisionProvenance })),
+    items: section.items.map((item) => ({ difficulty: item.difficulty, explanation: item.explanation, explanationAssetId: item.explanationAssetId, id: item.id, options: item.options.map((option) => ({ choiceKey: option.choiceKey, content: option.content, id: option.id, isCorrect: option.isCorrect, sortOrder: option.sortOrder })), points: item.points.toString(), prompt: item.prompt, sortOrder: item.sortOrder, sourceContentDigest: item.sourceContentDigest, sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId, sourceRevisionProvenance: item.sourceRevisionProvenance })),
     scoringConfig: section.scoringConfig,
     sectionId: section.id,
     testType: section.testType,
@@ -518,6 +535,7 @@ async function retryCatTestRun(runId: string, actorId: string, reason: string) {
       await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationInput: json({ modelVersion: snapshot.modelVersion, parameters: snapshot.parameters, selectedItemIds: snapshot.selectedItemIds, updates: snapshot.updates }), calculationResult: json({ ability: snapshot.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: snapshot.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: snapshot.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount }), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: snapshot.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
     }
     const updated = await tx.tryoutAttemptTestRun.findUniqueOrThrow({ where: { id: runId } });
+    await tx.tryoutAttempt.update({ where: { id: updated.attemptId }, data: { releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringState: AssessmentScoringState.pending } });
     await markAttemptSubmittedIfComplete(tx, updated.attemptId, new Date());
     await tx.tryoutCatResolutionAudit.create({ data: { action: "retry", actorUserId: actorId, after: auditJson({ catFailureReason: updated.catFailureReason, catState: updated.catState }), before: auditJson(before), reason: reason.trim(), runId } });
     return { catState: updated.catState, releaseable: updated.calculationReleaseable, runId };
@@ -529,7 +547,7 @@ async function voidCatTestRun(runId: string, actorId: string, reason: string) {
     const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { section: { select: { testType: true } } } });
     if (!run || run.section.testType !== TryoutTestType.cat) throw new TryoutAttemptValidationError("Hanya run CAT dapat divoid.");
     const updated = await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: "Run CAT divoid oleh operator berwenang.", catState: TryoutCatRunState.voided, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: reason.trim(), scoringState: AssessmentScoringState.review_required } });
-    await tx.tryoutAttempt.update({ where: { id: updated.attemptId }, data: { scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Run CAT di-void oleh operator.", scoringState: AssessmentScoringState.review_required } });
+    await tx.tryoutAttempt.update({ where: { id: updated.attemptId }, data: { releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Run CAT di-void oleh operator.", scoringState: AssessmentScoringState.review_required } });
     await tx.tryoutCatResolutionAudit.create({ data: { action: "void", actorUserId: actorId, after: auditJson({ catState: updated.catState }), before: auditJson({ catState: run.catState }), reason: reason.trim(), runId } });
     return { catState: updated.catState, releaseable: false, runId };
   });

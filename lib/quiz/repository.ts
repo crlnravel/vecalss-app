@@ -819,7 +819,7 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
     const unansweredCount = Math.max(0, totalQuestions - answeredCount);
     const wrongCount = Math.max(0, answeredCount - correctCount);
     const score = totalQuestions ? Math.round((correctCount / totalQuestions) * 100) : 0;
-    let releaseState = AssessmentResultReleaseState.hidden;
+    let releaseState: AssessmentResultReleaseState = AssessmentResultReleaseState.hidden;
     let releaseAt: Date | null = null;
     if (policy.reviewTiming === "immediate") releaseState = AssessmentResultReleaseState.released;
     else if (policy.reviewTiming === "after_close" && attempt.participation.quiz.closesAt) {
@@ -853,8 +853,21 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
   });
 }
 
+async function synchronizeStandaloneQuizReleaseState(attemptId: string, studentId: string, now: Date) {
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM standalone_quiz_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
+    const attempt = await tx.standaloneQuizAttempt.findFirst({
+      where: { id: attemptId, participation: { studentId } },
+      select: { releaseAt: true, releaseState: true, scoringState: true },
+    });
+    if (!attempt || attempt.releaseState !== AssessmentResultReleaseState.scheduled || !attempt.releaseAt || attempt.releaseAt > now || attempt.scoringState !== AssessmentScoringState.scored) return;
+    await tx.standaloneQuizAttempt.update({ where: { id: attemptId }, data: { releaseState: AssessmentResultReleaseState.released } });
+  });
+}
+
 async function getStandaloneQuizResult(attemptId: string, studentId: string, subjectCode: string, slug: string, now = new Date()) {
   if (!isUuid(attemptId)) return null;
+  await synchronizeStandaloneQuizReleaseState(attemptId, studentId, now);
   const attempt = await prisma.standaloneQuizAttempt.findFirst({
     where: { id: attemptId, participation: { quiz: { slug, subtest: { code: subjectCode } }, studentId } },
     include: {

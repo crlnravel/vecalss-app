@@ -28,7 +28,7 @@ type FrozenSelectedAnswer = {
 
 type MaterializedFrozenAnswer = {
   itemId: string;
-  isCorrect: boolean;
+  isCorrect: boolean | null;
   pointsAwarded: number;
 };
 
@@ -132,6 +132,10 @@ function materializeFrozenAnswers(
   for (const item of deliveredItems) {
     const answer = answerByItem.get(item.id);
     if (!answer) continue;
+    if (!answer.selectedOptionId) {
+      materializedAnswers.push({ itemId: item.id, isCorrect: null, pointsAwarded: 0 });
+      continue;
+    }
     answeredCount += 1;
     const option = answer.selectedOptionId
       ? item.options.find((candidate) => candidate.id === answer.selectedOptionId)

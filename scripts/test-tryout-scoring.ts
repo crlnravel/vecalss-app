@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   aggregateTryoutScores,
+  materializeFrozenAnswers,
   normalizeCatAbility,
   normalizeCbtScore,
   normalizeRunScore,
@@ -33,5 +34,30 @@ assert.equal(normalizeRunScore({ score: 2, maxScore: 0 }, "cbt"), null);
 assert.equal(aggregateTryoutScores([0, 25, 50, 75, 100, 50, 50]), 50);
 assert.equal(aggregateTryoutScores([33.33, 33.33, 33.33, 33.33, 33.33, 33.33, 33.33]), 33.33);
 assert.throws(() => aggregateTryoutScores([50]), /exactly 7/);
+
+const frozenItems = [
+  { id: "item-1", options: [{ id: "option-a", isCorrect: true }, { id: "option-b", isCorrect: false }], points: "2" },
+  { id: "item-2", options: [{ id: "option-c", isCorrect: false }, { id: "option-d", isCorrect: true }], points: "1" },
+];
+const frozenScore = materializeFrozenAnswers(frozenItems, [
+  { itemId: "item-1", selectedOptionId: "option-a" },
+  { itemId: "item-2", selectedOptionId: "option-c" },
+]);
+assert.equal(frozenScore.invalid, false);
+assert.equal(frozenScore.correctCount, 1);
+assert.equal(frozenScore.wrongCount, 1);
+assert.equal(frozenScore.unansweredCount, 0);
+assert.equal(frozenScore.rawScore, 2);
+assert.equal(frozenScore.normalizedScore, 66.67);
+assert.deepEqual(frozenScore.materializedAnswers, [
+  { itemId: "item-1", isCorrect: true, pointsAwarded: 2 },
+  { itemId: "item-2", isCorrect: false, pointsAwarded: 0 },
+]);
+
+const catSubset = materializeFrozenAnswers(frozenItems, [{ itemId: "item-1", selectedOptionId: "option-b" }], ["item-1"]);
+assert.equal(catSubset.invalid, false);
+assert.equal(catSubset.unansweredCount, 0);
+assert.equal(catSubset.normalizedScore, 0);
+assert.equal(materializeFrozenAnswers(frozenItems, [{ itemId: "item-3", selectedOptionId: "option-a" }]).invalid, true);
 
 console.log("Tryout scoring contract passed.");

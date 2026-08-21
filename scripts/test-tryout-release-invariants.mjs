@@ -18,8 +18,8 @@ assert.match(deliveryRepository, /scheduledReleaseAt,/);
 assert.match(attemptRepository, /scheduledReleaseAt: session\.scheduledReleaseAt\?\.toISOString\(\) \?\? null/);
 
 assert.match(resultRepository, /policy === "scheduled" && !scheduledReleaseAt/);
-assert.match(resultRepository, /policy === "scheduled" \? ready && scheduleReached/);
-assert.match(resultRepository, /policy === "manual" \? Boolean\(attempt\.deliverySession\.releasedAt\)/);
+assert.match(resultRepository, /synchronizeAttemptReleaseState/);
+assert.match(resultRepository, /releaseState === AssessmentResultReleaseState\.released/);
 
 assert.match(sessionForm, /"scheduled"\] as Policy\[\]/);
 assert.match(sessionForm, /session\.resultReleasePolicy === "scheduled"/);
