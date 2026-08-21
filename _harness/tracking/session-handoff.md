@@ -1,32 +1,95 @@
 # Session Handoff
 
+## Current AS-03 Pickup (2026-08-22)
+
+- Objective: preserve the completed AS-03 normalized Attempt/Scoring/Release
+  states for canonical StandaloneQuiz and Tryout only; do not start AS-09.
+- Workspace: main at cb1eb8f, with unrelated preview/harness/document changes
+  present. Preserve those changes; AS-03 was committed by explicit pathspec.
+- AS-03 migration: prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql
+  remains pending. No database mutation was performed in this continuation.
+- Runtime hardening completed:
+  - Tryout run snapshots now include explanation text and explanationAssetId.
+  - Final seven-run sealing calls materializeTryoutAttemptInTransaction inside
+    the existing transaction; repeated calculation upserts one breakdown per
+    subtest and preserves expired/auto-submitted state.
+  - Canonical seven-run checks bind each run to this Tryout's section ID and
+    sequence; abandoned/void/in-progress attempts cannot be calculated or
+    released.
+  - Release readiness requires scored materialized runs, seven breakdowns,
+    complete text-or-asset explanations, and rankingRule other than none.
+  - Mentor result mutations enforce Tryout ownership in the repository;
+    admins receive an explicit cross-owner exception from the server action.
+  - Student Tryout results read only frozen snapshot content and materialized
+    answer/run/breakdown fields.
+  - Kuis scheduled release transitions are locked and student-scoped before
+    result reads; due results cannot remain persisted as scheduled forever.
+- Migration hardening completed:
+  - guarded boolean/numeric JSON casts quarantine malformed rows;
+  - canonical seven-section/run identity and explanation checks gate legacy
+    scoring;
+  - malformed snapshot arrays and invalid CAT selected IDs are quarantined;
+  - seven distinct subject sections are required before a legacy aggregate is
+    considered provable;
+  - typed Tryout breakdowns are inserted idempotently before release state is
+    preserved;
+  - legacy release state requires scoring, seven breakdowns, and a non-none
+    ranking rule.
+- Verification passing: Prisma generate/validate, tsc, focused ESLint, AS-03
+  invariants, Tryout scoring/release/package invariants, full lint/build, and
+  the commit hook. Full lint has 0 errors and 459 existing warnings.
+- AS-03 commit: `cb1eb8f` (`fix: normalize assessment scoring and release
+  states`). The migration remains pending and was not applied. A fresh
+  post-fix adversarial review is still being finalized; do not apply the
+  pending migration without explicit deployment instruction.
+- Next actions: read the post-fix review artifact when delivered, then deploy
+  the migration only after backup/rollback approval and run DB-backed Kuis and
+  seven-section Tryout smoke tests.
+
 ## Current Objective
 
-- Goal:
-- Current status:
-- Branch / commit:
+- Goal: Implement the approved admin student-preview route family.
+- Current status: Feature implementation and repository verification complete.
+- Branch / commit: `main` / `c46fb98` (`feat: complete admin student preview surfaces`)
 
 ## Completed This Session
 
-- [ ] 
+- [x] Fixed managed preview fixture, server-side actor/subject separation, and system-wide isolation guards.
+- [x] Added read-only Beranda/Materi/Kuis/Tryout routes with explicit safe DTOs and no-store boundaries.
+- [x] Added Tryout restart persistence with advisory locks, request-ID idempotency, expected-current checks, superseded history, and no learner hooks.
+- [x] Added CodeMirror banner editing scoped to preview with draft/published cache separation.
+- [x] Added focused contract tests and production verification.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-|  |  |  |  |
+| Preview contracts | `pnpm test:admin-student-preview-banners` / `quiz` / `tryout` | PASS | Focused security and lifecycle assertions. |
+| Surface contract | `pnpm exec tsx scripts/test-admin-student-preview-surfaces.ts` | PASS | Route, content, and forbidden-effect assertions. |
+| Typecheck | `pnpm exec tsc --noEmit --pretty false` | PASS | Full repository typecheck. |
+| Lint/build | `pnpm verify` | PASS | 0 errors; 459 known baseline warnings; production build passed. |
+| Runtime fixture | Seeded browser/DB E2E | PENDING | No local authenticated fixture harness available. |
 
 ## Files Changed
 
-- 
+- `app/admin/student-preview/[[...slug]]/page.tsx`
+- `lib/admin/student-preview-quiz-reads.ts`
+- `lib/admin/student-preview-tryout.ts`
+- `lib/student/banner-repository.ts`
+- `modules/admin/student-banners-actions.ts`
+- `modules/student/components/admin-student-preview-surfaces.tsx`
 
 ## Decisions Made
 
-- 
+- Keep the admin session as actor and resolve one fixed managed student fixture as subject.
+- Use dedicated preview read entry points and explicit DTO allowlists; never pass an `adminPreview` bypass flag through learner services.
+- Treat preview restarts as an explicit mutation with a transaction-scoped student/Tryout lock plus a request-ID lock and unique idempotency record.
+- Keep preview draft/banner cache entries isolated from ordinary published student rendering.
 
 ## Blockers / Risks
 
-- 
+- Browser and allowlisted DB/event diff checks need a seeded authenticated runtime fixture.
+- Unrelated assessment-scoring changes and documentation deletions remain outside the preview commit.
 
 ## Next Session Startup
 
@@ -37,4 +100,4 @@
 
 ## Recommended Next Step
 
-- 
+- Run browser QA and the allowlisted DB/event side-effect test with the seeded fixture; then review the changeset walkthrough.

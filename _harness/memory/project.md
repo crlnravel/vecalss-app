@@ -31,3 +31,28 @@ Store only settled decisions, conventions, and important context that emerged du
   content boundary rejects persistence writes, queues/events, analytics,
   notifications, webhooks, external writes, delayed jobs, and learner-state
   mutations.
+- Kuis and Tryout preview surfaces use explicit recursive allowlists; Tryout restart uses a fixed safe retake policy, transaction-scoped advisory locks, an idempotency row keyed by preview student + request ID, and supersedes the prior current assignment without creating attempts.
+- Banner editing is available only at the admin preview route, uses the CodeMirror editor with hidden form values, and keeps draft/admin-preview/published loaders and revalidation paths separate.
+
+## Assessment state normalization
+
+- AS-03 keeps canonical StandaloneQuiz and Tryout attempt, scoring, and release
+  states separate; legacy ModuleQuiz remains isolated.
+- Immutable Kuis form snapshots and Tryout run snapshots are the scoring source
+  of truth. Reporting reads materialized answer/run/breakdown fields while
+  calculation JSON remains audit/replay evidence.
+- Tryout aggregation is transaction-local after the seventh canonical section
+  seals. A run must belong to the same Tryout section ID and sequence; an
+  abandoned, void, incomplete, or rankingless result cannot be released.
+- Legacy migration data is conservative: malformed JSON, missing explanation
+  text/assets, noncanonical seven-run sets, and missing typed breakdowns stay
+  review-required/hidden rather than being guessed into a score.
+- AS-03 migration 20260822100000_normalize_assessment_scoring_release is
+  intentionally pending until explicit deployment approval. AS-09 durable
+  AssessmentRelease remains a later slice.
+- AS-03 implementation is committed as `cb1eb8f`. The migration quarantines
+  malformed JSON/CAT selections, requires canonical seven distinct subjects,
+  materializes typed breakdowns idempotently, and synchronizes due Kuis release
+  state under a student-scoped lock. Full lint/build passed with 0 errors and
+  459 existing warnings; DB-backed migration/smoke verification remains for
+  deployment.
