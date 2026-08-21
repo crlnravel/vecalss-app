@@ -35,6 +35,7 @@ import {
   consumePasswordResetRateLimit,
   getTrustedInviteIdentity,
 } from "@/lib/admin/handoffs/rate-limit";
+import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import {
   createStudentEnrollment as createStudentEnrollmentRecord,
   setStudentEnrollmentStatus as setStudentEnrollmentStatusRecord,
@@ -152,6 +153,23 @@ async function authenticateUser(
 
     let user = userRecord;
     const now = new Date();
+
+    // Managed preview subjects are synthetic, non-human system fixtures. They
+    // never authenticate, even if a credential is accidentally written to the
+    // row by an out-of-band repair or migration.
+    if (user.previewPurpose !== null) {
+      await recordLoginAttempt({
+        email: normalizedEmail,
+        failureReason: "managed_preview_fixture",
+        result: LoginAttemptResult.failed,
+        userId: user.id,
+      });
+
+      return {
+        code: "invalid_credentials",
+        ok: false,
+      };
+    }
 
     if (user.status === UserStatus.locked && user.lockedUntil && user.lockedUntil <= now) {
       await prisma.user.updateMany({
@@ -339,6 +357,7 @@ async function requestPasswordReset(
     || user.status === UserStatus.disabled
     || user.status === UserStatus.soft_deleted
     || user.softDeletedAt
+    || user.previewPurpose !== null
   ) {
     return {
       deliveredResetUrl: null,
@@ -394,6 +413,7 @@ async function getValidPasswordResetRecord(rawToken: string) {
       },
       tokenHash: hashToken(rawToken),
       usedAt: null,
+      user: { previewPurpose: null },
     },
   });
 }
@@ -436,13 +456,20 @@ async function completePasswordReset(rawToken: string, nextPassword: string) {
     const user = await tx.user.findUnique({
       select: {
         id: true,
+        previewPurpose: true,
         softDeletedAt: true,
         status: true,
       },
       where: { id: candidate[0].user_id },
     });
 
-    if (!user || user.status === UserStatus.disabled || user.status === UserStatus.soft_deleted || user.softDeletedAt) {
+    if (
+      !user
+      || user.status === UserStatus.disabled
+      || user.status === UserStatus.soft_deleted
+      || user.softDeletedAt
+      || user.previewPurpose !== null
+    ) {
       throw new Error("This reset link is invalid or has already expired.");
     }
 
@@ -528,10 +555,11 @@ async function changePasswordForUser(userId: string, sessionId: string, nextPass
   await prisma.$transaction(async (tx) => {
     const users = await tx.$queryRaw<Array<{
       must_change_password: boolean;
+      preview_purpose: string | null;
       soft_deleted_at: Date | null;
       status: UserStatus;
     }>>`
-      SELECT status, soft_deleted_at, must_change_password
+      SELECT status, soft_deleted_at, must_change_password, preview_purpose
       FROM users
       WHERE id = ${userId}::uuid
       FOR UPDATE
@@ -543,6 +571,7 @@ async function changePasswordForUser(userId: string, sessionId: string, nextPass
       !currentUser
       || currentUser.status !== UserStatus.active
       || currentUser.soft_deleted_at
+      || currentUser.preview_purpose !== null
     ) {
       throw new Error("The account is inactive and cannot complete first-login setup.");
     }
@@ -634,6 +663,10 @@ async function completeEnrollmentInvite(rawToken: string, nextPassword: string) 
       throw new Error("This invite link is invalid or has already expired.");
     }
 
+    if (isManagedPreviewPurpose(handoff.preview_purpose)) {
+      throw new Error("This invite link is invalid or has already expired.");
+    }
+
     if (!ACTIVE_HANDOFF_STATUSES.includes(handoff.status as (typeof ACTIVE_HANDOFF_STATUSES)[number])) {
       throw new Error("This invite link is invalid or has already expired.");
     }
@@ -669,7 +702,11 @@ async function completeEnrollmentInvite(rawToken: string, nextPassword: string) 
       return { expired: true as const };
     }
 
-    if (handoff.user_status !== UserStatus.active || handoff.soft_deleted_at !== null) {
+    if (
+      handoff.user_status !== UserStatus.active
+      || handoff.soft_deleted_at !== null
+      || isManagedPreviewPurpose(handoff.preview_purpose)
+    ) {
       throw new Error("This invite link is invalid or has already expired.");
     }
 

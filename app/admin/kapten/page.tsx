@@ -36,6 +36,7 @@ export default async function KaptenEnrollmentPage({
         }
       : {}),
     softDeletedAt: null,
+    previewPurpose: null,
   };
   const [total, kapten] = await Promise.all([
     prisma.user.count({ where: kaptenWhere }),

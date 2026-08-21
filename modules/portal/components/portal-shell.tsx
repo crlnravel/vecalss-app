@@ -16,6 +16,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import type { LoginAudience, SessionContext } from "@/lib/auth/types";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/modules/auth/actions";
 import { BrandLogo } from "@/modules/home/components/home-primitives";
@@ -32,6 +33,7 @@ const adminSectionLabels = {
   notifications: "Notifications",
   overview: "Dashboard",
   "student-banners": "Student banners",
+  "student-preview": "Student preview",
   students: "Students",
 } as const;
 
@@ -44,6 +46,7 @@ const adminSectionRootHrefs = {
   notifications: "/admin/notifications",
   overview: "/admin",
   "student-banners": "/admin/student-banners",
+  "student-preview": "/admin/student-preview",
   students: "/admin/enrollment",
 } as const;
 
@@ -56,7 +59,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners" | "docs";
+  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners" | "student-preview" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
@@ -69,11 +72,12 @@ function PortalShell({
     const activeLabel = adminSectionLabels[activeSection];
     const rootHref = adminSectionRootHrefs[activeSection];
     const isRootPage = title === activeLabel;
+    const studentPreviewEnabled = isAdminStudentPreviewEnabled();
 
     return (
       <SidebarProvider>
         <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
-          <AdminPortalNav activeSection={activeSection} />
+          <AdminPortalNav activeSection={activeSection} studentPreviewEnabled={studentPreviewEnabled} />
 
           <SidebarInset className="bg-transparent">
             <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">

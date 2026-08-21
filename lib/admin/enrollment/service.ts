@@ -6,6 +6,7 @@ import {
   UserStatus,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { assertUserIsNotManagedPreviewFixture } from "@/lib/admin/student-preview";
 import {
   buildEnrollmentInviteUrl,
   completeEnrollmentHandoffsForUser,
@@ -411,6 +412,8 @@ async function assertEnrollmentRole(
   userId: string,
   role: EnrollmentRole,
 ) {
+  await assertUserIsNotManagedPreviewFixture(tx, userId);
+
   const assignment = await tx.roleAssignment.findFirst({
     select: { id: true },
     where: {
@@ -779,6 +782,7 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
     const accounts = await tx.user.findMany({
       select: {
         id: true,
+        previewPurpose: true,
         softDeletedAt: true,
         status: true,
       },
@@ -802,6 +806,10 @@ async function setEnrollmentStatusBulk(input: SetEnrollmentStatusBulkInput): Pro
           ? "One or more student accounts could not be found. Refresh the directory and try again."
           : "One or more Kapten accounts could not be found. Refresh the directory and try again.",
       );
+    }
+
+    if (accounts.some((account) => account.previewPurpose !== null)) {
+      throw new Error("Managed student preview fixtures cannot be edited through generic account lifecycle actions.");
     }
 
     const eligibleAccounts = accounts.filter((account) => account.status === expectedCurrentStatus);

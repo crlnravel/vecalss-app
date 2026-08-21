@@ -47,10 +47,20 @@ function isDebugAccountSwitcherEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.NODE_ENV === "development" && isDebugEnabled(env);
 }
 
+/**
+ * The preview workspace is deliberately opt-in. Every preview page, read
+ * entry point, and mutation checks this capability again at request time so
+ * an old tab cannot keep using the feature after it is disabled.
+ */
+function isAdminStudentPreviewEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.ADMIN_STUDENT_PREVIEW_ENABLED?.trim().toLowerCase() === "true";
+}
+
 export {
   DEFAULT_APP_BASE_URL,
   getAppBaseUrl,
   getRegistrationFormUrl,
+  isAdminStudentPreviewEnabled,
   isDebugAccountSwitcherEnabled,
   isDebugEnabled,
   isProduction,

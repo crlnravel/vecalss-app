@@ -259,6 +259,45 @@ enum AttemptStatus {
   @@map("attempt_status")
 }
 
+// Canonical runtime state is persisted separately from the legacy status
+// columns. The latter remain in place so old ModuleQuiz and historical rows
+// keep their existing compatibility contract.
+enum AssessmentAttemptState {
+  in_progress
+  submitted
+  auto_submitted
+  expired
+  abandoned
+  void
+
+  @@map("assessment_attempt_state")
+}
+
+enum AssessmentScoringState {
+  pending
+  scored
+  review_required
+  recalculating
+
+  @@map("assessment_scoring_state")
+}
+
+enum AssessmentResultReleaseState {
+  hidden
+  scheduled
+  released
+
+  @@map("assessment_result_release_state")
+}
+
+enum AssessmentScoringProvenance {
+  runtime
+  legacy_provable
+  legacy_unknown
+
+  @@map("assessment_scoring_provenance")
+}
+
 enum StandaloneQuizScorePolicy {
   highest
   latest
@@ -530,6 +569,10 @@ model User {
   passwordHash       String     @map("password_hash") @db.Text
   passwordUpdatedAt  DateTime?  @map("password_updated_at") @db.Timestamptz
   mustChangePassword Boolean    @default(false) @map("must_change_password")
+  /// Non-null only for managed system subjects such as the admin student
+  /// preview fixture. The value is unique so a purpose can never be claimed
+  /// by more than one account.
+  previewPurpose      String?    @unique @map("preview_purpose") @db.VarChar(80)
   avatarUrl          String?    @map("avatar_url") @db.Text
   phone              String?    @db.VarChar(40)
   status             UserStatus @default(active)

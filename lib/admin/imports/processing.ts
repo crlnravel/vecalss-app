@@ -912,11 +912,12 @@ async function lockEmailAndFindUsers(tx: Prisma.TransactionClient, email: string
     id: string;
     email: string;
     full_name: string;
+    preview_purpose: string | null;
     status: UserStatus;
     soft_deleted_at: Date | null;
     updated_at: Date;
   }>>`
-    SELECT id, email, full_name, status, soft_deleted_at, updated_at
+    SELECT id, email, full_name, status, preview_purpose, soft_deleted_at, updated_at
     FROM users
     WHERE lower(email) = ${email}
     ORDER BY id
@@ -961,6 +962,7 @@ function assertCurrentUserForUpdate({
   row: LockedImportRow;
   user: {
     id: string;
+    preview_purpose: string | null;
     status: UserStatus;
     soft_deleted_at: Date | null;
     updated_at: Date;
@@ -977,6 +979,7 @@ function assertCurrentUserForUpdate({
   if (
     user.status !== UserStatus.active
     || user.soft_deleted_at !== null
+    || user.preview_purpose !== null
   ) {
     throw new ImportProcessingError("inactive_account");
   }
@@ -1685,6 +1688,7 @@ async function cleanupEnrollmentImports({
         method: EnrollmentHandoffMethod.invite_link,
         OR: [{ expiresAt: { lte: now } }, { expiresAt: null }],
         status: { in: [EnrollmentHandoffStatus.pending, EnrollmentHandoffStatus.released] },
+        user: { previewPurpose: null },
       },
       take: CLEANUP_BATCH_SIZE,
     });
@@ -1699,6 +1703,7 @@ async function cleanupEnrollmentImports({
           method: EnrollmentHandoffMethod.invite_link,
           OR: [{ expiresAt: { lte: now } }, { expiresAt: null }],
           status: { in: [EnrollmentHandoffStatus.pending, EnrollmentHandoffStatus.released] },
+          user: { previewPurpose: null },
         },
       });
       if (updated.count !== 1) return 0;
@@ -1718,13 +1723,17 @@ async function cleanupEnrollmentImports({
       where: {
         status: { in: [EnrollmentHandoffStatus.completed, EnrollmentHandoffStatus.expired, EnrollmentHandoffStatus.revoked] },
         updatedAt: { lt: handoffCutoff },
+        user: { previewPurpose: null },
       },
       take: CLEANUP_BATCH_SIZE,
     });
     let purgedHandoffs = 0;
     if (terminalHandoffs.length > 0) {
       const result = await tx.enrollmentHandoff.deleteMany({
-        where: { id: { in: terminalHandoffs.map((handoff) => handoff.id) } },
+        where: {
+          id: { in: terminalHandoffs.map((handoff) => handoff.id) },
+          user: { previewPurpose: null },
+        },
       });
       purgedHandoffs = result.count;
     }
@@ -1781,7 +1790,10 @@ async function cleanupEnrollmentImports({
       if (rowLinks.length > 0) {
         await tx.enrollmentHandoff.updateMany({
           data: { sourceImportRowId: null },
-          where: { sourceImportRowId: { in: rowLinks.map((row) => row.id) } },
+          where: {
+            sourceImportRowId: { in: rowLinks.map((row) => row.id) },
+            user: { previewPurpose: null },
+          },
         });
       }
       return Promise.all([

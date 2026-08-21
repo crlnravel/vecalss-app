@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { OnboardingStatus, RoleName } from "@/generated/prisma/client";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
+import {
+  AdminStudentPreviewUnavailableError,
+  createAdminStudentPreviewContext,
+  requireAdminStudentPreviewSubject,
+} from "@/lib/admin/student-preview";
 
 import {
   getDefaultHomePath,
@@ -42,6 +48,29 @@ async function requireAdminReadOnlySession() {
   }
 
   return session;
+}
+
+/**
+ * Preview pages and every future preview loader/action should use this
+ * capability boundary. It checks the feature flag before resolving any
+ * student data, then authenticates the admin actor, and finally resolves the
+ * fixed preview subject by its server-side purpose marker.
+ */
+function assertAdminStudentPreviewEnabled() {
+  if (!isAdminStudentPreviewEnabled()) {
+    throw new AdminStudentPreviewUnavailableError(
+      "feature_disabled",
+      "Student preview is currently unavailable.",
+    );
+  }
+}
+
+async function requireAdminStudentPreviewContext() {
+  assertAdminStudentPreviewEnabled();
+  const session = await requireAdminReadOnlySession();
+  const subject = await requireAdminStudentPreviewSubject();
+
+  return createAdminStudentPreviewContext({ session, subject });
 }
 
 async function requireStudentSession({
@@ -109,8 +138,10 @@ function redirectIfOnboardingAlreadyComplete(session: SessionContext) {
 export {
   getDefaultHomePath,
   getLoginPathForAudience,
+  assertAdminStudentPreviewEnabled,
   redirectIfOnboardingAlreadyComplete,
   redirectToAuthorizedHome,
+  requireAdminStudentPreviewContext,
   requireAdminSession,
   requireAdminReadOnlySession,
   requireSession,

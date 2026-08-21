@@ -201,6 +201,7 @@ function buildStudentWhere({
         }
       : {}),
     softDeletedAt: null,
+    previewPurpose: null,
   };
 }
 

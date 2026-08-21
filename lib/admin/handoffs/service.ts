@@ -8,6 +8,7 @@ import {
   UserStatus,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 
 import {
   buildEnrollmentInviteUrl,
@@ -90,9 +91,30 @@ type LockedHandoff = {
   secret_envelope: Prisma.JsonValue | null;
   expires_at: Date | null;
   source_import_row_id: string | null;
+  preview_purpose: string | null;
   user_status: UserStatus;
   soft_deleted_at: Date | null;
 };
+
+function assertManagedPreviewHandoffAllowed(previewPurpose: string | null | undefined) {
+  if (isManagedPreviewPurpose(previewPurpose)) {
+    throw new EnrollmentHandoffStateError(
+      "handoff_account_inactive",
+      "Managed student preview fixtures cannot receive enrollment handoffs.",
+    );
+  }
+}
+
+async function assertHandoffUserIsNotManagedPreview(
+  tx: HandoffTransaction,
+  userId: string,
+) {
+  const user = await tx.user.findUnique({
+    select: { previewPurpose: true },
+    where: { id: userId },
+  });
+  assertManagedPreviewHandoffAllowed(user?.previewPurpose);
+}
 
 function jsonMetadata(value: Record<string, string | number | boolean | null> = {}) {
   return value as Prisma.InputJsonValue;
@@ -122,6 +144,8 @@ async function writeHandoffAudit({
 }
 
 async function createEnrollmentHandoff(input: CreateEnrollmentHandoffInput) {
+  await assertHandoffUserIsNotManagedPreview(input.tx, input.userId);
+
   const id = randomUUID();
   const status = input.status ?? EnrollmentHandoffStatus.pending;
   const expiresAt = input.method === EnrollmentHandoffMethod.invite_link
@@ -214,7 +238,8 @@ async function lockHandoff(tx: HandoffTransaction, handoffId: string) {
       h.expires_at,
       h.source_import_row_id,
       u.status AS user_status,
-      u.soft_deleted_at
+      u.soft_deleted_at,
+      u.preview_purpose
     FROM enrollment_handoffs h
     INNER JOIN users u ON u.id = h.user_id
     WHERE h.id = ${handoffId}::uuid
@@ -250,7 +275,8 @@ async function lockEnrollmentHandoffByToken(tx: HandoffTransaction, tokenHash: s
       h.expires_at,
       h.source_import_row_id,
       u.status AS user_status,
-      u.soft_deleted_at
+      u.soft_deleted_at,
+      u.preview_purpose
     FROM enrollment_handoffs h
     INNER JOIN users u ON u.id = h.user_id
     WHERE h.token_hash = ${tokenHash}
@@ -270,6 +296,8 @@ async function releaseEnrollmentHandoff(input: {
     if (!handoff) {
       throw new EnrollmentHandoffStateError("handoff_not_found", "The enrollment handoff was not found.");
     }
+
+    assertManagedPreviewHandoffAllowed(handoff.preview_purpose);
 
     if (handoff.status === EnrollmentHandoffStatus.released) {
       return {
@@ -401,6 +429,8 @@ async function revokeOpenEnrollmentHandoffs(
   userId: string,
   actorUserId?: string | null,
 ) {
+  await assertHandoffUserIsNotManagedPreview(tx, userId);
+
   const now = new Date();
   const result = await tx.enrollmentHandoff.updateMany({
     data: {
@@ -435,6 +465,8 @@ async function completeEnrollmentHandoffsForUser(
   userId: string,
   actorUserId?: string | null,
 ) {
+  await assertHandoffUserIsNotManagedPreview(tx, userId);
+
   const now = new Date();
   const result = await tx.enrollmentHandoff.updateMany({
     data: {
@@ -471,6 +503,8 @@ async function completeEnrollmentHandoff(
     actorUserId?: string | null;
   },
 ) {
+  await assertHandoffUserIsNotManagedPreview(tx, input.userId);
+
   const now = new Date();
   const result = await tx.enrollmentHandoff.updateMany({
     data: {
@@ -508,6 +542,8 @@ async function acknowledgeEnrollmentHandoff(input: {
     if (!handoff) {
       throw new EnrollmentHandoffStateError("handoff_not_found", "The enrollment handoff was not found.");
     }
+
+    assertManagedPreviewHandoffAllowed(handoff.preview_purpose);
 
     if (handoff.status !== EnrollmentHandoffStatus.released) {
       throw new EnrollmentHandoffStateError(
@@ -558,7 +594,11 @@ async function reissueEnrollmentHandoff(input: {
       );
     }
 
-    if (existing.user_status !== UserStatus.active || existing.soft_deleted_at !== null) {
+    if (
+      existing.user_status !== UserStatus.active
+      || existing.soft_deleted_at !== null
+      || isManagedPreviewPurpose(existing.preview_purpose)
+    ) {
       throw new EnrollmentHandoffStateError(
         "handoff_account_inactive",
         "The account is not active, so its handoff cannot be reissued.",
@@ -752,6 +792,7 @@ async function expireEnrollmentHandoffs(now = new Date()) {
         expiresAt: { lte: now },
         method: EnrollmentHandoffMethod.invite_link,
         status: { in: [...OPEN_HANDOFF_STATUSES] },
+        user: { previewPurpose: null },
       },
     });
 
@@ -766,6 +807,7 @@ async function expireEnrollmentHandoffs(now = new Date()) {
           method: EnrollmentHandoffMethod.invite_link,
           expiresAt: { lte: now },
           status: { in: [...OPEN_HANDOFF_STATUSES] },
+          user: { previewPurpose: null },
         },
       });
 
@@ -799,11 +841,13 @@ async function rewrapPendingEnrollmentHandoffs(input?: {
       method: EnrollmentHandoffMethod;
       secret_envelope: Prisma.JsonValue;
     }>>`
-      SELECT id, user_id, method, secret_envelope
+      SELECT enrollment_handoffs.id, enrollment_handoffs.user_id, enrollment_handoffs.method, enrollment_handoffs.secret_envelope
       FROM enrollment_handoffs
-      WHERE status = 'pending'::enrollment_handoff_status
-        AND secret_envelope IS NOT NULL
-      ORDER BY id
+      INNER JOIN users ON users.id = enrollment_handoffs.user_id
+      WHERE enrollment_handoffs.status = 'pending'::enrollment_handoff_status
+        AND enrollment_handoffs.secret_envelope IS NOT NULL
+        AND users.preview_purpose IS NULL
+      ORDER BY enrollment_handoffs.id
       LIMIT ${batchSize}
       FOR UPDATE
     `;
@@ -834,8 +878,10 @@ async function countUnreleasedEnvelopesByKeyId(keyId: string) {
   const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM enrollment_handoffs
-    WHERE status IN ('pending'::enrollment_handoff_status, 'released'::enrollment_handoff_status)
-      AND secret_envelope ->> 'keyId' = ${keyId}
+    INNER JOIN users ON users.id = enrollment_handoffs.user_id
+    WHERE enrollment_handoffs.status IN ('pending'::enrollment_handoff_status, 'released'::enrollment_handoff_status)
+      AND users.preview_purpose IS NULL
+      AND enrollment_handoffs.secret_envelope ->> 'keyId' = ${keyId}
   `;
 
   return Number(rows[0]?.count ?? BigInt(0));

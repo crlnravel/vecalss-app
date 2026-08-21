@@ -186,10 +186,19 @@ function BannerEditorCard({
 
       <div className="mt-6 grid gap-5">
         <Field>
-          <FieldLabel htmlFor={`${key}-title`}>Heading</FieldLabel>
+          <FieldLabel
+            htmlFor={`${key}-title`}
+            onClick={(event) => {
+              event.preventDefault();
+              document.getElementById(`${key}-title`)?.focus();
+            }}
+          >
+            Heading
+          </FieldLabel>
           <SyntaxHighlightedInput
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
+            aria-label="Heading"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
             maxLength={180}
@@ -200,10 +209,19 @@ function BannerEditorCard({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor={`${key}-description`}>Supporting text</FieldLabel>
+          <FieldLabel
+            htmlFor={`${key}-description`}
+            onClick={(event) => {
+              event.preventDefault();
+              document.getElementById(`${key}-description`)?.focus();
+            }}
+          >
+            Supporting text
+          </FieldLabel>
           <SyntaxHighlightedTextarea
             aria-describedby={descriptionError ? `${key}-description-error` : undefined}
             aria-invalid={Boolean(descriptionError)}
+            aria-label="Supporting text"
             className="min-h-36"
             defaultValue={state.fields?.[descriptionField] ?? banner.description}
             id={`${key}-description`}

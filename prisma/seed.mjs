@@ -31,6 +31,15 @@ const DEFAULT_TUTOR = {
   password: process.env.SEED_TUTOR_PASSWORD?.trim() || "Tutor12345!",
 };
 
+// This is a managed system subject, not a loginable student. Keep the UUID
+// stable so an approved repair can restore the original identity in place.
+const ADMIN_STUDENT_PREVIEW_FIXTURE = {
+  email: "admin-student-preview@vecalss.local",
+  fullName: "Alya Preview",
+  id: "00000000-0000-4000-8000-000000000001",
+  previewPurpose: "admin.student-preview",
+};
+
 const DEMO_STUDENTS = [
   { email: "dimas@vecalss.local", fullName: "Dimas Saputra", key: "completed" },
   { email: "leila@vecalss.local", fullName: "Leila Maheswari", key: "secondCompleted" },
@@ -213,6 +222,102 @@ async function upsertUser(client, { email, fullName, mustChangePassword, passwor
   );
 
   return result.rows[0].id;
+}
+
+async function ensureAdminStudentPreviewFixture(client, { adminUserId }) {
+  const byPurpose = await client.query(
+    `
+      SELECT id
+      FROM users
+      WHERE preview_purpose = $1
+    `,
+    [ADMIN_STUDENT_PREVIEW_FIXTURE.previewPurpose],
+  );
+
+  if (byPurpose.rowCount > 1) {
+    throw new Error("The admin student preview fixture is ambiguous; repair the original rows before seeding.");
+  }
+
+  const byId = await client.query(
+    `
+      SELECT id, preview_purpose
+      FROM users
+      WHERE id = $1::uuid
+      FOR UPDATE
+    `,
+    [ADMIN_STUDENT_PREVIEW_FIXTURE.id],
+  );
+
+  if (byPurpose.rowCount && byPurpose.rows[0].id !== ADMIN_STUDENT_PREVIEW_FIXTURE.id) {
+    throw new Error("The admin student preview purpose belongs to a different user identity; restore the original UUID before seeding.");
+  }
+
+  if (byId.rowCount && byId.rows[0].preview_purpose !== ADMIN_STUDENT_PREVIEW_FIXTURE.previewPurpose) {
+    throw new Error("The reserved admin student preview fixture UUID is claimed by another account.");
+  }
+
+  // Only this explicit, stable-UUID seed/repair path may update managed
+  // fixture lifecycle fields. It never creates a replacement UUID.
+  await client.query("SELECT set_config('app.admin_student_preview_repair', 'on', true)");
+  const passwordHash = await hashPassword(`managed-preview-disabled:${ADMIN_STUDENT_PREVIEW_FIXTURE.id}`);
+
+  if (byId.rowCount) {
+    await client.query(
+      `
+        UPDATE users
+        SET email = $2,
+            full_name = $3,
+            password_hash = $4,
+            password_updated_at = NULL,
+            must_change_password = TRUE,
+            preview_purpose = $5,
+            soft_deleted_at = NULL,
+            status = 'active',
+            failed_login_count = 0,
+            locked_until = NULL,
+            updated_at = NOW()
+        WHERE id = $1::uuid
+      `,
+      [
+        ADMIN_STUDENT_PREVIEW_FIXTURE.id,
+        ADMIN_STUDENT_PREVIEW_FIXTURE.email,
+        ADMIN_STUDENT_PREVIEW_FIXTURE.fullName,
+        passwordHash,
+        ADMIN_STUDENT_PREVIEW_FIXTURE.previewPurpose,
+      ],
+    );
+  } else {
+    throw new Error(
+      "The original admin student preview fixture row is missing; restore the original UUID from backup before seeding.",
+    );
+  }
+
+  await ensureRoleAssignment(client, {
+    assignedByUserId: adminUserId,
+    role: "student",
+    userId: ADMIN_STUDENT_PREVIEW_FIXTURE.id,
+  });
+  await client.query(
+    `
+      UPDATE role_assignments
+      SET revoked_at = COALESCE(revoked_at, NOW())
+      WHERE user_id = $1::uuid
+        AND role <> 'student'::role_name
+        AND revoked_at IS NULL
+    `,
+    [ADMIN_STUDENT_PREVIEW_FIXTURE.id],
+  );
+  await upsertStudentProfile(client, {
+    displayName: ADMIN_STUDENT_PREVIEW_FIXTURE.fullName,
+    enrolledByUserId: null,
+    onboardingStatus: "completed",
+    targetExamEventId: null,
+    targetMajorId: null,
+    targetUniversityId: null,
+    userId: ADMIN_STUDENT_PREVIEW_FIXTURE.id,
+  });
+
+  return ADMIN_STUDENT_PREVIEW_FIXTURE.id;
 }
 
 async function ensureRoleAssignment(client, { assignedByUserId = null, role, userId }) {
@@ -695,6 +800,8 @@ async function main() {
       userId: adminUserId,
     });
     await ensureNotificationPreference(client, adminUserId);
+
+    await ensureAdminStudentPreviewFixture(client, { adminUserId });
 
     const studentUserId = await upsertUser(client, {
       email: DEFAULT_STUDENT.email,

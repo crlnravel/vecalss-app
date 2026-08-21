@@ -4,12 +4,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [migration, schema, handoffs, auth, session] = await Promise.all([
+const [migration, schema, handoffs, auth, session, previewMigration] = await Promise.all([
   readFile(resolve(root, "prisma/migrations/20260805000000_admin_operations_foundation/migration.sql"), "utf8"),
   readFile(resolve(root, "prisma/schema.prisma"), "utf8"),
   readFile(resolve(root, "lib/admin/handoffs/service.ts"), "utf8"),
   readFile(resolve(root, "lib/auth/service.ts"), "utf8"),
   readFile(resolve(root, "lib/auth/session.ts"), "utf8"),
+  readFile(resolve(root, "prisma/migrations/20260821110000_admin_student_preview_foundation/migration.sql"), "utf8"),
 ]);
 
 assert.match(migration, /admin_operations_preflight_unresolved_duplicate_emails/);
@@ -32,7 +33,14 @@ assert.match(handoffs, /secretEnvelope:\s*Prisma\.DbNull/);
 assert.match(handoffs, /status: \{ in: \[\.\.\.OPEN_HANDOFF_STATUSES\] \}/);
 assert.match(handoffs, /A handoff can only be reissued with its existing delivery method/);
 assert.match(handoffs, /input\.method === EnrollmentHandoffMethod\.invite_link/);
+assert.match(handoffs, /assertHandoffUserIsNotManagedPreview/);
+assert.match(handoffs, /assertManagedPreviewHandoffAllowed\(handoff\.preview_purpose\)/);
 assert.doesNotMatch(handoffs, /FROM enrollment_handoffs[\s\S]{0,160}FOR SHARE/);
+
+assert.match(previewMigration, /BEFORE INSERT OR UPDATE OR DELETE ON "users"/);
+assert.match(previewMigration, /TG_OP = 'INSERT'/);
+assert.match(previewMigration, /current_setting\('app\.admin_student_preview_repair', true\) IS DISTINCT FROM 'on'/);
+assert.match(previewMigration, /IF TG_OP = 'DELETE'[\s\S]*OLD\."preview_purpose" IS NOT NULL[\s\S]*IF TG_OP = 'INSERT'/);
 
 assert.match(auth, /UPDATE password_reset_tokens[\s\S]*RETURNING id, user_id/);
 assert.match(auth, /status: \{ notIn: \[UserStatus\.disabled, UserStatus\.soft_deleted\] \}/);

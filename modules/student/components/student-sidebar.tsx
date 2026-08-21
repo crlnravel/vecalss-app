@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
+import { buildAdminStudentPreviewRoute } from "@/lib/student/preview-routes";
 
 type StudentNavigationItem = {
   href: string;
@@ -42,13 +43,24 @@ const studentNavigationItems: StudentNavigationItem[] = [
   { href: "/settings", icon: UserRound, label: "Profil" },
 ];
 
+const previewNavigationItems: StudentNavigationItem[] = [
+  { href: "/", icon: LayoutDashboard, label: "Beranda" },
+  { href: "/courses", icon: BookOpen, label: "Materi" },
+  { href: "/quiz", icon: ListChecks, label: "Kuis" },
+  { href: "/tryout", icon: Gauge, label: "Tryout" },
+];
+
 function StudentSidebar({
   activeLabel,
   notificationBadge,
+  previewMode = false,
 }: {
   activeLabel: string;
   notificationBadge?: string;
+  previewMode?: boolean;
 }) {
+  const navigationItems = previewMode ? previewNavigationItems : studentNavigationItems;
+
   return (
     <Sidebar
       collapsible="icon"
@@ -56,7 +68,7 @@ function StudentSidebar({
     >
       <SidebarHeader className="gap-4 p-4 group-data-[collapsible=icon]:px-2">
         <Link
-          href="/dashboard"
+          href={previewMode ? buildAdminStudentPreviewRoute() : "/dashboard"}
           className="flex w-full origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50"
         >
           <BrandLockup />
@@ -68,16 +80,19 @@ function StudentSidebar({
           <SidebarGroupLabel>Belajar</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {studentNavigationItems.map((item) => {
+              {navigationItems.map((item) => {
                 const badge =
-                  item.label === "Notifikasi" ? notificationBadge : undefined;
+                  !previewMode && item.label === "Notifikasi" ? notificationBadge : undefined;
+                const href = previewMode
+                  ? buildAdminStudentPreviewRoute(item.href)
+                  : item.href;
 
                 return (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                       isActive={item.label === activeLabel}
                       tooltip={item.label}
-                      render={<Link href={item.href} />}
+                      render={<Link href={href} />}
                     >
                       <item.icon />
                       <span>{item.label}</span>

@@ -31,6 +31,7 @@ export default async function AdminNotificationsPage() {
             },
             softDeletedAt: null,
             status: UserStatus.active,
+            previewPurpose: null,
           },
         },
       },

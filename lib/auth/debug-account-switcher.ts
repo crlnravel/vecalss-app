@@ -30,6 +30,7 @@ const debugAccountSelect = {
 
 const activeDebugAccountWhere = {
   roleAssignments: { some: { revokedAt: null } },
+  previewPurpose: null,
   softDeletedAt: null,
   status: UserStatus.active,
 } as const;

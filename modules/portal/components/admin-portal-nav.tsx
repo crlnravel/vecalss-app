@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   Bell,
   ClipboardList,
+  Eye,
   FileText,
   History,
   Image,
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners" | "docs";
+type AdminSection = "overview" | "students" | "kapten" | "imports" | "media" | "notifications" | "audit-logs" | "student-banners" | "student-preview" | "docs";
 
 type AdminNavigationItem = {
   href: string;
@@ -51,6 +52,10 @@ const adminDirectoryNavigation: AdminNavigationItem[] = [
 
 const adminContentNavigation: AdminNavigationItem[] = [
   { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Student banners" },
+];
+
+const adminPreviewNavigation: AdminNavigationItem[] = [
+  { href: "/admin/student-preview", icon: Eye, id: "student-preview", label: "Student preview" },
 ];
 
 const adminSupportNavigation: AdminNavigationItem[] = [
@@ -91,8 +96,10 @@ function AdminNavigationGroup({
 
 function AdminPortalNav({
   activeSection,
+  studentPreviewEnabled = false,
 }: {
   activeSection: AdminSection;
+  studentPreviewEnabled?: boolean;
 }) {
   return (
     <Sidebar
@@ -124,6 +131,13 @@ function AdminPortalNav({
           items={adminContentNavigation}
           label="Content"
         />
+        {studentPreviewEnabled ? (
+          <AdminNavigationGroup
+            activeSection={activeSection}
+            items={adminPreviewNavigation}
+            label="Preview"
+          />
+        ) : null}
         <AdminNavigationGroup
           activeSection={activeSection}
           items={adminSupportNavigation}

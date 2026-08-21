@@ -36,10 +36,11 @@ async function createSession(userId: string) {
 
   const session = await prisma.$transaction(async (tx) => {
     const users = await tx.$queryRaw<Array<{
+      preview_purpose: string | null;
       soft_deleted_at: Date | null;
       status: UserStatus;
     }>>`
-      SELECT status, soft_deleted_at
+      SELECT status, soft_deleted_at, preview_purpose
       FROM users
       WHERE id = ${userId}::uuid
       FOR UPDATE
@@ -47,7 +48,12 @@ async function createSession(userId: string) {
 
     const user = users[0];
 
-    if (!user || user.status !== UserStatus.active || user.soft_deleted_at !== null) {
+    if (
+      !user
+      || user.status !== UserStatus.active
+      || user.soft_deleted_at !== null
+      || user.preview_purpose !== null
+    ) {
       return null;
     }
 
@@ -93,17 +99,23 @@ async function switchSessionToUser(userId: string) {
 
   const session = await prisma.$transaction(async (tx) => {
     const users = await tx.$queryRaw<Array<{
+      preview_purpose: string | null;
       soft_deleted_at: Date | null;
       status: UserStatus;
     }>>`
-      SELECT status, soft_deleted_at
+      SELECT status, soft_deleted_at, preview_purpose
       FROM users
       WHERE id = ${userId}::uuid
       FOR UPDATE
     `;
 
     const user = users[0];
-    if (!user || user.status !== UserStatus.active || user.soft_deleted_at !== null) {
+    if (
+      !user
+      || user.status !== UserStatus.active
+      || user.soft_deleted_at !== null
+      || user.preview_purpose !== null
+    ) {
       return null;
     }
 
@@ -179,6 +191,7 @@ async function createSessionIfUserStateMatches(input: CreateSessionIfUserStateMa
         mustChangePassword: input.expectedMustChangePassword,
         passwordHash: input.expectedPasswordHash,
         passwordUpdatedAt: input.expectedPasswordUpdatedAt,
+        previewPurpose: null,
         softDeletedAt: null,
         status: UserStatus.active,
       },
@@ -279,6 +292,10 @@ async function getSessionContext() {
   });
 
   if (!session?.user) {
+    return null;
+  }
+
+  if (session.user.previewPurpose !== null) {
     return null;
   }
 
@@ -401,6 +418,10 @@ async function getReadOnlySessionContextForToken(sessionToken: string) {
   });
 
   if (!session?.user) {
+    return null;
+  }
+
+  if (session.user.previewPurpose !== null) {
     return null;
   }
 

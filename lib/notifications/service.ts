@@ -349,6 +349,7 @@ async function sendKelasNotification(input: SendKelasNotificationInput) {
               },
               softDeletedAt: null,
               status: UserStatus.active,
+              previewPurpose: null,
             },
           },
         },

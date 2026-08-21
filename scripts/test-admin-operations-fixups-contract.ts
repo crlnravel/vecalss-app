@@ -27,7 +27,7 @@ import {
 } from "@/lib/admin/imports/processing";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [route, validation, actions, operationsService, handoffService, consoleModule, focusRestorer, focusTarget, loading, handoffControls, deliveryNotice, studentModule, kaptenModule, importsPage, cancelRoute, retryRoute, sheet, nav, access, dbContract, createStudentForm, createKaptenForm, studentDirectoryTable] = await Promise.all([
+const [route, validation, actions, operationsService, handoffService, consoleModule, focusRestorer, focusTarget, loading, handoffControls, deliveryNotice, studentModule, kaptenModule, importsPage, cancelRoute, retryRoute, sheet, nav, access, studentPreview, dbContract, createStudentForm, createKaptenForm, studentDirectoryTable] = await Promise.all([
   readFile(resolve(root, "app/api/admin/handoffs/[handoffId]/reissue/route.ts"), "utf8"),
   readFile(resolve(root, "lib/admin/operations/validation.ts"), "utf8"),
   readFile(resolve(root, "modules/admin/actions.ts"), "utf8"),
@@ -47,6 +47,7 @@ const [route, validation, actions, operationsService, handoffService, consoleMod
   readFile(resolve(root, "components/ui/sheet.tsx"), "utf8"),
   readFile(resolve(root, "modules/portal/components/admin-portal-nav.tsx"), "utf8"),
   readFile(resolve(root, "lib/auth/access.ts"), "utf8"),
+  readFile(resolve(root, "lib/admin/student-preview.ts"), "utf8"),
   readFile(resolve(root, "scripts/test-admin-import-processing-db.ts"), "utf8"),
   readFile(resolve(root, "modules/admin/components/create-student-form.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/components/create-kapten-form.tsx"), "utf8"),
@@ -206,6 +207,14 @@ assert.match(operationsService, /attentionTotal: awaitingHandoff \+ importsNeedi
 assert.match(operationsService, /slice\(0, 16\)/);
 assert.match(operationsService, /dispatchGeneration: true/);
 assert.match(operationsService, /parseDirectoryParams/);
+assert.match(
+  operationsService,
+  /prisma\.enrollmentHandoff\.count\(\{[\s\S]*?acknowledgedAt: null,[\s\S]*?user: \{[\s\S]*?previewPurpose: null,/u,
+);
+assert.match(
+  operationsService,
+  /prisma\.enrollmentHandoff\.findMany\(\{[\s\S]*?acknowledgedAt: null,[\s\S]*?user: \{[\s\S]*?previewPurpose: null,/u,
+);
 for (const status of ["draft", "queued", "processing", "completed", "partial", "failed"]) {
   assert.match(operationsService, new RegExp(`EnrollmentImportStatus\\.${status}`));
 }
@@ -281,6 +290,9 @@ assert.match(createStudentForm, /mt-1 w-full/u);
 assert.doesNotMatch(createKaptenForm, /Kapten enrollment/);
 assert.match(access, /Permission contract: an authenticated non-admin returns to their authorized home/);
 assert.match(access, /redirect\(getDefaultHomePath\(session\.user\)\)/);
+assert.match(access, /const session = await requireAdminReadOnlySession\(\)/);
+assert.match(studentPreview, /fixture\.id !== ADMIN_STUDENT_PREVIEW_FIXTURE_ID/);
+assert.match(studentPreview, /fixture\.email !== ADMIN_STUDENT_PREVIEW_FIXTURE_EMAIL/);
 assert.match(dbContract, /handoff_import_recovery_required/);
 assert.match(dbContract, /preservedImportHandoff/);
 

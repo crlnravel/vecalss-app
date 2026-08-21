@@ -1,0 +1,199 @@
+{
+  "generatedAt": "2026-08-18T18:25:22.874Z",
+  "target": "/Users/ravel/Work/Freelance/Vecalss/vecalss-app",
+  "selfCheck": {
+    "pass": true,
+    "score": 100,
+    "bottleneck": null
+  },
+  "harness": {
+    "overall": 64,
+    "bottleneck": "instructions",
+    "subsystems": {
+      "instructions": {
+        "score": 1,
+        "passed": 1,
+        "total": 5,
+        "checks": [
+          {
+            "pass": true,
+            "message": "Agent instruction file exists"
+          },
+          {
+            "pass": false,
+            "message": "Startup workflow documented"
+          },
+          {
+            "pass": false,
+            "message": "Definition of done documented"
+          },
+          {
+            "pass": false,
+            "message": "Verification commands discoverable"
+          },
+          {
+            "pass": false,
+            "message": "State artifacts routed from instructions"
+          }
+        ]
+      },
+      "state": {
+        "score": 5,
+        "passed": 5,
+        "total": 5,
+        "checks": [
+          {
+            "pass": true,
+            "message": "Feature tracker exists"
+          },
+          {
+            "pass": true,
+            "message": "Feature tracker is valid and has feature fields"
+          },
+          {
+            "pass": true,
+            "message": "Progress log exists"
+          },
+          {
+            "pass": true,
+            "message": "Progress log supports restart"
+          },
+          {
+            "pass": true,
+            "message": "Handoff captures blockers/files/next step"
+          }
+        ]
+      },
+      "verification": {
+        "score": 4,
+        "passed": 4,
+        "total": 5,
+        "checks": [
+          {
+            "pass": true,
+            "message": "Verification entrypoint exists"
+          },
+          {
+            "pass": true,
+            "message": "Verification fails fast"
+          },
+          {
+            "pass": false,
+            "message": "Test command documented"
+          },
+          {
+            "pass": true,
+            "message": "Static/build check documented"
+          },
+          {
+            "pass": true,
+            "message": "Verification evidence is recorded"
+          }
+        ]
+      },
+      "scope": {
+        "score": 2,
+        "passed": 2,
+        "total": 5,
+        "checks": [
+          {
+            "pass": false,
+            "message": "One-feature-at-a-time rule exists"
+          },
+          {
+            "pass": true,
+            "message": "Feature dependencies are tracked"
+          },
+          {
+            "pass": true,
+            "message": "Feature status is explicit"
+          },
+          {
+            "pass": false,
+            "message": "Scope boundary documented"
+          },
+          {
+            "pass": false,
+            "message": "Completion gate limits scope closure"
+          }
+        ]
+      },
+      "lifecycle": {
+        "score": 4,
+        "passed": 4,
+        "total": 5,
+        "checks": [
+          {
+            "pass": true,
+            "message": "Startup script exists"
+          },
+          {
+            "pass": false,
+            "message": "End-of-session procedure exists"
+          },
+          {
+            "pass": true,
+            "message": "Session handoff template exists"
+          },
+          {
+            "pass": true,
+            "message": "Session restart markers exist"
+          },
+          {
+            "pass": true,
+            "message": "Clean restart path documented"
+          }
+        ]
+      }
+    }
+  },
+  "evals": {
+    "score": 100,
+    "passed": 10,
+    "total": 10,
+    "cases": 10,
+    "checks": [
+      {
+        "pass": true,
+        "message": "At least 10 eval cases"
+      },
+      {
+        "pass": true,
+        "message": "Covers minimal harness creation"
+      },
+      {
+        "pass": true,
+        "message": "Covers session continuity"
+      },
+      {
+        "pass": true,
+        "message": "Covers harness assessment"
+      },
+      {
+        "pass": true,
+        "message": "Covers verification workflow"
+      },
+      {
+        "pass": true,
+        "message": "Covers memory taxonomy"
+      },
+      {
+        "pass": true,
+        "message": "Covers tool safety"
+      },
+      {
+        "pass": true,
+        "message": "Covers multi-agent coordination"
+      },
+      {
+        "pass": true,
+        "message": "Each eval has prompt, expected output, expectations"
+      },
+      {
+        "pass": true,
+        "message": "Each eval has at least three expectation checks"
+      }
+    ]
+  },
+  "recommendation": "Improve the instructions subsystem before benchmarking agent behavior."
+}

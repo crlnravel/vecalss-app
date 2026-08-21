@@ -58,6 +58,7 @@ type ImportPreviewErrorCode =
   | "invalid_role"
   | "invalid_template"
   | "missing_required_field"
+  | "managed_preview_fixture"
   | "multipart_invalid"
   | "opposite_role"
   | "request_too_large"
@@ -92,6 +93,7 @@ const ERROR_MESSAGES: Readonly<Record<ImportPreviewErrorCode | "column_count_mis
   invalid_role: "Choose a supported import role.",
   invalid_template: "Choose a supported import template.",
   missing_required_field: "A required field is missing.",
+  managed_preview_fixture: "Managed preview fixtures cannot be changed through enrollment imports.",
   multipart_invalid: "The multipart request is invalid.",
   opposite_role: "The email belongs to an account with the opposite role.",
   request_too_large: "The upload exceeds the 2 MiB request limit.",
@@ -147,6 +149,7 @@ type PreviewMetadata = {
 type ExistingUser = {
   email: string;
   id: string;
+  previewPurpose?: string | null;
   status: UserStatus;
   softDeletedAt: Date | null;
   updatedAt: Date;
@@ -363,6 +366,9 @@ function evaluateExistingUser(
   if (user.softDeletedAt !== null || user.status === UserStatus.soft_deleted) {
     return { errorCode: "soft_deleted_user", operation: EnrollmentImportOperation.none, user } as const;
   }
+  if (user.previewPurpose != null) {
+    return { errorCode: "managed_preview_fixture", operation: EnrollmentImportOperation.none, user } as const;
+  }
   if (user.status !== UserStatus.active) {
     return { errorCode: "inactive_account", operation: EnrollmentImportOperation.none, user } as const;
   }
@@ -497,6 +503,7 @@ async function persistParsedEnrollmentImport(input: PersistParsedEnrollmentImpor
         select: {
           email: true,
           id: true,
+          previewPurpose: true,
           roleAssignments: {
             orderBy: { assignedAt: "desc" },
             select: { assignedAt: true, id: true, revokedAt: true, role: true },

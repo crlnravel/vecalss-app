@@ -110,15 +110,18 @@ function AccountRoleLabels({ roles }: { roles: string[] }) {
 
 function StudentAccountMenu({
   audience = "student",
+  disableDebugAccountSwitcher = false,
   extraItem,
   session,
 }: {
   audience?: AccountMenuAudience;
+  disableDebugAccountSwitcher?: boolean;
   extraItem?: StudentAccountMenuItem;
   session: SessionContext;
 }) {
   const initials = getInitials(session.user.fullName);
-  const debugAccountSwitcherEnabled = useDebugAccountSwitcher();
+  const debugAccountSwitcherAvailable = useDebugAccountSwitcher();
+  const debugAccountSwitcherEnabled = !disableDebugAccountSwitcher && debugAccountSwitcherAvailable;
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isDebugSwitcherOpen, setIsDebugSwitcherOpen] = useState(false);
   const [debugAccounts, setDebugAccounts] = useState<DebugAccount[] | null>(null);

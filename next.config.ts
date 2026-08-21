@@ -18,6 +18,36 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async headers() {
+    return [
+      {
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "base-uri 'none'",
+              "object-src 'none'",
+              "frame-ancestors 'self'",
+              "form-action 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              // Hosted and managed PDFs are resolved server-side and then
+              // fetched by the read-only PDF viewer from their signed origin.
+              "connect-src 'self' https:",
+              "worker-src 'self' blob:",
+              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+            ].join("; "),
+          },
+          { key: "Referrer-Policy", value: "same-origin" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+        source: "/admin/student-preview/:path*",
+      },
+    ];
+  },
 };
 
 const withMDX = createMDX({

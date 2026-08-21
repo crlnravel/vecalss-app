@@ -7,6 +7,7 @@ import {
   UserStatus,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import {
   buildEnrollmentInviteUrl,
   lockHandoff,
@@ -165,7 +166,11 @@ async function releaseImportHandoffFile(
       if (!handoff || handoff.status !== EnrollmentHandoffStatus.pending || !handoff.secret_envelope) {
         throw new EnrollmentImportHandoffFileError("handoff_not_releasable");
       }
-      if (handoff.user_status !== UserStatus.active || handoff.soft_deleted_at !== null) {
+      if (
+        handoff.user_status !== UserStatus.active
+        || handoff.soft_deleted_at !== null
+        || isManagedPreviewPurpose(handoff.preview_purpose)
+      ) {
         throw new EnrollmentImportHandoffFileError("handoff_account_inactive");
       }
       if (
@@ -199,6 +204,7 @@ async function releaseImportHandoffFile(
           id: handoff.id,
           secretEnvelope: { not: Prisma.DbNull },
           status: EnrollmentHandoffStatus.pending,
+          user: { previewPurpose: null },
         },
       });
       if (updated.count !== 1) throw new EnrollmentImportHandoffFileError("handoff_not_releasable");
@@ -269,7 +275,14 @@ async function acknowledgeImportHandoffs(
 
     const rows = await tx.enrollmentImportRow.findMany({
       select: {
-        handoff: { select: { acknowledgedAt: true, id: true, status: true } },
+        handoff: {
+          select: {
+            acknowledgedAt: true,
+            id: true,
+            status: true,
+            user: { select: { previewPurpose: true } },
+          },
+        },
         handoffId: true,
       },
       where: { handoffId: { in: handoffIds }, importId: input.importId },
@@ -279,6 +292,9 @@ async function acknowledgeImportHandoffs(
     }
     if (rows.some((row) => row.handoff?.status !== EnrollmentHandoffStatus.released)) {
       throw new EnrollmentImportHandoffFileError("handoff_not_releasable");
+    }
+    if (rows.some((row) => isManagedPreviewPurpose(row.handoff?.user.previewPurpose))) {
+      throw new EnrollmentImportHandoffFileError("handoff_account_inactive");
     }
 
     const acknowledgedAt = new Date();
@@ -290,6 +306,7 @@ async function acknowledgeImportHandoffs(
           acknowledgedAt: null,
           id: row.handoffId,
           status: EnrollmentHandoffStatus.released,
+          user: { previewPurpose: null },
         },
       });
       if (updated.count !== 1) return 0;

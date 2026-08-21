@@ -96,6 +96,7 @@ export default async function StudentDetailPage({
       },
     },
     softDeletedAt: null,
+    previewPurpose: null,
   };
 
   const [examEvents, student] = await Promise.all([

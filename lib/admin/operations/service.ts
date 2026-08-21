@@ -171,6 +171,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
         },
         status: UserStatus.active,
         softDeletedAt: null,
+        previewPurpose: null,
       },
     }),
     prisma.user.count({
@@ -183,6 +184,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
         },
         status: UserStatus.active,
         softDeletedAt: null,
+        previewPurpose: null,
       },
     }),
     prisma.enrollmentHandoff.count({
@@ -190,6 +192,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
         acknowledgedAt: null,
         status: { in: [...ATTENTION_HANDOFF_STATUSES] },
         user: {
+          previewPurpose: null,
           softDeletedAt: null,
           status: UserStatus.active,
         },
@@ -224,6 +227,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
         acknowledgedAt: null,
         status: { in: [...ATTENTION_HANDOFF_STATUSES] },
         user: {
+          previewPurpose: null,
           softDeletedAt: null,
           status: UserStatus.active,
         },
@@ -407,6 +411,7 @@ async function getAdminDirectoryPage({
         }
       : {}),
     softDeletedAt: null,
+    previewPurpose: null,
   };
 
   const [total, users] = await Promise.all([

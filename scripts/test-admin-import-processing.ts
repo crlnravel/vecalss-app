@@ -99,6 +99,8 @@ assert.match(processingSource, /EnrollmentImportStatus\.cancelled/u);
 assert.match(processingSource, /EnrollmentImportStatus\.partial/u);
 assert.match(handoffSource, /secretEnvelope: Prisma\.DbNull/u);
 assert.match(handoffSource, /formulaSafe/u);
+assert.match(handoffSource, /isManagedPreviewPurpose\(handoff\.preview_purpose\)/u);
+assert.match(handoffSource, /user: \{ previewPurpose: null \}/u);
 assert.match(handoffRouteSource, /requireAdminSession/u);
 assert.match(handoffRouteSource, /Cache-Control.*no-store/u);
 assert.match(handoffRouteSource, /Content-Disposition/u);
@@ -111,5 +113,6 @@ assert.match(cancelRouteSource, /cancelEnrollmentImport/u);
 assert.match(cancelRouteSource, /requireAdminSession/u);
 assert.match(workerSource, /reapExpiredImportRowClaims/u);
 assert.match(workerSource, /cleanupEnrollmentImports/u);
+assert.match(processingSource, /user: \{ previewPurpose: null \}/u);
 
 console.log("admin import processing contract checks passed");
