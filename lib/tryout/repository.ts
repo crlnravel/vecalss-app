@@ -126,8 +126,8 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
     let id = input.id;
     const subtest = await tx.subtest.findUnique({ where: { code: input.subtest } });
     if (!subtest) throw new TryoutValidationError("Subtest Paket tidak ditemukan.");
-    const ownedBank = await tx.questionBank.findFirst({ where: { id: input.sourceBankId, createdByUserId: actorId }, select: { id: true } });
-    if (!ownedBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
+    const sourceBank = await tx.questionBank.findUnique({ where: { id: input.sourceBankId }, select: { id: true } });
+    if (!sourceBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
     if (id) {
       await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${id}::uuid FOR UPDATE`;
       const current = await tx.reusableQuestionPackage.findFirst({ where: { id, createdByUserId: actorId } });
@@ -169,8 +169,8 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
     await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${packageId}::uuid FOR UPDATE`;
     const pkg = await tx.reusableQuestionPackage.findFirst({ where: { id: packageId, createdByUserId: actorId }, include: { subtest: true, items: { orderBy: { sortOrder: "asc" } } } });
     if (!pkg) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
-    const ownedBank = await tx.questionBank.findFirst({ where: { id: pkg.sourceBankId, createdByUserId: actorId }, select: { id: true } });
-    if (!ownedBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
+    const sourceBank = await tx.questionBank.findUnique({ where: { id: pkg.sourceBankId }, select: { id: true } });
+    if (!sourceBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
     const [sources, versionCount] = await Promise.all([
       readAndValidatePackageSources(tx, pkg.items.map((item) => item.sourceQuestionId), pkg.subtest.code as SubjectCode, pkg.sourceBankId),
       tx.reusableQuestionPackageVersion.count({ where: { packageId } }),

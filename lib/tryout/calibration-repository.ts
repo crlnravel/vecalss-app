@@ -25,7 +25,7 @@ async function approveTwoPlCalibration(input: TwoPlCalibrationInput, actorId: st
   const difficulty = finite(input.difficulty, "Kesulitan");
   if (!reason || discrimination <= 0) throw new TryoutCalibrationValidationError("Alasan audit dan diskriminasi positif wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const question = await tx.question.findFirst({ where: { id: input.questionId, questionBank: { createdByUserId: actorId } }, select: { id: true, questionBankId: true, subtestId: true, currentRevision: { select: { contentDigest: true, id: true, questionId: true, status: true } } } });
+    const question = await tx.question.findUnique({ where: { id: input.questionId }, select: { id: true, questionBankId: true, subtestId: true, currentRevision: { select: { contentDigest: true, id: true, questionId: true, status: true } } } });
     if (!question?.questionBankId || !question.subtestId) throw new TryoutCalibrationValidationError("Hanya soal Bank dengan Subtest dapat dikalibrasi untuk CAT.");
     const revision = input.questionRevisionId
       ? await tx.questionRevision.findUnique({ where: { id: input.questionRevisionId }, select: { contentDigest: true, id: true, questionId: true, status: true } })

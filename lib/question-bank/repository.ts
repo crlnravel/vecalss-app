@@ -742,7 +742,7 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     let status: ContentStatus = ContentStatus.draft;
     if (bankId) {
       await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${bankId}::uuid FOR UPDATE`;
-      const current = await tx.questionBank.findFirst({ where: { id: bankId, createdByUserId: actorId } });
+      const current = await tx.questionBank.findUnique({ where: { id: bankId } });
       if (!current) throw new QuestionBankError("Bank Soal tidak ditemukan.");
       if (input.revision === undefined || current.revision !== input.revision) throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.");
       if (current.status === ContentStatus.archived) throw new QuestionBankError("Bank Soal yang diarsipkan harus dipulihkan sebelum isinya dapat diubah.");
@@ -832,7 +832,7 @@ type QuestionBankLifecycleOptions = { expectedRevision: number };
 async function updateQuestionBankLifecycle(id: string, operation: "publish" | "unpublish" | "archive" | "restore", actorId: string, options: QuestionBankLifecycleOptions) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findFirst({ where: { id, createdByUserId: actorId }, include: bankInclude });
+    const bank = await tx.questionBank.findUnique({ where: { id }, include: bankInclude });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.");
     if (bank.revision !== options.expectedRevision) throw new QuestionBankError("Bank Soal telah diperbarui. Muat ulang halaman lalu coba lagi.");
     const activeQuestions = bank.questions.filter((question) => question.status !== ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired);
@@ -882,7 +882,7 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
         id,
         question: {
           OR: [
-            { questionBank: { createdByUserId: actorId } },
+            { questionBankId: { not: null } },
             { questionBankId: null, createdByUserId: actorId },
           ],
         },
@@ -944,7 +944,7 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
 async function deleteQuestionBank(id: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findFirst({ where: { id, createdByUserId: actorId }, select: { id: true, updatedByUserId: true } });
+    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, updatedByUserId: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.");
     const modifierId = actorId;
 

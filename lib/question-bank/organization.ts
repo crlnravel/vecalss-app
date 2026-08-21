@@ -516,7 +516,7 @@ async function setQuestionBankCategories(bankId: string, categoryIds: string[], 
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findFirst({ where: { id: bankId, createdByUserId: actorId }, select: { id: true, revision: true, status: true, updatedAt: true } });
+      const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
       if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
@@ -546,7 +546,7 @@ async function assignQuestionBankCategories(bankId: string, categoryIds: string[
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findFirst({ where: { id: bankId, createdByUserId: actorId }, select: { id: true, revision: true, status: true, updatedAt: true } });
+      const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
       if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
@@ -573,7 +573,7 @@ async function removeQuestionBankCategoryAssignment(bankId: string, categoryId: 
     return await prisma.$transaction(async (tx) => {
       await lockAllCategories(tx);
       await lockBanks(tx, [bankId]);
-      const bank = await tx.questionBank.findFirst({ where: { id: bankId, createdByUserId: actorId }, select: { id: true, revision: true, status: true, updatedAt: true } });
+      const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
       if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
@@ -599,7 +599,7 @@ async function moveQuestionBanksToFolder(bankIds: string[], folderId: string | n
       const folders = await lockAllFolders(tx);
       if (folderId && !folders.some((folder) => folder.id === folderId)) throw new QuestionBankOrganizationError("Folder tidak ditemukan.");
       await lockBanks(tx, uniqueBankIds);
-      const banks = await tx.questionBank.findMany({ where: { id: { in: uniqueBankIds }, createdByUserId: actorId }, select: { id: true, revision: true, status: true, updatedAt: true } });
+      const banks = await tx.questionBank.findMany({ where: { id: { in: uniqueBankIds } }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (banks.length !== uniqueBankIds.length) throw new QuestionBankOrganizationError("Sebagian Bank Soal tidak ditemukan.");
       banks.forEach((bank) => assertExpectedBankVersion(bank, options?.expected?.[bank.id]));
       if (banks.some((bank) => bank.status === ContentStatus.archived)) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dipindahkan.");
