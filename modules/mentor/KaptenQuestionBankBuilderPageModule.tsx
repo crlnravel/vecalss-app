@@ -551,7 +551,7 @@ function useQuestionBankPersistence({
   async function updateLifecycle(operation: "publish" | "unpublish") {
     const id = bankIdRef.current;
     if (!id) return;
-    const result = await updateQuestionBankLifecycleAction(id, operation);
+    const result = await updateQuestionBankLifecycleAction(id, operation, { expectedRevision: revisionRef.current ?? 1 });
     if (!result.ok) { updateEditor({ lifecycleError: result.message }); return; }
     revisionRef.current = result.result.revision;
     updateEditor({ hasUnsavedChanges: false, lifecycleError: null, lifecycleStatus: result.result.status });

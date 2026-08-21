@@ -182,7 +182,11 @@ ALTER TABLE "two_pl_question_calibrations"
 UPDATE "two_pl_question_calibrations" calibration
 SET
   question_revision_id = question.current_revision_id,
-  content_digest = revision.content_digest
+  content_digest = revision.content_digest,
+  -- The legacy row has no evidence that its parameters were recorded for
+  -- this exact revision. Keep the compatibility pointer for auditability,
+  -- but force an explicit re-approval before it can power CAT.
+  approval_state = 'rejected'
 FROM questions question
 JOIN question_revisions revision ON revision.id = question.current_revision_id
 WHERE question.id = calibration.question_id;
@@ -197,6 +201,15 @@ ALTER TABLE "two_pl_question_calibrations"
   DROP CONSTRAINT IF EXISTS "two_pl_question_calibrations_question_id_model_version_key",
   ADD CONSTRAINT "two_pl_question_calibrations_question_revision_id_model_version_key"
     UNIQUE ("question_revision_id", "model_version");
+
+CREATE UNIQUE INDEX "question_revisions_question_id_id_key"
+  ON "question_revisions"("question_id", "id");
+
+ALTER TABLE "two_pl_question_calibrations"
+  ADD CONSTRAINT "two_pl_question_calibrations_question_identity_fkey"
+    FOREIGN KEY ("question_id", "question_revision_id")
+    REFERENCES "question_revisions"("question_id", "id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE INDEX "two_pl_question_calibrations_question_id_model_version_idx"
   ON "two_pl_question_calibrations"("question_id", "model_version");
@@ -317,6 +330,84 @@ CREATE INDEX "standalone_quiz_item_options_source_question_revision_option_id_id
 CREATE INDEX "reusable_question_package_version_item_options_source_question_revision_option_id_idx" ON "reusable_question_package_version_item_options"("source_question_revision_option_id");
 CREATE INDEX "tryout_item_options_source_question_revision_option_id_idx" ON "tryout_item_options"("source_question_revision_option_id");
 
+-- A revision pointer is meaningful only in the context of its Question. The
+-- composite constraints below prevent a stale/mismatched Question ID from
+-- being paired with an otherwise valid revision UUID.
+ALTER TABLE "questions"
+  ADD CONSTRAINT "questions_current_revision_identity_fkey"
+    FOREIGN KEY ("id", "current_revision_id")
+    REFERENCES "question_revisions"("question_id", "id")
+    ON DELETE RESTRICT ON UPDATE CASCADE
+    DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "standalone_quiz_items"
+  ADD CONSTRAINT "standalone_quiz_items_source_revision_identity_fkey"
+    FOREIGN KEY ("source_question_id", "source_question_revision_id")
+    REFERENCES "question_revisions"("question_id", "id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "reusable_question_package_items"
+  ADD CONSTRAINT "reusable_question_package_items_source_revision_identity_fkey"
+    FOREIGN KEY ("source_question_id", "source_question_revision_id")
+    REFERENCES "question_revisions"("question_id", "id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "reusable_question_package_version_items"
+  ADD CONSTRAINT "reusable_question_package_version_items_source_revision_identity_fkey"
+    FOREIGN KEY ("source_question_id", "source_question_revision_id")
+    REFERENCES "question_revisions"("question_id", "id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tryout_items"
+  ADD CONSTRAINT "tryout_items_source_revision_identity_fkey"
+    FOREIGN KEY ("source_question_id", "source_question_revision_id")
+    REFERENCES "question_revisions"("question_id", "id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+CREATE OR REPLACE FUNCTION "assessment_guard_source_revision_snapshot"()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  revision_question_id UUID;
+  revision_digest VARCHAR(128);
+BEGIN
+  IF NEW.source_question_revision_id IS NULL THEN
+    IF NEW.source_question_id IS NOT NULL
+      OR NEW.source_content_digest IS NOT NULL
+      OR NEW.source_revision_provenance IS NOT NULL
+    THEN
+      RAISE EXCEPTION 'Source QuestionRevision snapshot fields must be complete' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  SELECT question_id, content_digest
+  INTO revision_question_id, revision_digest
+  FROM question_revisions
+  WHERE id = NEW.source_question_revision_id;
+  IF revision_question_id IS NULL
+    OR revision_question_id IS DISTINCT FROM NEW.source_question_id
+    OR revision_digest IS DISTINCT FROM NEW.source_content_digest
+  THEN
+    RAISE EXCEPTION 'Source snapshot must match its QuestionRevision identity and digest' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.source_revision_provenance IS NULL THEN
+    RAISE EXCEPTION 'Source snapshot provenance is required when a QuestionRevision is present' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER "standalone_quiz_items_source_revision_snapshot_guard"
+BEFORE INSERT OR UPDATE ON "standalone_quiz_items"
+FOR EACH ROW EXECUTE FUNCTION "assessment_guard_source_revision_snapshot"();
+CREATE TRIGGER "reusable_question_package_items_source_revision_snapshot_guard"
+BEFORE INSERT OR UPDATE ON "reusable_question_package_items"
+FOR EACH ROW EXECUTE FUNCTION "assessment_guard_source_revision_snapshot"();
+CREATE TRIGGER "reusable_question_package_version_items_source_revision_snapshot_guard"
+BEFORE INSERT OR UPDATE ON "reusable_question_package_version_items"
+FOR EACH ROW EXECUTE FUNCTION "assessment_guard_source_revision_snapshot"();
+CREATE TRIGGER "tryout_items_source_revision_snapshot_guard"
+BEFORE INSERT OR UPDATE ON "tryout_items"
+FOR EACH ROW EXECUTE FUNCTION "assessment_guard_source_revision_snapshot"();
+
 CREATE OR REPLACE FUNCTION "assessment_reject_question_revision_mutation"()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -424,32 +515,36 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  revision_status question_revision_status;
+  old_revision_status question_revision_status;
+  new_revision_status question_revision_status;
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    SELECT status INTO revision_status
+    SELECT status INTO new_revision_status
     FROM question_revisions
     WHERE id = NEW.question_revision_id;
-    IF revision_status IN ('ready', 'retired') THEN
+    IF new_revision_status IN ('ready', 'retired') THEN
       RAISE EXCEPTION 'Ready or retired QuestionRevisionOption rows are immutable' USING ERRCODE = '55000';
     END IF;
     RETURN NEW;
   END IF;
 
   IF TG_OP = 'DELETE' THEN
-    SELECT status INTO revision_status
+    SELECT status INTO old_revision_status
     FROM question_revisions
     WHERE id = OLD.question_revision_id;
-    IF revision_status IN ('ready', 'retired') THEN
+    IF old_revision_status IN ('ready', 'retired') THEN
       RAISE EXCEPTION 'Ready or retired QuestionRevisionOption rows are immutable' USING ERRCODE = '55000';
     END IF;
     RETURN OLD;
   END IF;
 
-  SELECT status INTO revision_status
+  SELECT status INTO old_revision_status
+  FROM question_revisions
+  WHERE id = OLD.question_revision_id;
+  SELECT status INTO new_revision_status
   FROM question_revisions
   WHERE id = NEW.question_revision_id;
-  IF revision_status IN ('ready', 'retired') THEN
+  IF old_revision_status IN ('ready', 'retired') OR new_revision_status IN ('ready', 'retired') THEN
     IF NEW.id IS DISTINCT FROM OLD.id
       OR NEW.question_revision_id IS DISTINCT FROM OLD.question_revision_id
       OR NEW.label IS DISTINCT FROM OLD.label
@@ -478,6 +573,7 @@ DECLARE
   revision_status question_revision_status;
 BEGIN
   IF NEW.current_revision_id IS NOT NULL
+    AND EXISTS (SELECT 1 FROM question_revisions WHERE id = NEW.current_revision_id)
     AND NOT EXISTS (
       SELECT 1 FROM question_revisions revision
       WHERE revision.id = NEW.current_revision_id AND revision.question_id = NEW.id
@@ -486,7 +582,7 @@ BEGIN
     RAISE EXCEPTION 'Question.current_revision_id must belong to the same Question' USING ERRCODE = '23514';
   END IF;
 
-  IF OLD.current_revision_id IS NOT NULL
+  IF TG_OP = 'UPDATE' AND OLD.current_revision_id IS NOT NULL
     AND NEW.current_revision_id IS NOT DISTINCT FROM OLD.current_revision_id
   THEN
     SELECT status INTO revision_status FROM question_revisions WHERE id = OLD.current_revision_id;
@@ -507,7 +603,7 @@ END;
 $$;
 
 CREATE TRIGGER "questions_revision_compatibility_guard"
-BEFORE UPDATE ON "questions"
+BEFORE INSERT OR UPDATE ON "questions"
 FOR EACH ROW EXECUTE FUNCTION "assessment_guard_question_compatibility_mutation"();
 
 CREATE OR REPLACE FUNCTION "assessment_guard_question_option_compatibility_mutation"()

@@ -409,7 +409,7 @@ function KaptenQuestionBankPageModule({
     if (!pendingLifecycle || isApplying) return;
     setIsApplying(true); setLifecycleError(null);
     try {
-      const result = await updateQuestionBankLifecycleAction(pendingLifecycle.bank.id, pendingLifecycle.action);
+      const result = await updateQuestionBankLifecycleAction(pendingLifecycle.bank.id, pendingLifecycle.action, { expectedRevision: pendingLifecycle.bank.revision ?? 1 });
       if (!result.ok) { setLifecycleError(result.message); return; }
       setEntries((current) => current.map((entry) => entry.bank.id === pendingLifecycle.bank.id ? { ...entry, bank: { ...entry.bank, status: result.result.status } } : entry));
       setPendingLifecycle(null); refreshFromServer();

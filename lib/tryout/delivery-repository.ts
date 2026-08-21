@@ -9,6 +9,8 @@ import {
   TryoutDeliverySessionStatus,
   TryoutRankingRule,
   TryoutResultReleasePolicy,
+  QuestionRevisionProvenance,
+  QuestionRevisionStatus,
 } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
@@ -115,7 +117,7 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
           include: {
             sections: {
               include: {
-                packageVersion: { include: { items: { select: { sourceQuestionId: true, sourceQuestionRevisionId: true, subtestId: true } } } },
+                packageVersion: { include: { items: { select: { sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true, sourceRevisionProvenance: true, subtestId: true } } } },
               },
             },
           },
@@ -131,9 +133,23 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
       if (section.testType === "cat") {
         checks.push((async () => {
           const items = section.packageVersion!.items;
-          if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionRevisionId)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
-          const calibrated = await tx.twoPlQuestionCalibration.count({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: items.map((item) => item.sourceQuestionRevisionId!) } } });
-          if (calibrated !== items.length) throw new TryoutDeliveryValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui.");
+          if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
+          const revisionIds = items.map((item) => item.sourceQuestionRevisionId!);
+          const [revisions, calibrations] = await Promise.all([
+            tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
+            tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, questionId: true, questionRevisionId: true } }),
+          ]);
+          const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
+          const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
+          if (revisions.length !== new Set(revisionIds).size || calibrations.length !== new Set(revisionIds).size || items.some((item) => {
+            const revision = revisionById.get(item.sourceQuestionRevisionId!);
+            const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);
+            return !revision || !calibration
+              || revision.questionId !== item.sourceQuestionId
+              || revision.contentDigest !== item.sourceContentDigest
+              || calibration.questionId !== item.sourceQuestionId
+              || calibration.contentDigest !== item.sourceContentDigest;
+          })) throw new TryoutDeliveryValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
         })());
       }
       return checks;

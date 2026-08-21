@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ContentStatus, Prisma, QuestionRevisionStatus, TryoutTestType } from "@/generated/prisma/client";
+import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
 
@@ -126,6 +126,8 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
     let id = input.id;
     const subtest = await tx.subtest.findUnique({ where: { code: input.subtest } });
     if (!subtest) throw new TryoutValidationError("Subtest Paket tidak ditemukan.");
+    const ownedBank = await tx.questionBank.findFirst({ where: { id: input.sourceBankId, createdByUserId: actorId }, select: { id: true } });
+    if (!ownedBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
     if (id) {
       await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${id}::uuid FOR UPDATE`;
       const current = await tx.reusableQuestionPackage.findFirst({ where: { id, createdByUserId: actorId } });
@@ -167,6 +169,8 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
     await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${packageId}::uuid FOR UPDATE`;
     const pkg = await tx.reusableQuestionPackage.findFirst({ where: { id: packageId, createdByUserId: actorId }, include: { subtest: true, items: { orderBy: { sortOrder: "asc" } } } });
     if (!pkg) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
+    const ownedBank = await tx.questionBank.findFirst({ where: { id: pkg.sourceBankId, createdByUserId: actorId }, select: { id: true } });
+    if (!ownedBank) throw new TryoutValidationError("Bank sumber Paket tidak ditemukan.");
     const [sources, versionCount] = await Promise.all([
       readAndValidatePackageSources(tx, pkg.items.map((item) => item.sourceQuestionId), pkg.subtest.code as SubjectCode, pkg.sourceBankId),
       tx.reusableQuestionPackageVersion.count({ where: { packageId } }),
@@ -182,7 +186,7 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
       }
       const revision = source.currentRevision!;
       const item = await tx.reusableQuestionPackageVersionItem.create({ data: { difficulty: revision.difficulty, explanation: revision.explanation, explanationAssetId: revision.explanationAssetId, packageVersionId: version.id, pointValue: membership.pointValue, prompt: revision.stem, promptAssetId: revision.promptAssetId, sortOrder: membership.sortOrder, sourceContentDigest: revision.contentDigest, sourceQuestionId: source.id, sourceQuestionRevisionId: revision.id, sourceRevisionProvenance: revision.provenance, subtestId: source.subtestId! } });
-      await tx.reusableQuestionPackageVersionItemOption.createMany({ data: revision.options.map((option, index) => ({ assetId: option.assetId, choiceKey: String.fromCharCode(65 + index), content: option.content, isCorrect: option.isCorrect, packageVersionItemId: item.id, sortOrder: index, sourceQuestionOptionId: source.options[index]?.id ?? null, sourceQuestionRevisionOptionId: option.id })) });
+      await tx.reusableQuestionPackageVersionItemOption.createMany({ data: revision.options.map((option, index) => ({ assetId: option.assetId, choiceKey: String.fromCharCode(65 + index), content: option.content, isCorrect: option.isCorrect, packageVersionItemId: item.id, sortOrder: index, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: option.id })) });
     }));
     await tx.reusableQuestionPackageVersion.update({ where: { id: version.id }, data: { readyAt: new Date(), status: ContentStatus.published } });
     await tx.reusableQuestionPackage.update({ where: { id: packageId }, data: { revision: { increment: 1 }, status: ContentStatus.published, updatedByUserId: actorId } });
@@ -197,12 +201,29 @@ function validateTryoutInput(input: SaveTryoutInput) {
   if (input.sections.length !== 7 || new Set(input.sections.map((section) => section.subtest)).size !== 7 || input.sections.some((section) => !SUBJECTS.includes(section.subtest))) throw new TryoutValidationError("Tryout harus memiliki tepat tujuh Test subject.");
   if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1 || (section.testType === "cat" && (!Number.isInteger(section.catItemCount) || section.catItemCount! < 1)))) throw new TryoutValidationError("Konfigurasi durasi atau jumlah soal CAT tidak valid.");
 }
-async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: { catItemCount?: number; packageVersionId?: string; subtestId: string }) {
+async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: { catItemCount?: number; packageVersionId?: string; subtestId: string }, actorId: string) {
   if (!section.packageVersionId || !section.catItemCount) throw new TryoutValidationError("CAT memerlukan Paket Soal dan jumlah soal.");
-  const version = await tx.reusableQuestionPackageVersion.findUnique({ where: { id: section.packageVersionId }, include: { items: { select: { sourceQuestionId: true, sourceQuestionRevisionId: true, subtestId: true } } } });
-  if (!version || version.items.length < section.catItemCount || version.items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionRevisionId)) throw new TryoutValidationError("Pool CAT harus berasal dari versi Paket immutable yang kompatibel dan mencukupi jumlah soal CAT.");
-  const calibrations = await tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: version.items.map((item) => item.sourceQuestionRevisionId!) } }, select: { questionRevisionId: true } });
-  if (calibrations.length !== version.items.length) throw new TryoutValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui.");
+  const version = await tx.reusableQuestionPackageVersion.findFirst({
+    where: { id: section.packageVersionId, package: { createdByUserId: actorId } },
+    include: { items: { select: { sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true, sourceRevisionProvenance: true, subtestId: true } } },
+  });
+  if (!version || version.items.length < section.catItemCount || version.items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) throw new TryoutValidationError("Pool CAT harus berasal dari versi Paket immutable yang kompatibel dan mencukupi jumlah soal CAT.");
+  const revisionIds = version.items.map((item) => item.sourceQuestionRevisionId!);
+  const [revisions, calibrations] = await Promise.all([
+    tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
+    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, id: true, questionId: true, questionRevisionId: true } }),
+  ]);
+  const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
+  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
+  if (revisions.length !== new Set(revisionIds).size || calibrations.length !== new Set(revisionIds).size || version.items.some((item) => {
+    const revision = revisionById.get(item.sourceQuestionRevisionId!);
+    const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);
+    return !revision || !calibration
+      || revision.questionId !== item.sourceQuestionId
+      || revision.contentDigest !== item.sourceContentDigest
+      || calibration.questionId !== item.sourceQuestionId
+      || calibration.contentDigest !== item.sourceContentDigest;
+  })) throw new TryoutValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
 }
 async function saveTryout(input: SaveTryoutInput, actorId: string) {
   validateTryoutInput(input);
@@ -219,7 +240,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     } else {
       const created = await tx.tryoutPackage.create({ data: { code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
     }
-    const versions = await tx.reusableQuestionPackageVersion.findMany({ where: { id: { in: input.sections.flatMap((section) => section.packageVersionId ? [section.packageVersionId] : []) } }, include: versionInclude });
+    const versions = await tx.reusableQuestionPackageVersion.findMany({ where: { id: { in: input.sections.flatMap((section) => section.packageVersionId ? [section.packageVersionId] : []) }, package: { createdByUserId: actorId } }, include: versionInclude });
     const versionById = new Map(versions.map((version) => [version.id, version]));
     const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
     const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });
@@ -231,7 +252,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const version = sectionInput.packageVersionId ? versionById.get(sectionInput.packageVersionId) : undefined;
       if (sectionInput.packageVersionId && (!version || version.status !== ContentStatus.published || version.package.subtest.code !== sectionInput.subtest)) throw new TryoutValidationError(`Paket siap untuk Test ${sectionInput.subtest} tidak valid atau tidak cocok.`);
       if (input.status === "published" && !version) throw new TryoutValidationError("Setiap Test harus mengikat satu versi Paket Soal siap sebelum Tryout diterbitkan.");
-      if (input.status === "published" && sectionInput.testType === "cat") await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version?.id, subtestId: subtest.id });
+      if (input.status === "published" && sectionInput.testType === "cat") await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version?.id, subtestId: subtest.id }, actorId);
       const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: version?.id, questionCount: version?.items.length ?? 0, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
       return { section, version };
     }));

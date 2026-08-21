@@ -29,6 +29,8 @@ import {
   updateQuestionRevisionLifecycle,
   type SaveBankInput,
   type QuestionRevisionLifecycleStatus,
+  type QuestionRevisionLifecycleOptions,
+  type QuestionBankLifecycleOptions,
 } from "@/lib/question-bank/repository";
 
 function refresh() {
@@ -43,16 +45,16 @@ async function saveQuestionBankAction(input: SaveBankInput) {
   catch (error) { return { ok: false as const, message: error instanceof QuestionBankError ? error.message : "Bank Soal tidak dapat disimpan saat ini." }; }
 }
 
-async function updateQuestionBankLifecycleAction(id: string, operation: "publish" | "unpublish" | "archive" | "restore") {
+async function updateQuestionBankLifecycleAction(id: string, operation: "publish" | "unpublish" | "archive" | "restore", options: QuestionBankLifecycleOptions) {
   const session = await requireTutorSession();
-  try { const result = await updateQuestionBankLifecycle(id, operation, session.user.id); refresh(); return { ok: true as const, result }; }
+  try { const result = await updateQuestionBankLifecycle(id, operation, session.user.id, options); refresh(); return { ok: true as const, result }; }
   catch (error) { return { ok: false as const, message: error instanceof QuestionBankError ? error.message : "Status Bank Soal tidak dapat diubah saat ini." }; }
 }
 
-async function updateQuestionRevisionLifecycleAction(id: string, status: QuestionRevisionLifecycleStatus) {
+async function updateQuestionRevisionLifecycleAction(id: string, status: QuestionRevisionLifecycleStatus, options: QuestionRevisionLifecycleOptions) {
   const session = await requireTutorSession();
   try {
-    const result = await updateQuestionRevisionLifecycle(id, status, session.user.id);
+    const result = await updateQuestionRevisionLifecycle(id, status, session.user.id, options);
     refresh();
     return { ok: true as const, result };
   } catch (error) {

@@ -488,7 +488,7 @@ async function seedReusablePackages(client, { bankId, questions, subtestIds, tut
                package_version_item_id, choice_key, content, is_correct, sort_order,
                source_question_option_id, source_question_revision_option_id
              ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, question.optionIds[optionIndex], question.revisionOptionIds[optionIndex]],
+            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, null, question.revisionOptionIds[optionIndex]],
           );
         }
       }
@@ -562,7 +562,7 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
                quiz_item_id, choice_key, content, is_correct, sort_order,
                source_question_option_id, source_question_revision_option_id
              ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, question.optionIds[optionIndex], question.revisionOptionIds[optionIndex]],
+            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, null, question.revisionOptionIds[optionIndex]],
           );
         }
       }
