@@ -120,6 +120,24 @@ enum QuestionType {
   @@map("question_type")
 }
 
+enum QuestionRevisionStatus {
+  draft
+  review
+  ready
+  retired
+
+  @@map("question_revision_status")
+}
+
+enum QuestionRevisionProvenance {
+  authored
+  legacy_provable
+  legacy_synthetic
+  legacy_unknown
+
+  @@map("question_revision_provenance")
+}
+
 enum DifficultyLevel {
   easy
   medium
@@ -543,6 +561,8 @@ model User {
   assignedQuestionBankCategories          QuestionBankCategoryAssignment[]  @relation("QuestionBankCategoryAssignedBy")
   createdQuestions                       Question[]                       @relation("QuestionCreatedBy")
   updatedQuestions                       Question[]                       @relation("QuestionUpdatedBy")
+  authoredQuestionRevisions                QuestionRevision[]                @relation("QuestionRevisionCreatedBy")
+  modifiedQuestionRevisions               QuestionRevision[]                @relation("QuestionRevisionUpdatedBy")
   authoredStandaloneQuizzes              StandaloneQuiz[]                 @relation("StandaloneQuizAuthor")
   standaloneQuizParticipations           StandaloneQuizParticipation[]
   quizAttempts                           QuizAttempt[]
@@ -1132,6 +1152,7 @@ model Question {
   status             ContentStatus   @default(draft)
   source             String?         @db.VarChar(120)
   revision           Int             @default(1)
+  currentRevisionId  String          @unique @map("current_revision_id") @db.Uuid
   createdByUserId    String          @map("created_by_user_id") @db.Uuid
   updatedByUserId    String          @map("updated_by_user_id") @db.Uuid
   createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
@@ -1144,6 +1165,8 @@ model Question {
   explanationAsset            Asset?                               @relation("QuestionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
   createdBy                   User                                 @relation("QuestionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                   User                                 @relation("QuestionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  currentRevision             QuestionRevision                      @relation("QuestionCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
+  revisions                   QuestionRevision[]                    @relation("QuestionRevisions")
   options                     QuestionOption[]
   quizItems                   QuizItem[]
   standaloneQuizItems         StandaloneQuizItem[]                 @relation("StandaloneQuizItemSourceQuestion")
@@ -1162,9 +1185,70 @@ model Question {
   @@map("questions")
 }
 
+model QuestionRevision {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId         String                     @map("question_id") @db.Uuid
+  revisionNo         Int                        @map("revision_no")
+  status             QuestionRevisionStatus     @default(draft)
+  provenance         QuestionRevisionProvenance @default(authored)
+  stem               String                     @db.Text
+  questionType       QuestionType               @default(single_choice) @map("question_type")
+  difficulty         DifficultyLevel            @default(medium)
+  explanation        String?                    @db.Text
+  promptAssetId      String?                    @map("prompt_asset_id") @db.Uuid
+  explanationAssetId String?                    @map("explanation_asset_id") @db.Uuid
+  contentDigest      String                     @map("content_digest") @db.VarChar(128)
+  createdByUserId    String                     @map("created_by_user_id") @db.Uuid
+  updatedByUserId    String                     @map("updated_by_user_id") @db.Uuid
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  readyAt            DateTime?                  @map("ready_at") @db.Timestamptz
+  retiredAt          DateTime?                  @map("retired_at") @db.Timestamptz
+
+  question                  Question                                  @relation("QuestionRevisions", fields: [questionId], references: [id], onDelete: Restrict)
+  currentForQuestion        Question?                                 @relation("QuestionCurrentRevision")
+  promptAsset               Asset?                                    @relation("QuestionRevisionPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset          Asset?                                    @relation("QuestionRevisionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  createdBy                 User                                      @relation("QuestionRevisionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                 User                                      @relation("QuestionRevisionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  options                   QuestionRevisionOption[]
+  standaloneQuizItems       StandaloneQuizItem[]                       @relation("StandaloneQuizItemSourceQuestionRevision")
+  reusablePackageItems      ReusableQuestionPackageItem[]              @relation("ReusablePackageItemSourceQuestionRevision")
+  reusablePackageVersionItems ReusableQuestionPackageVersionItem[]     @relation("ReusablePackageVersionItemSourceQuestionRevision")
+  tryoutItems               TryoutItem[]                               @relation("TryoutItemSourceQuestionRevision")
+  calibrations              TwoPlQuestionCalibration[]
+
+  @@unique([questionId, revisionNo])
+  @@index([questionId, status])
+  @@index([status, contentDigest])
+  @@map("question_revisions")
+}
+
+model QuestionRevisionOption {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionRevisionId String           @map("question_revision_id") @db.Uuid
+  label              String           @db.VarChar(8)
+  content            String           @db.Text
+  isCorrect          Boolean          @default(false) @map("is_correct")
+  sortOrder          Int              @default(0) @map("sort_order")
+  assetId            String?          @map("asset_id") @db.Uuid
+
+  questionRevision QuestionRevision @relation(fields: [questionRevisionId], references: [id], onDelete: Cascade)
+  asset            Asset?           @relation("QuestionRevisionOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  standaloneQuizItemOptions             StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionSourceRevisionOption")
+  reusablePackageVersionItemOptions     ReusableQuestionPackageVersionItemOption[] @relation("ReusablePackageVersionItemOptionSourceRevisionOption")
+  tryoutItemOptions                     TryoutItemOption[]                         @relation("TryoutItemOptionSourceRevisionOption")
+
+  @@unique([questionRevisionId, label])
+  @@unique([questionRevisionId, sortOrder])
+  @@map("question_revision_options")
+}
+
 model TwoPlQuestionCalibration {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   questionId         String   @map("question_id") @db.Uuid
+  questionRevisionId String   @map("question_revision_id") @db.Uuid
+  contentDigest      String   @map("content_digest") @db.VarChar(128)
   modelVersion       String   @map("model_version") @db.VarChar(120)
   discrimination     Decimal  @db.Decimal(10, 6)
   difficulty         Decimal  @db.Decimal(10, 6)
@@ -1175,11 +1259,13 @@ model TwoPlQuestionCalibration {
   auditReason        String   @map("audit_reason") @db.Text
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  recordedBy User     @relation("TwoPlCalibrationRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
-  approvedBy User     @relation("TwoPlCalibrationApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  question         Question         @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  questionRevision QuestionRevision @relation(fields: [questionRevisionId], references: [id], onDelete: Restrict)
+  recordedBy       User              @relation("TwoPlCalibrationRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  approvedBy       User              @relation("TwoPlCalibrationApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
 
-  @@unique([questionId, modelVersion])
+  @@unique([questionRevisionId, modelVersion])
+  @@index([questionId, modelVersion])
   @@index([modelVersion, approvalState])
   @@map("two_pl_question_calibrations")
 }
@@ -1319,6 +1405,9 @@ model StandaloneQuizItem {
   difficulty         DifficultyLevel @default(medium)
   subtestId          String          @map("subtest_id") @db.Uuid
   sourceQuestionId   String?         @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?   @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest String?        @map("source_content_digest") @db.VarChar(128)
+  sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
   promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
   explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
   idempotencyKey     String?         @map("idempotency_key") @db.VarChar(120)
@@ -1327,6 +1416,7 @@ model StandaloneQuizItem {
   quiz             StandaloneQuiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
   subtest          Subtest                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
   sourceQuestion   Question?                  @relation("StandaloneQuizItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?   @relation("StandaloneQuizItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
   promptAsset      Asset?                     @relation("StandaloneQuizItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
   explanationAsset Asset?                     @relation("StandaloneQuizItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
   options          StandaloneQuizItemOption[]
@@ -1345,9 +1435,11 @@ model StandaloneQuizItemOption {
   isCorrect              Boolean            @default(false) @map("is_correct")
   sortOrder              Int                @map("sort_order")
   sourceQuestionOptionId String?            @map("source_question_option_id") @db.Uuid
+  sourceQuestionRevisionOptionId String?    @map("source_question_revision_option_id") @db.Uuid
   assetId                String?            @map("asset_id") @db.Uuid
   quizItem               StandaloneQuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
   sourceQuestionOption   QuestionOption?    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevisionOption QuestionRevisionOption? @relation("StandaloneQuizItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict)
   asset                  Asset?             @relation("StandaloneQuizItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
   selectedInAnswers      StandaloneQuizAnswer[]
 
@@ -1504,12 +1596,16 @@ model ReusableQuestionPackageItem {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   packageId        String   @map("package_id") @db.Uuid
   sourceQuestionId String   @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String? @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest String? @map("source_content_digest") @db.VarChar(128)
+  sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
   sortOrder        Int      @map("sort_order")
   pointValue       Decimal  @map("point_value") @db.Decimal(6, 2)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   package        ReusableQuestionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
   sourceQuestion Question                @relation("ReusablePackageItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision? @relation("ReusablePackageItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
 
   @@unique([packageId, sourceQuestionId])
   @@unique([packageId, sortOrder])
@@ -1542,6 +1638,9 @@ model ReusableQuestionPackageVersionItem {
   id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   packageVersionId   String          @map("package_version_id") @db.Uuid
   sourceQuestionId   String          @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?   @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest String?       @map("source_content_digest") @db.VarChar(128)
+  sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
   sortOrder          Int             @map("sort_order")
   pointValue         Decimal         @map("point_value") @db.Decimal(6, 2)
   prompt             String          @db.Text
@@ -1553,6 +1652,7 @@ model ReusableQuestionPackageVersionItem {
 
   packageVersion   ReusableQuestionPackageVersion             @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
   sourceQuestion   Question                                   @relation("ReusablePackageVersionItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?                    @relation("ReusablePackageVersionItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
   subtest          Subtest                                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
   promptAsset      Asset?                                     @relation("ReusablePackageVersionItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
   explanationAsset Asset?                                     @relation("ReusablePackageVersionItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
@@ -1571,10 +1671,12 @@ model ReusableQuestionPackageVersionItemOption {
   isCorrect              Boolean @default(false) @map("is_correct")
   sortOrder              Int     @map("sort_order")
   sourceQuestionOptionId String? @map("source_question_option_id") @db.Uuid
+  sourceQuestionRevisionOptionId String? @map("source_question_revision_option_id") @db.Uuid
   assetId                String? @map("asset_id") @db.Uuid
 
   item                 ReusableQuestionPackageVersionItem @relation(fields: [packageVersionItemId], references: [id], onDelete: Cascade)
   sourceQuestionOption QuestionOption?                    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevisionOption QuestionRevisionOption?   @relation("ReusablePackageVersionItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict, map: "rqpvio_source_revision_option_fkey")
   asset                Asset?                             @relation("ReusablePackageVersionItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
 
   @@unique([packageVersionItemId, choiceKey], map: "reusable_package_version_option_key")
@@ -1738,6 +1840,9 @@ model TryoutItem {
   tryoutId           String          @map("tryout_id") @db.Uuid
   tryoutSectionId    String          @map("tryout_section_id") @db.Uuid
   sourceQuestionId   String?         @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?   @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest String?        @map("source_content_digest") @db.VarChar(128)
+  sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
   sortOrder          Int             @map("sort_order")
   points             Decimal         @default(1) @db.Decimal(6, 2)
   prompt             String          @db.Text
@@ -1753,6 +1858,7 @@ model TryoutItem {
   tryoutSection    TryoutSection                   @relation(fields: [tryoutSectionId], references: [id])
   tryout           TryoutPackage                   @relation(fields: [tryoutId], references: [id])
   sourceQuestion   Question?                       @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?         @relation("TryoutItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
   subtest          Subtest                         @relation(fields: [subtestId], references: [id], onDelete: Restrict)
   promptAsset      Asset?                          @relation("TryoutItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
   explanationAsset Asset?                          @relation("TryoutItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
@@ -1775,9 +1881,11 @@ model TryoutItemOption {
   isCorrect              Boolean         @default(false) @map("is_correct")
   sortOrder              Int             @map("sort_order")
   sourceQuestionOptionId String?         @map("source_question_option_id") @db.Uuid
+  sourceQuestionRevisionOptionId String? @map("source_question_revision_option_id") @db.Uuid
   assetId                String?         @map("asset_id") @db.Uuid
   item                   TryoutItem      @relation(fields: [tryoutItemId], references: [id], onDelete: Cascade)
   sourceQuestionOption   QuestionOption? @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevisionOption QuestionRevisionOption? @relation("TryoutItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict)
   asset                  Asset?          @relation("TryoutItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
   answers                TryoutAnswer[]
 
@@ -2343,6 +2451,9 @@ model Asset {
   questionPromptAssets                        Question[]                                 @relation("QuestionPromptAsset")
   questionExplanationAssets                   Question[]                                 @relation("QuestionExplanationAsset")
   questionOptionAssets                        QuestionOption[]                           @relation("QuestionOptionAsset")
+  questionRevisionPromptAssets                QuestionRevision[]                          @relation("QuestionRevisionPromptAsset")
+  questionRevisionExplanationAssets           QuestionRevision[]                          @relation("QuestionRevisionExplanationAsset")
+  questionRevisionOptionAssets                QuestionRevisionOption[]                    @relation("QuestionRevisionOptionAsset")
   standaloneQuizItemPromptAssets              StandaloneQuizItem[]                       @relation("StandaloneQuizItemPromptAsset")
   standaloneQuizItemExplanationAssets         StandaloneQuizItem[]                       @relation("StandaloneQuizItemExplanationAsset")
   standaloneQuizItemOptionAssets              StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionAsset")

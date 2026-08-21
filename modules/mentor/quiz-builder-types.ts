@@ -15,6 +15,9 @@ export type QuizQuestionSnapshot = {
   prompt: string;
   promptMediaAssetId?: string;
   sourceQuestionId?: string;
+  sourceQuestionRevisionId?: string;
+  sourceContentDigest?: string;
+  sourceRevisionProvenance?: "authored" | "legacy_provable" | "legacy_synthetic" | "legacy_unknown";
 };
 
 export type QuizScorePolicy = "highest" | "latest" | "first" | "average";

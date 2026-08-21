@@ -115,7 +115,7 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
           include: {
             sections: {
               include: {
-                packageVersion: { include: { items: { select: { sourceQuestionId: true, subtestId: true } } } },
+                packageVersion: { include: { items: { select: { sourceQuestionId: true, sourceQuestionRevisionId: true, subtestId: true } } } },
               },
             },
           },
@@ -131,8 +131,8 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
       if (section.testType === "cat") {
         checks.push((async () => {
           const items = section.packageVersion!.items;
-          if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
-          const calibrated = await tx.twoPlQuestionCalibration.count({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: { in: items.map((item) => item.sourceQuestionId) } } });
+          if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionRevisionId)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
+          const calibrated = await tx.twoPlQuestionCalibration.count({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: items.map((item) => item.sourceQuestionRevisionId!) } } });
           if (calibrated !== items.length) throw new TryoutDeliveryValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui.");
         })());
       }

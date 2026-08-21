@@ -86,6 +86,11 @@ type BankQuestion = {
   id: string;
   prompt: string;
   promptMediaAssetId?: string;
+  questionContentDigest?: string;
+  questionRevisionId?: string;
+  questionRevisionNo?: number;
+  questionRevisionProvenance?: "authored" | "legacy_provable" | "legacy_synthetic" | "legacy_unknown";
+  questionRevisionStatus?: "draft" | "review" | "ready" | "retired";
   subjectCode: string;
   tags: string[];
   topic?: string;

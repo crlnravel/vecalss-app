@@ -1,8 +1,17 @@
 import "server-only";
 
-import { ContentStatus, DifficultyLevel, Prisma } from "@/generated/prisma/client";
+import { randomUUID } from "node:crypto";
+import {
+  ContentStatus,
+  DifficultyLevel,
+  Prisma,
+  QuestionRevisionProvenance,
+  QuestionRevisionStatus,
+  QuestionType,
+} from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 
 import {
   assignQuestionBankCategories,
@@ -68,6 +77,11 @@ type BankQuestionDto = {
   id: string;
   prompt: string;
   promptMediaAssetId?: string;
+  questionContentDigest?: string;
+  questionRevisionId?: string;
+  questionRevisionNo?: number;
+  questionRevisionProvenance?: QuestionRevisionProvenance;
+  questionRevisionStatus?: QuestionRevisionStatus;
   subjectCode: string;
   status: ContentStatus;
   tags: string[];
@@ -128,6 +142,13 @@ const bankInclude = {
   folder: { select: { id: true, name: true } },
   questions: {
     include: {
+      currentRevision: {
+        include: {
+          explanationAsset: true,
+          options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
+          promptAsset: true,
+        },
+      },
       explanationAsset: true,
       options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
       promptAsset: true,
@@ -143,6 +164,13 @@ const bankCatalogInclude = {
 } satisfies Prisma.QuestionBankInclude;
 
 const sourceQuestionInclude = {
+  currentRevision: {
+    include: {
+      explanationAsset: true,
+      options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
+      promptAsset: true,
+    },
+  },
   explanationAsset: true,
   options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
   promptAsset: true,
@@ -152,6 +180,7 @@ const sourceQuestionInclude = {
 type BankQuestionRecord = Prisma.QuestionBankGetPayload<{ include: typeof bankInclude }>["questions"][number];
 type BankCatalogRecord = Prisma.QuestionBankGetPayload<{ include: typeof bankCatalogInclude }>;
 type SourceQuestionRecord = Prisma.QuestionGetPayload<{ include: typeof sourceQuestionInclude }>;
+type QuestionRevisionRecord = NonNullable<BankQuestionRecord["currentRevision"]>;
 
 type FolderRow = {
   id: string;
@@ -168,15 +197,21 @@ function toBankDifficulty(value: DifficultyLevel): "easy" | "medium" | "hard" {
 
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
 
-function isReadyBankQuestion(question: Pick<BankQuestionRecord, "status" | "stem" | "options" | "promptAsset" | "explanationAsset">) {
-  return Boolean(question.status === ContentStatus.published
-    && question.stem.trim()
-    && question.options.length >= 2
-    && question.options.length <= 5
-    && question.options.filter((option) => option.isCorrect).length === 1
-    && question.options.every((option) => option.content.trim() && isReadyAsset(option.asset))
-    && isReadyAsset(question.promptAsset)
-    && isReadyAsset(question.explanationAsset));
+type RevisionReadinessRecord = Pick<QuestionRevisionRecord, "status" | "stem" | "options" | "promptAsset" | "explanationAsset">;
+
+function isValidRevision(revision: Pick<RevisionReadinessRecord, "stem" | "options" | "promptAsset" | "explanationAsset"> | null) {
+  return Boolean(revision
+    && revision.stem.trim()
+    && revision.options.length >= 2
+    && revision.options.length <= 5
+    && revision.options.filter((option) => option.isCorrect).length === 1
+    && revision.options.every((option) => option.content.trim() && isReadyAsset(option.asset))
+    && isReadyAsset(revision.promptAsset)
+    && isReadyAsset(revision.explanationAsset));
+}
+
+function isReadyRevision(revision: RevisionReadinessRecord | null) {
+  return Boolean(revision?.status === QuestionRevisionStatus.ready && isValidRevision(revision));
 }
 
 type BankMetrics = {
@@ -185,19 +220,35 @@ type BankMetrics = {
   subjectCoverage: string[];
 };
 
-function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "options" | "subtest">, bankId: string): BankQuestionDto {
+function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "options" | "subtest" | "currentRevision">, bankId: string): BankQuestionDto {
+  const revision = question.currentRevision;
+  const options = revision?.options ?? question.options;
+  const stem = revision?.stem ?? question.stem;
+  const explanation = revision?.explanation ?? question.explanation;
+  const explanationAssetId = revision?.explanationAssetId ?? question.explanationAssetId;
+  const promptAssetId = revision?.promptAssetId ?? question.promptAssetId;
+  const status = revision?.status === QuestionRevisionStatus.ready
+    ? ContentStatus.published
+    : revision?.status === QuestionRevisionStatus.retired
+      ? ContentStatus.archived
+      : ContentStatus.draft;
   return {
     bankId,
-    choices: question.options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, text: option.content })),
-    correctChoiceId: question.options.find((option) => option.isCorrect)?.id ?? question.options[0]?.id ?? "",
-    difficulty: toBankDifficulty(question.difficulty),
-    explanation: question.explanation ?? "",
-    explanationMediaAssetId: question.explanationAssetId ?? undefined,
+    choices: options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, text: option.content })),
+    correctChoiceId: options.find((option) => option.isCorrect)?.id ?? options[0]?.id ?? "",
+    difficulty: toBankDifficulty(revision?.difficulty ?? question.difficulty),
+    explanation: explanation ?? "",
+    explanationMediaAssetId: explanationAssetId ?? undefined,
     id: question.id,
-    prompt: question.stem,
-    promptMediaAssetId: question.promptAssetId ?? undefined,
+    prompt: stem,
+    promptMediaAssetId: promptAssetId ?? undefined,
+    questionContentDigest: revision?.contentDigest,
+    questionRevisionId: revision?.id,
+    questionRevisionNo: revision?.revisionNo,
+    questionRevisionProvenance: revision?.provenance,
+    questionRevisionStatus: revision?.status,
     subjectCode: question.subtest?.code ?? "",
-    status: question.status,
+    status,
     tags: [] as string[],
   };
 }
@@ -236,35 +287,39 @@ async function getBankMetrics(bankIds: readonly string[]): Promise<Map<string, B
   const ids = Prisma.join(bankIds.map((id) => Prisma.sql`${id}::uuid`));
   const rows = await prisma.$queryRaw<Array<{ bankId: string; questionCount: number; readyCount: number; subjectCoverage: string[] | null }>>(Prisma.sql`
     WITH option_rollup AS (
-      SELECT q.id AS question_id,
-        COUNT(qo.id)::int AS option_count,
-        COUNT(qo.id) FILTER (WHERE qo.is_correct)::int AS correct_count,
-        COALESCE(BOOL_AND(BTRIM(qo.content) <> '' AND (qa.id IS NULL OR qa.state = 'ready')), TRUE) AS options_ready
+      SELECT r.id AS revision_id,
+        COUNT(ro.id)::int AS option_count,
+        COUNT(ro.id) FILTER (WHERE ro.is_correct)::int AS correct_count,
+        COALESCE(BOOL_AND(BTRIM(ro.content) <> '' AND (ra.id IS NULL OR ra.state = 'ready')), TRUE) AS options_ready
+      FROM question_revisions r
+      LEFT JOIN question_revision_options ro ON ro.question_revision_id = r.id
+      LEFT JOIN assets ra ON ra.id = ro.asset_id
+      GROUP BY r.id
+    ), active_revisions AS (
+      SELECT q.id AS question_id, q.question_bank_id, q.subtest_id, r.*, option_rollup.option_count,
+        option_rollup.correct_count, option_rollup.options_ready
       FROM questions q
-      LEFT JOIN question_options qo ON qo.question_id = q.id
-      LEFT JOIN assets qa ON qa.id = qo.asset_id
-      WHERE q.question_bank_id IN (${ids}) AND q.status <> ${ContentStatus.archived}
-      GROUP BY q.id
+      JOIN question_revisions r ON r.id = q.current_revision_id
+      JOIN option_rollup ON option_rollup.revision_id = r.id
+      WHERE q.question_bank_id IN (${ids}) AND q.status <> ${ContentStatus.archived} AND r.status <> 'retired'
     )
-    SELECT q.question_bank_id AS "bankId",
+    SELECT active_revisions.question_bank_id AS "bankId",
       COUNT(*)::int AS "questionCount",
       COUNT(*) FILTER (
-        WHERE q.status = ${ContentStatus.published}
-          AND BTRIM(q.stem) <> ''
-          AND option_rollup.option_count BETWEEN 2 AND 5
-          AND option_rollup.correct_count = 1
-          AND option_rollup.options_ready
+        WHERE active_revisions.status = 'ready'
+          AND BTRIM(active_revisions.stem) <> ''
+          AND active_revisions.option_count BETWEEN 2 AND 5
+          AND active_revisions.correct_count = 1
+          AND active_revisions.options_ready
           AND (pa.id IS NULL OR pa.state = 'ready')
           AND (ea.id IS NULL OR ea.state = 'ready')
       )::int AS "readyCount",
       ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.code) FILTER (WHERE s.code IS NOT NULL), NULL) AS "subjectCoverage"
-    FROM questions q
-    JOIN option_rollup ON option_rollup.question_id = q.id
-    LEFT JOIN subtests s ON s.id = q.subtest_id
-    LEFT JOIN assets pa ON pa.id = q.prompt_asset_id
-    LEFT JOIN assets ea ON ea.id = q.explanation_asset_id
-    WHERE q.question_bank_id IN (${ids}) AND q.status <> ${ContentStatus.archived}
-    GROUP BY q.question_bank_id
+    FROM active_revisions
+    LEFT JOIN subtests s ON s.id = active_revisions.subtest_id
+    LEFT JOIN assets pa ON pa.id = active_revisions.prompt_asset_id
+    LEFT JOIN assets ea ON ea.id = active_revisions.explanation_asset_id
+    GROUP BY active_revisions.question_bank_id
   `);
   return new Map(rows.map((row) => [row.bankId, {
     questionCount: Number(row.questionCount),
@@ -307,7 +362,7 @@ function toDto(
   // excluded from counts, readiness, and the editable question list.
   const activeQuestionRecords = bank.questions.filter((question) => question.status !== ContentStatus.archived);
   const questions: BankQuestionDto[] = activeQuestionRecords.map((question) => toBankQuestionDto(question, bank.id));
-  const ready = activeQuestionRecords.filter(isReadyBankQuestion).length;
+  const ready = activeQuestionRecords.filter((question) => isReadyRevision(question.currentRevision)).length;
   const subjectCoverage = [...new Set(
     activeQuestionRecords
       .map((question) => question.subtest?.code)
@@ -383,28 +438,34 @@ async function getQuestionBankForEdit(id: string) {
 }
 
 function buildReadySourceQuestionCondition(questionAlias: string, bankAlias: string | null = null): Prisma.Sql {
-  const bankCondition = bankAlias ? Prisma.sql`${Prisma.raw(`${questionAlias}.question_bank_id`)} = ${Prisma.raw(`${bankAlias}.id`)}` : Prisma.sql`TRUE`;
+  const bankCondition = bankAlias ? Prisma.sql`${Prisma.raw(`${questionAlias}.question_bank_id`)} = ${Prisma.raw(`${bankAlias}.id`)} AND ${Prisma.raw(`${bankAlias}.status`)} <> ${ContentStatus.archived}` : Prisma.sql`TRUE`;
+  const revisionAlias = `${questionAlias}_revision`;
   return Prisma.sql`
-    ${Prisma.raw(`${questionAlias}.status`)} = ${ContentStatus.published}
-    AND ${bankCondition}
-    AND BTRIM(${Prisma.raw(`${questionAlias}.stem`)}) <> ''
-    AND (SELECT COUNT(*) FROM question_options ro WHERE ro.question_id = ${Prisma.raw(`${questionAlias}.id`)}) BETWEEN 2 AND 5
-    AND (SELECT COUNT(*) FROM question_options rc WHERE rc.question_id = ${Prisma.raw(`${questionAlias}.id`)} AND rc.is_correct) = 1
-    AND NOT EXISTS (
-      SELECT 1 FROM question_options ri
-      LEFT JOIN assets ria ON ria.id = ri.asset_id
-      WHERE ri.question_id = ${Prisma.raw(`${questionAlias}.id`)}
-        AND (BTRIM(ri.content) = '' OR (ria.id IS NOT NULL AND ria.state <> 'ready'))
+    EXISTS (
+      SELECT 1
+      FROM question_revisions ${Prisma.raw(revisionAlias)}
+      WHERE ${Prisma.raw(`${revisionAlias}.id`)} = ${Prisma.raw(`${questionAlias}.current_revision_id`)}
+        AND ${Prisma.raw(`${revisionAlias}.status`)} = 'ready'
+        AND BTRIM(${Prisma.raw(`${revisionAlias}.stem`)}) <> ''
+        AND (SELECT COUNT(*) FROM question_revision_options ro WHERE ro.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)}) BETWEEN 2 AND 5
+        AND (SELECT COUNT(*) FROM question_revision_options rc WHERE rc.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)} AND rc.is_correct) = 1
+        AND NOT EXISTS (
+          SELECT 1 FROM question_revision_options ri
+          LEFT JOIN assets ria ON ria.id = ri.asset_id
+          WHERE ri.question_revision_id = ${Prisma.raw(`${revisionAlias}.id`)}
+            AND (BTRIM(ri.content) = '' OR (ria.id IS NOT NULL AND ria.state <> 'ready'))
+        )
+        AND (${Prisma.raw(`${revisionAlias}.prompt_asset_id`)} IS NULL OR EXISTS (SELECT 1 FROM assets rpa WHERE rpa.id = ${Prisma.raw(`${revisionAlias}.prompt_asset_id`)} AND rpa.state = 'ready'))
+        AND (${Prisma.raw(`${revisionAlias}.explanation_asset_id`)} IS NULL OR EXISTS (SELECT 1 FROM assets rea WHERE rea.id = ${Prisma.raw(`${revisionAlias}.explanation_asset_id`)} AND rea.state = 'ready'))
     )
-    AND (${Prisma.raw(`${questionAlias}.prompt_asset_id`)} IS NULL OR EXISTS (SELECT 1 FROM assets rpa WHERE rpa.id = ${Prisma.raw(`${questionAlias}.prompt_asset_id`)} AND rpa.state = 'ready'))
-    AND (${Prisma.raw(`${questionAlias}.explanation_asset_id`)} IS NULL OR EXISTS (SELECT 1 FROM assets rea WHERE rea.id = ${Prisma.raw(`${questionAlias}.explanation_asset_id`)} AND rea.state = 'ready'))
+    AND ${bankCondition}
   `;
 }
 
 function buildSourceBankWhereSql(options: ListQuestionBanksOptions = {}): Prisma.Sql {
   const conditions: Prisma.Sql[] = [
-    Prisma.sql`b.status = ${ContentStatus.published}`,
-    Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.question_bank_id = b.id AND ${buildReadySourceQuestionCondition("rq", "b")})`,
+    Prisma.sql`b.status <> ${ContentStatus.archived}`,
+    Prisma.sql`EXISTS (SELECT 1 FROM questions rq WHERE rq.question_bank_id = b.id AND rq.status <> ${ContentStatus.archived} AND ${buildReadySourceQuestionCondition("rq", "b")})`,
   ];
   const categoryIds = [...new Set(options.categoryIds ?? (options.categoryId ? [options.categoryId] : []))];
   if (options.folderId !== undefined) {
@@ -423,6 +484,7 @@ function buildSourceBankWhereSql(options: ListQuestionBanksOptions = {}): Prisma
       JOIN subtests ss ON ss.id = sq.subtest_id
       WHERE sq.question_bank_id = b.id
         AND sq.status <> ${ContentStatus.archived}
+        AND ${buildReadySourceQuestionCondition("sq", "b")}
         AND ss.code IN (${Prisma.join(options.subjectCoverage.map((code) => Prisma.sql`${code}`))})
     )`);
   }
@@ -487,6 +549,7 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
   const page = Math.max(1, options.page ?? 1);
   const questionConditions: Prisma.Sql[] = [
     Prisma.sql`q.question_bank_id = ${bankId}::uuid`,
+    Prisma.sql`q.status <> ${ContentStatus.archived}`,
     buildReadySourceQuestionCondition("q"),
   ];
   if (options.subjectCode) {
@@ -496,25 +559,26 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
   if (search) {
     const needle = `%${search}%`;
     questionConditions.push(Prisma.sql`(
-      q.stem ILIKE ${needle}
-      OR COALESCE(q.explanation, '') ILIKE ${needle}
-      OR EXISTS (SELECT 1 FROM question_options qso WHERE qso.question_id = q.id AND qso.content ILIKE ${needle})
+      qr.stem ILIKE ${needle}
+      OR COALESCE(qr.explanation, '') ILIKE ${needle}
+      OR EXISTS (SELECT 1 FROM question_revision_options qso WHERE qso.question_revision_id = q.current_revision_id AND qso.content ILIKE ${needle})
     )`);
   }
   const rows = await prisma.$queryRaw<Array<{ id: string; total: number }>>(Prisma.sql`
     SELECT q.id, COUNT(*) OVER()::int AS total
     FROM questions q
+    JOIN question_revisions qr ON qr.id = q.current_revision_id
     WHERE ${Prisma.join(questionConditions, " AND ")}
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
   `);
   const bank = await prisma.questionBank.findUnique({ where: { id: bankId }, include: bankCatalogInclude });
-  if (!bank || bank.status !== ContentStatus.published) return null;
+  if (!bank || bank.status === ContentStatus.archived) return null;
   const [folderRows, metrics] = await Promise.all([getFolderRows(), getBankMetrics([bankId])]);
   const bankDto = toCatalogDto(bank, folderRows, metrics.get(bankId) ?? { questionCount: 0, readyCount: 0, subjectCoverage: [] }).bank;
   const ids = rows.map((row) => row.id);
   if (!ids.length) {
-    const [{ total }] = await prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`SELECT COUNT(*)::int AS total FROM questions q WHERE ${Prisma.join(questionConditions, " AND ")}`);
+    const [{ total }] = await prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`SELECT COUNT(*)::int AS total FROM questions q JOIN question_revisions qr ON qr.id = q.current_revision_id WHERE ${Prisma.join(questionConditions, " AND ")}`);
     return { bank: bankDto, page, pageSize, questions: [], total: Number(total) };
   }
   const records = await prisma.question.findMany({ where: { id: { in: ids } }, include: sourceQuestionInclude });
@@ -533,6 +597,142 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
 
 async function listQuestionBankSources(options: ListQuestionBanksOptions = {}) {
   return (await listQuestionBankSourcePage({ ...options, page: 1, pageSize: 20 })).items;
+}
+
+type RevisionOptionWrite = {
+  assetId: string | null;
+  content: string;
+  isCorrect: boolean;
+  label: string;
+  sortOrder: number;
+};
+
+function revisionOptionWrites(input: BankQuestionInput): RevisionOptionWrite[] {
+  return input.choices.map((choice, optionIndex) => ({
+    assetId: choice.mediaAssetId || null,
+    content: choice.text,
+    isCorrect: choice.id === input.correctChoiceId,
+    label: String.fromCharCode(65 + optionIndex),
+    sortOrder: optionIndex,
+  }));
+}
+
+async function createQuestionRevision(
+  tx: Prisma.TransactionClient,
+  input: {
+    actorId: string;
+    id?: string;
+    options: RevisionOptionWrite[];
+    questionId: string;
+    revisionNo: number;
+    status?: QuestionRevisionStatus;
+    stem: string;
+    difficulty: DifficultyLevel;
+    explanation: string | null;
+    explanationAssetId: string | null;
+    promptAssetId: string | null;
+  },
+) {
+  const contentDigest = questionRevisionContentDigest({
+    difficulty: input.difficulty,
+    explanation: input.explanation,
+    explanationAssetId: input.explanationAssetId,
+    options: input.options,
+    prompt: input.stem,
+    promptAssetId: input.promptAssetId,
+    questionType: QuestionType.single_choice,
+  });
+  const revision = await tx.questionRevision.create({
+    data: {
+      id: input.id,
+      contentDigest,
+      createdByUserId: input.actorId,
+      difficulty: input.difficulty,
+      explanation: input.explanation,
+      explanationAssetId: input.explanationAssetId,
+      promptAssetId: input.promptAssetId,
+      provenance: QuestionRevisionProvenance.authored,
+      questionId: input.questionId,
+      revisionNo: input.revisionNo,
+      status: input.status ?? QuestionRevisionStatus.draft,
+      stem: input.stem,
+      updatedByUserId: input.actorId,
+    },
+  });
+  if (input.options.length) {
+    await tx.questionRevisionOption.createMany({
+      data: input.options.map((option) => ({ ...option, questionRevisionId: revision.id })),
+    });
+  }
+  return revision;
+}
+
+async function updateDraftQuestionRevision(
+  tx: Prisma.TransactionClient,
+  revision: QuestionRevisionRecord,
+  input: {
+    actorId: string;
+    options: RevisionOptionWrite[];
+    stem: string;
+    difficulty: DifficultyLevel;
+    explanation: string | null;
+    explanationAssetId: string | null;
+    promptAssetId: string | null;
+  },
+) {
+  const contentDigest = questionRevisionContentDigest({
+    difficulty: input.difficulty,
+    explanation: input.explanation,
+    explanationAssetId: input.explanationAssetId,
+    options: input.options,
+    prompt: input.stem,
+    promptAssetId: input.promptAssetId,
+    questionType: QuestionType.single_choice,
+  });
+  await tx.questionRevision.update({
+    where: { id: revision.id },
+    data: {
+      contentDigest,
+      difficulty: input.difficulty,
+      explanation: input.explanation,
+      explanationAssetId: input.explanationAssetId,
+      promptAssetId: input.promptAssetId,
+      stem: input.stem,
+      updatedByUserId: input.actorId,
+    },
+  });
+  await tx.questionRevisionOption.deleteMany({ where: { questionRevisionId: revision.id } });
+  if (input.options.length) {
+    await tx.questionRevisionOption.createMany({
+      data: input.options.map((option) => ({ ...option, questionRevisionId: revision.id })),
+    });
+  }
+  return { ...revision, contentDigest };
+}
+
+async function syncLegacyQuestionOptions(tx: Prisma.TransactionClient, questionId: string, existing: Array<{ id: string; sortOrder: number }>, options: RevisionOptionWrite[]) {
+  const retained = new Set<string>();
+  await Promise.all(options.map(async (option, optionIndex) => {
+    const old = existing.find((candidate) => candidate.sortOrder === optionIndex);
+    if (old) {
+      retained.add(old.id);
+      await tx.questionOption.update({ where: { id: old.id }, data: option });
+    } else {
+      const created = await tx.questionOption.create({ data: { ...option, questionId } });
+      retained.add(created.id);
+    }
+  }));
+  const extras = existing.filter((option) => !retained.has(option.id));
+  if (extras.length) {
+    await tx.questionOption.deleteMany({
+      where: {
+        id: { in: extras.map((option) => option.id) },
+        standaloneQuizItemOptions: { none: {} },
+        tryoutItemOptions: { none: {} },
+        reusablePackageVersionOptions: { none: {} },
+      },
+    });
+  }
 }
 
 async function saveQuestionBank(input: SaveBankInput, actorId: string) {
@@ -555,30 +755,70 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
 
     const subtests = await tx.subtest.findMany({ where: { code: { in: subjectCodes } } });
     const subtestByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
-    const existing = await tx.question.findMany({ where: { questionBankId: bankId }, include: { options: true } });
+    const existing = await tx.question.findMany({
+      where: { questionBankId: bankId },
+      include: {
+        currentRevision: {
+          include: {
+            explanationAsset: true,
+            options: { include: { asset: true }, orderBy: { sortOrder: "asc" } },
+            promptAsset: true,
+          },
+        },
+        options: true,
+      },
+    });
     const existingById = new Map(existing.map((question) => [question.id, question]));
     const retainedIds = new Set(
       await Promise.all(input.questions.map(async (question, questionIndex) => {
         const subtest = subtestByCode.get(question.subjectCode);
         if (!subtest) throw new QuestionBankError(`Subtest ${question.subjectCode} tidak ditemukan.`);
         const current = question.id ? existingById.get(question.id) : undefined;
-        const data = { difficulty: question.difficulty as DifficultyLevel, explanation: question.explanation.trim() || null, explanationAssetId: question.explanationMediaAssetId || null, promptAssetId: question.promptMediaAssetId || null, stem: question.prompt, subtestId: subtest.id, topicId: null, status, updatedByUserId: actorId };
-        const saved = current
-          ? await tx.question.update({ where: { id: current.id }, data: { ...data, revision: { increment: 1 } } })
-          : await tx.question.create({ data: { ...data, code: `${codeFromTitle(input.title)}-q${questionIndex + 1}`, createdByUserId: actorId, questionBankId: bankId } });
+        const options = revisionOptionWrites(question);
+        const data = {
+          difficulty: question.difficulty as DifficultyLevel,
+          explanation: question.explanation.trim() || null,
+          explanationAssetId: question.explanationMediaAssetId || null,
+          promptAssetId: question.promptMediaAssetId || null,
+          stem: question.prompt,
+          subtestId: subtest.id,
+          topicId: null,
+          status,
+          updatedByUserId: actorId,
+        };
 
-        await Promise.all(question.choices.map(async (choice, optionIndex) => {
-          const old = current?.options.find((option) => option.id === choice.id) ?? current?.options.find((option) => option.sortOrder === optionIndex);
-          const optionData = { assetId: choice.mediaAssetId || null, content: choice.text, isCorrect: choice.id === question.correctChoiceId || old?.id === question.correctChoiceId, label: String.fromCharCode(65 + optionIndex), sortOrder: optionIndex };
-          if (old) await tx.questionOption.update({ where: { id: old.id }, data: optionData });
-          else await tx.questionOption.create({ data: { ...optionData, questionId: saved.id } });
-        }));
-        const extras = current?.options.filter((option) => option.sortOrder >= question.choices.length) ?? [];
-        if (extras.length) await tx.questionOption.deleteMany({ where: { id: { in: extras.map((option) => option.id) }, standaloneQuizItemOptions: { none: {} }, tryoutItemOptions: { none: {} } } });
-        return saved.id;
+        if (!current) {
+          const revisionId = randomUUID();
+          const saved = await tx.question.create({
+            data: { ...data, code: `${codeFromTitle(input.title)}-q${questionIndex + 1}`, createdByUserId: actorId, currentRevisionId: revisionId, questionBankId: bankId },
+          });
+          const revision = await createQuestionRevision(tx, { actorId, difficulty: data.difficulty, explanation: data.explanation, explanationAssetId: data.explanationAssetId, id: revisionId, options, promptAssetId: data.promptAssetId, questionId: saved.id, revisionNo: 1, stem: data.stem });
+          await syncLegacyQuestionOptions(tx, saved.id, [], options);
+          await tx.question.update({ where: { id: saved.id }, data: { currentRevisionId: revision.id, revision: revision.revisionNo } });
+          return saved.id;
+        }
+
+        const currentRevision = current.currentRevision;
+        const requiresNewRevision = !currentRevision || currentRevision.status === QuestionRevisionStatus.ready || currentRevision.status === QuestionRevisionStatus.retired;
+        if (requiresNewRevision) {
+          const nextRevisionNo = (currentRevision?.revisionNo ?? current.revision) + 1;
+          const revision = await createQuestionRevision(tx, { actorId, difficulty: data.difficulty, explanation: data.explanation, explanationAssetId: data.explanationAssetId, options, promptAssetId: data.promptAssetId, questionId: current.id, revisionNo: nextRevisionNo, stem: data.stem });
+          await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: revision.id, revision: nextRevisionNo } });
+        } else {
+          await updateDraftQuestionRevision(tx, currentRevision, { actorId, difficulty: data.difficulty, explanation: data.explanation, explanationAssetId: data.explanationAssetId, options, promptAssetId: data.promptAssetId, stem: data.stem });
+          await syncLegacyQuestionOptions(tx, current.id, current.options, options);
+          await tx.question.update({ where: { id: current.id }, data: { ...data, currentRevisionId: currentRevision.id } });
+        }
+        return current.id;
       })),
     );
-    await tx.question.updateMany({ where: { questionBankId: bankId, id: { notIn: [...retainedIds] } }, data: { status: ContentStatus.archived, updatedByUserId: actorId } });
+    const removed = existing.filter((question) => !retainedIds.has(question.id));
+    for (const question of removed) {
+      if (question.currentRevision && question.currentRevision.status !== QuestionRevisionStatus.retired) {
+        await tx.questionRevision.update({ where: { id: question.currentRevision.id }, data: { retiredAt: new Date(), status: QuestionRevisionStatus.retired, updatedByUserId: actorId } });
+      }
+      await tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.archived, updatedByUserId: actorId } });
+    }
     const saved = await tx.questionBank.findUniqueOrThrow({ where: { id: bankId }, include: bankInclude });
     const folderRows = await getFolderRows(tx);
     return toDto(saved, folderRows);
@@ -590,9 +830,9 @@ async function updateQuestionBankLifecycle(id: string, operation: "publish" | "u
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
     const bank = await tx.questionBank.findUnique({ where: { id }, include: bankInclude });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.");
-    const activeQuestions = bank.questions.filter((question) => question.status !== ContentStatus.archived);
+    const activeQuestions = bank.questions.filter((question) => question.status !== ContentStatus.archived && question.currentRevision?.status !== QuestionRevisionStatus.retired);
     if (operation === "publish") {
-      if (!activeQuestions.length || activeQuestions.some((question) => !question.stem.trim() || question.options.length < 2 || question.options.length > 5 || question.options.some((option) => !option.content.trim()) || question.options.filter((option) => option.isCorrect).length !== 1 || !question.subtestId)) throw new QuestionBankError("Lengkapi minimal satu soal di setiap bank sebelum menerbitkannya.");
+      if (!activeQuestions.length || activeQuestions.some((question) => !question.subtestId || !isValidRevision(question.currentRevision))) throw new QuestionBankError("Lengkapi minimal satu soal di setiap bank sebelum menerbitkannya.");
     }
     const status = operation === "publish" ? ContentStatus.published : operation === "archive" ? ContentStatus.archived : ContentStatus.draft;
     const revision = bank.revision + 1;
@@ -601,18 +841,85 @@ async function updateQuestionBankLifecycle(id: string, operation: "publish" | "u
     // were intentionally removed remain archived; only active rows follow a
     // publish/unpublish transition. Archiving the bank itself does not erase
     // the active-question state needed for a safe restore.
-    if (operation !== "archive") {
-      await tx.question.updateMany({ where: { questionBankId: id, status: { not: ContentStatus.archived } }, data: { status, updatedByUserId: actorId } });
+    if (operation === "publish") {
+      for (const question of activeQuestions) {
+        if (question.currentRevision?.status !== QuestionRevisionStatus.ready) {
+          await tx.questionRevision.update({ where: { id: question.currentRevision!.id }, data: { readyAt: new Date(), status: QuestionRevisionStatus.ready, updatedByUserId: actorId } });
+        }
+        await tx.question.update({ where: { id: question.id }, data: { status: ContentStatus.published, updatedByUserId: actorId } });
+      }
+    } else if (operation === "archive") {
+      await tx.question.updateMany({ where: { questionBankId: id, status: { not: ContentStatus.archived } }, data: { status: ContentStatus.archived, updatedByUserId: actorId } });
+    } else if (operation === "restore") {
+      await tx.question.updateMany({ where: { questionBankId: id, status: ContentStatus.archived }, data: { status: ContentStatus.draft, updatedByUserId: actorId } });
     }
     return { id, revision, status };
   });
 }
 
-async function deleteQuestionBank(id: string) {
+type QuestionRevisionLifecycleStatus = "draft" | "review" | "ready" | "retired";
+
+async function updateQuestionRevisionLifecycle(id: string, targetStatus: QuestionRevisionLifecycleStatus, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const revision = await tx.questionRevision.findUnique({
+      where: { id },
+      include: {
+        options: { include: { asset: true }, orderBy: { sortOrder: "asc" } },
+        promptAsset: true,
+        explanationAsset: true,
+        question: { include: { questionBank: { select: { status: true } } } },
+      },
+    });
+    if (!revision) throw new QuestionBankError("Revisi soal tidak ditemukan.");
+
+    const target = targetStatus as QuestionRevisionStatus;
+    const current = revision.status;
+    const isCurrent = revision.question.currentRevisionId === revision.id;
+    if (current === QuestionRevisionStatus.retired && target !== QuestionRevisionStatus.retired) {
+      throw new QuestionBankError("Revisi yang sudah retired tidak dapat diaktifkan kembali.");
+    }
+    if (current === QuestionRevisionStatus.ready && target !== QuestionRevisionStatus.ready && target !== QuestionRevisionStatus.retired) {
+      throw new QuestionBankError("Revisi Ready tidak dapat diturunkan statusnya. Buat revisi baru untuk perubahan.");
+    }
+    if (target === QuestionRevisionStatus.ready) {
+      if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat dipindahkan ke Ready.");
+      if (!isValidRevision(revision)) throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.");
+    }
+    if (target === QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
+      throw new QuestionBankError("Hanya revisi Draft atau Review yang dapat masuk ke Draft.");
+    }
+    if (target === QuestionRevisionStatus.review && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
+      throw new QuestionBankError("Hanya revisi Draft yang dapat masuk ke Review.");
+    }
+
+    const now = new Date();
+    const updated = await tx.questionRevision.update({
+      where: { id: revision.id },
+      data: {
+        readyAt: target === QuestionRevisionStatus.ready ? (revision.readyAt ?? now) : null,
+        retiredAt: target === QuestionRevisionStatus.retired ? (revision.retiredAt ?? now) : null,
+        status: target,
+        updatedByUserId: actorId,
+      },
+    });
+    if (isCurrent) {
+      const questionStatus = target === QuestionRevisionStatus.ready
+        ? ContentStatus.published
+        : target === QuestionRevisionStatus.retired
+          ? ContentStatus.archived
+          : ContentStatus.draft;
+      await tx.question.update({ where: { id: revision.questionId }, data: { status: questionStatus, updatedByUserId: actorId } });
+    }
+    return { id: updated.id, questionId: revision.questionId, revisionNo: updated.revisionNo, status: updated.status };
+  });
+}
+
+async function deleteQuestionBank(id: string, actorId?: string) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${id}::uuid FOR UPDATE`;
-    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true } });
+    const bank = await tx.questionBank.findUnique({ where: { id }, select: { id: true, updatedByUserId: true } });
     if (!bank) throw new QuestionBankError("Bank Soal tidak ditemukan.");
+    const modifierId = actorId ?? bank.updatedByUserId;
 
     const [sourceQuizCount, adaptiveSessionCount, referencedQuestionCount, referencedOptionCount] = await Promise.all([
       tx.standaloneQuiz.count({ where: { sourceBankId: id } }),
@@ -646,9 +953,16 @@ async function deleteQuestionBank(id: string) {
       throw new QuestionBankError("Bank Soal tidak dapat dihapus karena sudah digunakan oleh Quiz, Tryout, atau sesi belajar.");
     }
 
-    await tx.questionOption.deleteMany({ where: { question: { questionBankId: id } } });
-    await tx.question.deleteMany({ where: { questionBankId: id } });
-    await tx.questionBank.delete({ where: { id } });
+    // Question identities and their revisions are historical authorities once
+    // the physical revision boundary exists. Keep them addressable and
+    // archive the bank instead of attempting a cascading delete that would
+    // destroy or orphan revision/source references.
+    await tx.questionRevision.updateMany({
+      where: { question: { questionBankId: id }, status: { not: QuestionRevisionStatus.retired } },
+      data: { retiredAt: new Date(), status: QuestionRevisionStatus.retired, updatedByUserId: modifierId },
+    });
+    await tx.question.updateMany({ where: { questionBankId: id }, data: { status: ContentStatus.archived, updatedByUserId: modifierId } });
+    await tx.questionBank.update({ where: { id }, data: { status: ContentStatus.archived, updatedByUserId: modifierId } });
     return { id };
   });
 }
@@ -680,6 +994,7 @@ export {
   renameQuestionBankFolder,
   saveQuestionBank,
   setQuestionBankCategories,
+  updateQuestionRevisionLifecycle,
   updateQuestionBankLifecycle,
 };
 export type {
@@ -694,5 +1009,6 @@ export type {
   QuestionBankSourceEntry,
   QuestionBankSourcePage,
   QuestionBankSourceQuestionPage,
+  QuestionRevisionLifecycleStatus,
   SaveBankInput,
 };

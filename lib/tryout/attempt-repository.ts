@@ -122,12 +122,12 @@ function snapshotSection(section: { id: string; durationSeconds: number; instruc
   };
 }
 
-async function catRunSnapshot(tx: Prisma.TransactionClient, section: { catItemCount: number | null; catModelVersion: string | null; id: string; items: Array<{ id: string; sourceQuestionId: string | null; sortOrder: number }>; subtestId: string }) {
-  if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || section.items.length < section.catItemCount || section.items.some((item) => !item.sourceQuestionId)) throw new TryoutAttemptValidationError("Pool CAT immutable tidak lengkap atau tidak memakai profil 2PL kanonis.");
-  const calibrations = await tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: { in: section.items.map((item) => item.sourceQuestionId!) } }, select: { difficulty: true, discrimination: true, questionId: true } });
+async function catRunSnapshot(tx: Prisma.TransactionClient, section: { catItemCount: number | null; catModelVersion: string | null; id: string; items: Array<{ id: string; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sortOrder: number }>; subtestId: string }) {
+  if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || section.items.length < section.catItemCount || section.items.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId)) throw new TryoutAttemptValidationError("Pool CAT immutable tidak lengkap atau tidak memakai profil 2PL kanonis.");
+  const calibrations = await tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: section.items.map((item) => item.sourceQuestionRevisionId!) } }, select: { difficulty: true, discrimination: true, questionRevisionId: true } });
   if (calibrations.length !== section.items.length) throw new TryoutAttemptValidationError("Pool CAT memiliki parameter 2PL kanonis yang belum disetujui.");
-  const calibrationByQuestion = new Map(calibrations.map((calibration) => [calibration.questionId, calibration]));
-  const parameters = section.items.map((item) => { const calibration = calibrationByQuestion.get(item.sourceQuestionId!); if (!calibration) throw new TryoutAttemptValidationError("Parameter CAT tidak ditemukan."); return { discrimination: Number(calibration.discrimination), difficulty: Number(calibration.difficulty), itemId: item.id, sortOrder: item.sortOrder }; });
+  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
+  const parameters = section.items.map((item) => { const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!); if (!calibration) throw new TryoutAttemptValidationError("Parameter CAT tidak ditemukan."); return { discrimination: Number(calibration.discrimination), difficulty: Number(calibration.difficulty), itemId: item.id, sortOrder: item.sortOrder }; });
   return { currentAbility: 0, initialAbility: 0, modelVersion: CANONICAL_2PL_MODEL_VERSION, parameters, selectedItemIds: [], updates: [] } satisfies CatSnapshot;
 }
 

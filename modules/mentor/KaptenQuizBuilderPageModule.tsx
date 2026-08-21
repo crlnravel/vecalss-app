@@ -118,7 +118,10 @@ function toSnapshot(question: BankQuestion, idPrefix: string): QuizQuestionSnaps
     origin: "bank",
     prompt: question.prompt,
     promptMediaAssetId: question.promptMediaAssetId,
+    sourceContentDigest: question.questionContentDigest,
     sourceQuestionId: question.id,
+    sourceQuestionRevisionId: question.questionRevisionId,
+    sourceRevisionProvenance: question.questionRevisionProvenance,
   };
 }
 

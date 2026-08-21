@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ContentStatus, DifficultyLevel, Prisma } from "@/generated/prisma/client";
+import { ContentStatus, DifficultyLevel, Prisma, QuestionRevisionStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
 import type {
@@ -80,6 +80,7 @@ function slugify(value: string) { return value.toLowerCase().trim().replace(/[^a
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
 
 const quizSourceInclude = {
+  currentRevision: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true } },
   explanationAsset: true,
   options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
   promptAsset: true,
@@ -92,13 +93,28 @@ function assertReadyBankSources(
   subtestCode: string,
   sourceBankId: string,
 ) {
-  if (!sources.length || sources.some((source) => source.questionBankId !== sourceBankId || source.questionBank?.status !== ContentStatus.published || source.status !== ContentStatus.published || source.subtest?.code !== subtestCode || source.options.length < 2 || source.options.length > 5 || source.options.filter((option) => option.isCorrect).length !== 1 || source.options.some((option) => !option.content.trim() || !isReadyAsset(option.asset)) || !source.stem.trim() || !isReadyAsset(source.promptAsset) || !isReadyAsset(source.explanationAsset))) {
-    throw new QuizValidationError("Quiz hanya dapat memakai soal siap dari satu Bank yang diterbitkan, dengan media siap dan Subtest yang sama.");
+  if (!sources.length || sources.some((source) => {
+    const revision = source.currentRevision;
+    const options = revision?.options ?? source.options;
+    return source.questionBankId !== sourceBankId
+      || source.questionBank?.status === ContentStatus.archived
+      || source.status === ContentStatus.archived
+      || revision?.status !== QuestionRevisionStatus.ready
+      || source.subtest?.code !== subtestCode
+      || options.length < 2
+      || options.length > 5
+      || options.filter((option) => option.isCorrect).length !== 1
+      || options.some((option) => !option.content.trim() || !isReadyAsset(option.asset))
+      || !revision?.stem.trim()
+      || !isReadyAsset(revision?.promptAsset ?? null)
+      || !isReadyAsset(revision?.explanationAsset ?? null);
+  })) {
+    throw new QuizValidationError("Quiz hanya dapat memakai soal siap dari satu Bank yang aktif, dengan media siap dan Subtest yang sama.");
   }
 }
 
 function toSnapshot(item: Prisma.StandaloneQuizItemGetPayload<{ include: { options: true } }>): QuizQuestionSnapshot {
-  return { choices: item.options.map((option) => ({ id: option.choiceKey, mediaAssetId: option.assetId ?? undefined, text: option.content })), correctChoiceId: item.options.find((option) => option.isCorrect)?.choiceKey ?? "", explanation: item.explanation ?? "", explanationMediaAssetId: item.explanationAssetId ?? undefined, id: item.id, origin: item.sourceQuestionId ? "bank" : "local", prompt: item.prompt, promptMediaAssetId: item.promptAssetId ?? undefined, sourceQuestionId: item.sourceQuestionId ?? undefined };
+  return { choices: item.options.map((option) => ({ id: option.choiceKey, mediaAssetId: option.assetId ?? undefined, text: option.content })), correctChoiceId: item.options.find((option) => option.isCorrect)?.choiceKey ?? "", explanation: item.explanation ?? "", explanationMediaAssetId: item.explanationAssetId ?? undefined, id: item.id, origin: item.sourceQuestionId ? "bank" : "local", prompt: item.prompt, promptMediaAssetId: item.promptAssetId ?? undefined, sourceContentDigest: item.sourceContentDigest ?? undefined, sourceQuestionId: item.sourceQuestionId ?? undefined, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined, sourceRevisionProvenance: item.sourceRevisionProvenance ?? undefined };
 }
 
 function toKaptenQuiz(record: Prisma.StandaloneQuizGetPayload<{ include: typeof quizInclude }>): KaptenQuiz {
@@ -139,7 +155,7 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
     if (input.sourceBankId && !sourceIds.length) {
       await tx.$queryRaw`SELECT id FROM question_banks WHERE id = ${input.sourceBankId}::uuid FOR SHARE`;
       const sourceBank = await tx.questionBank.findUnique({ where: { id: input.sourceBankId }, select: { status: true } });
-      if (!sourceBank || sourceBank.status !== ContentStatus.published) throw new QuizValidationError("Bank Soal sumber tidak lagi diterbitkan.");
+      if (!sourceBank || sourceBank.status === ContentStatus.archived) throw new QuizValidationError("Bank Soal sumber tidak lagi tersedia.");
     }
     const sources = sourceIds.length
       ? (await (async () => {
@@ -147,18 +163,25 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
         // Bank publish/archive writes take the same bank row, so a snapshot
         // cannot be built from a state that is concurrently being withdrawn.
         await tx.$queryRaw`SELECT q.id FROM questions q JOIN question_banks b ON b.id = q.question_bank_id WHERE q.id IN (${Prisma.join(sourceIds)}) AND b.id = ${input.sourceBankId}::uuid ORDER BY q.id FOR SHARE OF q, b`;
-        const lockedSources = await tx.question.findMany({ where: { id: { in: sourceIds }, questionBankId: input.sourceBankId, status: ContentStatus.published, subtestId: subtest.id, questionBank: { status: ContentStatus.published } }, include: quizSourceInclude });
+        const lockedSources = await tx.question.findMany({ where: { id: { in: sourceIds }, questionBankId: input.sourceBankId, subtestId: subtest.id, questionBank: { status: { not: ContentStatus.archived } } }, include: quizSourceInclude });
         if (lockedSources.length !== uniqueSourceIds.size) throw new QuizValidationError("Sebagian soal Bank tidak lagi tersedia atau tidak cocok dengan subject Quiz.");
         assertReadyBankSources(lockedSources, input.subjectCode, input.sourceBankId!);
+        for (const submitted of input.questions) {
+          if (submitted.origin !== "bank" || !submitted.sourceQuestionId || !submitted.sourceQuestionRevisionId) continue;
+          const source = lockedSources.find((candidate) => candidate.id === submitted.sourceQuestionId);
+          if (source?.currentRevision?.id !== submitted.sourceQuestionRevisionId) throw new QuizValidationError("Quiz harus memakai QuestionRevision Ready yang dipilih, bukan revisi lama.");
+        }
         return lockedSources;
       })())
       : [];
     const sourceById = new Map(sources.map((source) => [source.id, source]));
     await Promise.all(input.questions.map(async (submitted, index) => {
       const source = submitted.sourceQuestionId ? sourceById.get(submitted.sourceQuestionId) : null;
-      const choices = source ? source.options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, sourceId: option.id, text: option.content, correct: option.isCorrect })) : submitted.choices.map((choice) => ({ ...choice, sourceId: undefined, correct: choice.id === submitted.correctChoiceId }));
-      const item = await tx.standaloneQuizItem.create({ data: { difficulty: source?.difficulty ?? DifficultyLevel.medium, explanation: (source?.explanation ?? submitted.explanation) || null, explanationAssetId: (source?.explanationAssetId ?? submitted.explanationMediaAssetId) || null, prompt: source?.stem ?? submitted.prompt, promptAssetId: (source?.promptAssetId ?? submitted.promptMediaAssetId) || null, quizId: id!, sortOrder: index + 1, sourceQuestionId: source?.id ?? null, subtestId: subtest.id } });
-      await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: choice.correct, quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: choice.sourceId ?? null })) });
+      const revision = source?.currentRevision;
+      const sourceOptions = revision?.options ?? source?.options ?? [];
+      const choices = source ? sourceOptions.map((option, optionIndex) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, sourceId: source.options[optionIndex]?.id, sourceRevisionId: revision?.options[optionIndex]?.id, text: option.content, correct: option.isCorrect })) : submitted.choices.map((choice) => ({ ...choice, sourceId: undefined, sourceRevisionId: undefined, correct: choice.id === submitted.correctChoiceId }));
+      const item = await tx.standaloneQuizItem.create({ data: { difficulty: revision?.difficulty ?? source?.difficulty ?? DifficultyLevel.medium, explanation: (revision?.explanation ?? source?.explanation ?? submitted.explanation) || null, explanationAssetId: (revision?.explanationAssetId ?? source?.explanationAssetId ?? submitted.explanationMediaAssetId) || null, prompt: revision?.stem ?? source?.stem ?? submitted.prompt, promptAssetId: (revision?.promptAssetId ?? source?.promptAssetId ?? submitted.promptMediaAssetId) || null, quizId: id!, sortOrder: index + 1, sourceContentDigest: revision?.contentDigest ?? null, sourceQuestionId: source?.id ?? null, sourceQuestionRevisionId: revision?.id ?? null, sourceRevisionProvenance: revision?.provenance ?? null, subtestId: subtest.id } });
+      await tx.standaloneQuizItemOption.createMany({ data: choices.map((choice, optionIndex) => ({ assetId: choice.mediaAssetId || null, choiceKey: String.fromCharCode(65 + optionIndex), content: choice.text, isCorrect: choice.correct, quizItemId: item.id, sortOrder: optionIndex, sourceQuestionOptionId: choice.sourceId ?? null, sourceQuestionRevisionOptionId: choice.sourceRevisionId ?? null })) });
     }));
     const saved = await tx.standaloneQuiz.findUniqueOrThrow({ where: { id }, include: quizInclude });
     return toKaptenQuiz(saved);

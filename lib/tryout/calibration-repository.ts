@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, QuestionRevisionStatus } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
 
@@ -10,6 +10,7 @@ type TwoPlCalibrationInput = {
   discrimination: number;
   difficulty: number;
   questionId: string;
+  questionRevisionId?: string;
   reason: string;
 };
 
@@ -24,11 +25,15 @@ async function approveTwoPlCalibration(input: TwoPlCalibrationInput, actorId: st
   const difficulty = finite(input.difficulty, "Kesulitan");
   if (!reason || discrimination <= 0) throw new TryoutCalibrationValidationError("Alasan audit dan diskriminasi positif wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const question = await tx.question.findUnique({ where: { id: input.questionId }, select: { id: true, questionBankId: true, subtestId: true } });
+    const question = await tx.question.findUnique({ where: { id: input.questionId }, select: { id: true, questionBankId: true, subtestId: true, currentRevision: { select: { contentDigest: true, id: true, questionId: true, status: true } } } });
     if (!question?.questionBankId || !question.subtestId) throw new TryoutCalibrationValidationError("Hanya soal Bank dengan Subtest dapat dikalibrasi untuk CAT.");
-    const existing = await tx.twoPlQuestionCalibration.findUnique({ where: { questionId_modelVersion: { questionId: question.id, modelVersion: CANONICAL_2PL_MODEL_VERSION } } });
+    const revision = input.questionRevisionId
+      ? await tx.questionRevision.findUnique({ where: { id: input.questionRevisionId }, select: { contentDigest: true, id: true, questionId: true, status: true } })
+      : question.currentRevision;
+    if (!revision || revision.questionId !== question.id || revision.status !== QuestionRevisionStatus.ready) throw new TryoutCalibrationValidationError("Kalibrasi CAT harus terikat pada QuestionRevision Ready yang dipilih.");
+    const existing = await tx.twoPlQuestionCalibration.findUnique({ where: { questionRevisionId_modelVersion: { questionRevisionId: revision.id, modelVersion: CANONICAL_2PL_MODEL_VERSION } } });
     if (existing) throw new TryoutCalibrationValidationError("Kalibrasi 2PL kanonis untuk soal ini sudah ada dan tidak dapat diubah.");
-    return tx.twoPlQuestionCalibration.create({ data: { approvedByUserId: actorId, auditReason: reason, difficulty: new Prisma.Decimal(difficulty), discrimination: new Prisma.Decimal(discrimination), modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: question.id, recordedByUserId: actorId } });
+    return tx.twoPlQuestionCalibration.create({ data: { approvedByUserId: actorId, auditReason: reason, contentDigest: revision.contentDigest, difficulty: new Prisma.Decimal(difficulty), discrimination: new Prisma.Decimal(discrimination), modelVersion: CANONICAL_2PL_MODEL_VERSION, questionId: question.id, questionRevisionId: revision.id, recordedByUserId: actorId } });
   });
 }
 

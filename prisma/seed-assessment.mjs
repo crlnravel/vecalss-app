@@ -1,9 +1,32 @@
 import "dotenv/config";
 
+import { createHash, randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import pg from "pg";
 
 const { Client } = pg;
+
+function revisionDigest({ difficulty, explanation, options, stem }) {
+  const parts = [
+    "question-revision-digest-v1",
+    difficulty,
+    explanation ?? "",
+    "",
+    ...options.flatMap((option) => [
+      "",
+      option.content,
+      String(option.isCorrect),
+      option.label,
+      String(option.sortOrder),
+    ]),
+    stem,
+    "",
+    "single_choice",
+  ];
+  return createHash("sha256")
+    .update(parts.map((part) => Buffer.from(part, "utf8").toString("hex")).join(":"), "utf8")
+    .digest("hex");
+}
 
 const SUBJECTS = [
   { code: "PU", slug: "penalaran-umum", label: "Penalaran Umum" },
@@ -278,39 +301,99 @@ async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
     const questionResult = await client.query(
       `INSERT INTO questions (
          code, question_bank_id, subtest_id, stem, question_type, difficulty,
-         explanation, status, source, revision, created_by_user_id, updated_by_user_id
+         explanation, status, source, revision, current_revision_id,
+         created_by_user_id, updated_by_user_id
        )
-       VALUES ($1, $2, $3, $4, 'single_choice', $5::difficulty_level, $6, 'published', 'Tim Akademik Vecalss', 1, $7, $7)
+       VALUES ($1, $2, $3, $4, 'single_choice', $5::difficulty_level, $6, 'published', 'Tim Akademik Vecalss', 1, gen_random_uuid(), $7, $7)
        ON CONFLICT (code) DO UPDATE
          SET question_bank_id = EXCLUDED.question_bank_id,
              subtest_id = EXCLUDED.subtest_id,
-             stem = EXCLUDED.stem,
-             difficulty = EXCLUDED.difficulty,
-             explanation = EXCLUDED.explanation,
              status = 'published',
              source = EXCLUDED.source,
              updated_by_user_id = EXCLUDED.updated_by_user_id,
              updated_at = NOW()
-       RETURNING id`,
+       RETURNING id, current_revision_id, revision`,
       [question.code, bankId, subtestIds.get(question.subjectCode), question.stem, question.difficulty, question.explanation, tutorId],
     );
     const questionId = questionResult.rows[0].id;
+    const currentRevisionId = questionResult.rows[0].current_revision_id;
     const optionIds = [];
     for (const [optionIndex, content] of question.options.entries()) {
       const label = String.fromCharCode(65 + optionIndex);
       const optionResult = await client.query(
         `INSERT INTO question_options (question_id, label, content, is_correct, sort_order)
          VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (question_id, label) DO UPDATE
-           SET content = EXCLUDED.content,
-               is_correct = EXCLUDED.is_correct,
-               sort_order = EXCLUDED.sort_order
+         ON CONFLICT (question_id, label) DO NOTHING
          RETURNING id`,
         [questionId, label, content, optionIndex === question.correctIndex, optionIndex],
       );
-      optionIds.push(optionResult.rows[0].id);
+      optionIds.push(optionResult.rows[0]?.id);
     }
-    seeded.push({ ...question, id: questionId, optionIds, subtestId: subtestIds.get(question.subjectCode) });
+    const options = question.options.map((content, sortOrder) => ({ content, isCorrect: sortOrder === question.correctIndex, label: String.fromCharCode(65 + sortOrder), sortOrder }));
+    const contentDigest = revisionDigest({ difficulty: question.difficulty, explanation: question.explanation, options, stem: question.stem });
+    const currentRevision = await client.query(
+      `SELECT id, revision_no, content_digest
+         FROM question_revisions
+        WHERE id = $1`,
+      [currentRevisionId],
+    );
+    let revisionId = currentRevisionId;
+    let revisionNo = currentRevision.rows[0]?.revision_no ?? 0;
+    if (!currentRevision.rows[0] || currentRevision.rows[0].content_digest !== contentDigest) {
+      revisionId = currentRevision.rows[0] ? randomUUID() : currentRevisionId;
+      revisionNo += 1;
+      await client.query(
+        `INSERT INTO question_revisions (
+           id, question_id, revision_no, status, provenance, stem, question_type,
+           difficulty, explanation, content_digest, created_by_user_id,
+           updated_by_user_id, ready_at
+         ) VALUES ($1, $2, $3, 'draft', 'authored', $4, 'single_choice', $5::difficulty_level, $6, $7, $8, $8)`,
+        [revisionId, questionId, revisionNo, question.stem, question.difficulty, question.explanation, contentDigest, tutorId],
+      );
+      for (const option of options) {
+        await client.query(
+          `INSERT INTO question_revision_options (
+             question_revision_id, label, content, is_correct, sort_order
+           ) VALUES ($1, $2, $3, $4, $5)`,
+          [revisionId, option.label, option.content, option.isCorrect, option.sortOrder],
+        );
+      }
+      await client.query(
+        `UPDATE question_revisions
+            SET status = 'ready',
+                ready_at = NOW()
+          WHERE id = $1`,
+        [revisionId],
+      );
+      await client.query(
+        `UPDATE questions
+            SET current_revision_id = $1,
+                revision = $2,
+                stem = $3,
+                difficulty = $4::difficulty_level,
+                explanation = $5,
+                status = 'published',
+                updated_by_user_id = $6,
+                updated_at = NOW()
+          WHERE id = $7`,
+        [revisionId, revisionNo, question.stem, question.difficulty, question.explanation, tutorId, questionId],
+      );
+    }
+    const revisionOptionResult = await client.query(
+      `SELECT id
+         FROM question_revision_options
+        WHERE question_revision_id = $1
+        ORDER BY sort_order`,
+      [revisionId],
+    );
+    const existingOptionResult = await client.query(
+      `SELECT id
+         FROM question_options
+        WHERE question_id = $1
+        ORDER BY sort_order`,
+      [questionId],
+    );
+    seeded.push({ ...question, contentDigest, id: questionId, optionIds: existingOptionResult.rows.map((row, index) => optionIds[index] ?? row.id), revisionId, revisionOptionIds: revisionOptionResult.rows.map((row) => row.id), subtestId: subtestIds.get(question.subjectCode) });
   }
   return seeded;
 }
@@ -320,18 +403,18 @@ async function upsertCalibrations(client, tutorId, questions) {
   for (const [index, question] of questions.entries()) {
     await client.query(
       `INSERT INTO two_pl_question_calibrations (
-         question_id, model_version, discrimination, difficulty, approval_state,
+         question_id, question_revision_id, content_digest, model_version, discrimination, difficulty, approval_state,
          recorded_by_user_id, approved_by_user_id, approved_at, audit_reason
        )
-       VALUES ($1, '2pl-canonical-v1', $2, $3, 'approved', $4, $4, NOW(), $5)
-       ON CONFLICT (question_id, model_version) DO UPDATE
+       VALUES ($1, $2, $3, '2pl-canonical-v1', $4, $5, 'approved', $6, $6, NOW(), $7)
+       ON CONFLICT (question_revision_id, model_version) DO UPDATE
          SET discrimination = EXCLUDED.discrimination,
              difficulty = EXCLUDED.difficulty,
              approval_state = 'approved',
              approved_by_user_id = EXCLUDED.approved_by_user_id,
              approved_at = NOW(),
              audit_reason = EXCLUDED.audit_reason`,
-      [question.id, (1.05 + (index % 4) * 0.12).toFixed(2), difficultyByLevel[question.difficulty], tutorId, "Parameter latihan disetujui untuk demonstrasi alur CAT dan tidak digunakan sebagai acuan psikometrik produksi."],
+      [question.id, question.revisionId, question.contentDigest, (1.05 + (index % 4) * 0.12).toFixed(2), difficultyByLevel[question.difficulty], tutorId, "Parameter latihan disetujui untuk demonstrasi alur CAT dan tidak digunakan sebagai acuan psikometrik produksi."],
     );
   }
 }
@@ -359,12 +442,17 @@ async function seedReusablePackages(client, { bankId, questions, subtestIds, tut
     const packageId = packageResult.rows[0].id;
     for (const [index, question] of subjectQuestions.entries()) {
       await client.query(
-        `INSERT INTO reusable_question_package_items (package_id, source_question_id, sort_order, point_value)
-         VALUES ($1, $2, $3, 1)
+        `INSERT INTO reusable_question_package_items (
+           package_id, source_question_id, source_question_revision_id,
+           source_content_digest, source_revision_provenance, sort_order, point_value
+         ) VALUES ($1, $2, $3, $4, 'authored', $5, 1)
          ON CONFLICT (package_id, source_question_id) DO UPDATE
-           SET sort_order = EXCLUDED.sort_order,
+           SET source_question_revision_id = EXCLUDED.source_question_revision_id,
+               source_content_digest = EXCLUDED.source_content_digest,
+               source_revision_provenance = EXCLUDED.source_revision_provenance,
+               sort_order = EXCLUDED.sort_order,
                point_value = EXCLUDED.point_value`,
-        [packageId, question.id, index + 1],
+        [packageId, question.id, question.revisionId, question.contentDigest, index + 1],
       );
     }
 
@@ -388,17 +476,19 @@ async function seedReusablePackages(client, { bankId, questions, subtestIds, tut
         const itemResult = await client.query(
           `INSERT INTO reusable_question_package_version_items (
              package_version_id, source_question_id, sort_order, point_value,
+             source_question_revision_id, source_content_digest, source_revision_provenance,
              prompt, explanation, difficulty, subtest_id
-           ) VALUES ($1, $2, $3, 1, $4, $5, $6::difficulty_level, $7)
+           ) VALUES ($1, $2, $3, 1, $4, $5, 'authored', $6, $7, $8::difficulty_level, $9)
            RETURNING id`,
-          [version.id, question.id, index + 1, question.stem, question.explanation, question.difficulty, question.subtestId],
+          [version.id, question.id, index + 1, question.revisionId, question.contentDigest, question.stem, question.explanation, question.difficulty, question.subtestId],
         );
         for (const [optionIndex, content] of question.options.entries()) {
           await client.query(
             `INSERT INTO reusable_question_package_version_item_options (
-               package_version_item_id, choice_key, content, is_correct, sort_order, source_question_option_id
-             ) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, question.optionIds[optionIndex]],
+               package_version_item_id, choice_key, content, is_correct, sort_order,
+               source_question_option_id, source_question_revision_option_id
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, question.optionIds[optionIndex], question.revisionOptionIds[optionIndex]],
           );
         }
       }
@@ -460,17 +550,19 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
         const itemResult = await client.query(
           `INSERT INTO standalone_quiz_items (
              quiz_id, sort_order, prompt, explanation, difficulty, subtest_id,
-             source_question_id, idempotency_key
-           ) VALUES ($1, $2, $3, $4, $5::difficulty_level, $6, $7, $8)
+             source_question_id, source_question_revision_id, source_content_digest,
+             source_revision_provenance, idempotency_key
+           ) VALUES ($1, $2, $3, $4, $5::difficulty_level, $6, $7, $8, $9, 'authored', $10)
            RETURNING id`,
-          [quizId, index + 1, question.stem, question.explanation, question.difficulty, question.subtestId, question.id, `seed:demo:quiz-item:${subject.code.toLowerCase()}:${index + 1}`],
+          [quizId, index + 1, question.stem, question.explanation, question.difficulty, question.subtestId, question.id, question.revisionId, question.contentDigest, `seed:demo:quiz-item:${subject.code.toLowerCase()}:${index + 1}`],
         );
         for (const [optionIndex, content] of question.options.entries()) {
           await client.query(
             `INSERT INTO standalone_quiz_item_options (
-               quiz_item_id, choice_key, content, is_correct, sort_order, source_question_option_id
-             ) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, question.optionIds[optionIndex]],
+               quiz_item_id, choice_key, content, is_correct, sort_order,
+               source_question_option_id, source_question_revision_option_id
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [itemResult.rows[0].id, String.fromCharCode(65 + optionIndex), content, optionIndex === question.correctIndex, optionIndex, question.optionIds[optionIndex], question.revisionOptionIds[optionIndex]],
           );
         }
       }
@@ -641,7 +733,9 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
       );
       const versionItems = await client.query(
         `SELECT items.id, items.source_question_id, items.sort_order, items.point_value,
-                items.prompt, items.explanation, items.difficulty, items.subtest_id
+                items.source_question_revision_id, items.source_content_digest,
+                items.source_revision_provenance, items.prompt, items.explanation,
+                items.difficulty, items.subtest_id
            FROM reusable_question_package_version_items items
           WHERE items.package_version_id = $1
           ORDER BY items.sort_order`,
@@ -650,15 +744,17 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
       for (const versionItem of versionItems.rows) {
         const itemResult = await client.query(
           `INSERT INTO tryout_items (
-             tryout_id, tryout_section_id, source_question_id, sort_order, points,
+             tryout_id, tryout_section_id, source_question_id, source_question_revision_id,
+             source_content_digest, source_revision_provenance, sort_order, points,
              prompt, explanation, difficulty, subtest_id, package_code,
              idempotency_key, package_version_id
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           ) VALUES ($1, $2, $3, $4, $5, $6::question_revision_provenance, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            RETURNING id`,
-          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, `PKG-${subject.code}-EVALUASI`, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, versionIds.get(subject.code)],
+          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.source_question_revision_id, versionItem.source_content_digest, versionItem.source_revision_provenance, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, `PKG-${subject.code}-EVALUASI`, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, versionIds.get(subject.code)],
         );
         const versionOptions = await client.query(
-          `SELECT choice_key, content, is_correct, sort_order, source_question_option_id
+          `SELECT choice_key, content, is_correct, sort_order, source_question_option_id,
+                  source_question_revision_option_id
              FROM reusable_question_package_version_item_options
             WHERE package_version_item_id = $1
             ORDER BY sort_order`,
@@ -667,9 +763,10 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
         for (const option of versionOptions.rows) {
           await client.query(
             `INSERT INTO tryout_item_options (
-               tryout_item_id, choice_key, content, is_correct, sort_order, source_question_option_id
-             ) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [itemResult.rows[0].id, option.choice_key, option.content, option.is_correct, option.sort_order, option.source_question_option_id],
+               tryout_item_id, choice_key, content, is_correct, sort_order,
+               source_question_option_id, source_question_revision_option_id
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [itemResult.rows[0].id, option.choice_key, option.content, option.is_correct, option.sort_order, option.source_question_option_id, option.source_question_revision_option_id],
           );
         }
       }
