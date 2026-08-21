@@ -4,10 +4,10 @@
 
 - Objective: preserve the completed AS-03 normalized Attempt/Scoring/Release
   states for canonical StandaloneQuiz and Tryout only; do not start AS-09.
-- Workspace: main at b9cff36 (AS-03 implementation is cb1eb8f; hardening is
-  7f60c43), with unrelated
-  preview/harness/document changes present. Preserve those changes; all AS-03
-  paths below are committed by explicit pathspec.
+- Workspace: main with AS-03 implementation `cb1eb8f` and hardening `7f60c43`,
+  plus the durable handoff docs in this file. Unrelated preview/harness/
+  document changes are present; preserve them. All AS-03 paths are committed
+  by explicit pathspec.
 - AS-03 migration: prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql
   remains pending. No configured external database mutation was performed in
   this continuation; the migration was replayed only in an isolated local DB.
