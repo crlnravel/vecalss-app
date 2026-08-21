@@ -1,0 +1,84 @@
+---
+role: agent-instruction
+scope: task-routing
+description: Task-to-file mapping
+---
+
+# Routing
+
+Route to the minimum files needed for each task type. Read this file first to decide what to load.
+
+## New feature
+
+1. Read `_harness/readme.md` for project orientation
+2. Read `Vecalss LMS Specifications.md` for relevant use case(s)
+3. Read `_harness/catalog.md` to locate affected directories
+4. Read `_harness/rules.md` for constraints and confirmation gates
+5. Read `_harness/workflow.md` for the feature development procedure
+6. Read `DESIGN.md` if the feature includes UI
+7. Read `_harness/memory/project.md` for relevant settled decisions
+
+## Bug fix
+
+1. Read `_harness/catalog.md` to locate the affected area
+2. Read the failing code and related tests
+3. Read `_harness/rules.md` for confirmation boundaries
+4. Read `_harness/workflow.md` § Verification for the completion checklist
+
+## UI work
+
+1. Read `DESIGN.md` and `design-tokens/palette.mjs` for visual decisions
+2. Read `_harness/catalog.md` to locate `modules/`, `components/ui/`, relevant routes
+3. Read `PRODUCT.md` for product context and terminology
+4. Read `_harness/rules.md` § UI and design constraints
+5. If the UI involves a new user flow, read `Vecalss LMS Specifications.md` for the relevant use case
+
+## Schema / database change
+
+1. Read `prisma/schema.prisma` for the current model
+2. Read `_harness/rules.md` § Protected areas (migration history rules)
+3. Read `_harness/workflow.md` § Prisma migration procedure
+4. Read the relevant `lib/` domain code for affected services
+5. Read `Vecalss LMS Specifications.md` if the change affects a use case contract
+
+## Testing
+
+1. Read `_harness/catalog.md` to locate `scripts/` and relevant test scripts
+2. Read `_harness/workflow.md` § Verification
+3. Read the code under test in `lib/`, `modules/`, or `app/`
+4. Read `package.json` for available `test:*` scripts
+
+## Refactoring
+
+1. Read `_harness/catalog.md` to understand the affected module boundaries
+2. Read `_harness/rules.md` § Code quality policy and § Autonomy model
+3. Read the code to refactor and its immediate dependents
+4. Read `_harness/workflow.md` § Verification for completion criteria
+
+## Documentation update
+
+1. Read the target document
+2. Read `_harness/rules.md` § Protected areas (some docs require confirmation)
+3. If updating harness files, read `_harness/rules.md` § Harness evolution
+
+## Task-to-directory quick reference
+
+| Task area | Primary directories |
+|---|---|
+| Authentication & sessions | `lib/auth/`, `modules/auth/`, `app/login/`, `app/forgot-password/`, `app/reset-password/` |
+| Student onboarding | `modules/student/`, `app/onboarding/` |
+| Dashboard | `modules/dashboard/`, `app/dashboard/` |
+| Materi / courses | `lib/materi/`, `modules/courses/`, `app/courses/` |
+| Quiz | `lib/quiz/`, `modules/quiz/`, `app/quiz/` |
+| Tryout | `lib/tryout/`, `modules/tryout/`, `app/tryout/` |
+| Admin enrollment & ops | `lib/admin/`, `modules/admin/`, `app/admin/` |
+| Kapten / mentor | `modules/mentor/`, `app/mentor/` |
+| Notifications | `lib/notifications/`, `app/notifications/` |
+| Media | `lib/media/`, `modules/media/` |
+| Landing / marketing | `modules/home/`, `modules/about/`, `app/about/`, `app/faq/` |
+| Vera AI | `modules/vera-ai/`, `app/vera-ai/` |
+| Design tokens & styling | `design-tokens/`, `DESIGN.md`, `app/globals.css` |
+| Database schema | `prisma/schema.prisma`, `prisma/migrations/` |
+| Seeds & fixtures | `prisma/seed.mjs`, `prisma/seed-assessment.mjs`, `prisma/materi-seed.mjs` |
+| Background workers | `workers/` |
+| Shared UI primitives | `components/ui/` |

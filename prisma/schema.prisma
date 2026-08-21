@@ -1514,12 +1514,23 @@ model StandaloneQuizAttempt {
   participationId String       @map("participation_id") @db.Uuid
   attemptNo      Int           @map("attempt_no")
   status         AttemptStatus @default(in_progress)
+  attemptState   AssessmentAttemptState @default(in_progress) @map("attempt_state")
+  scoringState   AssessmentScoringState @default(pending) @map("scoring_state")
+  releaseState   AssessmentResultReleaseState @default(hidden) @map("release_state")
   startRequestId String?       @map("start_request_id") @db.Uuid
   policySnapshot Json          @map("policy_snapshot") @db.JsonB
   formItemOrder  Json          @map("form_item_order") @db.JsonB
   formSnapshot   Json?         @map("form_snapshot") @db.JsonB
   correctCount   Int?          @map("correct_count")
+  wrongCount     Int?          @map("wrong_count")
+  unansweredCount Int?         @map("unanswered_count")
+  maxPoints      Decimal?      @map("max_points") @db.Decimal(8, 2)
+  earnedPoints   Decimal?      @map("earned_points") @db.Decimal(8, 2)
   score          Int?
+  scoringVersion String?       @map("scoring_version") @db.VarChar(120)
+  scoringProvenance AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
+  scoringReviewReason String?  @map("scoring_review_reason") @db.Text
+  releaseAt      DateTime?     @map("release_at") @db.Timestamptz
   submittedAt    DateTime?     @map("submitted_at") @db.Timestamptz
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -1538,6 +1549,9 @@ model StandaloneQuizAnswer {
   attemptId        String                @map("attempt_id") @db.Uuid
   quizItemId       String                @map("quiz_item_id") @db.Uuid
   selectedOptionId String                @map("selected_option_id") @db.Uuid
+  isCorrect        Boolean?              @map("is_correct")
+  pointsAwarded    Decimal?              @map("points_awarded") @db.Decimal(8, 2)
+  scoringVersion   String?               @map("scoring_version") @db.VarChar(120)
   createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1775,6 +1789,8 @@ model TryoutDeliverySession {
   updatedAt                 DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   releasedAt                DateTime?                   @map("released_at") @db.Timestamptz
   releasedByUserId          String?                     @map("released_by_user_id") @db.Uuid
+  releaseState               AssessmentResultReleaseState @default(hidden) @map("release_state")
+  releaseReason              String?                     @map("release_reason") @db.Text
 
   tryout      TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
   createdBy   User                       @relation("TryoutDeliverySessionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
@@ -1946,11 +1962,24 @@ model TryoutAttempt {
   admissionId            String        @map("admission_id") @db.Uuid
   studentId              String        @map("student_id") @db.Uuid
   status                 AttemptStatus @default(in_progress)
+  attemptState           AssessmentAttemptState @default(in_progress) @map("attempt_state")
+  scoringState           AssessmentScoringState @default(pending) @map("scoring_state")
+  releaseState           AssessmentResultReleaseState @default(hidden) @map("release_state")
   serverStartedAt        DateTime      @map("server_started_at") @db.Timestamptz
   serverDeadlineAt       DateTime      @map("server_deadline_at") @db.Timestamptz
   submittedAt            DateTime?     @map("submitted_at") @db.Timestamptz
   autoSubmittedAt        DateTime?     @map("auto_submitted_at") @db.Timestamptz
+  correctCount            Int?          @map("correct_count")
+  wrongCount              Int?          @map("wrong_count")
+  unansweredCount        Int?          @map("unanswered_count")
+  rawScore                Decimal?      @map("raw_score") @db.Decimal(10, 4)
+  scaledScore             Decimal?      @map("scaled_score") @db.Decimal(7, 2)
+  normalizedScore         Decimal?      @map("normalized_score") @db.Decimal(7, 2)
   score                  Decimal?      @db.Decimal(7, 2)
+  scoringVersion          String?       @map("scoring_version") @db.VarChar(120)
+  scoringProvenance       AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
+  scoringReviewReason     String?       @map("scoring_review_reason") @db.Text
+  releaseAt               DateTime?     @map("release_at") @db.Timestamptz
   percentileNational     Decimal?      @map("percentile_national") @db.Decimal(5, 2)
   percentileCohort       Decimal?      @map("percentile_cohort") @db.Decimal(5, 2)
   disconnectStartedAt    DateTime?     @map("disconnect_started_at") @db.Timestamptz
@@ -1986,6 +2015,7 @@ model TryoutAttemptTestRun {
   tryoutSectionId    String                     @map("tryout_section_id") @db.Uuid
   sequenceNo         Int                        @map("sequence_no")
   status             TryoutAttemptTestRunStatus @default(pending)
+  scoringState       AssessmentScoringState      @default(pending) @map("scoring_state")
   serverStartedAt    DateTime?                  @map("server_started_at") @db.Timestamptz
   serverDeadlineAt   DateTime?                  @map("server_deadline_at") @db.Timestamptz
   sealedAt           DateTime?                  @map("sealed_at") @db.Timestamptz
@@ -1993,6 +2023,16 @@ model TryoutAttemptTestRun {
   calculationInput   Json?                      @map("calculation_input") @db.JsonB
   calculationResult  Json?                      @map("calculation_result") @db.JsonB
   calculationVersion String?                    @map("calculation_version") @db.VarChar(120)
+  scoringVersion     String?                    @map("scoring_version") @db.VarChar(120)
+  scoringProvenance  AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
+  scoringReviewReason String?                   @map("scoring_review_reason") @db.Text
+  correctCount       Int?                       @map("correct_count")
+  wrongCount         Int?                       @map("wrong_count")
+  unansweredCount    Int?                       @map("unanswered_count")
+  rawScore           Decimal?                   @map("raw_score") @db.Decimal(10, 4)
+  maxScore           Decimal?                   @map("max_score") @db.Decimal(10, 4)
+  scaledScore        Decimal?                   @map("scaled_score") @db.Decimal(7, 2)
+  normalizedScore    Decimal?                   @map("normalized_score") @db.Decimal(7, 2)
   catState           TryoutCatRunState           @default(not_applicable) @map("cat_state")
   catSnapshot        Json?                       @map("cat_snapshot") @db.JsonB
   catFailureReason   String?                     @map("cat_failure_reason") @db.Text
@@ -2053,6 +2093,7 @@ model TryoutAnswer {
   answerText       String?   @map("answer_text") @db.Text
   isCorrect        Boolean?  @map("is_correct")
   pointsAwarded    Decimal?  @map("points_awarded") @db.Decimal(6, 2)
+  scoringVersion   String?   @map("scoring_version") @db.VarChar(120)
   answeredAt       DateTime? @map("answered_at") @db.Timestamptz
   syncedAt         DateTime? @map("synced_at") @db.Timestamptz
 
@@ -2075,6 +2116,9 @@ model TryoutScoreBreakdown {
   unansweredCount Int      @default(0) @map("unanswered_count")
   rawScore        Decimal? @map("raw_score") @db.Decimal(7, 2)
   scaledScore     Decimal? @map("scaled_score") @db.Decimal(7, 2)
+  normalizedScore Decimal? @map("normalized_score") @db.Decimal(7, 2)
+  scoringVersion  String?  @map("scoring_version") @db.VarChar(120)
+  scoringProvenance AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
 
   attempt TryoutAttempt @relation(fields: [attemptId], references: [id])
   subtest Subtest       @relation(fields: [subtestId], references: [id])
