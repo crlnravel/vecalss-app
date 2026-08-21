@@ -32,7 +32,7 @@ async function approveTwoPlCalibration(input: TwoPlCalibrationInput, actorId: st
       : question.currentRevision;
     if (!revision || revision.questionId !== question.id || revision.status !== QuestionRevisionStatus.ready) throw new TryoutCalibrationValidationError("Kalibrasi CAT harus terikat pada QuestionRevision Ready yang dipilih.");
     const existing = await tx.twoPlQuestionCalibration.findUnique({ where: { questionRevisionId_modelVersion: { questionRevisionId: revision.id, modelVersion: CANONICAL_2PL_MODEL_VERSION } } });
-    if (existing?.approvalState === "approved") throw new TryoutCalibrationValidationError("Kalibrasi 2PL kanonis untuk soal ini sudah ada dan tidak dapat diubah.");
+    if (existing?.approvalState === "approved" && existing.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown) throw new TryoutCalibrationValidationError("Kalibrasi 2PL kanonis untuk soal ini sudah ada dan tidak dapat diubah.");
     if (existing) {
       return tx.twoPlQuestionCalibration.update({
         where: { id: existing.id },
