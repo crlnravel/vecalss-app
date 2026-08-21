@@ -76,4 +76,4 @@
 
 ## Notes for Next Session
 
-Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`, and all migrations are applied. The configured database was intentionally reset/reseeded after explicit approval; preserve the unrelated staged preview/document changes. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data again without explicit approval.
+Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`, and all migrations are applied. The configured database was intentionally reset/reseeded after explicit approval; preserve unrelated preview/harness/document history. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data again without explicit approval.

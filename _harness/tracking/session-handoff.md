@@ -11,7 +11,8 @@
 - AS-03 migration:
   `prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql`
   was applied to the configured external database after backup/rollback approval.
-  The unrelated admin-preview migration remains pending.
+  The unrelated admin-preview migration was also applied during the approved
+  full reset/reseed.
 - Runtime hardening completed:
   - Tryout run snapshots now include explanation text and explanationAssetId.
   - Final seven-run sealing calls materializeTryoutAttemptInTransaction inside
