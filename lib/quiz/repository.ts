@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ContentStatus, DifficultyLevel, Prisma, QuestionRevisionStatus } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, ContentStatus, DifficultyLevel, Prisma, QuestionRevisionStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { KaptenQuiz } from "@/modules/mentor/mock-data";
 import type {
@@ -39,6 +39,7 @@ type SaveStandaloneQuizInput = {
   title: string;
 };
 class QuizValidationError extends Error {}
+const KUIS_SCORING_VERSION = "kuis-frozen-form-v1";
 const quizInclude = { items: { include: { options: { orderBy: { sortOrder: "asc" as const } } }, orderBy: { sortOrder: "asc" as const } }, sourceBank: true, subtest: true } satisfies Prisma.StandaloneQuizInclude;
 
 const scorePolicies = ["highest", "latest", "first", "average"] as const;
@@ -201,10 +202,18 @@ async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
               attemptNo: true,
               correctCount: true,
               createdAt: true,
+              earnedPoints: true,
               id: true,
+              releaseAt: true,
+              releaseState: true,
               score: true,
+              scoringProvenance: true,
+              scoringState: true,
+              scoringVersion: true,
               status: true,
               submittedAt: true,
+              unansweredCount: true,
+              wrongCount: true,
             },
             orderBy: { attemptNo: "desc" },
           },
@@ -227,12 +236,20 @@ async function getMentorStandaloneQuizResults(quizId: string, tutorId: string) {
         createdAt: attempt.createdAt.toISOString(),
         aggregateScore: finalScore,
         finalScore,
+        earnedPoints: attempt.earnedPoints === null ? null : Number(attempt.earnedPoints),
         id: attempt.id,
         participationId: participation.id,
+        releaseAt: attempt.releaseAt?.toISOString() ?? null,
+        releaseState: attempt.releaseState,
         score: attempt.score,
+        scoringProvenance: attempt.scoringProvenance,
+        scoringState: attempt.scoringState,
+        scoringVersion: attempt.scoringVersion,
         status: attempt.status,
         student: { name: participation.student.fullName?.trim() || "Siswa tanpa nama" },
         submittedAt: attempt.submittedAt?.toISOString() ?? null,
+        unansweredCount: attempt.unansweredCount,
+        wrongCount: attempt.wrongCount,
       }));
     }),
     quiz: {
@@ -284,7 +301,12 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
       prompt: item.prompt,
       selectedOptionId: selectedOptionByItem.get(item.id) ?? null,
     })),
+    releaseAt: attempt.releaseAt?.toISOString() ?? null,
+    releaseState: attempt.releaseState,
     score: attempt.score,
+    scoringProvenance: attempt.scoringProvenance,
+    scoringState: attempt.scoringState,
+    scoringVersion: attempt.scoringVersion,
     status: attempt.status,
     student: { name: attempt.participation.student.fullName?.trim() || "Siswa tanpa nama" },
     submittedAt: attempt.submittedAt?.toISOString() ?? null,
@@ -548,9 +570,12 @@ function buildAttemptQuiz(quiz: QuizRecord, attempt: { formItemOrder: unknown; f
   return { ...quiz, ...policy, items };
 }
 
-function aggregateStandaloneQuizScore(attempts: Array<{ attemptNo: number; score: number | null; status: string }>, scorePolicy: QuizScorePolicy) {
+function aggregateStandaloneQuizScore(attempts: Array<{ attemptNo: number; releaseState?: string; score: number | null; scoringState?: string; status: string }>, scorePolicy: QuizScorePolicy, requireReleased = false) {
   const scoredAttempts = attempts
-    .filter((attempt) => isReviewableStandaloneQuizAttemptStatus(attempt.status) && attempt.score !== null)
+    .filter((attempt) => isReviewableStandaloneQuizAttemptStatus(attempt.status)
+      && (attempt.scoringState === undefined || attempt.scoringState === AssessmentScoringState.scored)
+      && (!requireReleased || attempt.releaseState === AssessmentResultReleaseState.released)
+      && attempt.score !== null)
     .sort((left, right) => left.attemptNo - right.attemptNo);
   if (!scoredAttempts.length) return null;
   if (scorePolicy === "highest") return Math.max(...scoredAttempts.map((attempt) => attempt.score ?? 0));
@@ -709,7 +734,7 @@ async function saveStandaloneQuizAnswer(attemptId: string, quizItemId: string, s
     }
     const option = await tx.standaloneQuizItemOption.findFirst({ where: { id: selectedOptionId, quizItemId, quizItem: { quizId: attempt.participation.quizId } }, select: { id: true } });
     if (!option) throw new QuizAttemptValidationError("Pilihan jawaban tidak valid untuk soal ini.");
-    await tx.standaloneQuizAnswer.upsert({ where: { attemptId_quizItemId: { attemptId, quizItemId } }, create: { attemptId, quizItemId, selectedOptionId }, update: { selectedOptionId } });
+    await tx.standaloneQuizAnswer.upsert({ where: { attemptId_quizItemId: { attemptId, quizItemId } }, create: { attemptId, quizItemId, selectedOptionId }, update: { isCorrect: null, pointsAwarded: null, scoringVersion: null, selectedOptionId } });
     return { quizItemId, selectedOptionId };
   });
 }
@@ -721,21 +746,110 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
     const attempt = await tx.standaloneQuizAttempt.findFirst({
       where: { id: attemptId, participation: { studentId } },
       include: {
-        answers: { include: { selectedOption: { select: { isCorrect: true } } } },
-        participation: { include: { quiz: { include: { items: { select: { id: true } } } } } },
+        answers: true,
+        participation: { include: { quiz: { select: { closesAt: true, items: { select: { id: true } }, reviewTiming: true } } } },
       },
     });
     if (!attempt) throw new QuizAttemptValidationError("Sesi quiz tidak ditemukan atau sudah ditutup.");
-    if (attempt.status !== "in_progress") return { attemptId: attempt.id, state: "already_submitted" as const };
+    if (attempt.status !== "in_progress") return { attemptId: attempt.id, scoringState: attempt.scoringState, state: "already_submitted" as const };
+
+    const submittedAt = new Date();
     const snapshot = parseAttemptFormSnapshot(attempt.formSnapshot);
-    const correctByItem = new Map(snapshot?.items.map((item) => [item.id, new Map(item.options.map((option) => [option.id, option.isCorrect]))]) ?? []);
     const totalQuestions = snapshot?.items.length ?? attempt.participation.quiz.items.length;
-    const correctCount = attempt.answers.filter((answer) => correctByItem.size
-      ? correctByItem.get(answer.quizItemId)?.get(answer.selectedOptionId) === true
-      : answer.selectedOption.isCorrect).length;
+    const policy = policyFromAttemptSnapshot(attempt.policySnapshot, {
+      attemptsAllowed: null,
+      correctAnswerVisibility: "show",
+      formBehavior: "same",
+      retryDelaySeconds: null,
+      reviewTiming: attempt.participation.quiz.reviewTiming,
+      scorePolicy: "latest",
+    });
+
+    if (!snapshot || !snapshot.items.length) {
+      await tx.standaloneQuizAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          attemptState: AssessmentAttemptState.submitted,
+          scoringProvenance: AssessmentScoringProvenance.legacy_unknown,
+          scoringReviewReason: "Frozen Kuis form snapshot is missing or malformed.",
+          scoringState: AssessmentScoringState.review_required,
+          releaseState: AssessmentResultReleaseState.hidden,
+          status: "submitted",
+          submittedAt,
+        },
+      });
+      return { attemptId: attempt.id, scoringState: AssessmentScoringState.review_required, state: "review_required" as const };
+    }
+
+    const itemById = new Map(snapshot.items.map((item) => [item.id, item]));
+    let invalidAnswer = false;
+    let correctCount = 0;
+    for (const answer of attempt.answers) {
+      const item = itemById.get(answer.quizItemId);
+      const option = item?.options.find((candidate) => candidate.id === answer.selectedOptionId);
+      if (!item || !option) {
+        invalidAnswer = true;
+        continue;
+      }
+      const isCorrect = option.isCorrect;
+      if (isCorrect) correctCount += 1;
+      await tx.standaloneQuizAnswer.update({
+        where: { id: answer.id },
+        data: { isCorrect, pointsAwarded: isCorrect ? 1 : 0, scoringVersion: KUIS_SCORING_VERSION },
+      });
+    }
+
+    if (invalidAnswer) {
+      await tx.standaloneQuizAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          attemptState: AssessmentAttemptState.submitted,
+          scoringProvenance: AssessmentScoringProvenance.legacy_unknown,
+          scoringReviewReason: "One or more submitted answers are absent from the frozen Kuis form snapshot.",
+          scoringState: AssessmentScoringState.review_required,
+          releaseState: AssessmentResultReleaseState.hidden,
+          status: "submitted",
+          submittedAt,
+        },
+      });
+      return { attemptId: attempt.id, scoringState: AssessmentScoringState.review_required, state: "review_required" as const };
+    }
+
+    const answeredCount = attempt.answers.length;
+    const unansweredCount = Math.max(0, totalQuestions - answeredCount);
+    const wrongCount = Math.max(0, answeredCount - correctCount);
     const score = totalQuestions ? Math.round((correctCount / totalQuestions) * 100) : 0;
-    await tx.standaloneQuizAttempt.update({ where: { id: attempt.id }, data: { correctCount, score, status: "submitted", submittedAt: new Date() } });
-    return { attemptId: attempt.id, state: "submitted" as const };
+    let releaseState = AssessmentResultReleaseState.hidden;
+    let releaseAt: Date | null = null;
+    if (policy.reviewTiming === "immediate") releaseState = AssessmentResultReleaseState.released;
+    else if (policy.reviewTiming === "after_close" && attempt.participation.quiz.closesAt) {
+      if (attempt.participation.quiz.closesAt <= submittedAt) releaseState = AssessmentResultReleaseState.released;
+      else {
+        releaseState = AssessmentResultReleaseState.scheduled;
+        releaseAt = attempt.participation.quiz.closesAt;
+      }
+    }
+    await tx.standaloneQuizAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        attemptState: AssessmentAttemptState.submitted,
+        correctCount,
+        earnedPoints: correctCount,
+        maxPoints: totalQuestions,
+        releaseAt,
+        releaseState,
+        scoringProvenance: AssessmentScoringProvenance.runtime,
+        scoringReviewReason: null,
+        scoringState: AssessmentScoringState.scored,
+        scoringVersion: KUIS_SCORING_VERSION,
+        score,
+        status: "submitted",
+        submittedAt,
+        unansweredCount,
+        wrongCount,
+      },
+    });
+    return { attemptId: attempt.id, releaseState, scoringState: AssessmentScoringState.scored, state: "submitted" as const };
   });
 }
 
@@ -746,8 +860,8 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
     include: {
       answers: true,
       participation: {
-        include: {
-          attempts: { orderBy: { attemptNo: "asc" }, select: { attemptNo: true, score: true, status: true } },
+      include: {
+          attempts: { orderBy: { attemptNo: "asc" }, select: { attemptNo: true, releaseState: true, score: true, scoringState: true, status: true } },
           quiz: { include: quizInclude },
         },
       },
@@ -761,22 +875,30 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
   const answersByItem = new Map(attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
   const policy = policyFromAttemptSnapshot(attempt.participation.policySnapshot, toQuizAttemptPolicy(quiz));
   const isSubmitted = true;
-  const reviewAvailable = (policy.reviewTiming === "immediate"
+  const releaseState = attempt.releaseState;
+  const released = releaseState === AssessmentResultReleaseState.released && attempt.scoringState === AssessmentScoringState.scored;
+  const reviewAvailable = released && (policy.reviewTiming === "immediate"
     || (policy.reviewTiming === "after_close" && quiz.closesAt !== null && quiz.closesAt <= now));
   const correctnessAvailable = reviewAvailable && policy.correctAnswerVisibility === "show";
+  const releasedAttempts = attempt.participation.attempts.filter((candidate) => candidate.releaseState === AssessmentResultReleaseState.released);
   return {
     answeredCount: attempt.answers.length,
-    correctCount: attempt.correctCount,
+    correctCount: released ? attempt.correctCount : null,
     attemptId: attempt.id,
     attemptNo: attempt.attemptNo,
-    attemptScore: attempt.score,
-    aggregateScore: aggregateStandaloneQuizScore(attempt.participation.attempts, policy.scorePolicy),
+    attemptScore: released ? attempt.score : null,
+    aggregateScore: aggregateStandaloneQuizScore(releasedAttempts, policy.scorePolicy, true),
     correctnessAvailable,
     isSubmitted,
     policy,
     questions: quiz.items.map((item) => ({ explanation: reviewAvailable ? item.explanation : null, id: item.id, options: item.options.map((option) => ({ correct: correctnessAvailable && option.isCorrect, id: option.id, key: option.choiceKey, text: option.content })), prompt: item.prompt, selectedOptionId: answersByItem.get(item.id) ?? null })),
+    releaseAt: attempt.releaseAt?.toISOString() ?? null,
+    releaseState,
+    released,
     reviewAvailable,
-    score: aggregateStandaloneQuizScore(attempt.participation.attempts, policy.scorePolicy),
+    scoringState: attempt.scoringState,
+    scoringVersion: attempt.scoringVersion,
+    score: aggregateStandaloneQuizScore(releasedAttempts, policy.scorePolicy, true),
     title: quiz.title,
     totalQuestions,
   };

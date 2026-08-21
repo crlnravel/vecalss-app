@@ -47,6 +47,18 @@ Vecalss is a web learning academy and LMS for helping Indonesian students prepar
 | Execution procedures and verification | `_harness/workflow.md` |
 | Durable project decisions and lessons | `_harness/memory/project.md` |
 | Memory cleanup policy | `_harness/gc/POLICY.md` |
+| Feature tracking and progress | `_harness/tracking/feature_list.json`, `_harness/tracking/progress.md` |
+| Session handoff between agents | `_harness/tracking/session-handoff.md` |
+| Session initialization script | `init.sh` |
+
+## Codebase exploration
+
+Use **codegraph** to understand codebase structure, relationships between modules, and call chains before diving into unfamiliar code. This is especially useful when:
+
+- Starting a new feature in an unfamiliar area
+- Tracing how a change propagates across modules
+- Understanding domain boundaries and dependencies
+- Investigating bug reports that span multiple layers
 
 ## Agent roles (multi-agent ready)
 

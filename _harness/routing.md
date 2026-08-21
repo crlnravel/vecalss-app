@@ -8,22 +8,39 @@ description: Task-to-file mapping
 
 Route to the minimum files needed for each task type. Read this file first to decide what to load.
 
+## Session start (every new session)
+
+1. Read `AGENTS.md` → follow harness routing
+2. Read `_harness/tracking/session-handoff.md` for context from the previous session
+3. Read `_harness/tracking/feature_list.json` to see current feature state
+4. Read `_harness/tracking/progress.md` for in-progress work
+5. Run `./init.sh` or follow `_harness/workflow.md` § Session start
+6. Pick ONE unfinished feature or continue the active task
+
+## Codebase exploration (before diving into unfamiliar code)
+
+1. Use **codegraph** to map module relationships, call chains, and dependencies in the target area
+2. Read `_harness/catalog.md` for directory structure and domain boundaries
+3. Then read the specific files identified by codegraph
+
 ## New feature
 
 1. Read `_harness/readme.md` for project orientation
 2. Read `Vecalss LMS Specifications.md` for relevant use case(s)
 3. Read `_harness/catalog.md` to locate affected directories
-4. Read `_harness/rules.md` for constraints and confirmation gates
-5. Read `_harness/workflow.md` for the feature development procedure
-6. Read `DESIGN.md` if the feature includes UI
-7. Read `_harness/memory/project.md` for relevant settled decisions
+4. Use **codegraph** to explore dependencies and relationships in the target area
+5. Read `_harness/rules.md` for constraints and confirmation gates
+6. Read `_harness/workflow.md` for the feature development procedure
+7. Read `DESIGN.md` if the feature includes UI
+8. Read `_harness/memory/project.md` for relevant settled decisions
 
 ## Bug fix
 
 1. Read `_harness/catalog.md` to locate the affected area
-2. Read the failing code and related tests
-3. Read `_harness/rules.md` for confirmation boundaries
-4. Read `_harness/workflow.md` § Verification for the completion checklist
+2. Use **codegraph** to trace the bug's call chain and affected modules
+3. Read the failing code and related tests
+4. Read `_harness/rules.md` for confirmation boundaries
+5. Read `_harness/workflow.md` § Verification for the completion checklist
 
 ## UI work
 

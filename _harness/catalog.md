@@ -20,6 +20,9 @@ description: Project structure and module lookup
 | `workers/` | Background worker processes | e.g., admin import worker. |
 | `public/` | Static assets | Brand assets, landing assets, images. |
 | `content/` | Repository-managed content | MDX and similar content files. |
+| `_harness/` | Agent harness | Routing, rules, workflow, catalog, memory, tracking, GC. |
+| `_harness/tracking/` | Session and feature tracking | `feature_list.json`, `progress.md`, `session-handoff.md`. |
+| `_harness/memory/` | Agent memory | `project.md` (durable), `agents/*.local.md` (ephemeral). |
 
 ## Generated outputs (never edit directly)
 

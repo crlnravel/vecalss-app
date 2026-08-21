@@ -1,8 +1,8 @@
 import "server-only";
 
-import { AttemptStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
-import { normalizeCatAbility, normalizeCbtScore, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
+import { materializeFrozenAnswers, normalizeCatAbility, normalizeCbtScore, TRYOUT_CAT_SCORING_VERSION, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 import { prisma } from "@/lib/prisma";
 
 class TryoutAttemptValidationError extends Error {}
@@ -36,37 +36,70 @@ async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
 }
 
+async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
+  const [remaining, reviewRequired] = await Promise.all([
+    tx.tryoutAttemptTestRun.count({ where: { attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } }),
+    tx.tryoutAttemptTestRun.count({ where: { attemptId, scoringState: AssessmentScoringState.review_required } }),
+  ]);
+  if (remaining) return;
+  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: AssessmentAttemptState.submitted, scoringState: reviewRequired ? AssessmentScoringState.review_required : AssessmentScoringState.pending, status: AttemptStatus.submitted, submittedAt: now } });
+}
+
 async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, now: Date, expired = false) {
   const run = await tx.tryoutAttemptTestRun.findUnique({
     where: { id: runId },
-    include: { answers: { select: { selectedOptionId: true, tryoutItemId: true } }, section: { select: { scoringConfig: true, testType: true } } },
+    include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, section: { select: { scoringConfig: true, testType: true } } },
   });
   if (!run || run.status !== TryoutAttemptTestRunStatus.active) return run;
   if (run.section.testType === TryoutTestType.cat) return calculateAndSealCatRun(tx, run, now, expired);
   const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
   const items = content.items ?? [];
-  const total = items.length;
-  const pointsByItem = new Map(items.map((item) => [item.id, Number(item.points)]));
-  const optionsByItem = new Map(items.map((item) => [item.id, new Map(item.options.map((option) => [option.id, option]))]));
-  const correctAnswers = run.answers.filter((answer) => optionsByItem.get(answer.tryoutItemId)?.get(answer.selectedOptionId ?? "")?.isCorrect === true);
-  const correct = correctAnswers.length;
-  const score = correctAnswers.reduce((sum, answer) => sum + (pointsByItem.get(answer.tryoutItemId) ?? 0), 0);
-  const maxScore = items.reduce((sum, item) => sum + Number(item.points), 0);
-  const answered = run.answers.length;
-  const result = { answeredCount: answered, correctCount: correct, maxScore, normalizedScore: normalizeCbtScore(score, maxScore), score, unansweredCount: total - answered, wrongCount: answered - correct };
+  const scored = materializeFrozenAnswers(items, run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId })));
+  if (scored.invalid || scored.normalizedScore === null) {
+    const failed = await tx.tryoutAttemptTestRun.update({
+      where: { id: run.id },
+      data: {
+        calculationReleaseable: false,
+        catFailureReason: "Jawaban tidak dapat dicocokkan dengan snapshot Test yang dibekukan.",
+        scoringProvenance: AssessmentScoringProvenance.runtime,
+        scoringReviewReason: "One or more answers are absent from the frozen CBT snapshot.",
+        scoringState: AssessmentScoringState.review_required,
+        sealedAt: now,
+        status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
+      },
+    });
+    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now);
+    return failed;
+  }
+  for (const answer of run.answers) {
+    const materialized = scored.materializedAnswers.find((candidate) => candidate.itemId === answer.tryoutItemId);
+    if (!materialized) continue;
+    await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION } });
+  }
+  const result = { answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore: scored.normalizedScore, score: scored.rawScore, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({
     where: { id: run.id },
     data: {
-      calculationInput: json({ answersAcknowledged: answered, scoringConfig: run.section.scoringConfig, totalItems: total }),
+      calculationInput: json({ answersAcknowledged: scored.answeredCount, scoringConfig: run.section.scoringConfig, totalItems: items.length }),
       calculationResult: json(result),
-      calculationVersion: "cbt-frozen-item-points-v1",
+      calculationVersion: TRYOUT_CBT_SCORING_VERSION,
       calculationReleaseable: true,
+      correctCount: scored.correctCount,
+      maxScore: scored.maxScore,
+      normalizedScore: scored.normalizedScore,
+      rawScore: scored.rawScore,
+      scaledScore: scored.normalizedScore,
+      scoringProvenance: AssessmentScoringProvenance.runtime,
+      scoringReviewReason: null,
+      scoringState: AssessmentScoringState.scored,
+      scoringVersion: TRYOUT_CBT_SCORING_VERSION,
       sealedAt: now,
       status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed,
+      unansweredCount: scored.unansweredCount,
+      wrongCount: scored.wrongCount,
     },
   });
-  const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: sealed.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
-  if (!remaining) await tx.tryoutAttempt.update({ where: { id: run.attemptId }, data: { status: AttemptStatus.submitted, submittedAt: now } });
+  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now);
   return sealed;
 }
 
@@ -81,27 +114,42 @@ function nextCatItem(snapshot: CatSnapshot) {
 }
 function catSnapshot(value: Prisma.JsonValue | null) { return value as unknown as CatSnapshot | null; }
 async function failCatRun(tx: Prisma.TransactionClient, runId: string, reason: string) {
-  return tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: reason, catState: TryoutCatRunState.failed } });
+  return tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: reason, catState: TryoutCatRunState.failed, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: reason, scoringState: AssessmentScoringState.review_required } });
 }
-async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: string; attemptId: string; answers: Array<{ selectedOptionId: string | null }>; catSnapshot: Prisma.JsonValue | null; status: TryoutAttemptTestRunStatus }, now: Date, expired: boolean) {
+async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: string; attemptId: string; answers: Array<{ id: string; selectedOptionId: string | null; tryoutItemId: string }>; catSnapshot: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue; status: TryoutAttemptTestRunStatus }, now: Date, expired: boolean) {
   const snapshot = catSnapshot(run.catSnapshot);
   if (!snapshot || !Number.isFinite(snapshot.currentAbility)) {
     await failCatRun(tx, run.id, "Snapshot CAT tidak dapat dihitung ulang.");
-    return tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
+    const failed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
+    await markAttemptSubmittedIfComplete(tx, failed.attemptId, now);
+    return failed;
   }
   const current = catSnapshot(run.catSnapshot)!;
-  const result = { answeredCount: run.answers.length, ability: current.currentAbility, deliveredCount: current.selectedItemIds.length, normalizedScore: normalizeCatAbility(current.currentAbility), score: current.currentAbility, unansweredCount: current.selectedItemIds.length - run.answers.length };
-  const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, parameters: current.parameters, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: "2pl-map-v1", calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
-  const remaining = await tx.tryoutAttemptTestRun.count({ where: { attemptId: sealed.attemptId, status: { in: [TryoutAttemptTestRunStatus.pending, TryoutAttemptTestRunStatus.active] } } });
-  if (!remaining) await tx.tryoutAttempt.update({ where: { id: run.attemptId }, data: { status: AttemptStatus.submitted, submittedAt: now } });
+  const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
+  const scored = materializeFrozenAnswers(content.items ?? [], run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId })), current.selectedItemIds);
+  if (scored.invalid || scored.normalizedScore === null) {
+    const failed = await failCatRun(tx, run.id, "Jawaban CAT tidak dapat dicocokkan dengan snapshot item yang dibekukan.");
+    const sealedFailed = await tx.tryoutAttemptTestRun.update({ where: { id: failed.id }, data: { sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed } });
+    await markAttemptSubmittedIfComplete(tx, sealedFailed.attemptId, now);
+    return sealedFailed;
+  }
+  for (const answer of run.answers) {
+    const materialized = scored.materializedAnswers.find((candidate) => candidate.itemId === answer.tryoutItemId);
+    if (!materialized) continue;
+    await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CAT_SCORING_VERSION } });
+  }
+  const normalizedScore = normalizeCatAbility(current.currentAbility);
+  const result = { ability: current.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: current.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: current.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
+  const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, parameters: current.parameters, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: current.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
+  await markAttemptSubmittedIfComplete(tx, sealed.attemptId, now);
   return sealed;
 }
 
 async function expireForSessionCap(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
   const active = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } });
   if (active) await calculateAndSealRun(tx, active.id, now, true);
-  await tx.tryoutAttemptTestRun.updateMany({ where: { attemptId, status: TryoutAttemptTestRunStatus.pending }, data: { sealedAt: now, status: TryoutAttemptTestRunStatus.expired } });
-  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { autoSubmittedAt: now, status: AttemptStatus.expired } });
+  await tx.tryoutAttemptTestRun.updateMany({ where: { attemptId, status: TryoutAttemptTestRunStatus.pending }, data: { scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Test tidak pernah dibuka sebelum batas waktu sesi.", scoringState: AssessmentScoringState.review_required, sealedAt: now, status: TryoutAttemptTestRunStatus.expired } });
+  await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: AssessmentAttemptState.expired, autoSubmittedAt: now, scoringReviewReason: "Satu atau lebih Test tidak memiliki perhitungan sebelum batas waktu sesi.", scoringState: AssessmentScoringState.review_required, status: AttemptStatus.expired } });
 }
 
 async function synchronizeAttempt(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
@@ -219,9 +267,12 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
     const attempt = await tx.tryoutAttempt.create({
       data: {
         admissionId: assignment.admissionId,
+        attemptState: AssessmentAttemptState.in_progress,
         contentSnapshot: json({ tryoutId: session.tryoutId, tryoutRevision: lockedTryout.revision }),
         deliverySessionId,
         releasePolicySnapshot: json({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: session.rankingRule, resultReleasePolicy: session.resultReleasePolicy, scheduledReleaseAt: session.scheduledReleaseAt?.toISOString() ?? null }),
+        scoringProvenance: AssessmentScoringProvenance.runtime,
+        scoringState: AssessmentScoringState.pending,
         serverDeadlineAt: session.availableUntil,
         serverStartedAt: now,
         studentId,
@@ -234,6 +285,8 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       catSnapshot: section.testType === TryoutTestType.cat ? json(catSnapshots.get(section.id)!) : undefined,
       catState: section.testType === TryoutTestType.cat ? TryoutCatRunState.ready : TryoutCatRunState.not_applicable,
       contentSnapshot: json(snapshotSection(section)),
+      scoringProvenance: AssessmentScoringProvenance.runtime,
+      scoringState: AssessmentScoringState.pending,
       sequenceNo: section.sequenceNo,
       tryoutSectionId: section.id,
     })) });
@@ -437,13 +490,27 @@ function auditJson(value: unknown) { return value as Prisma.InputJsonValue; }
 async function retryCatTestRun(runId: string, actorId: string, reason: string) {
   if (!reason.trim()) throw new TryoutAttemptValidationError("Alasan audit retry CAT wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { answers: { include: { selectedOption: { select: { isCorrect: true } } } }, section: { select: { testType: true } } } });
+    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, section: { select: { testType: true } } } });
     if (!run || run.section.testType !== TryoutTestType.cat || run.catState === TryoutCatRunState.voided) throw new TryoutAttemptValidationError("Hanya run CAT gagal yang dapat dicoba ulang.");
     const before = { catFailureReason: run.catFailureReason, catState: run.catState };
     const snapshot = catSnapshot(run.catSnapshot);
-    if (!snapshot || !Number.isFinite(snapshot.currentAbility)) { await failCatRun(tx, runId, "Snapshot CAT tidak dapat dihitung ulang."); }
-    else await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationInput: json({ modelVersion: snapshot.modelVersion, selectedItemIds: snapshot.selectedItemIds, updates: snapshot.updates }), calculationResult: json({ ability: snapshot.currentAbility, answeredCount: run.answers.length, deliveredCount: snapshot.selectedItemIds.length, normalizedScore: normalizeCatAbility(snapshot.currentAbility), score: snapshot.currentAbility }), calculationVersion: "2pl-map-v1", calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready } });
+    const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
+    const scored = snapshot && Number.isFinite(snapshot.currentAbility)
+      ? materializeFrozenAnswers(content.items ?? [], run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId })), snapshot.selectedItemIds)
+      : null;
+    if (!snapshot || !scored || scored.invalid || scored.normalizedScore === null) {
+      await failCatRun(tx, runId, "Snapshot CAT tidak dapat dihitung ulang dari jawaban yang tersimpan.");
+    } else {
+      for (const answer of run.answers) {
+        const materialized = scored.materializedAnswers.find((candidate) => candidate.itemId === answer.tryoutItemId);
+        if (!materialized) continue;
+        await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CAT_SCORING_VERSION } });
+      }
+      const normalizedScore = normalizeCatAbility(snapshot.currentAbility);
+      await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationInput: json({ modelVersion: snapshot.modelVersion, parameters: snapshot.parameters, selectedItemIds: snapshot.selectedItemIds, updates: snapshot.updates }), calculationResult: json({ ability: snapshot.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: snapshot.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: snapshot.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount }), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: snapshot.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
+    }
     const updated = await tx.tryoutAttemptTestRun.findUniqueOrThrow({ where: { id: runId } });
+    await markAttemptSubmittedIfComplete(tx, updated.attemptId, new Date());
     await tx.tryoutCatResolutionAudit.create({ data: { action: "retry", actorUserId: actorId, after: auditJson({ catFailureReason: updated.catFailureReason, catState: updated.catState }), before: auditJson(before), reason: reason.trim(), runId } });
     return { catState: updated.catState, releaseable: updated.calculationReleaseable, runId };
   });
@@ -453,7 +520,8 @@ async function voidCatTestRun(runId: string, actorId: string, reason: string) {
   return prisma.$transaction(async (tx) => {
     const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { section: { select: { testType: true } } } });
     if (!run || run.section.testType !== TryoutTestType.cat) throw new TryoutAttemptValidationError("Hanya run CAT dapat divoid.");
-    const updated = await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: "Run CAT divoid oleh operator berwenang.", catState: TryoutCatRunState.voided } });
+    const updated = await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: "Run CAT divoid oleh operator berwenang.", catState: TryoutCatRunState.voided, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: reason.trim(), scoringState: AssessmentScoringState.review_required } });
+    await tx.tryoutAttempt.update({ where: { id: updated.attemptId }, data: { scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Run CAT di-void oleh operator.", scoringState: AssessmentScoringState.review_required } });
     await tx.tryoutCatResolutionAudit.create({ data: { action: "void", actorUserId: actorId, after: auditJson({ catState: updated.catState }), before: auditJson({ catState: run.catState }), reason: reason.trim(), runId } });
     return { catState: updated.catState, releaseable: false, runId };
   });

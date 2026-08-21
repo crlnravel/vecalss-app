@@ -7,11 +7,30 @@
  */
 
 export const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
+export const TRYOUT_CBT_SCORING_VERSION = "cbt-frozen-item-points-v1";
+export const TRYOUT_CAT_SCORING_VERSION = "2pl-map-v1";
 export const TRYOUT_TEST_COUNT = 7;
 export const TRYOUT_SCORE_MIN = 0;
 export const TRYOUT_SCORE_MAX = 100;
 
 type ScoreRecord = Record<string, unknown>;
+
+type FrozenScoreItem = {
+  id: string;
+  options: Array<{ id: string; isCorrect: boolean }>;
+  points: string | number;
+};
+
+type FrozenSelectedAnswer = {
+  itemId: string;
+  selectedOptionId: string | null;
+};
+
+type MaterializedFrozenAnswer = {
+  itemId: string;
+  isCorrect: boolean;
+  pointsAwarded: number;
+};
 
 function asFiniteNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -85,4 +104,59 @@ function aggregateTryoutScores(scores: readonly number[]) {
   return roundScore(scores.reduce((total, score) => total + clampScore(score), 0) / TRYOUT_TEST_COUNT);
 }
 
-export { aggregateTryoutScores, normalizeCatAbility, normalizeCbtScore, normalizeRunScore };
+/**
+ * Score answer rows exclusively against a frozen run snapshot. This helper is
+ * deliberately pure: callers must provide the snapshot items and selected
+ * answer IDs, so mutable authoring rows can never change a sealed result.
+ */
+function materializeFrozenAnswers(
+  items: readonly FrozenScoreItem[],
+  answers: readonly FrozenSelectedAnswer[],
+  selectedItemIds: readonly string[] | null = null,
+) {
+  const selected = selectedItemIds ? new Set(selectedItemIds) : null;
+  const deliveredItems = items.filter((item) => !selected || selected.has(item.id));
+  const itemById = new Map(deliveredItems.map((item) => [item.id, item]));
+  const answerByItem = new Map<string, FrozenSelectedAnswer>();
+  let invalid = false;
+  for (const answer of answers) {
+    if (answerByItem.has(answer.itemId) || !itemById.has(answer.itemId)) invalid = true;
+    answerByItem.set(answer.itemId, answer);
+  }
+
+  const materializedAnswers: MaterializedFrozenAnswer[] = [];
+  let correctCount = 0;
+  let answeredCount = 0;
+  let rawScore = 0;
+  const maxScore = deliveredItems.reduce((total, item) => total + Number(item.points), 0);
+  for (const item of deliveredItems) {
+    const answer = answerByItem.get(item.id);
+    if (!answer) continue;
+    answeredCount += 1;
+    const option = answer.selectedOptionId
+      ? item.options.find((candidate) => candidate.id === answer.selectedOptionId)
+      : null;
+    if (answer.selectedOptionId && !option) invalid = true;
+    const isCorrect = option?.isCorrect === true;
+    const pointsAwarded = isCorrect ? Number(item.points) : 0;
+    if (isCorrect) correctCount += 1;
+    rawScore += pointsAwarded;
+    materializedAnswers.push({ itemId: item.id, isCorrect, pointsAwarded });
+  }
+  const unansweredCount = Math.max(0, deliveredItems.length - answeredCount);
+  const wrongCount = Math.max(0, answeredCount - correctCount);
+  return {
+    answeredCount,
+    correctCount,
+    invalid,
+    materializedAnswers,
+    maxScore,
+    normalizedScore: maxScore > 0 ? normalizeCbtScore(rawScore, maxScore) : null,
+    rawScore,
+    unansweredCount,
+    wrongCount,
+  };
+}
+
+export { aggregateTryoutScores, materializeFrozenAnswers, normalizeCatAbility, normalizeCbtScore, normalizeRunScore };
+export type { FrozenScoreItem, FrozenSelectedAnswer, MaterializedFrozenAnswer };

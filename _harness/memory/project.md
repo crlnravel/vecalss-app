@@ -11,12 +11,23 @@ Store only settled decisions, conventions, and important context that emerged du
 
 ## Conventions
 
-_No entries yet. Add development-emergent decisions here as they arise._
+- Admin student preview reads use a server-resolved fixed fixture subject and a
+  separate admin actor; preview UI must not accept arbitrary student IDs or
+  impersonate the fixture session.
+- Preview Beranda/Materi data is exposed through dedicated read wrappers and an
+  explicit forbidden-effects contract. Stored learning text is rendered as
+  sanitized text, known video providers require HTTPS, and managed documents
+  are delivered through a private no-store preview route.
 
 ## Lessons
 
-_No entries yet. Add lessons learned from bugs, rework, or non-obvious discoveries here._
+- Re-running the standalone build can fail while Next cleans a previously
+  populated `.next/standalone/.next`; a clean generated `.next` directory
+  makes the verification build deterministic.
 
 ## Decisions
 
-_No entries yet. Add settled architectural or product decisions that emerged during development here._
+- The admin preview route family is dynamic and no-store, and its read-side
+  content boundary rejects persistence writes, queues/events, analytics,
+  notifications, webhooks, external writes, delayed jobs, and learner-state
+  mutations.

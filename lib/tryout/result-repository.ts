@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutCatRunState, TryoutResultReleasePolicy } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, TryoutAttemptTestRunStatus, TryoutCatRunState, TryoutResultReleasePolicy } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { aggregateTryoutScores, normalizeRunScore, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 
@@ -23,18 +23,51 @@ function explanationsComplete(run: { catSnapshot: Prisma.JsonValue | null; conte
   return items.length > 0 && items.every((item) => Boolean(item.explanation?.trim()));
 }
 
+async function upsertTryoutBreakdown(
+  tx: Prisma.TransactionClient,
+  attemptId: string,
+  run: {
+    correctCount: number | null;
+    normalizedScore: Prisma.Decimal | null;
+    rawScore: Prisma.Decimal | null;
+    scaledScore: Prisma.Decimal | null;
+    scoringVersion: string | null;
+    section: { subtestId: string };
+    unansweredCount: number | null;
+    wrongCount: number | null;
+  },
+) {
+  const data = {
+    correctCount: run.correctCount ?? 0,
+    normalizedScore: run.normalizedScore,
+    rawScore: run.rawScore,
+    scaledScore: run.scaledScore ?? run.normalizedScore,
+    scoringProvenance: AssessmentScoringProvenance.runtime,
+    scoringVersion: run.scoringVersion ?? TRYOUT_SCORE_AGGREGATION_VERSION,
+    unansweredCount: run.unansweredCount ?? 0,
+    wrongCount: run.wrongCount ?? 0,
+  };
+  const existing = await tx.tryoutScoreBreakdown.findFirst({ where: { attemptId, subtestId: run.section.subtestId, topicId: null }, select: { id: true } });
+  if (existing) return tx.tryoutScoreBreakdown.update({ where: { id: existing.id }, data });
+  return tx.tryoutScoreBreakdown.create({ data: { ...data, attemptId, subtestId: run.section.subtestId, topicId: null } });
+}
+
 async function calculateTryoutAttempt(attemptId: string, actorId: string, reason: string) {
   if (!reason.trim()) throw new TryoutResultValidationError("Alasan audit perhitungan wajib diisi.");
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM tryout_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
     const attempt = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, include: { runs: { include: { section: { select: { subtestId: true, testType: true } } }, orderBy: { sequenceNo: "asc" } } } });
     if (!attempt) throw new TryoutResultValidationError("Attempt Tryout tidak ditemukan.");
     if (attempt.status === AttemptStatus.in_progress) throw new TryoutResultValidationError("Attempt masih berjalan dan belum dapat dihitung sebagai hasil akhir.");
-    if (attempt.runs.length !== 7 || attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided)) throw new TryoutResultValidationError("Semua tujuh Test harus tersegel, tervalidasi, dan tidak void sebelum hasil dapat dihitung.");
-    const normalizedScores = attempt.runs.map((run) => normalizeRunScore(run.calculationResult, run.section.testType, run.catSnapshot));
-    if (normalizedScores.some((score) => score === null)) throw new TryoutResultValidationError("Input perhitungan Test belum lengkap atau tidak dapat dinormalisasi.");
-    const scores = normalizedScores.filter((score): score is number => score !== null);
+    if (attempt.runs.length !== 7 || attempt.runs.some((run) => (run.status !== TryoutAttemptTestRunStatus.sealed && run.status !== TryoutAttemptTestRunStatus.expired) || run.scoringState !== AssessmentScoringState.scored || !run.calculationReleaseable || run.catState === TryoutCatRunState.voided || run.normalizedScore === null)) throw new TryoutResultValidationError("Semua tujuh Test harus tersegel, termaterialisasi, dan tidak void sebelum hasil dapat dihitung.");
+    const scores = attempt.runs.map((run) => Number(run.normalizedScore));
     const finalScore = aggregateTryoutScores(scores);
-    await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { score: finalScore } });
+    for (const run of attempt.runs) await upsertTryoutBreakdown(tx, attemptId, run);
+    const correctCount = attempt.runs.reduce((sum, run) => sum + (run.correctCount ?? 0), 0);
+    const wrongCount = attempt.runs.reduce((sum, run) => sum + (run.wrongCount ?? 0), 0);
+    const unansweredCount = attempt.runs.reduce((sum, run) => sum + (run.unansweredCount ?? 0), 0);
+    const rawScore = attempt.runs.reduce((sum, run) => sum + Number(run.rawScore ?? 0), 0);
+    await tx.tryoutAttempt.update({ where: { id: attemptId }, data: { attemptState: attempt.status === AttemptStatus.expired ? AssessmentAttemptState.expired : AssessmentAttemptState.submitted, correctCount, normalizedScore: finalScore, rawScore, scaledScore: finalScore, score: finalScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_SCORE_AGGREGATION_VERSION, unansweredCount, wrongCount } });
     await tx.tryoutDeliveryAudit.create({ data: { action: "result.calculated", actorUserId: actorId, admissionId: attempt.admissionId, after: json({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, finalScore, runScores: scores }), reason: reason.trim(), tryoutId: attempt.tryoutId, deliverySessionId: attempt.deliverySessionId } });
     return { aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, attemptId, finalScore, runScores: scores };
   });

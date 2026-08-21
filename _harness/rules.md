@@ -92,6 +92,10 @@ description: Constraints, boundaries, and evolution rules
 - This is strict TypeScript; consult installed Next.js 16 docs rather than assuming older Next patterns
 - Use the `@/` import alias
 
+### Browser testing
+
+- Use **ego-browser** for all browser testing — not Chrome, Firefox, or Safari
+
 ### Domain
 
 - Preserve the shared topic taxonomy across learning modules, quizzes, tryouts, analytics, and AI features
@@ -108,6 +112,15 @@ description: Constraints, boundaries, and evolution rules
 - When replacing an established pattern, explain why and migrate consistently to avoid competing patterns
 - Prefer clear domain boundaries, explicit types, centralized validation/authorization, reusable primitives, and testable pure logic
 - Do not preserve a poor pattern solely for consistency; improve it safely when the task provides a reasonable opportunity
+
+## Commit policy
+
+- **Micro-commit always.** Every logical unit of change must be committed before moving to the next step. Do not accumulate uncommitted work across multiple steps.
+- A "logical unit" is the smallest coherent change: a single component, a schema update, a migration, a service function, a test, a config change, etc.
+- Use clear, descriptive commit messages that explain *what* changed and *why* when non-obvious.
+- Never leave uncommitted changes when switching tasks, pausing, or handing off.
+- If a step produces both source changes and generated output (e.g., schema + `pnpm db:generate`, or token edit + `pnpm tokens`), commit them together as one unit.
+- The pre-commit hook runs `pnpm verify` — if it fails, fix the issue before continuing rather than skipping the commit.
 
 ## Harness evolution
 

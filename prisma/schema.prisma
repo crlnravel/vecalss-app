@@ -208,6 +208,7 @@ enum TryoutRankingRule {
 enum TryoutAssignmentStatus {
   active
   revoked
+  superseded
 
   @@map("tryout_assignment_status")
 }
@@ -620,6 +621,8 @@ model User {
   tryoutDeliverySessionsUpdated          TryoutDeliverySession[]          @relation("TryoutDeliverySessionUpdatedBy")
   tryoutDeliverySessionsReleased         TryoutDeliverySession[]          @relation("TryoutDeliverySessionReleasedBy")
   tryoutDeliveryAudits                   TryoutDeliveryAudit[]
+  adminPreviewTryoutRestartsForStudent  AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartStudent")
+  adminPreviewTryoutRestartsByActor     AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartActor")
   recordedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationRecordedBy")
   approvedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationApprovedBy")
   catResolutionAudits                    TryoutCatResolutionAudit[]
@@ -1767,6 +1770,7 @@ model TryoutPackage {
   deliverySessions     TryoutDeliverySession[]
   admissions           TryoutAdmission[]
   tryoutDeliveryAudits TryoutDeliveryAudit[]
+  adminPreviewTryoutRestarts AdminPreviewTryoutRestart[]
 
   @@map("tryout_packages")
 }
@@ -1799,6 +1803,8 @@ model TryoutDeliverySession {
   assignments TryoutDeliveryAssignment[]
   audits      TryoutDeliveryAudit[]
   attempts    TryoutAttempt[]
+  adminPreviewRestartSources AdminPreviewTryoutRestart[] @relation("AdminPreviewTryoutRestartSourceSession")
+  adminPreviewRestartResults AdminPreviewTryoutRestart[] @relation("AdminPreviewTryoutRestartResultSession")
 
   @@unique([tryoutId, name])
   @@index([tryoutId, status, availableFrom, availableUntil])
@@ -1841,6 +1847,12 @@ model TryoutDeliveryAssignment {
   admission       TryoutAdmission       @relation(fields: [admissionId], references: [id], onDelete: Restrict)
   deliverySession TryoutDeliverySession @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
   assignedBy      User                  @relation("TryoutAssignmentCreatedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+  adminPreviewRestarts AdminPreviewTryoutRestart[] @relation("AdminPreviewTryoutRestartAssignment")
+
+  /// Non-null only for the current active assignment of the fixed admin
+  /// student-preview fixture. The database trigger validates the exact
+  /// student/Tryout key and lifecycle relationship.
+  previewCurrentKey String? @unique @map("preview_current_key") @db.VarChar(220)
 
   @@unique([admissionId, deliverySessionId])
   @@index([deliverySessionId, status])
@@ -1862,10 +1874,43 @@ model TryoutDeliveryAudit {
   tryout          TryoutPackage          @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
   deliverySession TryoutDeliverySession? @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
   actor           User                   @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  adminPreviewRestart AdminPreviewTryoutRestart?
 
   @@index([tryoutId, createdAt])
   @@index([admissionId, createdAt])
   @@map("tryout_delivery_audits")
+}
+
+/// Durable idempotency scope for the explicit admin student-preview Tryout
+/// restart mutation. The request scope intentionally excludes tryoutId so a
+/// reused UUID across Tryouts collides and is rejected rather than creating a
+/// second operation.
+model AdminPreviewTryoutRestart {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  previewStudentId        String   @map("preview_student_id") @db.Uuid
+  requestId               String   @map("request_id") @db.Uuid
+  tryoutId                String   @map("tryout_id") @db.Uuid
+  sourceDeliverySessionId String   @map("source_delivery_session_id") @db.Uuid
+  rawReason               String   @map("raw_reason") @db.Text
+  canonicalReason         String   @map("canonical_reason") @db.Text
+  actorUserId             String   @map("actor_user_id") @db.Uuid
+  deliverySessionId       String   @map("delivery_session_id") @db.Uuid
+  assignmentId            String   @map("assignment_id") @db.Uuid
+  auditId                 String   @unique @map("audit_id") @db.Uuid
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  previewStudent  User                   @relation("AdminPreviewTryoutRestartStudent", fields: [previewStudentId], references: [id], onDelete: Restrict)
+  actor           User                   @relation("AdminPreviewTryoutRestartActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  tryout          TryoutPackage          @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  sourceSession   TryoutDeliverySession  @relation("AdminPreviewTryoutRestartSourceSession", fields: [sourceDeliverySessionId], references: [id], onDelete: Restrict)
+  deliverySession TryoutDeliverySession  @relation("AdminPreviewTryoutRestartResultSession", fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  assignment      TryoutDeliveryAssignment @relation("AdminPreviewTryoutRestartAssignment", fields: [assignmentId], references: [id], onDelete: Restrict)
+  audit           TryoutDeliveryAudit     @relation(fields: [auditId], references: [id], onDelete: Restrict)
+
+  @@unique([previewStudentId, requestId], map: "admin_preview_tryout_restart_scope_key")
+  @@index([tryoutId, createdAt])
+  @@index([previewStudentId, tryoutId, createdAt])
+  @@map("admin_preview_tryout_restarts")
 }
 
 model TryoutSection {
