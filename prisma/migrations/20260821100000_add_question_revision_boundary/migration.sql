@@ -212,7 +212,7 @@ ALTER TABLE "two_pl_question_calibrations"
     REFERENCES "question_revisions"("question_id", "id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
 
-CREATE INDEX "two_pl_question_calibrations_question_id_model_version_idx"
+CREATE INDEX IF NOT EXISTS "two_pl_question_calibrations_question_id_model_version_idx"
   ON "two_pl_question_calibrations"("question_id", "model_version");
 
 CREATE OR REPLACE FUNCTION "assessment_guard_question_calibration_identity"()
