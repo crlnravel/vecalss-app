@@ -241,6 +241,37 @@ enum AttemptStatus {
   @@map("attempt_status")
 }
 
+enum StandaloneQuizScorePolicy {
+  highest
+  latest
+  first
+  average
+
+  @@map("standalone_quiz_score_policy")
+}
+
+enum StandaloneQuizFormBehavior {
+  same
+  fresh_randomized
+
+  @@map("standalone_quiz_form_behavior")
+}
+
+enum StandaloneQuizReviewTiming {
+  immediate
+  after_close
+  never
+
+  @@map("standalone_quiz_review_timing")
+}
+
+enum StandaloneQuizCorrectAnswerVisibility {
+  show
+  hide
+
+  @@map("standalone_quiz_correct_answer_visibility")
+}
+
 enum AnswerSource {
   server
   client
@@ -505,10 +536,15 @@ model User {
   moduleProgressions                     ModuleProgress[]
   createdQuestionBanks                   QuestionBank[]                   @relation("QuestionBankCreatedBy")
   updatedQuestionBanks                   QuestionBank[]                   @relation("QuestionBankUpdatedBy")
+  createdQuestionBankFolders              QuestionBankFolder[]             @relation("QuestionBankFolderCreatedBy")
+  updatedQuestionBankFolders              QuestionBankFolder[]             @relation("QuestionBankFolderUpdatedBy")
+  createdQuestionBankCategories           QuestionBankCategory[]            @relation("QuestionBankCategoryCreatedBy")
+  updatedQuestionBankCategories           QuestionBankCategory[]            @relation("QuestionBankCategoryUpdatedBy")
+  assignedQuestionBankCategories          QuestionBankCategoryAssignment[]  @relation("QuestionBankCategoryAssignedBy")
   createdQuestions                       Question[]                       @relation("QuestionCreatedBy")
   updatedQuestions                       Question[]                       @relation("QuestionUpdatedBy")
   authoredStandaloneQuizzes              StandaloneQuiz[]                 @relation("StandaloneQuizAuthor")
-  standaloneQuizAttempts                 StandaloneQuizAttempt[]
+  standaloneQuizParticipations           StandaloneQuizParticipation[]
   quizAttempts                           QuizAttempt[]
   createdTryoutPackages                  TryoutPackage[]                  @relation("TryoutCreatedBy")
   createdReusableQuestionPackages        ReusableQuestionPackage[]        @relation("ReusableQuestionPackageCreatedBy")
@@ -1059,6 +1095,7 @@ model QuestionBank {
   code            String        @unique @db.VarChar(100)
   name            String        @db.VarChar(200)
   description     String?       @db.Text
+  folderId        String?       @map("folder_id") @db.Uuid
   status          ContentStatus @default(draft)
   revision        Int           @default(1)
   createdByUserId String        @map("created_by_user_id") @db.Uuid
@@ -1068,13 +1105,15 @@ model QuestionBank {
 
   createdBy                User                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                User                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  tags                     QuestionBankTag[]
+  folder                   QuestionBankFolder?        @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  categories               QuestionBankCategoryAssignment[]
   questions                Question[]
   sourceQuizzes            StandaloneQuiz[]
   adaptivePracticeSessions AdaptivePracticeSession[]
   reusableQuestionPackages ReusableQuestionPackage[] @relation("ReusablePackageSourceBank")
   reusableQuestionPackageVersions ReusableQuestionPackageVersion[] @relation("ReusablePackageVersionSourceBank")
 
+  @@index([folderId])
   @@map("question_banks")
 }
 
@@ -1166,25 +1205,54 @@ model QuestionOption {
   @@map("question_options")
 }
 
-model Tag {
-  id    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code  String            @unique @db.VarChar(40)
-  slug  String            @unique @db.VarChar(60)
-  label String            @db.VarChar(120)
-  banks QuestionBankTag[]
+model QuestionBankFolder {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId        String?  @map("parent_id") @db.Uuid
+  name            String   @db.VarChar(160)
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  updatedByUserId String   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@map("tags")
+  parent    QuestionBankFolder?  @relation("QuestionBankFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  QuestionBankFolder[] @relation("QuestionBankFolderTree")
+  banks     QuestionBank[]
+  createdBy User                 @relation("QuestionBankFolderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy User                 @relation("QuestionBankFolderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([parentId, name])
+  @@map("question_bank_folders")
 }
 
-model QuestionBankTag {
-  questionBankId String       @map("question_bank_id") @db.Uuid
-  tagId          String       @map("tag_id") @db.Uuid
-  questionBank   QuestionBank @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
-  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Restrict)
+model QuestionBankCategory {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String   @db.VarChar(120)
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  updatedByUserId String   @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@id([questionBankId, tagId])
-  @@index([tagId, questionBankId])
-  @@map("question_bank_tags")
+  createdBy User                         @relation("QuestionBankCategoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy User                         @relation("QuestionBankCategoryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  banks     QuestionBankCategoryAssignment[]
+
+  @@index([name])
+  @@map("question_bank_categories")
+}
+
+model QuestionBankCategoryAssignment {
+  questionBankId   String   @map("question_bank_id") @db.Uuid
+  categoryId       String   @map("category_id") @db.Uuid
+  assignedByUserId String?  @map("assigned_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  questionBank QuestionBank         @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
+  category     QuestionBankCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  assignedBy   User?                @relation("QuestionBankCategoryAssignedBy", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  @@id([questionBankId, categoryId])
+  @@index([categoryId, questionBankId])
+  @@map("question_bank_category_assignments")
 }
 
 // ─────────────────────────────────────────────
@@ -1210,26 +1278,32 @@ model ModuleQuiz {
 // Standalone quizzes authored by tutors. These are intentionally independent
 // from ModuleQuiz, which remains the one-to-one assessment for a learning module.
 model StandaloneQuiz {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug            String        @unique @db.VarChar(240)
-  title           String        @db.VarChar(220)
-  description     String?       @db.Text
-  subtestId       String        @map("subtest_id") @db.Uuid
-  sourceBankId    String?       @map("source_bank_id") @db.Uuid
-  status          ContentStatus @default(draft)
-  opensAt         DateTime?     @map("opens_at") @db.Timestamptz
-  closesAt        DateTime?     @map("closes_at") @db.Timestamptz
-  revision        Int           @default(1)
-  idempotencyKey  String?       @unique @map("idempotency_key") @db.VarChar(120)
-  createdByUserId String        @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                      String                                  @unique @db.VarChar(240)
+  title                     String                                  @db.VarChar(220)
+  description               String?                                 @db.Text
+  subtestId                 String                                  @map("subtest_id") @db.Uuid
+  sourceBankId              String?                                 @map("source_bank_id") @db.Uuid
+  status                    ContentStatus                           @default(draft)
+  opensAt                   DateTime?                               @map("opens_at") @db.Timestamptz
+  closesAt                  DateTime?                               @map("closes_at") @db.Timestamptz
+  attemptsAllowed           Int?                                    @default(1) @map("attempts_allowed")
+  scorePolicy               StandaloneQuizScorePolicy               @default(latest) @map("score_policy")
+  retryDelaySeconds         Int?                                    @map("retry_delay_seconds")
+  formBehavior              StandaloneQuizFormBehavior              @default(same) @map("form_behavior")
+  reviewTiming              StandaloneQuizReviewTiming               @default(immediate) @map("review_timing")
+  correctAnswerVisibility   StandaloneQuizCorrectAnswerVisibility    @default(show) @map("correct_answer_visibility")
+  revision                  Int                                     @default(1)
+  idempotencyKey            String?                                 @unique @map("idempotency_key") @db.VarChar(120)
+  createdByUserId           String                                  @map("created_by_user_id") @db.Uuid
+  createdAt                 DateTime                                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   createdBy  User                    @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
   subtest    Subtest                 @relation(fields: [subtestId], references: [id], onDelete: Restrict)
   sourceBank QuestionBank?           @relation(fields: [sourceBankId], references: [id], onDelete: Restrict)
   items      StandaloneQuizItem[]
-  attempts   StandaloneQuizAttempt[]
+  participations StandaloneQuizParticipation[]
 
   @@index([status, opensAt, closesAt])
   @@index([subtestId, status])
@@ -1282,23 +1356,44 @@ model StandaloneQuizItemOption {
   @@map("standalone_quiz_item_options")
 }
 
-model StandaloneQuizAttempt {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizId       String        @map("quiz_id") @db.Uuid
-  studentId    String        @map("student_id") @db.Uuid
-  status       AttemptStatus @default(in_progress)
-  correctCount Int?          @map("correct_count")
-  score        Int?
-  submittedAt  DateTime?     @map("submitted_at") @db.Timestamptz
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+model StandaloneQuizParticipation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId         String   @map("quiz_id") @db.Uuid
+  studentId      String   @map("student_id") @db.Uuid
+  policySnapshot Json     @map("policy_snapshot") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  quiz    StandaloneQuiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  student User                   @relation(fields: [studentId], references: [id])
-  answers StandaloneQuizAnswer[]
+  quiz     StandaloneQuiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student  User                    @relation(fields: [studentId], references: [id])
+  attempts StandaloneQuizAttempt[]
 
   @@unique([quizId, studentId])
-  @@index([studentId, status])
+  @@index([studentId])
+  @@map("standalone_quiz_participations")
+}
+
+model StandaloneQuizAttempt {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  participationId String       @map("participation_id") @db.Uuid
+  attemptNo      Int           @map("attempt_no")
+  status         AttemptStatus @default(in_progress)
+  startRequestId String?       @map("start_request_id") @db.Uuid
+  policySnapshot Json          @map("policy_snapshot") @db.JsonB
+  formItemOrder  Json          @map("form_item_order") @db.JsonB
+  formSnapshot   Json?         @map("form_snapshot") @db.JsonB
+  correctCount   Int?          @map("correct_count")
+  score          Int?
+  submittedAt    DateTime?     @map("submitted_at") @db.Timestamptz
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  participation StandaloneQuizParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  answers       StandaloneQuizAnswer[]
+
+  @@unique([participationId, attemptNo])
+  @@unique([participationId, startRequestId])
+  @@index([participationId, status])
   @@map("standalone_quiz_attempts")
 }
 

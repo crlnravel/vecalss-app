@@ -242,21 +242,6 @@ async function resolveUser(client, email, role) {
   return result.rows[0].id;
 }
 
-async function upsertSubjectTags(client) {
-  const tagIds = new Map();
-  for (const subject of SUBJECTS) {
-    const result = await client.query(
-      `INSERT INTO tags (code, slug, label)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (code) DO UPDATE SET slug = EXCLUDED.slug, label = EXCLUDED.label
-       RETURNING id`,
-      [subject.code, subject.slug, subject.label],
-    );
-    tagIds.set(subject.code, result.rows[0].id);
-  }
-  return tagIds;
-}
-
 async function resolveSubtests(client) {
   const result = await client.query(
     "SELECT id, code FROM subtests WHERE code = ANY($1::text[]) AND is_active = TRUE",
@@ -271,7 +256,7 @@ async function resolveSubtests(client) {
   return subtestIds;
 }
 
-async function upsertQuestionBank(client, tutorId, tagIds) {
+async function upsertQuestionBank(client, tutorId) {
   const result = await client.query(
     `INSERT INTO question_banks (code, name, description, status, revision, created_by_user_id, updated_by_user_id)
      VALUES ($1, $2, $3, 'published', 1, $4, $4)
@@ -284,16 +269,7 @@ async function upsertQuestionBank(client, tutorId, tagIds) {
      RETURNING id`,
     [BANK.code, BANK.name, BANK.description, tutorId],
   );
-  const bankId = result.rows[0].id;
-  for (const tagId of tagIds.values()) {
-    await client.query(
-      `INSERT INTO question_bank_tags (question_bank_id, tag_id)
-       VALUES ($1, $2)
-       ON CONFLICT (question_bank_id, tag_id) DO NOTHING`,
-      [bankId, tagId],
-    );
-  }
-  return bankId;
+  return result.rows[0].id;
 }
 
 async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
@@ -471,7 +447,13 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
     );
     const quizId = quizResult.rows[0].id;
     quizIds.set(subject.code, quizId);
-    const attempts = await client.query("SELECT COUNT(*)::int AS count FROM standalone_quiz_attempts WHERE quiz_id = $1", [quizId]);
+    const attempts = await client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM standalone_quiz_attempts attempts
+         JOIN standalone_quiz_participations participations ON participations.id = attempts.participation_id
+        WHERE participations.quiz_id = $1`,
+      [quizId],
+    );
     if (attempts.rows[0].count === 0) {
       await client.query("DELETE FROM standalone_quiz_items WHERE quiz_id = $1", [quizId]);
       for (const [index, question] of subjectQuestions.entries()) {
@@ -503,7 +485,10 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
   for (const fixture of quizAttempts) {
     const quizId = quizIds.get(fixture.subjectCode);
     const existing = await client.query(
-      "SELECT id FROM standalone_quiz_attempts WHERE quiz_id = $1 AND student_id = $2",
+      `SELECT attempts.id
+         FROM standalone_quiz_attempts attempts
+         JOIN standalone_quiz_participations participations ON participations.id = attempts.participation_id
+        WHERE participations.quiz_id = $1 AND participations.student_id = $2`,
       [quizId, fixture.studentId],
     );
     if (existing.rowCount) continue;
@@ -518,12 +503,76 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
     );
     const correctCount = fixture.correctPattern.filter(Boolean).length;
     const score = Math.round((correctCount / itemResult.rowCount) * 100);
+    const participationResult = await client.query(
+      `INSERT INTO standalone_quiz_participations (quiz_id, student_id, policy_snapshot)
+       VALUES ($1, $2, (SELECT jsonb_build_object(
+         'attemptsAllowed', attempts_allowed,
+         'correctAnswerVisibility', correct_answer_visibility,
+         'formBehavior', form_behavior,
+         'retryDelaySeconds', retry_delay_seconds,
+         'reviewTiming', review_timing,
+         'scorePolicy', score_policy
+       ) FROM standalone_quizzes WHERE id = $3))
+       ON CONFLICT (quiz_id, student_id) DO UPDATE SET updated_at = NOW()
+       RETURNING id`,
+      [quizId, fixture.studentId, quizId],
+    );
     const attemptResult = await client.query(
       `INSERT INTO standalone_quiz_attempts (
-         quiz_id, student_id, status, correct_count, score, submitted_at, created_at, updated_at
-       ) VALUES ($1, $2, 'submitted', $3, $4, NOW() - ($5::int * INTERVAL '1 day'), NOW() - ($5::int * INTERVAL '1 day'), NOW() - ($5::int * INTERVAL '1 day'))
+         participation_id, attempt_no, status, policy_snapshot, form_item_order, form_snapshot,
+         correct_count, score, submitted_at, created_at, updated_at
+       ) VALUES (
+         $1,
+         1,
+         'submitted',
+         (SELECT jsonb_build_object(
+            'attemptsAllowed', attempts_allowed,
+            'correctAnswerVisibility', correct_answer_visibility,
+            'formBehavior', form_behavior,
+            'retryDelaySeconds', retry_delay_seconds,
+            'reviewTiming', review_timing,
+            'scorePolicy', score_policy
+          ) FROM standalone_quizzes WHERE id = $5),
+         COALESCE((
+           SELECT jsonb_agg(items.id ORDER BY items.sort_order)
+             FROM standalone_quiz_items items
+            WHERE items.quiz_id = $5
+         ), '[]'::jsonb),
+         COALESCE((
+           SELECT jsonb_build_object(
+             'version', 1,
+             'items', jsonb_agg(jsonb_build_object(
+               'id', items.id,
+               'sortOrder', items.sort_order,
+               'prompt', items.prompt,
+               'explanation', items.explanation,
+               'promptAssetId', items.prompt_asset_id,
+               'explanationAssetId', items.explanation_asset_id,
+               'options', COALESCE((
+                 SELECT jsonb_agg(jsonb_build_object(
+                   'id', options.id,
+                   'choiceKey', options.choice_key,
+                   'content', options.content,
+                   'isCorrect', options.is_correct,
+                   'sortOrder', options.sort_order,
+                   'assetId', options.asset_id
+                 ) ORDER BY options.sort_order)
+                   FROM standalone_quiz_item_options options
+                  WHERE options.quiz_item_id = items.id
+               ), '[]'::jsonb)
+             ) ORDER BY items.sort_order)
+           )
+             FROM standalone_quiz_items items
+            WHERE items.quiz_id = $5
+         ), '{"version":1,"items":[]}'::jsonb),
+         $2,
+         $3,
+         NOW() - ($4::int * INTERVAL '1 day'),
+         NOW() - ($4::int * INTERVAL '1 day'),
+         NOW() - ($4::int * INTERVAL '1 day')
+       )
        RETURNING id`,
-      [quizId, fixture.studentId, correctCount, score, fixture.submittedDaysAgo],
+      [participationResult.rows[0].id, correctCount, score, fixture.submittedDaysAgo, quizId],
     );
     for (const [index, item] of itemResult.rows.entries()) {
       await client.query(
@@ -944,8 +993,8 @@ async function seedTryoutOperations(client, { studentIds, tryoutId, tutorId }) {
 }
 
 async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) {
-  const [tagIds, subtestIds] = await Promise.all([upsertSubjectTags(client), resolveSubtests(client)]);
-  const bankId = await upsertQuestionBank(client, tutorId, tagIds);
+  const subtestIds = await resolveSubtests(client);
+  const bankId = await upsertQuestionBank(client, tutorId);
   const questions = await upsertQuestions(client, { bankId, subtestIds, tutorId });
   await upsertCalibrations(client, tutorId, questions);
   const versionIds = await seedReusablePackages(client, { bankId, questions, subtestIds, tutorId });

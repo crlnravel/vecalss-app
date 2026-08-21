@@ -1,12 +1,26 @@
+import type {
+  QuizCorrectAnswerVisibility,
+  QuizFormBehavior,
+  QuizReviewTiming,
+  QuizScorePolicy,
+} from "@/modules/mentor/quiz-builder-types";
+
 type QuizDifficulty = "Dasar" | "Menengah" | "Lanjutan";
 type QuizStatus = "Siap dikerjakan" | "Perlu review" | "Baru ditambahkan";
 
 type QuizItem = {
+  attemptsAllowed?: number | null;
   completionRate: number;
+  correctAnswerVisibility?: QuizCorrectAnswerVisibility;
   difficulty: QuizDifficulty;
   duration: string;
+  formBehavior?: QuizFormBehavior;
   isCompleted?: boolean;
+  latestAttemptId?: string;
   questionCount: number;
+  retryDelaySeconds?: number | null;
+  reviewTiming?: QuizReviewTiming;
+  scorePolicy?: QuizScorePolicy;
   slug: string;
   status: QuizStatus;
   title: string;
@@ -307,13 +321,20 @@ function getQuizSubjectByCode(code: string) {
   return quizSubjects.find((subject) => subject.title === code);
 }
 
-function toDatabaseQuizItem(record: { items: { id: string }[]; slug: string; title: string }, isCompleted = false): QuizItem {
+function toDatabaseQuizItem(record: { attemptsAllowed?: number | null; correctAnswerVisibility?: QuizCorrectAnswerVisibility; formBehavior?: QuizFormBehavior; items: { id: string }[]; retryDelaySeconds?: number | null; reviewTiming?: QuizReviewTiming; scorePolicy?: QuizScorePolicy; slug: string; title: string }, isCompleted = false, latestAttemptId?: string): QuizItem {
   return {
+    attemptsAllowed: record.attemptsAllowed,
     completionRate: 0,
+    correctAnswerVisibility: record.correctAnswerVisibility,
     difficulty: "Menengah",
     duration: "",
+    formBehavior: record.formBehavior,
     isCompleted,
+    latestAttemptId,
     questionCount: record.items.length,
+    retryDelaySeconds: record.retryDelaySeconds,
+    reviewTiming: record.reviewTiming,
+    scorePolicy: record.scorePolicy,
     slug: record.slug,
     status: "Baru ditambahkan",
     title: record.title,

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { admitStudentToStandaloneQuiz, getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getStandaloneQuizAttemptStatuses } from "@/lib/quiz/repository";
+import { getAvailableStandaloneQuiz, getAvailableStandaloneQuizCatalogue, getStandaloneQuizAttempt, getStandaloneQuizAttemptStatuses, isReviewableStandaloneQuizAttemptStatus, isTerminalStandaloneQuizAttemptStatus } from "@/lib/quiz/repository";
 import { getQuizSubjectByCode, toDatabaseQuizItem, type QuizAttempt, type QuizSubject } from "@/modules/quiz/data";
 
 function toQuestionSnapshot(item: { id: string; prompt: string; explanation: string | null; options: { id: string; choiceKey: string; content: string; isCorrect: boolean }[]; sourceQuestionId: string | null }, selectedOptionId: string | null) {
@@ -9,46 +9,68 @@ function toQuestionSnapshot(item: { id: string; prompt: string; explanation: str
   return { hint: item.explanation || "Pilih jawaban yang paling tepat.", id: item.id, options, passage: [], prompt: item.prompt, selectedOptionKey: selectedOptionId };
 }
 
+function attemptsAllowedFromParticipation(snapshot: unknown, fallback: number | null) {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return fallback;
+  const value = snapshot as { attemptsAllowed?: unknown };
+  return value.attemptsAllowed === null || (typeof value.attemptsAllowed === "number" && Number.isInteger(value.attemptsAllowed) && value.attemptsAllowed > 0)
+    ? value.attemptsAllowed as number | null
+    : fallback;
+}
+
 async function getAvailableQuizSubjects(studentId: string): Promise<QuizSubject[]> {
   const records = await getAvailableStandaloneQuizCatalogue();
-  const submittedQuizIds = new Set(
-    (await getStandaloneQuizAttemptStatuses(studentId, records.map((record) => record.id))).reduce<string[]>((quizIds, attempt) => {
-      if (attempt.status === "submitted") quizIds.push(attempt.quizId);
-      return quizIds;
-    }, []),
+  const recordsById = new Map(records.map((record) => [record.id, record]));
+  const attemptStatuses = await getStandaloneQuizAttemptStatuses(studentId, records.map((record) => record.id));
+  const completedQuizIds = new Set(
+    attemptStatuses.flatMap((participation) => {
+        const quiz = recordsById.get(participation.quizId);
+        if (!quiz) return [];
+        const attemptsAllowed = attemptsAllowedFromParticipation(participation.policySnapshot, quiz.attemptsAllowed);
+        if (attemptsAllowed === null) return [];
+        const terminalAttempts = participation.attempts.filter((attempt) => isTerminalStandaloneQuizAttemptStatus(attempt.status));
+        return terminalAttempts.length >= attemptsAllowed && !participation.attempts.some((attempt) => attempt.status === "in_progress")
+          ? [participation.quizId]
+          : [];
+      }),
+  );
+  const latestAttemptIds = new Map(
+    attemptStatuses.map((participation) => [
+      participation.quizId,
+      participation.attempts.find((attempt) => isReviewableStandaloneQuizAttemptStatus(attempt.status))?.id,
+    ]),
   );
   return ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"].flatMap((code) => {
     const template = getQuizSubjectByCode(code);
     if (!template) return [];
     const quizzes = records.reduce<Array<ReturnType<typeof toDatabaseQuizItem>>>((items, record) => {
-      if (record.subtest.code === code) items.push(toDatabaseQuizItem(record, submittedQuizIds.has(record.id)));
+      if (record.subtest.code === code) items.push(toDatabaseQuizItem(record, completedQuizIds.has(record.id), latestAttemptIds.get(record.id)));
       return items;
     }, []);
     return [{ ...template, quizzes }];
   });
 }
 
-async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, studentId: string) {
+async function getAvailableQuizAttempt(subjectSlug: string, quizSlug: string, studentId: string, attemptId?: string) {
   const subject = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"].map(getQuizSubjectByCode).find((item) => item?.slug === subjectSlug);
-  if (!subject) return null;
-  const admission = await admitStudentToStandaloneQuiz(subject.title, quizSlug, studentId);
-  if (!admission) return null;
-  const selectedOptionByItem = new Map(admission.attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
-  const questions = admission.quiz.items.map((item) => toQuestionSnapshot(item, selectedOptionByItem.get(item.id) ?? null)).filter((question): question is NonNullable<typeof question> => question !== null);
+  if (!subject || !attemptId) return null;
+  const active = await getStandaloneQuizAttempt(subject.title, quizSlug, studentId, attemptId);
+  if (!active) return null;
+  const selectedOptionByItem = new Map(active.attempt.answers.map((answer) => [answer.quizItemId, answer.selectedOptionId]));
+  const questions = active.quiz.items.map((item) => toQuestionSnapshot(item, selectedOptionByItem.get(item.id) ?? null)).filter((question): question is NonNullable<typeof question> => question !== null);
   if (!questions.length) return null;
-  const quiz = toDatabaseQuizItem(admission.quiz);
+  const quiz = toDatabaseQuizItem(active.quiz);
   const attempt: QuizAttempt = {
-    answeredCount: admission.attempt.answers.length,
+    answeredCount: active.attempt.answers.length,
     currentNumber: 1,
     estimatedFinish: "—",
     flaggedCount: 0,
     focusLabel: `Latihan ${subject.title}`,
-    isSubmitted: admission.attempt.status !== "in_progress",
+    isSubmitted: active.attempt.status !== "in_progress",
     markers: questions.map((question, index) => ({ number: index + 1, state: index === 0 ? "active" : question.selectedOptionKey ? "answered" : "empty" })),
     questions,
     remainingTime: "Tanpa batas waktu",
   };
-  return { attempt, attemptId: admission.attempt.id, quiz, subject: { ...subject, quizzes: [quiz] } };
+  return { attempt, attemptId: active.attempt.id, attemptNo: active.attempt.attemptNo, policy: active.policy, quiz, subject: { ...subject, quizzes: [quiz] } };
 }
 
 async function getAvailableQuizPreview(subjectSlug: string, quizSlug: string) {
@@ -61,18 +83,14 @@ async function getAvailableQuizPreview(subjectSlug: string, quizSlug: string) {
   const questions = record.items.map((item) => toQuestionSnapshot(item, null)).filter((question): question is NonNullable<typeof question> => question !== null);
   if (!questions.length) return null;
   const quiz = toDatabaseQuizItem(record);
-  const attempt: QuizAttempt = {
-    answeredCount: 0,
-    currentNumber: 1,
-    estimatedFinish: "—",
-    flaggedCount: 0,
-    focusLabel: `Latihan ${subject.title}`,
-    isSubmitted: false,
-    markers: questions.map((_, index) => ({ number: index + 1, state: index === 0 ? "active" : "empty" })),
-    questions,
-    remainingTime: "Tanpa batas waktu",
-  };
-  return { attempt, quiz, subject: { ...subject, quizzes: [quiz] } };
+  return { policy: {
+    attemptsAllowed: record.attemptsAllowed,
+    correctAnswerVisibility: record.correctAnswerVisibility ?? "show",
+    formBehavior: record.formBehavior ?? "same",
+    retryDelaySeconds: record.retryDelaySeconds ?? null,
+    reviewTiming: record.reviewTiming ?? "immediate",
+    scorePolicy: record.scorePolicy ?? "latest",
+  }, quiz, subject: { ...subject, quizzes: [quiz] } };
 }
 
 export { getAvailableQuizAttempt, getAvailableQuizPreview, getAvailableQuizSubjects };

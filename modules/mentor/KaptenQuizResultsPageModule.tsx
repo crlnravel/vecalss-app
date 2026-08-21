@@ -29,7 +29,10 @@ const YAxis = dynamic(() => import("recharts").then((module) => module.YAxis));
 type Attempt = {
   correctCount: number | null;
   createdAt: string;
+  aggregateScore: number | null;
+  finalScore: number | null;
   id: string;
+  participationId: string;
   score: number | null;
   status: string;
   student: { name: string };
@@ -70,7 +73,7 @@ function KaptenQuizResultsPageModule({ result, session }: { result: Result; sess
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "in_progress" | "submitted">("all");
   const submitted = result.attempts.filter((attempt) => attempt.status !== "in_progress");
-  const scores = submitted.map((attempt) => attempt.score ?? 0);
+  const scores = submitted.map((attempt) => attempt.aggregateScore ?? attempt.finalScore ?? attempt.score ?? 0);
   const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
   const topScore = scores.length ? Math.max(...scores) : 0;
   const lowestScore = scores.length ? Math.min(...scores) : 0;
@@ -195,7 +198,7 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
   const isSubmitted = attempt.status !== "in_progress";
   return <TableRow className="border-primary-100 hover:bg-primary-50/40">
     <TableCell className="px-5 py-4"><div className="flex min-w-0 items-center gap-3"><Avatar className="size-9 border border-primary-100 bg-primary-50"><AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">{initials(attempt.student.name)}</AvatarFallback></Avatar><span className="truncate font-semibold text-secondary-900">{attempt.student.name}</span></div></TableCell>
-    <TableCell className="px-4 py-4"><span className="text-xl font-semibold tabular-nums text-secondary-900">{isSubmitted ? attempt.score ?? 0 : "—"}</span></TableCell>
+    <TableCell className="px-4 py-4"><span className="text-xl font-semibold tabular-nums text-secondary-900">{isSubmitted ? attempt.aggregateScore ?? attempt.finalScore ?? attempt.score ?? 0 : "—"}</span></TableCell>
     <TableCell className="px-4 py-4"><Badge className={cn("rounded-full px-2.5 py-1 text-xs", isSubmitted ? "bg-primary-100 text-primary-900" : "bg-accent-200 text-secondary-900")} size="ui" variant={isSubmitted ? "mint" : "accent"}>{isSubmitted ? "Terkirim" : "Sedang dikerjakan"}</Badge></TableCell>
     <TableCell className="px-4 py-4 text-sm text-secondary-600"><time dateTime={attempt.createdAt}>{dateTime.format(new Date(attempt.createdAt))}</time></TableCell>
     <TableCell className="px-5 py-4 text-right"><TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Lihat submisi" nativeButton={false} render={<Link href={`/mentor/quiz/${quizId}/results/${attempt.id}`} />} size="icon-sm" variant="brand" />}><ExternalLink /></TooltipTrigger><TooltipContent>Lihat submisi</TooltipContent></Tooltip></TooltipProvider></TableCell>

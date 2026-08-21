@@ -1,19 +1,27 @@
 import { requireStudentSession } from "@/lib/auth/access";
 import { notFound, redirect } from "next/navigation";
+import { QuizStartPageModule } from "@/modules/quiz/QuizStartPageModule";
 import { QuizOngoingPageModule } from "@/modules/quiz/QuizOngoingPageModule";
-import { getAvailableQuizAttempt } from "@/modules/quiz/server-data";
+import { getAvailableQuizAttempt, getAvailableQuizPreview } from "@/modules/quiz/server-data";
 
 export default async function QuizOngoingPage({
   params,
+  searchParams: searchParamsPromise,
 }: {
   params: Promise<{ quizSlug: string; slug: string }>;
+  searchParams: Promise<{ attemptId?: string }>;
 }) {
-  const [{ quizSlug, slug }, session] = await Promise.all([
+  const [{ quizSlug, slug }, searchParams, session] = await Promise.all([
     params,
+    searchParamsPromise,
     requireStudentSession(),
   ]);
-  const result = await getAvailableQuizAttempt(slug, quizSlug, session.user.id);
-  if (!result) notFound();
-  if (result.attempt.isSubmitted) redirect(`/quiz/${slug}/${quizSlug}/result`);
+  const result = await getAvailableQuizAttempt(slug, quizSlug, session.user.id, searchParams.attemptId);
+  if (!result) {
+    const preview = await getAvailableQuizPreview(slug, quizSlug);
+    if (!preview) notFound();
+    return <QuizStartPageModule policy={preview.policy} quiz={preview.quiz} subjectCode={preview.subject.title} subjectSlug={slug} subjectTitle={preview.subject.title} />;
+  }
+  if (result.attempt.isSubmitted) redirect(`/quiz/${slug}/${quizSlug}/result?attemptId=${encodeURIComponent(result.attemptId)}`);
   return <QuizOngoingPageModule key={result.attemptId} attempt={result.attempt} attemptId={result.attemptId} quiz={result.quiz} subjectSlug={slug} subjectTitle={result.subject.title} />;
 }

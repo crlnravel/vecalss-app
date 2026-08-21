@@ -175,7 +175,7 @@ function QuizOngoingPageModule({
         setMessage(response.message);
         return;
       }
-      router.push(`/quiz/${subjectSlug}/${quiz.slug}/result`);
+      router.push(`/quiz/${subjectSlug}/${quiz.slug}/result?attemptId=${encodeURIComponent(response.result.attemptId)}`);
     } catch (submitError) {
       unstable_rethrow(submitError);
       setMessage(submitError instanceof Error ? submitError.message : "Quiz belum dapat dikirim.");

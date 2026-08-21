@@ -10,6 +10,12 @@ import {
   Video,
 } from "@/lib/icons";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
+import type {
+  QuizCorrectAnswerVisibility,
+  QuizFormBehavior,
+  QuizReviewTiming,
+  QuizScorePolicy,
+} from "@/modules/mentor/quiz-builder-types";
 
 type KaptenContentStatus = "draft" | "scheduled" | "published" | "archived";
 type KaptenResourceType = "materi" | "quiz" | "question-bank" | "tryout" | "media";
@@ -39,17 +45,29 @@ type KaptenResource = {
 };
 
 type KaptenQuiz = KaptenResource & {
+  attemptsAllowed?: number | null;
+  correctAnswerVisibility?: QuizCorrectAnswerVisibility;
+  formBehavior?: QuizFormBehavior;
   questionCount: number;
+  retryDelaySeconds?: number | null;
+  reviewTiming?: QuizReviewTiming;
+  scorePolicy?: QuizScorePolicy;
   sourceBank: string;
   sourceBankId?: string;
 };
 
 type KaptenQuestionBank = KaptenResource & {
+  categories?: Array<{ id: string; name: string }>;
+  categoryIds?: string[];
   difficultyMix: string;
+  folder?: { id: string; name: string } | null;
+  folderId?: string | null;
+  folderPath?: Array<{ id: string | null; name: string }>;
   questionCount: number;
   revision?: number;
   reusableIn: string[];
   /** Discovery only. Question subtests are the compatibility authority. */
+  subjectCoverage?: string[];
   tags?: string[];
   topic?: string;
 };

@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { getQuestionBankForEdit } from "@/lib/question-bank/repository";
+import {
+  getQuestionBankForEdit,
+  listQuestionBankCategories,
+  listQuestionBankFolderTree,
+} from "@/lib/question-bank/repository";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 
 type MentorQuestionBankPageProps = {
@@ -15,7 +19,11 @@ export const metadata: Metadata = {
 
 export default async function MentorQuestionBankBuilderPage({ params }: MentorQuestionBankPageProps) {
   const [{ bankId }, session] = await Promise.all([params, requireTutorSession()]);
-  const initial = await getQuestionBankForEdit(bankId);
+  const [initial, initialFolderTree, initialCategories] = await Promise.all([
+    getQuestionBankForEdit(bankId),
+    listQuestionBankFolderTree(),
+    listQuestionBankCategories(),
+  ]);
   if (!initial) notFound();
-  return <KaptenQuestionBankBuilderPageModule bankId={bankId} initialBank={initial.bank} initialQuestions={initial.questions} mode="edit" session={session} />;
+  return <KaptenQuestionBankBuilderPageModule bankId={bankId} initialBank={initial.bank} initialCategories={initialCategories} initialFolderTree={initialFolderTree} initialQuestions={initial.questions} mode="edit" session={session} />;
 }

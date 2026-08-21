@@ -150,6 +150,7 @@ function QuizSubjectDetailPageModule({
 }
 
 function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
+  const hasReviewableResult = Boolean(quiz.isCompleted && quiz.latestAttemptId);
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-[linear-gradient(180deg,#eef8f1_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] motion-reduce:transition-none">
       <div
@@ -197,13 +198,15 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
           nativeButton={false}
           render={
             <Link
-              href={`/quiz/${subject.slug}/${quiz.slug}${quiz.isCompleted ? "/result" : ""}`}
+              href={quiz.isCompleted && quiz.latestAttemptId
+                ? `/quiz/${subject.slug}/${quiz.slug}/result?attemptId=${encodeURIComponent(quiz.latestAttemptId)}`
+                : `/quiz/${subject.slug}/${quiz.slug}`}
             />
           }
           size="learning"
           variant="learning"
         >
-          {quiz.isCompleted ? "Cek hasil" : "Kerjakan"}
+          {hasReviewableResult ? "Cek hasil" : quiz.isCompleted ? "Lihat detail" : "Kerjakan"}
           <ArrowUpRight className="size-4" data-icon="inline-end" />
         </Button>
       </div>

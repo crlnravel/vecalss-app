@@ -25,8 +25,10 @@ import {
 import { cn } from "@/lib/utils";
 
 type QuizResult = {
+  aggregateScore: number | null;
   answeredCount: number;
   correctCount: number | null;
+  correctnessAvailable: boolean;
   isSubmitted: boolean;
   questions: Array<{
     explanation: string | null;
@@ -35,6 +37,16 @@ type QuizResult = {
     prompt: string;
     selectedOptionId: string | null;
   }>;
+  policy: {
+    attemptsAllowed: number | null;
+    correctAnswerVisibility: "show" | "hide";
+    formBehavior: "same" | "fresh_randomized";
+    retryDelaySeconds: number | null;
+    reviewTiming: "immediate" | "after_close" | "never";
+    scorePolicy: "highest" | "latest" | "first" | "average";
+  };
+  reviewAvailable: boolean;
+  attemptScore: number | null;
   score: number | null;
   title: string;
   totalQuestions: number;
@@ -84,7 +96,7 @@ function QuizResultPageModule({
   if (!question) return null;
   const selectedOption = question.options.find((option) => option.id === question.selectedOptionId);
   const correctOption = question.options.find((option) => option.correct);
-  const isCorrect = selectedOption?.correct ?? false;
+  const isCorrect = result.correctnessAvailable && (selectedOption?.correct ?? false);
   const markers = result.questions.map((reviewQuestion, index) => {
     const answer = reviewQuestion.options.find((option) => option.id === reviewQuestion.selectedOptionId);
     return {
@@ -94,6 +106,8 @@ function QuizResultPageModule({
         ? "current"
         : !answer
           ? "unanswered"
+          : !result.correctnessAvailable
+            ? "neutral"
           : answer.correct
             ? "correct"
             : "incorrect",
@@ -133,12 +147,13 @@ function QuizResultPageModule({
           onSelect={setCurrentQuestion}
         />
       }
-      score={result.score ?? 0}
+      score={result.aggregateScore ?? result.score ?? 0}
       scoreLabel="Skor Akhir"
       summary={
         <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1">
           <ResultStat label="Benar" value={`${result.correctCount ?? 0}`} />
           <ResultStat label="Dijawab" value={`${result.answeredCount}/${result.totalQuestions}`} />
+          <ResultStat label="Skor percobaan" value={result.attemptScore === null ? "—" : `${result.attemptScore}`} />
         </div>
       }
       title={result.title}
@@ -151,9 +166,9 @@ function QuizResultPageModule({
           </div>
           <div className="flex items-center gap-2">
             <AssessmentUtilityPill active={reportedQuestions.includes(currentQuestion)} icon={Flag} label="Laporkan soal" onClick={toggleReport} />
-            <StudentBadge size="md" tone={isCorrect ? "success" : "danger"}>
-              {isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />}
-              {isCorrect ? "Benar" : selectedOption ? "Salah" : "Tidak dijawab"}
+            <StudentBadge size="md" tone={!result.correctnessAvailable ? "neutral" : isCorrect ? "success" : "danger"}>
+              {result.correctnessAvailable ? (isCorrect ? <CheckCircle2 className="size-4" /> : <CircleX className="size-4" />) : null}
+              {result.correctnessAvailable ? (isCorrect ? "Benar" : selectedOption ? "Salah" : "Tidak dijawab") : selectedOption ? "Jawaban tersimpan" : "Tidak dijawab"}
             </StudentBadge>
           </div>
         </div>
@@ -165,6 +180,7 @@ function QuizResultPageModule({
         <div className="mt-7 grid gap-3">
           {question.options.map((option) => (
             <ReviewAnswerOption
+              correctnessAvailable={result.correctnessAvailable}
               key={option.id}
               option={option}
               selected={option.id === question.selectedOptionId}
@@ -185,7 +201,7 @@ function QuizResultPageModule({
             </div>
             <div>
               <p className="font-semibold text-secondary-500">Jawaban benar</p>
-              <p className="mt-1 font-semibold text-secondary-900">{correctOption ? `${correctOption.key}. ${correctOption.text}` : "—"}</p>
+              <p className="mt-1 font-semibold text-secondary-900">{result.reviewAvailable && result.policy.correctAnswerVisibility === "show" && correctOption ? `${correctOption.key}. ${correctOption.text}` : "Belum dibuka"}</p>
             </div>
           </div>
         </section>
@@ -222,21 +238,24 @@ function ResultStat({ label, value }: { label: string; value: string }) {
 }
 
 function ReviewAnswerOption({
+  correctnessAvailable,
   option,
   selected,
   textClass,
 }: {
+  correctnessAvailable: boolean;
   option: { correct: boolean; id: string; key: string; text: string };
   selected: boolean;
   textClass: string;
 }) {
-  const isIncorrectSelection = selected && !option.correct;
+  const isCorrect = correctnessAvailable && option.correct;
+  const isIncorrectSelection = correctnessAvailable && selected && !option.correct;
 
   return (
     <div
       className={cn(
         "flex w-full items-start gap-4 rounded-3xl border bg-white px-4 py-4 text-left sm:px-5",
-        option.correct && "border-student-status-success-border bg-student-status-success-bg",
+        isCorrect && "border-student-status-success-border bg-student-status-success-bg",
         isIncorrectSelection && "border-student-status-danger-border bg-student-status-danger-bg",
         !option.correct && !isIncorrectSelection && "border-primary-100",
       )}
@@ -244,12 +263,12 @@ function ReviewAnswerOption({
       <span
         className={cn(
           "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
-          option.correct && "border-student-status-success-solid-bg bg-student-status-success-solid-bg text-student-status-success-solid-fg",
+          isCorrect && "border-student-status-success-solid-bg bg-student-status-success-solid-bg text-student-status-success-solid-fg",
           isIncorrectSelection && "border-student-status-danger-solid-bg bg-student-status-danger-solid-bg text-student-status-danger-solid-fg",
           !option.correct && !isIncorrectSelection && "border-secondary-200 bg-secondary-50 text-secondary-500",
         )}
       >
-        {option.correct ? <Check className="size-5" /> : option.key}
+        {isCorrect ? <Check className="size-5" /> : option.key}
       </span>
       <p className={cn("min-w-0 flex-1 font-medium text-secondary-800", textClass)}>{option.text}</p>
     </div>
