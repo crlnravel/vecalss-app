@@ -21,16 +21,17 @@
 - [x] AS-03 normalized scoring and release states
   - Runtime: Kuis materialization and Tryout CBT/CAT scoring are snapshot-backed;
     Tryout final-run sealing now performs transaction-local seven-run aggregation.
-  - Migration: 20260822100000_normalize_assessment_scoring_release is pending.
-    It quarantines malformed/contradictory legacy JSON, proves canonical
+  - Migration: 20260822100000_normalize_assessment_scoring_release is applied
+    after backup/rollback approval. It quarantines malformed/contradictory
+    legacy JSON, proves canonical
     seven-section runs and frozen CAT selections, updates existing typed
     breakdown rows idempotently, and withholds incomplete/rankingless releases.
   - Follow-up hardening closes per-run deadline aggregation, session-level
     release/ranking consistency, CAT owner authorization, numeric range guards,
     and the QuestionRevision seed insert arity defect.
-  - Implementation is `cb1eb8f` plus the pending follow-up commit; isolated
-    local PostgreSQL migration replay, seed, and `pnpm db:verify-demo` pass.
-    External migration deployment/smoke-test still requires explicit approval.
+  - Implementation is `cb1eb8f` plus hardening `7f60c43`; isolated local
+    PostgreSQL migration replay, seed, and `pnpm db:verify-demo` pass. The
+    external migration is applied; DB-backed smoke testing remains pending.
 - [ ] Runtime browser/DB fixture verification for admin preview
   - Details: Requires a seeded authenticated admin session and preview fixture.
   - Blockers: No local E2E/DB fixture harness is available in this workspace.
@@ -39,12 +40,12 @@
 
 1. Run seeded browser QA for each preview surface and banner save flow.
 2. Run the allowlisted database/event diff around ordinary browsing and restart.
-3. Deploy the pending AS-03 migration only after backup/rollback approval, then
-   run DB-backed Kuis and seven-section Tryout smoke tests.
+3. Run DB-backed Kuis and seven-section Tryout smoke tests against the applied
+   AS-03 deployment.
 
 ## Blockers / Risks
 
-- [ ] Runtime verification fixture: contract, typecheck, lint, and production build checks pass; DB-backed AS-03 migration/smoke checks remain pending.
+- [ ] Runtime verification fixture: contract, typecheck, lint, and production build checks pass; DB-backed AS-03 smoke checks remain pending.
 - [ ] Preview content is treated as untrusted and sanitized/allowlisted before admin-context rendering.
 
 ## Decisions Made
@@ -73,4 +74,4 @@
 
 ## Notes for Next Session
 
-Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with a post-fix follow-up commit. Preserve the unrelated staged preview/document changes and do not apply the pending migration without deployment approval. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data destructively.
+Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`, and its approved migration is applied. Preserve the unrelated staged preview/document changes; the admin-preview migration is still pending. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data destructively.

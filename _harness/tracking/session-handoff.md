@@ -8,9 +8,10 @@
   plus the durable handoff docs in this file. Unrelated preview/harness/
   document changes are present; preserve them. All AS-03 paths are committed
   by explicit pathspec.
-- AS-03 migration: prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql
-  remains pending. No configured external database mutation was performed in
-  this continuation; the migration was replayed only in an isolated local DB.
+- AS-03 migration:
+  `prisma/migrations/20260822100000_normalize_assessment_scoring_release/migration.sql`
+  was applied to the configured external database after backup/rollback approval.
+  The unrelated admin-preview migration remains pending.
 - Runtime hardening completed:
   - Tryout run snapshots now include explanation text and explanationAssetId.
   - Final seven-run sealing calls materializeTryoutAttemptInTransaction inside
@@ -59,11 +60,12 @@
   QuestionRevision insert was also fixed and the seed replay now passes.
 - AS-03 implementation commit: `cb1eb8f` (`fix: normalize assessment scoring
   and release states`); follow-up hardening is `7f60c43` (`fix: close AS-03
-  release boundaries`). The migration remains pending on the configured
-  external database and was not applied.
-- Next actions: deploy the migration only after backup/rollback approval and
-  run DB-backed Kuis and seven-section Tryout smoke tests against the
-  deployment target.
+  release boundaries`). The approved migration was executed transactionally
+  and registered as applied; `prisma migrate status` now reports only the
+  unrelated admin-preview migration as pending.
+- Next actions: run DB-backed Kuis and seven-section Tryout smoke tests against
+  the deployment target, then continue with AS-09 when the release-boundary
+  smoke is satisfactory.
 
 ## Current Objective
 

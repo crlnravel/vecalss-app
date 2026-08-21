@@ -47,8 +47,8 @@ Store only settled decisions, conventions, and important context that emerged du
 - Legacy migration data is conservative: malformed JSON, missing explanation
   text/assets, noncanonical seven-run sets, and missing typed breakdowns stay
   review-required/hidden rather than being guessed into a score.
-- AS-03 migration 20260822100000_normalize_assessment_scoring_release is
-  intentionally pending until explicit deployment approval. AS-09 durable
+- AS-03 migration 20260822100000_normalize_assessment_scoring_release was
+  applied after explicit backup/rollback approval. AS-09 durable
   AssessmentRelease remains a later slice.
 - AS-03 implementation is committed as `cb1eb8f`; the post-fix follow-up adds
   session-level Tryout release synchronization, stable release timestamps,
@@ -59,4 +59,5 @@ Store only settled decisions, conventions, and important context that emerged du
   sums against frozen snapshots, and range-bounds numeric casts. The physical
   QuestionRevision seed insert also requires an explicit NULL ready_at value.
   An isolated local PostgreSQL replay of all migrations plus seed and
-  `db:verify-demo` passed; the configured external migration remains pending.
+  `db:verify-demo` passed; DB-backed Kuis/Tryout smoke testing remains pending
+  after external deployment.
