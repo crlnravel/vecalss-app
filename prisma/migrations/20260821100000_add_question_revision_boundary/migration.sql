@@ -265,6 +265,12 @@ ALTER TABLE "reusable_question_package_version_item_options"
 ALTER TABLE "tryout_item_options"
   ADD COLUMN "source_question_revision_option_id" UUID;
 
+-- The next update only adds provenance columns to pre-existing published
+-- package snapshots. Temporarily remove the old child-row trigger for this
+-- one-time migration backfill, then recreate it before any later statement.
+DROP TRIGGER IF EXISTS reusable_question_package_version_items_ready_immutable
+  ON reusable_question_package_version_items;
+
 -- Existing source links remain valid and render through their copied snapshot
 -- fields. The current revision is a useful compatibility pointer, but legacy
 -- snapshot content cannot be proven identical without rewriting history, so
@@ -300,6 +306,10 @@ SET source_question_revision_id = question.current_revision_id,
 FROM questions question
 JOIN question_revisions revision ON revision.id = question.current_revision_id
 WHERE item.source_question_id = question.id;
+
+CREATE TRIGGER reusable_question_package_version_items_ready_immutable
+  BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_items
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
 
 ALTER TABLE "standalone_quiz_items"
   ADD CONSTRAINT "standalone_quiz_items_source_question_revision_id_fkey"
