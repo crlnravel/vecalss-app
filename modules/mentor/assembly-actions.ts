@@ -17,7 +17,7 @@ import {
 } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import type { PreviewAssemblyInput, SaveAssemblyDraftInput } from "@/lib/tryout/assembly-repository";
-import type { AssemblyAttachmentTarget } from "@/lib/tryout/assembly-validation";
+import type { AssemblyAttachmentTarget, AssemblyAttachmentTestType } from "@/lib/tryout/assembly-validation";
 
 async function assemblyManagementSession() {
   const session = await requireSession();
@@ -49,13 +49,13 @@ async function getReadyAssemblyRevisionAction(versionId: string) {
   }
 }
 
-async function attachReadyAssemblyAction(input: { target: AssemblyAttachmentTarget; targetSubtestCode: string; versionId: string }) {
+async function attachReadyAssemblyAction(input: { target: AssemblyAttachmentTarget; targetSubtestCode: string; targetTestType: AssemblyAttachmentTestType; versionId: string }) {
   await assemblyManagementSession();
   try {
-    if (input.target !== "tryout" || !input.versionId.trim() || !input.targetSubtestCode.trim()) {
+    if (input.target !== "tryout" || !input.versionId.trim() || !input.targetSubtestCode.trim() || (input.targetTestType !== "cbt" && input.targetTestType !== "cat")) {
       throw new AssemblyValidationError("invalid_mode", "Attachment assembly hanya tersedia untuk Tryout dengan Subtest yang valid.");
     }
-    return { ok: true as const, result: await getReadyAssemblyAttachment(input.versionId, input.target, input.targetSubtestCode) };
+    return { ok: true as const, result: await getReadyAssemblyAttachment(input.versionId, input.target, input.targetSubtestCode, input.targetTestType) };
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }

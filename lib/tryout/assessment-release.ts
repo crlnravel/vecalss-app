@@ -855,7 +855,7 @@ async function resolveAndMaterializeAssemblies(
     const version = section.packageVersionId ? versionById.get(section.packageVersionId) : undefined;
     if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak lagi tersedia untuk Section.", { sectionId: section.id });
     if (version.status !== ContentStatus.published
-      || version.package.status !== ContentStatus.published
+      || version.package.status === ContentStatus.archived
       || version.package.mode !== version.mode
       || version.mode !== section.packageVersion?.mode
       || version.subtestId !== section.subtestId

@@ -70,6 +70,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
+import { assemblyCompatibleWithTestType } from "@/lib/tryout/assembly-validation";
 import type { AssemblyAttachmentSummary, AssemblyPreview } from "@/lib/tryout/assembly-repository";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
@@ -326,6 +327,7 @@ function ReadyAssemblyPicker({
   subtest,
   selectedId,
   setSearch,
+  testType,
 }: {
   activeMode: Exclude<SelectionMode, "direct">;
   assemblies: AssemblyAttachmentSummary[];
@@ -337,11 +339,14 @@ function ReadyAssemblyPicker({
   selectedId?: string;
   setSearch: (value: string) => void;
   subtest: SubjectCode;
+  testType: TestDraft["testType"];
 }) {
   const mode = activeMode === "set" ? "fixed_set" : activeMode === "pool" ? "random_pool" : activeMode;
   const normalizedSearch = search.trim().toLocaleLowerCase();
-  const compatible = assemblies.filter((assembly) => assembly.subtest === subtest && assembly.mode === mode && (!normalizedSearch || assembly.packageTitle.toLocaleLowerCase().includes(normalizedSearch)));
+  const modeAssemblies = assemblies.filter((assembly) => assembly.subtest === subtest && assembly.mode === mode);
+  const compatible = modeAssemblies.filter((assembly) => assemblyCompatibleWithTestType(assembly.mode, testType) && (!normalizedSearch || assembly.packageTitle.toLocaleLowerCase().includes(normalizedSearch)));
   const selected = selectedId ? assemblies.find((assembly) => assembly.id === selectedId) : undefined;
+  const selectedCompatible = selected ? assemblyCompatibleWithTestType(selected.mode, testType) : true;
 
   return (
     <section aria-labelledby="ready-assembly-title" className="grid min-w-0 gap-4 rounded-2xl border border-primary-100 bg-primary-50/45 p-4 sm:p-5">
@@ -358,25 +363,28 @@ function ReadyAssemblyPicker({
       </div>
       {selected ? (
         <div className="grid gap-3 rounded-2xl border border-primary-300 bg-white p-4" role="status">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Sumber terpasang</p><p className="mt-1 break-words font-semibold text-secondary-900">{selected.packageTitle}</p></div><Badge className="rounded-full" size="ui" variant={selected.readiness.ready ? "mint" : "accent"}>{selected.readiness.ready ? "Siap" : "Perlu ditinjau"}</Badge></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Sumber terpasang</p><p className="mt-1 break-words font-semibold text-secondary-900">{selected.packageTitle}</p></div><Badge className="rounded-full" size="ui" variant={selectedCompatible && selected.readiness.ready ? "mint" : "accent"}>{selectedCompatible && selected.readiness.ready ? "Siap" : "Perlu ditinjau"}</Badge></div>
           <p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(selected)} · {selected.bankNames.join(", ") || "Bank Soal belum terbaca"}</p>
+          {!selectedCompatible ? <p className="text-sm leading-6 text-[#6a4a00]">{selected.mode === "cat_pool" ? "CAT Pool hanya dapat dipakai pada Test CAT." : "Assembly ini hanya dapat dipakai pada Test CBT."}</p> : null}
           {selected.readiness.blockers.length ? <div className="grid gap-1 text-sm leading-5 text-[#6a4a00]">{selected.readiness.blockers.slice(0, 3).map((blocker) => <p key={`${blocker.code}-${blocker.message}`}>• {blocker.message}</p>)}</div> : null}
           <Button className="w-fit" disabled={locked} onClick={() => onPreview(selected)} size="sm" variant="ghost"><Eye />Lihat preview dan kesiapan</Button>
         </div>
       ) : null}
-      <div aria-label={`${assemblyModeLabel(mode)} yang kompatibel`} className="grid min-w-0 gap-2" role="listbox">
+      <ul aria-label={`${assemblyModeLabel(mode)} yang kompatibel`} className="grid min-w-0 gap-2">
         {compatible.length ? compatible.map((assembly) => {
           const isSelected = selectedId === assembly.id;
           return (
-            <article className={`grid min-w-0 gap-3 rounded-2xl border bg-white p-4 ${isSelected ? "border-primary-300 ring-2 ring-primary-100" : "border-primary-100"}`} key={assembly.id} role="option" aria-selected={isSelected}>
+            <li className="min-w-0" key={assembly.id}>
+            <article className={`grid min-w-0 gap-3 rounded-2xl border bg-white p-4 ${isSelected ? "border-primary-300 ring-2 ring-primary-100" : "border-primary-100"}`}>
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold text-secondary-900">{assembly.packageTitle}</p><p className="mt-1 text-xs text-secondary-500">{assembly.bankNames.join(", ") || "Bank Soal"}</p></div><Badge className="rounded-full" size="ui" variant={assembly.readiness.ready ? "mint" : "accent"}>{assembly.readiness.ready ? "Ready" : "Ada blocker"}</Badge></div>
               <p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(assembly)}</p>
               {assembly.readiness.blockers.length ? <p className="text-sm leading-6 text-[#6a4a00]">{assembly.readiness.blockers[0]?.message}</p> : null}
               <div className="flex flex-wrap gap-2"><Button disabled={locked || isSelected} onClick={() => onAttach(assembly)} size="sm" variant={isSelected ? "ghost" : "brand"}>{isSelected ? "Terpasang" : "Pasang sumber"}</Button><Button onClick={() => onPreview(assembly)} size="sm" variant="brandOutline"><Eye />Preview</Button></div>
             </article>
+            </li>
           );
-        }) : <div className="rounded-2xl border border-dashed border-primary-200 bg-white px-4 py-8 text-center text-sm leading-6 text-secondary-500">{assemblies.some((assembly) => assembly.subtest === subtest && assembly.mode === mode) ? "Tidak ada sumber yang cocok dengan pencarian." : `Belum ada ${assemblyModeLabel(mode)} Ready untuk ${subtest}.`}</div>}
-      </div>
+        }) : <li className="list-none rounded-2xl border border-dashed border-primary-200 bg-white px-4 py-8 text-center text-sm leading-6 text-secondary-500">{modeAssemblies.length ? (assemblyCompatibleWithTestType(mode, testType) ? "Tidak ada sumber yang cocok dengan pencarian." : mode === "cat_pool" ? "CAT Pool hanya tersedia untuk Test CAT." : "Assembly ini hanya tersedia untuk Test CBT.") : `Belum ada ${assemblyModeLabel(mode)} Ready untuk ${subtest}.`}</li>}
+      </ul>
     </section>
   );
 }
@@ -629,6 +637,10 @@ function KaptenTryoutBuilderPageModule({
   const selectedSourceQuestionIds = [...selectedVersions.flatMap((version) => version?.sourceQuestionIds ?? []), ...selectedDirectQuestions.map((question) => question.sourceQuestionId)];
   const duplicateSourceCount = selectedSourceQuestionIds.length - new Set(selectedSourceQuestionIds).size;
   const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
+  const invalidAssemblyTypeSections = draft.sections.filter((section, index) => {
+    const assembly = selectedAssemblies[index];
+    return Boolean(section.packageVersionId && assembly && !assemblyCompatibleWithTestType(assembly.mode, section.testType));
+  });
   const invalidCatSections = draft.sections.filter((section, index) => {
     if (section.testType !== "cat" || !Number.isInteger(section.catItemCount) || !section.catItemCount) return section.testType === "cat";
     if (section.packageVersionId) return !selectedAssemblies[index]?.readiness.ready || !selectedVersions[index]?.catReady || (selectedAssemblies[index]?.readiness.eligibleCount ?? selectedVersions[index]?.itemCount ?? 0) < section.catItemCount;
@@ -639,7 +651,10 @@ function KaptenTryoutBuilderPageModule({
     const directQuestions = section.directQuestions ?? [];
     const hasSource = Boolean(section.packageVersionId || directQuestions.length);
     const contentReady = section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? selectedVersion?.contentReady) : directQuestions.every((question) => question.hasReadyMedia !== false && question.prompt?.trim());
-    return !hasSource || !contentReady || (section.testType === "cat" && invalidCatSections.some((candidate) => candidate.subtest === section.subtest));
+    return !hasSource
+      || !contentReady
+      || invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest)
+      || (section.testType === "cat" && invalidCatSections.some((candidate) => candidate.subtest === section.subtest));
   });
   const scheduleSessions = operationsInitial?.sessions ?? [];
   const scheduleConflicts = scheduleSessions.some((session) => new Date(session.availableUntil) <= new Date(session.availableFrom)) || scheduleSessions.filter((session) => session.isDefaultOpenRegistration).length > 1;
@@ -649,9 +664,10 @@ function KaptenTryoutBuilderPageModule({
     { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
     { detail: incompleteSections.length === 0 ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: incompleteSections.length === 0 },
     { detail: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia)) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan, media, atau blocker assembly yang belum siap.", label: "Penjelasan & media siap", status: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia)) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) },
-    { detail: draft.sections.every((section, index) => !section.packageVersionId || Boolean(selectedAssemblies[index]?.readiness.ready)) ? "Set, Pool, Blueprint, dan CAT Pool tidak memiliki blocker saat ini." : draft.sections.filter((section, index) => section.packageVersionId && !selectedAssemblies[index]?.readiness.ready).map((section) => `${section.subtest}: ${selectedAssemblies[draft.sections.indexOf(section)]?.readiness.blockers[0]?.message ?? "sumber Ready perlu ditinjau"}`).join(" · "), label: "Assembly siap dirilis", status: draft.sections.every((section, index) => !section.packageVersionId || Boolean(selectedAssemblies[index]?.readiness.ready)) },
+    { detail: draft.sections.every((section, index) => !section.packageVersionId || (Boolean(selectedAssemblies[index]?.readiness.ready) && !invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest))) ? "Set, Pool, Blueprint, dan CAT Pool tidak memiliki blocker saat ini." : draft.sections.filter((section, index) => section.packageVersionId && (!selectedAssemblies[index]?.readiness.ready || invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest))).map((section) => `${section.subtest}: ${invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest) ? "mode assembly tidak cocok dengan tipe Test" : selectedAssemblies[draft.sections.indexOf(section)]?.readiness.blockers[0]?.message ?? "sumber Ready perlu ditinjau"}`).join(" · "), label: "Assembly siap dirilis", status: draft.sections.every((section, index) => !section.packageVersionId || (Boolean(selectedAssemblies[index]?.readiness.ready) && !invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest))) },
     { detail: duplicateSourceCount ? `${duplicateSourceCount} soal sumber muncul lebih dari sekali.` : "Tidak ada soal sumber yang duplikat.", label: "Sumber soal unik", status: duplicateSourceCount === 0 },
     { detail: invalidCatSections.length ? "Setiap CAT harus memiliki pool cukup dan kalibrasi 2PL siap." : "CAT dan kalibrasi 2PL siap.", label: "CAT & 2PL siap", status: invalidCatSections.length === 0 },
+    { detail: invalidAssemblyTypeSections.length ? "CAT Pool hanya untuk Test CAT; assembly lain hanya untuk Test CBT." : "Mode assembly cocok dengan tipe Test setiap Section.", label: "Mode assembly sesuai Test", status: invalidAssemblyTypeSections.length === 0 },
     { detail: invalidDurationSections.length ? "Periksa durasi setiap Section." : "Durasi setiap Section valid.", label: "Durasi valid", status: invalidDurationSections.length === 0 },
     { detail: scheduleConflicts ? "Perbaiki jendela sesi atau lebih dari satu sesi default open registration." : scheduleSessions.length ? `${scheduleSessions.length} sesi tersimpan tanpa konflik konfigurasi.` : "Sesi dapat dijadwalkan setelah Tryout diterbitkan.", label: "Schedule & akses", status: !scheduleConflicts },
   ];
@@ -693,7 +709,7 @@ function KaptenTryoutBuilderPageModule({
     setSaving(true);
     setError(null);
     try {
-      const result = await attachReadyAssemblyAction({ target: "tryout", targetSubtestCode: activeSection.subtest, versionId: assembly.id });
+      const result = await attachReadyAssemblyAction({ target: "tryout", targetSubtestCode: activeSection.subtest, targetTestType: activeSection.testType, versionId: assembly.id });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -1137,7 +1153,7 @@ function KaptenTryoutBuilderPageModule({
               </div>
 
               {activeSelectionMode !== "direct" ? (
-                <ReadyAssemblyPicker activeMode={activeSelectionMode} assemblies={activeReadyAssemblies} locked={draft.locked || saving} onAttach={(assembly) => { void attachAssembly(assembly); }} onDetach={() => { void detachAssembly(); }} onPreview={(assembly) => { void previewAssembly(assembly); }} search={packageSearch} selectedId={activeSection.packageVersionId} setSearch={setPackageSearch} subtest={activeSection.subtest} />
+                <ReadyAssemblyPicker activeMode={activeSelectionMode} assemblies={activeReadyAssemblies} locked={draft.locked || saving} onAttach={(assembly) => { void attachAssembly(assembly); }} onDetach={() => { void detachAssembly(); }} onPreview={(assembly) => { void previewAssembly(assembly); }} search={packageSearch} selectedId={activeSection.packageVersionId} setSearch={setPackageSearch} subtest={activeSection.subtest} testType={activeSection.testType} />
               ) : (
                 <div className="grid gap-5 lg:grid-cols-[minmax(15rem,.65fr)_minmax(0,1.35fr)]">
                   <div className="grid min-w-0 gap-4">
@@ -1283,7 +1299,7 @@ function KaptenTryoutBuilderPageModule({
                 </div>
               ))}
             </div>
-            {draft.sections.some((section) => section.packageVersionId) ? <section className="grid gap-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6" aria-labelledby="assembly-review-title"><div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900" id="assembly-review-title">Readiness sumber assembly</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Ringkasan ini membantu Review menemukan blocker Pool, kuota Blueprint, atau kalibrasi CAT sebelum publish. Validasi server tetap menjadi penentu.</p></div></div><div className="grid gap-3 border-t border-primary-100 pt-4">{draft.sections.map((section, index) => { const assembly = selectedAssemblies[index]; if (!section.packageVersionId || !assembly) return null; return <article className={`grid gap-2 rounded-2xl border p-4 ${assembly.readiness.ready ? "border-primary-100 bg-primary-50/35" : "border-[#f3d486] bg-[#fff7e5]"}`} key={section.subtest}><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">{section.subtest} · {assemblyModeLabel(assembly.mode)}</p><p className="mt-1 break-words font-semibold text-secondary-900">{assembly.packageTitle}</p></div><Badge className="rounded-full" size="ui" variant={assembly.readiness.ready ? "mint" : "accent"}>{assembly.readiness.ready ? "Siap" : "Perlu ditinjau"}</Badge></div><p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(assembly)} · {assembly.bankNames.join(", ") || "Bank Soal"}</p>{assembly.readiness.blockers.length ? <div className="grid gap-1 text-sm leading-5 text-[#6a4a00]">{assembly.readiness.blockers.map((blocker) => <p key={`${blocker.code}-${blocker.message}`}>• {blocker.message}</p>)}</div> : <p className="text-sm leading-5 text-primary-800">Tidak ada blocker readiness saat ini.</p>}<div><Button onClick={() => { void previewAssembly(assembly); }} size="sm" variant="brandOutline"><Eye />Lihat preview</Button></div></article>; })}</div></section> : null}
+            {draft.sections.some((section) => section.packageVersionId) ? <section className="grid gap-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6" aria-labelledby="assembly-review-title"><div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900" id="assembly-review-title">Readiness sumber assembly</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Ringkasan ini membantu Review menemukan blocker Pool, kuota Blueprint, kalibrasi CAT, atau ketidakcocokan tipe Test sebelum publish. Validasi server tetap menjadi penentu.</p></div></div><div className="grid gap-3 border-t border-primary-100 pt-4">{draft.sections.map((section, index) => { const assembly = selectedAssemblies[index]; if (!section.packageVersionId || !assembly) return null; const assemblyTypeCompatible = assemblyCompatibleWithTestType(assembly.mode, section.testType); const assemblyReady = assembly.readiness.ready && assemblyTypeCompatible; return <article className={`grid gap-2 rounded-2xl border p-4 ${assemblyReady ? "border-primary-100 bg-primary-50/35" : "border-[#f3d486] bg-[#fff7e5]"}`} key={section.subtest}><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">{section.subtest} · {assemblyModeLabel(assembly.mode)}</p><p className="mt-1 break-words font-semibold text-secondary-900">{assembly.packageTitle}</p></div><Badge className="rounded-full" size="ui" variant={assemblyReady ? "mint" : "accent"}>{assemblyReady ? "Siap" : "Perlu ditinjau"}</Badge></div><p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(assembly)} · {assembly.bankNames.join(", ") || "Bank Soal"}</p>{!assemblyTypeCompatible ? <p className="text-sm leading-6 text-[#6a4a00]">{assembly.mode === "cat_pool" ? "CAT Pool hanya dapat dipakai pada Test CAT." : "Assembly ini hanya dapat dipakai pada Test CBT."}</p> : null}{assembly.readiness.blockers.length ? <div className="grid gap-1 text-sm leading-5 text-[#6a4a00]">{assembly.readiness.blockers.map((blocker) => <p key={`${blocker.code}-${blocker.message}`}>• {blocker.message}</p>)}</div> : assemblyTypeCompatible ? <p className="text-sm leading-5 text-primary-800">Tidak ada blocker readiness saat ini.</p> : null}<div><Button onClick={() => { void previewAssembly(assembly); }} size="sm" variant="brandOutline"><Eye />Lihat preview</Button></div></article>; })}</div></section> : null}
             <section className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6">
               <div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900">Server checks tetap berlaku</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Saat publish, server memeriksa sumber Ready, opsi, duplicate question, kesiapan CAT 2PL, dan snapshot AssessmentRelease. Checklist ini membantu navigasi; bukan pengganti validasi otoritatif.</p></div></div>
               {incompleteSections.length ? <div className="flex flex-wrap gap-2 border-t border-primary-100 pt-4">{incompleteSections.map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => { changeActiveCode(section.subtest); goTo("questions"); }} variant="outline">Lengkapi {section.subtest}</Button>)}</div> : null}

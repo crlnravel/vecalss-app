@@ -37,7 +37,7 @@ const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" a
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
-function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>, calibrationByRevision = new Map<string, { contentDigest: string; questionId: string; sourceRevisionProvenance: string | null }>()) {
+function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>, calibrationByRevision = new Map<string, { contentDigest: string; difficulty: unknown; discrimination: unknown; questionId: string; sourceRevisionProvenance: string | null }>()) {
   const sourceQuestionIds = version.items.map((item) => item.sourceQuestionId);
   const hasUniqueSources = new Set(sourceQuestionIds).size === sourceQuestionIds.length;
   const hasExplanations = version.items.every((item) => Boolean(item.explanation?.trim() || item.explanationAssetId));
@@ -55,7 +55,13 @@ function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionG
   const catReady = contentReady && version.items.every((item) => {
     if (!item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown) return false;
     const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId);
-    return Boolean(calibration && calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
+    return Boolean(calibration
+      && calibration.questionId === item.sourceQuestionId
+      && calibration.contentDigest === item.sourceContentDigest
+      && Number.isFinite(Number(calibration.difficulty))
+      && Number.isFinite(Number(calibration.discrimination))
+      && Number(calibration.discrimination) > 0
+      && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
   });
   return { catReady, contentReady, hasExplanations, hasReadyMedia, itemCount: version.items.length, sourceQuestionIds } satisfies PackageVersionReadiness;
 }
@@ -215,7 +221,7 @@ async function listReadyPackageVersions(_actorId: string) {
   const calibrations = revisionIds.length
     ? await prisma.twoPlQuestionCalibration.findMany({
         where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
-        select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
+        select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
       })
     : [];
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
@@ -328,7 +334,7 @@ async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: 
   const revisionIds = version.items.map((item) => item.sourceQuestionRevisionId!);
   const [revisions, calibrations] = await Promise.all([
     tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
-    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, id: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
+    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, id: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
   ]);
   const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
@@ -340,6 +346,9 @@ async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: 
       || revision.contentDigest !== item.sourceContentDigest
       || calibration.questionId !== item.sourceQuestionId
       || calibration.contentDigest !== item.sourceContentDigest
+      || !Number.isFinite(Number(calibration.difficulty))
+      || !Number.isFinite(Number(calibration.discrimination))
+      || Number(calibration.discrimination) <= 0
       || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
   })) throw new TryoutValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
 }
@@ -349,7 +358,7 @@ async function assertCatDirectReadiness(tx: Prisma.TransactionClient, sources: P
   const revisionIds = revisions.map((revision) => revision.id);
   const calibrations = await tx.twoPlQuestionCalibration.findMany({
     where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
-    select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
+    select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
   });
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
   if (revisions.length !== sources.length || sources.some((source) => {
@@ -359,6 +368,9 @@ async function assertCatDirectReadiness(tx: Prisma.TransactionClient, sources: P
       || !calibration
       || calibration.questionId !== source.id
       || calibration.contentDigest !== revision.contentDigest
+      || !Number.isFinite(Number(calibration.difficulty))
+      || !Number.isFinite(Number(calibration.discrimination))
+      || Number(calibration.discrimination) <= 0
       || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
   })) throw new TryoutValidationError("Setiap soal langsung untuk CAT harus memiliki kalibrasi 2PL kanonis yang disetujui dan cocok dengan digest revisinya.");
 }

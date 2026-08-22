@@ -22,6 +22,7 @@ import {
 } from "./assembly-validation";
 import type {
   AssemblyAttachmentTarget,
+  AssemblyAttachmentTestType,
   AssemblyDefinitionInput,
   AssemblyErrorCode,
   AssemblyErrorDetails,
@@ -154,6 +155,14 @@ const versionInclude = {
 
 type SourceRecord = Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>;
 type VersionRecord = Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>;
+type VersionItemRecord = VersionRecord["items"][number];
+type CalibrationRecord = {
+  contentDigest: string;
+  difficulty: number;
+  discrimination: number;
+  questionId: string;
+  sourceRevisionProvenance: QuestionRevisionProvenance;
+};
 
 function issue(code: AssemblyErrorCode, message: string, details: AssemblyErrorDetails = {}): AssemblyReadinessIssue {
   return { code, details, message };
@@ -270,6 +279,8 @@ function sourceContentIssues(
   }
   if (source.status === ContentStatus.archived) {
     blockers.push(issue("stale_candidate", "Soal kandidat sudah diarsipkan.", { sourceQuestionId: source.id }));
+  } else if (source.status !== ContentStatus.published) {
+    blockers.push(issue("stale_candidate", "Soal kandidat belum berstatus Ready.", { sourceQuestionId: source.id, status: source.status }));
   }
   if (!source.subtestId || source.subtestId !== subtestId) {
     blockers.push(issue("wrong_subtest", "Subtest soal kandidat tidak cocok dengan assembly.", {
@@ -315,11 +326,54 @@ function sourceContentIssues(
   return blockers;
 }
 
+function versionItemContentIssues(item: VersionItemRecord, subtestId: string): AssemblyReadinessIssue[] {
+  const blockers: AssemblyReadinessIssue[] = [];
+  if (item.subtestId !== subtestId) {
+    blockers.push(issue("wrong_subtest", "Snapshot soal tidak cocok dengan Subtest assembly.", {
+      itemSubtestId: item.subtestId,
+      subtestId,
+      sourceQuestionId: item.sourceQuestionId,
+    }));
+  }
+  if (!item.prompt.trim()) {
+    blockers.push(issue("options", "Snapshot stem soal kosong.", { sourceQuestionId: item.sourceQuestionId }));
+  }
+  if (item.options.length < 2
+    || item.options.length > 5
+    || item.options.filter((option) => option.isCorrect).length !== 1
+    || item.options.some((option) => !option.content.trim())) {
+    blockers.push(issue("options", "Snapshot harus memiliki 2–5 opsi berisi dengan tepat satu jawaban benar.", {
+      optionCount: item.options.length,
+      sourceQuestionId: item.sourceQuestionId,
+    }));
+  }
+  if (!item.explanation?.trim() && !item.explanationAssetId) {
+    blockers.push(issue("missing_explanation", "Snapshot belum memiliki penjelasan teks atau media.", { sourceQuestionId: item.sourceQuestionId }));
+  }
+  const mediaReady = isReadyAsset(item.promptAsset)
+    && isReadyAsset(item.explanationAsset)
+    && item.options.every((option) => isReadyAsset(option.asset));
+  if (!mediaReady) {
+    blockers.push(issue("media_not_ready", "Media snapshot prompt, penjelasan, atau opsi belum Ready.", { sourceQuestionId: item.sourceQuestionId }));
+  }
+  return blockers;
+}
+
+function snapshotSample(item: VersionItemRecord) {
+  return {
+    difficulty: item.difficulty,
+    prompt: item.prompt,
+    sourceContentDigest: item.sourceContentDigest ?? "",
+    sourceQuestionId: item.sourceQuestionId,
+    sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
+  };
+}
+
 function candidateIssues(
   sources: SourceRecord[],
   candidates: AssemblyCandidateSource[],
   definition: NormalizedAssemblyDefinition,
-  calibrations = new Map<string, { contentDigest: string; questionId: string; sourceRevisionProvenance: QuestionRevisionProvenance }>(),
+  calibrations = new Map<string, CalibrationRecord>(),
 ) {
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const blockers: AssemblyReadinessIssue[] = [];
@@ -337,10 +391,15 @@ function candidateIssues(
       if (!calibration
         || calibration.questionId !== candidate.sourceQuestionId
         || calibration.contentDigest !== candidate.sourceContentDigest
+        || !Number.isFinite(calibration.difficulty)
+        || !Number.isFinite(calibration.discrimination)
+        || calibration.discrimination <= 0
         || revision?.provenance === QuestionRevisionProvenance.legacy_unknown
         || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown) {
         blockers.push(issue("calibration", "Kandidat CAT belum memiliki kalibrasi 2PL kanonis yang cocok dengan revisi dan digest.", {
           modelVersion: CANONICAL_2PL_MODEL_VERSION,
+          difficulty: calibration?.difficulty,
+          discrimination: calibration?.discrimination,
           sourceQuestionId: candidate.sourceQuestionId,
           sourceQuestionRevisionId: candidate.sourceQuestionRevisionId,
         }));
@@ -415,12 +474,18 @@ async function readSources(tx: Prisma.TransactionClient, sourceQuestionIds: read
 
 async function readCalibrations(tx: Prisma.TransactionClient, revisionIds: readonly string[]) {
   const ids = [...new Set(revisionIds)].sort();
-  if (!ids.length) return new Map<string, { contentDigest: string; questionId: string; sourceRevisionProvenance: QuestionRevisionProvenance }>();
+  if (!ids.length) return new Map<string, CalibrationRecord>();
   const rows = await tx.twoPlQuestionCalibration.findMany({
     where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: ids } },
-    select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
+    select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
   });
-  return new Map(rows.map((row) => [row.questionRevisionId, row]));
+  return new Map(rows.map((row) => [row.questionRevisionId, {
+    contentDigest: row.contentDigest,
+    difficulty: Number(row.difficulty),
+    discrimination: Number(row.discrimination),
+    questionId: row.questionId,
+    sourceRevisionProvenance: row.sourceRevisionProvenance,
+  }]));
 }
 
 async function assertScope(tx: Prisma.TransactionClient, definition: NormalizedAssemblyDefinition) {
@@ -786,7 +851,13 @@ function definitionInputForVersion(version: VersionRecord): AssemblyDefinitionIn
   );
 }
 
-async function readyVersionForAttachment(tx: Prisma.TransactionClient, versionId: string, target: AssemblyAttachmentTarget, targetSubtestCode: string) {
+async function readyVersionForAttachment(
+  tx: Prisma.TransactionClient,
+  versionId: string,
+  target: AssemblyAttachmentTarget,
+  targetSubtestCode: string,
+  targetTestType: AssemblyAttachmentTestType,
+) {
   const version = await tx.reusableQuestionPackageVersion.findFirst({
     where: { id: versionId, package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
     include: versionInclude,
@@ -797,6 +868,7 @@ async function readyVersionForAttachment(tx: Prisma.TransactionClient, versionId
     mode: version.mode as AssemblyMode,
     subtestCode: version.subtest?.code ?? "",
     target,
+    targetTestType,
     targetSubtestCode,
   });
   return version;
@@ -811,7 +883,9 @@ async function listReadyAssemblyRevisions(): Promise<AssemblyAttachmentSummary[]
     });
     const summaries: AssemblyAttachmentSummary[] = [];
     for (const version of versions) {
-      const report = await collectReadiness(tx, definitionInputForVersion(version));
+      const report = await collectReadiness(tx, definitionInputForVersion(version), {
+        snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
+      });
       summaries.push(toAttachmentSummary(version, report.readiness));
     }
     return summaries;
@@ -825,15 +899,24 @@ async function getReadyAssemblyRevision(versionId: string): Promise<AssemblyAtta
       include: versionInclude,
     });
     if (!version) return null;
-    const report = await collectReadiness(tx, definitionInputForVersion(version));
+    const report = await collectReadiness(tx, definitionInputForVersion(version), {
+      snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
+    });
     return toAttachmentSummary(version, report.readiness);
   });
 }
 
-async function getReadyAssemblyAttachment(versionId: string, target: AssemblyAttachmentTarget, targetSubtestCode: string) {
+async function getReadyAssemblyAttachment(
+  versionId: string,
+  target: AssemblyAttachmentTarget,
+  targetSubtestCode: string,
+  targetTestType: AssemblyAttachmentTestType,
+) {
   return prisma.$transaction(async (tx) => {
-    const version = await readyVersionForAttachment(tx, versionId, target, targetSubtestCode);
-    const report = await collectReadiness(tx, definitionInputForVersion(version));
+    const version = await readyVersionForAttachment(tx, versionId, target, targetSubtestCode, targetTestType);
+    const report = await collectReadiness(tx, definitionInputForVersion(version), {
+      snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
+    });
     return toAttachmentSummary(version, report.readiness);
   });
 }
@@ -876,7 +959,15 @@ async function queryBlueprintSources(tx: Prisma.TransactionClient, definition: N
   });
 }
 
-async function collectReadiness(tx: Prisma.TransactionClient, definitionInput: AssemblyDefinitionInput): Promise<{ readiness: AssemblyReadiness; sources: SourceRecord[] }> {
+type ReadinessOptions = {
+  snapshotItems?: readonly VersionItemRecord[];
+};
+
+async function collectReadiness(
+  tx: Prisma.TransactionClient,
+  definitionInput: AssemblyDefinitionInput,
+  options: ReadinessOptions = {},
+): Promise<{ readiness: AssemblyReadiness; sources: SourceRecord[] }> {
   let definition: NormalizedAssemblyDefinition;
   try {
     definition = validateAssemblyDefinitionShape(definitionInput);
@@ -898,6 +989,39 @@ async function collectReadiness(tx: Prisma.TransactionClient, definitionInput: A
 
   const scopeState = await readScopeState(tx, definition);
   const blockers = [...scopeState.blockers];
+
+  if (definition.mode === "fixed_set" && options.snapshotItems) {
+    const snapshotItems = [...options.snapshotItems];
+    if (!snapshotItems.length) {
+      blockers.push(issue("shortage", "Set tetap belum memiliki snapshot soal yang dapat dipakai.", {
+        availableCount: 0,
+        requestedCount: definition.candidates.length,
+      }));
+    }
+    const snapshotBlockers = snapshotItems.flatMap((item) => versionItemContentIssues(item, definition.subtestId));
+    blockers.push(...snapshotBlockers);
+    const eligibleItems = snapshotItems.filter((item) => versionItemContentIssues(item, definition.subtestId).length === 0);
+    const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
+    for (const item of eligibleItems) {
+      const difficulty = item.difficulty;
+      if (difficulty === DifficultyLevel.easy || difficulty === DifficultyLevel.medium || difficulty === DifficultyLevel.hard) {
+        availableByDifficulty[difficulty] += 1;
+      }
+    }
+    return {
+      readiness: {
+        availableByDifficulty,
+        blockers,
+        candidateCount: snapshotItems.length,
+        eligibleCount: eligibleItems.length,
+        mode: definition.mode,
+        ready: blockers.length === 0,
+        requestedCount: null,
+      },
+      sources: [],
+    };
+  }
+
   let sources: SourceRecord[] = [];
   let eligibleSources: SourceRecord[] = [];
   if (definition.mode === "blueprint") {
@@ -994,13 +1118,18 @@ async function previewAssembly(input: PreviewAssemblyInput, actorId: string, opt
       ? packageRecord.items.map(candidateFromPackageItem)
       : version.items.map(candidateFromVersionItem);
     const definitionInput = toDefinitionInput(packageRecord, version, candidates);
-    const report = await collectReadiness(tx, definitionInput);
+    const usesImmutableSnapshot = Boolean(input.versionId) && version.mode === ReusableQuestionPackageMode.fixed_set;
+    const report = await collectReadiness(tx, definitionInput, usesImmutableSnapshot ? { snapshotItems: version.items } : undefined);
     const previewSeed = randomBytes(16).toString("hex");
     const normalized = (() => {
       try { return validateAssemblyDefinitionShape(definitionInput); } catch { return null; }
     })();
     const sample = normalized
-      ? normalized.mode === "blueprint"
+      ? usesImmutableSnapshot
+        ? seededShuffle(version.items, previewSeed)
+          .slice(0, version.items.length)
+          .map(snapshotSample)
+        : normalized.mode === "blueprint"
         ? seededShuffle(report.sources, previewSeed).slice(0, normalized.rule?.requestedCount ?? 0).map((source) => ({
           difficulty: source.currentRevision?.difficulty ?? DifficultyLevel.medium,
           prompt: source.currentRevision?.stem ?? source.stem,

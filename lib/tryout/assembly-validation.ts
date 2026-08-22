@@ -2,6 +2,8 @@ type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
 
 type AssemblyAttachmentTarget = "tryout";
 
+type AssemblyAttachmentTestType = "cbt" | "cat";
+
 const ASSEMBLY_RESOLVER_VERSION = "seeded-fisher-yates-v1";
 
 type AssemblyDifficulty = "easy" | "medium" | "hard";
@@ -95,6 +97,7 @@ type AssemblyAttachmentCompatibilityInput = {
   mode: AssemblyMode;
   subtestCode: string;
   target: AssemblyAttachmentTarget;
+  targetTestType: AssemblyAttachmentTestType;
   targetSubtestCode: string;
 };
 
@@ -243,6 +246,10 @@ function validateAssemblyDefinitionShape(input: AssemblyDefinitionInput): Normal
   };
 }
 
+function assemblyCompatibleWithTestType(mode: AssemblyMode, targetTestType: AssemblyAttachmentTestType) {
+  return mode === "cat_pool" ? targetTestType === "cat" : targetTestType === "cbt";
+}
+
 function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatibilityInput) {
   if (input.subtestCode !== input.targetSubtestCode) {
     throw new AssemblyValidationError("wrong_subtest", "Assembly tidak cocok dengan Subtest yang sedang dipilih.", {
@@ -250,6 +257,19 @@ function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatib
       targetSubtest: input.targetSubtestCode,
       target: input.target,
     });
+  }
+  if (!assemblyCompatibleWithTestType(input.mode, input.targetTestType)) {
+    throw new AssemblyValidationError(
+      "invalid_mode",
+      input.mode === "cat_pool"
+        ? "CAT Pool hanya dapat dipasang pada Section bertipe CAT."
+        : "Assembly non-CAT hanya dapat dipasang pada Section bertipe CBT.",
+      {
+        mode: input.mode,
+        target: input.target,
+        targetTestType: input.targetTestType,
+      },
+    );
   }
 }
 
@@ -374,6 +394,7 @@ export {
   ASSEMBLY_RESOLVER_VERSION,
   AssemblyResolutionError,
   AssemblyValidationError,
+  assemblyCompatibleWithTestType,
   assertAssemblyAttachmentCompatibility,
   resolveBlueprintCandidates,
   resolvePoolCandidates,
@@ -384,6 +405,7 @@ export {
 export type {
   AssemblyCandidateInput,
   AssemblyAttachmentCompatibilityInput,
+  AssemblyAttachmentTestType,
   AssemblyAttachmentTarget,
   AssemblyDifficulty,
   AssemblyDefinitionInput,
