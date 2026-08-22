@@ -12,6 +12,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
+import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 
 import {
   assignQuestionBankCategories,
@@ -69,6 +70,7 @@ type QuestionBankDiscovery = {
 };
 type BankQuestionDto = {
   bankId: string;
+  catReady?: boolean;
   choices: Array<{ id: string; mediaAssetId?: string; text: string }>;
   correctChoiceId: string;
   difficulty: "easy" | "medium" | "hard";
@@ -220,7 +222,7 @@ type BankMetrics = {
   subjectCoverage: string[];
 };
 
-function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "options" | "subtest" | "currentRevision">, bankId: string): BankQuestionDto {
+function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | "stem" | "difficulty" | "explanation" | "explanationAssetId" | "promptAssetId" | "options" | "subtest" | "currentRevision">, bankId: string, catReady = false): BankQuestionDto {
   const revision = question.currentRevision;
   const options = revision?.options ?? question.options;
   const stem = revision?.stem ?? question.stem;
@@ -234,6 +236,7 @@ function toBankQuestionDto(question: Pick<BankQuestionRecord, "id" | "status" | 
       : ContentStatus.draft;
   return {
     bankId,
+    catReady,
     choices: options.map((option) => ({ id: option.id, mediaAssetId: option.assetId ?? undefined, text: option.content })),
     correctChoiceId: options.find((option) => option.isCorrect)?.id ?? options[0]?.id ?? "",
     difficulty: toBankDifficulty(revision?.difficulty ?? question.difficulty),
@@ -582,6 +585,11 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
     return { bank: bankDto, page, pageSize, questions: [], total: Number(total) };
   }
   const records = await prisma.question.findMany({ where: { id: { in: ids } }, include: sourceQuestionInclude });
+  const revisionIds = records.flatMap((record) => record.currentRevision?.id ? [record.currentRevision.id] : []);
+  const calibrations = revisionIds.length
+    ? await prisma.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } })
+    : [];
+  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
   const recordById = new Map(records.map((record) => [record.id, record]));
   return {
     bank: bankDto,
@@ -589,7 +597,10 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
     pageSize,
     questions: ids.flatMap((id) => {
       const record = recordById.get(id);
-      return record ? [toBankQuestionDto(record as SourceQuestionRecord, bankId)] : [];
+      const revision = record?.currentRevision;
+      const calibration = revision ? calibrationByRevision.get(revision.id) : undefined;
+      const catReady = Boolean(revision && calibration && calibration.questionId === record?.id && calibration.contentDigest === revision.contentDigest && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
+      return record ? [toBankQuestionDto(record as SourceQuestionRecord, bankId, catReady)] : [];
     }),
     total: rows[0]?.total ?? 0,
   };

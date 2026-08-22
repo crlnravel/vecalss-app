@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
+import { listQuestionBankSourcePage } from "@/lib/question-bank/repository";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { getTryoutForEdit, listReadyPackageVersions } from "@/lib/tryout/repository";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
@@ -11,11 +12,11 @@ export const metadata: Metadata = { title: "Edit Tryout Kapten | Vecalss LMS" };
 
 export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<{ workspace?: string }> }) {
   const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
-  const [initialDraft, operationsInitial, readyVersions] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id)]);
+  const [initialDraft, operationsInitial, readyVersions, sourceCatalog] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id), listQuestionBankSourcePage({ page: 1, pageSize: 20 })]);
   if (!initialDraft || !operationsInitial) notFound();
   // The workspace module owns the new eight-area vocabulary and maps the
   // transitional authoring/policy/sessions/participants query values for
   // bookmarked compatibility URLs.
   const initialWorkspace = query.workspace ?? "basics";
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }

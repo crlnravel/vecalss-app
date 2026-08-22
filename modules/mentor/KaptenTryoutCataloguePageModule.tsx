@@ -14,7 +14,7 @@ type TryoutItem = {
   description: string;
   id: string;
   locked: boolean;
-  sections: Array<{ packageVersionId?: string }>;
+  sections: Array<{ directQuestions?: Array<{ sourceQuestionId: string }>; packageVersionId?: string }>;
   status: "draft" | "published";
   title: string;
 };
@@ -26,7 +26,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
   const [page, setPage] = useState(1);
   const pageSize = 8;
   const filteredItems = initialItems.filter((item) => {
-    const boundCount = item.sections.filter((section) => section.packageVersionId).length;
+    const boundCount = item.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
     const needle = query.trim().toLocaleLowerCase();
     return (!needle || [item.title, item.description, item.status, item.locked ? "terkunci" : ""].some((value) => value.toLocaleLowerCase().includes(needle)))
       && (!statusFilter || item.status === statusFilter)

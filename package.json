@@ -55,6 +55,7 @@
     "test:assessment-release-invariants": "node scripts/test-assessment-release-invariants.mjs",
     "test:assessment-participant-view": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-assessment-participant-view.ts",
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",
+    "test:tryout-direct-question-picks": "tsx scripts/test-tryout-direct-question-picks.ts",
     "test:tryout-scoring": "tsx scripts/test-tryout-scoring.ts",
     "test:assessment-scoring-release-invariants": "node scripts/test-assessment-scoring-release-invariants.mjs",
     "db:verify-materi": "node scripts/verify-materi-catalogue.mjs",

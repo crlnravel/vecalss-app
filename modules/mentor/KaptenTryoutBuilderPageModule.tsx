@@ -3,6 +3,8 @@
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   CalendarDays,
   Check,
@@ -16,11 +18,13 @@ import {
   FileText,
   ListChecks,
   Lock,
+  Plus,
   Save,
   Search,
   SlidersHorizontal,
   Upload,
   Users,
+  X,
 } from "@/lib/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -77,12 +81,28 @@ import {
   type Policy,
 } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
 import { duplicateTryoutAction, saveTryoutAction } from "@/modules/mentor/tryout-actions";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
 type SubjectCode = (typeof subjectCodes)[number];
+type SelectionMode = "direct" | "set";
+type SelectionModes = Partial<Record<SubjectCode, SelectionMode>>;
+type DirectQuestionDraft = {
+  bankId?: string;
+  bankTitle?: string;
+  catReady?: boolean;
+  difficulty?: "easy" | "medium" | "hard";
+  hasExplanation?: boolean;
+  hasReadyMedia?: boolean;
+  prompt?: string;
+  sourceContentDigest?: string;
+  sourceQuestionId: string;
+  sourceQuestionRevisionId?: string;
+};
 type TestDraft = {
   catItemCount?: number;
+  directQuestions?: DirectQuestionDraft[];
   durationMinutes: number;
   instructions: string;
   packageVersionId?: string;
@@ -120,6 +140,29 @@ type ReadyVersion = {
   sourceQuestionIds: string[];
   subtest: SubjectCode;
 };
+type SourceBank = {
+  categories?: Array<{ id: string; name: string }>;
+  description: string;
+  folderPath?: Array<{ id: string | null; name: string }>;
+  id: string;
+  questionCount: number;
+  subjectCoverage?: string[];
+  title: string;
+};
+type SourceQuestion = {
+  bankId: string;
+  catReady?: boolean;
+  choices: Array<{ id: string; mediaAssetId?: string; text: string }>;
+  difficulty: "easy" | "medium" | "hard";
+  explanation: string;
+  explanationMediaAssetId?: string;
+  id: string;
+  prompt: string;
+  promptMediaAssetId?: string;
+  questionContentDigest?: string;
+  questionRevisionId?: string;
+  subjectCode: string;
+};
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "results" | "review" | "publish";
 
 const workspaceItems: Array<{ label: string; value: Workspace }> = [
@@ -135,6 +178,7 @@ const workspaceItems: Array<{ label: string; value: Workspace }> = [
 
 function defaultSections(): TestDraft[] {
   return subjectCodes.map((subtest) => ({
+    directQuestions: [],
     durationMinutes: 30,
     instructions: "",
     shuffleItems: false,
@@ -211,12 +255,16 @@ function KaptenTryoutBuilderPageModule({
   initialDraft,
   initialWorkspace = "basics",
   operationsInitial,
+  initialSourceBankTotal,
+  initialSourceBanks,
   readyVersions,
   session,
 }: {
   id?: string;
   initialDraft?: TryoutDraft | null;
   initialWorkspace?: string;
+  initialSourceBankTotal?: number;
+  initialSourceBanks: SourceBank[];
   operationsInitial?: TryoutOperationsView;
   readyVersions: ReadyVersion[];
   session: SessionContext;
@@ -231,10 +279,22 @@ function KaptenTryoutBuilderPageModule({
     title: "Draft Tryout Baru",
     updatedAt: Date.now(),
   }));
-  const [activeCode, setActiveCode] = useState<SubjectCode>(() => draft.sections.find((section) => !section.packageVersionId)?.subtest ?? "PU");
+  const [activeCode, setActiveCode] = useState<SubjectCode>(() => draft.sections.find((section) => !section.packageVersionId && !section.directQuestions?.length)?.subtest ?? "PU");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
+  const [selectionModes, setSelectionModes] = useState<SelectionModes>(() => Object.fromEntries(draft.sections.filter((section) => section.packageVersionId).map((section) => [section.subtest, "set"])) as SelectionModes);
+  const [sourceBankSearch, setSourceBankSearch] = useState("");
+  const [sourceBanks, setSourceBanks] = useState<SourceBank[]>(initialSourceBanks);
+  const [sourceBankPage, setSourceBankPage] = useState(1);
+  const [sourceBankTotal, setSourceBankTotal] = useState(initialSourceBankTotal ?? initialSourceBanks.length);
+  const [sourceBankLoading, setSourceBankLoading] = useState(false);
+  const [browseBankId, setBrowseBankId] = useState(initialSourceBanks[0]?.id ?? "");
+  const [sourceQuestionSearch, setSourceQuestionSearch] = useState("");
+  const [sourceQuestionPage, setSourceQuestionPage] = useState(1);
+  const [sourceQuestionTotal, setSourceQuestionTotal] = useState(0);
+  const [sourceQuestionLoading, setSourceQuestionLoading] = useState(false);
+  const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -242,21 +302,32 @@ function KaptenTryoutBuilderPageModule({
   const tabRailRef = useRef<HTMLDivElement>(null);
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
-  const boundCount = draft.sections.filter((section) => section.packageVersionId).length;
+  const boundCount = draft.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
   const selectedVersions = draft.sections.map((section) => section.packageVersionId ? readyVersions.find((version) => version.id === section.packageVersionId) : undefined);
-  const selectedSourceQuestionIds = selectedVersions.flatMap((version) => version?.sourceQuestionIds ?? []);
+  const selectedDirectQuestions = draft.sections.flatMap((section) => section.directQuestions ?? []);
+  const selectedSourceQuestionIds = [...selectedVersions.flatMap((version) => version?.sourceQuestionIds ?? []), ...selectedDirectQuestions.map((question) => question.sourceQuestionId)];
   const duplicateSourceCount = selectedSourceQuestionIds.length - new Set(selectedSourceQuestionIds).size;
   const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
-  const invalidCatSections = draft.sections.filter((section) => section.testType === "cat" && (!Number.isInteger(section.catItemCount) || !section.catItemCount || !selectedVersions.find((version) => version?.id === section.packageVersionId)?.catReady || (selectedVersions.find((version) => version?.id === section.packageVersionId)?.itemCount ?? 0) < (section.catItemCount ?? 0)));
-  const incompleteSections = draft.sections.filter((section, index) => !section.packageVersionId || !selectedVersions[index]?.contentReady || (section.testType === "cat" && invalidCatSections.some((candidate) => candidate.subtest === section.subtest)));
+  const invalidCatSections = draft.sections.filter((section, index) => {
+    if (section.testType !== "cat" || !Number.isInteger(section.catItemCount) || !section.catItemCount) return section.testType === "cat";
+    if (section.packageVersionId) return !selectedVersions[index]?.catReady || (selectedVersions[index]?.itemCount ?? 0) < section.catItemCount;
+    return !section.directQuestions?.length || section.directQuestions.length < section.catItemCount || section.directQuestions.some((question) => !question.catReady);
+  });
+  const incompleteSections = draft.sections.filter((section, index) => {
+    const selectedVersion = selectedVersions[index];
+    const directQuestions = section.directQuestions ?? [];
+    const hasSource = Boolean(section.packageVersionId || directQuestions.length);
+    const contentReady = section.packageVersionId ? Boolean(selectedVersion?.contentReady) : directQuestions.every((question) => question.hasReadyMedia !== false && question.prompt?.trim());
+    return !hasSource || !contentReady || (section.testType === "cat" && invalidCatSections.some((candidate) => candidate.subtest === section.subtest));
+  });
   const scheduleSessions = operationsInitial?.sessions ?? [];
   const scheduleConflicts = scheduleSessions.some((session) => new Date(session.availableUntil) <= new Date(session.availableFrom)) || scheduleSessions.filter((session) => session.isDefaultOpenRegistration).length > 1;
   const reviewChecks = [
     { detail: draft.title.trim() ? "Judul Tryout sudah terisi." : "Tambahkan judul sebelum publikasi.", label: "Basics lengkap", status: Boolean(draft.title.trim()) },
     { detail: draft.sections.length === 7 ? "PU, PPU, PBM, PK, LBI, LBE, dan PM tersedia." : "Tryout harus memiliki tepat tujuh Section.", label: "Tujuh Section tetap", status: draft.sections.length === 7 },
     { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
-    { detail: selectedVersions.every((version) => version?.contentReady) ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: selectedVersions.every((version) => version?.contentReady) },
-    { detail: selectedVersions.every((version) => version?.hasExplanations && version.hasReadyMedia) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan atau media yang belum siap.", label: "Penjelasan & media siap", status: selectedVersions.every((version) => version?.hasExplanations && version.hasReadyMedia) },
+    { detail: incompleteSections.length === 0 ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: incompleteSections.length === 0 },
+    { detail: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan atau media yang belum siap.", label: "Penjelasan & media siap", status: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) },
     { detail: duplicateSourceCount ? `${duplicateSourceCount} soal sumber muncul lebih dari sekali.` : "Tidak ada soal sumber yang duplikat.", label: "Sumber soal unik", status: duplicateSourceCount === 0 },
     { detail: invalidCatSections.length ? "Setiap CAT harus memiliki pool cukup dan kalibrasi 2PL siap." : "CAT dan kalibrasi 2PL siap.", label: "CAT & 2PL siap", status: invalidCatSections.length === 0 },
     { detail: invalidDurationSections.length ? "Periksa durasi setiap Section." : "Durasi setiap Section valid.", label: "Durasi valid", status: invalidDurationSections.length === 0 },
@@ -268,6 +339,10 @@ function KaptenTryoutBuilderPageModule({
     () => readyVersions.filter((version) => version.subtest === activeSection.subtest && version.label.toLocaleLowerCase().includes(packageSearch.toLocaleLowerCase())),
     [activeSection.subtest, packageSearch, readyVersions],
   );
+  const activeSelectionMode = selectionModes[activeSection.subtest] ?? (activeSection.packageVersionId ? "set" : "direct");
+  const activeDirectQuestions = activeSection.directQuestions ?? [];
+  const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
+  const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
   const release = releaseFor(draft, operationsInitial);
 
   const update = (subtest: SubjectCode, change: Partial<TestDraft>) => {
@@ -275,6 +350,48 @@ function KaptenTryoutBuilderPageModule({
       ...current,
       sections: current.sections.map((section) => section.subtest === subtest ? { ...section, ...change } : section),
     }));
+  };
+
+  const changeActiveCode = (nextCode: SubjectCode) => {
+    setActiveCode(nextCode);
+    setSourceBankPage(1);
+    setSourceBankSearch("");
+    setSourceQuestionPage(1);
+    setSourceQuestionSearch("");
+    setSourceQuestions([]);
+  };
+
+  const chooseSelectionMode = (mode: "direct" | "set") => {
+    setSelectionModes((current) => ({ ...current, [activeCode]: mode }));
+    update(activeCode, mode === "direct"
+      ? { directQuestions: activeSection.directQuestions ?? [], packageVersionId: undefined, packageVersionLabel: undefined }
+      : { directQuestions: [], packageVersionId: undefined, packageVersionLabel: undefined });
+    setError(null);
+  };
+
+  const addDirectQuestion = (question: SourceQuestion) => {
+    if (selectedSourceQuestionIds.includes(question.id)) {
+      setError("Soal ini sudah dipilih di Section lain atau sumber yang sama.");
+      return;
+    }
+    const bank = sourceBanks.find((candidate) => candidate.id === question.bankId);
+    update(activeCode, {
+      directQuestions: [...activeDirectQuestions, {
+        bankId: question.bankId,
+        bankTitle: bank?.title,
+        catReady: question.catReady,
+        difficulty: question.difficulty,
+        hasExplanation: Boolean(question.explanation.trim() || question.explanationMediaAssetId),
+        hasReadyMedia: true,
+        prompt: question.prompt,
+        sourceContentDigest: question.questionContentDigest,
+        sourceQuestionId: question.id,
+        sourceQuestionRevisionId: question.questionRevisionId,
+      }],
+      packageVersionId: undefined,
+      packageVersionLabel: undefined,
+    });
+    setError(null);
   };
 
   const save = async (status: "draft" | "published" = "draft") => {
@@ -286,6 +403,7 @@ function KaptenTryoutBuilderPageModule({
         id,
         sections: draft.sections.map((section) => ({
           catItemCount: section.catItemCount,
+          directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest, sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId })),
           durationMinutes: section.durationMinutes,
           instructions: section.instructions,
           packageVersionId: section.packageVersionId,
@@ -336,6 +454,62 @@ function KaptenTryoutBuilderPageModule({
     else url.searchParams.set("workspace", nextWorkspace);
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
+
+  useEffect(() => {
+    if (workspace !== "questions") return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setSourceBankLoading(true);
+      try {
+        const result = await listQuestionBankSourcePageAction({
+          page: sourceBankPage,
+          pageSize: 20,
+          search: sourceBankSearch,
+          subjectCoverage: [activeSection.subtest],
+        });
+        if (cancelled) return;
+        const nextBanks = result.items.map(({ bank }) => bank as SourceBank);
+        setSourceBanks((current) => sourceBankPage === 1
+          ? nextBanks
+          : [...current, ...nextBanks].filter((bank, index, all) => all.findIndex((candidate) => candidate.id === bank.id) === index));
+        setSourceBankTotal(result.total);
+        setBrowseBankId((current) => nextBanks.some((bank) => bank.id === current) ? current : nextBanks[0]?.id ?? "");
+      } catch (sourceError) {
+        if (!cancelled) setError(sourceError instanceof Error ? sourceError.message : "Bank Soal belum dapat dimuat.");
+      } finally {
+        if (!cancelled) setSourceBankLoading(false);
+      }
+    }, sourceBankSearch.trim() ? 250 : 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [activeSection.subtest, sourceBankPage, sourceBankSearch, workspace]);
+
+  useEffect(() => {
+    if (workspace !== "questions" || !browseBankId) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setSourceQuestionLoading(true);
+      if (sourceQuestionPage === 1) setSourceQuestions([]);
+      try {
+        const result = await listQuestionBankSourceQuestionsAction(browseBankId, {
+          page: sourceQuestionPage,
+          pageSize: 50,
+          search: sourceQuestionSearch,
+          subjectCode: activeSection.subtest,
+        });
+        if (cancelled || !result) return;
+        const incoming = result.questions as SourceQuestion[];
+        setSourceQuestionTotal(result.total);
+        setSourceQuestions((current) => sourceQuestionPage === 1
+          ? incoming
+          : [...current, ...incoming].filter((question, index, all) => all.findIndex((candidate) => candidate.id === question.id) === index));
+      } catch (sourceError) {
+        if (!cancelled) setError(sourceError instanceof Error ? sourceError.message : "Soal siap belum dapat dimuat.");
+      } finally {
+        if (!cancelled) setSourceQuestionLoading(false);
+      }
+    }, sourceQuestionSearch.trim() ? 200 : 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [activeSection.subtest, browseBankId, sourceQuestionPage, sourceQuestionSearch, workspace]);
 
   useEffect(() => {
     const label = workspaceItems.find((item) => item.value === workspace)?.label;
@@ -422,7 +596,7 @@ function KaptenTryoutBuilderPageModule({
           </TabsList>
           </div>
           <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f7faf8] to-transparent sm:hidden" />
-          <p className="mt-1 text-right text-[11px] text-secondary-500 sm:hidden">Geser untuk area lain →</p>
+          <p className="mt-1 text-right text-xs text-secondary-500 sm:hidden">Geser untuk area lain →</p>
         </div>
 
         <TabsContent className="mt-5" value="basics">
@@ -476,15 +650,15 @@ function KaptenTryoutBuilderPageModule({
                       <Button
                         aria-current={selected ? "true" : undefined}
                         className={`h-auto min-h-14 w-full justify-start gap-3 rounded-2xl border px-3 py-3 text-left ${selected ? "border-primary-300 bg-primary-50 text-primary-950" : "border-primary-100 bg-white text-secondary-800"}`}
-                        onClick={() => setActiveCode(section.subtest)}
+                        onClick={() => changeActiveCode(section.subtest)}
                         variant="ghost"
                       >
                         <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-secondary-50 text-xs font-bold text-secondary-600">{String(index + 1).padStart(2, "0")}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-semibold">{section.subtest} · {subjectName(section.subtest)}</span>
-                          <span className={`mt-0.5 block text-xs ${section.packageVersionId ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Sumber siap" : "Sumber belum dipilih"}</span>
+                          <span className={`mt-0.5 block text-xs ${section.packageVersionId || section.directQuestions?.length ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Set siap" : section.directQuestions?.length ? `${section.directQuestions.length} soal langsung` : "Sumber belum dipilih"}</span>
                         </span>
-                        {section.packageVersionId ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
+                        {section.packageVersionId || section.directQuestions?.length ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
                       </Button>
                     </li>
                   );
@@ -497,7 +671,7 @@ function KaptenTryoutBuilderPageModule({
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Test {String(subjectCodes.indexOf(activeSection.subtest) + 1).padStart(2, "0")}</p>
                     <h3 className="mt-1 text-lg font-semibold text-secondary-900">{activeSection.subtest} · {subjectName(activeSection.subtest)}</h3>
                   </div>
-                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId ? "mint" : "accent"}>{activeSection.packageVersionId ? "Siap" : "Perlu sumber"}</Badge>
+                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? "Set siap" : activeSection.directQuestions?.length ? "Soal siap" : "Perlu sumber"}</Badge>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   <Field>
@@ -517,7 +691,7 @@ function KaptenTryoutBuilderPageModule({
                   <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => update(activeSection.subtest, { instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
                 </Field>
                 <footer className="flex flex-wrap justify-between gap-2 border-t border-primary-100 pt-4">
-                  <Button disabled={subjectCodes.indexOf(activeSection.subtest) === 0} onClick={() => setActiveCode(subjectCodes[subjectCodes.indexOf(activeSection.subtest) - 1])} variant="brandOutline">Sebelumnya</Button>
+                  <Button disabled={subjectCodes.indexOf(activeSection.subtest) === 0} onClick={() => changeActiveCode(subjectCodes[subjectCodes.indexOf(activeSection.subtest) - 1])} variant="brandOutline">Sebelumnya</Button>
                   <Button onClick={() => goTo("questions")} variant="brand">Atur Questions <ChevronRight /></Button>
                 </footer>
               </div>
@@ -529,13 +703,13 @@ function KaptenTryoutBuilderPageModule({
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold text-secondary-900">Sumber Questions</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih sumber soal siap untuk subject aktif. Set/Pool tetap menjadi detail internal; Kapten tidak perlu membuka route Paket atau Versi.</p>
+                <h2 className="text-xl font-semibold text-secondary-900">Pilih Questions</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Ambil soal Ready langsung dari Bank Soal, atau gunakan Set Soal siap sebagai sumber yang dapat dipakai ulang. Pool acak dan blueprint tetap menjadi opsi lanjutan.</p>
               </div>
               <Button onClick={() => goTo("sections")} variant="brandOutline">Kembali ke Sections</Button>
             </header>
 
-            <div className="grid gap-4 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
+            <div className="grid gap-5 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Subject aktif</p>
@@ -548,47 +722,94 @@ function KaptenTryoutBuilderPageModule({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="max-h-96 w-[min(28rem,calc(100vw-2rem))]">
                     <DropdownMenuLabel>Pilih Section</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup onValueChange={(value) => setActiveCode(value as SubjectCode)} value={activeCode}>
+                    <DropdownMenuRadioGroup onValueChange={(value) => changeActiveCode(value as SubjectCode)} value={activeCode}>
                       {draft.sections.map((section) => <DropdownMenuRadioItem key={section.subtest} value={section.subtest}>{section.subtest} · {subjectName(section.subtest)}</DropdownMenuRadioItem>)}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
-              <Field>
-                <FieldLabel>Sumber soal siap</FieldLabel>
-                <Popover>
-                  <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
-                    {activeSection.packageVersionLabel ?? readyVersions.find((version) => version.id === activeSection.packageVersionId)?.label ?? "Cari sumber soal"}
-                    <ChevronDown />
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                      <FieldInput aria-label="Cari sumber soal siap" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => setPackageSearch(event.target.value)} placeholder="Cari nama sumber soal…" value={packageSearch} />
-                    </div>
-                    <div aria-label="Sumber soal kompatibel" className="grid max-h-64 gap-1 overflow-y-auto" role="listbox">
-                      {activeReadyVersions.length ? activeReadyVersions.map((version) => (
-                        <Button aria-selected={activeSection.packageVersionId === version.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left hover:bg-primary-50" key={version.id} onClick={() => { update(activeSection.subtest, { packageVersionId: version.id, packageVersionLabel: version.label }); setPackageSearch(""); }} role="option" variant={activeSection.packageVersionId === version.id ? "contextSelected" : "ghost"}>
-                          {version.label}
-                          {activeSection.packageVersionId === version.id ? <Check className="ml-auto" /> : null}
-                        </Button>
-                      )) : (
-                        <div className="grid gap-3 px-3 py-5 text-sm leading-6 text-secondary-500">
-                          <p>{readyVersions.some((version) => version.subtest === activeSection.subtest) ? "Tidak ada sumber yang cocok dengan pencarian." : `Belum ada sumber soal ${activeSection.subtest} yang siap.`}</p>
-                          {!readyVersions.some((version) => version.subtest === activeSection.subtest) ? <Button className="w-fit" nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button> : null}
-                        </div>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </Field>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Sumber</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Terpilih" : "Belum dipilih"}</p></div>
-                <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Kesesuaian</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? `${activeSection.subtest} cocok` : "Menunggu sumber"}</p></div>
-                <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Snapshot</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Dibuat saat simpan" : "Belum dibuat"}</p></div>
+              <div aria-label="Mode sumber soal" className="grid gap-2 rounded-2xl border border-primary-100 bg-white p-1 sm:grid-cols-2" role="radiogroup">
+                <Button aria-checked={activeSelectionMode === "direct"} className={`h-auto min-h-12 justify-start rounded-xl px-4 py-3 text-left ${activeSelectionMode === "direct" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("direct")} role="radio" variant="ghost">
+                  <span><span className="block font-semibold">Pilih soal langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pilih lintas Bank Soal untuk Section ini.</span></span>
+                </Button>
+                <Button aria-checked={activeSelectionMode === "set"} className={`h-auto min-h-12 justify-start rounded-xl px-4 py-3 text-left ${activeSelectionMode === "set" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("set")} role="radio" variant="ghost">
+                  <span><span className="block font-semibold">Gunakan Set Soal siap</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pakai assembly tetap yang sudah dirilis.</span></span>
+                </Button>
               </div>
+
+              {activeSelectionMode === "set" ? (
+                <div className="grid gap-4">
+                  <Field>
+                    <FieldLabel>Set Soal siap</FieldLabel>
+                    <Popover>
+                      <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
+                        {activeSection.packageVersionLabel ?? readyVersions.find((version) => version.id === activeSection.packageVersionId)?.label ?? "Cari Set Soal siap"}
+                        <ChevronDown />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
+                        <div className="relative">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                          <FieldInput aria-label="Cari Set Soal siap" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => setPackageSearch(event.target.value)} placeholder="Cari nama Set Soal…" value={packageSearch} />
+                        </div>
+                        <div aria-label="Set Soal kompatibel" className="grid max-h-64 gap-1 overflow-y-auto" role="listbox">
+                          {activeReadyVersions.length ? activeReadyVersions.map((version) => (
+                            <Button aria-selected={activeSection.packageVersionId === version.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left hover:bg-primary-50" key={version.id} onClick={() => { setSelectionModes((current) => ({ ...current, [activeCode]: "set" })); update(activeSection.subtest, { directQuestions: [], packageVersionId: version.id, packageVersionLabel: version.label }); setPackageSearch(""); }} role="option" variant={activeSection.packageVersionId === version.id ? "contextSelected" : "ghost"}>
+                              <span className="min-w-0 truncate">{version.label}</span>
+                              {activeSection.packageVersionId === version.id ? <Check className="ml-auto" /> : null}
+                            </Button>
+                          )) : (
+                            <div className="grid gap-3 px-3 py-5 text-sm leading-6 text-secondary-500">
+                              <p>{readyVersions.some((version) => version.subtest === activeSection.subtest) ? "Tidak ada Set yang cocok dengan pencarian." : `Belum ada Set Soal ${activeSection.subtest} yang siap.`}</p>
+                              {!readyVersions.some((version) => version.subtest === activeSection.subtest) ? <Button className="w-fit" nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button> : null}
+                            </div>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </Field>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Sumber</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Set terpilih" : "Belum dipilih"}</p></div>
+                    <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Kesesuaian</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? `${activeSection.subtest} cocok` : "Menunggu Set"}</p></div>
+                    <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Snapshot</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Dibuat saat simpan" : "Belum dibuat"}</p></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-5 lg:grid-cols-[minmax(15rem,.65fr)_minmax(0,1.35fr)]">
+                  <div className="grid min-w-0 gap-4">
+                    <Field>
+                      <FieldLabel>Bank Soal untuk ditelusuri</FieldLabel>
+                      <Popover>
+                        <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
+                          <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
+                          <ChevronDown />
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                            <FieldInput aria-label="Cari Bank Soal untuk pilihan langsung" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => { setSourceBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
+                          </div>
+                          {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
+                          <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
+                            {sourceBanks.length ? sourceBanks.map((bank) => <Button aria-selected={browseBankId === bank.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left" key={bank.id} onClick={() => { setBrowseBankId(bank.id); setSourceQuestionPage(1); setSourceQuestionSearch(""); setSourceQuestions([]); }} role="option" variant={browseBankId === bank.id ? "contextSelected" : "ghost"}><span className="min-w-0"><span className="block truncate font-semibold">{bank.title}</span><span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span></span>{browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}</Button>) : <p className="px-3 py-5 text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSection.subtest}.</p>}
+                          </div>
+                          {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={() => setSourceBankPage((page) => page + 1)} size="sm" variant="brandOutline">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
+                        </PopoverContent>
+                      </Popover>
+                    </Field>
+                    <div className="rounded-2xl border border-primary-100 bg-white p-4">
+                      <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Soal terpilih</p><Badge className="rounded-full" size="ui" variant={activeDirectQuestions.length ? "mint" : "accent"}>{activeDirectQuestions.length}</Badge></div>
+                      {activeDirectQuestions.length ? <ol className="mt-3 grid gap-2">{activeDirectQuestions.map((question, index) => <li className="rounded-xl border border-primary-100 px-3 py-2.5" key={question.sourceQuestionId}><div className="flex items-start gap-2"><span className="grid size-6 shrink-0 place-items-center rounded-lg bg-primary-50 text-xs font-bold text-primary-800">{index + 1}</span><div className="min-w-0 flex-1"><p className="line-clamp-2 text-sm leading-5 text-secondary-900">{question.prompt ?? "Soal pilihan langsung"}</p><p className="mt-1 truncate text-xs text-secondary-500">{question.bankTitle ?? "Bank Soal"}</p></div><Button aria-label={`Hapus soal langsung ${index + 1}`} disabled={draft.locked} onClick={() => update(activeCode, { directQuestions: activeDirectQuestions.filter((candidate) => candidate.sourceQuestionId !== question.sourceQuestionId) })} size="icon-xs" variant="ghost"><X /></Button></div><div className="mt-2 flex justify-end gap-1"><Button aria-label={`Naikkan soal langsung ${index + 1}`} disabled={draft.locked || index === 0} onClick={() => { const next = [...activeDirectQuestions]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; update(activeCode, { directQuestions: next }); }} size="icon-xs" variant="ghost"><ArrowUp /></Button><Button aria-label={`Turunkan soal langsung ${index + 1}`} disabled={draft.locked || index === activeDirectQuestions.length - 1} onClick={() => { const next = [...activeDirectQuestions]; [next[index], next[index + 1]] = [next[index + 1]!, next[index]!]; update(activeCode, { directQuestions: next }); }} size="icon-xs" variant="ghost"><ArrowDown /></Button></div></li>)}</ol> : <p className="mt-3 text-sm leading-6 text-secondary-500">Belum ada soal. Pilih dari Bank Soal di sebelah kanan.</p>}
+                    </div>
+                  </div>
+                  <div className="min-w-0 rounded-2xl border border-primary-100 bg-white p-4">
+                    <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => { setSourceQuestionSearch(event.target.value); setSourceQuestionPage(1); }} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
+                    {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
+                    {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => { const selected = selectedSourceQuestionIds.includes(question.id); return <article className="rounded-2xl border border-primary-100 p-3" key={question.id}><div className="flex items-start justify-between gap-3"><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p>{selected ? <Badge className="rounded-full" size="ui" variant="mint">Terpilih</Badge> : null}</div><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p><Button className="mt-3" disabled={draft.locked || selected} onClick={() => addDirectQuestion(question)} size="sm" variant={selected ? "ghost" : "brandOutline"}>{selected ? <Check /> : <Plus />}{selected ? "Sudah dipilih" : "Tambah ke Section"}</Button></article>; })}</div> : <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center text-sm leading-6 text-secondary-500">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</div>}
+                    {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={() => setSourceQuestionPage((page) => page + 1)} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
+                  </div>
+                </div>
+              )}
             </div>
             <footer className="flex justify-end border-t border-primary-100 pt-5"><Button onClick={() => goTo("rules")} variant="brand">Atur Rules <ChevronRight /></Button></footer>
           </section>
@@ -700,7 +921,7 @@ function KaptenTryoutBuilderPageModule({
             </div>
             <section className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6">
               <div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900">Server checks tetap berlaku</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Saat publish, server memeriksa sumber Ready, opsi, duplicate question, kesiapan CAT 2PL, dan snapshot AssessmentRelease. Checklist ini membantu navigasi; bukan pengganti validasi otoritatif.</p></div></div>
-              {incompleteSections.length ? <div className="flex flex-wrap gap-2 border-t border-primary-100 pt-4">{incompleteSections.map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => { setActiveCode(section.subtest); goTo("questions"); }} variant="outline">Lengkapi {section.subtest}</Button>)}</div> : null}
+              {incompleteSections.length ? <div className="flex flex-wrap gap-2 border-t border-primary-100 pt-4">{incompleteSections.map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => { changeActiveCode(section.subtest); goTo("questions"); }} variant="outline">Lengkapi {section.subtest}</Button>)}</div> : null}
             </section>
             <footer className="flex justify-end"><Button disabled={!readyToPublish} onClick={() => goTo("publish")} variant="brand">Lanjut ke Publish <ChevronRight /></Button></footer>
           </section>
@@ -738,7 +959,7 @@ function KaptenTryoutBuilderPageModule({
           </DialogHeader>
           <div className="grid gap-5">
             <div className="rounded-2xl bg-primary-50 p-5"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Tryout</p><h3 className="mt-1 text-2xl font-semibold text-secondary-900">{draft.title || "Tryout tanpa judul"}</h3>{draft.description ? <p className="mt-2 text-sm leading-6 text-secondary-700">{draft.description}</p> : <p className="mt-2 text-sm text-secondary-500">Belum ada deskripsi.</p>}</div>
-            <div className="grid gap-2"><h4 className="font-semibold text-secondary-900">Urutan Test</h4>{draft.sections.map((section, index) => <div className="flex items-center justify-between gap-3 rounded-xl border border-primary-100 px-3 py-2.5 text-sm" key={section.subtest}><span className="font-medium text-secondary-900">{index + 1}. {section.subtest} · {subjectName(section.subtest)}</span><span className="text-secondary-600">{section.durationMinutes} menit · {section.packageVersionId ? "Sumber siap" : "Belum siap"}</span></div>)}</div>
+            <div className="grid gap-2"><h4 className="font-semibold text-secondary-900">Urutan Test</h4>{draft.sections.map((section, index) => <div className="flex items-center justify-between gap-3 rounded-xl border border-primary-100 px-3 py-2.5 text-sm" key={section.subtest}><span className="font-medium text-secondary-900">{index + 1}. {section.subtest} · {subjectName(section.subtest)}</span><span className="text-secondary-600">{section.durationMinutes} menit · {section.packageVersionId ? "Set siap" : section.directQuestions?.length ? `${section.directQuestions.length} soal` : "Belum siap"}</span></div>)}</div>
           </div>
         </DialogContent>
       </Dialog>

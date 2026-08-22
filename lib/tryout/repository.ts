@@ -10,7 +10,8 @@ type SubjectCode = (typeof SUBJECTS)[number];
 type PackageItemInput = { pointValue: number; sourceQuestionId: string; sourceQuestionRevisionId?: string };
 type PackageInput = { description: string; id?: string; items: PackageItemInput[]; sourceBankId: string; subtest: SubjectCode; title: string };
 type PackageMetadataInput = { description: string; id: string; title: string };
-type TestInput = { catItemCount?: number; durationMinutes: number; instructions: string; packageVersionId?: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
+type DirectQuestionInput = { sourceContentDigest?: string; sourceQuestionId: string; sourceQuestionRevisionId?: string };
+type TestInput = { catItemCount?: number; directQuestions?: DirectQuestionInput[]; durationMinutes: number; instructions: string; packageVersionId?: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
 type PackageVersionReadiness = {
   catReady: boolean;
   contentReady: boolean;
@@ -32,7 +33,7 @@ const sourceInclude = {
 } satisfies Prisma.QuestionInclude;
 const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1 } } satisfies Prisma.ReusableQuestionPackageInclude;
-const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
+const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true } } } } } }, packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
@@ -57,6 +58,24 @@ function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionG
     return Boolean(calibration && calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
   });
   return { catReady, contentReady, hasExplanations, hasReadyMedia, itemCount: version.items.length, sourceQuestionIds } satisfies PackageVersionReadiness;
+}
+type PackageVersionItemRecord = Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>["items"][number];
+function toTryoutSnapshot(snapshot: PackageVersionItemRecord) {
+  return {
+    difficulty: snapshot.difficulty,
+    explanation: snapshot.explanation,
+    explanationAssetId: snapshot.explanationAssetId,
+    options: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId })),
+    pointValue: Number(snapshot.pointValue),
+    prompt: snapshot.prompt,
+    promptAssetId: snapshot.promptAssetId,
+    sortOrder: snapshot.sortOrder,
+    sourceContentDigest: snapshot.sourceContentDigest,
+    sourceQuestionId: snapshot.sourceQuestionId,
+    sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId,
+    sourceRevisionProvenance: snapshot.sourceRevisionProvenance,
+    subtestId: snapshot.subtestId,
+  };
 }
 function assertPackageInput(input: PackageInput) {
   if (!input.title.trim()) throw new TryoutValidationError("Judul Paket Soal wajib diisi.");
@@ -83,6 +102,32 @@ function assertReadySources(sources: Prisma.QuestionGetPayload<{ include: typeof
       || !isReadyAsset(revision.explanationAsset);
   })) throw new TryoutValidationError("Paket hanya dapat memakai soal siap dari satu Bank yang aktif, dengan media siap dan Subtest yang sama.");
 }
+function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], selections: DirectQuestionInput[], subtest: SubjectCode) {
+  const selectionById = new Map(selections.map((selection) => [selection.sourceQuestionId, selection]));
+  if (!sources.length || sources.some((source) => {
+    const revision = source.currentRevision;
+    const options = revision?.options ?? source.options;
+    const selection = selectionById.get(source.id);
+    return source.questionBank?.status === ContentStatus.archived
+      || source.status === ContentStatus.archived
+      || source.questionBank === null
+      || source.subtest?.code !== subtest
+      || revision?.status !== QuestionRevisionStatus.ready
+      || !selection
+      || (selection.sourceQuestionRevisionId && selection.sourceQuestionRevisionId !== revision.id)
+      || (selection.sourceContentDigest && selection.sourceContentDigest !== revision.contentDigest)
+      || options.length < 2
+      || options.length > 5
+      || options.filter((option) => option.isCorrect).length !== 1
+      || options.some((option) => !option.content.trim() || !isReadyAsset(option.asset))
+      || !revision.stem.trim()
+      || !isReadyAsset(revision.promptAsset)
+      || !isReadyAsset(revision.explanationAsset);
+  })) throw new TryoutValidationError("Pilih soal langsung hanya dari revisi Ready yang masih aktif, kompatibel dengan Subtest, dan memiliki media siap.");
+}
+function assertReadyDirectContent(sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], subtest: SubjectCode) {
+  if (sources.some((source) => !source.currentRevision?.explanation?.trim() && !source.currentRevision?.explanationAssetId)) throw new TryoutValidationError(`Sumber langsung Test ${subtest} harus memiliki penjelasan teks atau media sebelum Tryout diterbitkan.`);
+}
 async function readAndValidatePackageSources(tx: Prisma.TransactionClient, sourceQuestionIds: string[], subtest: SubjectCode, sourceBankId: string) {
   // Lock both source questions and their Banks before rereading lifecycle/media state.
   // Bank writes use the same aggregate row, so selection cannot race an unpublish/archive.
@@ -92,12 +137,23 @@ async function readAndValidatePackageSources(tx: Prisma.TransactionClient, sourc
   assertReadySources(sources, subtest, sourceBankId);
   return sources;
 }
+async function readAndValidateDirectSources(tx: Prisma.TransactionClient, selections: DirectQuestionInput[], subtest: SubjectCode) {
+  const sourceQuestionIds = selections.map((selection) => selection.sourceQuestionId);
+  if (!sourceQuestionIds.length) return [] as Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[];
+  if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh dipilih sekali dalam satu Section.");
+  await tx.$queryRaw`SELECT q.id FROM questions q JOIN question_banks b ON b.id = q.question_bank_id WHERE q.id IN (${Prisma.join(sourceQuestionIds)}) ORDER BY q.id FOR SHARE OF q, b`;
+  const sources = await tx.question.findMany({ where: { id: { in: sourceQuestionIds } }, include: sourceInclude });
+  if (sources.length !== sourceQuestionIds.length) throw new TryoutValidationError("Sebagian soal langsung tidak tersedia.");
+  assertReadyDirectSources(sources, selections, subtest);
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  return sourceQuestionIds.map((sourceQuestionId) => sourceById.get(sourceQuestionId)!);
+}
 function toPackageDto(record: Prisma.ReusableQuestionPackageGetPayload<{ include: typeof packageInclude }>) {
   return { description: record.description ?? "", id: record.id, items: record.items.map((item) => ({ pointValue: Number(item.pointValue), sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined })), latestReadyVersionId: record.versions[0]?.id, latestReadyVersionNo: record.versions[0]?.versionNo, revision: record.revision, sourceBankId: record.sourceBankId, sourceBankName: record.sourceBank.name, status: record.status === ContentStatus.published ? "ready" as const : "draft" as const, subtest: record.subtest.code as SubjectCode, title: record.title, updatedAt: record.updatedAt.getTime() };
 }
 function toTryoutDto(record: Prisma.TryoutPackageGetPayload<{ include: typeof tryoutInclude }>) {
   const release = record.assessmentReleases[0] ?? null;
-  return { assessmentRelease: release ? { digest: release.contentDigest, id: release.id, number: release.releaseNumber, payload: release.payload, publishedAt: release.publishedAt.toISOString() } : null, description: record.description ?? "", id: record.id, locked: record.attempts.length > 0, sections: record.sections.map((section) => ({ catItemCount: section.catItemCount ?? undefined, durationMinutes: Math.round(section.durationSeconds / 60), id: section.id, instructions: section.instructions ?? "", packageVersionId: section.packageVersionId ?? undefined, packageVersionLabel: section.packageVersion ? `${section.packageVersion.package.title} · v${section.packageVersion.versionNo}` : undefined, scoringConfig: section.scoringConfig as Record<string, unknown> | undefined, shuffleItems: section.shuffleItems, subtest: section.subtest.code as SubjectCode, testType: section.testType === TryoutTestType.cat ? "cat" as const : "cbt" as const })), status: record.status === ContentStatus.published ? "published" as const : "draft" as const, title: record.title, updatedAt: record.updatedAt.getTime() };
+  return { assessmentRelease: release ? { digest: release.contentDigest, id: release.id, number: release.releaseNumber, payload: release.payload, publishedAt: release.publishedAt.toISOString() } : null, description: record.description ?? "", id: record.id, locked: record.attempts.length > 0, sections: record.sections.map((section) => ({ catItemCount: section.catItemCount ?? undefined, directQuestions: section.packageVersionId ? [] : section.items.filter((item) => !item.packageVersionId && item.sourceQuestionId).map((item) => ({ bankId: item.sourceQuestion?.questionBank?.id, bankTitle: item.sourceQuestion?.questionBank?.name, catReady: Boolean(item.sourceQuestionRevision?.calibrations.some((calibration) => calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown)), hasExplanation: Boolean(item.explanation?.trim() || item.explanationAssetId), hasReadyMedia: [item.promptAsset, item.explanationAsset, ...item.options.map((option) => option.asset)].every((asset) => !asset || asset.state === "ready"), prompt: item.prompt, sourceContentDigest: item.sourceContentDigest ?? undefined, sourceQuestionId: item.sourceQuestionId!, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined })), durationMinutes: Math.round(section.durationSeconds / 60), id: section.id, instructions: section.instructions ?? "", packageVersionId: section.packageVersionId ?? undefined, packageVersionLabel: section.packageVersion ? `${section.packageVersion.package.title} · v${section.packageVersion.versionNo}` : undefined, scoringConfig: section.scoringConfig as Record<string, unknown> | undefined, shuffleItems: section.shuffleItems, subtest: section.subtest.code as SubjectCode, testType: section.testType === TryoutTestType.cat ? "cat" as const : "cbt" as const })), status: record.status === ContentStatus.published ? "published" as const : "draft" as const, title: record.title, updatedAt: record.updatedAt.getTime() };
 }
 
 async function listReusableQuestionPackages(actorId: string, options: { page?: number; query?: string; status?: "draft" | "ready"; subtest?: string } = {}) {
@@ -277,6 +333,25 @@ async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: 
       || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
   })) throw new TryoutValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
 }
+async function assertCatDirectReadiness(tx: Prisma.TransactionClient, sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], catItemCount?: number) {
+  if (!catItemCount || sources.length < catItemCount) throw new TryoutValidationError("CAT memerlukan soal langsung yang cukup untuk pool dan jumlah soal.");
+  const revisions = sources.map((source) => source.currentRevision).filter((revision): revision is NonNullable<typeof revision> => Boolean(revision));
+  const revisionIds = revisions.map((revision) => revision.id);
+  const calibrations = await tx.twoPlQuestionCalibration.findMany({
+    where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
+    select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
+  });
+  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
+  if (revisions.length !== sources.length || sources.some((source) => {
+    const revision = source.currentRevision;
+    const calibration = revision ? calibrationByRevision.get(revision.id) : undefined;
+    return !revision
+      || !calibration
+      || calibration.questionId !== source.id
+      || calibration.contentDigest !== revision.contentDigest
+      || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
+  })) throw new TryoutValidationError("Setiap soal langsung untuk CAT harus memiliki kalibrasi 2PL kanonis yang disetujui dan cocok dengan digest revisinya.");
+}
 async function saveTryout(input: SaveTryoutInput, actorId: string) {
   validateTryoutInput(input);
   return prisma.$transaction(async (tx) => {
@@ -310,18 +385,53 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const subtest = subtestByCode.get(sectionInput.subtest);
       if (!subtest) throw new TryoutValidationError(`Subtest ${sectionInput.subtest} tidak ditemukan.`);
       const version = sectionInput.packageVersionId ? versionById.get(sectionInput.packageVersionId) : undefined;
+      const directSelections = sectionInput.directQuestions ?? [];
+      if (version && directSelections.length) throw new TryoutValidationError(`Test ${sectionInput.subtest} tidak dapat memakai Set dan pilihan langsung sekaligus.`);
       if (sectionInput.packageVersionId && (!version || version.status !== ContentStatus.published || version.package.subtest.code !== sectionInput.subtest)) throw new TryoutValidationError(`Paket siap untuk Test ${sectionInput.subtest} tidak valid atau tidak cocok.`);
-      if (input.status === "published" && !version) throw new TryoutValidationError("Setiap Test harus mengikat satu versi Paket Soal siap sebelum Tryout diterbitkan.");
+      const directSources = directSelections.length ? await readAndValidateDirectSources(tx, directSelections, sectionInput.subtest) : [];
+      if (input.status === "published" && !version && !directSources.length) throw new TryoutValidationError("Setiap Test harus memiliki Set siap atau minimal satu soal langsung sebelum Tryout diterbitkan.");
+      if (input.status === "published" && directSources.length) assertReadyDirectContent(directSources, sectionInput.subtest);
       if (input.status === "published" && version) assertReadyPackageVersion(version, sectionInput.subtest);
-      if (input.status === "published" && sectionInput.testType === "cat") await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version?.id, subtestId: subtest.id }, actorId);
-      const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: version?.id, questionCount: version?.items.length ?? 0, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
-      return { section, version };
+      if (input.status === "published" && sectionInput.testType === "cat") {
+        if (version) await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version.id, subtestId: subtest.id }, actorId);
+        else await assertCatDirectReadiness(tx, directSources, sectionInput.catItemCount);
+      }
+      const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: version?.id, questionCount: version?.items.length ?? directSources.length, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
+      return { directSources, section, version };
     }));
-    const itemEntries = sectionRecords.flatMap(({ section, version }) => version ? version.items.map((snapshot) => ({ section, snapshot, version })) : []);
+    const itemEntries: Array<{ section: (typeof sectionRecords)[number]["section"]; snapshot: ReturnType<typeof toTryoutSnapshot>; version: (typeof versions)[number] | null }> = [];
+    for (const { directSources, section, version } of sectionRecords) {
+      if (version) {
+        for (const snapshot of version.items) itemEntries.push({ section, snapshot: toTryoutSnapshot(snapshot), version });
+        continue;
+      }
+      directSources.forEach((source, index) => {
+        const revision = source.currentRevision!;
+        itemEntries.push({
+          section,
+          snapshot: {
+            difficulty: revision.difficulty,
+            explanation: revision.explanation,
+            explanationAssetId: revision.explanationAssetId,
+            options: revision.options.map((option, optionIndex) => ({ assetId: option.assetId, choiceKey: String.fromCharCode(65 + optionIndex), content: option.content, isCorrect: option.isCorrect, sortOrder: optionIndex, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: option.id })),
+            pointValue: 1,
+            prompt: revision.stem,
+            promptAssetId: revision.promptAssetId,
+            sortOrder: index + 1,
+            sourceContentDigest: revision.contentDigest,
+            sourceQuestionId: source.id,
+            sourceQuestionRevisionId: revision.id,
+            sourceRevisionProvenance: revision.provenance,
+            subtestId: source.subtestId!,
+          },
+          version: null,
+        });
+      });
+    }
     const sourceQuestionIds = itemEntries.map(({ snapshot }) => snapshot.sourceQuestionId);
     if (new Set(sourceQuestionIds).size !== sourceQuestionIds.length) throw new TryoutValidationError("Satu soal sumber hanya boleh digunakan sekali dalam seluruh Tryout.");
     await Promise.all(itemEntries.map(async ({ section, snapshot, version }) => {
-      const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: version.package.code, packageVersionId: version.id, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, sortOrder: snapshot.sortOrder, sourceContentDigest: snapshot.sourceContentDigest, sourceQuestionId: snapshot.sourceQuestionId, sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId, sourceRevisionProvenance: snapshot.sourceRevisionProvenance, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
+      const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: version?.package.code ?? "direct", packageVersionId: version?.id, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, sortOrder: snapshot.sortOrder, sourceContentDigest: snapshot.sourceContentDigest, sourceQuestionId: snapshot.sourceQuestionId, sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId, sourceRevisionProvenance: snapshot.sourceRevisionProvenance, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
       await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId, tryoutItemId: item.id })) });
     }));
     if (input.status === "published") {
@@ -330,7 +440,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     return toTryoutDto(await tx.tryoutPackage.findUniqueOrThrow({ where: { id }, include: tryoutInclude }));
   });
 }
-async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
+async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest, sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId })), durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
 export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, TryoutValidationError };
-export type { PackageInput, PackageItemInput, PackageMetadataInput, PackageVersionReadiness, SaveTryoutInput, TestInput };
+export type { DirectQuestionInput, PackageInput, PackageItemInput, PackageMetadataInput, PackageVersionReadiness, SaveTryoutInput, TestInput };
