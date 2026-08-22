@@ -25,7 +25,12 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import { assignmentStatusLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
+import {
+  admissionStatusLabels,
+  assignmentStatusLabels,
+  participantAttemptStateLabels,
+  participantSessionStateLabels,
+} from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   OperationalPageHeader,
   OperationNotice,
@@ -50,6 +55,7 @@ function KaptenTryoutParticipantDetailPageModule({
 }) {
   const router = useRouter();
   const admission = initial.admissions.find((item) => item.id === admissionId)!;
+  const participant = initial.participants.find((item) => item.admissionId === admissionId)!;
   const [auditReason, setAuditReason] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
@@ -81,7 +87,7 @@ function KaptenTryoutParticipantDetailPageModule({
     setBusy(true);
     report(
       "Admission peserta berhasil disetujui.",
-      await decideTryoutAdmissionAction(admission.id, "approve", auditReason),
+      await decideTryoutAdmissionAction(admission.id, "approve", auditReason, selectedSessionId || null),
     );
   };
 
@@ -124,8 +130,61 @@ function KaptenTryoutParticipantDetailPageModule({
       />
       <OperationNotice message={notice} />
 
+      <Card className="mt-5 shadow-none ring-primary-100">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Ringkasan peserta</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p className="text-xs font-medium text-secondary-500">Admission</p>
+            <p className="mt-1 font-medium text-secondary-900">{admissionStatusLabels[participant.admission.status] ?? participant.admission.status}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-secondary-500">Sesi</p>
+            <p className="mt-1 font-medium text-secondary-900">{participant.session?.name ?? "Belum ditugaskan"}</p>
+            <p className="mt-0.5 text-xs text-secondary-600">{participantSessionStateLabels[participant.session?.state ?? "not_assigned"]}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-secondary-500">Attempt</p>
+            <p className="mt-1 font-medium text-secondary-900">{participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] ?? participant.attempt.attemptState : "Belum mulai"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-secondary-500">Nilai &amp; rilis</p>
+            <p className="mt-1 font-medium text-secondary-900">{participant.score.score === null ? "Belum dihitung" : Number(participant.score.score).toFixed(2)}</p>
+            <p className="mt-0.5 text-xs text-secondary-600">{participant.score.releaseState === "released" ? "Dirilis" : participant.score.scoringState === "not_started" ? "Belum dinilai" : "Menunggu rilis"}</p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
         <section className="grid content-start gap-5">
+          {admission.status === "pending" && activeSessions.length ? (
+            <Card className="shadow-none ring-primary-100">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Sesi saat menyetujui</CardTitle>
+                <p className="text-sm text-secondary-600">Kosongkan pilihan untuk memakai sesi default yang memenuhi syarat.</p>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup
+                  className="grid gap-2"
+                  onValueChange={setSelectedSessionId}
+                  value={selectedSessionId}
+                >
+                  {activeSessions.map((session) => (
+                    <Field
+                      className="flex-row items-center rounded-2xl border border-secondary-900/14 p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50"
+                      key={`approve-${session.id}`}
+                    >
+                      <RadioGroupItem id={`approve-${session.id}`} value={session.id} />
+                      <FieldLabel className="flex-1 cursor-pointer text-sm font-medium" htmlFor={`approve-${session.id}`}>
+                        {session.name}
+                      </FieldLabel>
+                    </Field>
+                  ))}
+                </RadioGroup>
+              </CardContent>
+            </Card>
+          ) : null}
           <Card className="shadow-none ring-primary-100">
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Penugasan sesi</CardTitle>

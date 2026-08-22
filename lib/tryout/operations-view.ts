@@ -2,6 +2,10 @@ import "server-only";
 
 import { toAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
 import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
+import {
+  safeParticipantIdentity,
+  toParticipantViews,
+} from "@/lib/tryout/participant-view";
 
 type TryoutOperationsRecord = NonNullable<
   Awaited<ReturnType<typeof getTryoutDeliveryOperations>>
@@ -10,6 +14,31 @@ type TryoutOperationsRecord = NonNullable<
 type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
 
 function serializeTryoutOperations(operations: TryoutOperationsRecord) {
+  const participantInputs = operations.admissions.map((admission) => ({
+    assignments: admission.assignments.map((assignment) => ({
+      assignedAt: assignment.assignedAt,
+      deliverySession: {
+        availableFrom: assignment.deliverySession.availableFrom,
+        availableUntil: assignment.deliverySession.availableUntil,
+        id: assignment.deliverySession.id,
+        isDefaultOpenRegistration: assignment.deliverySession.isDefaultOpenRegistration,
+        name: assignment.deliverySession.name,
+        status: assignment.deliverySession.status,
+      },
+      id: assignment.id,
+      status: assignment.status,
+      attempt: assignment.deliverySession.attempts.find(
+        (attempt) => attempt.studentId === admission.student.id,
+      ) ?? null,
+    })),
+    decidedAt: admission.decidedAt,
+    id: admission.id,
+    requestedAt: admission.requestedAt,
+    status: admission.status,
+    student: admission.student,
+    tryoutId: operations.id,
+  }));
+
   return {
     assessmentRelease: operations.assessmentReleases[0]
       ? toAssessmentReleaseMetadata(operations.assessmentReleases[0])
@@ -18,6 +47,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
     defaultReleasePolicy: operations.defaultResultReleasePolicy,
     description: operations.description,
     id: operations.id,
+    participants: toParticipantViews(participantInputs),
     status: operations.status,
     title: operations.title,
     admissions: operations.admissions.map((admission) => ({
@@ -29,7 +59,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       })),
       id: admission.id,
       status: admission.status,
-      student: admission.student.fullName ?? admission.student.email,
+      student: safeParticipantIdentity(admission.student).displayName,
     })),
     sessions: operations.deliverySessions.map((deliverySession) => ({
       attempts: deliverySession.attempts.map((attempt) => ({
@@ -55,7 +85,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
         scoringState: attempt.scoringState,
         scoringVersion: attempt.scoringVersion,
         status: attempt.status,
-        student: attempt.student.fullName ?? attempt.student.email,
+        student: safeParticipantIdentity(attempt.student).displayName,
       })),
       availableFrom: deliverySession.availableFrom.toISOString(),
       availableUntil: deliverySession.availableUntil.toISOString(),

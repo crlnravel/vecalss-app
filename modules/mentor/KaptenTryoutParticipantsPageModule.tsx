@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import {
+  participantAttemptStateLabels,
+  participantSessionStateLabels,
+} from "@/modules/mentor/KaptenTryoutOperationsData";
 import { OperationalPageHeader } from "@/modules/mentor/KaptenTryoutOperationalShared";
 
 function KaptenTryoutParticipantsPageModule({
@@ -35,26 +39,26 @@ function KaptenTryoutParticipantsPageModule({
         title="Peserta"
       />}
 
-      {initial.admissions.length ? (
+      {initial.participants.length ? (
         <div className="mt-5 grid gap-3">
-          {initial.admissions.map((admission) => (
+          {initial.participants.map((participant) => (
             <Link
               className="group focus-visible:outline-none"
-              href={`${base}/${admission.id}`}
-              key={admission.id}
+              href={`${base}/${participant.admissionId}`}
+              key={participant.id}
             >
               <Card className="shadow-none ring-primary-100 transition-colors group-hover:bg-secondary-50 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
                 <CardHeader>
-                  <CardTitle className="font-semibold">{admission.student}</CardTitle>
+                  <CardTitle className="font-semibold">{participant.participant.displayName}</CardTitle>
                   <CardAction className="flex items-center gap-2">
-                    <StatusBadge status={admission.status} />
+                    <StatusBadge status={participant.admission.status} />
                     <ChevronRight aria-hidden="true" className="text-secondary-400" />
                   </CardAction>
                 </CardHeader>
-                <CardContent className="text-sm text-secondary-600">
-                  {admission.assignments.length
-                    ? `${admission.assignments.length} penugasan sesi`
-                    : "Belum ditugaskan ke sesi"}
+                <CardContent className="grid gap-2 text-sm text-secondary-600 sm:grid-cols-3">
+                  <span><strong className="font-medium text-secondary-800">Sesi:</strong> {participant.session?.name ?? "Belum ditugaskan"} · {participantSessionStateLabels[participant.session?.state ?? "not_assigned"]}</span>
+                  <span><strong className="font-medium text-secondary-800">Attempt:</strong> {participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] ?? participant.attempt.attemptState : "Belum mulai"}</span>
+                  <span><strong className="font-medium text-secondary-800">Nilai:</strong> {participant.score.score === null ? "Belum dihitung" : Number(participant.score.score).toFixed(2)}</span>
                 </CardContent>
               </Card>
             </Link>

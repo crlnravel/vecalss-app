@@ -53,6 +53,7 @@
     "test:tryout-package-invariants": "node scripts/test-tryout-package-invariants.mjs",
     "test:tryout-release-invariants": "node scripts/test-tryout-release-invariants.mjs",
     "test:assessment-release-invariants": "node scripts/test-assessment-release-invariants.mjs",
+    "test:assessment-participant-view": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-assessment-participant-view.ts",
     "test:tryout-scoring": "tsx scripts/test-tryout-scoring.ts",
     "test:assessment-scoring-release-invariants": "node scripts/test-assessment-scoring-release-invariants.mjs",
     "db:verify-materi": "node scripts/verify-materi-catalogue.mjs",

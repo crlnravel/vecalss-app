@@ -28,5 +28,33 @@ const assignmentStatusLabels: Record<string, string> = {
   revoked: "Dicabut",
 };
 
-export { assignmentStatusLabels, modeLabels, policyLabels, rankingLabels };
+const admissionStatusLabels: Record<string, string> = {
+  active: "Aktif",
+  pending: "Menunggu persetujuan",
+  rejected: "Ditolak",
+  revoked: "Dicabut",
+};
+
+const participantSessionStateLabels: Record<string, string> = {
+  assigned: "Terjadwal",
+  available: "Tersedia",
+  completed: "Selesai",
+  expired: "Kedaluwarsa",
+  in_progress: "Berlangsung",
+  not_assigned: "Belum ditugaskan",
+  revoked: "Sesi tidak tersedia",
+  unavailable: "Tidak tersedia",
+};
+
+const participantAttemptStateLabels: Record<string, string> = {
+  abandoned: "Ditinggalkan",
+  auto_submitted: "Terkirim otomatis",
+  expired: "Kedaluwarsa",
+  in_progress: "Berlangsung",
+  scored: "Dinilai",
+  submitted: "Terkirim",
+  void: "Dibatalkan",
+};
+
+export { admissionStatusLabels, assignmentStatusLabels, modeLabels, participantAttemptStateLabels, participantSessionStateLabels, policyLabels, rankingLabels };
 export type { DefaultPolicy, Mode, Policy, RankingRule };

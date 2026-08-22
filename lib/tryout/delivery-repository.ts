@@ -101,6 +101,32 @@ async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
 }
 
+async function lockAdmission(tx: Prisma.TransactionClient, admissionId: string) {
+  await tx.$queryRaw`SELECT id FROM tryout_admissions WHERE id = ${admissionId}::uuid FOR UPDATE`;
+}
+
+async function lockAdmissionForParticipant(
+  tx: Prisma.TransactionClient,
+  tryoutId: string,
+  studentId: string,
+) {
+  await tx.$queryRaw`
+    SELECT id
+      FROM tryout_admissions
+     WHERE tryout_id = ${tryoutId}::uuid
+       AND student_id = ${studentId}::uuid
+     FOR UPDATE
+  `;
+}
+
+async function lockAssignment(tx: Prisma.TransactionClient, assignmentId: string) {
+  await tx.$queryRaw`SELECT id FROM tryout_delivery_assignments WHERE id = ${assignmentId}::uuid FOR UPDATE`;
+}
+
+async function lockTryout(tx: Prisma.TransactionClient, tryoutId: string) {
+  await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
+}
+
 async function lockOverlappingDeliverySessions(
   tx: Prisma.TransactionClient,
   deliverySessionId: string,
@@ -115,6 +141,119 @@ async function lockOverlappingDeliverySessions(
      ORDER BY id
      FOR UPDATE
   `;
+}
+
+type EligibleSession = {
+  assessmentReleaseId: string | null;
+  availableFrom: Date;
+  availableUntil: Date;
+  id: string;
+  isDefaultOpenRegistration: boolean;
+  name: string;
+  status: TryoutDeliverySessionStatus;
+  tryoutId: string;
+};
+
+function assertEligibleSession(
+  session: EligibleSession | null,
+  now: Date,
+  source: "default" | "selected",
+) {
+  const label = source === "default" ? "Sesi default Tryout" : "Sesi Tryout yang dipilih";
+  if (!session) throw new TryoutDeliveryValidationError(`${label} tidak ditemukan.`);
+  if (session.status === TryoutDeliverySessionStatus.closed) throw new TryoutDeliveryValidationError(`${label} sudah ditutup dan tidak dapat digunakan.`);
+  if (session.status === TryoutDeliverySessionStatus.archived) throw new TryoutDeliveryValidationError(`${label} sudah diarsipkan dan tidak dapat digunakan.`);
+  if (session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError(`${label} belum dibuka untuk peserta.`);
+  if (!session.assessmentReleaseId) throw new TryoutDeliveryValidationError(`${label} belum memiliki AssessmentRelease yang valid.`);
+  if (session.availableUntil <= now) throw new TryoutDeliveryValidationError(`${label} sudah berakhir.`);
+  return session;
+}
+
+async function findDefaultSession(
+  tx: Prisma.TransactionClient,
+  tryoutId: string,
+  now: Date,
+) {
+  const candidates = await tx.tryoutDeliverySession.findMany({
+    where: { isDefaultOpenRegistration: true, tryoutId },
+    orderBy: { availableFrom: "asc" },
+    select: {
+      assessmentReleaseId: true,
+      availableFrom: true,
+      availableUntil: true,
+      id: true,
+      isDefaultOpenRegistration: true,
+      name: true,
+      status: true,
+      tryoutId: true,
+    },
+  });
+  if (candidates.length > 1) {
+    throw new TryoutDeliveryValidationError("Tryout memiliki lebih dari satu sesi default; perbaiki konfigurasi akses terlebih dahulu.");
+  }
+  return assertEligibleSession(candidates[0] ?? null, now, "default");
+}
+
+async function findSelectedSession(
+  tx: Prisma.TransactionClient,
+  tryoutId: string,
+  selectedSessionId: string,
+  now: Date,
+) {
+  const candidate = await tx.tryoutDeliverySession.findFirst({
+    where: { id: selectedSessionId, tryoutId },
+    select: {
+      assessmentReleaseId: true,
+      availableFrom: true,
+      availableUntil: true,
+      id: true,
+      isDefaultOpenRegistration: true,
+      name: true,
+      status: true,
+      tryoutId: true,
+    },
+  });
+  return assertEligibleSession(candidate, now, "selected");
+}
+
+async function lockSessionScope(
+  tx: Prisma.TransactionClient,
+  session: EligibleSession,
+) {
+  await lockOverlappingDeliverySessions(
+    tx,
+    session.id,
+    session.availableFrom,
+    session.availableUntil,
+  );
+}
+
+async function ensureActiveAssignment(
+  tx: Prisma.TransactionClient,
+  admissionId: string,
+  deliverySessionId: string,
+  actorId: string,
+) {
+  const existing = await tx.tryoutDeliveryAssignment.findUnique({
+    where: { admissionId_deliverySessionId: { admissionId, deliverySessionId } },
+  });
+  if (existing) {
+    await lockAssignment(tx, existing.id);
+    if (existing.status === TryoutAssignmentStatus.active) return existing;
+    return tx.tryoutDeliveryAssignment.update({
+      where: { id: existing.id },
+      data: {
+        assignedAt: new Date(),
+        assignedByUserId: actorId,
+        revokeReason: null,
+        revokedAt: null,
+        status: TryoutAssignmentStatus.active,
+      },
+    });
+  }
+  return tx.tryoutDeliveryAssignment.create({
+    data: { admissionId, assignedByUserId: actorId, deliverySessionId },
+  });
 }
 
 async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: string) {
@@ -235,8 +374,11 @@ async function registerForTryout(
   target?: { majorId: string; universityId: string },
 ) {
   return prisma.$transaction(async (tx) => {
-    // Serialize only one participant/tryout admission. This intentionally does not lock Tryout content.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tryoutId}:${studentId}`}, 0))`;
+    // Access-transition lock order is always student -> admission/assignment
+    // -> overlapping sessions -> Tryout. This matches participant start and
+    // revoke, then every decision is re-read while those locks are held.
+    await lockStudent(tx, studentId);
+    await lockAdmissionForParticipant(tx, tryoutId, studentId);
     await assertStudent(tx, studentId);
     if (target) {
       const major = await tx.major.findFirst({
@@ -247,77 +389,332 @@ async function registerForTryout(
         throw new TryoutDeliveryValidationError("Kampus dan jurusan tujuan tidak cocok atau sudah tidak tersedia.");
       }
     }
-    const existing = await tx.tryoutAdmission.findUnique({ where: { tryoutId_studentId: { studentId, tryoutId } }, include: { assignments: { where: { status: TryoutAssignmentStatus.active }, select: { deliverySessionId: true } } } });
+    let existing = await tx.tryoutAdmission.findUnique({
+      where: { tryoutId_studentId: { studentId, tryoutId } },
+      include: {
+        assignments: {
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
+        },
+      },
+    });
     if (existing) {
+      for (const assignment of existing.assignments.filter((item) => item.status === TryoutAssignmentStatus.active).sort((left, right) => left.id.localeCompare(right.id))) {
+        await lockAssignment(tx, assignment.id);
+        await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
+      }
+      existing = await tx.tryoutAdmission.findUnique({
+        where: { id: existing.id },
+        include: {
+          assignments: {
+            where: { status: TryoutAssignmentStatus.active },
+            include: { deliverySession: true },
+          },
+        },
+      });
+      if (!existing) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
       if (target) {
         await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
       }
-      return { admissionId: existing.id, assignmentId: existing.assignments[0]?.deliverySessionId ?? null, state: "existing" as const, status: existing.status };
+      return { admissionId: existing.id, assignmentId: existing.assignments[0]?.id ?? null, state: "existing" as const, status: existing.status };
     }
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
     if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
     if (tryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
     const status = tryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
-    const defaultSession = status === TryoutAdmissionStatus.active
-      ? await tx.tryoutDeliverySession.findFirst({ where: { availableUntil: { gt: new Date() }, isDefaultOpenRegistration: true, status: TryoutDeliverySessionStatus.active, tryoutId }, select: { assessmentReleaseId: true, id: true } })
+    const now = new Date();
+    let defaultSession: EligibleSession | null = null;
+    if (status === TryoutAdmissionStatus.active) {
+      try {
+        defaultSession = await findDefaultSession(tx, tryoutId, now);
+      } catch (error) {
+        if (error instanceof TryoutDeliveryValidationError) {
+          return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
+        }
+        throw error;
+      }
+    }
+    if (status === TryoutAdmissionStatus.active && !defaultSession) return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
+    if (defaultSession) await lockSessionScope(tx, defaultSession);
+    await lockTryout(tx, tryoutId);
+    const lockedDefaultSession = defaultSession
+      ? await findSelectedSession(tx, tryoutId, defaultSession.id, now)
       : null;
-    if (status === TryoutAdmissionStatus.active && !defaultSession) {
-      return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
+    existing = await tx.tryoutAdmission.findUnique({
+      where: { tryoutId_studentId: { studentId, tryoutId } },
+      include: {
+        assignments: {
+          where: { status: TryoutAssignmentStatus.active },
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
+        },
+      },
+    });
+    if (existing) {
+      if (target) await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
+      return { admissionId: existing.id, assignmentId: existing.assignments[0]?.id ?? null, state: "existing" as const, status: existing.status };
     }
-    if (status === TryoutAdmissionStatus.active && !defaultSession?.assessmentReleaseId) {
-      throw new TryoutDeliveryValidationError("Tryout belum memiliki AssessmentRelease yang valid untuk akses peserta.");
-    }
+    const lockedTryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true, id: true, status: true } });
+    if (!lockedTryout || lockedTryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak tersedia.");
+    if (lockedTryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
+    const lockedStatus = lockedTryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
+    if (lockedStatus === TryoutAdmissionStatus.active && !lockedDefaultSession) throw new TryoutDeliveryValidationError("Sesi default Tryout tidak tersedia untuk pendaftaran terbuka.");
     if (target) {
       await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
     }
-    const admission = await tx.tryoutAdmission.create({ data: { status, studentId, tryoutId } });
-    if (status === TryoutAdmissionStatus.pending) return { admissionId: admission.id, assignmentId: null, state: "pending_approval" as const, status };
-    const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: studentId, deliverySessionId: defaultSession!.id } });
-    return { admissionId: admission.id, assignmentId: assignment.id, state: "assigned" as const, status };
+    const admission = await tx.tryoutAdmission.create({ data: { status: lockedStatus, studentId, tryoutId } });
+    if (lockedStatus === TryoutAdmissionStatus.pending) return { admissionId: admission.id, assignmentId: null, state: "pending_approval" as const, status: lockedStatus };
+    const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: studentId, deliverySessionId: lockedDefaultSession!.id } });
+    return { admissionId: admission.id, assignmentId: assignment.id, state: "assigned" as const, status: lockedStatus };
   });
 }
 
-async function decideTryoutAdmission(admissionId: string, decision: "approve" | "reject", actorId: string, reason: string, allowCrossOwner = false) {
+async function decideTryoutAdmission(
+  admissionId: string,
+  decision: "approve" | "reject",
+  actorId: string,
+  reason: string,
+  allowCrossOwner = false,
+  selectedSessionId?: string | null,
+) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    const admission = await tx.tryoutAdmission.findUnique({ where: { id: admissionId } });
-    if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
-    await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
+    const candidate = await tx.tryoutAdmission.findUnique({ where: { id: admissionId }, select: { studentId: true, tryoutId: true } });
+    if (!candidate) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
+    // Authorize from the non-PII candidate before loading the admission graph.
+    await assertTryoutOwnership(tx, candidate.tryoutId, actorId, allowCrossOwner);
+    await lockStudent(tx, candidate.studentId);
+    await lockAdmission(tx, admissionId);
+    let admission = await tx.tryoutAdmission.findUnique({
+      where: { id: admissionId },
+      include: {
+        assignments: {
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
+        },
+      },
+    });
+    if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
-    if (admission.status !== TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Hanya pendaftaran menunggu persetujuan yang dapat diputuskan.");
-    const status = decision === "approve" ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.rejected;
+
+    if (decision === "approve") {
+      const replayAssignment = admission.status === TryoutAdmissionStatus.active
+        ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
+        : null;
+      if (replayAssignment) {
+        await lockAssignment(tx, replayAssignment.id);
+        await lockSessionScope(tx, replayAssignment.deliverySession);
+        await lockTryout(tx, admission.tryoutId);
+        admission = await tx.tryoutAdmission.findUnique({
+          where: { id: admissionId },
+          include: {
+            assignments: {
+              include: { deliverySession: true },
+              orderBy: { assignedAt: "desc" },
+            },
+          },
+        });
+        if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
+        await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
+        const replayedAssignment = admission.status === TryoutAdmissionStatus.active
+          ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
+          : null;
+        if (replayedAssignment) return admission;
+      }
+      const now = new Date();
+      const selected = selectedSessionId
+        ? await findSelectedSession(tx, admission.tryoutId, selectedSessionId, now)
+        : await findDefaultSession(tx, admission.tryoutId, now);
+      const assignmentsToLock = admission.assignments
+        .filter((assignment) => assignment.status === TryoutAssignmentStatus.active || assignment.deliverySessionId === selected.id)
+        .sort((left, right) => left.id.localeCompare(right.id));
+      for (const assignment of assignmentsToLock) await lockAssignment(tx, assignment.id);
+      const lockedSessionIds = new Set<string>();
+      for (const assignment of admission.assignments
+        .filter((item) => item.status === TryoutAssignmentStatus.active)
+        .sort((left, right) => left.deliverySessionId.localeCompare(right.deliverySessionId))) {
+        if (lockedSessionIds.has(assignment.deliverySessionId)) continue;
+        await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
+        lockedSessionIds.add(assignment.deliverySessionId);
+      }
+      if (!lockedSessionIds.has(selected.id)) await lockSessionScope(tx, selected);
+      await lockTryout(tx, admission.tryoutId);
+      const lockedSelected = selectedSessionId
+        ? await findSelectedSession(tx, admission.tryoutId, selectedSessionId, now)
+        : await findSelectedSession(tx, admission.tryoutId, selected.id, now);
+      admission = await tx.tryoutAdmission.findUnique({
+        where: { id: admissionId },
+        include: {
+          assignments: {
+            include: { deliverySession: true },
+            orderBy: { assignedAt: "desc" },
+          },
+        },
+      });
+      if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
+      await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
+      if (admission.status === TryoutAdmissionStatus.active) {
+        const existingAssignment = admission.assignments.find(
+          (assignment) => assignment.status === TryoutAssignmentStatus.active && assignment.deliverySessionId === lockedSelected.id,
+        );
+        if (existingAssignment) return admission;
+      } else if (admission.status !== TryoutAdmissionStatus.pending) {
+        throw new TryoutDeliveryValidationError("Hanya pendaftaran menunggu persetujuan yang dapat disetujui.");
+      }
+      const status = TryoutAdmissionStatus.active;
+      const updated = await tx.tryoutAdmission.update({ where: { id: admissionId }, data: { decidedAt: new Date(), decidedByUserId: actorId, revokeReason: null, status } });
+      const assignment = await ensureActiveAssignment(tx, admissionId, lockedSelected.id, actorId);
+      await audit(tx, { action: "admission.approved", actorId, admissionId, after: { assignmentId: assignment.id, sessionId: lockedSelected.id, status }, before: { status: admission.status }, reason: auditReason, deliverySessionId: lockedSelected.id, tryoutId: admission.tryoutId });
+      return { ...updated, assignmentId: assignment.id, deliverySessionId: lockedSelected.id };
+    }
+
+    await lockTryout(tx, admission.tryoutId);
+    admission = await tx.tryoutAdmission.findUnique({
+      where: { id: admissionId },
+      include: {
+        assignments: {
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
+        },
+      },
+    });
+    if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
+    await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
+    if (admission.status === TryoutAdmissionStatus.rejected) return admission;
+    if (admission.status !== TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Hanya pendaftaran menunggu persetujuan yang dapat ditolak.");
+    const status = TryoutAdmissionStatus.rejected;
     const updated = await tx.tryoutAdmission.update({ where: { id: admissionId }, data: { decidedAt: new Date(), decidedByUserId: actorId, status } });
-    await audit(tx, { action: `admission.${decision}d`, actorId, admissionId, after: { status }, before: { status: admission.status }, reason: auditReason, tryoutId: admission.tryoutId });
+    await audit(tx, { action: "admission.rejected", actorId, admissionId, after: { status }, before: { status: admission.status }, reason: auditReason, tryoutId: admission.tryoutId });
     return updated;
   });
 }
 
-async function inviteTryoutParticipant(tryoutId: string, studentId: string, actorId: string, reason: string, allowCrossOwner = false) {
+async function inviteTryoutParticipant(
+  tryoutId: string,
+  studentId: string,
+  actorId: string,
+  reason: string,
+  allowCrossOwner = false,
+  selectedSessionId?: string | null,
+) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    await assertStudent(tx, studentId);
+    // Check ownership before reading the participant profile or admission
+    // graph; the actor cannot use an arbitrary Tryout id as a PII probe.
     await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
+    await lockStudent(tx, studentId);
+    await lockAdmissionForParticipant(tx, tryoutId, studentId);
+    await assertStudent(tx, studentId);
+    let admission = await tx.tryoutAdmission.findUnique({
+      where: { tryoutId_studentId: { studentId, tryoutId } },
+      include: {
+        assignments: {
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
+        },
+      },
+    });
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { id: true } });
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
-    const admission = await tx.tryoutAdmission.upsert({ where: { tryoutId_studentId: { studentId, tryoutId } }, create: { decidedAt: new Date(), decidedByUserId: actorId, status: TryoutAdmissionStatus.active, studentId, tryoutId }, update: { decidedAt: new Date(), decidedByUserId: actorId, revokeReason: null, status: TryoutAdmissionStatus.active } });
-    await audit(tx, { action: "admission.invited", actorId, admissionId: admission.id, after: { status: admission.status, studentId }, reason: auditReason, tryoutId });
-    return admission;
+    const replayAssignment = admission?.status === TryoutAdmissionStatus.active
+      ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
+      : null;
+    if (replayAssignment) {
+      await lockAssignment(tx, replayAssignment.id);
+      await lockSessionScope(tx, replayAssignment.deliverySession);
+      await lockTryout(tx, tryoutId);
+      admission = await tx.tryoutAdmission.findUnique({
+        where: { tryoutId_studentId: { studentId, tryoutId } },
+        include: {
+          assignments: {
+            include: { deliverySession: true },
+            orderBy: { assignedAt: "desc" },
+          },
+        },
+      });
+      if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
+      await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
+      const replayedAssignment = admission.status === TryoutAdmissionStatus.active
+        ? admission.assignments.find((assignment) => assignment.status === TryoutAssignmentStatus.active && (!selectedSessionId || assignment.deliverySessionId === selectedSessionId))
+        : null;
+      if (replayedAssignment) return { ...admission, assignmentId: replayedAssignment.id, deliverySessionId: replayedAssignment.deliverySessionId };
+    }
+    const now = new Date();
+    const selected = selectedSessionId
+      ? await findSelectedSession(tx, tryoutId, selectedSessionId, now)
+      : await findDefaultSession(tx, tryoutId, now);
+    if (admission) {
+      const assignmentsToLock = admission.assignments
+        .filter((assignment) => assignment.status === TryoutAssignmentStatus.active || assignment.deliverySessionId === selected.id)
+        .sort((left, right) => left.id.localeCompare(right.id));
+      for (const assignment of assignmentsToLock) await lockAssignment(tx, assignment.id);
+      const lockedSessionIds = new Set<string>();
+      for (const assignment of admission.assignments
+        .filter((item) => item.status === TryoutAssignmentStatus.active)
+        .sort((left, right) => left.deliverySessionId.localeCompare(right.deliverySessionId))) {
+        if (lockedSessionIds.has(assignment.deliverySessionId)) continue;
+        await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
+        lockedSessionIds.add(assignment.deliverySessionId);
+      }
+      if (!lockedSessionIds.has(selected.id)) await lockSessionScope(tx, selected);
+    } else {
+      await lockSessionScope(tx, selected);
+    }
+    await lockTryout(tx, tryoutId);
+    const lockedSelected = selectedSessionId
+      ? await findSelectedSession(tx, tryoutId, selectedSessionId, now)
+      : await findSelectedSession(tx, tryoutId, selected.id, now);
+    const lockedTryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { id: true } });
+    if (!lockedTryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan setelah penguncian.");
+    await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
+    admission = await tx.tryoutAdmission.findUnique({
+      where: { tryoutId_studentId: { studentId, tryoutId } },
+      include: {
+        assignments: {
+          where: { status: TryoutAssignmentStatus.active },
+          include: { deliverySession: true },
+          orderBy: { assignedAt: "desc" },
+        },
+      },
+    });
+    const alreadyActive = admission?.status === TryoutAdmissionStatus.active;
+    const restored = admission
+      ? alreadyActive
+        ? admission
+        : await tx.tryoutAdmission.update({ where: { id: admission.id }, data: { decidedAt: new Date(), decidedByUserId: actorId, revokeReason: null, status: TryoutAdmissionStatus.active } })
+      : await tx.tryoutAdmission.create({ data: { decidedAt: new Date(), decidedByUserId: actorId, status: TryoutAdmissionStatus.active, studentId, tryoutId } });
+    const existingAssignment = restored.id === admission?.id
+      ? admission?.assignments.find((assignment) => assignment.deliverySessionId === lockedSelected.id)
+      : null;
+    const assignment = existingAssignment?.status === TryoutAssignmentStatus.active
+      ? existingAssignment
+      : await ensureActiveAssignment(tx, restored.id, lockedSelected.id, actorId);
+    await audit(tx, { action: "admission.invited", actorId, admissionId: restored.id, after: { assignmentId: assignment.id, sessionId: lockedSelected.id, status: restored.status, studentId }, reason: auditReason, deliverySessionId: lockedSelected.id, tryoutId });
+    return { ...restored, assignmentId: assignment.id, deliverySessionId: lockedSelected.id };
   });
 }
 
 async function assignTryoutDeliverySession(input: AssignmentInput, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    const [admission, session] = await Promise.all([
-      tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } }),
-      tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } }),
-    ]);
-    if (!admission || !session || admission.tryoutId !== session.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
+    const candidate = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId }, select: { studentId: true, tryoutId: true } });
+    const sessionCandidate = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId }, select: { availableFrom: true, availableUntil: true, tryoutId: true } });
+    if (!candidate || !sessionCandidate || candidate.tryoutId !== sessionCandidate.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
+    await lockStudent(tx, candidate.studentId);
+    await lockAdmission(tx, input.admissionId);
+    const assignmentCandidate = await tx.tryoutDeliveryAssignment.findUnique({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, select: { id: true } });
+    if (assignmentCandidate) await lockAssignment(tx, assignmentCandidate.id);
+    await lockOverlappingDeliverySessions(tx, input.deliverySessionId, sessionCandidate.availableFrom, sessionCandidate.availableUntil);
+    await lockTryout(tx, candidate.tryoutId);
+    const admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
+    if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan setelah penguncian.");
+    const session = await tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } });
+    if (!session || admission.tryoutId !== session.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok setelah penguncian.");
     await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
-    if (admission.status !== TryoutAdmissionStatus.active || session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif dan sesi aktif diperlukan untuk penugasan.");
-    if (!session.assessmentReleaseId) throw new TryoutDeliveryValidationError("Sesi aktif belum memiliki AssessmentRelease dan tidak dapat diakses peserta.");
-    const assignment = await tx.tryoutDeliveryAssignment.upsert({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, create: { admissionId: input.admissionId, assignedByUserId: actorId, deliverySessionId: input.deliverySessionId }, update: { assignedByUserId: actorId, assignedAt: new Date(), revokeReason: null, revokedAt: null, status: TryoutAssignmentStatus.active } });
+    if (admission.status !== TryoutAdmissionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif diperlukan untuk penugasan.");
+    assertEligibleSession(session, new Date(), "selected");
+    const assignment = await ensureActiveAssignment(tx, input.admissionId, input.deliverySessionId, actorId);
     await audit(tx, { action: "delivery_session.assigned", actorId, admissionId: admission.id, after: { assignmentId: assignment.id, status: assignment.status }, deliverySessionId: session.id, reason: auditReason, tryoutId: admission.tryoutId });
     return assignment;
   });
@@ -328,27 +725,31 @@ async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: str
   return prisma.$transaction(async (tx) => {
     const candidate = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
-      select: { admission: { select: { studentId: true } }, id: true },
+      select: { admission: { select: { id: true, studentId: true } }, id: true },
     });
     if (!candidate) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
-    // Match participant start's lock order: student -> assignment -> all
+    // Match participant start's lock order: student -> admission -> assignment -> all
     // overlapping sessions. The active assignment is re-read only after all
     // locks are held, making revoke/start mutually serializable.
     await lockStudent(tx, candidate.admission.studentId);
-    await tx.$queryRaw`SELECT id FROM tryout_delivery_assignments WHERE id = ${assignmentId}::uuid FOR UPDATE`;
+    await lockAdmission(tx, candidate.admission.id);
+    await lockAssignment(tx, assignmentId);
     let assignment = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
       include: { admission: true, deliverySession: true },
     });
     if (!assignment) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
-    await assertTryoutOwnership(tx, assignment.admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, assignment.admissionId);
     await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
+    await lockTryout(tx, assignment.admission.tryoutId);
     assignment = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
       include: { admission: true, deliverySession: true },
     });
-    if (!assignment || assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
+    if (!assignment) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan setelah penguncian.");
+    await assertTryoutOwnership(tx, assignment.admission.tryoutId, actorId, allowCrossOwner);
+    if (assignment.status === TryoutAssignmentStatus.revoked) return assignment;
+    if (assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
     const existingAttempt = await tx.tryoutAttempt.findUnique({
       where: { deliverySessionId_studentId: { deliverySessionId: assignment.deliverySessionId, studentId: assignment.admission.studentId } },
       select: { id: true },
@@ -396,16 +797,65 @@ async function createTryoutRetake(input: RetakeInput, actorId: string, reason: s
   });
 }
 
-async function getTryoutDeliveryOperations(tryoutId: string, actorId?: string) {
+async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
+  // Resolve ownership in a narrow query before the graph query can touch
+  // student identities or attempt payloads. Keep the predicate on the graph
+  // query too so a concurrent ownership change cannot widen the read.
+  const ownedTryout = await prisma.tryoutPackage.findFirst({
+    select: { id: true },
+    where: { createdByUserId: actorId, id: tryoutId },
+  });
+  if (!ownedTryout) return null;
   const tryout = await prisma.tryoutPackage.findFirst({
-    where: {
-      id: tryoutId,
-      ...(actorId ? { createdByUserId: actorId } : {}),
-    },
+    where: { createdByUserId: actorId, id: ownedTryout.id },
     include: {
       assessmentReleases: { orderBy: { releaseNumber: "desc" }, take: 1 },
-      admissions: { include: { student: { select: { email: true, fullName: true } }, assignments: { include: { deliverySession: true }, orderBy: { assignedAt: "desc" } } }, orderBy: { requestedAt: "desc" } },
-      deliverySessions: { include: { assessmentRelease: true, attempts: { include: { assessmentRelease: true, runs: { include: { assessmentRelease: true, integrityEvents: { orderBy: { serverSequence: "asc" } }, catResolutionAudits: { orderBy: { createdAt: "desc" } } }, orderBy: { sequenceNo: "asc" } }, student: { select: { email: true, fullName: true } } }, orderBy: { createdAt: "desc" } }, audits: { orderBy: { createdAt: "desc" }, take: 100 } }, orderBy: { createdAt: "desc" } },
+      admissions: {
+        include: {
+          student: { select: { email: true, fullName: true, id: true } },
+          assignments: {
+            include: {
+              deliverySession: {
+                include: {
+                  attempts: {
+                    select: {
+                      attemptState: true,
+                      id: true,
+                      normalizedScore: true,
+                      rawScore: true,
+                      releaseAt: true,
+                      releaseState: true,
+                      scaledScore: true,
+                      score: true,
+                      scoringState: true,
+                      scoringVersion: true,
+                      status: true,
+                      studentId: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { assignedAt: "desc" },
+          },
+        },
+        orderBy: { requestedAt: "desc" },
+      },
+      deliverySessions: {
+        include: {
+          assessmentRelease: true,
+          attempts: {
+            include: {
+              assessmentRelease: true,
+              runs: { include: { assessmentRelease: true, integrityEvents: { orderBy: { serverSequence: "asc" } }, catResolutionAudits: { orderBy: { createdAt: "desc" } } }, orderBy: { sequenceNo: "asc" } },
+              student: { select: { email: true, fullName: true, id: true } },
+            },
+            orderBy: { createdAt: "desc" },
+          },
+          audits: { orderBy: { createdAt: "desc" }, take: 100 },
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   if (!tryout) return null;

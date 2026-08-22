@@ -99,8 +99,8 @@ function KaptenTryoutOperationsModule({
   tryoutId: string;
 }) {
   const base = `/mentor/tryout/${tryoutId}/operations`;
-  const pendingAdmissions = initial.admissions.filter(
-    (admission) => admission.status === "pending",
+  const pendingAdmissions = initial.participants.filter(
+    (participant) => participant.admission.status === "pending",
   ).length;
   const activeSessions = initial.sessions.filter(
     (session) => session.status === "active",
@@ -142,7 +142,7 @@ function KaptenTryoutOperationsModule({
           title="Sesi"
         />
         <WorkspaceCard
-          description={`${initial.admissions.length} peserta · ${pendingAdmissions} menunggu`}
+          description={`${initial.participants.length} peserta · ${pendingAdmissions} menunggu`}
           href={`${base}/participants`}
           icon={Users}
           title="Peserta"
