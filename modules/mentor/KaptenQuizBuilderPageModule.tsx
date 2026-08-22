@@ -57,7 +57,7 @@ import {
   type KaptenQuiz,
 } from "@/modules/mentor/mock-data";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
-import { saveStandaloneQuizAction, updateStandaloneQuizLifecycleAction } from "@/modules/mentor/quiz-actions";
+import { detachStandaloneQuizAssemblyAction, saveStandaloneQuizAction, updateStandaloneQuizLifecycleAction } from "@/modules/mentor/quiz-actions";
 import type {
   QuizBuilderState,
   QuizChoice,
@@ -183,6 +183,7 @@ function createQuizBuilderActions({
   setQuestionSearchQuery,
   setSourceQuestionPage,
   setSourceQuestionTotal,
+  onPersistAssemblyDetach,
   readyAssemblies,
 }: {
   builderState: QuizBuilderState;
@@ -199,6 +200,7 @@ function createQuizBuilderActions({
   setQuestionSearchQuery: (query: string) => void;
   setSourceQuestionPage: (page: number) => void;
   setSourceQuestionTotal: (total: number) => void;
+  onPersistAssemblyDetach?: () => Promise<boolean>;
   readyAssemblies: AssemblyAttachmentSummary[];
 }) {
   function markChanged(nextState: QuizBuilderState) {
@@ -322,9 +324,16 @@ function createQuizBuilderActions({
     applyAssembly(versionId);
   }
 
-  function detachAssembly() {
+  async function detachAssembly() {
     if (!builderState.assemblyVersionId) return;
+    let persisted = false;
+    if (onPersistAssemblyDetach) {
+      const detached = await onPersistAssemblyDetach();
+      if (!detached) return;
+      persisted = true;
+    }
     applyAssembly(null);
+    if (persisted) setHasUnsavedChanges(false);
   }
 
   function addBankQuestion(question: BankQuestion) {
@@ -645,6 +654,7 @@ function KaptenQuizBuilderPageModule({
     setQuestionSearchQuery,
     setSourceQuestionPage,
     setSourceQuestionTotal,
+    onPersistAssemblyDetach: savedQuiz?.id ? persistAssemblyDetach : undefined,
     readyAssemblies,
   });
   async function saveQuiz(status: "draft" | "published" = quizStatus === "published" ? "published" : "draft") {
@@ -677,6 +687,27 @@ function KaptenQuizBuilderPageModule({
       }
     } catch (saveError) {
       setSaveError(saveError instanceof Error ? saveError.message : "Kuis belum dapat disimpan.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function persistAssemblyDetach() {
+    if (!savedQuiz || isSaving) return false;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const result = await detachStandaloneQuizAssemblyAction(savedQuiz.id);
+      if (!result.ok) {
+        setSaveError(result.message);
+        return false;
+      }
+      setSavedQuiz(result.quiz);
+      setHasUnsavedChanges(false);
+      return true;
+    } catch (detachError) {
+      setSaveError(detachError instanceof Error ? detachError.message : "Assembly belum dapat dilepas dari Kuis.");
+      return false;
     } finally {
       setIsSaving(false);
     }
