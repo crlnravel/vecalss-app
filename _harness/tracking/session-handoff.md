@@ -5,9 +5,10 @@
 - Objective: turn `/mentor/tryout` into one mentor-facing Tryout authoring
   workspace with Basics, Sections, Questions, Rules, Schedule & akses, Results,
   Review, and Publish areas.
-- Implementation commit: `1ea7b3d` (`feat: consolidate tryout authoring
-  workspace`). No schema or migration change was needed; all 30 migrations are
-  applied.
+- Implementation commits: `1ea7b3d` (`feat: consolidate tryout authoring
+  workspace`), `c22ecb2` (tablet containment), and `17a9d53` (`fix: close
+  AS-05 workspace review gaps`). No schema or migration change was needed; all
+  30 migrations are applied.
 - Builder behavior: the workspace keeps the seven fixed subject sections,
   CBT/CAT constraints, local draft state while switching tabs, the durable
   AssessmentRelease notice, explicit draft save versus publish, locked release
@@ -19,17 +20,25 @@
 - Embedded projections: Schedule & akses reuses the current policy, sessions,
   and ParticipantView operations modules; Results projects session/attempt
   state and links to existing detail routes; Review shows client-side
-  readiness while publish remains server-validated.
+  readiness while publish remains server-validated. Schedule & akses remains
+  mounted across workspace tabs so policy form state is not discarded.
+- Review/Publish now blocks invalid duration, missing source content or
+  explanations, non-ready media, duplicate source questions, incomplete CAT
+  pools/2PL calibration, and schedule conflicts before the server action runs.
+- Save defaults to `draft`; only the explicit publish confirmation sends
+  `published`. Historical AssessmentRelease state is labeled as the last
+  release until a draft is published.
 - Compatibility: the dynamic Tryout route preserves legacy `authoring`,
   `policy`, `sessions`, `participants`, and `operations` query values while
   adopting the eight-area vocabulary.
 - Verification: `pnpm test:tryout-authoring-workspace`, TypeScript,
   `git diff --check`, focused ESLint, full `pnpm verify`, and the Impeccable
-  detector passed. Authenticated ego-browser QA passed on desktop and mobile:
+  detector passed. Authenticated ego-browser QA passed on desktop, tablet, and mobile:
   all tabs, query persistence, draft switching, preview copy, seven subjects,
-  CAT rules, release notice, locked published Tryout, and no 390px body
-  overflow.
-- Recommended pickup: review the AS-05 changeset, then start AS-06 (direct
+  CAT rules, release notice, locked published Tryout, policy state persistence,
+  review gating, one-main landmark, and no 390px/900px body overflow.
+- Recommended pickup: complete the fresh finish-review pass against `17a9d53`,
+  then start AS-06 (direct
   question picks and optional Set/Pool assembly). Keep the existing
   `/tmp/vecalss-as09-pre-migration-20260822.dump` available for rollback
   investigation and do not reset/reseed without explicit approval.

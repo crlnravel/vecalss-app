@@ -70,7 +70,7 @@
       "description": "Provide one mentor Tryout workspace for basics, fixed sections, source readiness, CBT/CAT rules, schedule/access, results, review, and publish",
       "dependencies": ["feat-008"],
       "status": "complete",
-      "evidence": "1ea7b3d; eight-area builder, legacy workspace query compatibility, focused workspace contract, tsc, diff-check, pnpm verify, impeccable detector [], and authenticated desktop/mobile browser QA including tab reload persistence, draft tab switching, read-only participant preview, seven subjects, CAT rules, release notice, and no mobile horizontal overflow"
+      "evidence": "1ea7b3d + c22ecb2 + 17a9d53; eight-area builder, legacy workspace query compatibility, explicit draft-vs-publish save boundary, mounted Schedule & akses state, content/media/duplicate/CAT/duration/schedule readiness checks, valid landmarks and section-button semantics, historical release labeling, focused workspace contract, tsc, diff-check, pnpm verify, impeccable detector [], and authenticated 390/900px browser QA with no body overflow"
     }
   ]
 }

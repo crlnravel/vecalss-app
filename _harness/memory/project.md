@@ -141,6 +141,10 @@ Store only settled decisions, conventions, and important context that emerged du
 - Published Tryouts with participant history remain read-only in place and
   offer duplication. Participant preview is read-only and states that it does
   not create attempts, admission, or sessions.
-- AS-05 is committed as `1ea7b3d`; it requires no migration. Focused contract,
-  full repository verification, Impeccable detector, and authenticated
-  desktop/mobile browser QA pass.
+- AS-05 is committed as `1ea7b3d`, tablet containment as `c22ecb2`, and
+  finish-review fixes as `17a9d53`; it requires no migration. Ordinary Save
+  explicitly stays draft, Schedule & akses remains mounted across tabs, and
+  Review/Publish gates content/media/duplicate/CAT/duration/schedule readiness
+  before the server publish action. Focused contract, full repository
+  verification, Impeccable detector, and authenticated 390/900px browser QA
+  pass.
