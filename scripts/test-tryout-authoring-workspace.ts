@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route] = await Promise.all([
+const [workspace, route, createRoute] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
+  readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
 ]);
 
 for (const label of [
@@ -33,7 +34,8 @@ assert.match(workspace, /catReady/u, "review must include CAT readiness");
 assert.match(workspace, /duplicateSourceCount/u, "review must include duplicate source detection");
 assert.doesNotMatch(workspace, /role="listitem"/u, "section selector buttons must retain native button semantics");
 assert.match(workspace, /Geser untuk area lain/u, "mobile tab rail must expose its horizontal-scroll cue");
-assert.match(route, /contentElement="div"/u, "Tryout workspace route should keep one main landmark in the shell");
+assert.match(route, /contentElement="main"/u, "Edit Tryout route should preserve the shell main landmark");
+assert.match(createRoute, /contentElement="main"/u, "Create Tryout route should preserve the shell main landmark");
 assert.match(workspace, /AssessmentReleaseNotice/u, "workspace must expose the durable release state");
 assert.match(workspace, /Pratinjau peserta/u, "workspace must offer a read-only participant preview");
 assert.match(workspace, /Simpan draft/u, "workspace must expose draft persistence");

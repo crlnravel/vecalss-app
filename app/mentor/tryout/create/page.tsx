@@ -10,5 +10,5 @@ export const metadata: Metadata = { title: "Buat Tryout Kapten | Vecalss LMS" };
 export default async function CreateTryoutPage() {
   const session = await requireTutorSession();
   const readyVersions = await listReadyPackageVersions(session.user.id);
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="main" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }
