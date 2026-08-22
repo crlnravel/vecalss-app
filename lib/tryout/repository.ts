@@ -201,9 +201,13 @@ async function getReusableQuestionPackageVersionDetail(packageId: string, versio
     tests: record.tryoutSections.map((section) => ({ id: section.id, sequenceNo: section.sequenceNo, subtest: section.subtestId, testType: section.testType === TryoutTestType.cat ? "CAT" : "CBT", title: section.title, tryoutId: section.tryout.id, tryoutStatus: section.tryout.status === ContentStatus.published ? "Terbit" : "Draf", tryoutTitle: section.tryout.title })),
   };
 }
-async function listReadyPackageVersions(actorId: string) {
+async function listReadyPackageVersions(_actorId: string) {
+  void _actorId;
   const records = await prisma.reusableQuestionPackageVersion.findMany({
-    where: { status: ContentStatus.published, package: { createdByUserId: actorId } },
+    // Ready revisions are shared Kapten assets.  Creator-only ownership is
+    // enforced by the package mutation commands; binding a Ready revision to
+    // another mentor's draft must not become an accidental ownership check.
+    where: { status: ContentStatus.published, package: { status: { not: ContentStatus.archived } } },
     include: versionInclude,
     orderBy: { createdAt: "desc" },
   });
@@ -310,10 +314,10 @@ function assertReadyPackageVersion(version: Prisma.ReusableQuestionPackageVersio
   if (!readiness.contentReady) throw new TryoutValidationError(`Sumber Test ${subtest} belum memiliki soal, opsi, penjelasan, atau media siap yang lengkap.`);
   if (!readiness.sourceQuestionIds.length || new Set(readiness.sourceQuestionIds).size !== readiness.sourceQuestionIds.length) throw new TryoutValidationError(`Sumber Test ${subtest} memiliki soal duplikat.`);
 }
-async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: { catItemCount?: number; packageVersionId?: string; subtestId: string }, actorId: string) {
+async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: { catItemCount?: number; packageVersionId?: string; subtestId: string }) {
   if (!section.packageVersionId || !section.catItemCount) throw new TryoutValidationError("CAT memerlukan Paket Soal dan jumlah soal.");
   const version = await tx.reusableQuestionPackageVersion.findFirst({
-    where: { id: section.packageVersionId, package: { createdByUserId: actorId } },
+    where: { id: section.packageVersionId, package: { status: { not: ContentStatus.archived } } },
     include: { items: { select: { sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true, sourceRevisionProvenance: true, subtestId: true } } },
   });
   if (!version || version.items.length < section.catItemCount || version.items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) throw new TryoutValidationError("Pool CAT harus berasal dari versi Paket immutable yang kompatibel dan mencukupi jumlah soal CAT.");
@@ -377,7 +381,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     } else {
       const created = await tx.tryoutPackage.create({ data: { code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
     }
-    const versions = await tx.reusableQuestionPackageVersion.findMany({ where: { id: { in: input.sections.flatMap((section) => section.packageVersionId ? [section.packageVersionId] : []) }, package: { createdByUserId: actorId } }, include: versionInclude });
+    const versions = await tx.reusableQuestionPackageVersion.findMany({ where: { id: { in: input.sections.flatMap((section) => section.packageVersionId ? [section.packageVersionId] : []) }, package: { status: { not: ContentStatus.archived } } }, include: versionInclude });
     const versionById = new Map(versions.map((version) => [version.id, version]));
     const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
     const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });
@@ -395,7 +399,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       if (input.status === "published" && directSources.length) assertReadyDirectContent(directSources, sectionInput.subtest);
       if (input.status === "published" && version) assertReadyPackageVersion(version, sectionInput.subtest);
       if (input.status === "published" && sectionInput.testType === "cat") {
-        if (version) await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version.id, subtestId: subtest.id }, actorId);
+        if (version) await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version.id, subtestId: subtest.id });
         else await assertCatDirectReadiness(tx, directSources, sectionInput.catItemCount);
       }
       const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: version?.id, questionCount: version?.items.length ?? directSources.length, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
