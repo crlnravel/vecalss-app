@@ -203,9 +203,12 @@
 
 1. Complete AS-07 implementation and fresh review with authenticated
    ego-browser desktop/mobile QA.
-2. Keep Kuis assembly binding deferred until its schema-backed identity,
-   reload, detach, and republish boundary is implemented and reviewed.
-3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
+2. Then implement the deferred Kuis assembly binding boundary: persisted
+   mode/package/version identity, reload/detach/republish revalidation, and
+   CAT Pool rejection. This is prioritized over AS-07 realtime hardening.
+3. Keep AS-07 realtime/polling hardening as a later enhancement; the initial
+   snapshot-on-load Live projection is accepted for this slice.
+4. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
    already implemented under AS-02 unless a new defect is found.
 
 ### AS-09 Browser QA

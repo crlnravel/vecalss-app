@@ -305,3 +305,10 @@ Store only settled decisions, conventions, and important context that emerged du
 - Ticket artifact:
   `artifacts/tickets/as07-live-delivery-result-workspaces`. Implementation
   agent `6af221fe-77a2-46fa-927b-2234b52a0201` was dispatched on 2026-08-23.
+
+## Next-slice order decision
+
+- After AS-07 passes final review and E2E QA, implement the deferred durable
+  Kuis assembly binding before adding realtime/polling hardening to AS-07.
+  Kuis has a correctness gap across save/reload/detach/republish; AS-07's
+  snapshot-on-load Live projection is an acceptable first operational slice.
