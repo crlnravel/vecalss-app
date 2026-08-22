@@ -79,8 +79,10 @@ function KaptenTryoutPolicyPageModule({
     }
   };
 
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
+    <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? null : <OperationalPageHeader
         backHref={tryoutHref}
         description={initial.title}
@@ -145,7 +147,7 @@ function KaptenTryoutPolicyPageModule({
           </Button>
         </CardFooter>
       </Card>
-    </main>
+    </Root>
   );
 }
 

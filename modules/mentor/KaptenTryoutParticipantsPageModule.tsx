@@ -31,8 +31,10 @@ function KaptenTryoutParticipantsPageModule({
   initial: TryoutOperationsView;
 }) {
   const base = `/mentor/tryout/${initial.id}/operations/participants`;
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
+    <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? <header><h2 className="text-xl font-semibold text-secondary-900">Peserta</h2><p className="mt-1 text-sm text-secondary-600">Admission dan penugasan sesi peserta.</p></header> : <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}?workspace=participants`}
         description={initial.title}
@@ -77,7 +79,7 @@ function KaptenTryoutParticipantsPageModule({
           </EmptyHeader>
         </Empty>
       )}
-    </main>
+    </Root>
   );
 }
 

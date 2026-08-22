@@ -11,6 +11,14 @@ type PackageItemInput = { pointValue: number; sourceQuestionId: string; sourceQu
 type PackageInput = { description: string; id?: string; items: PackageItemInput[]; sourceBankId: string; subtest: SubjectCode; title: string };
 type PackageMetadataInput = { description: string; id: string; title: string };
 type TestInput = { catItemCount?: number; durationMinutes: number; instructions: string; packageVersionId?: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
+type PackageVersionReadiness = {
+  catReady: boolean;
+  contentReady: boolean;
+  hasExplanations: boolean;
+  hasReadyMedia: boolean;
+  itemCount: number;
+  sourceQuestionIds: string[];
+};
 type SaveTryoutInput = { description: string; id?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
 class TryoutValidationError extends Error {}
 
@@ -22,12 +30,34 @@ const sourceInclude = {
   explanationAsset: true,
   subtest: true,
 } satisfies Prisma.QuestionInclude;
-const versionInclude = { package: { include: { subtest: true } }, items: { include: { options: { orderBy: { sortOrder: "asc" as const } } }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
+const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1 } } satisfies Prisma.ReusableQuestionPackageInclude;
 const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
+function packageVersionReadiness(version: Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>, calibrationByRevision = new Map<string, { contentDigest: string; questionId: string; sourceRevisionProvenance: string | null }>()) {
+  const sourceQuestionIds = version.items.map((item) => item.sourceQuestionId);
+  const hasUniqueSources = new Set(sourceQuestionIds).size === sourceQuestionIds.length;
+  const hasExplanations = version.items.every((item) => Boolean(item.explanation?.trim() || item.explanationAssetId));
+  const hasReadyMedia = version.items.every((item) => isReadyAsset(item.promptAsset) && isReadyAsset(item.explanationAsset) && item.options.every((option) => isReadyAsset(option.asset)));
+  const contentReady = version.items.length > 0 && version.items.every((item) => {
+    const options = item.options;
+    return item.prompt.trim()
+      && hasExplanations
+      && options.length >= 2
+      && options.length <= 5
+      && options.filter((option) => option.isCorrect).length === 1
+      && options.every((option) => option.content.trim())
+      && hasReadyMedia;
+  }) && hasUniqueSources;
+  const catReady = contentReady && version.items.every((item) => {
+    if (!item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown) return false;
+    const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId);
+    return Boolean(calibration && calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
+  });
+  return { catReady, contentReady, hasExplanations, hasReadyMedia, itemCount: version.items.length, sourceQuestionIds } satisfies PackageVersionReadiness;
+}
 function assertPackageInput(input: PackageInput) {
   if (!input.title.trim()) throw new TryoutValidationError("Judul Paket Soal wajib diisi.");
   if (!SUBJECTS.includes(input.subtest)) throw new TryoutValidationError("Subtest Paket Soal tidak valid.");
@@ -116,10 +146,23 @@ async function getReusableQuestionPackageVersionDetail(packageId: string, versio
 async function listReadyPackageVersions(actorId: string) {
   const records = await prisma.reusableQuestionPackageVersion.findMany({
     where: { status: ContentStatus.published, package: { createdByUserId: actorId } },
-    include: { items: { select: { sourceQuestionId: true } }, package: { include: { subtest: true } } },
+    include: versionInclude,
     orderBy: { createdAt: "desc" },
   });
-  return records.map((record) => ({ id: record.id, label: `${record.package.title} · v${record.versionNo}`, subtest: record.package.subtest.code as SubjectCode }));
+  const revisionIds = records.flatMap((record) => record.items.map((item) => item.sourceQuestionRevisionId).filter((id): id is string => Boolean(id)));
+  const calibrations = revisionIds.length
+    ? await prisma.twoPlQuestionCalibration.findMany({
+        where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } },
+        select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true },
+      })
+    : [];
+  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
+  return records.map((record) => ({
+    ...packageVersionReadiness(record, calibrationByRevision),
+    id: record.id,
+    label: `${record.package.title} · v${record.versionNo}`,
+    subtest: record.package.subtest.code as SubjectCode,
+  }));
 }
 
 async function saveReusableQuestionPackage(input: PackageInput, actorId: string) {
@@ -203,6 +246,12 @@ function validateTryoutInput(input: SaveTryoutInput) {
   if (input.sections.length !== 7 || new Set(input.sections.map((section) => section.subtest)).size !== 7 || input.sections.some((section) => !SUBJECTS.includes(section.subtest))) throw new TryoutValidationError("Tryout harus memiliki tepat tujuh Test subject.");
   if (input.sections.some((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1 || (section.testType === "cat" && (!Number.isInteger(section.catItemCount) || section.catItemCount! < 1)))) throw new TryoutValidationError("Konfigurasi durasi atau jumlah soal CAT tidak valid.");
 }
+function assertReadyPackageVersion(version: Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>, subtest: SubjectCode) {
+  if (version.status !== ContentStatus.published || version.package.subtest.code !== subtest) throw new TryoutValidationError(`Paket siap untuk Test ${subtest} tidak valid atau tidak cocok.`);
+  const readiness = packageVersionReadiness(version);
+  if (!readiness.contentReady) throw new TryoutValidationError(`Sumber Test ${subtest} belum memiliki soal, opsi, penjelasan, atau media siap yang lengkap.`);
+  if (!readiness.sourceQuestionIds.length || new Set(readiness.sourceQuestionIds).size !== readiness.sourceQuestionIds.length) throw new TryoutValidationError(`Sumber Test ${subtest} memiliki soal duplikat.`);
+}
 async function assertCatPackageReadiness(tx: Prisma.TransactionClient, section: { catItemCount?: number; packageVersionId?: string; subtestId: string }, actorId: string) {
   if (!section.packageVersionId || !section.catItemCount) throw new TryoutValidationError("CAT memerlukan Paket Soal dan jumlah soal.");
   const version = await tx.reusableQuestionPackageVersion.findFirst({
@@ -263,6 +312,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const version = sectionInput.packageVersionId ? versionById.get(sectionInput.packageVersionId) : undefined;
       if (sectionInput.packageVersionId && (!version || version.status !== ContentStatus.published || version.package.subtest.code !== sectionInput.subtest)) throw new TryoutValidationError(`Paket siap untuk Test ${sectionInput.subtest} tidak valid atau tidak cocok.`);
       if (input.status === "published" && !version) throw new TryoutValidationError("Setiap Test harus mengikat satu versi Paket Soal siap sebelum Tryout diterbitkan.");
+      if (input.status === "published" && version) assertReadyPackageVersion(version, sectionInput.subtest);
       if (input.status === "published" && sectionInput.testType === "cat") await assertCatPackageReadiness(tx, { catItemCount: sectionInput.catItemCount, packageVersionId: version?.id, subtestId: subtest.id }, actorId);
       const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: version?.id, questionCount: version?.items.length ?? 0, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
       return { section, version };
@@ -283,4 +333,4 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
 async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
 export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, TryoutValidationError };
-export type { PackageInput, PackageItemInput, PackageMetadataInput, SaveTryoutInput, TestInput };
+export type { PackageInput, PackageItemInput, PackageMetadataInput, PackageVersionReadiness, SaveTryoutInput, TestInput };

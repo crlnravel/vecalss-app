@@ -17,5 +17,5 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   // transitional authoring/policy/sessions/participants query values for
   // bookmarked compatibility URLs.
   const initialWorkspace = query.workspace ?? "basics";
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }

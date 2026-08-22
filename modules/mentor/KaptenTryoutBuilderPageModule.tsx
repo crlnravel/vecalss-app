@@ -22,7 +22,7 @@ import {
   Upload,
   Users,
 } from "@/lib/icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -109,7 +109,17 @@ type TryoutDraft = {
   title: string;
   updatedAt: number;
 };
-type ReadyVersion = { id: string; label: string; subtest: SubjectCode };
+type ReadyVersion = {
+  catReady: boolean;
+  contentReady: boolean;
+  hasExplanations: boolean;
+  hasReadyMedia: boolean;
+  id: string;
+  itemCount: number;
+  label: string;
+  sourceQuestionIds: string[];
+  subtest: SubjectCode;
+};
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "results" | "review" | "publish";
 
 const workspaceItems: Array<{ label: string; value: Workspace }> = [
@@ -229,10 +239,31 @@ function KaptenTryoutBuilderPageModule({
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace>(() => normalizeWorkspace(initialWorkspace));
+  const tabRailRef = useRef<HTMLDivElement>(null);
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
   const boundCount = draft.sections.filter((section) => section.packageVersionId).length;
-  const readyToPublish = Boolean(draft.title.trim()) && boundCount === subjectCodes.length;
+  const selectedVersions = draft.sections.map((section) => section.packageVersionId ? readyVersions.find((version) => version.id === section.packageVersionId) : undefined);
+  const selectedSourceQuestionIds = selectedVersions.flatMap((version) => version?.sourceQuestionIds ?? []);
+  const duplicateSourceCount = selectedSourceQuestionIds.length - new Set(selectedSourceQuestionIds).size;
+  const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
+  const invalidCatSections = draft.sections.filter((section) => section.testType === "cat" && (!Number.isInteger(section.catItemCount) || !section.catItemCount || !selectedVersions.find((version) => version?.id === section.packageVersionId)?.catReady || (selectedVersions.find((version) => version?.id === section.packageVersionId)?.itemCount ?? 0) < (section.catItemCount ?? 0)));
+  const incompleteSections = draft.sections.filter((section, index) => !section.packageVersionId || !selectedVersions[index]?.contentReady || (section.testType === "cat" && invalidCatSections.some((candidate) => candidate.subtest === section.subtest)));
+  const scheduleSessions = operationsInitial?.sessions ?? [];
+  const scheduleConflicts = scheduleSessions.some((session) => new Date(session.availableUntil) <= new Date(session.availableFrom)) || scheduleSessions.filter((session) => session.isDefaultOpenRegistration).length > 1;
+  const reviewChecks = [
+    { detail: draft.title.trim() ? "Judul Tryout sudah terisi." : "Tambahkan judul sebelum publikasi.", label: "Basics lengkap", status: Boolean(draft.title.trim()) },
+    { detail: draft.sections.length === 7 ? "PU, PPU, PBM, PK, LBI, LBE, dan PM tersedia." : "Tryout harus memiliki tepat tujuh Section.", label: "Tujuh Section tetap", status: draft.sections.length === 7 },
+    { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
+    { detail: selectedVersions.every((version) => version?.contentReady) ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: selectedVersions.every((version) => version?.contentReady) },
+    { detail: selectedVersions.every((version) => version?.hasExplanations && version.hasReadyMedia) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan atau media yang belum siap.", label: "Penjelasan & media siap", status: selectedVersions.every((version) => version?.hasExplanations && version.hasReadyMedia) },
+    { detail: duplicateSourceCount ? `${duplicateSourceCount} soal sumber muncul lebih dari sekali.` : "Tidak ada soal sumber yang duplikat.", label: "Sumber soal unik", status: duplicateSourceCount === 0 },
+    { detail: invalidCatSections.length ? "Setiap CAT harus memiliki pool cukup dan kalibrasi 2PL siap." : "CAT dan kalibrasi 2PL siap.", label: "CAT & 2PL siap", status: invalidCatSections.length === 0 },
+    { detail: invalidDurationSections.length ? "Periksa durasi setiap Section." : "Durasi setiap Section valid.", label: "Durasi valid", status: invalidDurationSections.length === 0 },
+    { detail: scheduleConflicts ? "Perbaiki jendela sesi atau lebih dari satu sesi default open registration." : scheduleSessions.length ? `${scheduleSessions.length} sesi tersimpan tanpa konflik konfigurasi.` : "Sesi dapat dijadwalkan setelah Tryout diterbitkan.", label: "Schedule & akses", status: !scheduleConflicts },
+  ];
+  const reviewFailures = reviewChecks.filter((check) => !check.status).length;
+  const readyToPublish = !draft.locked && reviewFailures === 0;
   const activeReadyVersions = useMemo(
     () => readyVersions.filter((version) => version.subtest === activeSection.subtest && version.label.toLocaleLowerCase().includes(packageSearch.toLocaleLowerCase())),
     [activeSection.subtest, packageSearch, readyVersions],
@@ -246,7 +277,7 @@ function KaptenTryoutBuilderPageModule({
     }));
   };
 
-  const save = async (status = draft.status) => {
+  const save = async (status: "draft" | "published" = "draft") => {
     setSaving(true);
     setError(null);
     try {
@@ -306,21 +337,20 @@ function KaptenTryoutBuilderPageModule({
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
+  useEffect(() => {
+    const label = workspaceItems.find((item) => item.value === workspace)?.label;
+    const activeTab = label
+      ? [...(tabRailRef.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [])].find((tab) => tab.textContent?.trim() === label)
+      : null;
+    activeTab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [workspace]);
+
   const goTo = (nextWorkspace: Workspace) => {
     changeWorkspace(nextWorkspace);
   };
 
-  const incompleteSections = draft.sections.filter((section) => !section.packageVersionId);
-  const reviewChecks = [
-    { detail: draft.title.trim() ? "Judul Tryout sudah terisi." : "Tambahkan judul sebelum publikasi.", label: "Basics lengkap", status: Boolean(draft.title.trim()) },
-    { detail: "PU, PPU, PBM, PK, LBI, LBE, dan PM tersedia.", label: "Tujuh Section tetap", status: draft.sections.length === 7 },
-    { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
-    { detail: draft.sections.every((section) => section.durationMinutes >= 1) ? "Durasi setiap Section valid." : "Periksa durasi setiap Section.", label: "Durasi valid", status: draft.sections.every((section) => section.durationMinutes >= 1) },
-    { detail: id ? (operationsInitial?.sessions.length ? `${operationsInitial.sessions.length} sesi tersimpan.` : "Belum ada sesi delivery.") : "Simpan draf untuk mengatur sesi.", label: "Schedule & akses", status: Boolean(operationsInitial?.sessions.length) },
-  ];
-
   return (
-    <main className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-primary-100 pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button nativeButton={false} render={<Link href="/mentor/tryout" />} size="sm" variant="ghost">
@@ -339,7 +369,7 @@ function KaptenTryoutBuilderPageModule({
               </Button>
             ) : (
               <>
-                <Button disabled={saving} onClick={() => void save()} size="sm" variant="brandOutline">
+                <Button disabled={saving} onClick={() => void save("draft")} size="sm" variant="brandOutline">
                   <Save />
                   {saving ? "Menyimpan…" : "Simpan draft"}
                 </Button>
@@ -354,7 +384,7 @@ function KaptenTryoutBuilderPageModule({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Tryout workspace</p>
-            <h1 className="mt-1 truncate text-2xl font-semibold tracking-[-0.02em] text-secondary-900 sm:text-3xl">{draft.title || "Tryout tanpa judul"}</h1>
+            <h1 className="mt-1 line-clamp-2 break-words text-2xl font-semibold tracking-[-0.02em] text-secondary-900 sm:text-3xl">{draft.title || "Tryout tanpa judul"}</h1>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-secondary-600">Satu ruang kerja untuk merakit, memeriksa, menjadwalkan, dan menerbitkan Tryout.</p>
           </div>
           <Badge className="rounded-full px-3 py-1.5" size="ui" variant={draft.status === "published" ? "mint" : "accent"}>
@@ -379,15 +409,20 @@ function KaptenTryoutBuilderPageModule({
         label="Rilis konten Tryout"
         missingDescription="Rilis pertama dibuat saat Tryout diterbitkan dan tervalidasi server. Sesi peserta akan memakai rilis yang sama."
         release={release}
+        state={draft.status === "draft" ? "historical" : "current"}
       />
 
       <Tabs className="mt-6" onValueChange={changeWorkspace} value={workspace}>
-        <div className="overflow-x-auto pb-1">
+        <div className="relative" ref={tabRailRef}>
+          <div className="overflow-x-auto pb-1">
           <TabsList aria-label="Ruang kerja Tryout" className="min-w-max rounded-2xl bg-primary-50 p-1">
             {workspaceItems.map((item) => (
               <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>
             ))}
           </TabsList>
+          </div>
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f7faf8] to-transparent sm:hidden" />
+          <p className="mt-1 text-right text-[11px] text-secondary-500 sm:hidden">Geser untuk area lain →</p>
         </div>
 
         <TabsContent className="mt-5" value="basics">
@@ -433,28 +468,28 @@ function KaptenTryoutBuilderPageModule({
             </header>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(14rem,0.5fr)_minmax(0,1.5fr)]">
-              <div className="grid content-start gap-2" role="list" aria-label="Daftar Section Tryout">
+              <ul className="grid content-start gap-2" aria-label="Daftar Section Tryout">
                 {draft.sections.map((section, index) => {
                   const selected = section.subtest === activeSection.subtest;
                   return (
-                    <Button
-                      aria-current={selected ? "true" : undefined}
-                      className={`h-auto min-h-14 justify-start gap-3 rounded-2xl border px-3 py-3 text-left ${selected ? "border-primary-300 bg-primary-50 text-primary-950" : "border-primary-100 bg-white text-secondary-800"}`}
-                      key={section.subtest}
-                      onClick={() => setActiveCode(section.subtest)}
-                      role="listitem"
-                      variant="ghost"
-                    >
-                      <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-secondary-50 text-xs font-bold text-secondary-600">{String(index + 1).padStart(2, "0")}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold">{section.subtest} · {subjectName(section.subtest)}</span>
-                        <span className={`mt-0.5 block text-xs ${section.packageVersionId ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Sumber siap" : "Sumber belum dipilih"}</span>
-                      </span>
-                      {section.packageVersionId ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
-                    </Button>
+                    <li key={section.subtest}>
+                      <Button
+                        aria-current={selected ? "true" : undefined}
+                        className={`h-auto min-h-14 w-full justify-start gap-3 rounded-2xl border px-3 py-3 text-left ${selected ? "border-primary-300 bg-primary-50 text-primary-950" : "border-primary-100 bg-white text-secondary-800"}`}
+                        onClick={() => setActiveCode(section.subtest)}
+                        variant="ghost"
+                      >
+                        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-secondary-50 text-xs font-bold text-secondary-600">{String(index + 1).padStart(2, "0")}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold">{section.subtest} · {subjectName(section.subtest)}</span>
+                          <span className={`mt-0.5 block text-xs ${section.packageVersionId ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Sumber siap" : "Sumber belum dipilih"}</span>
+                        </span>
+                        {section.packageVersionId ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
+                      </Button>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
 
               <div className="grid min-w-0 gap-5 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -588,8 +623,8 @@ function KaptenTryoutBuilderPageModule({
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-5" value="schedule">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save()} /> : (
+        <TabsContent className="mt-5" keepMounted value="schedule">
+          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
             <div className="grid gap-8">
               <section aria-labelledby="schedule-policy-title">
                 <div className="mb-4 flex items-start gap-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800"><SlidersHorizontal /></div><div><h2 id="schedule-policy-title" className="text-xl font-semibold text-secondary-900">Schedule &amp; akses</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Atur cara peserta masuk, kebijakan hasil, sesi delivery, dan ParticipantView dari satu tempat.</p></div></div>
@@ -608,7 +643,7 @@ function KaptenTryoutBuilderPageModule({
         </TabsContent>
 
         <TabsContent className="mt-5" value="results">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save()} /> : (
+          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
             <section className="grid gap-6">
               <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
@@ -620,7 +655,7 @@ function KaptenTryoutBuilderPageModule({
                 </div>
                 <Badge className="rounded-full" size="ui" variant="mint">{operationsInitial.sessions.reduce((total, delivery) => total + delivery.attempts.length, 0)} attempt</Badge>
               </header>
-              <AssessmentReleaseNotice label="Rilis hasil Tryout" release={release} />
+              <AssessmentReleaseNotice label="Rilis hasil Tryout" release={release} state={draft.status === "draft" ? "historical" : "current"} />
               <div className="grid gap-3 sm:grid-cols-3">
                 <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Sesi</p><p className="mt-1 text-2xl font-semibold text-secondary-900">{operationsInitial.sessions.length}</p></CardContent></Card>
                 <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Peserta</p><p className="mt-1 text-2xl font-semibold text-secondary-900">{operationsInitial.participants.length}</p></CardContent></Card>
@@ -680,17 +715,17 @@ function KaptenTryoutBuilderPageModule({
               </div>
               <Upload className="size-6 text-primary-800" />
             </header>
-            <AssessmentReleaseNotice label="AssessmentRelease" missingDescription="Belum ada rilis. Publish akan membuat rilis pertama setelah semua server checks berhasil." release={release} />
+            <AssessmentReleaseNotice label="AssessmentRelease" missingDescription="Belum ada rilis. Publish akan membuat rilis pertama setelah semua server checks berhasil." release={release} state={draft.status === "draft" ? "historical" : "current"} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Kesiapan sumber</p><p className="mt-1 text-lg font-semibold text-secondary-900">{boundCount}/7 Section siap</p><p className="mt-1 text-sm leading-6 text-secondary-600">Semua sumber akan disalin sebagai snapshot immutable.</p></CardContent></Card>
               <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Perlindungan riwayat</p><p className="mt-1 text-lg font-semibold text-secondary-900">{draft.locked ? "Terkunci" : "Siap diperbarui"}</p><p className="mt-1 text-sm leading-6 text-secondary-600">Setelah participant start, perubahan fairness-sensitive memakai Duplikasi.</p></CardContent></Card>
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 text-sm leading-6 text-secondary-700 sm:flex-row sm:items-start"><CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" /><p>{release ? "Publish ulang hanya membuat rilis baru bila isi Tryout berubah. Sesi yang sudah terbuka tetap terikat pada rilis sebelumnya." : "Sesi peserta belum boleh dibuka sebelum memiliki AssessmentRelease. Setelah publish, buka sesi dari Schedule & akses."}</p></div>
             <footer className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-5">
-              {!draft.locked ? <Button disabled={saving} onClick={() => void save()} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draft"}</Button> : null}
+              {!draft.locked ? <Button disabled={saving} onClick={() => void save("draft")} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draft"}</Button> : null}
               {!draft.locked ? <Button disabled={saving || !readyToPublish} onClick={() => setPublishOpen(true)} variant="brand"><Upload />{draft.status === "published" ? "Terbitkan pembaruan" : "Terbitkan Tryout"}</Button> : <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat salinan editable</Button>}
             </footer>
-            {!readyToPublish && !draft.locked ? <p className="text-right text-sm text-[#8a5e00]">Lengkapi Review terlebih dahulu: {7 - boundCount} Section belum memiliki sumber soal.</p> : null}
+            {!readyToPublish && !draft.locked ? <p className="text-right text-sm text-[#8a5e00]">Lengkapi Review terlebih dahulu: {reviewFailures} pemeriksaan belum lulus.</p> : null}
           </section>
         </TabsContent>
       </Tabs>
@@ -721,7 +756,7 @@ function KaptenTryoutBuilderPageModule({
           <AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving} onClick={() => { setDuplicateOpen(false); void duplicate(); }} variant="brand"><Copy />{saving ? "Menyalin…" : "Buat salinan"}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </div>
   );
 }
 

@@ -67,11 +67,14 @@ function AssessmentReleaseNotice({
   label = "Konten sesi",
   missingDescription = "Buka sesi setelah tujuh Test dan kesiapan CAT tervalidasi.",
   release,
+  state = "current",
 }: {
   label?: string;
   missingDescription?: string;
   release: AssessmentReleaseSummary | null;
+  state?: "current" | "historical";
 }) {
+  const historical = state === "historical";
   const publishedAt = release
     ? new Intl.DateTimeFormat("id-ID", {
         dateStyle: "medium",
@@ -84,23 +87,27 @@ function AssessmentReleaseNotice({
       className={cn(
         "mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3.5 text-sm leading-6",
         release
-          ? "border-primary-200 bg-primary-50 text-primary-950"
+          ? historical
+            ? "border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]"
+            : "border-primary-200 bg-primary-50 text-primary-950"
           : "border-[#f3d486] bg-[#fff7e5] text-[#6a4a00]",
       )}
       role="status"
     >
       {release ? (
-        <ShieldCheck aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary-700" />
+        <ShieldCheck aria-hidden="true" className={cn("mt-1 size-5 shrink-0", historical ? "text-[#a46b00]" : "text-primary-700")} />
       ) : (
         <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0" />
       )}
       <div className="min-w-0">
         <p className="font-semibold">
-          {release ? `${label} terkunci · Rilis ${release.number}` : `${label} belum memiliki rilis`}
+          {release ? `${label} ${historical ? "terakhir" : "terkunci"} · Rilis ${release.number}` : `${label} belum memiliki rilis`}
         </p>
         <p className="mt-0.5 text-xs leading-5 opacity-85">
           {release
-            ? "Peserta memakai salinan konten ini. Perubahan Tryout berikutnya tidak mengubah attempt yang sudah terikat."
+            ? historical
+              ? "Draft saat ini dapat berbeda dari rilis terakhir. Publish akan membuat atau menggunakan rilis baru; sesi yang sudah terbuka tetap terikat pada rilis sebelumnya."
+              : "Peserta memakai salinan konten ini. Perubahan Tryout berikutnya tidak mengubah attempt yang sudah terikat."
             : missingDescription}
         </p>
         {publishedAt ? (

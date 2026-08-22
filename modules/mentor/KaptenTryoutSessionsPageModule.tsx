@@ -30,8 +30,10 @@ function KaptenTryoutSessionsPageModule({
   initial: TryoutOperationsView;
 }) {
   const base = `/mentor/tryout/${initial.id}/operations/sessions`;
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
+    <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2><p className="mt-1 text-sm text-secondary-600">Jadwal dan status pelaksanaan Tryout.</p></div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}?workspace=sessions`}
         description={initial.title}
@@ -96,7 +98,7 @@ function KaptenTryoutSessionsPageModule({
           </EmptyContent>
         </Empty>
       )}
-    </main>
+    </Root>
   );
 }
 

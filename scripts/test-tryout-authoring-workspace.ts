@@ -23,7 +23,16 @@ for (const label of [
 }
 
 assert.match(workspace, /saveTryoutAction/u, "draft and publish must use the canonical Tryout save action");
+assert.match(workspace, /const save = async \(status: "draft" \| "published" = "draft"\)/u, "ordinary save must default to draft");
+assert.match(workspace, /void save\("draft"\)/u, "ordinary save controls must explicitly persist a draft");
 assert.match(workspace, /void save\("published"\)/u, "publish must remain a separate explicit action");
+assert.match(workspace, /keepMounted/u, "Schedule and access state must remain mounted across workspace tabs");
+assert.match(workspace, /contentReady/u, "review must include package content readiness");
+assert.match(workspace, /catReady/u, "review must include CAT readiness");
+assert.match(workspace, /duplicateSourceCount/u, "review must include duplicate source detection");
+assert.doesNotMatch(workspace, /role="listitem"/u, "section selector buttons must retain native button semantics");
+assert.match(workspace, /Geser untuk area lain/u, "mobile tab rail must expose its horizontal-scroll cue");
+assert.match(route, /contentElement="div"/u, "Tryout workspace route should keep one main landmark in the shell");
 assert.match(workspace, /AssessmentReleaseNotice/u, "workspace must expose the durable release state");
 assert.match(workspace, /Pratinjau peserta/u, "workspace must offer a read-only participant preview");
 assert.match(workspace, /Simpan draft/u, "workspace must expose draft persistence");
