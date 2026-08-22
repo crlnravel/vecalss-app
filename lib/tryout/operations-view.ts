@@ -465,12 +465,14 @@ async function getOwnedTryoutParticipantsView(
   const view = await getOwnedTryoutOperationsView(tryoutId, actorId);
   if (!view) return null;
 
+  const workspaceView = toTryoutWorkspaceView(view);
+
   // Keep the refresh action narrow. The invitation picker needs the
   // authoritative ParticipantView and session labels, but it must not send
   // attempt, score, release, or integrity payloads to the client.
   return {
-    participants: view.participants,
-    sessions: view.sessions,
+    participants: workspaceView.participants,
+    sessions: workspaceView.sessions,
   };
 }
 

@@ -79,6 +79,8 @@ function KaptenTryoutInvitationPicker({
     const requestId = searchRequestRef.current + 1;
     searchRequestRef.current = requestId;
 
+    if (busy) return;
+
     const timer = window.setTimeout(() => {
       if (normalizedQuery.length < 2) {
         setStudents([]);
@@ -112,9 +114,10 @@ function KaptenTryoutInvitationPicker({
     }, normalizedQuery.length < 2 ? 0 : 280);
 
     return () => window.clearTimeout(timer);
-  }, [query, tryoutId]);
+  }, [busy, query, tryoutId]);
 
   const chooseStudent = (student: InvitationPickerStudent) => {
+    if (busy) return;
     setSelectedStudent(student);
     setActiveIndex(-1);
     setFeedback(null);
@@ -123,6 +126,11 @@ function KaptenTryoutInvitationPicker({
   const submitInvitation = async () => {
     if (!selectedStudent || !effectiveSelectedSessionId || !reason.trim()) return;
 
+    searchRequestRef.current += 1;
+    setStudents([]);
+    setActiveIndex(-1);
+    setSearchError(null);
+    setSearchState("idle");
     setBusy(true);
     setFeedback(null);
     try {
@@ -185,7 +193,9 @@ function KaptenTryoutInvitationPicker({
                 aria-autocomplete="list"
                 aria-controls={searchResultsId}
                 aria-describedby={`${searchInputId}-hint`}
+                aria-expanded={students.length > 0}
                 className="min-h-11 pl-10"
+                disabled={busy}
                 id={searchInputId}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
@@ -243,6 +253,7 @@ function KaptenTryoutInvitationPicker({
                     <Button
                       aria-selected={isActive}
                       className={`min-h-12 w-full min-w-0 justify-between gap-3 rounded-2xl border px-3 py-2.5 text-left ${isActive ? "border-primary-400 bg-white ring-2 ring-primary-700/20" : "border-primary-100 bg-white hover:border-primary-300"}`}
+                      disabled={busy}
                       id={`${searchResultsId}-${student.id}`}
                       onClick={() => chooseStudent(student)}
                       role="option"
@@ -312,12 +323,14 @@ function KaptenTryoutInvitationPicker({
               <FieldLabel htmlFor={reasonInputId}>Alasan audit <span aria-hidden="true" className="text-destructive">*</span><span className="sr-only"> (wajib)</span></FieldLabel>
               <FieldTextarea
                 aria-describedby={`${reasonInputId}-hint`}
+                aria-required="true"
                 className="min-h-28"
                 disabled={busy}
                 id={reasonInputId}
                 maxLength={500}
                 onChange={(event) => setReason(event.target.value)}
                 placeholder="Contoh: Peserta lolos verifikasi pendaftaran gelombang 1."
+                required
                 value={reason}
               />
               <p className="text-xs leading-5 text-secondary-500" id={`${reasonInputId}-hint`}>Catatan ini tersimpan di audit log dan wajib diisi.</p>
