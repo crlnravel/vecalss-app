@@ -25,6 +25,9 @@ assert.match(attemptRepository, /attempt\.serverDeadlineAt <= now/u);
 assert.match(attemptRepository, /attempt\.deadline_expired/u);
 assert.match(attemptRepository, /attempt\.disconnect_started/u);
 assert.match(attemptRepository, /attempt\.disconnect_reconciled/u);
+assert.match(attemptRepository, /attempt\.disconnect_terminal/u);
+assert.match(attemptRepository, /after: json\(\{ attemptId, disconnectStartedAt: now\.toISOString\(\), runId \}\)/u);
+assert.match(attemptRepository, /origin\.runId !== runId/u);
 assert.match(attemptRepository, /isManagedPreviewPurpose/u);
 assert.match(attemptRepository, /assignment\.status !== TryoutAssignmentStatus\.active/u);
 
@@ -74,6 +77,29 @@ assert.equal(deriveTryoutLiveProjection({
     scoringState: "pending",
     status: "in_progress",
     runs: [{ catState: "not_applicable", sequenceNo: 2, status: "expired", scoringState: "review_required" }],
+  },
+}).state, "needs_attention");
+assert.equal(deriveTryoutLiveProjection({
+  admissionStatus: "active",
+  attempt: {
+    attemptId: "attempt-expired-disconnect",
+    attemptState: "expired",
+    disconnectStartedAt: "2026-08-23T08:00:00.000Z",
+    scoringState: "pending",
+    status: "expired",
+    runs: [{ catState: "not_applicable", sequenceNo: 1, status: "expired", scoringState: "pending" }],
+  },
+}).state, "submitted");
+assert.equal(deriveTryoutLiveProjection({
+  admissionStatus: "active",
+  attempt: {
+    attemptId: "attempt-expired-run-after-disconnect",
+    attemptState: "in_progress",
+    disconnectStartedAt: "2026-08-23T08:00:00.000Z",
+    reconciledAt: "2026-08-23T08:05:00.000Z",
+    scoringState: "pending",
+    status: "in_progress",
+    runs: [{ catState: "not_applicable", sequenceNo: 1, status: "expired", scoringState: "pending" }],
   },
 }).state, "needs_attention");
 

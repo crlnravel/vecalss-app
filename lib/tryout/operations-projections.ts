@@ -160,15 +160,15 @@ function deriveTryoutLiveProjection(input: {
   // Disconnected is intentionally marker-driven. Do not infer it from a
   // client timer or an integrity event; only the authorized server lifecycle
   // commands may create or reconcile this marker.
-  const activeDisconnect = Boolean(attempt.disconnectStartedAt && !attempt.reconciledAt);
+  const terminal = ["submitted", "auto_submitted", "expired"].includes(attempt.attemptState)
+    || ["submitted", "auto_submitted", "expired"].includes(attempt.status);
+  const activeDisconnect = Boolean(attempt.disconnectStartedAt && !attempt.reconciledAt && !terminal);
   const lifecycle = {
     disconnectStartedAt: attempt.disconnectStartedAt ?? null,
     reconciledAt: attempt.reconciledAt ?? null,
   };
   const reviewRun = attempt.runs.find((run) => run.scoringState === "review_required") ?? null;
   const reviewRequired = attempt.scoringState === "review_required" || Boolean(reviewRun);
-  const terminal = ["submitted", "auto_submitted", "expired"].includes(attempt.attemptState)
-    || ["submitted", "auto_submitted", "expired"].includes(attempt.status);
 
   if (activeDisconnect) {
     return {

@@ -359,6 +359,107 @@ async function appendDeadlineAudit(
   });
 }
 
+type DisconnectStartAudit = {
+  attemptId: string;
+  disconnectStartedAt: string;
+  runId: string;
+};
+
+async function findDisconnectStartAudit(
+  tx: Prisma.TransactionClient,
+  scope: AttemptScope,
+  disconnectStartedAt: Date | null,
+): Promise<DisconnectStartAudit | null> {
+  if (!disconnectStartedAt) return null;
+  const audit = await tx.tryoutDeliveryAudit.findFirst({
+    where: {
+      action: "attempt.disconnect_started",
+      admissionId: scope.admissionId,
+      deliverySessionId: scope.deliverySessionId,
+      tryoutId: scope.tryoutId,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { after: true },
+  });
+  if (!audit?.after || typeof audit.after !== "object" || Array.isArray(audit.after)) return null;
+  const after = audit.after as unknown as Record<string, unknown>;
+  if (
+    after.attemptId !== scope.id
+    || after.disconnectStartedAt !== disconnectStartedAt.toISOString()
+    || typeof after.runId !== "string"
+    || !after.runId
+  ) return null;
+  return {
+    attemptId: scope.id,
+    disconnectStartedAt: disconnectStartedAt.toISOString(),
+    runId: after.runId,
+  };
+}
+
+async function closeDisconnectAfterExpiry(
+  tx: Prisma.TransactionClient,
+  scope: AttemptScope,
+  attempt: {
+    deliverySession: { availableUntil: Date };
+    serverDeadlineAt: Date;
+    runs: Array<{ id: string; serverDeadlineAt: Date | null }>;
+    studentId: string;
+    tryoutId: string;
+  },
+  now: Date,
+  reason: string,
+  actorId?: string,
+) {
+  const current = await tx.tryoutAttempt.findUnique({
+    where: { id: scope.id },
+    select: { disconnectStartedAt: true, reconciledAt: true, totalDisconnectSeconds: true },
+  });
+  if (!current?.disconnectStartedAt || current.reconciledAt) return false;
+  const origin = await findDisconnectStartAudit(tx, scope, current.disconnectStartedAt);
+  // Rows written before the origin binding are intentionally fail-closed. A
+  // terminal attempt must never be attributed to an unverified Test run.
+  if (!origin) return false;
+  const originRun = attempt.runs.find((run) => run.id === origin.runId);
+  const terminalAt = [
+    now,
+    attempt.serverDeadlineAt,
+    attempt.deliverySession.availableUntil,
+    originRun?.serverDeadlineAt ?? null,
+  ].filter((value): value is Date => value !== null).reduce((earliest, value) => value < earliest ? value : earliest, now);
+  const elapsedSeconds = Math.max(0, Math.floor((terminalAt.getTime() - current.disconnectStartedAt.getTime()) / 1000));
+  const updated = await tx.tryoutAttempt.update({
+    where: { id: scope.id },
+    data: { reconciledAt: now, totalDisconnectSeconds: current.totalDisconnectSeconds + elapsedSeconds },
+    select: { disconnectStartedAt: true, reconciledAt: true, totalDisconnectSeconds: true },
+  });
+  await tx.tryoutDeliveryAudit.create({
+    data: {
+      action: "attempt.disconnect_terminal",
+      actorUserId: actorId ?? attempt.studentId,
+      admissionId: scope.admissionId,
+      after: json({
+        attemptId: scope.id,
+        boundedUntil: terminalAt.toISOString(),
+        reconciledAt: now.toISOString(),
+        runId: origin.runId,
+        terminal: true,
+        totalDisconnectSeconds: updated.totalDisconnectSeconds,
+      }),
+      before: json({
+        attemptId: scope.id,
+        disconnectStartedAt: current.disconnectStartedAt.toISOString(),
+        reconciledAt: null,
+        runId: origin.runId,
+        totalDisconnectSeconds: current.totalDisconnectSeconds,
+      }),
+      deliverySessionId: scope.deliverySessionId,
+      reason: `${reason} Siklus disconnect ditutup otomatis oleh batas waktu server.`,
+      tryoutId: scope.tryoutId,
+    },
+  });
+  return true;
+}
+
 async function synchronizeAttempt(
   tx: Prisma.TransactionClient,
   attemptId: string,
@@ -377,6 +478,9 @@ async function synchronizeAttempt(
       assessmentReleaseNumber: true,
       attemptState: true,
       deliverySession: { select: { assessmentReleaseId: true, availableUntil: true } },
+      disconnectStartedAt: true,
+      reconciledAt: true,
+      totalDisconnectSeconds: true,
       id: true,
       serverDeadlineAt: true,
       status: true,
@@ -416,6 +520,8 @@ async function synchronizeAttempt(
     reason = `Batas waktu server Test ${active.sequenceNo} terlewati; run disinkronkan otomatis.`;
   }
   if (!reason) return attempt;
+
+  await closeDisconnectAfterExpiry(tx, scope, attempt, now, reason, actorId);
 
   const after = await tx.tryoutAttempt.findUnique({
     where: { id: attemptId },
@@ -590,6 +696,9 @@ async function startTryoutDisconnect(
       throw new TryoutAttemptValidationError("Siklus disconnect sudah direkonsiliasi dan tidak dapat dimulai ulang.");
     }
     if (attempt.disconnectStartedAt) {
+      const origin = await findDisconnectStartAudit(tx, scope, attempt.disconnectStartedAt);
+      if (!origin) throw new TryoutAttemptValidationError("Marker disconnect lama tidak memiliki origin Test yang dapat diverifikasi.");
+      if (origin.runId !== runId) throw new TryoutAttemptValidationError("Siklus disconnect sudah terikat ke Test lain.");
       return disconnectResult(attempt, attemptId, runId, "existing");
     }
     const updated = await tx.tryoutAttempt.update({
@@ -602,7 +711,7 @@ async function startTryoutDisconnect(
         action: "attempt.disconnect_started",
         actorUserId: actorId,
         admissionId: attempt.admissionId,
-        after: json({ disconnectStartedAt: now.toISOString(), runId }),
+        after: json({ attemptId, disconnectStartedAt: now.toISOString(), runId }),
         before: json({ disconnectStartedAt: initial.disconnectStartedAt?.toISOString() ?? null, reconciledAt: initial.reconciledAt?.toISOString() ?? null }),
         deliverySessionId: attempt.deliverySessionId,
         reason: auditReason,
@@ -684,6 +793,9 @@ async function reconcileTryoutDisconnect(
       throw new TryoutAttemptValidationError("Reconcile disconnect hanya dapat dilakukan saat Test masih aktif.");
     }
     if (!attempt.disconnectStartedAt) throw new TryoutAttemptValidationError("Belum ada marker disconnect yang dapat direkonsiliasi.");
+    const origin = await findDisconnectStartAudit(tx, scope, attempt.disconnectStartedAt);
+    if (!origin) throw new TryoutAttemptValidationError("Marker disconnect lama tidak memiliki origin Test yang dapat diverifikasi.");
+    if (origin.runId !== runId) throw new TryoutAttemptValidationError("Siklus disconnect terikat ke Test lain; reconcile ditolak.");
     if (attempt.reconciledAt) return disconnectResult(attempt, attemptId, runId, "existing");
     const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - attempt.disconnectStartedAt.getTime()) / 1000));
     const updated = await tx.tryoutAttempt.update({
