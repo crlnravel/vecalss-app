@@ -20,6 +20,7 @@ type TryoutOperationsRecord = NonNullable<
 >;
 
 type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
+type TryoutParticipantsView = Pick<TryoutOperationsView, "participants" | "sessions">;
 type TryoutDeliverySessionRecord = TryoutOperationsRecord["deliverySessions"][number];
 type TryoutAttemptRecord = TryoutDeliverySessionRecord["attempts"][number];
 
@@ -457,5 +458,22 @@ async function getOwnedTryoutOperationsView(
   return serializeTryoutOperations(operations);
 }
 
-export { getOwnedTryoutOperationsView, serializeTryoutOperations, toTryoutWorkspaceView };
+async function getOwnedTryoutParticipantsView(
+  tryoutId: string,
+  actorId: string,
+): Promise<TryoutParticipantsView | null> {
+  const view = await getOwnedTryoutOperationsView(tryoutId, actorId);
+  if (!view) return null;
+
+  // Keep the refresh action narrow. The invitation picker needs the
+  // authoritative ParticipantView and session labels, but it must not send
+  // attempt, score, release, or integrity payloads to the client.
+  return {
+    participants: view.participants,
+    sessions: view.sessions,
+  };
+}
+
+export { getOwnedTryoutOperationsView, getOwnedTryoutParticipantsView, serializeTryoutOperations, toTryoutWorkspaceView };
+export type { TryoutParticipantsView };
 export type { TryoutOperationsView };

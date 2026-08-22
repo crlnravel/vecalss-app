@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { ChevronRight, Users } from "@/lib/icons";
 
 import {
@@ -15,7 +18,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
+import { KaptenTryoutInvitationPicker } from "@/modules/mentor/KaptenTryoutInvitationPicker";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
   participantAttemptStateLabels,
@@ -30,8 +34,15 @@ function KaptenTryoutParticipantsPageModule({
   embedded?: boolean;
   initial: TryoutOperationsView;
 }) {
+  const [participants, setParticipants] = useState(initial.participants);
+  const [sessions, setSessions] = useState(initial.sessions);
   const base = `/mentor/tryout/${initial.id}/operations/participants`;
   const Root = embedded ? "section" : "main";
+
+  const applyRefresh = (view: TryoutParticipantsView) => {
+    setParticipants(view.participants);
+    setSessions(view.sessions);
+  };
 
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
@@ -41,9 +52,15 @@ function KaptenTryoutParticipantsPageModule({
         title="Peserta"
       />}
 
-      {initial.participants.length ? (
+      <KaptenTryoutInvitationPicker
+        onRefresh={applyRefresh}
+        sessions={sessions}
+        tryoutId={initial.id}
+      />
+
+      {participants.length ? (
         <div className="mt-5 grid gap-3">
-          {initial.participants.map((participant) => (
+          {participants.map((participant) => (
             <Link
               className="group focus-visible:outline-none"
               href={`${base}/${participant.admissionId}`}

@@ -54,6 +54,7 @@
     "test:tryout-release-invariants": "node scripts/test-tryout-release-invariants.mjs",
     "test:assessment-release-invariants": "node scripts/test-assessment-release-invariants.mjs",
     "test:assessment-participant-view": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-assessment-participant-view.ts",
+    "test:tryout-invitation-picker": "tsx scripts/test-tryout-invitation-picker.ts",
     "test:tryout-live-result-workspaces": "tsx scripts/test-tryout-live-result-workspaces.ts",
     "test:tryout-realtime-hardening": "tsx scripts/test-tryout-realtime-hardening.ts",
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",
