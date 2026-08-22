@@ -6,6 +6,7 @@ import { RoleName } from "@/generated/prisma/client";
 import { requireSession } from "@/lib/auth/access";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
 import {
+  getReadyAssemblyAttachment,
   getAssemblyDraftForEdit,
   getReadyAssemblyRevision,
   listReadyAssemblyRevisions,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import type { PreviewAssemblyInput, SaveAssemblyDraftInput } from "@/lib/tryout/assembly-repository";
+import type { AssemblyAttachmentTarget } from "@/lib/tryout/assembly-validation";
 
 async function assemblyManagementSession() {
   const session = await requireSession();
@@ -45,6 +47,24 @@ async function getReadyAssemblyRevisionAction(versionId: string) {
   } catch (error) {
     return { ok: false as const, message: assemblyMessage(error) };
   }
+}
+
+async function attachReadyAssemblyAction(input: { target: AssemblyAttachmentTarget; targetSubtestCode: string; versionId: string }) {
+  await assemblyManagementSession();
+  try {
+    if (input.target !== "tryout" || !input.versionId.trim() || !input.targetSubtestCode.trim()) {
+      throw new AssemblyValidationError("invalid_mode", "Attachment assembly hanya tersedia untuk Tryout dengan Subtest yang valid.");
+    }
+    return { ok: true as const, result: await getReadyAssemblyAttachment(input.versionId, input.target, input.targetSubtestCode) };
+  } catch (error) {
+    return { ok: false as const, message: assemblyMessage(error) };
+  }
+}
+
+async function detachReadyAssemblyAction(input: { target: AssemblyAttachmentTarget } = { target: "tryout" }) {
+  await assemblyManagementSession();
+  if (input.target !== "tryout") return { ok: false as const, message: "Attachment assembly hanya tersedia untuk Tryout." };
+  return { ok: true as const, result: { detached: true as const } };
 }
 
 async function getAssemblyDraftForEditAction(packageId: string) {
@@ -99,6 +119,8 @@ async function readyAssemblyDraftAction(packageId: string) {
 }
 
 export {
+  attachReadyAssemblyAction,
+  detachReadyAssemblyAction,
   getAssemblyDraftForEditAction,
   getReadyAssemblyRevisionAction,
   listReadyAssemblyRevisionsAction,

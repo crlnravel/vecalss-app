@@ -4,18 +4,22 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const workspace = await readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8");
+const liveWorkspace = workspace.slice(workspace.indexOf("function KaptenTryoutBuilderPageModule"));
 
-for (const label of ["Pool acak", "Blueprint", "CAT Pool", "Mock flow lokal · belum tersimpan", "Lihat sample", "Uji kandidat stale"]) {
+for (const label of ["Pool Soal", "Blueprint", "CAT Pool", "Pasang sumber", "Preview", "Lihat preview dan kesiapan"]) {
   assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `workspace should expose ${label}`);
 }
 
-assert.match(workspace, /type SelectionMode = "direct" \| "set" \| "pool" \| "blueprint" \| "cat_pool"/u, "mock modes should be local selection modes");
-assert.match(workspace, /const hasLocalMockAssembly = draft\.sections\.some/u, "mock modes should be tracked separately from persisted source data");
-assert.match(workspace, /if \(hasLocalMockAssembly\) \{/u, "saving a mock mode must stop before the server action");
-assert.match(workspace, /activeSelectionMode !== "direct"/u, "Pool mock mode must not start direct-source reads");
-assert.match(workspace, /previewState: selectedStale\.length \? "stale" : selectedCandidates\.length < draft\.drawCount \? "shortage" : "sample"/u, "Pool preview must expose stale and shortage states");
-assert.match(workspace, /canonical 2PL/u, "CAT mock must surface calibration readiness");
-assert.match(workspace, /Kuis/u, "CAT mock must state the Tryout-only boundary");
-assert.doesNotMatch(workspace, /saveTryoutAction\([^)]*pool/u, "Pool mock must not add a persistence action");
+assert.match(workspace, /type SelectionMode = "direct" \| "set" \| "pool" \| "blueprint" \| "cat_pool"/u, "assembly modes should remain explicit selection modes");
+assert.match(workspace, /function ReadyAssemblyPicker/u, "assembly modes should use the shared Ready picker");
+assert.match(workspace, /attachReadyAssemblyAction\(\{ target: "tryout"/u, "attachment must use the Tryout server action");
+assert.match(workspace, /detachReadyAssemblyAction\(\{ target: "tryout" \}/u, "detachment must use the Tryout server action");
+assert.match(workspace, /previewAssemblyAction\(\{ versionId: assembly\.id \}\)/u, "preview must use the server-owned revision");
+assert.match(workspace, /activeSelectionMode !== "direct"/u, "assembly mode must not start direct-source reads");
+assert.match(workspace, /readiness\.blockers/u, "Review must surface current readiness blockers");
+assert.match(workspace, /label: "Assembly siap dirilis"/u, "Review must include an assembly readiness gate");
+assert.doesNotMatch(liveWorkspace, /Mock flow lokal · belum tersimpan/u, "the live chooser must not advertise a local mock flow");
+assert.doesNotMatch(liveWorkspace, /const hasLocalMockAssembly = draft\.sections\.some/u, "mock-only local state must not gate Tryout persistence");
+assert.match(workspace, /saveTryoutAction/u, "the real Tryout save action remains the persistence boundary");
 
-console.log("Tryout Pool authoring mock contract passed.");
+console.log("Tryout Ready assembly authoring contract passed.");

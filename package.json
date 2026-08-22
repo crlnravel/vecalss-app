@@ -59,6 +59,7 @@
     "test:random-assembly-schema": "tsx scripts/test-random-assembly-schema.ts",
     "test:random-assembly-schema-db": "tsx scripts/test-random-assembly-schema-db.ts",
     "test:random-assembly-repository": "tsx scripts/test-random-assembly-repository.ts",
+    "test:random-assembly-attachment": "tsx scripts/test-random-assembly-attachment.ts",
     "test:random-assembly-release": "tsx scripts/test-random-assembly-release.ts",
     "test:cat-pool-release": "tsx scripts/test-cat-pool-release.ts",
     "test:tryout-direct-question-picks": "tsx scripts/test-tryout-direct-question-picks.ts",

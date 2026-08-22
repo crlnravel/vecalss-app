@@ -16,10 +16,12 @@ import { prisma } from "@/lib/prisma";
 
 import {
   AssemblyValidationError,
+  assertAssemblyAttachmentCompatibility,
   seededShuffle,
   validateAssemblyDefinitionShape,
 } from "./assembly-validation";
 import type {
+  AssemblyAttachmentTarget,
   AssemblyDefinitionInput,
   AssemblyErrorCode,
   AssemblyErrorDetails,
@@ -56,7 +58,8 @@ type AssemblyReadiness = {
 type SaveAssemblyDraftInput = AssemblyDefinitionInput;
 
 type PreviewAssemblyInput = {
-  packageId: string;
+  packageId?: string;
+  versionId?: string;
 };
 
 type AssemblyPreview = {
@@ -73,6 +76,32 @@ type AssemblyPreview = {
     sourceQuestionRevisionId: string;
   }>;
   versionId: string;
+  versionNo: number;
+};
+
+type AssemblyAttachmentSummary = {
+  bankIds: string[];
+  bankNames: string[];
+  categoryIds: string[];
+  categoryNames: string[];
+  definitionDigest: string | null;
+  folderIds: string[];
+  folderNames: string[];
+  id: string;
+  itemCount: number;
+  mode: AssemblyMode;
+  packageId: string;
+  packageTitle: string;
+  readyAt: string | null;
+  readiness: AssemblyReadiness;
+  rule: {
+    easyCount: number;
+    hardCount: number;
+    mediumCount: number;
+    requestedCount: number;
+  } | null;
+  status: string;
+  subtest: string;
   versionNo: number;
 };
 
@@ -117,7 +146,7 @@ const versionInclude = {
     },
     orderBy: { sortOrder: "asc" as const },
   },
-  package: { select: { createdByUserId: true, id: true, mode: true, title: true } },
+  package: { select: { createdByUserId: true, description: true, id: true, mode: true, subtestId: true, title: true } },
   rule: true,
   sourceBank: { select: { id: true, name: true, status: true } },
   subtest: { select: { code: true, id: true, isActive: true, name: true } },
@@ -493,6 +522,7 @@ async function nextVersionNo(tx: Prisma.TransactionClient, packageId: string) {
 
 function toAssemblyVersionDto(version: VersionRecord) {
   return {
+    bankIds: version.bankScopes.map((scope) => scope.questionBankId),
     bankScopes: version.bankScopes.map((scope) => ({ id: scope.questionBank.id, name: scope.questionBank.name })),
     candidates: version.items.map((item) => ({
       difficulty: item.difficulty,
@@ -501,10 +531,13 @@ function toAssemblyVersionDto(version: VersionRecord) {
       sourceQuestionId: item.sourceQuestionId,
       sourceQuestionRevisionId: item.sourceQuestionRevisionId,
     })),
+    categoryIds: version.categoryScopes.map((scope) => scope.categoryId),
     categoryScopes: version.categoryScopes.map((scope) => ({ id: scope.category.id, name: scope.category.name })),
     definitionDigest: version.definitionDigest,
+    folderIds: version.folderScopes.map((scope) => scope.folderId),
     folderScopes: version.folderScopes.map((scope) => ({ id: scope.folder.id, name: scope.folder.name })),
     id: version.id,
+    itemCount: version.items.length,
     mode: version.mode as AssemblyMode,
     packageId: version.package.id,
     packageTitle: version.package.title,
@@ -521,6 +554,30 @@ function toAssemblyVersionDto(version: VersionRecord) {
     status: version.status,
     subtest: version.subtest,
     versionNo: version.versionNo,
+  };
+}
+
+function toAttachmentSummary(version: VersionRecord, readiness: AssemblyReadiness): AssemblyAttachmentSummary {
+  const dto = toAssemblyVersionDto(version);
+  return {
+    bankIds: dto.bankIds,
+    bankNames: dto.bankScopes.map((scope) => scope.name),
+    categoryIds: dto.categoryIds,
+    categoryNames: dto.categoryScopes.map((scope) => scope.name),
+    definitionDigest: dto.definitionDigest,
+    folderIds: dto.folderIds,
+    folderNames: dto.folderScopes.map((scope) => scope.name),
+    id: dto.id,
+    itemCount: dto.itemCount,
+    mode: dto.mode,
+    packageId: dto.packageId,
+    packageTitle: dto.packageTitle,
+    readyAt: dto.readyAt,
+    readiness,
+    rule: dto.rule,
+    status: dto.status,
+    subtest: dto.subtest?.code ?? "",
+    versionNo: dto.versionNo,
   };
 }
 
@@ -721,21 +778,64 @@ async function readyAssemblyDraft(packageId: string, actorId: string, options: A
   });
 }
 
-async function listReadyAssemblyRevisions() {
-  const versions = await prisma.reusableQuestionPackageVersion.findMany({
-    where: { package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
-    include: versionInclude,
-    orderBy: [{ package: { title: "asc" } }, { versionNo: "desc" }],
-  });
-  return versions.map(toAssemblyVersionDto);
+function definitionInputForVersion(version: VersionRecord): AssemblyDefinitionInput {
+  return toDefinitionInput(
+    version.package,
+    version,
+    version.items.map(candidateFromVersionItem),
+  );
 }
 
-async function getReadyAssemblyRevision(versionId: string) {
-  const version = await prisma.reusableQuestionPackageVersion.findFirst({
+async function readyVersionForAttachment(tx: Prisma.TransactionClient, versionId: string, target: AssemblyAttachmentTarget, targetSubtestCode: string) {
+  const version = await tx.reusableQuestionPackageVersion.findFirst({
     where: { id: versionId, package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
     include: versionInclude,
   });
-  return version ? toAssemblyVersionDto(version) : null;
+  if (!version) throw new AssemblyValidationError("not_found", "Assembly Ready tidak ditemukan atau sudah tidak tersedia.", { versionId });
+  assertAssemblyAttachmentCompatibility({
+    bankIds: version.bankScopes.map((scope) => scope.questionBankId),
+    mode: version.mode as AssemblyMode,
+    subtestCode: version.subtest?.code ?? "",
+    target,
+    targetSubtestCode,
+  });
+  return version;
+}
+
+async function listReadyAssemblyRevisions(): Promise<AssemblyAttachmentSummary[]> {
+  return prisma.$transaction(async (tx) => {
+    const versions = await tx.reusableQuestionPackageVersion.findMany({
+      where: { package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
+      include: versionInclude,
+      orderBy: [{ package: { title: "asc" } }, { versionNo: "desc" }],
+    });
+    const summaries: AssemblyAttachmentSummary[] = [];
+    for (const version of versions) {
+      const report = await collectReadiness(tx, definitionInputForVersion(version));
+      summaries.push(toAttachmentSummary(version, report.readiness));
+    }
+    return summaries;
+  });
+}
+
+async function getReadyAssemblyRevision(versionId: string): Promise<AssemblyAttachmentSummary | null> {
+  return prisma.$transaction(async (tx) => {
+    const version = await tx.reusableQuestionPackageVersion.findFirst({
+      where: { id: versionId, package: { status: { not: ContentStatus.archived } }, status: ContentStatus.published },
+      include: versionInclude,
+    });
+    if (!version) return null;
+    const report = await collectReadiness(tx, definitionInputForVersion(version));
+    return toAttachmentSummary(version, report.readiness);
+  });
+}
+
+async function getReadyAssemblyAttachment(versionId: string, target: AssemblyAttachmentTarget, targetSubtestCode: string) {
+  return prisma.$transaction(async (tx) => {
+    const version = await readyVersionForAttachment(tx, versionId, target, targetSubtestCode);
+    const report = await collectReadiness(tx, definitionInputForVersion(version));
+    return toAttachmentSummary(version, report.readiness);
+  });
 }
 
 async function getAssemblyDraftForEdit(packageId: string, actorId: string, options: AssemblyActorOptions = {}) {
@@ -806,6 +906,10 @@ async function collectReadiness(tx: Prisma.TransactionClient, definitionInput: A
     eligibleSources = scopeSources.filter((source) => sourceContentIssues(source, definition.subtestId, definition.scope.bankIds).length === 0);
   } else {
     const candidates = definition.candidates;
+    if (!candidates.length) blockers.push(issue("shortage", "Assembly belum memiliki kandidat yang dapat dipakai.", {
+      availableCount: 0,
+      requestedCount: definition.rule?.requestedCount ?? null,
+    }));
     sources = await readSources(tx, candidates.map((candidate) => candidate.sourceQuestionId));
     const calibrations = definition.mode === "cat_pool"
       ? await readCalibrations(tx, sources.map((source) => source.currentRevision?.id).filter((id): id is string => Boolean(id)))
@@ -858,17 +962,28 @@ async function validateAssemblyDraft(packageId: string, actorId: string, options
 
 async function previewAssembly(input: PreviewAssemblyInput, actorId: string, options: AssemblyActorOptions = {}): Promise<AssemblyPreview> {
   return prisma.$transaction(async (tx) => {
-    const packageRecord = await tx.reusableQuestionPackage.findUnique({ where: { id: input.packageId }, select: packageSelect() });
-    if (!packageRecord) throw new AssemblyValidationError("not_found", "Assembly tidak ditemukan.", { packageId: input.packageId });
-    if (packageRecord.status === ContentStatus.archived) throw new AssemblyValidationError("locked", "Assembly yang diarsipkan tidak dapat dipreview.", { packageId: input.packageId });
+    const packageId = input.packageId ?? (input.versionId
+      ? (await tx.reusableQuestionPackageVersion.findUnique({ where: { id: input.versionId }, select: { packageId: true } }))?.packageId
+      : undefined);
+    if (!packageId) throw new AssemblyValidationError("not_found", "Assembly tidak ditemukan.", { packageId, versionId: input.versionId });
+    const packageRecord = await tx.reusableQuestionPackage.findUnique({ where: { id: packageId }, select: packageSelect() });
+    if (!packageRecord) throw new AssemblyValidationError("not_found", "Assembly tidak ditemukan.", { packageId, versionId: input.versionId });
+    if (packageRecord.status === ContentStatus.archived) throw new AssemblyValidationError("locked", "Assembly yang diarsipkan tidak dapat dipreview.", { packageId });
     const canSeeDraft = packageRecord.createdByUserId === actorId || options.isAdmin === true;
-    const draft = canSeeDraft ? await readDraftVersion(tx, input.packageId) : null;
-    const version = draft ?? await tx.reusableQuestionPackageVersion.findFirst({
-      where: { packageId: input.packageId, status: ContentStatus.published },
-      include: versionInclude,
-      orderBy: { versionNo: "desc" },
-    });
-    if (!version) throw new AssemblyValidationError("not_found", "Assembly belum memiliki versi yang dapat dipreview.", { packageId: input.packageId });
+    const draft = input.versionId
+      ? null
+      : canSeeDraft ? await readDraftVersion(tx, packageId) : null;
+    const version = input.versionId
+      ? await tx.reusableQuestionPackageVersion.findFirst({
+        where: { id: input.versionId, packageId, status: ContentStatus.published },
+        include: versionInclude,
+      })
+      : draft ?? await tx.reusableQuestionPackageVersion.findFirst({
+        where: { packageId, status: ContentStatus.published },
+        include: versionInclude,
+        orderBy: { versionNo: "desc" },
+      });
+    if (!version) throw new AssemblyValidationError("not_found", "Assembly belum memiliki versi yang dapat dipreview.", { packageId, versionId: input.versionId });
     if (version.mode !== packageRecord.mode) {
       throw new AssemblyValidationError("invalid_mode", "Mode versi assembly tidak cocok dengan package.", {
         packageMode: packageRecord.mode,
@@ -903,7 +1018,7 @@ async function previewAssembly(input: PreviewAssemblyInput, actorId: string, opt
       : [];
     return {
       mode: version.mode as AssemblyMode,
-      packageId: input.packageId,
+      packageId,
       previewSeed,
       readiness: report.readiness,
       readOnly: true,
@@ -916,6 +1031,7 @@ async function previewAssembly(input: PreviewAssemblyInput, actorId: string, opt
 
 export {
   getAssemblyDraftForEdit,
+  getReadyAssemblyAttachment,
   getReadyAssemblyRevision,
   listReadyAssemblyRevisions,
   previewAssembly,
@@ -925,6 +1041,7 @@ export {
 };
 export type {
   AssemblyActorOptions,
+  AssemblyAttachmentSummary,
   AssemblyPreview,
   AssemblyReadiness,
   AssemblyReadinessIssue,

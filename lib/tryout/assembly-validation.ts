@@ -1,5 +1,7 @@
 type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
 
+type AssemblyAttachmentTarget = "tryout";
+
 const ASSEMBLY_RESOLVER_VERSION = "seeded-fisher-yates-v1";
 
 type AssemblyDifficulty = "easy" | "medium" | "hard";
@@ -87,6 +89,14 @@ type AssemblyErrorCode =
   | "wrong_subtest";
 
 type AssemblyErrorDetails = Record<string, unknown>;
+
+type AssemblyAttachmentCompatibilityInput = {
+  bankIds: readonly string[];
+  mode: AssemblyMode;
+  subtestCode: string;
+  target: AssemblyAttachmentTarget;
+  targetSubtestCode: string;
+};
 
 class AssemblyValidationError extends Error {
   readonly code: AssemblyErrorCode;
@@ -233,6 +243,16 @@ function validateAssemblyDefinitionShape(input: AssemblyDefinitionInput): Normal
   };
 }
 
+function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatibilityInput) {
+  if (input.subtestCode !== input.targetSubtestCode) {
+    throw new AssemblyValidationError("wrong_subtest", "Assembly tidak cocok dengan Subtest yang sedang dipilih.", {
+      assemblySubtest: input.subtestCode,
+      targetSubtest: input.targetSubtestCode,
+      target: input.target,
+    });
+  }
+}
+
 function seededFisherYates<T>(values: readonly T[], seed: string) {
   const result = [...values];
   let state = 2166136261;
@@ -354,6 +374,7 @@ export {
   ASSEMBLY_RESOLVER_VERSION,
   AssemblyResolutionError,
   AssemblyValidationError,
+  assertAssemblyAttachmentCompatibility,
   resolveBlueprintCandidates,
   resolvePoolCandidates,
   seededFisherYates,
@@ -362,6 +383,8 @@ export {
 };
 export type {
   AssemblyCandidateInput,
+  AssemblyAttachmentCompatibilityInput,
+  AssemblyAttachmentTarget,
   AssemblyDifficulty,
   AssemblyDefinitionInput,
   AssemblyErrorCode,

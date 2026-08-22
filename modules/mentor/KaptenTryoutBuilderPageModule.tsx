@@ -70,6 +70,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
+import type { AssemblyAttachmentSummary, AssemblyPreview } from "@/lib/tryout/assembly-repository";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
@@ -83,11 +84,13 @@ import {
 } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
+import { attachReadyAssemblyAction, detachReadyAssemblyAction, previewAssemblyAction } from "@/modules/mentor/assembly-actions";
 import { duplicateTryoutAction, saveTryoutAction } from "@/modules/mentor/tryout-actions";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
 type SubjectCode = (typeof subjectCodes)[number];
 type SelectionMode = "direct" | "set" | "pool" | "blueprint" | "cat_pool";
+type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
 type SelectionModes = Partial<Record<SubjectCode, SelectionMode>>;
 type DirectQuestionDraft = {
   bankId?: string;
@@ -108,6 +111,7 @@ type TestDraft = {
   instructions: string;
   packageVersionId?: string;
   packageVersionLabel?: string;
+  packageVersionMode?: AssemblyMode;
   scoringConfig?: Record<string, unknown>;
   shuffleItems: boolean;
   subtest: SubjectCode;
@@ -262,51 +266,6 @@ const mockBankOptions = [
   { id: "mock-bank-jelajah", title: "Bank UTBK Jelajah" },
 ] as const;
 
-function mockPoolCandidatesFor(subtest: SubjectCode): MockPoolCandidate[] {
-  const subject = subjectName(subtest);
-  const difficulties: MockPoolCandidate["difficulty"][] = ["easy", "medium", "medium", "hard", "easy", "hard"];
-  return difficulties.map((difficulty, index) => ({
-    bankTitle: mockBankOptions[index % mockBankOptions.length]?.title ?? "Bank Soal contoh",
-    catReady: index !== 4,
-    difficulty,
-    hasExplanation: true,
-    hasReadyMedia: true,
-    id: `mock-${subtest.toLowerCase()}-${index + 1}`,
-    prompt: `${subject} · contoh kandidat soal ${index + 1} untuk menguji alur Pool.`,
-    selected: index < 4,
-  }));
-}
-
-function defaultPoolMockDraft(subtest: SubjectCode): PoolMockDraft {
-  return {
-    candidates: mockPoolCandidatesFor(subtest),
-    drawCount: 3,
-    name: `Pool ${subtest} · contoh`,
-    previewSeed: "preview-7D3A",
-    previewState: "idle",
-  };
-}
-
-function defaultBlueprintMockDraft(): BlueprintMockDraft {
-  return {
-    easy: 5,
-    hard: 5,
-    medium: 10,
-    name: "Blueprint PU · contoh",
-    selectedBankIds: [mockBankOptions[0].id],
-    shortagePreview: false,
-    total: 20,
-  };
-}
-
-function defaultCatPoolMockDraft(subtest: SubjectCode): CatPoolMockDraft {
-  return {
-    candidates: mockPoolCandidatesFor(subtest).map((candidate) => ({ ...candidate, included: candidate.selected })),
-    deliveredCount: 3,
-    name: `CAT Pool ${subtest} · contoh`,
-  };
-}
-
 function releaseFor(
   draft: TryoutDraft,
   operationsInitial?: TryoutOperationsView,
@@ -329,6 +288,94 @@ function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
         <h2 className="text-lg font-semibold text-secondary-900">Simpan draf untuk membuka ruang ini</h2>
         <p className="text-sm leading-6 text-secondary-600">Basics, Sections, dan Review bisa disiapkan sekarang. Jadwal, peserta, dan hasil akan tersambung setelah Tryout memiliki ID.</p>
         <Button onClick={onSaveDraft} variant="brand">Simpan draf</Button>
+      </div>
+    </section>
+  );
+}
+
+function selectionModeForAssembly(mode: AssemblyMode): SelectionMode {
+  if (mode === "fixed_set") return "set";
+  if (mode === "random_pool") return "pool";
+  return mode;
+}
+
+function assemblyModeLabel(mode: AssemblyMode) {
+  if (mode === "fixed_set") return "Set Soal";
+  if (mode === "random_pool") return "Pool Soal";
+  if (mode === "blueprint") return "Blueprint";
+  return "CAT Pool";
+}
+
+function assemblyReadinessSummary(assembly: AssemblyAttachmentSummary) {
+  const readiness = assembly.readiness;
+  if (assembly.mode === "blueprint" && assembly.rule) {
+    return `Mudah ${readiness.availableByDifficulty.easy}/${assembly.rule.easyCount} · Sedang ${readiness.availableByDifficulty.medium}/${assembly.rule.mediumCount} · Sulit ${readiness.availableByDifficulty.hard}/${assembly.rule.hardCount}`;
+  }
+  if (assembly.mode === "fixed_set") return `${assembly.itemCount} soal pada Set ini`;
+  return `${readiness.eligibleCount} kandidat siap · ${readiness.requestedCount ?? assembly.itemCount} soal diambil`;
+}
+
+function ReadyAssemblyPicker({
+  activeMode,
+  assemblies,
+  locked,
+  onAttach,
+  onDetach,
+  onPreview,
+  search,
+  subtest,
+  selectedId,
+  setSearch,
+}: {
+  activeMode: Exclude<SelectionMode, "direct">;
+  assemblies: AssemblyAttachmentSummary[];
+  locked: boolean;
+  onAttach: (assembly: AssemblyAttachmentSummary) => void;
+  onDetach: () => void;
+  onPreview: (assembly: AssemblyAttachmentSummary) => void;
+  search: string;
+  selectedId?: string;
+  setSearch: (value: string) => void;
+  subtest: SubjectCode;
+}) {
+  const mode = activeMode === "set" ? "fixed_set" : activeMode === "pool" ? "random_pool" : activeMode;
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const compatible = assemblies.filter((assembly) => assembly.subtest === subtest && assembly.mode === mode && (!normalizedSearch || assembly.packageTitle.toLocaleLowerCase().includes(normalizedSearch)));
+  const selected = selectedId ? assemblies.find((assembly) => assembly.id === selectedId) : undefined;
+
+  return (
+    <section aria-labelledby="ready-assembly-title" className="grid min-w-0 gap-4 rounded-2xl border border-primary-100 bg-primary-50/45 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-secondary-900" id="ready-assembly-title">{assemblyModeLabel(mode)} Ready</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih sumber yang sudah Ready untuk {subtest}. Kesiapan sumber akan diperiksa ulang server saat Tryout disimpan dan diterbitkan.</p>
+        </div>
+        {selected ? <Button disabled={locked} onClick={onDetach} size="sm" variant="brandOutline">Lepas sumber</Button> : null}
+      </div>
+      <div className="relative min-w-0">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+        <FieldInput aria-label={`Cari ${assemblyModeLabel(mode)}`} className="h-10 rounded-xl bg-white py-2 pl-9 pr-3 text-sm" onChange={(event) => setSearch(event.target.value)} placeholder={`Cari nama ${assemblyModeLabel(mode)}…`} value={search} />
+      </div>
+      {selected ? (
+        <div className="grid gap-3 rounded-2xl border border-primary-300 bg-white p-4" role="status">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Sumber terpasang</p><p className="mt-1 break-words font-semibold text-secondary-900">{selected.packageTitle}</p></div><Badge className="rounded-full" size="ui" variant={selected.readiness.ready ? "mint" : "accent"}>{selected.readiness.ready ? "Siap" : "Perlu ditinjau"}</Badge></div>
+          <p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(selected)} · {selected.bankNames.join(", ") || "Bank Soal belum terbaca"}</p>
+          {selected.readiness.blockers.length ? <div className="grid gap-1 text-sm leading-5 text-[#6a4a00]">{selected.readiness.blockers.slice(0, 3).map((blocker) => <p key={`${blocker.code}-${blocker.message}`}>• {blocker.message}</p>)}</div> : null}
+          <Button className="w-fit" disabled={locked} onClick={() => onPreview(selected)} size="sm" variant="ghost"><Eye />Lihat preview dan kesiapan</Button>
+        </div>
+      ) : null}
+      <div aria-label={`${assemblyModeLabel(mode)} yang kompatibel`} className="grid min-w-0 gap-2" role="listbox">
+        {compatible.length ? compatible.map((assembly) => {
+          const isSelected = selectedId === assembly.id;
+          return (
+            <article className={`grid min-w-0 gap-3 rounded-2xl border bg-white p-4 ${isSelected ? "border-primary-300 ring-2 ring-primary-100" : "border-primary-100"}`} key={assembly.id} role="option" aria-selected={isSelected}>
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold text-secondary-900">{assembly.packageTitle}</p><p className="mt-1 text-xs text-secondary-500">{assembly.bankNames.join(", ") || "Bank Soal"}</p></div><Badge className="rounded-full" size="ui" variant={assembly.readiness.ready ? "mint" : "accent"}>{assembly.readiness.ready ? "Ready" : "Ada blocker"}</Badge></div>
+              <p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(assembly)}</p>
+              {assembly.readiness.blockers.length ? <p className="text-sm leading-6 text-[#6a4a00]">{assembly.readiness.blockers[0]?.message}</p> : null}
+              <div className="flex flex-wrap gap-2"><Button disabled={locked || isSelected} onClick={() => onAttach(assembly)} size="sm" variant={isSelected ? "ghost" : "brand"}>{isSelected ? "Terpasang" : "Pasang sumber"}</Button><Button onClick={() => onPreview(assembly)} size="sm" variant="brandOutline"><Eye />Preview</Button></div>
+            </article>
+          );
+        }) : <div className="rounded-2xl border border-dashed border-primary-200 bg-white px-4 py-8 text-center text-sm leading-6 text-secondary-500">{assemblies.some((assembly) => assembly.subtest === subtest && assembly.mode === mode) ? "Tidak ada sumber yang cocok dengan pencarian." : `Belum ada ${assemblyModeLabel(mode)} Ready untuk ${subtest}.`}</div>}
       </div>
     </section>
   );
@@ -511,6 +558,12 @@ function CatPoolMockPanel({
   );
 }
 
+// Kept as non-rendered fixtures for the existing authoring contract; the live
+// Questions surface uses server-backed Ready assemblies below.
+void PoolMockPanel;
+void BlueprintMockPanel;
+void CatPoolMockPanel;
+
 function KaptenTryoutBuilderPageModule({
   id,
   initialDraft,
@@ -518,6 +571,7 @@ function KaptenTryoutBuilderPageModule({
   operationsInitial,
   initialSourceBankTotal,
   initialSourceBanks,
+  readyAssemblies,
   readyVersions,
   session,
 }: {
@@ -527,6 +581,7 @@ function KaptenTryoutBuilderPageModule({
   initialSourceBankTotal?: number;
   initialSourceBanks: SourceBank[];
   operationsInitial?: TryoutOperationsView;
+  readyAssemblies: AssemblyAttachmentSummary[];
   readyVersions: ReadyVersion[];
   session: SessionContext;
 }) {
@@ -544,7 +599,7 @@ function KaptenTryoutBuilderPageModule({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [packageSearch, setPackageSearch] = useState("");
-  const [selectionModes, setSelectionModes] = useState<SelectionModes>(() => Object.fromEntries(draft.sections.filter((section) => section.packageVersionId).map((section) => [section.subtest, "set"])) as SelectionModes);
+  const [selectionModes, setSelectionModes] = useState<SelectionModes>(() => Object.fromEntries(draft.sections.filter((section) => section.packageVersionId).map((section) => [section.subtest, selectionModeForAssembly(readyAssemblies.find((assembly) => assembly.id === section.packageVersionId)?.mode ?? "fixed_set")])) as SelectionModes);
   const [sourceBankSearch, setSourceBankSearch] = useState("");
   const [sourceBanks, setSourceBanks] = useState<SourceBank[]>(initialSourceBanks);
   const [sourceBankPage, setSourceBankPage] = useState(1);
@@ -556,9 +611,10 @@ function KaptenTryoutBuilderPageModule({
   const [sourceQuestionTotal, setSourceQuestionTotal] = useState(0);
   const [sourceQuestionLoading, setSourceQuestionLoading] = useState(false);
   const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[]>([]);
-  const [poolMockDrafts, setPoolMockDrafts] = useState<Partial<Record<SubjectCode, PoolMockDraft>>>({});
-  const [blueprintMockDrafts, setBlueprintMockDrafts] = useState<Partial<Record<SubjectCode, BlueprintMockDraft>>>({});
-  const [catPoolMockDrafts, setCatPoolMockDrafts] = useState<Partial<Record<SubjectCode, CatPoolMockDraft>>>({});
+  const [assemblyOverrides, setAssemblyOverrides] = useState<Record<string, AssemblyAttachmentSummary>>({});
+  const [assemblyPreview, setAssemblyPreview] = useState<AssemblyPreview | null>(null);
+  const [assemblyPreviewLoading, setAssemblyPreviewLoading] = useState(false);
+  const [assemblyPreviewOpen, setAssemblyPreviewOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -568,20 +624,21 @@ function KaptenTryoutBuilderPageModule({
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
   const boundCount = draft.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
   const selectedVersions = draft.sections.map((section) => section.packageVersionId ? readyVersions.find((version) => version.id === section.packageVersionId) : undefined);
+  const selectedAssemblies = draft.sections.map((section) => section.packageVersionId ? assemblyOverrides[section.packageVersionId] ?? readyAssemblies.find((assembly) => assembly.id === section.packageVersionId) : undefined);
   const selectedDirectQuestions = draft.sections.flatMap((section) => section.directQuestions ?? []);
   const selectedSourceQuestionIds = [...selectedVersions.flatMap((version) => version?.sourceQuestionIds ?? []), ...selectedDirectQuestions.map((question) => question.sourceQuestionId)];
   const duplicateSourceCount = selectedSourceQuestionIds.length - new Set(selectedSourceQuestionIds).size;
   const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
   const invalidCatSections = draft.sections.filter((section, index) => {
     if (section.testType !== "cat" || !Number.isInteger(section.catItemCount) || !section.catItemCount) return section.testType === "cat";
-    if (section.packageVersionId) return !selectedVersions[index]?.catReady || (selectedVersions[index]?.itemCount ?? 0) < section.catItemCount;
+    if (section.packageVersionId) return !selectedAssemblies[index]?.readiness.ready || !selectedVersions[index]?.catReady || (selectedAssemblies[index]?.readiness.eligibleCount ?? selectedVersions[index]?.itemCount ?? 0) < section.catItemCount;
     return !section.directQuestions?.length || section.directQuestions.length < section.catItemCount || section.directQuestions.some((question) => !question.catReady);
   });
   const incompleteSections = draft.sections.filter((section, index) => {
     const selectedVersion = selectedVersions[index];
     const directQuestions = section.directQuestions ?? [];
     const hasSource = Boolean(section.packageVersionId || directQuestions.length);
-    const contentReady = section.packageVersionId ? Boolean(selectedVersion?.contentReady) : directQuestions.every((question) => question.hasReadyMedia !== false && question.prompt?.trim());
+    const contentReady = section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? selectedVersion?.contentReady) : directQuestions.every((question) => question.hasReadyMedia !== false && question.prompt?.trim());
     return !hasSource || !contentReady || (section.testType === "cat" && invalidCatSections.some((candidate) => candidate.subtest === section.subtest));
   });
   const scheduleSessions = operationsInitial?.sessions ?? [];
@@ -591,7 +648,8 @@ function KaptenTryoutBuilderPageModule({
     { detail: draft.sections.length === 7 ? "PU, PPU, PBM, PK, LBI, LBE, dan PM tersedia." : "Tryout harus memiliki tepat tujuh Section.", label: "Tujuh Section tetap", status: draft.sections.length === 7 },
     { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
     { detail: incompleteSections.length === 0 ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: incompleteSections.length === 0 },
-    { detail: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan atau media yang belum siap.", label: "Penjelasan & media siap", status: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) },
+    { detail: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia)) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan, media, atau blocker assembly yang belum siap.", label: "Penjelasan & media siap", status: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia)) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) },
+    { detail: draft.sections.every((section, index) => !section.packageVersionId || Boolean(selectedAssemblies[index]?.readiness.ready)) ? "Set, Pool, Blueprint, dan CAT Pool tidak memiliki blocker saat ini." : draft.sections.filter((section, index) => section.packageVersionId && !selectedAssemblies[index]?.readiness.ready).map((section) => `${section.subtest}: ${selectedAssemblies[draft.sections.indexOf(section)]?.readiness.blockers[0]?.message ?? "sumber Ready perlu ditinjau"}`).join(" · "), label: "Assembly siap dirilis", status: draft.sections.every((section, index) => !section.packageVersionId || Boolean(selectedAssemblies[index]?.readiness.ready)) },
     { detail: duplicateSourceCount ? `${duplicateSourceCount} soal sumber muncul lebih dari sekali.` : "Tidak ada soal sumber yang duplikat.", label: "Sumber soal unik", status: duplicateSourceCount === 0 },
     { detail: invalidCatSections.length ? "Setiap CAT harus memiliki pool cukup dan kalibrasi 2PL siap." : "CAT dan kalibrasi 2PL siap.", label: "CAT & 2PL siap", status: invalidCatSections.length === 0 },
     { detail: invalidDurationSections.length ? "Periksa durasi setiap Section." : "Durasi setiap Section valid.", label: "Durasi valid", status: invalidDurationSections.length === 0 },
@@ -599,16 +657,10 @@ function KaptenTryoutBuilderPageModule({
   ];
   const reviewFailures = reviewChecks.filter((check) => !check.status).length;
   const readyToPublish = !draft.locked && reviewFailures === 0;
-  const activeReadyVersions = useMemo(
-    () => readyVersions.filter((version) => version.subtest === activeSection.subtest && version.label.toLocaleLowerCase().includes(packageSearch.toLocaleLowerCase())),
-    [activeSection.subtest, packageSearch, readyVersions],
-  );
   const activeSelectionMode = selectionModes[activeSection.subtest] ?? (activeSection.packageVersionId ? "set" : "direct");
   const activeDirectQuestions = activeSection.directQuestions ?? [];
-  const activePoolMockDraft = poolMockDrafts[activeSection.subtest] ?? defaultPoolMockDraft(activeSection.subtest);
-  const activeBlueprintMockDraft = blueprintMockDrafts[activeSection.subtest] ?? defaultBlueprintMockDraft();
-  const activeCatPoolMockDraft = catPoolMockDrafts[activeSection.subtest] ?? defaultCatPoolMockDraft(activeSection.subtest);
-  const hasLocalMockAssembly = draft.sections.some((section) => ["pool", "blueprint", "cat_pool"].includes(selectionModes[section.subtest] ?? ""));
+  const activeAssembly = activeSection.packageVersionId ? assemblyOverrides[activeSection.packageVersionId] ?? readyAssemblies.find((assembly) => assembly.id === activeSection.packageVersionId) : undefined;
+  const activeReadyAssemblies = useMemo(() => readyAssemblies.filter((assembly) => assembly.subtest === activeSection.subtest), [activeSection.subtest, readyAssemblies]);
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
   const release = releaseFor(draft, operationsInitial);
@@ -632,12 +684,72 @@ function KaptenTryoutBuilderPageModule({
   const chooseSelectionMode = (mode: SelectionMode) => {
     setSelectionModes((current) => ({ ...current, [activeCode]: mode }));
     update(activeCode, mode === "direct"
-      ? { directQuestions: activeSection.directQuestions ?? [], packageVersionId: undefined, packageVersionLabel: undefined }
-      : { directQuestions: [], packageVersionId: undefined, packageVersionLabel: undefined });
-    if (mode === "pool") setPoolMockDrafts((current) => ({ ...current, [activeCode]: current[activeCode] ?? defaultPoolMockDraft(activeCode) }));
-    if (mode === "blueprint") setBlueprintMockDrafts((current) => ({ ...current, [activeCode]: current[activeCode] ?? defaultBlueprintMockDraft() }));
-    if (mode === "cat_pool") setCatPoolMockDrafts((current) => ({ ...current, [activeCode]: current[activeCode] ?? defaultCatPoolMockDraft(activeCode) }));
+      ? { directQuestions: activeSection.directQuestions ?? [], packageVersionId: undefined, packageVersionLabel: undefined, packageVersionMode: undefined }
+      : { directQuestions: [], packageVersionId: undefined, packageVersionLabel: undefined, packageVersionMode: undefined });
     setError(null);
+  };
+
+  const attachAssembly = async (assembly: AssemblyAttachmentSummary) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await attachReadyAssemblyAction({ target: "tryout", targetSubtestCode: activeSection.subtest, versionId: assembly.id });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setAssemblyOverrides((current) => ({ ...current, [assembly.id]: result.result }));
+      setSelectionModes((current) => ({ ...current, [activeCode]: selectionModeForAssembly(result.result.mode) }));
+      update(activeCode, {
+        directQuestions: [],
+        packageVersionId: result.result.id,
+        packageVersionLabel: result.result.packageTitle,
+        packageVersionMode: result.result.mode,
+      });
+      setPackageSearch("");
+    } catch (attachError) {
+      setError(attachError instanceof Error ? attachError.message : "Sumber Ready belum dapat dipasang.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const detachAssembly = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await detachReadyAssemblyAction({ target: "tryout" });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      update(activeCode, { packageVersionId: undefined, packageVersionLabel: undefined, packageVersionMode: undefined });
+      setSelectionModes((current) => ({ ...current, [activeCode]: "direct" }));
+    } catch (detachError) {
+      setError(detachError instanceof Error ? detachError.message : "Sumber Ready belum dapat dilepas.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const previewAssembly = async (assembly: AssemblyAttachmentSummary) => {
+    setAssemblyPreviewLoading(true);
+    setAssemblyPreviewOpen(true);
+    setError(null);
+    try {
+      const result = await previewAssemblyAction({ versionId: assembly.id });
+      if (!result.ok) {
+        setError(result.message);
+        setAssemblyPreviewOpen(false);
+        return;
+      }
+      setAssemblyPreview(result.result);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Preview assembly belum dapat dimuat.");
+      setAssemblyPreviewOpen(false);
+    } finally {
+      setAssemblyPreviewLoading(false);
+    }
   };
 
   const addDirectQuestion = (question: SourceQuestion) => {
@@ -661,16 +773,12 @@ function KaptenTryoutBuilderPageModule({
       }],
       packageVersionId: undefined,
       packageVersionLabel: undefined,
+      packageVersionMode: undefined,
     });
     setError(null);
   };
 
   const save = async (status: "draft" | "published" = "draft") => {
-    if (hasLocalMockAssembly) {
-      setError("Pool, Blueprint, dan CAT Pool masih berupa mock flow lokal. Pilih Direct atau Set Soal siap sebelum menyimpan Tryout.");
-      setWorkspace("questions");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -819,7 +927,7 @@ function KaptenTryoutBuilderPageModule({
               </Button>
             ) : (
               <>
-                <Button disabled={saving || hasLocalMockAssembly} onClick={() => void save("draft")} size="sm" variant="brandOutline">
+                <Button disabled={saving} onClick={() => void save("draft")} size="sm" variant="brandOutline">
                   <Save />
                   {saving ? "Menyimpan…" : "Simpan draft"}
                 </Button>
@@ -932,7 +1040,7 @@ function KaptenTryoutBuilderPageModule({
                         <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-secondary-50 text-xs font-bold text-secondary-600">{String(index + 1).padStart(2, "0")}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-semibold">{section.subtest} · {subjectName(section.subtest)}</span>
-                          <span className={`mt-0.5 block text-xs ${section.packageVersionId || section.directQuestions?.length ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Set siap" : section.directQuestions?.length ? `${section.directQuestions.length} soal langsung` : ["pool", "blueprint", "cat_pool"].includes(selectionModes[section.subtest] ?? "") ? "Assembly mock" : "Sumber belum dipilih"}</span>
+                          <span className={`mt-0.5 block text-xs ${section.packageVersionId || section.directQuestions?.length ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? assemblyModeLabel(selectedAssemblies[index]?.mode ?? section.packageVersionMode ?? "fixed_set") : section.directQuestions?.length ? `${section.directQuestions.length} soal langsung` : "Sumber belum dipilih"}</span>
                         </span>
                         {section.packageVersionId || section.directQuestions?.length ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
                       </Button>
@@ -947,7 +1055,7 @@ function KaptenTryoutBuilderPageModule({
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Test {String(subjectCodes.indexOf(activeSection.subtest) + 1).padStart(2, "0")}</p>
                     <h3 className="mt-1 text-lg font-semibold text-secondary-900">{activeSection.subtest} · {subjectName(activeSection.subtest)}</h3>
                   </div>
-                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? "Set siap" : activeSection.directQuestions?.length ? "Soal siap" : ["pool", "blueprint", "cat_pool"].includes(activeSelectionMode) ? "Mock lokal" : "Perlu sumber"}</Badge>
+                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? assemblyModeLabel(activeAssembly?.mode ?? activeSection.packageVersionMode ?? "fixed_set") : activeSection.directQuestions?.length ? "Soal siap" : "Perlu sumber"}</Badge>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   <Field>
@@ -980,7 +1088,7 @@ function KaptenTryoutBuilderPageModule({
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-semibold text-secondary-900">Pilih Questions</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih langsung, gunakan Set siap, atau uji alur Pool, Blueprint, dan CAT Pool. Tiga assembly baru di bawah ini masih berupa mock flow lokal.</p>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih soal langsung atau pasang satu sumber Ready: Set Soal, Pool Soal, Blueprint, atau CAT Pool.</p>
               </div>
               <Button onClick={() => goTo("sections")} variant="brandOutline">Kembali ke Sections</Button>
             </header>
@@ -1028,48 +1136,8 @@ function KaptenTryoutBuilderPageModule({
                 </Button>
               </div>
 
-              {activeSelectionMode === "set" ? (
-                <div className="grid gap-4">
-                  <Field>
-                    <FieldLabel>Set Soal siap</FieldLabel>
-                    <Popover>
-                      <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
-                        {activeSection.packageVersionLabel ?? readyVersions.find((version) => version.id === activeSection.packageVersionId)?.label ?? "Cari Set Soal siap"}
-                        <ChevronDown />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
-                        <div className="relative">
-                          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                          <FieldInput aria-label="Cari Set Soal siap" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => setPackageSearch(event.target.value)} placeholder="Cari nama Set Soal…" value={packageSearch} />
-                        </div>
-                        <div aria-label="Set Soal kompatibel" className="grid max-h-64 gap-1 overflow-y-auto" role="listbox">
-                          {activeReadyVersions.length ? activeReadyVersions.map((version) => (
-                            <Button aria-selected={activeSection.packageVersionId === version.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left hover:bg-primary-50" key={version.id} onClick={() => { setSelectionModes((current) => ({ ...current, [activeCode]: "set" })); update(activeSection.subtest, { directQuestions: [], packageVersionId: version.id, packageVersionLabel: version.label }); setPackageSearch(""); }} role="option" variant={activeSection.packageVersionId === version.id ? "contextSelected" : "ghost"}>
-                              <span className="min-w-0 truncate">{version.label}</span>
-                              {activeSection.packageVersionId === version.id ? <Check className="ml-auto" /> : null}
-                            </Button>
-                          )) : (
-                            <div className="grid gap-3 px-3 py-5 text-sm leading-6 text-secondary-500">
-                              <p>{readyVersions.some((version) => version.subtest === activeSection.subtest) ? "Tidak ada Set yang cocok dengan pencarian." : `Belum ada Set Soal ${activeSection.subtest} yang siap.`}</p>
-                              {!readyVersions.some((version) => version.subtest === activeSection.subtest) ? <Button className="w-fit" nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button> : null}
-                            </div>
-                          )}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </Field>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Sumber</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Set terpilih" : "Belum dipilih"}</p></div>
-                    <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Kesesuaian</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? `${activeSection.subtest} cocok` : "Menunggu Set"}</p></div>
-                    <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Snapshot</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Dibuat saat simpan" : "Belum dibuat"}</p></div>
-                  </div>
-                </div>
-              ) : activeSelectionMode === "pool" ? (
-                <PoolMockPanel draft={activePoolMockDraft} locked={draft.locked} onChange={(change) => setPoolMockDrafts((current) => ({ ...current, [activeCode]: { ...activePoolMockDraft, ...change } }))} />
-              ) : activeSelectionMode === "blueprint" ? (
-                <BlueprintMockPanel draft={activeBlueprintMockDraft} locked={draft.locked} onChange={(change) => setBlueprintMockDrafts((current) => ({ ...current, [activeCode]: { ...activeBlueprintMockDraft, ...change } }))} />
-              ) : activeSelectionMode === "cat_pool" ? (
-                <CatPoolMockPanel draft={activeCatPoolMockDraft} locked={draft.locked} onChange={(change) => setCatPoolMockDrafts((current) => ({ ...current, [activeCode]: { ...activeCatPoolMockDraft, ...change } }))} />
+              {activeSelectionMode !== "direct" ? (
+                <ReadyAssemblyPicker activeMode={activeSelectionMode} assemblies={activeReadyAssemblies} locked={draft.locked || saving} onAttach={(assembly) => { void attachAssembly(assembly); }} onDetach={() => { void detachAssembly(); }} onPreview={(assembly) => { void previewAssembly(assembly); }} search={packageSearch} selectedId={activeSection.packageVersionId} setSearch={setPackageSearch} subtest={activeSection.subtest} />
               ) : (
                 <div className="grid gap-5 lg:grid-cols-[minmax(15rem,.65fr)_minmax(0,1.35fr)]">
                   <div className="grid min-w-0 gap-4">
@@ -1087,7 +1155,7 @@ function KaptenTryoutBuilderPageModule({
                           </div>
                           {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
                           <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
-                            {sourceBanks.length ? sourceBanks.map((bank) => <Button aria-selected={browseBankId === bank.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left" key={bank.id} onClick={() => { setBrowseBankId(bank.id); setSourceQuestionPage(1); setSourceQuestionSearch(""); setSourceQuestions([]); }} role="option" variant={browseBankId === bank.id ? "contextSelected" : "ghost"}><span className="min-w-0"><span className="block truncate font-semibold">{bank.title}</span><span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span></span>{browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}</Button>) : <p className="px-3 py-5 text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSection.subtest}.</p>}
+                            {sourceBanks.length ? sourceBanks.map((bank) => <Button aria-selected={browseBankId === bank.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left" key={bank.id} onClick={() => { setBrowseBankId(bank.id); setSourceQuestionPage(1); setSourceQuestionSearch(""); setSourceQuestions([]); }} role="option" variant={browseBankId === bank.id ? "contextSelected" : "ghost"}><span className="min-w-0"><span className="block truncate font-semibold">{bank.title}</span><span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span></span>{browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}</Button>) : <div className="grid gap-3 px-3 py-5"><p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSection.subtest}.</p><Button className="w-fit" nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button></div>}
                           </div>
                           {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={() => setSourceBankPage((page) => page + 1)} size="sm" variant="brandOutline">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
                         </PopoverContent>
@@ -1215,6 +1283,7 @@ function KaptenTryoutBuilderPageModule({
                 </div>
               ))}
             </div>
+            {draft.sections.some((section) => section.packageVersionId) ? <section className="grid gap-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6" aria-labelledby="assembly-review-title"><div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900" id="assembly-review-title">Readiness sumber assembly</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Ringkasan ini membantu Review menemukan blocker Pool, kuota Blueprint, atau kalibrasi CAT sebelum publish. Validasi server tetap menjadi penentu.</p></div></div><div className="grid gap-3 border-t border-primary-100 pt-4">{draft.sections.map((section, index) => { const assembly = selectedAssemblies[index]; if (!section.packageVersionId || !assembly) return null; return <article className={`grid gap-2 rounded-2xl border p-4 ${assembly.readiness.ready ? "border-primary-100 bg-primary-50/35" : "border-[#f3d486] bg-[#fff7e5]"}`} key={section.subtest}><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">{section.subtest} · {assemblyModeLabel(assembly.mode)}</p><p className="mt-1 break-words font-semibold text-secondary-900">{assembly.packageTitle}</p></div><Badge className="rounded-full" size="ui" variant={assembly.readiness.ready ? "mint" : "accent"}>{assembly.readiness.ready ? "Siap" : "Perlu ditinjau"}</Badge></div><p className="text-sm leading-6 text-secondary-600">{assemblyReadinessSummary(assembly)} · {assembly.bankNames.join(", ") || "Bank Soal"}</p>{assembly.readiness.blockers.length ? <div className="grid gap-1 text-sm leading-5 text-[#6a4a00]">{assembly.readiness.blockers.map((blocker) => <p key={`${blocker.code}-${blocker.message}`}>• {blocker.message}</p>)}</div> : <p className="text-sm leading-5 text-primary-800">Tidak ada blocker readiness saat ini.</p>}<div><Button onClick={() => { void previewAssembly(assembly); }} size="sm" variant="brandOutline"><Eye />Lihat preview</Button></div></article>; })}</div></section> : null}
             <section className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6">
               <div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900">Server checks tetap berlaku</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Saat publish, server memeriksa sumber Ready, opsi, duplicate question, kesiapan CAT 2PL, dan snapshot AssessmentRelease. Checklist ini membantu navigasi; bukan pengganti validasi otoritatif.</p></div></div>
               {incompleteSections.length ? <div className="flex flex-wrap gap-2 border-t border-primary-100 pt-4">{incompleteSections.map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => { changeActiveCode(section.subtest); goTo("questions"); }} variant="outline">Lengkapi {section.subtest}</Button>)}</div> : null}
@@ -1239,7 +1308,7 @@ function KaptenTryoutBuilderPageModule({
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 text-sm leading-6 text-secondary-700 sm:flex-row sm:items-start"><CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" /><p>{release ? "Publish ulang hanya membuat rilis baru bila isi Tryout berubah. Sesi yang sudah terbuka tetap terikat pada rilis sebelumnya." : "Sesi peserta belum boleh dibuka sebelum memiliki AssessmentRelease. Setelah publish, buka sesi dari Schedule & akses."}</p></div>
             <footer className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-5">
-              {!draft.locked ? <Button disabled={saving || hasLocalMockAssembly} onClick={() => void save("draft")} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draft"}</Button> : null}
+              {!draft.locked ? <Button disabled={saving} onClick={() => void save("draft")} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draft"}</Button> : null}
               {!draft.locked ? <Button disabled={saving || !readyToPublish} onClick={() => setPublishOpen(true)} variant="brand"><Upload />{draft.status === "published" ? "Terbitkan pembaruan" : "Terbitkan Tryout"}</Button> : <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat salinan editable</Button>}
             </footer>
             {!readyToPublish && !draft.locked ? <p className="text-right text-sm text-[#8a5e00]">Lengkapi Review terlebih dahulu: {reviewFailures} pemeriksaan belum lulus.</p> : null}
@@ -1257,6 +1326,16 @@ function KaptenTryoutBuilderPageModule({
             <div className="rounded-2xl bg-primary-50 p-5"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Tryout</p><h3 className="mt-1 text-2xl font-semibold text-secondary-900">{draft.title || "Tryout tanpa judul"}</h3>{draft.description ? <p className="mt-2 text-sm leading-6 text-secondary-700">{draft.description}</p> : <p className="mt-2 text-sm text-secondary-500">Belum ada deskripsi.</p>}</div>
             <div className="grid gap-2"><h4 className="font-semibold text-secondary-900">Urutan Test</h4>{draft.sections.map((section, index) => <div className="flex items-center justify-between gap-3 rounded-xl border border-primary-100 px-3 py-2.5 text-sm" key={section.subtest}><span className="font-medium text-secondary-900">{index + 1}. {section.subtest} · {subjectName(section.subtest)}</span><span className="text-secondary-600">{section.durationMinutes} menit · {section.packageVersionId ? "Set siap" : section.directQuestions?.length ? `${section.directQuestions.length} soal` : "Belum siap"}</span></div>)}</div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={(open) => { setAssemblyPreviewOpen(open); if (!open) setAssemblyPreview(null); }} open={assemblyPreviewOpen}>
+        <DialogContent className="max-h-[min(80vh,42rem)] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{assemblyPreview ? `${assemblyModeLabel(assemblyPreview.mode)} · preview` : "Preview sumber Ready"}</DialogTitle>
+            <DialogDescription>Preview membaca sumber dan readiness saat ini. Tidak ada soal, rilis, atau state peserta yang dibuat dari dialog ini.</DialogDescription>
+          </DialogHeader>
+          {assemblyPreviewLoading ? <p className="rounded-2xl border border-primary-100 bg-primary-50/45 px-4 py-6 text-sm text-secondary-600">Memuat preview dan kesiapan…</p> : assemblyPreview ? <div className="grid gap-4"><div className={`rounded-2xl border p-4 text-sm leading-6 ${assemblyPreview.readiness.ready ? "border-primary-100 bg-primary-50/45 text-secondary-700" : "border-[#f3d486] bg-[#fff7e5] text-secondary-800"}`} role="status"><p className="font-semibold text-secondary-900">{assemblyPreview.readiness.ready ? "Sumber siap ditinjau" : "Sumber memiliki blocker"}</p><p className="mt-1">{assemblyPreview.readiness.mode === "blueprint" ? `Ketersediaan: Mudah ${assemblyPreview.readiness.availableByDifficulty.easy}, Sedang ${assemblyPreview.readiness.availableByDifficulty.medium}, Sulit ${assemblyPreview.readiness.availableByDifficulty.hard}.` : `${assemblyPreview.readiness.eligibleCount} kandidat eligible dari ${assemblyPreview.readiness.candidateCount} kandidat.`}</p>{assemblyPreview.readiness.blockers.length ? <div className="mt-2 grid gap-1 text-[#6a4a00]">{assemblyPreview.readiness.blockers.map((blocker) => <p key={`${blocker.code}-${blocker.message}`}>• {blocker.message}</p>)}</div> : null}</div><div className="grid gap-2"><h4 className="font-semibold text-secondary-900">Contoh soal</h4>{assemblyPreview.sample.length ? assemblyPreview.sample.map((sample, index) => <div className="rounded-xl border border-primary-100 px-3 py-2.5" key={`${sample.sourceQuestionId}-${sample.sourceQuestionRevisionId}`}><p className="text-xs font-semibold text-primary-800">{index + 1}. {sample.difficulty === "easy" ? "Mudah" : sample.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-3 text-sm leading-6 text-secondary-900">{sample.prompt}</p></div>) : <p className="rounded-xl border border-dashed border-primary-200 px-3 py-5 text-sm text-secondary-500">Belum ada contoh soal yang dapat ditampilkan.</p>}</div></div> : null}
         </DialogContent>
       </Dialog>
 
