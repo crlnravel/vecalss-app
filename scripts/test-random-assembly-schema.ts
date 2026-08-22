@@ -29,6 +29,19 @@ assert.match(migration, /assessment_prepare_reusable_package_version_ready/u);
 assert.match(migration, /assessment_compute_reusable_package_version_definition_digest/u);
 assert.match(migration, /fixed reusable package versions cannot carry folder, category, or rule definitions/u);
 assert.match(migration, /old_version_id IS NOT NULL/u);
+const legacyVersionTriggerDrop = migration.indexOf(
+  'DROP TRIGGER IF EXISTS reusable_question_package_versions_ready_immutable',
+);
+const versionMetadataBackfill = migration.indexOf('UPDATE "reusable_question_package_versions"');
+const replacementVersionTrigger = migration.indexOf(
+  'CREATE TRIGGER reusable_question_package_versions_ready_immutable',
+);
+assert.ok(
+  legacyVersionTriggerDrop >= 0
+    && versionMetadataBackfill > legacyVersionTriggerDrop
+    && replacementVersionTrigger > versionMetadataBackfill,
+  "The Ready-version trigger must be replaced around the one-time metadata backfill.",
+);
 assert.match(migration, /assessment_releases_assembly_package_version_fkey/u);
 assert.match(migration, /assessment_releases_validate_assembly_identity/u);
 assert.match(migration, /assembly release must reference a Ready package version/u);

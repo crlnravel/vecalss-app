@@ -28,6 +28,12 @@ ALTER TABLE "reusable_question_package_versions"
   ADD COLUMN "definition_digest" VARCHAR(128),
   ADD COLUMN "provenance" "reusable_question_package_version_provenance" NOT NULL DEFAULT 'authored';
 
+-- Migration 30 installed this trigger before the new immutable metadata
+-- backfill.  Remove it for the one-time UPDATE below; the replacement
+-- function and trigger are installed again before this migration commits.
+DROP TRIGGER IF EXISTS reusable_question_package_versions_ready_immutable
+  ON reusable_question_package_versions;
+
 UPDATE "reusable_question_package_versions" version
 SET
   "subtest_id" = package."subtest_id",
@@ -293,6 +299,10 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+CREATE TRIGGER reusable_question_package_versions_ready_immutable
+  BEFORE UPDATE OR DELETE ON reusable_question_package_versions
+  FOR EACH ROW EXECUTE FUNCTION assessment_reject_ready_package_version_mutation();
 
 CREATE TRIGGER reusable_question_package_version_bank_scopes_ready_immutable
   BEFORE INSERT OR UPDATE OR DELETE ON reusable_question_package_version_bank_scopes
