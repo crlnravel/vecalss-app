@@ -2,9 +2,9 @@
 
 ## Current State
 
-**Last Updated:** 2026-08-22
-**Session ID:** assessment-as06-assembly-repository
-**Active Feature:** AS-06 Ticket 5 CAT Pool release pinning
+**Last Updated:** 2026-08-23
+**Session ID:** assessment-as06-e2e-closeout
+**Active Feature:** AS-06 Ticket 7 E2E verification
 
 ## Status
 
@@ -71,7 +71,8 @@
     writes.
   - Added `test:random-assembly-repository`; focused repository/schema/direct/
     AS-05 contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify`
-    pass. Migration 31 remains unapplied to the configured database.
+    pass at its checkpoint; Ticket 7 later applied migration 31 through the
+    approved development reset/reseed.
 
 - [x] AS-06 seeded Pool and Blueprint release resolution (Ticket 4, `5311eda` + `2e0915c`)
   - AssessmentRelease creation now locks the Tryout aggregate, sorted Ready
@@ -89,7 +90,8 @@
     prevent seeded bridge replacement.
   - Focused Pool/Blueprint, repository/schema/direct/AS-05, release/package
     invariants, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass;
-    migration 31 remains unapplied to the configured database.
+    Ticket 7 later applied migration 31 through the approved development
+    reset/reseed.
 
 - [x] AS-06 CAT Pool release pinning (Ticket 5, `347cc37` + `e4bb17c` + `1ef8e85`)
   - CAT Pool publication locks the Ready version, explicit candidate source
@@ -107,7 +109,24 @@
     sections. Focused CAT/random/repository/schema/direct/package/release
     contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass.
     The broad AssessmentRelease invariant is blocked only by unrelated dirty
-    admin-preview edits; migration 31 remains unapplied.
+    admin-preview edits; Ticket 7 later applied migration 31 through the
+    approved development reset/reseed.
+
+- [x] AS-06 Tryout assembly attachment and E2E verification (Tickets 6–7,
+  `4c85278` + `617735f` + `01e4078` + `cb49aac`)
+  - Tryout Questions now discovers shared Ready Set/Pool/Blueprint/CAT Pool
+    revisions, attaches one source per Section, previews an exact revision,
+    persists the bridge through the existing save boundary, and surfaces
+    mode-specific Review blockers before the server-authoritative publish.
+  - Final Ticket 6 review is PASS. Immutable published-version identity,
+    package-draft survival, source status, Subtest, test-type, CAT numeric,
+    fixed-snapshot, and picker-semantics gates are covered.
+  - Ticket 7 replayed all 31 migrations against the approved development
+    database after the migration backfill trigger fix, reseeded the fixture,
+    passed `db:verify-demo`, and completed authenticated ego-browser desktop/
+    mobile QA for attach, preview, save, Review, and Publish gating.
+  - Kuis assembly binding is explicitly deferred to the schema-backed follow-up
+    ticket; existing Kuis direct/fixed paths remain unchanged.
 
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
@@ -175,10 +194,11 @@
 
 ### What's Next
 
-1. Implement AS-06 Ticket 6: Kuis/Tryout assembly attachment and Review wiring.
-2. Follow with AS-06 Ticket 7 focused verification and QA.
-3. Keep the new migration unapplied to the configured database until an
-   explicit deployment/rollback decision is made; do not reset or reseed it.
+1. Start AS-07 Live delivery and result workspaces.
+2. Keep Kuis assembly binding deferred until its schema-backed identity,
+   reload, detach, and republish boundary is implemented and reviewed.
+3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
+   already implemented under AS-02 unless a new defect is found.
 
 ### AS-09 Browser QA
 
@@ -301,13 +321,13 @@ seeded Tryout attempts and 0 in-progress attempts.
   a disposable local PostgreSQL database after replaying all 31 migrations.
 - [x] AS-06 schema/release regression contracts, Prisma validate/generate,
   TypeScript, focused ESLint, diff-check, and `pnpm verify` passed; the schema
-  commit is `4f2dbd0` and the configured database remains at its prior 30
-  applied migrations.
+  commit is `4f2dbd0`; Ticket 7 later replayed all 31 migrations against the
+  approved configured development database.
 - [x] AS-06 Ticket 3 repository contract: `pnpm test:random-assembly-repository`,
   AS-06 schema/direct/AS-05/package/release/AssessmentRelease contracts,
   TypeScript, focused ESLint, diff-check, and full `pnpm verify` passed;
-  implementation commit is `9a1e306` and no configured-database migration was
-  run.
+  implementation commit is `9a1e306`; Ticket 7 later replayed all 31 migrations
+  against the approved configured development database.
 - [x] AS-06 Ticket 4 release contract: deterministic Pool/Blueprint resolver,
   stale/shortage/duplicate/content/media/mode blockers, Blueprint publish
   materialization, publication intent seed handling, active-session bridge guard,
@@ -320,8 +340,20 @@ seeded Tryout attempts and 0 in-progress attempts.
   payloads, mixed CAT Pool/direct-CAT old-release reuse, CAT/random/repository/
   schema/direct/package/release contracts, TypeScript, focused ESLint,
   diff-check, and `pnpm verify` passed; implementation commits are `347cc37`,
-  `e4bb17c`, and `1ef8e85`. Migration 31 remains unapplied; the broad
-  AssessmentRelease invariant is blocked by unrelated admin-preview edits.
+  `e4bb17c`, and `1ef8e85`. Ticket 7 later applied migration 31 through the
+  approved development reset/reseed; the broad AssessmentRelease invariant is
+  blocked by unrelated admin-preview edits.
+- [x] AS-06 Ticket 6 final review: PASS at
+  `reviews/as06-assembly-attachment-integration-final-fresh-review-01e4078-20260823`;
+  implementation is `4c85278` + `617735f` + `01e4078`.
+- [x] AS-06 Ticket 7 E2E: configured development database reset/reseed with
+  all 31 migrations up to date, `pnpm db:verify-demo` PASS, focused contracts/
+  tsc/ESLint/diff-check/`pnpm verify` PASS, and authenticated ego-browser task
+  space 20 desktop/mobile attach and Publish-gate QA PASS.
+- [x] Known baseline boundaries recorded: the broad AssessmentRelease
+  invariant is blocked by the preserved dirty admin-preview source, and the
+  opt-in schema DB contract was skipped without
+  `RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL`.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.

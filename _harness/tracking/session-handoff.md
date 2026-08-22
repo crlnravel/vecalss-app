@@ -1,5 +1,35 @@
 # Session Handoff
 
+## Current AS-06 closeout / AS-07 pickup (2026-08-23)
+
+- AS-06 Ticket 6 is complete for the intentionally narrowed Tryout-only
+  boundary. Commits `4c85278`, `617735f`, and `01e4078` implement Ready
+  Set/Pool/Blueprint/CAT Pool attachment, exact-version preview, persisted
+  bridge wiring, server/UI compatibility and Review gates. Final fresh review:
+  `reviews/as06-assembly-attachment-integration-final-fresh-review-01e4078-20260823`
+  — PASS.
+- Ticket 7 is complete. Migration `20260822130000_add_random_assembly_schema`
+  was made replay-safe for its one-time Ready metadata backfill in `cb49aac`.
+  With explicit development approval, the configured database was reset and
+  reseeded; all 31 migrations are up to date and `pnpm db:verify-demo` passes.
+- Focused AS-06/AS-05/direct/CAT/package/release contracts, TypeScript,
+  focused ESLint, `git diff --check`, `pnpm verify`, and authenticated
+  ego-browser task space 20 desktop/mobile QA pass. The broad
+  `test:assessment-release-invariants` failure remains limited to the
+  preserved dirty admin-preview source; the opt-in schema DB contract was
+  skipped without `RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL`.
+- The disposable Pool fixture used for browser QA is development-only and was
+  not added to application seed code. Preserve these unrelated dirty files:
+  `lib/admin/student-preview-tryout.ts`,
+  `prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql`,
+  and `scripts/test-admin-student-preview-tryout.ts`.
+- Kuis assembly binding remains deferred to
+  `artifacts/tickets/as06-kuis-assembly-binding`; existing Kuis direct/fixed
+  behavior is not represented as completed assembly coverage.
+- Next: start AS-07 Live delivery and result workspaces. AS-08's physical
+  QuestionRevision/Ready lifecycle is already implemented under AS-02 and
+  should not be reopened without a new defect.
+
 ## Current AS-06 Ticket 5 Handoff (2026-08-22)
 
 - Objective: pin explicit CAT Pool candidates and canonical 2PL calibration

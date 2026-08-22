@@ -263,3 +263,31 @@ Store only settled decisions, conventions, and important context that emerged du
   admin-preview edits; migration 31 remains unapplied and no live DB
   concurrency test was run. Review artifact:
   `artifacts/reviews/as06-cat-pool-release-pinning-fresh-review-20260822`.
+
+## AS-06 Tryout assembly attachment and E2E closeout
+
+- Ticket 6 is intentionally Tryout-only. `4c85278` adds Ready Set/Pool/
+  Blueprint/CAT Pool discovery, attach/detach, exact-version preview, and
+  Review wiring; `617735f` closes lifecycle/readiness/picker gates; `01e4078`
+  enforces immutable published-version identity and CAT/test-type mode
+  compatibility at save and release. The final fresh review is PASS at
+  `reviews/as06-assembly-attachment-integration-final-fresh-review-01e4078-20260823`.
+- Ticket 7 completed authenticated ego-browser task-space 20 QA on desktop and
+  390px mobile: real Questions modes, Ready Pool attach and preview, persisted
+  save, Review readiness, one main landmark, bounded tab rail, and disabled
+  Publish until Review passes. Kuis assembly binding is explicitly deferred;
+  existing Kuis direct/fixed behavior remains unchanged.
+- Migration `20260822130000_add_random_assembly_schema` needed a replay fix in
+  `cb49aac`: the legacy Ready-version immutability trigger is dropped around
+  the one-time metadata backfill and recreated before the migration commits.
+  The explicitly approved development database reset/reseed replayed all 31
+  migrations, `prisma migrate status` is current, and `pnpm db:verify-demo`
+  passes. This supersedes earlier AS-06 notes that migration 31 was pending.
+- Focused assembly/attachment/CAT/direct/AS-05/package/release contracts,
+  TypeScript, focused ESLint, diff-check, and `pnpm verify` pass. The broad
+  AssessmentRelease invariant remains blocked only by the preserved unrelated
+  admin-preview edit; the schema DB contract is opt-in and was skipped without
+  `RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL`.
+- Next implementation is AS-07 Live delivery and result workspaces. AS-08's
+  physical QuestionRevision/Ready lifecycle is already present under AS-02;
+  do not reopen it absent a new defect.
