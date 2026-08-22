@@ -78,7 +78,7 @@
       "description": "Let Tryout mentors pick Ready questions directly across Bank Soal or use an existing fixed Set inline per Section, with immutable server snapshots",
       "dependencies": ["feat-009"],
       "status": "complete",
-      "evidence": "9e0fafe + 61abfbb; direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required source-digest validation, TypeScript, focused ESLint, pnpm verify, git diff --check, and Impeccable detector; no migration required; independent finish review recheck requested"
+      "evidence": "9e0fafe + 61abfbb + c8a6d05; direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, git diff --check, and Impeccable detector; no migration required; independent finish review PASS on recheck"
     }
   ]
 }

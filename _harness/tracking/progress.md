@@ -18,8 +18,9 @@
     subject, supports search/pagination, cross-bank selection, ordering, and
     removal, and keeps source readiness visible in the authoring Review.
   - Direct saves lock and re-read Question/Bank rows, reject stale revision IDs
-    or content digests, wrong Subtests, invalid options/media, archived sources,
-    and duplicate sources, then create immutable TryoutItem snapshots.
+    or content digests; both source identity fields are required. Wrong
+    Subtests, invalid options/media, archived sources, and duplicate sources
+    are rejected before immutable TryoutItem snapshots are created.
   - Publish adds explanation/media readiness and direct CAT requires canonical
     approved 2PL calibration; no schema migration was needed.
   - Follow-up `61abfbb` closes the post-publish delivery boundary: AssessmentRelease
@@ -96,10 +97,9 @@
 
 ### What's Next
 
-1. Record the independent AS-06 review recheck against `61abfbb`.
-2. Continue with random Pool/Blueprint/CAT assembly only after a new product
+1. Continue with random Pool/Blueprint/CAT assembly only after a new product
    and persistence decision.
-3. Keep the pre-migration dump available for rollback investigation; do not
+2. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
 ### AS-09 Browser QA

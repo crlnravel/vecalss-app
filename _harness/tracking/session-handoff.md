@@ -14,9 +14,9 @@
   current revision ID, and content digest. The repository locks Question and
   Bank rows, revalidates Ready/options/media/subtest/lifecycle state, rejects
   stale selections and duplicates, then snapshots direct items with
-  `packageCode: "direct"`. The digest is required and missing/stale values are
-  rejected. Publish requires explanation/media; direct CAT also requires
-  approved canonical 2PL calibration.
+  `packageCode: "direct"`. Revision ID and digest are required, and missing or
+  stale values are rejected. Publish requires explanation/media; direct CAT
+  also requires approved canonical 2PL calibration.
 - Release/delivery boundary: `61abfbb` makes the shared
   `assertTryoutReleaseEligibility` gate accept direct physical snapshots as an
   alternative to a published Set, validates direct provenance and Subtest, and
@@ -31,12 +31,13 @@
   focused ESLint, `pnpm verify` (0 errors; 459 baseline warnings), and
   `git diff --check` passed. Impeccable detector advisories were reduced to
   zero for the changed type-ramp values.
-- Implementation commits: `9e0fafe` (authoring UX and snapshots) and
+- Implementation commits: `9e0fafe` (authoring UX and snapshots),
   `61abfbb` (post-publish direct delivery eligibility and required digest
-  hardening). Independent finish-review recheck is pending against `61abfbb`.
+  hardening), and `c8a6d05` (required revision identity). Independent
+  finish-review recheck is PASS against `c8a6d05`.
 - Durable ticket: `artifacts/as06-direct-question-picks`.
-- Recommended pickup: record the independent review recheck, then hold
-  the next Pool/Blueprint/CAT assembly decision before adding schema.
+- Recommended pickup: hold the next Pool/Blueprint/CAT assembly decision
+  before adding schema.
 
 ## Current AS-05 Handoff (2026-08-22)
 
