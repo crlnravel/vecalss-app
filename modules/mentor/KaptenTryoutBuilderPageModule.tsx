@@ -320,7 +320,7 @@ function KaptenTryoutBuilderPageModule({
   ];
 
   return (
-    <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
+    <main className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-primary-100 pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button nativeButton={false} render={<Link href="/mentor/tryout" />} size="sm" variant="ghost">
