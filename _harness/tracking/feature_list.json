@@ -47,6 +47,14 @@
       "dependencies": ["feat-001"],
       "status": "complete",
       "evidence": "cb1eb8f + 7f60c43; snapshot-backed materialization, session-level release hardening, seed runtime provenance fixes, all 29 migrations applied, configured-database reset/reseed, db:verify-demo, Kuis result smoke (67), seven-section Tryout scoring/release smoke (68.68 with 7 runs/7 typed breakdowns), focused invariants, and full lint/build"
+    },
+    {
+      "id": "feat-007",
+      "name": "AS-09 Durable AssessmentRelease",
+      "description": "Pin published Tryout content, CAT calibration, scoring configuration, and runtime provenance to immutable AssessmentRelease records",
+      "dependencies": ["feat-006"],
+      "status": "complete",
+      "evidence": "43dec31; pre-migration pg_dump at /tmp/vecalss-as09-pre-migration-20260822.dump; 20260822120000_add_assessment_release_boundary applied; all 30 migrations up to date; clean reset/reseed; db:verify-demo; DB-backed Kuis smoke 3 scored/released frozen attempts; seven-section Tryout smoke 3 scored/released attempts with 21 runs and 21 typed breakdowns; AssessmentRelease invariants and Prisma validate pass"
     }
   ]
 }

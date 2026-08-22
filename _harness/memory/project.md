@@ -68,8 +68,11 @@ Store only settled decisions, conventions, and important context that emerged du
 
 ## AS-09 AssessmentRelease boundary
 
-- `20260822120000_add_assessment_release_boundary` is the sole pending migration;
-  it is intentionally unapplied while the UI-first pass is reviewed.
+- `20260822120000_add_assessment_release_boundary` was applied after an
+  explicit backup/rollback approval. The pre-migration custom-format backup is
+  `/tmp/vecalss-as09-pre-migration-20260822.dump`; all 30 migrations now report
+  up to date. The configured database was cleanly reset/reseeded afterward
+  with the full AssessmentRelease-aware seed.
 - Durable release implementation pins published Tryout content, CAT calibration,
   scoring/configuration, media, and logical section identity. Bound runtime paths
   fail closed when frozen metadata or exact source/physical bridges are missing.
@@ -85,6 +88,12 @@ Store only settled decisions, conventions, and important context that emerged du
   were also polished without changing runtime contracts, including the neutral
   training disclaimer `bukan nilai resmi SNBT` and the participant UX contract
   test.
-- AS-09 remains uncommitted until the complete backend + UI diff is reviewed.
-  After commit and explicit migration approval, deploy the pending migration and
-  run DB-backed Kuis and seven-section Tryout scoring/release smoke tests.
+- AS-09 backend and UI are committed as `43dec31` (`feat: pin tryout deliveries
+  to assessment releases`). The seed compatibility fix in
+  `prisma/seed-assessment.mjs` skips legacy QuestionOption mutations while the
+  current revision is Ready/Retired, respecting the new DB guard. DB-backed
+  smoke passed: Kuis has 3 scored/released attempts with frozen forms; Tryout
+  has 3 scored/released attempts, 21 runs, 21 typed breakdowns, and 7 sections;
+  one AssessmentRelease binds 2 sessions, 3 attempts, and 21 runs.
+- Browser QA was previously blocked by the unapplied migration and is now the
+  next recommended step against the migrated seeded database.

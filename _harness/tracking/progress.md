@@ -3,12 +3,25 @@
 ## Current State
 
 **Last Updated:** 2026-08-22
-**Session ID:** assessment-as03
-**Active Feature:** AS-03 normalized scoring and result release states
+**Session ID:** assessment-as09-deploy
+**Active Feature:** AS-09 durable AssessmentRelease deployment and runtime verification
 
 ## Status
 
 ### What's Done
+
+- [x] AS-09 durable AssessmentRelease deployment and verification
+  - `20260822120000_add_assessment_release_boundary` applied successfully after
+    a custom-format backup at
+    `/tmp/vecalss-as09-pre-migration-20260822.dump`.
+  - Clean reset/reseed replayed all 30 migrations and created coherent pinned
+    Tryout sessions, attempts, runs, and CAT snapshots.
+  - `pnpm db:verify-demo` passes. DB smoke confirms 3 scored/released Kuis
+    attempts with frozen forms and 3 scored/released Tryout attempts with 21
+    runs, 21 typed breakdowns, and 7 sections.
+  - Seed compatibility fix skips immutable legacy QuestionOption mutations for
+    Ready/Retired current revisions; AssessmentRelease invariants and Prisma
+    validation pass.
 
 - [x] Fixed server-resolved preview fixture and admin actor/subject boundary.
 - [x] Added read-only Beranda, Materi, Kuis, and Tryout preview surfaces.
@@ -42,8 +55,8 @@
 
 1. Run seeded browser QA for each preview surface and banner save flow.
 2. Run the allowlisted database/event diff around ordinary browsing and restart.
-3. Continue assessment QA and then implement AS-09 durable AssessmentRelease
-   pins.
+3. Keep the pre-migration dump available for rollback investigation; do not
+   reset or reseed the configured database without explicit approval.
 
 ## Blockers / Risks
 
@@ -76,4 +89,4 @@
 
 ## Notes for Next Session
 
-Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`, and all migrations are applied. The configured database was intentionally reset/reseeded after explicit approval; preserve unrelated preview/harness/document history. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data again without explicit approval.
+Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility fix. All 30 migrations are applied and the configured database was intentionally reset/reseeded after explicit approval; preserve unrelated preview/harness/document history. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data again without explicit approval.

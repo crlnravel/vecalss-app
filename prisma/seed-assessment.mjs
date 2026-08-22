@@ -324,17 +324,26 @@ async function upsertQuestions(client, { bankId, subtestIds, tutorId }) {
     );
     const questionId = questionResult.rows[0].id;
     const currentRevisionId = questionResult.rows[0].current_revision_id;
+    const currentRevisionState = await client.query(
+      `SELECT status
+         FROM question_revisions
+        WHERE id = $1`,
+      [currentRevisionId],
+    );
+    const legacyOptionsMutable = !['ready', 'retired'].includes(currentRevisionState.rows[0]?.status);
     const optionIds = [];
-    for (const [optionIndex, content] of question.options.entries()) {
-      const label = String.fromCharCode(65 + optionIndex);
-      const optionResult = await client.query(
-        `INSERT INTO question_options (question_id, label, content, is_correct, sort_order)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (question_id, label) DO NOTHING
-         RETURNING id`,
-        [questionId, label, content, optionIndex === question.correctIndex, optionIndex],
-      );
-      optionIds.push(optionResult.rows[0]?.id);
+    if (legacyOptionsMutable) {
+      for (const [optionIndex, content] of question.options.entries()) {
+        const label = String.fromCharCode(65 + optionIndex);
+        const optionResult = await client.query(
+          `INSERT INTO question_options (question_id, label, content, is_correct, sort_order)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (question_id, label) DO NOTHING
+           RETURNING id`,
+          [questionId, label, content, optionIndex === question.correctIndex, optionIndex],
+        );
+        optionIds.push(optionResult.rows[0]?.id);
+      }
     }
     const options = question.options.map((content, sortOrder) => ({ content, isCorrect: sortOrder === question.correctIndex, label: String.fromCharCode(65 + sortOrder), sortOrder }));
     const contentDigest = revisionDigest({ difficulty: question.difficulty, explanation: question.explanation, options, stem: question.stem });

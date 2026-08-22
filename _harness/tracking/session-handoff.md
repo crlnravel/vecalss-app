@@ -1,6 +1,16 @@
 # Session Handoff
 
-## Current AS-03 Pickup (2026-08-22)
+## Current AS-09 Deployment Handoff (2026-08-22)
+
+- Objective: deploy and verify the durable AssessmentRelease boundary for Tryout deliveries, then preserve the UI/runtime handoff for the next session.
+- Workspace: `main` at `43dec31` (`feat: pin tryout deliveries to assessment releases`) plus the seed compatibility fix recorded below. The configured database was backed up before deployment at `/tmp/vecalss-as09-pre-migration-20260822.dump` (861 KB, pg_dump custom format).
+- Migration `20260822120000_add_assessment_release_boundary` was applied successfully with `pnpm exec prisma migrate deploy`, and a clean reset/reseed subsequently replayed all 30 migrations. `prisma migrate status` reports the database schema is up to date.
+- Seed/runtime verification: `pnpm db:verify-demo` passes with 21 questions, 7 quizzes, 7 package versions, 7 Tryout sections, 6 participant states, and 3 released attempts. DB-backed Kuis smoke has 3 scored/released attempts and 3 frozen forms. DB-backed Tryout smoke has 3 scored/released attempts, 21 runs, 21 typed breakdowns, and 7 sections; one AssessmentRelease is bound to 2 sessions, 3 attempts, and 21 runs. AssessmentRelease invariants and Prisma schema validation pass.
+- Seed fix: `prisma/seed-assessment.mjs` now skips legacy `question_options` mutations when the current physical QuestionRevision is Ready/Retired, so reruns respect the database immutability guard. Clean reset/reseed remains the supported path when an active release-bound session prevents physical Tryout replacement.
+- UI/runtime status: AS-09 mentor release notices and student answer-save/result-state polish are committed and verified. Browser QA was previously blocked by the missing table; it can now proceed against the migrated seeded database if needed.
+- Next actions: run authenticated browser QA for mentor Tryout operations and student Tryout attempt/result surfaces; do not rerun destructive reset/seed without explicit approval. The pre-migration dump remains available for rollback investigation.
+
+## Historical AS-03 Pickup (2026-08-22)
 
 - Objective: preserve the completed AS-03 normalized Attempt/Scoring/Release
   states for canonical StandaloneQuiz and Tryout only; do not start AS-09.
