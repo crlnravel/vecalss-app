@@ -125,8 +125,8 @@
       "name": "AS-07 Live Delivery and Result Workspaces",
       "description": "Add Live, Attempts, and Results projections inside the mentor Tryout workspace with actionable participant/run navigation and human-review-only integrity signals",
       "dependencies": ["feat-015"],
-      "status": "in-progress",
-      "evidence": "Ticket artifact created at artifacts/tickets/as07-live-delivery-result-workspaces; implementation agent dispatched; preserve AS-04 ParticipantView, AS-09 AssessmentRelease, attempt/result repositories, and protected admin-preview edits"
+      "status": "complete",
+      "evidence": "ea0d296 + d437043 + 6fd1794; final fixup review PASS at artifacts/reviews/as07-live-delivery-result-workspaces-final-fixup-review-20260823; Live/Attempts/Results projections reuse ParticipantView, AssessmentRelease, delivery, attempt, scoring, and result boundaries; client score/release sanitization, human-review-only integrity signals, actionable participant/attempt links, mobile active-tab scrolling, and single-landmark detail routes verified; Impeccable audit 18/20 with no P0/P1 findings; focused contracts, participant view, TypeScript, focused ESLint, detector [], diff-check, pnpm verify, and authenticated ego-browser desktop/mobile QA pass; disconnected lifecycle telemetry and expiry reconciliation remain explicit later-slice deviations; assessment-release invariant baseline remains blocked only by preserved dirty admin-preview source"
     }
   ]
 }

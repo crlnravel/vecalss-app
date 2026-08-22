@@ -288,9 +288,11 @@ Store only settled decisions, conventions, and important context that emerged du
   AssessmentRelease invariant remains blocked only by the preserved unrelated
   admin-preview edit; the schema DB contract is opt-in and was skipped without
   `RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL`.
-- Next implementation is AS-07 Live delivery and result workspaces. AS-08's
-  physical QuestionRevision/Ready lifecycle is already present under AS-02;
-  do not reopen it absent a new defect.
+- AS-07 Live delivery/result workspaces are complete; the broad
+  `test:assessment-release-invariants` failure remains limited to the
+  preserved admin-preview edit. AS-08's physical QuestionRevision/Ready
+  lifecycle is already present under AS-02; do not reopen it absent a new
+  defect.
 
 ## AS-07 kickoff
 
@@ -306,9 +308,24 @@ Store only settled decisions, conventions, and important context that emerged du
   `artifacts/tickets/as07-live-delivery-result-workspaces`. Implementation
   agent `6af221fe-77a2-46fa-927b-2234b52a0201` was dispatched on 2026-08-23.
 
+## AS-07 closeout
+
+- Commits `ea0d296`, `d437043`, and `6fd1794` are the accepted implementation:
+  Live/Attempts/Results projections, score/release DTO sanitization, mobile
+  active-tab scrolling, and single-landmark Attempt/Participant detail routes.
+- Final review PASS:
+  `artifacts/reviews/as07-live-delivery-result-workspaces-final-fixup-review-20260823`.
+  Impeccable audit:
+  `artifacts/reviews/as07-live-delivery-result-workspaces-impeccable-audit-20260823`
+  (18/20, no P0/P1 findings).
+- Disconnected/reconciled timestamps remain marker-driven and have no normal
+  writer/reconciler in this slice; zeroed deadlines are advisory until an
+  authoritative participant/detail action. Do not infer either state on the
+  client.
+
 ## Next-slice order decision
 
-- After AS-07 passes final review and E2E QA, implement the deferred durable
-  Kuis assembly binding before adding realtime/polling hardening to AS-07.
-  Kuis has a correctness gap across save/reload/detach/republish; AS-07's
-  snapshot-on-load Live projection is an acceptable first operational slice.
+- After AS-07 final review/E2E QA, implement the deferred durable Kuis
+  assembly binding before adding realtime/polling hardening to AS-07. Kuis has
+  a correctness gap across save/reload/detach/republish; AS-07's snapshot-on-
+  load Live projection is an accepted first operational slice.

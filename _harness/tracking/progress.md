@@ -4,7 +4,7 @@
 
 **Last Updated:** 2026-08-23
 **Session ID:** assessment-as06-e2e-closeout
-**Active Feature:** AS-07 Live delivery and result workspaces
+**Active Feature:** Deferred Kuis assembly binding
 
 ## Status
 
@@ -183,6 +183,16 @@
 - [x] Added guarded Tryout preview restart with idempotency, locking, and history.
 - [x] Added CodeMirror banner editing with draft/published cache separation.
 - [x] Added preview route/content-security contracts and system-wide fixture guards.
+- [x] AS-07 Live delivery and result workspaces
+  - Commits `ea0d296`, `d437043`, and `6fd1794` add server-owned Live,
+    Attempts, Results, and participant/attempt navigation inside the existing
+    Tryout workspace. Score/release sanitization, human-review-only integrity
+    signals, mobile active-tab scrolling, and single-landmark detail routes
+    are covered by focused contracts and the final review artifact.
+  - Authenticated ego-browser QA passed at 1512px and 390px; Impeccable audit
+    is 18/20 with no P0/P1 findings. Disconnected lifecycle telemetry and
+    expiry reconciliation remain explicitly deferred, not inferred on the
+    client.
 
 ### What's In Progress
 
@@ -192,23 +202,22 @@
   provides the required student selector. This remains a separate UI slice,
   not a missing AS-04 server invariant.
 
-- [ ] AS-07 Live delivery and result workspaces
-  - Ticket artifact: `artifacts/tickets/as07-live-delivery-result-workspaces`.
-  - Implementation agent dispatched to extend the existing Tryout workspace
-    with Live, Attempts, and Results projections while reusing ParticipantView,
-    AssessmentRelease, attempt, scoring, and result boundaries.
-  - Kuis assembly and AS-08 QuestionRevision lifecycle remain out of scope.
+- [ ] Deferred Kuis assembly binding
+  - Durable Kuis Set/Pool/Blueprint attachment is the next implementation
+    slice. The boundary must persist assembly mode/package/version identity,
+    preserve reload/detach/republish semantics, and reject CAT Pool/Kuis
+    combinations server-side.
+  - AS-07 realtime/polling hardening remains later; AS-08 QuestionRevision
+    lifecycle remains implemented and should not be reopened without a defect.
 
 ### What's Next
 
-1. Complete AS-07 implementation and fresh review with authenticated
-   ego-browser desktop/mobile QA.
-2. Then implement the deferred Kuis assembly binding boundary: persisted
+1. Implement the deferred Kuis assembly binding boundary: persisted
    mode/package/version identity, reload/detach/republish revalidation, and
    CAT Pool rejection. This is prioritized over AS-07 realtime hardening.
-3. Keep AS-07 realtime/polling hardening as a later enhancement; the initial
+2. Keep AS-07 realtime/polling hardening as a later enhancement; the initial
    snapshot-on-load Live projection is accepted for this slice.
-4. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
+3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
    already implemented under AS-02 unless a new defect is found.
 
 ### AS-09 Browser QA
@@ -393,5 +402,15 @@ all 31 migrations in an isolated local PostgreSQL instance, but it has not been
 deployed to the configured database. Tickets 3–5 are committed as `9a1e306`,
 `5311eda`/`2e0915c`, and `347cc37`/`e4bb17c`/`1ef8e85`. The next implementation
 session should start Ticket 6: Kuis/Tryout assembly attachment and Review
-wiring. Preserve the unrelated dirty admin-preview files and do not deploy,
-reset, or reseed migration 31 without explicit approval.
+wiring. Preserve the unrelated dirty admin-preview files. (Ticket 6 and the
+Tryout-only narrowed boundary are now complete; Kuis binding remains the
+follow-up described above.)
+
+AS-07 is complete at `ea0d296` + `d437043` + `6fd1794`; final review PASS is
+recorded at `reviews/as07-live-delivery-result-workspaces-final-fixup-review-
+20260823`, and the Impeccable audit is
+`reviews/as07-live-delivery-result-workspaces-impeccable-audit-20260823`.
+The development server QA used the seeded published Tryout
+`90c28688-58ab-401c-9f1c-3cb961f33c33`; do not treat that fixture as a new
+production seed. The next slice is durable Kuis assembly binding, with AS-07
+realtime/polling hardening intentionally later.

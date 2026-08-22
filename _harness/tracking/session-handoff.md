@@ -1,5 +1,32 @@
 # Session Handoff
 
+## Current AS-07 closeout / Kuis assembly pickup (2026-08-23)
+
+- AS-07 is complete at `ea0d296` + `d437043` + `6fd1794`. The final review
+  artifact `reviews/as07-live-delivery-result-workspaces-final-fixup-review-
+  20260823` is PASS.
+- The existing Tryout workspace now exposes server-owned Live, Attempts, and
+  Results projections. Participant score fields are sanitized until the exact
+  admission/attempt result is score-visible; release payloads and raw session
+  attempts remain out of the client boundary.
+- Final UI polish fixed deep-linked mobile tab visibility and nested page
+  landmarks on Attempt/Participant detail routes. Impeccable audit:
+  `reviews/as07-live-delivery-result-workspaces-impeccable-audit-20260823`,
+  18/20 with no P0/P1 findings. Authenticated ego-browser QA passed at
+  1512px and 390px.
+- Disconnected lifecycle telemetry writers/reconciliation and expiry
+  persistence are intentionally deferred. The UI does not infer disconnected
+  state, and zero deadlines remain advisory until a participant/detail action
+  synchronizes authoritative state.
+- Preserve the unrelated dirty files:
+  `lib/admin/student-preview-tryout.ts`,
+  `prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql`,
+  and `scripts/test-admin-student-preview-tryout.ts`.
+- Next: implement the durable Kuis assembly binding slice. It must settle
+  persisted mode/package/version identity, reload/detach/republish
+  revalidation, and CAT Pool rejection. AS-07 realtime/polling hardening is
+  later; AS-08 remains closed unless a new defect appears.
+
 ## Current AS-06 closeout / AS-07 pickup (2026-08-23)
 
 - AS-06 Ticket 6 is complete for the intentionally narrowed Tryout-only
@@ -467,4 +494,5 @@
 
 ## Recommended Next Step
 
-- Run browser QA and the allowlisted DB/event side-effect test with the seeded fixture; then review the changeset walkthrough.
+- Start the deferred durable Kuis assembly binding implementation and keep
+  the protected admin-preview files untouched.
