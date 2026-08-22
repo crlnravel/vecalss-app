@@ -103,6 +103,14 @@
       "dependencies": ["feat-012"],
       "status": "complete",
       "evidence": "5311eda + 2e0915c; aggregate/Ready-version/source lock order, seeded-fisher-yates-v1 Pool draws, stale/shortage/duplicate/content/media/mode blockers, exact Blueprint difficulty quotas and scope resolution, Blueprint publish materialization, per-section release provenance, publication-intent seed handling, active-session guard, focused random-assembly/repository/schema/direct/AS-05/package/release contracts, TypeScript, focused ESLint, git diff --check, and pnpm verify; migration remains unapplied to configured database"
+    },
+    {
+      "id": "feat-014",
+      "name": "AS-06 CAT Pool Release Pinning",
+      "description": "Pin explicit CAT Pool candidates and canonical 2PL calibration parameters in immutable Tryout AssessmentReleases",
+      "dependencies": ["feat-013"],
+      "status": "complete",
+      "evidence": "347cc37 + e4bb17c + 1ef8e85; deterministic aggregate/Ready-version/source/Subtest/calibration locks, stale revision/digest/provenance and active-scope/content/media/canonical-2PL blockers, exact-size candidate acceptance and shortage rejection, release-owned candidate/calibration payloads, immutable runtime parameters, mixed CAT Pool/direct-CAT old-release reuse fix, focused CAT/random/repository/schema/direct/package/release contracts, TypeScript, focused ESLint, git diff --check, and pnpm verify; migration remains unapplied to configured database; fresh review PASS"
     }
   ]
 }

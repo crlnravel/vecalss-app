@@ -237,3 +237,29 @@ Store only settled decisions, conventions, and important context that emerged du
 - Verification and final review PASS are recorded in
   `artifacts/reviews/as06-pool-blueprint-release-resolution-final-review-20260822`.
   Migration 31 remains unapplied to the configured database.
+
+## AS-06 CAT Pool release boundary
+
+- Ticket 5 is complete in `347cc37` with contract coverage in `e4bb17c` and
+  the mixed-mode release fix in `1ef8e85`.
+- CAT Pool publish locks the aggregate, Ready version, Question/Bank/current
+  Revision/Subtest sources, and canonical calibration rows in deterministic
+  order. Every explicit candidate is revalidated for Ready identity/digest,
+  active scope, content/options/media, provenance, approved
+  `2pl-canonical-v1`, and finite positive discrimination; candidate count must
+  be at least the delivered count, with exact-size pools accepted.
+- The AssessmentRelease payload owns every CAT candidate snapshot and full
+  calibration metadata (calibration ID/digest, source revision identity and
+  provenance, approval state, model version, difficulty/discrimination, and
+  resolver version). Runtime CAT selection reads only those pinned parameters;
+  existing tie-break, no-back-navigation, no-CBT-fallback, and acknowledged
+  answer preservation behavior remain unchanged.
+- Calibration/source drift blocks new releases without mutating old releases.
+  Mixed CAT Pool plus direct-CAT Tryouts revalidate only the unpinned/direct
+  CAT sections before reusing an existing CAT Pool release.
+- Focused CAT/random/repository/schema/direct/package/release contracts,
+  TypeScript, focused ESLint, diff-check, and `pnpm verify` pass. The broad
+  AssessmentRelease invariant is currently blocked by unrelated dirty
+  admin-preview edits; migration 31 remains unapplied and no live DB
+  concurrency test was run. Review artifact:
+  `artifacts/reviews/as06-cat-pool-release-pinning-fresh-review-20260822`.

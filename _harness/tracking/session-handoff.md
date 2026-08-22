@@ -1,5 +1,37 @@
 # Session Handoff
 
+## Current AS-06 Ticket 5 Handoff (2026-08-22)
+
+- Objective: pin explicit CAT Pool candidates and canonical 2PL calibration
+  parameters inside immutable Tryout AssessmentReleases.
+- Implementation commits: `347cc37` (`feat: pin CAT Pool candidates in
+  releases`), `e4bb17c` (CAT release contract), and `1ef8e85` (preserve mixed
+  CAT Pool releases).
+- Publish locks the Tryout aggregate, Ready CAT Pool version, sorted
+  Question/Bank/current Revision/Subtest source rows, and sorted calibration
+  rows. It revalidates revision identity/digest/provenance, active source
+  scope, content/options/media, approved `2pl-canonical-v1`, finite positive
+  parameters, and candidate count ≥ delivered count; exact-size pools pass.
+- The release payload pins all CAT candidate snapshots and calibration
+  metadata (calibration/source identity, digest, provenance, approval/model,
+  difficulty/discrimination, and resolver version). Runtime reads the pinned
+  payload only and retains existing information-maximizing selection,
+  deterministic tie-breaks, no back-navigation/CBT fallback, and answer-first
+  failure handling.
+- Existing CAT Pool releases remain usable after calibration/source drift.
+  Mixed CAT Pool + direct-CAT Tryouts skip mutable checks for the pinned CAT
+  Pool sections and validate only direct/unpinned CAT candidates.
+- Verification: CAT/random/repository/schema/direct/package/release
+  contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass.
+  `test:assessment-release-invariants` is blocked only by unrelated concurrent
+  admin-preview edits. Migration 31 remains unapplied; no reset/reseed or live
+  DB concurrency test was run.
+- Fresh review artifact: `reviews/as06-cat-pool-release-pinning-fresh-review-
+  20260822` — PASS after `1ef8e85`.
+- Next: AS-06 Ticket 6 Kuis/Tryout assembly attachment and Review wiring,
+  followed by Ticket 7 verification/QA. Do not deploy migration 31 or reset/
+  reseed without explicit approval.
+
 ## Current AS-06 Ticket 4 Handoff (2026-08-22)
 
 - Objective: resolve seeded Pool and Blueprint forms inside the immutable
@@ -25,8 +57,9 @@
   package/release contracts, TypeScript, focused ESLint, `git diff --check`,
   and `pnpm verify` pass (0 errors, 459 baseline warnings, production build).
   Migration 31 remains unapplied to the configured database.
-- Next: AS-06 Ticket 5 CAT Pool release pinning, then Ticket 6 attachment and
-  Review wiring. Do not deploy migration 31 or reset/reseed without approval.
+- Superseded by the Ticket 5 handoff above. Ticket 5 is complete; next is
+  Ticket 6 attachment and Review wiring. Do not deploy migration 31 or
+  reset/reseed without approval.
 
 ## Current AS-06 Schema Handoff (2026-08-22)
 

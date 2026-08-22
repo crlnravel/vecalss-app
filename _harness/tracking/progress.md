@@ -4,7 +4,7 @@
 
 **Last Updated:** 2026-08-22
 **Session ID:** assessment-as06-assembly-repository
-**Active Feature:** AS-06 Ticket 4 seeded Pool/Blueprint release resolution
+**Active Feature:** AS-06 Ticket 5 CAT Pool release pinning
 
 ## Status
 
@@ -91,6 +91,24 @@
     invariants, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass;
     migration 31 remains unapplied to the configured database.
 
+- [x] AS-06 CAT Pool release pinning (Ticket 5, `347cc37` + `e4bb17c` + `1ef8e85`)
+  - CAT Pool publication locks the Ready version, explicit candidate source
+    rows, Subtests, and canonical calibration rows in deterministic order.
+  - Every candidate is revalidated for Ready revision identity/digest,
+    provenance, active Bank/Subtest, content/options/media, approved canonical
+    `2pl-canonical-v1`, and finite positive parameters. Candidate count equal
+    to delivered count is accepted; shortages and drift block new releases.
+  - AssessmentRelease payloads pin all candidate snapshots and calibration
+    provenance/parameters. Runtime keeps its existing information-maximizing
+    selection, no-back-navigation/no-CBT-fallback rules, and writes the
+    acknowledged answer before marking calculation failures.
+  - Existing CAT Pool releases remain usable after source/calibration drift;
+    mixed CAT Pool plus direct-CAT Tryouts revalidate only unpinned CAT
+    sections. Focused CAT/random/repository/schema/direct/package/release
+    contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass.
+    The broad AssessmentRelease invariant is blocked only by unrelated dirty
+    admin-preview edits; migration 31 remains unapplied.
+
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
     Basics, Sections, Questions, Rules, Schedule & akses, Results, Review,
@@ -157,8 +175,9 @@
 
 ### What's Next
 
-1. Implement AS-06 Ticket 5: CAT Pool release pinning.
-2. Keep the new migration unapplied to the configured database until an
+1. Implement AS-06 Ticket 6: Kuis/Tryout assembly attachment and Review wiring.
+2. Follow with AS-06 Ticket 7 focused verification and QA.
+3. Keep the new migration unapplied to the configured database until an
    explicit deployment/rollback decision is made; do not reset or reseed it.
 
 ### AS-09 Browser QA
@@ -252,6 +271,8 @@ seeded Tryout attempts and 0 in-progress attempts.
   publication intent forwarding.
 - `scripts/test-random-assembly-release.ts` - Focused resolver/release contract.
 - `/Users/ravel/.traycer/epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/reviews/as06-pool-blueprint-release-resolution-final-review-20260822/index.md` - Final review artifact.
+- `scripts/test-cat-pool-release.ts` - CAT Pool release pinning contract.
+- `/Users/ravel/.traycer/epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/reviews/as06-cat-pool-release-pinning-fresh-review-20260822/index.md` - Fresh Ticket 5 review artifact.
 
 - `lib/tryout/participant-view.ts` - Canonical mentor participant projection.
 - `lib/tryout/delivery-repository.ts` - Atomic admission, assignment, and revoke transitions.
@@ -293,6 +314,14 @@ seeded Tryout attempts and 0 in-progress attempts.
   repository/schema/direct/AS-05/package/release contracts, TypeScript, focused
   ESLint, diff-check, and full `pnpm verify` passed; implementation commits are
   `5311eda` and `2e0915c`, with no configured-database migration run.
+- [x] AS-06 Ticket 5 CAT Pool release contract: deterministic candidate/source/
+  calibration locks, stale/digest/provenance/content/media/canonical-2PL
+  blockers, exact-size acceptance, release-owned candidate/calibration
+  payloads, mixed CAT Pool/direct-CAT old-release reuse, CAT/random/repository/
+  schema/direct/package/release contracts, TypeScript, focused ESLint,
+  diff-check, and `pnpm verify` passed; implementation commits are `347cc37`,
+  `e4bb17c`, and `1ef8e85`. Migration 31 remains unapplied; the broad
+  AssessmentRelease invariant is blocked by unrelated admin-preview edits.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.
@@ -315,10 +344,11 @@ covered by focused contracts, full verification, authenticated browser QA, and
 the fresh final finish-review PASS against `72b95e9` recorded at
 `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
 
-AS-06 Pool-first authoring is approved and AS-06 Ticket 2 is committed as
-`4f2dbd0` (`feat: add random assembly schema boundaries`). The migration is
-forward-only and has been replayed through all 31 migrations in an isolated
-local PostgreSQL instance, but it has not been deployed to the configured
-database. The next implementation session should start Ticket 3: repository
-commands, creator/shared-read authorization, Ready revisions, and read-only
-Pool/Blueprint preview.
+AS-06 Pool-first authoring is approved; Tickets 2–5 are complete. Ticket 2 is
+committed as `4f2dbd0` and the forward-only migration has been replayed through
+all 31 migrations in an isolated local PostgreSQL instance, but it has not been
+deployed to the configured database. Tickets 3–5 are committed as `9a1e306`,
+`5311eda`/`2e0915c`, and `347cc37`/`e4bb17c`/`1ef8e85`. The next implementation
+session should start Ticket 6: Kuis/Tryout assembly attachment and Review
+wiring. Preserve the unrelated dirty admin-preview files and do not deploy,
+reset, or reseed migration 31 without explicit approval.
