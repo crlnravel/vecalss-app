@@ -70,7 +70,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
 
       <div className="flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
         <ShieldAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary-800" />
-        <p><strong className="font-semibold text-secondary-900">Sinyal fokus dan layar penuh hanya untuk review manusia.</strong> Tidak ada penalti skor, pencabutan admission, void attempt, atau blokir hasil otomatis dari sinyal ini.</p>
+        <p><strong className="font-semibold text-secondary-900">Sinyal fokus dan layar penuh hanya untuk review manusia.</strong> Tidak ada penalti skor, pencabutan admission, void attempt, atau blokir hasil otomatis dari sinyal ini. Status Terputus hanya muncul dari marker lifecycle server; telemetri start/reconcile belum menjadi bagian dari AS-07.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

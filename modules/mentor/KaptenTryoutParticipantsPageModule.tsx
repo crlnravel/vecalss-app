@@ -60,7 +60,7 @@ function KaptenTryoutParticipantsPageModule({
                 <CardContent className="grid gap-2 text-sm text-secondary-600 sm:grid-cols-3">
                   <span><strong className="font-medium text-secondary-800">Sesi:</strong> {participant.session?.name ?? "Belum ditugaskan"} · {participantSessionStateLabels[participant.session?.state ?? "not_assigned"]}</span>
                   <span><strong className="font-medium text-secondary-800">Attempt:</strong> {participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] ?? participant.attempt.attemptState : "Belum mulai"}</span>
-                  <span><strong className="font-medium text-secondary-800">Nilai:</strong> {participant.score.score === null ? "Belum dihitung" : Number(participant.score.score).toFixed(2)}</span>
+                  <span><strong className="font-medium text-secondary-800">Nilai:</strong> {participant.score.score === null ? participant.score.scoringState === "not_started" ? "Belum dihitung" : "Menunggu rilis" : Number(participant.score.score).toFixed(2)}</span>
                 </CardContent>
               </Card>
             </Link>

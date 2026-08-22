@@ -4,15 +4,17 @@ import { readFile } from "node:fs/promises";
 import {
   deriveTryoutLiveProjection,
   deriveTryoutResultProjection,
+  sanitizeTryoutWorkspaceParticipant,
 } from "../lib/tryout/operations-projections";
 
-const [delivery, operations, workspace, live, attempts, results] = await Promise.all([
+const [delivery, operations, workspace, live, attempts, results, participants] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutLivePageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutAttemptsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutResultsPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenTryoutParticipantsPageModule.tsx", import.meta.url), "utf8"),
 ]);
 
 const baseRun = {
@@ -96,6 +98,19 @@ assert.equal(review.resultReadiness, "review_required");
 assert.equal(review.scoreVisible, false);
 assert.equal(review.rankingAvailability, "pending");
 
+const participantFixture = {
+  attempt: { normalizedScore: "91", rawScore: "92", scaledScore: "91", score: "91" },
+  score: { normalizedScore: "91", rawScore: "92", scaledScore: "91", score: "91" },
+};
+const hiddenParticipant = sanitizeTryoutWorkspaceParticipant(participantFixture, false);
+assert.equal(hiddenParticipant.attempt?.score, null);
+assert.equal(hiddenParticipant.attempt?.normalizedScore, null);
+assert.equal(hiddenParticipant.score.score, null);
+assert.equal(hiddenParticipant.score.rawScore, null);
+const releasedParticipant = sanitizeTryoutWorkspaceParticipant(participantFixture, true);
+assert.equal(releasedParticipant.attempt?.score, "91");
+assert.equal(releasedParticipant.score.score, "91");
+
 for (const label of ["Live", "Attempts", "Results", "Schedule & akses"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
 assert.match(workspace, /value="live"/u);
 assert.match(workspace, /value="attempts"/u);
@@ -112,11 +127,14 @@ assert.match(operations, /\["rejected", "revoked"\]/u);
 assert.match(operations, /answer\.selectedOptionId \|\| answer\.answerText\?\.trim\(\)/u);
 assert.match(operations, /eligibleRankingAttempts/u);
 assert.match(operations, /resultReleaseReady/u);
+assert.match(operations, /toTryoutWorkspaceView/u);
+assert.match(operations, /sanitizeTryoutWorkspaceParticipant/u);
 assert.doesNotMatch(operations, /participant: attempt\.student,\n\s+score: attempt\.score/u, "results must not carry raw hidden scores");
 assert.match(operations, /toOperationsReleaseMetadata/u);
 assert.doesNotMatch(operations, /payload: release\.payload/u, "operations client DTO must not include release payloads");
 const builderPage = await readFile(new URL("../app/mentor/tryout/[tryoutId]/page.tsx", import.meta.url), "utf8");
-assert.match(builderPage, /attempts: \[\]/u, "authoring workspace must not receive raw session attempts");
+assert.match(builderPage, /toTryoutWorkspaceView/u, "authoring workspace must receive the gated participant DTO");
+assert.match(operations, /attempts: \[\]/u, "authoring workspace must not receive raw session attempts");
 assert.match(delivery, /answers:\s*\{\s*select:/u);
 assert.doesNotMatch(delivery.slice(delivery.lastIndexOf("answers:")), /isCorrect/u, "operations reads must not select answer correctness fields");
 assert.match(live, /registered/u);
@@ -125,6 +143,7 @@ assert.match(live, /disconnected/u);
 assert.match(live, /needs_attention/u);
 assert.match(live, /cat_failure/u);
 assert.match(live, /tidak ada penalti skor/iu);
+assert.match(live, /marker lifecycle server/iu);
 assert.match(attempts, /integrityEventTrail/u);
 assert.match(attempts, /catResolutionAudits/u);
 assert.match(attempts, /remainingSeconds/u);
@@ -134,5 +153,6 @@ assert.match(results, /scoreVisible/u);
 assert.match(results, /rankingAvailabilityLabels/u);
 assert.match(results, /operations\/participants\/\$\{result\.admissionId\}/u);
 assert.match(results, /bundle hasil parsial/u);
+assert.match(participants, /Menunggu rilis/u);
 
 console.log("Tryout Live, Attempts, and Results workspace contracts passed.");

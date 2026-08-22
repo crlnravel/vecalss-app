@@ -7,6 +7,7 @@ import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
 import {
   deriveTryoutLiveProjection,
   deriveTryoutResultProjection,
+  sanitizeTryoutWorkspaceParticipant,
 } from "@/lib/tryout/operations-projections";
 import {
   safeParticipantIdentity,
@@ -417,6 +418,26 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
   };
 }
 
+function toTryoutWorkspaceView(view: TryoutOperationsView): TryoutOperationsView {
+  return {
+    ...view,
+    participants: view.participants.map((participant) => {
+      const scoreVisible = participant.attempt?.id
+        ? view.results.some((result) =>
+            result.admissionId === participant.admissionId
+            && result.attemptId === participant.attempt?.id
+            && result.scoreVisible,
+          )
+        : false;
+      return sanitizeTryoutWorkspaceParticipant(participant, scoreVisible);
+    }),
+    sessions: view.sessions.map((session) => ({
+      ...session,
+      attempts: [],
+    })),
+  };
+}
+
 async function getOwnedTryoutOperationsView(
   tryoutId: string,
   actorId: string,
@@ -429,5 +450,5 @@ async function getOwnedTryoutOperationsView(
   return serializeTryoutOperations(operations);
 }
 
-export { getOwnedTryoutOperationsView, serializeTryoutOperations };
+export { getOwnedTryoutOperationsView, serializeTryoutOperations, toTryoutWorkspaceView };
 export type { TryoutOperationsView };

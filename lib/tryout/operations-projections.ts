@@ -80,6 +80,21 @@ type ResultProjection = {
   scoreVisible: boolean;
 };
 
+type WorkspaceParticipantInput = {
+  attempt: {
+    normalizedScore: string | null;
+    rawScore: string | null;
+    scaledScore: string | null;
+    score: string | null;
+  } | null;
+  score: {
+    normalizedScore: string | null;
+    rawScore: string | null;
+    scaledScore: string | null;
+    score: string | null;
+  };
+};
+
 const liveStateLabels: Record<LiveState, string> = {
   cat_failure: "CAT gagal",
   checked_in: "Sudah check-in",
@@ -137,6 +152,9 @@ function deriveTryoutLiveProjection(input: {
   const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const activeRunExpired = typeof activeRun?.remainingSeconds === "number" && activeRun.remainingSeconds <= 0;
   const failedCatRun = attempt.runs.find((run) => run.catState === "failed") ?? null;
+  // Disconnected is intentionally marker-driven. Do not infer it from a
+  // client timer or an integrity event; the authorized lifecycle writer is a
+  // future telemetry slice.
   const activeDisconnect = Boolean(attempt.disconnectStartedAt && !attempt.reconciledAt);
   const reviewRun = attempt.runs.find((run) => run.scoringState === "review_required") ?? null;
   const reviewRequired = attempt.scoringState === "review_required" || Boolean(reviewRun);
@@ -297,6 +315,32 @@ function deriveTryoutResultProjection(input: {
   };
 }
 
+function sanitizeTryoutWorkspaceParticipant<T extends WorkspaceParticipantInput>(
+  participant: T,
+  scoreVisible: boolean,
+): T {
+  const score = (value: WorkspaceParticipantInput["score"]) => ({
+    ...value,
+    normalizedScore: scoreVisible ? value.normalizedScore : null,
+    rawScore: scoreVisible ? value.rawScore : null,
+    scaledScore: scoreVisible ? value.scaledScore : null,
+    score: scoreVisible ? value.score : null,
+  });
+  return {
+    ...participant,
+    attempt: participant.attempt
+      ? {
+          ...participant.attempt,
+          normalizedScore: scoreVisible ? participant.attempt.normalizedScore : null,
+          rawScore: scoreVisible ? participant.attempt.rawScore : null,
+          scaledScore: scoreVisible ? participant.attempt.scaledScore : null,
+          score: scoreVisible ? participant.attempt.score : null,
+        }
+      : null,
+    score: score(participant.score),
+  };
+}
+
 export {
   deriveTryoutLiveProjection,
   deriveTryoutResultProjection,
@@ -304,6 +348,7 @@ export {
   rankingAvailabilityLabels,
   resultReadinessLabels,
   resultReleaseStateLabels,
+  sanitizeTryoutWorkspaceParticipant,
 };
 export type {
   LiveAttemptInput,
