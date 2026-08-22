@@ -27,6 +27,7 @@ import {
   X,
 } from "@/lib/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   AlertDialog,
@@ -86,7 +87,7 @@ import { duplicateTryoutAction, saveTryoutAction } from "@/modules/mentor/tryout
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
 type SubjectCode = (typeof subjectCodes)[number];
-type SelectionMode = "direct" | "set";
+type SelectionMode = "direct" | "set" | "pool" | "blueprint" | "cat_pool";
 type SelectionModes = Partial<Record<SubjectCode, SelectionMode>>;
 type DirectQuestionDraft = {
   bankId?: string;
@@ -163,6 +164,39 @@ type SourceQuestion = {
   questionRevisionId?: string;
   subjectCode: string;
 };
+type MockPoolCandidate = {
+  bankTitle: string;
+  catReady: boolean;
+  difficulty: "easy" | "medium" | "hard";
+  hasExplanation: boolean;
+  hasReadyMedia: boolean;
+  id: string;
+  prompt: string;
+  selected: boolean;
+  stale?: boolean;
+};
+type PoolMockDraft = {
+  candidates: MockPoolCandidate[];
+  drawCount: number;
+  name: string;
+  previewSeed: string;
+  previewState: "idle" | "sample" | "shortage" | "stale";
+};
+type BlueprintMockDraft = {
+  easy: number;
+  hard: number;
+  medium: number;
+  name: string;
+  selectedBankIds: string[];
+  shortagePreview: boolean;
+  total: number;
+};
+type CatPoolMockCandidate = MockPoolCandidate & { included: boolean };
+type CatPoolMockDraft = {
+  candidates: CatPoolMockCandidate[];
+  deliveredCount: number;
+  name: string;
+};
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "results" | "review" | "publish";
 
 const workspaceItems: Array<{ label: string; value: Workspace }> = [
@@ -223,6 +257,56 @@ function subjectName(code: SubjectCode) {
   return kaptenSubjects.find((subject) => subject.code === code)?.name ?? code;
 }
 
+const mockBankOptions = [
+  { id: "mock-bank-teras", title: "Bank UTBK Teras" },
+  { id: "mock-bank-jelajah", title: "Bank UTBK Jelajah" },
+] as const;
+
+function mockPoolCandidatesFor(subtest: SubjectCode): MockPoolCandidate[] {
+  const subject = subjectName(subtest);
+  const difficulties: MockPoolCandidate["difficulty"][] = ["easy", "medium", "medium", "hard", "easy", "hard"];
+  return difficulties.map((difficulty, index) => ({
+    bankTitle: mockBankOptions[index % mockBankOptions.length]?.title ?? "Bank Soal contoh",
+    catReady: index !== 4,
+    difficulty,
+    hasExplanation: true,
+    hasReadyMedia: true,
+    id: `mock-${subtest.toLowerCase()}-${index + 1}`,
+    prompt: `${subject} · contoh kandidat soal ${index + 1} untuk menguji alur Pool.`,
+    selected: index < 4,
+  }));
+}
+
+function defaultPoolMockDraft(subtest: SubjectCode): PoolMockDraft {
+  return {
+    candidates: mockPoolCandidatesFor(subtest),
+    drawCount: 3,
+    name: `Pool ${subtest} · contoh`,
+    previewSeed: "preview-7D3A",
+    previewState: "idle",
+  };
+}
+
+function defaultBlueprintMockDraft(): BlueprintMockDraft {
+  return {
+    easy: 5,
+    hard: 5,
+    medium: 10,
+    name: "Blueprint PU · contoh",
+    selectedBankIds: [mockBankOptions[0].id],
+    shortagePreview: false,
+    total: 20,
+  };
+}
+
+function defaultCatPoolMockDraft(subtest: SubjectCode): CatPoolMockDraft {
+  return {
+    candidates: mockPoolCandidatesFor(subtest).map((candidate) => ({ ...candidate, included: candidate.selected })),
+    deliveredCount: 3,
+    name: `CAT Pool ${subtest} · contoh`,
+  };
+}
+
 function releaseFor(
   draft: TryoutDraft,
   operationsInitial?: TryoutOperationsView,
@@ -245,6 +329,183 @@ function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
         <h2 className="text-lg font-semibold text-secondary-900">Simpan draf untuk membuka ruang ini</h2>
         <p className="text-sm leading-6 text-secondary-600">Basics, Sections, dan Review bisa disiapkan sekarang. Jadwal, peserta, dan hasil akan tersambung setelah Tryout memiliki ID.</p>
         <Button onClick={onSaveDraft} variant="brand">Simpan draf</Button>
+      </div>
+    </section>
+  );
+}
+
+function MockFlowNotice({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-accent-300/70 bg-accent-200/45 px-4 py-3 text-sm leading-6 text-secondary-800" role="status">
+      <SlidersHorizontal className="mt-1 size-4 shrink-0 text-primary-800" />
+      <div className="min-w-0">
+        <p className="font-semibold text-secondary-900">Mock flow lokal · belum tersimpan</p>
+        <p>{children}</p>
+      </div>
+    </div>
+  );
+}
+
+function MockDifficultyLabel({ difficulty }: { difficulty: MockPoolCandidate["difficulty"] }) {
+  return <span>{difficulty === "easy" ? "Mudah" : difficulty === "hard" ? "Sulit" : "Sedang"}</span>;
+}
+
+function PoolMockPanel({
+  draft,
+  locked,
+  onChange,
+}: {
+  draft: PoolMockDraft;
+  locked: boolean;
+  onChange: (change: Partial<PoolMockDraft>) => void;
+}) {
+  const selectedCandidates = draft.candidates.filter((candidate) => candidate.selected);
+  const selectedStale = selectedCandidates.filter((candidate) => candidate.stale);
+  const previewCandidates = selectedCandidates.filter((candidate) => !candidate.stale).slice(0, draft.drawCount);
+  const previewResult = draft.previewState === "sample"
+    ? `Contoh ${previewCandidates.length} soal dari ${selectedCandidates.length} kandidat.`
+    : draft.previewState === "stale"
+      ? "Satu kandidat perlu ditinjau sebelum sample dapat dipakai."
+      : draft.previewState === "shortage"
+        ? `Butuh ${draft.drawCount} soal, baru ${selectedCandidates.length} kandidat yang dipilih.`
+        : "Pilih kandidat lalu lihat sample ilustratifnya.";
+  const toggleCandidate = (id: string) => onChange({
+    candidates: draft.candidates.map((candidate) => candidate.id === id ? { ...candidate, selected: !candidate.selected } : candidate),
+    previewState: "idle",
+  });
+  const toggleStale = () => {
+    const target = selectedCandidates[0] ?? draft.candidates[0];
+    if (!target) return;
+    onChange({
+      candidates: draft.candidates.map((candidate) => candidate.id === target.id ? { ...candidate, selected: true, stale: !candidate.stale } : candidate),
+      previewState: "idle",
+    });
+  };
+  const preview = () => onChange({
+    previewSeed: "preview-7D3A",
+    previewState: selectedStale.length ? "stale" : selectedCandidates.length < draft.drawCount ? "shortage" : "sample",
+  });
+
+  return (
+    <section aria-labelledby="pool-mock-title" className="grid gap-5 rounded-2xl border border-primary-200 bg-primary-50/45 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-secondary-900" id="pool-mock-title">Pool Soal · contoh alur</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Tetapkan kandidat sekarang. Bentuk final baru diundi sekali saat AssessmentRelease dibuat.</p>
+        </div>
+        <Badge className="rounded-full" size="ui" variant="accent">Preview</Badge>
+      </div>
+      <MockFlowNotice>Data di bawah hanya fixture untuk menyepakati interaksi. Tidak ada Pool, revisi, atau rilis yang dibuat dari layar ini.</MockFlowNotice>
+      <div className="grid gap-4 lg:grid-cols-[minmax(14rem,.72fr)_minmax(0,1.28fr)]">
+        <div className="grid content-start gap-4">
+          <Field>
+            <FieldLabel htmlFor="pool-mock-name">Nama Pool</FieldLabel>
+            <FieldInput disabled={locked} id="pool-mock-name" onChange={(event) => onChange({ name: event.target.value })} value={draft.name} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="pool-mock-draw-count">Jumlah soal yang diambil</FieldLabel>
+            <FieldInput disabled={locked} id="pool-mock-draw-count" min="1" onChange={(event) => onChange({ drawCount: Math.max(1, Number(event.target.value) || 1), previewState: "idle" })} type="number" value={draft.drawCount} />
+            <p className="mt-1 text-xs leading-5 text-secondary-500">Preview memakai seed sementara {draft.previewSeed}; seed rilis dibuat server saat publish.</p>
+          </Field>
+          <div className="rounded-2xl border border-primary-100 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Ringkasan Pool</p>
+            <dl className="mt-3 grid gap-2 text-sm">
+              <div className="flex justify-between gap-3"><dt className="text-secondary-500">Kandidat dipilih</dt><dd className="font-semibold text-secondary-900">{selectedCandidates.length}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-secondary-500">Jumlah diambil</dt><dd className="font-semibold text-secondary-900">{draft.drawCount}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-secondary-500">Status sample</dt><dd className="font-semibold text-secondary-900">{draft.previewState === "sample" ? "Tersedia" : "Belum dilihat"}</dd></div>
+            </dl>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={locked} onClick={preview} size="sm" variant="brand"><Eye />Lihat sample</Button>
+            <Button disabled={locked || !draft.candidates.length} onClick={toggleStale} size="sm" variant="brandOutline">Uji kandidat stale</Button>
+          </div>
+        </div>
+        <div className="grid min-w-0 gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="font-semibold text-secondary-900">Pilih kandidat Pool</h4>
+              <p className="text-sm leading-6 text-secondary-600">Kandidat eksplisit dapat berasal dari lebih dari satu Bank Soal.</p>
+            </div>
+            <span className="text-xs font-semibold text-secondary-500">{selectedCandidates.length} dipilih</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {draft.candidates.map((candidate) => (
+              <Button
+                aria-pressed={candidate.selected}
+                className={`h-auto min-h-28 w-full min-w-0 max-w-full items-start justify-between overflow-hidden rounded-2xl border p-3 text-left ${candidate.selected ? "border-primary-300 bg-white text-secondary-900" : "border-primary-100 bg-white/75 text-secondary-700"}`}
+                disabled={locked}
+                key={candidate.id}
+                onClick={() => toggleCandidate(candidate.id)}
+                variant="ghost"
+              >
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-primary-800"><MockDifficultyLabel difficulty={candidate.difficulty} /><span className="text-secondary-400">·</span><span className="truncate text-secondary-500">{candidate.bankTitle}</span></span>
+                  <span className="mt-1 block line-clamp-3 text-sm leading-5">{candidate.prompt}</span>
+                  {candidate.stale ? <span className="mt-2 block text-xs font-semibold text-[#8a5e00]">Perlu ditinjau sebelum publish</span> : null}
+                </span>
+                <span aria-hidden="true" className={`ml-2 grid size-6 shrink-0 place-items-center rounded-lg ${candidate.selected ? "bg-primary-700 text-white" : "bg-primary-50 text-primary-700"}`}>{candidate.selected ? <Check className="size-4" /> : <Plus className="size-4" />}</span>
+              </Button>
+            ))}
+          </div>
+          <div aria-live="polite" className={`rounded-2xl border p-4 text-sm leading-6 ${draft.previewState === "stale" || draft.previewState === "shortage" ? "border-accent-300 bg-accent-200/35 text-secondary-800" : "border-primary-100 bg-white text-secondary-700"}`}>
+            <div className="flex items-start gap-3"><ListChecks className="mt-1 size-4 shrink-0 text-primary-800" /><div><p className="font-semibold text-secondary-900">{draft.previewState === "sample" ? "Sample ilustratif" : "Belum menjadi form rilis"}</p><p>{previewResult}</p>{draft.previewState === "sample" ? <ol className="mt-2 grid gap-1 text-xs text-secondary-600">{previewCandidates.map((candidate, index) => <li key={candidate.id}>{index + 1}. {candidate.prompt}</li>)}</ol> : null}</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BlueprintMockPanel({
+  draft,
+  locked,
+  onChange,
+}: {
+  draft: BlueprintMockDraft;
+  locked: boolean;
+  onChange: (change: Partial<BlueprintMockDraft>) => void;
+}) {
+  const quotaSum = draft.easy + draft.medium + draft.hard;
+  const quotaValid = quotaSum === draft.total && draft.total > 0 && draft.selectedBankIds.length > 0;
+  return (
+    <section aria-labelledby="blueprint-mock-title" className="grid gap-5 rounded-2xl border border-primary-200 bg-primary-50/45 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-semibold text-secondary-900" id="blueprint-mock-title">Blueprint · contoh alur</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Satu Section, satu Subtest aktif, dengan scope Bank dan kuota kesulitan yang eksplisit.</p></div><Badge className="rounded-full" size="ui" variant="accent">Preview</Badge></div>
+      <MockFlowNotice>Blueprint menyimpan aturan scope, bukan daftar soal final. Ketersediaan Easy, Medium, dan Hard baru dipastikan saat publish.</MockFlowNotice>
+      <div className="grid gap-4 lg:grid-cols-[minmax(14rem,.7fr)_minmax(0,1.3fr)]">
+        <div className="grid content-start gap-4">
+          <Field><FieldLabel htmlFor="blueprint-mock-name">Nama Blueprint</FieldLabel><FieldInput disabled={locked} id="blueprint-mock-name" onChange={(event) => onChange({ name: event.target.value })} value={draft.name} /></Field>
+          <Field><FieldLabel htmlFor="blueprint-mock-total">Total soal</FieldLabel><FieldInput disabled={locked} id="blueprint-mock-total" min="1" onChange={(event) => onChange({ total: Math.max(1, Number(event.target.value) || 1) })} type="number" value={draft.total} /></Field>
+          <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Scope Bank</p><div className="mt-3 grid gap-2">{mockBankOptions.map((bank) => { const selected = draft.selectedBankIds.includes(bank.id); return <Button aria-pressed={selected} className="h-auto justify-between rounded-xl px-3 py-2.5 text-left" disabled={locked} key={bank.id} onClick={() => onChange({ selectedBankIds: selected ? draft.selectedBankIds.filter((id) => id !== bank.id) : [...draft.selectedBankIds, bank.id] })} variant={selected ? "contextSelected" : "ghost"}><span className="truncate">{bank.title}</span>{selected ? <Check /> : <Plus />}</Button>; })}</div><p className="mt-2 text-xs leading-5 text-secondary-500">Folder dan kategori dapat mempersempit union Bank pada versi berikutnya.</p></div>
+        </div>
+        <div className="grid content-start gap-4">
+          <div className="grid gap-3 sm:grid-cols-3"><Field><FieldLabel htmlFor="blueprint-mock-easy">Mudah</FieldLabel><FieldInput disabled={locked} id="blueprint-mock-easy" min="0" onChange={(event) => onChange({ easy: Math.max(0, Number(event.target.value) || 0) })} type="number" value={draft.easy} /></Field><Field><FieldLabel htmlFor="blueprint-mock-medium">Sedang</FieldLabel><FieldInput disabled={locked} id="blueprint-mock-medium" min="0" onChange={(event) => onChange({ medium: Math.max(0, Number(event.target.value) || 0) })} type="number" value={draft.medium} /></Field><Field><FieldLabel htmlFor="blueprint-mock-hard">Sulit</FieldLabel><FieldInput disabled={locked} id="blueprint-mock-hard" min="0" onChange={(event) => onChange({ hard: Math.max(0, Number(event.target.value) || 0) })} type="number" value={draft.hard} /></Field></div>
+          <div className={`rounded-2xl border p-4 text-sm leading-6 ${quotaValid && !draft.shortagePreview ? "border-primary-100 bg-white text-secondary-700" : "border-accent-300 bg-accent-200/35 text-secondary-800"}`} role="status"><p className="font-semibold text-secondary-900">{draft.shortagePreview ? "Contoh shortage report" : quotaValid ? "Kuota siap diperiksa" : "Kuota belum valid"}</p><p>{draft.shortagePreview ? "Easy 4 tersedia / 5 diminta · publish diblokir tanpa fallback." : `${quotaSum} dari ${draft.total} kuota terisi. Semua kuota harus berjumlah tepat sama dengan total.`}</p></div>
+          <div className="flex flex-wrap gap-2"><Button disabled={locked} onClick={() => onChange({ shortagePreview: !draft.shortagePreview })} size="sm" variant="brandOutline">{draft.shortagePreview ? "Kembali ke kuota" : "Uji shortage"}</Button><span className="self-center text-xs text-secondary-500">Tidak ada fallback lintas kesulitan.</span></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CatPoolMockPanel({
+  draft,
+  locked,
+  onChange,
+}: {
+  draft: CatPoolMockDraft;
+  locked: boolean;
+  onChange: (change: Partial<CatPoolMockDraft>) => void;
+}) {
+  const includedCandidates = draft.candidates.filter((candidate) => candidate.included);
+  const readyCandidates = includedCandidates.filter((candidate) => candidate.catReady);
+  const ready = readyCandidates.length >= draft.deliveredCount && readyCandidates.length === includedCandidates.length;
+  return (
+    <section aria-labelledby="cat-pool-mock-title" className="grid gap-5 rounded-2xl border border-primary-200 bg-primary-50/45 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-semibold text-secondary-900" id="cat-pool-mock-title">CAT Pool · contoh alur</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Kandidat eksplisit dengan kalibrasi canonical 2PL yang dipin saat rilis Tryout.</p></div><Badge className="rounded-full" size="ui" variant="accent">Tryout only</Badge></div>
+      <MockFlowNotice>CAT Pool belum dapat dipakai untuk Kuis. Kandidat di bawah adalah fixture lokal untuk menyepakati readiness dan headroom.</MockFlowNotice>
+      <div className="grid gap-4 lg:grid-cols-[minmax(14rem,.7fr)_minmax(0,1.3fr)]">
+        <div className="grid content-start gap-4"><Field><FieldLabel htmlFor="cat-pool-mock-name">Nama CAT Pool</FieldLabel><FieldInput disabled={locked} id="cat-pool-mock-name" onChange={(event) => onChange({ name: event.target.value })} value={draft.name} /></Field><Field><FieldLabel htmlFor="cat-pool-mock-delivered">Jumlah soal dikirim</FieldLabel><FieldInput disabled={locked} id="cat-pool-mock-delivered" min="1" onChange={(event) => onChange({ deliveredCount: Math.max(1, Number(event.target.value) || 1) })} type="number" value={draft.deliveredCount} /></Field><div className="rounded-2xl border border-primary-100 bg-white p-4 text-sm leading-6"><p className="font-semibold text-secondary-900">{ready ? "CAT readiness terlihat siap" : "CAT readiness punya blocker"}</p><p className="mt-1 text-secondary-600">{readyCandidates.length} kandidat berkalibrasi dari {includedCandidates.length} dipilih · minimum {draft.deliveredCount}.</p></div></div>
+          <div className="grid gap-2 sm:grid-cols-2">{draft.candidates.map((candidate) => <Button aria-pressed={candidate.included} className={`h-auto min-h-24 w-full min-w-0 max-w-full items-start justify-between overflow-hidden rounded-2xl border p-3 text-left ${candidate.included ? "border-primary-300 bg-white text-secondary-900" : "border-primary-100 bg-white/75 text-secondary-700"}`} disabled={locked} key={candidate.id} onClick={() => onChange({ candidates: draft.candidates.map((item) => item.id === candidate.id ? { ...item, included: !item.included } : item) })} variant="ghost"><span className="min-w-0 max-w-full"><span className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-primary-800"><MockDifficultyLabel difficulty={candidate.difficulty} /><span className="text-secondary-400">·</span><span className="truncate text-secondary-500">{candidate.bankTitle}</span></span><span className="mt-1 block line-clamp-2 break-words text-sm leading-5">{candidate.prompt}</span><span className={`mt-2 block text-xs font-semibold ${candidate.catReady ? "text-primary-700" : "text-[#8a5e00]"}`}>{candidate.catReady ? "2PL siap" : "Kalibrasi perlu ditinjau"}</span></span><span aria-hidden="true" className={`ml-2 grid size-6 shrink-0 place-items-center rounded-lg ${candidate.included ? "bg-primary-700 text-white" : "bg-primary-50 text-primary-700"}`}>{candidate.included ? <Check className="size-4" /> : <Plus className="size-4" />}</span></Button>)}</div>
       </div>
     </section>
   );
@@ -295,6 +556,9 @@ function KaptenTryoutBuilderPageModule({
   const [sourceQuestionTotal, setSourceQuestionTotal] = useState(0);
   const [sourceQuestionLoading, setSourceQuestionLoading] = useState(false);
   const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[]>([]);
+  const [poolMockDrafts, setPoolMockDrafts] = useState<Partial<Record<SubjectCode, PoolMockDraft>>>({});
+  const [blueprintMockDrafts, setBlueprintMockDrafts] = useState<Partial<Record<SubjectCode, BlueprintMockDraft>>>({});
+  const [catPoolMockDrafts, setCatPoolMockDrafts] = useState<Partial<Record<SubjectCode, CatPoolMockDraft>>>({});
   const [publishOpen, setPublishOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -341,6 +605,10 @@ function KaptenTryoutBuilderPageModule({
   );
   const activeSelectionMode = selectionModes[activeSection.subtest] ?? (activeSection.packageVersionId ? "set" : "direct");
   const activeDirectQuestions = activeSection.directQuestions ?? [];
+  const activePoolMockDraft = poolMockDrafts[activeSection.subtest] ?? defaultPoolMockDraft(activeSection.subtest);
+  const activeBlueprintMockDraft = blueprintMockDrafts[activeSection.subtest] ?? defaultBlueprintMockDraft();
+  const activeCatPoolMockDraft = catPoolMockDrafts[activeSection.subtest] ?? defaultCatPoolMockDraft(activeSection.subtest);
+  const hasLocalMockAssembly = draft.sections.some((section) => ["pool", "blueprint", "cat_pool"].includes(selectionModes[section.subtest] ?? ""));
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
   const release = releaseFor(draft, operationsInitial);
@@ -361,11 +629,14 @@ function KaptenTryoutBuilderPageModule({
     setSourceQuestions([]);
   };
 
-  const chooseSelectionMode = (mode: "direct" | "set") => {
+  const chooseSelectionMode = (mode: SelectionMode) => {
     setSelectionModes((current) => ({ ...current, [activeCode]: mode }));
     update(activeCode, mode === "direct"
       ? { directQuestions: activeSection.directQuestions ?? [], packageVersionId: undefined, packageVersionLabel: undefined }
       : { directQuestions: [], packageVersionId: undefined, packageVersionLabel: undefined });
+    if (mode === "pool") setPoolMockDrafts((current) => ({ ...current, [activeCode]: current[activeCode] ?? defaultPoolMockDraft(activeCode) }));
+    if (mode === "blueprint") setBlueprintMockDrafts((current) => ({ ...current, [activeCode]: current[activeCode] ?? defaultBlueprintMockDraft() }));
+    if (mode === "cat_pool") setCatPoolMockDrafts((current) => ({ ...current, [activeCode]: current[activeCode] ?? defaultCatPoolMockDraft(activeCode) }));
     setError(null);
   };
 
@@ -395,6 +666,11 @@ function KaptenTryoutBuilderPageModule({
   };
 
   const save = async (status: "draft" | "published" = "draft") => {
+    if (hasLocalMockAssembly) {
+      setError("Pool, Blueprint, dan CAT Pool masih berupa mock flow lokal. Pilih Direct atau Set Soal siap sebelum menyimpan Tryout.");
+      setWorkspace("questions");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -456,7 +732,7 @@ function KaptenTryoutBuilderPageModule({
   };
 
   useEffect(() => {
-    if (workspace !== "questions") return;
+    if (workspace !== "questions" || activeSelectionMode !== "direct") return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setSourceBankLoading(true);
@@ -481,10 +757,10 @@ function KaptenTryoutBuilderPageModule({
       }
     }, sourceBankSearch.trim() ? 250 : 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [activeSection.subtest, sourceBankPage, sourceBankSearch, workspace]);
+  }, [activeSection.subtest, activeSelectionMode, sourceBankPage, sourceBankSearch, workspace]);
 
   useEffect(() => {
-    if (workspace !== "questions" || !browseBankId) return;
+    if (workspace !== "questions" || activeSelectionMode !== "direct" || !browseBankId) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setSourceQuestionLoading(true);
@@ -509,7 +785,7 @@ function KaptenTryoutBuilderPageModule({
       }
     }, sourceQuestionSearch.trim() ? 200 : 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [activeSection.subtest, browseBankId, sourceQuestionPage, sourceQuestionSearch, workspace]);
+  }, [activeSection.subtest, activeSelectionMode, browseBankId, sourceQuestionPage, sourceQuestionSearch, workspace]);
 
   useEffect(() => {
     const label = workspaceItems.find((item) => item.value === workspace)?.label;
@@ -543,7 +819,7 @@ function KaptenTryoutBuilderPageModule({
               </Button>
             ) : (
               <>
-                <Button disabled={saving} onClick={() => void save("draft")} size="sm" variant="brandOutline">
+                <Button disabled={saving || hasLocalMockAssembly} onClick={() => void save("draft")} size="sm" variant="brandOutline">
                   <Save />
                   {saving ? "Menyimpan…" : "Simpan draft"}
                 </Button>
@@ -656,7 +932,7 @@ function KaptenTryoutBuilderPageModule({
                         <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-secondary-50 text-xs font-bold text-secondary-600">{String(index + 1).padStart(2, "0")}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-semibold">{section.subtest} · {subjectName(section.subtest)}</span>
-                          <span className={`mt-0.5 block text-xs ${section.packageVersionId || section.directQuestions?.length ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Set siap" : section.directQuestions?.length ? `${section.directQuestions.length} soal langsung` : "Sumber belum dipilih"}</span>
+                          <span className={`mt-0.5 block text-xs ${section.packageVersionId || section.directQuestions?.length ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? "Set siap" : section.directQuestions?.length ? `${section.directQuestions.length} soal langsung` : ["pool", "blueprint", "cat_pool"].includes(selectionModes[section.subtest] ?? "") ? "Assembly mock" : "Sumber belum dipilih"}</span>
                         </span>
                         {section.packageVersionId || section.directQuestions?.length ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
                       </Button>
@@ -671,7 +947,7 @@ function KaptenTryoutBuilderPageModule({
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Test {String(subjectCodes.indexOf(activeSection.subtest) + 1).padStart(2, "0")}</p>
                     <h3 className="mt-1 text-lg font-semibold text-secondary-900">{activeSection.subtest} · {subjectName(activeSection.subtest)}</h3>
                   </div>
-                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? "Set siap" : activeSection.directQuestions?.length ? "Soal siap" : "Perlu sumber"}</Badge>
+                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? "Set siap" : activeSection.directQuestions?.length ? "Soal siap" : ["pool", "blueprint", "cat_pool"].includes(activeSelectionMode) ? "Mock lokal" : "Perlu sumber"}</Badge>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   <Field>
@@ -704,7 +980,7 @@ function KaptenTryoutBuilderPageModule({
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-semibold text-secondary-900">Pilih Questions</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Ambil soal Ready langsung dari Bank Soal, atau gunakan Set Soal siap sebagai sumber yang dapat dipakai ulang. Pool acak dan blueprint tetap menjadi opsi lanjutan.</p>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih langsung, gunakan Set siap, atau uji alur Pool, Blueprint, dan CAT Pool. Tiga assembly baru di bawah ini masih berupa mock flow lokal.</p>
               </div>
               <Button onClick={() => goTo("sections")} variant="brandOutline">Kembali ke Sections</Button>
             </header>
@@ -729,12 +1005,26 @@ function KaptenTryoutBuilderPageModule({
                 </DropdownMenu>
               </div>
 
-              <div aria-label="Mode sumber soal" className="grid gap-2 rounded-2xl border border-primary-100 bg-white p-1 sm:grid-cols-2" role="radiogroup">
-                <Button aria-checked={activeSelectionMode === "direct"} className={`h-auto min-h-12 justify-start rounded-xl px-4 py-3 text-left ${activeSelectionMode === "direct" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("direct")} role="radio" variant="ghost">
-                  <span><span className="block font-semibold">Pilih soal langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pilih lintas Bank Soal untuk Section ini.</span></span>
+              <div aria-label="Mode sumber soal" className="grid gap-2 rounded-2xl border border-primary-100 bg-white p-1 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup">
+                <Button aria-checked={activeSelectionMode === "direct"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "direct" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("direct")} role="radio" variant="ghost">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Plus className="size-4" /></span>
+                  <span><span className="block font-semibold">Pilih langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pilih soal lintas Bank.</span></span>
                 </Button>
-                <Button aria-checked={activeSelectionMode === "set"} className={`h-auto min-h-12 justify-start rounded-xl px-4 py-3 text-left ${activeSelectionMode === "set" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("set")} role="radio" variant="ghost">
-                  <span><span className="block font-semibold">Gunakan Set Soal siap</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pakai assembly tetap yang sudah dirilis.</span></span>
+                <Button aria-checked={activeSelectionMode === "set"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "set" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("set")} role="radio" variant="ghost">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><ClipboardList className="size-4" /></span>
+                  <span><span className="block font-semibold">Set siap</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pakai koleksi tetap.</span></span>
+                </Button>
+                <Button aria-checked={activeSelectionMode === "pool"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "pool" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("pool")} role="radio" variant="ghost">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><SlidersHorizontal className="size-4" /></span>
+                  <span><span className="block font-semibold">Pool acak</span><span className="mt-0.5 block text-xs font-normal opacity-75">Undi saat publish.</span></span>
+                </Button>
+                <Button aria-checked={activeSelectionMode === "blueprint"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "blueprint" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("blueprint")} role="radio" variant="ghost">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><ListChecks className="size-4" /></span>
+                  <span><span className="block font-semibold">Blueprint</span><span className="mt-0.5 block text-xs font-normal opacity-75">Isi kuota kesulitan.</span></span>
+                </Button>
+                <Button aria-checked={activeSelectionMode === "cat_pool"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "cat_pool" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("cat_pool")} role="radio" variant="ghost">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><BarChart3 className="size-4" /></span>
+                  <span><span className="block font-semibold">CAT Pool</span><span className="mt-0.5 block text-xs font-normal opacity-75">Kandidat 2PL siap.</span></span>
                 </Button>
               </div>
 
@@ -774,6 +1064,12 @@ function KaptenTryoutBuilderPageModule({
                     <div className="rounded-2xl border border-primary-100 bg-white p-4"><p className="text-xs text-secondary-500">Snapshot</p><p className="mt-1 font-semibold text-secondary-900">{activeSection.packageVersionId ? "Dibuat saat simpan" : "Belum dibuat"}</p></div>
                   </div>
                 </div>
+              ) : activeSelectionMode === "pool" ? (
+                <PoolMockPanel draft={activePoolMockDraft} locked={draft.locked} onChange={(change) => setPoolMockDrafts((current) => ({ ...current, [activeCode]: { ...activePoolMockDraft, ...change } }))} />
+              ) : activeSelectionMode === "blueprint" ? (
+                <BlueprintMockPanel draft={activeBlueprintMockDraft} locked={draft.locked} onChange={(change) => setBlueprintMockDrafts((current) => ({ ...current, [activeCode]: { ...activeBlueprintMockDraft, ...change } }))} />
+              ) : activeSelectionMode === "cat_pool" ? (
+                <CatPoolMockPanel draft={activeCatPoolMockDraft} locked={draft.locked} onChange={(change) => setCatPoolMockDrafts((current) => ({ ...current, [activeCode]: { ...activeCatPoolMockDraft, ...change } }))} />
               ) : (
                 <div className="grid gap-5 lg:grid-cols-[minmax(15rem,.65fr)_minmax(0,1.35fr)]">
                   <div className="grid min-w-0 gap-4">
@@ -943,7 +1239,7 @@ function KaptenTryoutBuilderPageModule({
             </div>
             <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 text-sm leading-6 text-secondary-700 sm:flex-row sm:items-start"><CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" /><p>{release ? "Publish ulang hanya membuat rilis baru bila isi Tryout berubah. Sesi yang sudah terbuka tetap terikat pada rilis sebelumnya." : "Sesi peserta belum boleh dibuka sebelum memiliki AssessmentRelease. Setelah publish, buka sesi dari Schedule & akses."}</p></div>
             <footer className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-5">
-              {!draft.locked ? <Button disabled={saving} onClick={() => void save("draft")} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draft"}</Button> : null}
+              {!draft.locked ? <Button disabled={saving || hasLocalMockAssembly} onClick={() => void save("draft")} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draft"}</Button> : null}
               {!draft.locked ? <Button disabled={saving || !readyToPublish} onClick={() => setPublishOpen(true)} variant="brand"><Upload />{draft.status === "published" ? "Terbitkan pembaruan" : "Terbitkan Tryout"}</Button> : <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat salinan editable</Button>}
             </footer>
             {!readyToPublish && !draft.locked ? <p className="text-right text-sm text-[#8a5e00]">Lengkapi Review terlebih dahulu: {reviewFailures} pemeriksaan belum lulus.</p> : null}
