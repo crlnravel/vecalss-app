@@ -168,9 +168,16 @@ assert.match(release, /sourceRevisionProvenance/u);
 assert.match(release, /tryoutItem\.create/u);
 assert.match(release, /tryoutItemOption\.createMany/u);
 assert.match(release, /publicationIntentKey/u);
+assert.match(release, /publicationIntentKey === undefined\) return true/u);
+assert.match(release, /immutable pinned release/u);
+assert.match(release, /assessment-release-publication-intent-v1/u);
+assert.match(release, /createHash\("sha256"\)/u);
 assert.match(release, /ReusableQuestionPackageMode\.blueprint/u);
+assert.match(release, /TryoutDeliverySessionStatus\.active/u);
+assert.match(release, /membuat ulang assembly/u);
 assert.doesNotMatch(release, /ORDER BY random\(\)/u);
 assert.match(repository, /publicationIntentKey/u);
+assert.match(repository, /version\.mode === ReusableQuestionPackageMode\.blueprint\) return/u);
 assert.match(canonical, /assembly: section\.assembly \?\?/u);
 
 console.log("Random and Blueprint AssessmentRelease resolution contract passed.");

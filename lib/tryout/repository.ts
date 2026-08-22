@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
+import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, ReusableQuestionPackageMode, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
 import { createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
@@ -310,6 +310,10 @@ function validateTryoutInput(input: SaveTryoutInput) {
 }
 function assertReadyPackageVersion(version: Prisma.ReusableQuestionPackageVersionGetPayload<{ include: typeof versionInclude }>, subtest: SubjectCode) {
   if (version.status !== ContentStatus.published || version.package.subtest.code !== subtest) throw new TryoutValidationError(`Paket siap untuk Test ${subtest} tidak valid atau tidak cocok.`);
+  // Blueprint Ready revisions intentionally persist only their immutable scope
+  // and exact difficulty rule.  AssessmentRelease resolves current Ready
+  // sources and creates the physical TryoutItem bridge at publish time.
+  if (version.mode === ReusableQuestionPackageMode.blueprint) return;
   const readiness = packageVersionReadiness(version);
   if (!readiness.contentReady) throw new TryoutValidationError(`Sumber Test ${subtest} belum memiliki soal, opsi, penjelasan, atau media siap yang lengkap.`);
   if (!readiness.sourceQuestionIds.length || new Set(readiness.sourceQuestionIds).size !== readiness.sourceQuestionIds.length) throw new TryoutValidationError(`Sumber Test ${subtest} memiliki soal duplikat.`);

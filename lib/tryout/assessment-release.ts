@@ -8,6 +8,7 @@ import {
   QuestionRevisionProvenance,
   QuestionRevisionStatus,
   ReusableQuestionPackageMode,
+  TryoutDeliverySessionStatus,
 } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import {
@@ -639,6 +640,12 @@ function latestReleaseMatchesIntent(
     || section.assembly?.mode === ReusableQuestionPackageMode.blueprint,
   ) ?? [];
   if (!randomSections.length) return true;
+  // Delivery/open/retake callers predate publication intents and pass no key.
+  // They are read paths: on the same Tryout revision they must reuse the
+  // immutable pinned release, even if the author used an explicit key when
+  // publishing it. A deliberate new intent either increments the Tryout
+  // revision through saveTryout or supplies a new key to this boundary.
+  if (publicationIntentKey === undefined) return true;
   return randomSections.every((section) => section.assembly?.publicationIntentKey === publicationIntentKey);
 }
 
@@ -1197,6 +1204,19 @@ async function createOrReuseAssessmentRelease(
   if (hasSeededAssembly && latestReleaseMatchesIntent(tryout, publicationIntentKey)) {
     const latest = tryout.assessmentReleases[0];
     if (latest) return latest;
+  }
+  if (hasSeededAssembly) {
+    const participantAccessibleRelease = await tx.tryoutDeliverySession.findFirst({
+      where: {
+        assessmentReleaseId: { not: null },
+        status: TryoutDeliverySessionStatus.active,
+        tryoutId,
+      },
+      select: { id: true },
+    });
+    if (participantAccessibleRelease) {
+      throw new Error("Tryout memiliki sesi aktif yang telah mengikat AssessmentRelease. Tutup atau arsipkan sesi sebelum membuat ulang assembly.");
+    }
   }
 
   const resolved = await resolveAndMaterializeAssemblies(tx, tryout, publicationIntentKey);
