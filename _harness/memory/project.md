@@ -123,3 +123,24 @@ Store only settled decisions, conventions, and important context that emerged du
 - AS-04 is committed as `ae64528`; it requires no migration. A dedicated
   invitation-picker UI remains deferred because there is no existing mentor
   student-selector surface that invokes the invite action.
+
+## AS-05 Tryout authoring workspace
+
+- The mentor-facing Tryout authoring surface is one workspace with the stable
+  vocabulary `Basics | Sections | Questions | Rules | Schedule & akses |
+  Results | Review | Publish`. URL query state is intentionally retained so
+  old `authoring`, `policy`, `sessions`, `participants`, and `operations`
+  bookmarks continue to resolve during cutover.
+- The workspace is a projection layer over the existing Tryout save, release,
+  policy, sessions, and ParticipantView contracts. It does not duplicate those
+  server boundaries. Review is advisory; publish remains a distinct server
+  action and AssessmentRelease is the durable participant-content boundary.
+- Package/version stays an internal compatibility bridge behind Questions for
+  AS-05. Mentor navigation points to Bank Soal, while direct question picks and
+  Set/Pool assembly are explicitly deferred to AS-06.
+- Published Tryouts with participant history remain read-only in place and
+  offer duplication. Participant preview is read-only and states that it does
+  not create attempts, admission, or sessions.
+- AS-05 is committed as `1ea7b3d`; it requires no migration. Focused contract,
+  full repository verification, Impeccable detector, and authenticated
+  desktop/mobile browser QA pass.

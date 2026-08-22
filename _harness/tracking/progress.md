@@ -3,12 +3,26 @@
 ## Current State
 
 **Last Updated:** 2026-08-22
-**Session ID:** assessment-as04-participant-view
-**Active Feature:** AS-04 ParticipantView and atomic access transitions
+**Session ID:** assessment-as05-authoring-workspace
+**Active Feature:** AS-05 one Tryout authoring workspace
 
 ## Status
 
 ### What's Done
+
+- [x] AS-05 one Tryout authoring workspace (`1ea7b3d`)
+  - Reframed the mentor Tryout builder as one eight-area workspace:
+    Basics, Sections, Questions, Rules, Schedule & akses, Results, Review,
+    and Publish.
+  - Preserved the seven fixed subject sections, CBT/CAT rules, existing
+    draft/save action, durable AssessmentRelease notice, and locked published
+    Tryout behavior.
+  - Kept package/version as an internal source bridge behind Questions while
+    directing mentors to Bank Soal; direct picks and Set/Pool assembly remain
+    AS-06.
+  - Embedded schedule/access operations and results projections in the same
+    workspace, with compatibility mapping for bookmarked legacy query values.
+  - Added the focused `test:tryout-authoring-workspace` contract.
 
 - [x] AS-04 ParticipantView and atomic access transitions (`ae64528`)
   - Added a server-only ParticipantView combining admission, current/audit
@@ -54,8 +68,8 @@
 
 ### What's Next
 
-1. Review the AS-04 changeset and, if desired, add the invitation-picker UI.
-2. Start AS-05: one Tryout authoring workspace.
+1. Review the AS-05 changeset and finish any material review findings.
+2. Start AS-06: direct question picks and optional Set/Pool assembly UX.
 3. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
@@ -66,8 +80,20 @@
 - [x] Authenticated student Tryout QA: catalogue, waiting room, explicit Start,
   first section, answer persistence status, and released result all passed.
 - [x] Fixture cleanup: the approved full demo reset/reseed removed QA attempt
-  `0c4472b5-c1d7-4a89-86b6-cc008251228c`; verification confirms 3 canonical
-  seeded Tryout attempts and 0 in-progress attempts.
+`0c4472b5-c1d7-4a89-86b6-cc008251228c`; verification confirms 3 canonical
+seeded Tryout attempts and 0 in-progress attempts.
+
+### AS-05 Browser QA
+
+- [x] Authenticated mentor Tryout workspace rendered on desktop and mobile.
+- [x] All eight tabs are present; direct `?workspace=` navigation and reload
+  preserve the selected area.
+- [x] Draft title state survives Basics → Sections → Basics without a save.
+- [x] Participant preview opens as a read-only dialog and states that it does
+  not create an attempt, admission, or session.
+- [x] Seven fixed subject sections, source readiness, CAT rules, release notice,
+  and locked published behavior are visible in the workspace.
+- [x] Mobile layout has no horizontal body overflow (`390px` viewport).
 
 ## Blockers / Risks
 
@@ -91,6 +117,14 @@
 
 ## Files Modified This Session
 
+- `modules/mentor/KaptenTryoutBuilderPageModule.tsx` - Eight-area workspace
+  projections, tab persistence, preview, release/publish boundary, and locked
+  state.
+- `app/mentor/tryout/[tryoutId]/page.tsx` - Preserve workspace query values on
+  reload.
+- `scripts/test-tryout-authoring-workspace.ts` - Focused AS-05 contract checks.
+- `package.json` - Focused AS-05 test script.
+
 - `lib/tryout/participant-view.ts` - Canonical mentor participant projection.
 - `lib/tryout/delivery-repository.ts` - Atomic admission, assignment, and revoke transitions.
 - `lib/tryout/operations-view.ts` - Owner-scoped operations serialization.
@@ -100,6 +134,13 @@
 
 ## Evidence of Completion
 
+- [x] AS-05 contract: `pnpm test:tryout-authoring-workspace`.
+- [x] Type check: `pnpm exec tsc --noEmit --pretty false`.
+- [x] Diff check: `git diff --check`.
+- [x] Full verification: `pnpm verify` passed through the AS-05 commit hook;
+  lint has 0 errors and 459 baseline warnings, and production build passed.
+- [x] Impeccable deterministic detector: no findings (`[]`).
+- [x] Authenticated ego-browser desktop/mobile QA and interaction checks.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.
@@ -108,4 +149,11 @@
 
 ## Notes for Next Session
 
-AS-04 implementation is committed as `ae64528` (`feat: add participant view access transitions`). AS-03 is `cb1eb8f` with hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility fix. All 30 migrations are applied and the configured database was intentionally reset/reseeded after explicit approval; preserve unrelated preview/harness/document history. No AS-04 DB mutation smoke was run because the implementation was verified through contracts/build and no new migration was required.
+AS-05 implementation is committed as `1ea7b3d` (`feat: consolidate tryout
+authoring workspace`). AS-04 remains `ae64528`; AS-03 is `cb1eb8f` with
+hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility
+fix. All 30 migrations are applied and the configured database was intentionally
+reset/reseeded after explicit approval; preserve unrelated preview/harness/
+document history. AS-05 introduces no migration and no DB mutation smoke is
+needed beyond the existing release/runtime evidence; its new behavior is
+covered by focused contracts, full verification, and authenticated browser QA.

@@ -63,6 +63,14 @@
       "dependencies": ["feat-007"],
       "status": "complete",
       "evidence": "ae64528; ParticipantView/access-transition contract, participant UX contract, AssessmentRelease/package/release/scoring invariants, Tryout scoring, tsc, full lint (0 errors), production build, migration status, and diff-check pass; no migration required"
+    },
+    {
+      "id": "feat-009",
+      "name": "AS-05 One Tryout Authoring Workspace",
+      "description": "Provide one mentor Tryout workspace for basics, fixed sections, source readiness, CBT/CAT rules, schedule/access, results, review, and publish",
+      "dependencies": ["feat-008"],
+      "status": "complete",
+      "evidence": "1ea7b3d; eight-area builder, legacy workspace query compatibility, focused workspace contract, tsc, diff-check, pnpm verify, impeccable detector [], and authenticated desktop/mobile browser QA including tab reload persistence, draft tab switching, read-only participant preview, seven subjects, CAT rules, release notice, and no mobile horizontal overflow"
     }
   ]
 }

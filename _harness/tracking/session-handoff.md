@@ -1,5 +1,39 @@
 # Session Handoff
 
+## Current AS-05 Handoff (2026-08-22)
+
+- Objective: turn `/mentor/tryout` into one mentor-facing Tryout authoring
+  workspace with Basics, Sections, Questions, Rules, Schedule & akses, Results,
+  Review, and Publish areas.
+- Implementation commit: `1ea7b3d` (`feat: consolidate tryout authoring
+  workspace`). No schema or migration change was needed; all 30 migrations are
+  applied.
+- Builder behavior: the workspace keeps the seven fixed subject sections,
+  CBT/CAT constraints, local draft state while switching tabs, the durable
+  AssessmentRelease notice, explicit draft save versus publish, locked release
+  behavior, and a read-only participant preview.
+- Transitional boundary: existing package/version data remains an internal
+  source bridge in Questions, but the workspace does not send mentors to the
+  Package route. Direct question picks and Set/Pool assembly are deferred to
+  AS-06.
+- Embedded projections: Schedule & akses reuses the current policy, sessions,
+  and ParticipantView operations modules; Results projects session/attempt
+  state and links to existing detail routes; Review shows client-side
+  readiness while publish remains server-validated.
+- Compatibility: the dynamic Tryout route preserves legacy `authoring`,
+  `policy`, `sessions`, `participants`, and `operations` query values while
+  adopting the eight-area vocabulary.
+- Verification: `pnpm test:tryout-authoring-workspace`, TypeScript,
+  `git diff --check`, focused ESLint, full `pnpm verify`, and the Impeccable
+  detector passed. Authenticated ego-browser QA passed on desktop and mobile:
+  all tabs, query persistence, draft switching, preview copy, seven subjects,
+  CAT rules, release notice, locked published Tryout, and no 390px body
+  overflow.
+- Recommended pickup: review the AS-05 changeset, then start AS-06 (direct
+  question picks and optional Set/Pool assembly). Keep the existing
+  `/tmp/vecalss-as09-pre-migration-20260822.dump` available for rollback
+  investigation and do not reset/reseed without explicit approval.
+
 ## Current AS-04 Handoff (2026-08-22)
 
 - Objective: expose one mentor-facing ParticipantView while keeping admission
