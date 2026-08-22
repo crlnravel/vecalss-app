@@ -33,6 +33,23 @@ function revisionDigest({ difficulty, explanation, options, stem }) {
     .digest("hex");
 }
 
+function assemblyDefinitionDigest({ candidates, mode, rule, scope, subtestId }) {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      candidates: candidates.map((candidate) => ({
+        pointValue: candidate.pointValue,
+        sourceContentDigest: candidate.sourceContentDigest,
+        sourceQuestionId: candidate.sourceQuestionId,
+        sourceQuestionRevisionId: candidate.sourceQuestionRevisionId,
+      })),
+      mode,
+      rule,
+      scope,
+      subtestId,
+    }))
+    .digest("hex");
+}
+
 const SUBJECTS = [
   { code: "PU", slug: "penalaran-umum", label: "Penalaran Umum" },
   { code: "PPU", slug: "pengetahuan-pemahaman-umum", label: "Pengetahuan dan Pemahaman Umum" },
@@ -527,9 +544,21 @@ async function seedReusablePackages(client, { bankId, questions, subtestIds, tut
           );
         }
       }
+      const definitionDigest = assemblyDefinitionDigest({
+        candidates: subjectQuestions.map((question) => ({
+          pointValue: 1,
+          sourceContentDigest: question.contentDigest,
+          sourceQuestionId: question.id,
+          sourceQuestionRevisionId: question.revisionId,
+        })),
+        mode: "fixed_set",
+        rule: null,
+        scope: { bankIds: [bankId], categoryIds: [], folderIds: [] },
+        subtestId: subtestIds.get(subject.code),
+      });
       await client.query(
-        "UPDATE reusable_question_package_versions SET status = 'published', ready_at = NOW() WHERE id = $1",
-        [version.id],
+        "UPDATE reusable_question_package_versions SET definition_digest = $2, provenance = 'authored', status = 'published', ready_at = NOW() WHERE id = $1",
+        [version.id, definitionDigest],
       );
     }
     versionIds.set(subject.code, version.id);

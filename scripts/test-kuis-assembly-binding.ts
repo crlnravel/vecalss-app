@@ -111,5 +111,7 @@ assert.match(assemblyRepository, /version\.sourceBankId !== sourceBankId/u);
 assert.match(assemblyRepository, /version\.package\.mode !== version\.mode/u);
 assert.match(seedAssessment, /package_id, source_bank_id, subtest_id, version_no, mode, status/u);
 assert.match(seedAssessment, /reusable_question_package_version_bank_scopes/u);
+assert.match(seedAssessment, /assemblyDefinitionDigest/u);
+assert.match(seedAssessment, /definition_digest = \$2/u);
 
 console.log("Kuis assembly binding contract passed.");
