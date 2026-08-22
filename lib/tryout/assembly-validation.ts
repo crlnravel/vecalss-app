@@ -1,5 +1,31 @@
 type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
 
+const ASSEMBLY_RESOLVER_VERSION = "seeded-fisher-yates-v1";
+
+type AssemblyDifficulty = "easy" | "medium" | "hard";
+
+type SeededAssemblyCandidate = {
+  difficulty?: AssemblyDifficulty;
+  sortOrder?: number;
+  sourceContentDigest: string;
+  sourceQuestionId: string;
+  sourceQuestionRevisionId: string;
+};
+
+type AssemblyResolutionErrorCode = "duplicate_source" | "quota" | "shortage";
+
+class AssemblyResolutionError extends Error {
+  readonly code: AssemblyResolutionErrorCode;
+  readonly details: Record<string, unknown>;
+
+  constructor(code: AssemblyResolutionErrorCode, message: string, details: Record<string, unknown> = {}) {
+    super(message);
+    this.name = "AssemblyResolutionError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
 type AssemblyCandidateInput = {
   pointValue?: number;
   sourceContentDigest: string;
@@ -207,7 +233,7 @@ function validateAssemblyDefinitionShape(input: AssemblyDefinitionInput): Normal
   };
 }
 
-function seededShuffle<T>(values: readonly T[], seed: string) {
+function seededFisherYates<T>(values: readonly T[], seed: string) {
   const result = [...values];
   let state = 2166136261;
   for (const character of seed) {
@@ -226,9 +252,117 @@ function seededShuffle<T>(values: readonly T[], seed: string) {
   return result;
 }
 
-export { AssemblyValidationError, seededShuffle, validateAssemblyDefinitionShape };
+function seededShuffle<T>(values: readonly T[], seed: string) {
+  return seededFisherYates(values, seed);
+}
+
+function stableResolutionOrder<T extends SeededAssemblyCandidate>(values: readonly T[]) {
+  return [...values].sort((left, right) => {
+    const leftOrder = left.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = right.sortOrder ?? Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    if (left.sourceQuestionId !== right.sourceQuestionId) {
+      return left.sourceQuestionId < right.sourceQuestionId ? -1 : 1;
+    }
+    return left.sourceQuestionRevisionId < right.sourceQuestionRevisionId ? -1 : left.sourceQuestionRevisionId === right.sourceQuestionRevisionId ? 0 : 1;
+  });
+}
+
+function assertUniqueResolutionSources<T extends SeededAssemblyCandidate>(values: readonly T[]) {
+  const duplicateIds: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value.sourceQuestionId)) duplicateIds.push(value.sourceQuestionId);
+    seen.add(value.sourceQuestionId);
+  }
+  if (duplicateIds.length) {
+    throw new AssemblyResolutionError("duplicate_source", "Form hasil assembly memiliki soal sumber yang duplikat.", {
+      sourceQuestionIds: [...new Set(duplicateIds)].sort(),
+    });
+  }
+}
+
+function resolvePoolCandidates<T extends SeededAssemblyCandidate>(
+  candidates: readonly T[],
+  requestedCount: number,
+  seed: string,
+) {
+  if (!Number.isSafeInteger(requestedCount) || requestedCount < 1) {
+    throw new AssemblyResolutionError("quota", "Jumlah undian Pool harus berupa bilangan bulat positif.", { requestedCount });
+  }
+  const ordered = stableResolutionOrder(candidates);
+  assertUniqueResolutionSources(ordered);
+  if (ordered.length < requestedCount) {
+    throw new AssemblyResolutionError("shortage", "Kandidat Pool tidak mencukupi jumlah soal yang diminta.", {
+      availableCount: ordered.length,
+      requestedCount,
+    });
+  }
+  return seededFisherYates(ordered, seed).slice(0, requestedCount);
+}
+
+function resolveBlueprintCandidates<T extends SeededAssemblyCandidate>(
+  candidates: readonly T[],
+  quotas: { easyCount: number; hardCount: number; mediumCount: number; requestedCount: number },
+  seed: string,
+) {
+  const quotaTotal = quotas.easyCount + quotas.mediumCount + quotas.hardCount;
+  if (!Number.isSafeInteger(quotas.requestedCount) || quotas.requestedCount < 1 || quotaTotal !== quotas.requestedCount) {
+    throw new AssemblyResolutionError("quota", "Kuota Blueprint harus positif dan jumlahnya harus sama dengan total soal.", {
+      quotaTotal,
+      requestedCount: quotas.requestedCount,
+    });
+  }
+  if ([quotas.easyCount, quotas.mediumCount, quotas.hardCount].some((count) => !Number.isSafeInteger(count) || count < 0)) {
+    throw new AssemblyResolutionError("quota", "Kuota Blueprint harus berupa bilangan bulat nol atau positif.", { quotas });
+  }
+
+  const ordered = stableResolutionOrder(candidates);
+  assertUniqueResolutionSources(ordered);
+  const buckets = {
+    easy: ordered.filter((candidate) => candidate.difficulty === "easy"),
+    medium: ordered.filter((candidate) => candidate.difficulty === "medium"),
+    hard: ordered.filter((candidate) => candidate.difficulty === "hard"),
+  } satisfies Record<AssemblyDifficulty, T[]>;
+  const requestedByDifficulty = {
+    easy: quotas.easyCount,
+    medium: quotas.mediumCount,
+    hard: quotas.hardCount,
+  } satisfies Record<AssemblyDifficulty, number>;
+  const availableByDifficulty = {
+    easy: buckets.easy.length,
+    medium: buckets.medium.length,
+    hard: buckets.hard.length,
+  } satisfies Record<AssemblyDifficulty, number>;
+  const shortages = (Object.keys(requestedByDifficulty) as AssemblyDifficulty[]).filter((difficulty) =>
+    availableByDifficulty[difficulty] < requestedByDifficulty[difficulty],
+  );
+  if (shortages.length) {
+    throw new AssemblyResolutionError("shortage", "Cakupan Blueprint tidak memiliki cukup soal pada satu atau beberapa tingkat kesulitan.", {
+      availableByDifficulty,
+      requestedByDifficulty,
+      shortages,
+    });
+  }
+
+  return (['easy', 'medium', 'hard'] as const).flatMap((difficulty) =>
+    seededFisherYates(buckets[difficulty], `${seed}:${difficulty}`).slice(0, requestedByDifficulty[difficulty]),
+  );
+}
+
+export {
+  ASSEMBLY_RESOLVER_VERSION,
+  AssemblyResolutionError,
+  AssemblyValidationError,
+  resolveBlueprintCandidates,
+  resolvePoolCandidates,
+  seededFisherYates,
+  seededShuffle,
+  validateAssemblyDefinitionShape,
+};
 export type {
   AssemblyCandidateInput,
+  AssemblyDifficulty,
   AssemblyDefinitionInput,
   AssemblyErrorCode,
   AssemblyErrorDetails,
@@ -236,4 +370,5 @@ export type {
   AssemblyRuleInput,
   AssemblyScopeInput,
   NormalizedAssemblyDefinition,
+  SeededAssemblyCandidate,
 };
