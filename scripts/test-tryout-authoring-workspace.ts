@@ -25,6 +25,7 @@ for (const label of [
 assert.match(workspace, /saveTryoutAction/u, "draft and publish must use the canonical Tryout save action");
 assert.match(workspace, /const save = async \(status: "draft" \| "published" = "draft"\)/u, "ordinary save must default to draft");
 assert.match(workspace, /void save\("draft"\)/u, "ordinary save controls must explicitly persist a draft");
+assert.doesNotMatch(workspace, /void save\(\)/u, "ordinary save paths must never inherit draft.status");
 assert.match(workspace, /void save\("published"\)/u, "publish must remain a separate explicit action");
 assert.match(workspace, /keepMounted/u, "Schedule and access state must remain mounted across workspace tabs");
 assert.match(workspace, /contentReady/u, "review must include package content readiness");
