@@ -479,14 +479,33 @@ async function seedReusablePackages(client, { bankId, questions, subtestIds, tut
     if (!versionResult.rowCount) {
       versionResult = await client.query(
         `INSERT INTO reusable_question_package_versions (
-           package_id, source_bank_id, version_no, status, created_by_user_id
-         ) VALUES ($1, $2, 1, 'draft', $3)
-         RETURNING id, status`,
-        [packageId, bankId, tutorId],
+           package_id, source_bank_id, subtest_id, version_no, mode, status, created_by_user_id
+         ) VALUES ($1, $2, $3, 1, 'fixed_set', 'draft', $4)
+           RETURNING id, status`,
+        [packageId, bankId, subtestIds.get(subject.code), tutorId],
       );
     }
     const version = versionResult.rows[0];
     if (version.status !== "published") {
+      // Published legacy versions are immutable; the repository reports their
+      // missing scope/digest as not Ready and the Kuis picker hides them.
+      await client.query(
+        `UPDATE reusable_question_package_versions
+            SET source_bank_id = $2,
+                subtest_id = $3,
+                mode = 'fixed_set'
+          WHERE id = $1`,
+        [version.id, bankId, subtestIds.get(subject.code)],
+      );
+      await client.query(
+        "DELETE FROM reusable_question_package_version_bank_scopes WHERE package_version_id = $1",
+        [version.id],
+      );
+      await client.query(
+        `INSERT INTO reusable_question_package_version_bank_scopes (package_version_id, question_bank_id)
+         VALUES ($1, $2)`,
+        [version.id, bankId],
+      );
       await client.query("DELETE FROM reusable_question_package_version_items WHERE package_version_id = $1", [version.id]);
       for (const [index, question] of subjectQuestions.entries()) {
         const itemResult = await client.query(

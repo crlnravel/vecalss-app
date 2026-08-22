@@ -262,7 +262,7 @@ function toDefinitionInput(
       categoryIds: version.categoryScopes.map((scope) => scope.categoryId),
       folderIds: version.folderScopes.map((scope) => scope.folderId),
     },
-    subtestId: version.subtestId ?? packageRecord.subtestId,
+    subtestId: version.subtestId ?? "",
     title: packageRecord.title,
   };
 }
@@ -371,6 +371,12 @@ function sourceContentIssues(
 
 function versionItemContentIssues(item: VersionItemRecord, subtestId: string): AssemblyReadinessIssue[] {
   const blockers: AssemblyReadinessIssue[] = [];
+  if (!item.sourceQuestionId.trim() || !item.sourceQuestionRevisionId?.trim() || !item.sourceContentDigest?.trim()) {
+    blockers.push(issue("stale_candidate", "Snapshot soal tidak memiliki identitas Question, revisi Ready, dan digest yang lengkap.", {
+      sourceQuestionId: item.sourceQuestionId,
+      sourceQuestionRevisionId: item.sourceQuestionRevisionId,
+    }));
+  }
   if (item.subtestId !== subtestId) {
     blockers.push(issue("wrong_subtest", "Snapshot soal tidak cocok dengan Subtest assembly.", {
       itemSubtestId: item.subtestId,
@@ -927,6 +933,10 @@ async function listReadyAssemblyRevisions(): Promise<AssemblyAttachmentSummary[]
     const summaries: AssemblyAttachmentSummary[] = [];
     for (const version of versions) {
       const report = await collectReadiness(tx, definitionInputForVersion(version), {
+        expectedDefinitionDigest: version.definitionDigest,
+        expectedPackageMode: version.package.mode as AssemblyMode,
+        expectedSourceBankId: version.sourceBankId,
+        expectedSubtestId: version.subtestId,
         snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
       });
       summaries.push(toAttachmentSummary(version, report.readiness));
@@ -943,6 +953,10 @@ async function getReadyAssemblyRevision(versionId: string): Promise<AssemblyAtta
     });
     if (!version) return null;
     const report = await collectReadiness(tx, definitionInputForVersion(version), {
+      expectedDefinitionDigest: version.definitionDigest,
+      expectedPackageMode: version.package.mode as AssemblyMode,
+      expectedSourceBankId: version.sourceBankId,
+      expectedSubtestId: version.subtestId,
       snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
     });
     return toAttachmentSummary(version, report.readiness);
@@ -958,8 +972,13 @@ async function getReadyAssemblyAttachment(
   return prisma.$transaction(async (tx) => {
     const version = await readyVersionForAttachment(tx, versionId, target, targetSubtestCode, targetTestType);
     const report = await collectReadiness(tx, definitionInputForVersion(version), {
+      expectedDefinitionDigest: version.definitionDigest,
+      expectedPackageMode: version.package.mode as AssemblyMode,
+      expectedSourceBankId: version.sourceBankId,
+      expectedSubtestId: version.subtestId,
       snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
     });
+    if (!report.readiness.ready) throwIssue(report.readiness.blockers[0] ?? issue("stale_candidate", "Assembly Ready tidak dapat dipakai untuk attachment."));
     return toAttachmentSummary(version, report.readiness);
   });
 }
@@ -1003,6 +1022,10 @@ async function queryBlueprintSources(tx: Prisma.TransactionClient, definition: N
 }
 
 type ReadinessOptions = {
+  expectedDefinitionDigest?: string | null;
+  expectedPackageMode?: AssemblyMode | null;
+  expectedSourceBankId?: string | null;
+  expectedSubtestId?: string | null;
   snapshotItems?: readonly VersionItemRecord[];
 };
 
@@ -1032,6 +1055,44 @@ async function collectReadiness(
 
   const scopeState = await readScopeState(tx, definition);
   const blockers = [...scopeState.blockers];
+
+  if (options.expectedPackageMode !== undefined && options.expectedPackageMode !== definition.mode) {
+    blockers.push(issue("invalid_mode", "Mode assembly tidak cocok dengan package.", {
+      packageMode: options.expectedPackageMode,
+      versionMode: definition.mode,
+    }));
+  }
+  if (options.expectedSubtestId !== undefined) {
+    if (!options.expectedSubtestId) {
+      blockers.push(issue("wrong_subtest", "Versi Ready assembly tidak memiliki Subtest."));
+    } else if (options.expectedSubtestId !== definition.subtestId) {
+      blockers.push(issue("wrong_subtest", "Subtest assembly tidak cocok dengan versi Ready.", {
+        versionSubtestId: options.expectedSubtestId,
+        definitionSubtestId: definition.subtestId,
+      }));
+    }
+  }
+  if (options.expectedSourceBankId !== undefined
+    && (!options.expectedSourceBankId || !definition.scope.bankIds.includes(options.expectedSourceBankId))) {
+    blockers.push(issue("scope", "Bank sumber assembly tidak cocok dengan cakupan Bank Soal.", {
+      scopeBankIds: definition.scope.bankIds,
+      versionSourceBankId: options.expectedSourceBankId,
+    }));
+  }
+
+  if (options.expectedDefinitionDigest !== undefined) {
+    if (!options.expectedDefinitionDigest) {
+      blockers.push(issue("stale_candidate", "Assembly Ready tidak memiliki definition digest yang dapat diverifikasi."));
+    } else {
+      const recomputedDefinitionDigest = assemblyDefinitionDigest(definition);
+      if (recomputedDefinitionDigest !== options.expectedDefinitionDigest) {
+        blockers.push(issue("stale_candidate", "Definition assembly tidak lagi cocok dengan versi Ready.", {
+          recomputedDefinitionDigest,
+          versionDefinitionDigest: options.expectedDefinitionDigest,
+        }));
+      }
+    }
+  }
 
   if (definition.mode === "fixed_set" && options.snapshotItems) {
     const snapshotItems = [...options.snapshotItems];
@@ -1206,9 +1267,8 @@ async function resolveReadyAssemblyForKuis(
       versionId,
     });
   }
-  if (!version.subtestId || version.package.subtestId !== version.subtestId) {
-    throw new AssemblyValidationError("wrong_subtest", "Subtest assembly tidak cocok dengan package.", {
-      packageSubtestId: version.package.subtestId,
+  if (!version.subtestId) {
+    throw new AssemblyValidationError("wrong_subtest", "Versi Ready assembly tidak memiliki Subtest.", {
       versionSubtestId: version.subtestId,
       versionId,
     });
@@ -1264,9 +1324,8 @@ async function resolveReadyAssemblyForKuis(
   if (!sourceBankId) {
     throw new AssemblyValidationError("scope", "Assembly Ready tidak memiliki Bank Soal aktif.", { versionId });
   }
-  if (version.sourceBankId !== sourceBankId || version.package.sourceBankId !== sourceBankId) {
+  if (version.sourceBankId !== sourceBankId) {
     throw new AssemblyValidationError("scope", "Bank sumber assembly tidak cocok dengan cakupan Bank Soal.", {
-      packageSourceBankId: version.package.sourceBankId,
       scopeBankId: sourceBankId,
       versionSourceBankId: version.sourceBankId,
       versionId,
@@ -1278,13 +1337,19 @@ async function resolveReadyAssemblyForKuis(
   let items: KuisAssemblyItem[];
 
   if (definition.mode === "fixed_set" || definition.mode === "random_pool") {
-    const candidates = version.items.map(candidateFromVersionItem);
-    await assertCandidates(tx, definition, candidates, true);
     const snapshotBlockers = version.items.flatMap((item) => versionItemContentIssues(item, targetSubtestId));
-    if (snapshotBlockers.length) throwIssue(snapshotBlockers[0]);
     if (definition.mode === "fixed_set") {
+      if (!version.items.length) {
+        throw new AssemblyValidationError("shortage", "Set tetap belum memiliki snapshot soal yang dapat dipakai.", {
+          versionId,
+        });
+      }
+      if (snapshotBlockers.length) throwIssue(snapshotBlockers[0]);
       items = version.items.map(kuisItemFromVersionItem);
     } else {
+      const candidates = version.items.map(candidateFromVersionItem);
+      await assertCandidates(tx, definition, candidates, true);
+      if (snapshotBlockers.length) throwIssue(snapshotBlockers[0]);
       let selected;
       try {
         selected = resolvePoolCandidates(version.items.map((item) => ({

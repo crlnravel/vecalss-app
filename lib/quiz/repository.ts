@@ -310,10 +310,15 @@ function toKaptenQuiz(record: Prisma.StandaloneQuizGetPayload<{ include: typeof 
   return { assembly, attemptsAllowed: record.attemptsAllowed, closesAt: record.closesAt?.toISOString().slice(0, 16), correctAnswerVisibility: record.correctAnswerVisibility, description: record.description ?? "", formBehavior: record.formBehavior, href: `/mentor/quiz/${record.id}`, id: record.id, opensAt: record.opensAt?.toISOString().slice(0, 16), primaryMetric: `${record.items.length} soal`, progress: record.items.length ? 100 : 0, questionCount: record.items.length, resourceType: "quiz", retryDelaySeconds: record.retryDelaySeconds, reviewTiming: record.reviewTiming, scorePolicy: record.scorePolicy, sourceBank: record.sourceBank?.name ?? "Soal lokal", sourceBankId: record.sourceBankId ?? undefined, status: record.status === ContentStatus.published ? "published" : record.status === ContentStatus.archived ? "archived" : "draft", subjectCode: record.subtest.code, subjectName: subject?.name ?? record.subtest.code, title: record.title, updatedAt: record.updatedAt.toISOString() };
 }
 
-function validateForPublication(input: SaveStandaloneQuizInput, opensAt: Date | null, closesAt: Date | null) {
+function validateForPublication(
+  input: SaveStandaloneQuizInput,
+  opensAt: Date | null,
+  closesAt: Date | null,
+  options: { materializedAssembly?: boolean } = {},
+) {
   if (!input.title.trim()) throw new QuizValidationError("Isi judul quiz sebelum menerbitkan.");
   if (!input.questions.length && !input.assemblyVersionId) throw new QuizValidationError("Tambahkan minimal satu soal sebelum menerbitkan.");
-  if (input.assemblyVersionId && input.questions.length) throw new QuizValidationError("Soal langsung dan assembly tidak dapat dipakai bersamaan.");
+  if (input.assemblyVersionId && input.questions.length && !options.materializedAssembly) throw new QuizValidationError("Soal langsung dan assembly tidak dapat dipakai bersamaan.");
   if (input.questions.some((question) => !question.prompt.trim() || question.choices.length < 2 || question.choices.length > 5 || question.choices.some((choice) => !choice.text.trim()) || !question.choices.some((choice) => choice.id === question.correctChoiceId))) throw new QuizValidationError("Lengkapi semua soal sebelum menerbitkan.");
   if (opensAt && closesAt && closesAt <= opensAt) throw new QuizValidationError("Waktu tutup harus setelah waktu buka.");
   if (input.reviewTiming === "after_close" && !closesAt) throw new QuizValidationError("Review setelah quiz ditutup memerlukan waktu tutup.");
@@ -322,7 +327,6 @@ function validateForPublication(input: SaveStandaloneQuizInput, opensAt: Date | 
 async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: string) {
   const opensAt = parseOptionalDate(input.opensAt, "Waktu buka"); const closesAt = parseOptionalDate(input.closesAt, "Waktu tutup");
   const policy = normalizeQuizPolicy(input);
-  if (input.status === "published" && input.assemblyVersionId !== undefined) validateForPublication(input, opensAt, closesAt);
   return prisma.$transaction(async (tx) => {
     let id = input.id;
     let current: (Prisma.StandaloneQuizGetPayload<{ include: { participations: { select: { id: true }; take: 1 } } }> & { assemblyPackageVersionId: string | null; assemblyMode: ReusableQuestionPackageMode | null; assemblyDefinitionDigest: string | null; assemblySeed: string | null }) | null = null;
@@ -401,7 +405,7 @@ async function saveStandaloneQuiz(input: SaveStandaloneQuizInput, tutorId: strin
     const sourceById = new Map(sources.map((source) => [source.id, source]));
     if (input.status === "published") {
       const publicationQuestions = assembly ? snapshotsFromAssembly(assembly) : directQuestions;
-      validateForPublication({ ...input, assemblyVersionId: assembly?.assemblyPackageVersionId ?? undefined, questions: publicationQuestions }, opensAt, closesAt);
+      validateForPublication({ ...input, assemblyVersionId: assembly?.assemblyPackageVersionId ?? undefined, questions: publicationQuestions }, opensAt, closesAt, { materializedAssembly: Boolean(assembly) });
     }
 
     if (!id) {
@@ -675,7 +679,7 @@ async function bulkUpdateStandaloneQuizLifecycle(ids: string[], tutorId: string,
           status: "published",
           subjectCode: record.subtest.code,
           title: record.title,
-        }, record.opensAt, record.closesAt);
+        }, record.opensAt, record.closesAt, { materializedAssembly: Boolean(record.assemblyPackageVersionId) });
       }
     }
     const status = operation === "publish" ? ContentStatus.published : ContentStatus.draft;

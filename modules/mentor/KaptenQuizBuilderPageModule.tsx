@@ -872,6 +872,7 @@ function QuizBuilderScreen({
     <MentorWorkspaceShell
       activeLabel="Kuis"
       breadcrumbLabel={mode === "create" ? "Buat Kuis" : "Edit Kuis"}
+      contentElement="div"
       mainClassName="max-w-[1500px] gap-7"
       onNavigateAway={() => !state.hasUnsavedChanges}
       searchPlaceholder="Cari kuis atau bank soal..."
@@ -1166,7 +1167,7 @@ function KuisAssemblySourcePicker({
   data: QuizBuilderViewData;
   state: QuizBuilderViewState;
 }) {
-  const supportedAssemblies = data.readyAssemblies.filter((assembly) => assembly.mode !== "cat_pool" && assembly.bankIds.length === 1 && assembly.subtest === state.builderState.subjectCode);
+  const supportedAssemblies = data.readyAssemblies.filter((assembly) => assembly.readiness.ready && assembly.mode !== "cat_pool" && assembly.bankIds.length === 1 && assembly.subtest === state.builderState.subjectCode);
   const options = [
     { label: "Soal langsung / lokal", value: "direct" },
     ...supportedAssemblies.map((assembly) => ({
