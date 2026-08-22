@@ -908,11 +908,20 @@ function KaptenTryoutBuilderPageModule({
   }, [activeSection.subtest, activeSelectionMode, browseBankId, sourceQuestionPage, sourceQuestionSearch, workspace]);
 
   useEffect(() => {
-    const label = workspaceItems.find((item) => item.value === workspace)?.label;
-    const activeTab = label
-      ? [...(tabRailRef.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [])].find((tab) => tab.textContent?.trim() === label)
-      : null;
-    activeTab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    let timeout: number | undefined;
+    const frame = window.requestAnimationFrame(() => {
+      timeout = window.setTimeout(() => {
+        const scroller = tabRailRef.current;
+        const activeTab = scroller?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+        if (!scroller || !activeTab) return;
+        const targetLeft = activeTab.offsetLeft - Math.max(0, (scroller.clientWidth - activeTab.offsetWidth) / 2);
+        scroller.scrollTo({ left: Math.max(0, targetLeft), top: 0, behavior: "auto" });
+      }, 50);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timeout !== undefined) window.clearTimeout(timeout);
+    };
   }, [workspace]);
 
   const goTo = (nextWorkspace: Workspace) => {
@@ -983,8 +992,8 @@ function KaptenTryoutBuilderPageModule({
       />
 
       <Tabs className="mt-6" onValueChange={changeWorkspace} value={workspace}>
-        <div className="relative" ref={tabRailRef}>
-          <div className="overflow-x-auto pb-1">
+        <div className="relative">
+          <div className="overflow-x-auto pb-1" ref={tabRailRef}>
           <TabsList aria-label="Ruang kerja Tryout" className="min-w-max rounded-2xl bg-primary-50 p-1">
             {workspaceItems.map((item) => (
               <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>

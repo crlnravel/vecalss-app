@@ -92,7 +92,7 @@ function KaptenTryoutAttemptDetailPageModule({
   };
 
   return (
-    <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}/operations/sessions/${delivery.id}`}
         description={delivery.name}
@@ -208,7 +208,7 @@ function KaptenTryoutAttemptDetailPageModule({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </div>
   );
 }
 

@@ -30,6 +30,7 @@ export default async function TryoutAttemptDetailPage({
     <MentorWorkspaceShell
       activeLabel="Tryout"
       breadcrumbLabel="Detail Attempt"
+      contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
       session={session}

@@ -7,7 +7,7 @@ import {
   sanitizeTryoutWorkspaceParticipant,
 } from "../lib/tryout/operations-projections";
 
-const [delivery, operations, workspace, live, attempts, results, participants] = await Promise.all([
+const [delivery, operations, workspace, live, attempts, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
@@ -15,6 +15,10 @@ const [delivery, operations, workspace, live, attempts, results, participants] =
   readFile(new URL("../modules/mentor/KaptenTryoutAttemptsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutResultsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantsPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenTryoutAttemptDetailPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/attempts/[attemptId]/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/participants/[admissionId]/page.tsx", import.meta.url), "utf8"),
 ]);
 
 const baseRun = {
@@ -154,5 +158,9 @@ assert.match(results, /rankingAvailabilityLabels/u);
 assert.match(results, /operations\/participants\/\$\{result\.admissionId\}/u);
 assert.match(results, /bundle hasil parsial/u);
 assert.match(participants, /Menunggu rilis/u);
+assert.doesNotMatch(attemptDetail, /<main\b/u, "attempt detail must not nest a page landmark inside MentorWorkspaceShell");
+assert.doesNotMatch(participantDetail, /<main\b/u, "participant detail must not nest a page landmark inside MentorWorkspaceShell");
+assert.match(attemptDetailRoute, /contentElement="div"/u);
+assert.match(participantDetailRoute, /contentElement="div"/u);
 
 console.log("Tryout Live, Attempts, and Results workspace contracts passed.");

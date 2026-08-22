@@ -29,6 +29,7 @@ export default async function TryoutParticipantDetailPage({
     <MentorWorkspaceShell
       activeLabel="Tryout"
       breadcrumbLabel="Detail Peserta"
+      contentElement="div"
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
       session={session}
