@@ -1,5 +1,43 @@
 # Session Handoff
 
+## Current AS-06 Handoff (2026-08-22)
+
+- Objective: add direct question picks and an optional inline fixed Set path to
+  the AS-05 Tryout authoring workspace.
+- Approved scope: any non-archived Bank Soal filtered by the active Section
+  Subtest; direct picks and saved fixed Sets are mutually exclusive per Section.
+  Random Pool, Blueprint, and CAT-pool assembly authoring are deferred.
+- UI: Questions now exposes “Pilih soal langsung” and “Gunakan Set Soal siap”.
+  Direct mode supports Bank search, subject-filtered Ready questions, cross-bank
+  selection, ordering/removal, pagination, and selected-source summaries.
+- Server boundary: `TestInput.directQuestions` carries source question ID,
+  current revision ID, and content digest. The repository locks Question and
+  Bank rows, revalidates Ready/options/media/subtest/lifecycle state, rejects
+  stale selections and duplicates, then snapshots direct items with
+  `packageCode: "direct"`. The digest is required and missing/stale values are
+  rejected. Publish requires explanation/media; direct CAT also requires
+  approved canonical 2PL calibration.
+- Release/delivery boundary: `61abfbb` makes the shared
+  `assertTryoutReleaseEligibility` gate accept direct physical snapshots as an
+  alternative to a published Set, validates direct provenance and Subtest, and
+  applies the canonical CAT/2PL check to direct items before a session opens.
+- Readback/catalogue: direct Tryout items round-trip with prompt, Bank label,
+  revision/digest, explanation/media readiness, and CAT readiness; catalogue
+  readiness counts direct sections as sourced.
+- No schema or migration change was needed: existing `TryoutItem` snapshot
+  fields and package-version bridge support the first slice.
+- Verification: `test:tryout-direct-question-picks`,
+  `test:tryout-authoring-workspace`, package/release invariants, TypeScript,
+  focused ESLint, `pnpm verify` (0 errors; 459 baseline warnings), and
+  `git diff --check` passed. Impeccable detector advisories were reduced to
+  zero for the changed type-ramp values.
+- Implementation commits: `9e0fafe` (authoring UX and snapshots) and
+  `61abfbb` (post-publish direct delivery eligibility and required digest
+  hardening). Independent finish-review recheck is pending against `61abfbb`.
+- Durable ticket: `artifacts/as06-direct-question-picks`.
+- Recommended pickup: record the independent review recheck, then hold
+  the next Pool/Blueprint/CAT assembly decision before adding schema.
+
 ## Current AS-05 Handoff (2026-08-22)
 
 - Objective: turn `/mentor/tryout` into one mentor-facing Tryout authoring

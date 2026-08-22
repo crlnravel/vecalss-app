@@ -3,12 +3,32 @@
 ## Current State
 
 **Last Updated:** 2026-08-22
-**Session ID:** assessment-as05-authoring-workspace
-**Active Feature:** AS-05 one Tryout authoring workspace
+**Session ID:** assessment-as06-direct-question-picks
+**Active Feature:** AS-06 direct question picks and optional Set assembly UX
 
 ## Status
 
 ### What's Done
+
+- [x] AS-06 direct question picks and optional Set assembly UX
+  - Added inline Questions modes for direct Ready-question picks and existing
+    immutable fixed Sets; random Pool/Blueprint/CAT assembly authoring remains
+    deferred by the approved first-slice decision.
+  - Direct browsing filters any non-archived Bank Soal by the active Section
+    subject, supports search/pagination, cross-bank selection, ordering, and
+    removal, and keeps source readiness visible in the authoring Review.
+  - Direct saves lock and re-read Question/Bank rows, reject stale revision IDs
+    or content digests, wrong Subtests, invalid options/media, archived sources,
+    and duplicate sources, then create immutable TryoutItem snapshots.
+  - Publish adds explanation/media readiness and direct CAT requires canonical
+    approved 2PL calibration; no schema migration was needed.
+  - Follow-up `61abfbb` closes the post-publish delivery boundary: AssessmentRelease
+    eligibility now accepts direct physical snapshots, validates their provenance
+    and Subtest, and applies the canonical CAT check to direct items as well.
+    Missing direct source digests are rejected at the save boundary.
+  - Added `test:tryout-direct-question-picks`; focused contracts, TypeScript,
+    focused ESLint, full `pnpm verify`, diff-check, and Impeccable detector
+    passed.
 
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
@@ -76,8 +96,10 @@
 
 ### What's Next
 
-1. Start AS-06: direct question picks and optional Set/Pool assembly UX.
-2. Keep the pre-migration dump available for rollback investigation; do not
+1. Record the independent AS-06 review recheck against `61abfbb`.
+2. Continue with random Pool/Blueprint/CAT assembly only after a new product
+   and persistence decision.
+3. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
 ### AS-09 Browser QA
