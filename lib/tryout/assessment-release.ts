@@ -1401,7 +1401,7 @@ async function assertTryoutReleaseEligibility(
     return tryout;
   }
   const catItems = tryout.sections
-    .filter((section) => section.testType === "cat")
+    .filter((section) => section.testType === "cat" && section.packageVersion?.mode !== ReusableQuestionPackageMode.cat_pool)
     .flatMap((section) => {
       const items = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
       if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {

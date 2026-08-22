@@ -156,6 +156,13 @@ assert.match(release, /assemblyCatCalibration: assembly\.catCalibration/u);
 assert.match(release, /const hasUnpinnedCat/u);
 assert.match(release, /if \(hasCatPool[\s\S]*!hasUnpinnedCat[\s\S]*latestReleasePayload/u);
 assert.match(release, /Existing CAT Pool releases are immutable/u);
+const eligibilitySource = release.slice(release.indexOf("async function assertTryoutReleaseEligibility"));
+const mutableCatGate = eligibilitySource.slice(eligibilitySource.indexOf("const catItems"), eligibilitySource.indexOf("const revisionIds"));
+assert.match(
+  mutableCatGate,
+  /filter\(\(section\) => section\.testType === "cat" && section\.packageVersion\?\.mode !== ReusableQuestionPackageMode\.cat_pool\)/u,
+  "mixed CAT Pool + direct-CAT releases must revalidate only the direct-CAT candidates",
+);
 
 // Runtime reads release-owned parameters only; it keeps the acknowledged
 // answer write before a calculation failure can mark the run failed.
