@@ -13,10 +13,9 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
   const [initialDraft, operationsInitial, readyVersions] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id)]);
   if (!initialDraft || !operationsInitial) notFound();
-  const initialWorkspace = query.workspace === "policy" || query.workspace === "participants" || query.workspace === "sessions"
-    ? query.workspace
-    : query.workspace === "operations"
-      ? "sessions"
-      : "authoring";
+  // The workspace module owns the new eight-area vocabulary and maps the
+  // transitional authoring/policy/sessions/participants query values for
+  // bookmarked compatibility URLs.
+  const initialWorkspace = query.workspace ?? "basics";
   return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDraft={initialDraft} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }
