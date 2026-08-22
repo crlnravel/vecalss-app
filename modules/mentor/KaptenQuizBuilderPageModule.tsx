@@ -79,6 +79,8 @@ type ConfirmationRequest = {
   variant: "danger" | "warning";
 };
 
+type PersistAssemblyDetachResult = "clean" | "dirty" | null;
+
 const emptyLocalQuestion: LocalQuestionForm = {
   choices: [
     { id: "a", text: "" },
@@ -200,7 +202,7 @@ function createQuizBuilderActions({
   setQuestionSearchQuery: (query: string) => void;
   setSourceQuestionPage: (page: number) => void;
   setSourceQuestionTotal: (total: number) => void;
-  onPersistAssemblyDetach?: () => Promise<boolean>;
+  onPersistAssemblyDetach?: () => Promise<PersistAssemblyDetachResult>;
   readyAssemblies: AssemblyAttachmentSummary[];
 }) {
   function markChanged(nextState: QuizBuilderState) {
@@ -294,14 +296,16 @@ function createQuizBuilderActions({
     applySourceBank(nextSourceBankId);
   }
 
-  function applyAssembly(versionId: string | null) {
+  function applyAssembly(versionId: string | null, options: { markChanged?: boolean } = {}) {
     const selected = versionId ? readyAssemblies.find((assembly) => assembly.id === versionId) : null;
-    markChanged({
+    const nextState = {
       ...builderState,
       assemblyVersionId: versionId,
       questions: versionId ? [] : builderState.questions,
       sourceBankId: selected?.bankIds[0] ?? builderState.sourceBankId,
-    });
+    };
+    if (options.markChanged === false) setBuilderState(nextState);
+    else markChanged(nextState);
     setQuestionPage(1);
     setQuestionSearchQuery("");
     setSourceQuestionPage(1);
@@ -326,14 +330,14 @@ function createQuizBuilderActions({
 
   async function detachAssembly() {
     if (!builderState.assemblyVersionId) return;
-    let persisted = false;
+    let persisted: Exclude<PersistAssemblyDetachResult, null> | null = null;
     if (onPersistAssemblyDetach) {
       const detached = await onPersistAssemblyDetach();
       if (!detached) return;
-      persisted = true;
+      persisted = detached;
     }
-    applyAssembly(null);
-    if (persisted) setHasUnsavedChanges(false);
+    applyAssembly(null, { markChanged: persisted !== "clean" });
+    if (persisted === "clean") setHasUnsavedChanges(false);
   }
 
   function addBankQuestion(question: BankQuestion) {
@@ -693,21 +697,21 @@ function KaptenQuizBuilderPageModule({
   }
 
   async function persistAssemblyDetach() {
-    if (!savedQuiz || isSaving) return false;
+    if (!savedQuiz || isSaving) return null;
+    const preserveDirtyState = hasUnsavedChanges;
     setIsSaving(true);
     setSaveError(null);
     try {
       const result = await detachStandaloneQuizAssemblyAction(savedQuiz.id);
       if (!result.ok) {
         setSaveError(result.message);
-        return false;
+        return null;
       }
       setSavedQuiz(result.quiz);
-      setHasUnsavedChanges(false);
-      return true;
+      return preserveDirtyState ? "dirty" : "clean";
     } catch (detachError) {
       setSaveError(detachError instanceof Error ? detachError.message : "Assembly belum dapat dilepas dari Kuis.");
-      return false;
+      return null;
     } finally {
       setIsSaving(false);
     }

@@ -100,6 +100,8 @@ assert.match(builder, /actions\.detachAssembly/u);
 assert.match(builder, /detachStandaloneQuizAssemblyAction/u);
 assert.match(builder, /onPersistAssemblyDetach/u);
 assert.match(builder, /setSavedQuiz\(result\.quiz\)/u);
+assert.match(builder, /preserveDirtyState/u);
+assert.match(builder, /markChanged: persisted !== "clean"/u);
 assert.match(builder, /contentElement="div"/u);
 assert.match(builder, /assembly\.readiness\.ready/u);
 assert.match(editPage, /readyAssemblies=\{readyAssemblies\}/u);
