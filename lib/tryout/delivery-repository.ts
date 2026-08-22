@@ -810,6 +810,10 @@ async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
     where: { createdByUserId: actorId, id: ownedTryout.id },
     include: {
       assessmentReleases: { orderBy: { releaseNumber: "desc" }, take: 1 },
+      sections: {
+        select: { id: true, sequenceNo: true, subtestId: true },
+        orderBy: { sequenceNo: "asc" },
+      },
       admissions: {
         include: {
           student: { select: { email: true, fullName: true, id: true } },
@@ -847,7 +851,32 @@ async function getTryoutDeliveryOperations(tryoutId: string, actorId: string) {
           attempts: {
             include: {
               assessmentRelease: true,
-              runs: { include: { assessmentRelease: true, integrityEvents: { orderBy: { serverSequence: "asc" } }, catResolutionAudits: { orderBy: { createdAt: "desc" } } }, orderBy: { sequenceNo: "asc" } },
+              runs: {
+                include: {
+                  answers: {
+                    select: {
+                      answerText: true,
+                      answeredAt: true,
+                      selectedOptionId: true,
+                      syncedAt: true,
+                    },
+                  },
+                  assessmentRelease: true,
+                  integrityEvents: { orderBy: { serverSequence: "asc" } },
+                  catResolutionAudits: { orderBy: { createdAt: "desc" } },
+                },
+                orderBy: { sequenceNo: "asc" },
+              },
+              scoreBreakdowns: {
+                select: {
+                  normalizedScore: true,
+                  rawScore: true,
+                  scaledScore: true,
+                  scoringProvenance: true,
+                  scoringVersion: true,
+                  subtestId: true,
+                },
+              },
               student: { select: { email: true, fullName: true, id: true } },
             },
             orderBy: { createdAt: "desc" },

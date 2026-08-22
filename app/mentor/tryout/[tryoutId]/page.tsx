@@ -13,7 +13,20 @@ export const metadata: Metadata = { title: "Edit Tryout Kapten | Vecalss LMS" };
 
 export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<{ workspace?: string }> }) {
   const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
-  const [initialDraft, operationsInitial, readyVersions, readyAssemblies, sourceCatalog] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id), listReadyAssemblyRevisions(), listQuestionBankSourcePage({ page: 1, pageSize: 20 })]);
+  const [initialDraft, operations, readyVersions, readyAssemblies, sourceCatalog] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id), listReadyAssemblyRevisions(), listQuestionBankSourcePage({ page: 1, pageSize: 20 })]);
+  // The builder only needs session schedule/release metadata.  Keep attempt
+  // details on the separately authorized detail routes so the client-bound
+  // authoring workspace cannot inspect embargoed session scores by walking
+  // its initial props.
+  const operationsInitial = operations
+    ? {
+        ...operations,
+        sessions: operations.sessions.map((sessionView) => ({
+          ...sessionView,
+          attempts: [],
+        })),
+      }
+    : null;
   if (!initialDraft || !operationsInitial) notFound();
   // The workspace module owns the new eight-area vocabulary and maps the
   // transitional authoring/policy/sessions/participants query values for

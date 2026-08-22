@@ -76,14 +76,11 @@ import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
+import { KaptenTryoutAttemptsPageModule } from "@/modules/mentor/KaptenTryoutAttemptsPageModule";
+import { KaptenTryoutLivePageModule } from "@/modules/mentor/KaptenTryoutLivePageModule";
 import { KaptenTryoutPolicyPageModule } from "@/modules/mentor/KaptenTryoutPolicyPageModule";
+import { KaptenTryoutResultsPageModule } from "@/modules/mentor/KaptenTryoutResultsPageModule";
 import { KaptenTryoutSessionsPageModule } from "@/modules/mentor/KaptenTryoutSessionsPageModule";
-import {
-  policyLabels,
-  rankingLabels,
-  type Policy,
-} from "@/modules/mentor/KaptenTryoutOperationsData";
-import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
 import { attachReadyAssemblyAction, detachReadyAssemblyAction, previewAssemblyAction } from "@/modules/mentor/assembly-actions";
 import { duplicateTryoutAction, saveTryoutAction } from "@/modules/mentor/tryout-actions";
@@ -202,7 +199,7 @@ type CatPoolMockDraft = {
   deliveredCount: number;
   name: string;
 };
-type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "results" | "review" | "publish";
+type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "live" | "attempts" | "results" | "review" | "publish";
 
 const workspaceItems: Array<{ label: string; value: Workspace }> = [
   { label: "Basics", value: "basics" },
@@ -210,6 +207,8 @@ const workspaceItems: Array<{ label: string; value: Workspace }> = [
   { label: "Questions", value: "questions" },
   { label: "Rules", value: "rules" },
   { label: "Schedule & akses", value: "schedule" },
+  { label: "Live", value: "live" },
+  { label: "Attempts", value: "attempts" },
   { label: "Results", value: "results" },
   { label: "Review", value: "review" },
   { label: "Publish", value: "publish" },
@@ -242,6 +241,8 @@ function normalizeWorkspace(value?: string): Workspace {
     case "questions":
     case "rules":
     case "schedule":
+    case "live":
+    case "attempts":
     case "results":
     case "review":
     case "publish":
@@ -272,11 +273,6 @@ function releaseFor(
   operationsInitial?: TryoutOperationsView,
 ): ReleaseMeta | null {
   return draft.assessmentRelease ?? operationsInitial?.assessmentRelease ?? null;
-}
-
-function resultPolicyLabel(policy: string, fallback: Policy) {
-  if (policy === "inherit") return policyLabels[fallback];
-  return policyLabels[policy as Policy] ?? policy;
 }
 
 function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
@@ -1243,43 +1239,16 @@ function KaptenTryoutBuilderPageModule({
           )}
         </TabsContent>
 
+        <TabsContent className="mt-5" value="live">
+          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutLivePageModule initial={operationsInitial} />}
+        </TabsContent>
+
+        <TabsContent className="mt-5" value="attempts">
+          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutAttemptsPageModule initial={operationsInitial} />}
+        </TabsContent>
+
         <TabsContent className="mt-5" value="results">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
-            <section className="grid gap-6">
-              <header className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800"><BarChart3 /></div>
-                  <div>
-                  <h2 className="text-xl font-semibold text-secondary-900">Results</h2>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pantau attempt, skor, dan status rilis tanpa berpindah ke model runtime internal.</p>
-                  </div>
-                </div>
-                <Badge className="rounded-full" size="ui" variant="mint">{operationsInitial.sessions.reduce((total, delivery) => total + delivery.attempts.length, 0)} attempt</Badge>
-              </header>
-              <AssessmentReleaseNotice label="Rilis hasil Tryout" release={release} state={draft.status === "draft" ? "historical" : "current"} />
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Sesi</p><p className="mt-1 text-2xl font-semibold text-secondary-900">{operationsInitial.sessions.length}</p></CardContent></Card>
-                <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Peserta</p><p className="mt-1 text-2xl font-semibold text-secondary-900">{operationsInitial.participants.length}</p></CardContent></Card>
-                <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Sesi dirilis</p><p className="mt-1 text-2xl font-semibold text-secondary-900">{operationsInitial.sessions.filter((delivery) => delivery.releasedAt).length}</p></CardContent></Card>
-              </div>
-              <div className="grid gap-3">
-                {operationsInitial.sessions.length ? operationsInitial.sessions.map((delivery) => (
-                  <Card className="shadow-none ring-primary-100" key={delivery.id}>
-                    <CardHeader>
-                      <CardTitle className="font-semibold">{delivery.name}</CardTitle>
-                      <CardDescription>{new Date(delivery.availableFrom).toLocaleString("id-ID")} — {new Date(delivery.availableUntil).toLocaleString("id-ID")}</CardDescription>
-                      <CardAction className="flex items-center gap-2"><StatusBadge status={delivery.status} /><span className="text-sm text-secondary-600">{delivery.releasedAt ? "Hasil dirilis" : "Belum dirilis"}</span></CardAction>
-                    </CardHeader>
-                    <CardContent className="grid gap-2">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-600"><span><strong className="font-medium text-secondary-800">Peringkat:</strong> {rankingLabels[delivery.rankingRule as keyof typeof rankingLabels] ?? "Belum diatur"}</span><span><strong className="font-medium text-secondary-800">Kebijakan:</strong> {resultPolicyLabel(delivery.releasePolicy, operationsInitial.defaultReleasePolicy as Policy)}</span></div>
-                      {delivery.attempts.length ? <div className="grid gap-2 border-t border-primary-100 pt-3">{delivery.attempts.slice(0, 5).map((attempt) => <Link className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-100 px-3 py-2.5 text-sm hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${operationsInitial.id}/operations/attempts/${attempt.id}`} key={attempt.id}><span className="font-medium text-secondary-900">{attempt.student}</span><span className="text-secondary-600">{attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"} · {attempt.runs.filter((run) => run.status === "sealed").length}/7 Test</span></Link>)}</div> : <p className="border-t border-primary-100 pt-3 text-sm text-secondary-500">Belum ada attempt pada sesi ini.</p>}
-                      <div><Button nativeButton={false} render={<Link href={`/mentor/tryout/${operationsInitial.id}/operations/sessions/${delivery.id}`} />} size="sm" variant="ghost">Buka detail sesi <ChevronRight /></Button></div>
-                    </CardContent>
-                  </Card>
-                )) : <div className="rounded-3xl border border-dashed border-primary-200 bg-white px-5 py-12 text-center text-sm text-secondary-500">Belum ada sesi delivery untuk menampilkan hasil.</div>}
-              </div>
-            </section>
-          )}
+          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutResultsPageModule initial={operationsInitial} />}
         </TabsContent>
 
         <TabsContent className="mt-5" value="review">
