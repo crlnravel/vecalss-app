@@ -697,7 +697,7 @@ function StudentDirectoryTable({
     {
       cell: (student) => (
         <span className={cn("inline-flex items-center gap-2 font-semibold capitalize", statusTextClassName(student.tone))}>
-          <span aria-hidden="true" className={cn("size-2 rounded-full", statusDotClassName(student.tone))} />
+          {student.tone !== "success" ? <span aria-hidden="true" className={cn("size-2 rounded-full", statusDotClassName(student.tone))} /> : null}
           {formatStatus(student.status)}
         </span>
       ),
