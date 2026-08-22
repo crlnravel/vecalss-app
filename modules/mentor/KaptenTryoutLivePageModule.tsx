@@ -1,11 +1,19 @@
+"use client";
+
 import Link from "next/link";
-import { Activity, AlertTriangle, ChevronRight, ShieldAlert, Users } from "@/lib/icons";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, AlertTriangle, ChevronRight, RefreshCw, ShieldAlert, Users } from "@/lib/icons";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { liveStateLabels, type LiveSeverity, type LiveState } from "@/lib/tryout/operations-projections";
+import { refreshTryoutLiveAction } from "@/modules/mentor/tryout-operations-actions";
+
+const LIVE_REFRESH_INTERVAL_MS = 15_000;
+const MAX_AUTO_REFRESH_FAILURES = 3;
 
 const liveStates: LiveState[] = [
   "registered",
@@ -23,6 +31,16 @@ const liveSeverityLabels: Record<LiveSeverity, string> = {
   neutral: "Normal",
 };
 
+function formatTimestamp(value: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(value));
+}
+
 function LiveStateBadge({ severity, state }: { severity: LiveSeverity; state: LiveState }) {
   return (
     <Badge className="rounded-full" size="ui" variant={severity === "neutral" ? "mint" : "accent"}>
@@ -32,8 +50,58 @@ function LiveStateBadge({ severity, state }: { severity: LiveSeverity; state: Li
 }
 
 function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView }) {
+  const [view, setView] = useState(initial);
+  const [refreshState, setRefreshState] = useState<"idle" | "refreshing" | "error">("idle");
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
+  const automaticFailureCount = useRef(0);
+
+  const refresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshState("refreshing");
+    const result = await refreshTryoutLiveAction(initial.id);
+    refreshInFlight.current = false;
+    if (!result.ok) {
+      automaticFailureCount.current += 1;
+      setRefreshState("error");
+      setRefreshMessage(automaticFailureCount.current >= MAX_AUTO_REFRESH_FAILURES
+        ? "Refresh otomatis dihentikan setelah beberapa kegagalan. Coba lagi secara manual."
+        : result.message);
+      return;
+    }
+    automaticFailureCount.current = 0;
+    setView(result.result);
+    setLastUpdatedAt(result.serverUpdatedAt);
+    setRefreshState("idle");
+    setRefreshMessage(null);
+  }, [initial.id]);
+
+  const retryRefresh = () => {
+    automaticFailureCount.current = 0;
+    void refresh();
+  };
+
+  useEffect(() => {
+    const poll = () => {
+      if (document.visibilityState === "visible" && automaticFailureCount.current < MAX_AUTO_REFRESH_FAILURES) {
+        void refresh();
+      }
+    };
+    const interval = window.setInterval(poll, LIVE_REFRESH_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [refresh]);
+
   const counts = liveStates.reduce<Record<LiveState, number>>((summary, state) => {
-    summary[state] = initial.live.filter((item) => item.state === state).length;
+    summary[state] = view.live.filter((item) => item.state === state).length;
     return summary;
   }, {
     cat_failure: 0,
@@ -44,6 +112,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
     registered: 0,
     submitted: 0,
   });
+  const updatedLabel = formatTimestamp(lastUpdatedAt);
 
   return (
     <section className="grid gap-6" aria-labelledby="tryout-live-title">
@@ -59,18 +128,40 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
             </p>
           </div>
         </div>
-        <Badge className="rounded-full" size="ui" variant="mint">{initial.live.length} peserta terpantau</Badge>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="text-right text-xs text-secondary-500" aria-live="polite">
+            {refreshState === "refreshing" ? "Memperbarui dari server…" : updatedLabel ? `Terakhir diperbarui ${updatedLabel}` : "Menunggu refresh server"}
+          </div>
+          <Button
+            aria-label="Refresh status Live"
+            disabled={refreshState === "refreshing"}
+            onClick={retryRefresh}
+            size="sm"
+            variant="brandOutline"
+          >
+            <RefreshCw className={refreshState === "refreshing" ? "animate-spin" : undefined} data-icon="inline-start" />
+            Refresh
+          </Button>
+          <Badge className="rounded-full" size="ui" variant="mint">{view.live.length} peserta terpantau</Badge>
+        </div>
       </header>
+
+      {refreshMessage ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#f3d486] bg-[#fff7e5] px-4 py-3.5 text-sm leading-6 text-[#6a4a00]" role="alert">
+          <span>{refreshMessage}</span>
+          <Button onClick={retryRefresh} size="sm" variant="outline">Coba lagi</Button>
+        </div>
+      ) : null}
 
       <AssessmentReleaseNotice
         label="Konten delivery"
         missingDescription="Sesi tidak dapat dibuka sebelum AssessmentRelease tervalidasi server."
-        release={initial.assessmentRelease}
+        release={view.assessmentRelease}
       />
 
       <div className="flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
         <ShieldAlert aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary-800" />
-        <p><strong className="font-semibold text-secondary-900">Sinyal fokus dan layar penuh hanya untuk review manusia.</strong> Tidak ada penalti skor, pencabutan admission, void attempt, atau blokir hasil otomatis dari sinyal ini. Status Terputus hanya muncul dari marker lifecycle server; telemetri start/reconcile belum menjadi bagian dari AS-07.</p>
+        <p><strong className="font-semibold text-secondary-900">Sinyal fokus dan layar penuh hanya untuk review manusia.</strong> Tidak ada penalti skor, pencabutan admission, void attempt, atau blokir hasil otomatis dari sinyal ini. Status Terputus hanya muncul dari marker lifecycle server; start/reconcile disconnect memerlukan perintah berwenang dan alasan audit.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -91,14 +182,14 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
             <h3 className="text-lg font-semibold text-secondary-900" id="tryout-live-participants-title">Peserta dan next action</h3>
             <p className="mt-1 text-sm text-secondary-600">Buka participant untuk akses, atau attempt untuk run dan sinyal yang lebih rinci.</p>
           </div>
-          <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4 hover:text-primary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}?workspace=schedule`}>
+          <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4 hover:text-primary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${view.id}?workspace=schedule`}>
             Buka Schedule &amp; akses <ChevronRight aria-hidden="true" className="size-4" />
           </Link>
         </div>
 
-        {initial.live.length ? (
+        {view.live.length ? (
           <div className="grid gap-3">
-            {initial.live.map((item) => (
+            {view.live.map((item) => (
               <Card className="shadow-none ring-primary-100" key={item.admissionId}>
                 <CardHeader>
                   <CardTitle className="flex min-w-0 items-center gap-2 font-semibold">
@@ -114,11 +205,17 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
                 <CardContent className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <div className="min-w-0">
                     <p className="text-sm leading-6 text-secondary-700">{item.reason}</p>
+                    {item.disconnectStartedAt ? (
+                      <p className="mt-1 text-xs font-medium text-secondary-600">
+                        Marker disconnect dimulai {formatTimestamp(item.disconnectStartedAt)}
+                        {item.reconciledAt ? ` · direkonsiliasi ${formatTimestamp(item.reconciledAt)}` : " · menunggu reconcile"}
+                      </p>
+                    ) : null}
                     {item.integrityEventCount ? <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#6a4a00]"><AlertTriangle aria-hidden="true" className="size-3.5" />{item.integrityEventCount} sinyal integritas tercatat untuk review manusia.</p> : null}
                   </div>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <Link className="inline-flex min-h-10 items-center justify-center rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/participants/${item.admissionId}`}>Participant</Link>
-                    {item.attemptId ? <Link className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/attempts/${item.attemptId}`}>Buka attempt</Link> : null}
+                    <Link className="inline-flex min-h-10 items-center justify-center rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${view.id}/operations/participants/${item.admissionId}`}>Participant</Link>
+                    {item.attemptId ? <Link className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${view.id}/operations/attempts/${item.attemptId}`}>Buka attempt</Link> : null}
                   </div>
                 </CardContent>
               </Card>

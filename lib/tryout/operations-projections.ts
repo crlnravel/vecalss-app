@@ -34,8 +34,10 @@ type LiveProjection = {
   activeRunSequenceNo: number | null;
   attemptId: string | null;
   catFailureSequenceNo: number | null;
+  disconnectStartedAt: string | null;
   integrityEventCount: number;
   label: string;
+  reconciledAt: string | null;
   reason: string;
   severity: LiveSeverity;
   state: LiveState;
@@ -135,6 +137,7 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: null,
       attemptId: null,
       catFailureSequenceNo: null,
+      disconnectStartedAt: null,
       integrityEventCount: 0,
       label: liveStateLabels.registered,
       reason: input.admissionStatus === "pending"
@@ -144,6 +147,7 @@ function deriveTryoutLiveProjection(input: {
           : "Peserta terdaftar, tetapi belum memiliki attempt.",
       severity: "neutral",
       state: "registered",
+      reconciledAt: null,
     };
   }
 
@@ -151,11 +155,16 @@ function deriveTryoutLiveProjection(input: {
     + attempt.runs.reduce((total, run) => total + (run.integrityEvents ?? 0), 0);
   const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const activeRunExpired = typeof activeRun?.remainingSeconds === "number" && activeRun.remainingSeconds <= 0;
+  const expiredRun = attempt.runs.find((run) => run.status === "expired") ?? null;
   const failedCatRun = attempt.runs.find((run) => run.catState === "failed") ?? null;
   // Disconnected is intentionally marker-driven. Do not infer it from a
-  // client timer or an integrity event; the authorized lifecycle writer is a
-  // future telemetry slice.
+  // client timer or an integrity event; only the authorized server lifecycle
+  // commands may create or reconcile this marker.
   const activeDisconnect = Boolean(attempt.disconnectStartedAt && !attempt.reconciledAt);
+  const lifecycle = {
+    disconnectStartedAt: attempt.disconnectStartedAt ?? null,
+    reconciledAt: attempt.reconciledAt ?? null,
+  };
   const reviewRun = attempt.runs.find((run) => run.scoringState === "review_required") ?? null;
   const reviewRequired = attempt.scoringState === "review_required" || Boolean(reviewRun);
   const terminal = ["submitted", "auto_submitted", "expired"].includes(attempt.attemptState)
@@ -166,6 +175,7 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
       catFailureSequenceNo: failedCatRun?.sequenceNo ?? null,
+      ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.disconnected,
       reason: "Koneksi peserta masih terputus; periksa attempt secara manual sebelum mengambil tindakan.",
@@ -179,6 +189,7 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
       catFailureSequenceNo: failedCatRun.sequenceNo,
+      ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.cat_failure,
       reason: failedCatRun.catFailureReason ?? `CAT gagal pada Test ${failedCatRun.sequenceNo}; buka attempt untuk review atau resolusi.`,
@@ -192,6 +203,7 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
       catFailureSequenceNo: null,
+      ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
       reason: attempt.scoringReviewReason
@@ -207,6 +219,7 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: null,
       attemptId: attempt.attemptId ?? null,
       catFailureSequenceNo: null,
+      ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.submitted,
       reason: attempt.attemptState === "expired"
@@ -222,9 +235,24 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
       catFailureSequenceNo: null,
+      ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.needs_attention,
       reason: `Timer Test ${activeRun?.sequenceNo ?? "aktif"} sudah mencapai batas; verifikasi attempt dari detail sebelum mengambil tindakan.`,
+      severity: "attention",
+      state: "needs_attention",
+    };
+  }
+
+  if (expiredRun) {
+    return {
+      activeRunSequenceNo: null,
+      attemptId: attempt.attemptId ?? null,
+      catFailureSequenceNo: null,
+      ...lifecycle,
+      integrityEventCount,
+      label: liveStateLabels.needs_attention,
+      reason: `Test ${expiredRun.sequenceNo} berakhir karena batas waktu server; verifikasi attempt sebelum melanjutkan atau menutup submission.`,
       severity: "attention",
       state: "needs_attention",
     };
@@ -235,6 +263,7 @@ function deriveTryoutLiveProjection(input: {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
       attemptId: attempt.attemptId ?? null,
       catFailureSequenceNo: null,
+      ...lifecycle,
       integrityEventCount,
       label: liveStateLabels.in_progress,
       reason: activeRun
@@ -249,6 +278,7 @@ function deriveTryoutLiveProjection(input: {
     activeRunSequenceNo: null,
     attemptId: attempt.attemptId ?? null,
     catFailureSequenceNo: null,
+    ...lifecycle,
     integrityEventCount,
     label: liveStateLabels.checked_in,
     reason: "Attempt sudah dibuat; peserta belum memiliki Test aktif.",

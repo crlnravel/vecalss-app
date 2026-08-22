@@ -3,6 +3,7 @@ import "server-only";
 import {
   findAssessmentReleaseSectionForRun,
 } from "@/lib/tryout/assessment-release";
+import { synchronizeTryoutOperations } from "@/lib/tryout/attempt-repository";
 import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
 import {
   deriveTryoutLiveProjection,
@@ -445,6 +446,12 @@ async function getOwnedTryoutOperationsView(
   // Scope in the database before loading admissions, student identities,
   // attempts, or release payloads.  The serializer is a presentation
   // boundary, not an ownership boundary.
+  // Reconcile expired release-bound attempts before serializing the read. The
+  // synchronizer is owner-scoped and uses the same deterministic row locks as
+  // participant commands, so Live never presents a client-only timer state as
+  // authoritative.
+  const synchronized = await synchronizeTryoutOperations(tryoutId, actorId);
+  if (!synchronized) return null;
   const operations = await getTryoutDeliveryOperations(tryoutId, actorId);
   if (!operations) return null;
   return serializeTryoutOperations(operations);

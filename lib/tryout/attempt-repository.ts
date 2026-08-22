@@ -30,6 +30,14 @@ function assertAttemptReleaseBinding(
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 const activeAttemptStatuses = [AttemptStatus.in_progress] as const;
 
+type AttemptScope = {
+  admissionId: string;
+  deliverySessionId: string;
+  id: string;
+  studentId: string;
+  tryoutId: string;
+};
+
 type ItemSnapshot = {
   difficulty: string;
   explanation?: string | null;
@@ -126,6 +134,50 @@ async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
   // pg_advisory_xact_lock returns PostgreSQL `void`; executeRaw consumes the
   // command result without asking Prisma to deserialize that value.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
+}
+
+async function lockTryout(tx: Prisma.TransactionClient, tryoutId: string) {
+  await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
+}
+
+async function lockAttemptScope(tx: Prisma.TransactionClient, attemptId: string): Promise<AttemptScope | null> {
+  const scope = await tx.tryoutAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      admissionId: true,
+      deliverySessionId: true,
+      id: true,
+      studentId: true,
+      tryoutId: true,
+    },
+  });
+  if (!scope) return null;
+
+  // Every authoritative attempt transition uses this order: student,
+  // admission, assignment, session, Tryout, attempt, then run rows. Keeping
+  // the scope exact avoids broad locks while making stale commands serialize
+  // with participant starts, assignment changes, and revocations.
+  await lockStudent(tx, scope.studentId);
+  await tx.$queryRaw`SELECT id FROM tryout_admissions WHERE id = ${scope.admissionId}::uuid FOR UPDATE`;
+  await tx.$queryRaw`
+    SELECT id
+      FROM tryout_delivery_assignments
+     WHERE admission_id = ${scope.admissionId}::uuid
+       AND delivery_session_id = ${scope.deliverySessionId}::uuid
+     ORDER BY id
+     FOR UPDATE
+  `;
+  await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${scope.deliverySessionId}::uuid FOR UPDATE`;
+  await lockTryout(tx, scope.tryoutId);
+  await tx.$queryRaw`SELECT id FROM tryout_attempts WHERE id = ${scope.id}::uuid FOR UPDATE`;
+  await tx.$queryRaw`
+    SELECT id
+      FROM tryout_attempt_test_runs
+     WHERE attempt_id = ${scope.id}::uuid
+     ORDER BY id
+     FOR UPDATE
+  `;
+  return scope;
 }
 
 async function lockOverlappingDeliverySessions(
@@ -281,16 +333,378 @@ async function expireForSessionCap(tx: Prisma.TransactionClient, attemptId: stri
   await markAttemptSubmittedIfComplete(tx, attemptId, now, true);
 }
 
-async function synchronizeAttempt(tx: Prisma.TransactionClient, attemptId: string, now: Date) {
-  const attempt = await tx.tryoutAttempt.findUnique({ where: { id: attemptId }, include: { deliverySession: { select: { availableUntil: true } } } });
+async function appendDeadlineAudit(
+  tx: Prisma.TransactionClient,
+  input: {
+    actorId: string;
+    admissionId: string;
+    after: unknown;
+    before: unknown;
+    deliverySessionId: string;
+    reason: string;
+    tryoutId: string;
+  },
+) {
+  await tx.tryoutDeliveryAudit.create({
+    data: {
+      action: "attempt.deadline_expired",
+      actorUserId: input.actorId,
+      admissionId: input.admissionId,
+      after: json(input.after),
+      before: json(input.before),
+      deliverySessionId: input.deliverySessionId,
+      reason: input.reason,
+      tryoutId: input.tryoutId,
+    },
+  });
+}
+
+async function synchronizeAttempt(
+  tx: Prisma.TransactionClient,
+  attemptId: string,
+  now: Date,
+  actorId?: string,
+) {
+  const scope = await lockAttemptScope(tx, attemptId);
+  if (!scope) return null;
+
+  const attempt = await tx.tryoutAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      admissionId: true,
+      assessmentReleaseDigest: true,
+      assessmentReleaseId: true,
+      assessmentReleaseNumber: true,
+      attemptState: true,
+      deliverySession: { select: { assessmentReleaseId: true, availableUntil: true } },
+      id: true,
+      serverDeadlineAt: true,
+      status: true,
+      studentId: true,
+      tryoutId: true,
+      runs: {
+        select: { id: true, sequenceNo: true, serverDeadlineAt: true, status: true },
+        orderBy: { sequenceNo: "asc" },
+      },
+    },
+  });
   if (!attempt || attempt.status !== AttemptStatus.in_progress) return attempt;
-  if (attempt.deliverySession.availableUntil <= now) {
+
+  // Legacy nullable trees predate the immutable release boundary. They remain
+  // historical reads and must not be rewritten by an operations refresh.
+  const legacyRead = !attempt.assessmentReleaseId
+    && attempt.assessmentReleaseNumber === null
+    && !attempt.assessmentReleaseDigest
+    && !attempt.deliverySession.assessmentReleaseId;
+  if (legacyRead) return attempt;
+
+  const active = attempt.runs.find((run) => run.status === TryoutAttemptTestRunStatus.active) ?? null;
+  const before = {
+    attemptState: attempt.attemptState,
+    serverDeadlineAt: attempt.serverDeadlineAt.toISOString(),
+    status: attempt.status,
+    runs: attempt.runs.map((run) => ({ id: run.id, sequenceNo: run.sequenceNo, serverDeadlineAt: run.serverDeadlineAt?.toISOString() ?? null, status: run.status })),
+  };
+  let reason: string | null = null;
+  if (attempt.serverDeadlineAt <= now || attempt.deliverySession.availableUntil <= now) {
     await expireForSessionCap(tx, attemptId, now);
-    return tx.tryoutAttempt.findUnique({ where: { id: attemptId } });
+    reason = attempt.serverDeadlineAt <= now
+      ? "Batas waktu server attempt terlewati; attempt dan Test aktif disinkronkan otomatis."
+      : "Batas waktu sesi server terlewati; attempt dan Test aktif disinkronkan otomatis.";
+  } else if (active?.serverDeadlineAt && active.serverDeadlineAt <= now) {
+    await calculateAndSealRun(tx, active.id, now, true);
+    reason = `Batas waktu server Test ${active.sequenceNo} terlewati; run disinkronkan otomatis.`;
   }
-  const active = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true, serverDeadlineAt: true } });
-  if (active?.serverDeadlineAt && active.serverDeadlineAt <= now) await calculateAndSealRun(tx, active.id, now, true);
-  return attempt;
+  if (!reason) return attempt;
+
+  const after = await tx.tryoutAttempt.findUnique({
+    where: { id: attemptId },
+    select: {
+      attemptState: true,
+      id: true,
+      serverDeadlineAt: true,
+      status: true,
+      runs: {
+        select: { id: true, sequenceNo: true, serverDeadlineAt: true, status: true },
+        orderBy: { sequenceNo: "asc" },
+      },
+    },
+  });
+  if (after && (
+    after.attemptState !== before.attemptState
+    || after.status !== before.status
+    || after.runs.some((run, index) => run.status !== before.runs[index]?.status)
+  )) {
+    const afterAudit = {
+      attemptState: after.attemptState,
+      id: after.id,
+      serverDeadlineAt: after.serverDeadlineAt.toISOString(),
+      status: after.status,
+      runs: after.runs.map((run) => ({ id: run.id, sequenceNo: run.sequenceNo, serverDeadlineAt: run.serverDeadlineAt?.toISOString() ?? null, status: run.status })),
+    };
+    await appendDeadlineAudit(tx, {
+      actorId: actorId ?? attempt.studentId,
+      admissionId: attempt.admissionId,
+      after: afterAudit,
+      before,
+      deliverySessionId: scope.deliverySessionId,
+      reason,
+      tryoutId: scope.tryoutId,
+    });
+  }
+  return tx.tryoutAttempt.findUnique({ where: { id: attemptId } });
+}
+
+async function synchronizeTryoutOperations(tryoutId: string, actorId: string) {
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    const ownedTryout = await tx.tryoutPackage.findFirst({
+      select: { id: true },
+      where: { createdByUserId: actorId, id: tryoutId },
+    });
+    if (!ownedTryout) return false;
+    const candidates = await tx.tryoutAttempt.findMany({
+      orderBy: { id: "asc" },
+      select: { id: true },
+      where: {
+        status: AttemptStatus.in_progress,
+        tryoutId,
+        OR: [
+          { serverDeadlineAt: { lte: now } },
+          { deliverySession: { availableUntil: { lte: now } } },
+          { runs: { some: { serverDeadlineAt: { lte: now }, status: TryoutAttemptTestRunStatus.active } } },
+        ],
+      },
+    });
+    for (const candidate of candidates) await synchronizeAttempt(tx, candidate.id, now, actorId);
+    return true;
+  });
+}
+
+type DisconnectCommandResult = {
+  attemptId: string;
+  disconnectStartedAt: string | null;
+  reconciledAt: string | null;
+  runId: string;
+  state: "existing" | "reconciled" | "started";
+  totalDisconnectSeconds: number;
+};
+
+function disconnectResult(
+  attempt: { disconnectStartedAt: Date | null; reconciledAt: Date | null; totalDisconnectSeconds: number },
+  attemptId: string,
+  runId: string,
+  state: DisconnectCommandResult["state"],
+): DisconnectCommandResult {
+  return {
+    attemptId,
+    disconnectStartedAt: attempt.disconnectStartedAt?.toISOString() ?? null,
+    reconciledAt: attempt.reconciledAt?.toISOString() ?? null,
+    runId,
+    state,
+    totalDisconnectSeconds: attempt.totalDisconnectSeconds,
+  };
+}
+
+async function startTryoutDisconnect(
+  attemptId: string,
+  runId: string,
+  actorId: string,
+  reason: string,
+  allowCrossOwner = false,
+) {
+  const auditReason = reason.trim();
+  if (!auditReason) throw new TryoutAttemptValidationError("Alasan audit disconnect wajib diisi.");
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
+    const initial = await tx.tryoutAttempt.findUnique({
+      where: { id: attemptId },
+      select: { disconnectStartedAt: true, reconciledAt: true, totalDisconnectSeconds: true },
+    });
+    if (!initial) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan setelah penguncian.");
+    const preflight = await tx.tryoutAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        admission: { select: { status: true } },
+        tryout: { select: { createdByUserId: true } },
+      },
+    });
+    const preflightAssignment = preflight
+      ? await tx.tryoutDeliveryAssignment.findUnique({
+          where: { admissionId_deliverySessionId: { admissionId: preflight.admissionId, deliverySessionId: preflight.deliverySessionId } },
+          select: { status: true },
+        })
+      : null;
+    const preflightRun = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId }, select: { status: true } });
+    if (!preflight || !preflightRun || !preflightAssignment || (preflight.studentId !== actorId && preflight.tryout.createdByUserId !== actorId && !allowCrossOwner)) {
+      throw new TryoutAttemptValidationError("Anda tidak dapat mengubah disconnect Tryout dari scope yang diminta.");
+    }
+    if (preflight.admission.status !== "active" || preflightAssignment.status !== TryoutAssignmentStatus.active) {
+      throw new TryoutAttemptValidationError("Disconnect hanya dapat dimulai dari admission dan penugasan sesi yang aktif.");
+    }
+    if (preflight.status !== AttemptStatus.in_progress || preflight.attemptState !== AssessmentAttemptState.in_progress || preflightRun.status !== TryoutAttemptTestRunStatus.active) {
+      throw new TryoutAttemptValidationError("Disconnect hanya dapat dimulai saat Test masih aktif.");
+    }
+    const preflightStudent = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: preflight.studentId } });
+    if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
+      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+    }
+    await synchronizeAttempt(tx, attemptId, now, actorId);
+    const attempt = await tx.tryoutAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        admission: { select: { status: true, tryoutId: true } },
+        deliverySession: { select: { availableFrom: true, availableUntil: true, id: true, status: true } },
+        tryout: { select: { createdByUserId: true, id: true } },
+      },
+    });
+    const assignment = attempt
+      ? await tx.tryoutDeliveryAssignment.findUnique({
+          where: { admissionId_deliverySessionId: { admissionId: attempt.admissionId, deliverySessionId: attempt.deliverySessionId } },
+          select: { id: true, status: true },
+        })
+      : null;
+    const run = await tx.tryoutAttemptTestRun.findFirst({
+      where: { attemptId, id: runId },
+      select: { id: true, status: true },
+    });
+    if (!attempt || !run || !assignment || attempt.tryoutId !== scope.tryoutId || attempt.deliverySessionId !== scope.deliverySessionId || attempt.admissionId !== scope.admissionId) {
+      throw new TryoutAttemptValidationError("Attempt, Test run, admission, dan sesi Tryout tidak cocok.");
+    }
+    if (attempt.studentId !== actorId && attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) {
+      throw new TryoutAttemptValidationError("Anda tidak dapat mengubah disconnect Tryout milik peserta lain.");
+    }
+    const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
+    if (isManagedPreviewPurpose(student?.previewPurpose)) {
+      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+    }
+    if (attempt.admission.status !== "active" || assignment.status !== TryoutAssignmentStatus.active) {
+      throw new TryoutAttemptValidationError("Disconnect hanya dapat dimulai dari admission dan penugasan sesi yang aktif.");
+    }
+    if (attempt.status !== AttemptStatus.in_progress || attempt.attemptState !== AssessmentAttemptState.in_progress || run.status !== TryoutAttemptTestRunStatus.active) {
+      throw new TryoutAttemptValidationError("Disconnect hanya dapat dimulai saat Test masih aktif.");
+    }
+    if (attempt.disconnectStartedAt && attempt.reconciledAt) {
+      throw new TryoutAttemptValidationError("Siklus disconnect sudah direkonsiliasi dan tidak dapat dimulai ulang.");
+    }
+    if (attempt.disconnectStartedAt) {
+      return disconnectResult(attempt, attemptId, runId, "existing");
+    }
+    const updated = await tx.tryoutAttempt.update({
+      where: { id: attemptId },
+      data: { disconnectStartedAt: now, reconciledAt: null },
+      select: { disconnectStartedAt: true, reconciledAt: true, totalDisconnectSeconds: true },
+    });
+    await tx.tryoutDeliveryAudit.create({
+      data: {
+        action: "attempt.disconnect_started",
+        actorUserId: actorId,
+        admissionId: attempt.admissionId,
+        after: json({ disconnectStartedAt: now.toISOString(), runId }),
+        before: json({ disconnectStartedAt: initial.disconnectStartedAt?.toISOString() ?? null, reconciledAt: initial.reconciledAt?.toISOString() ?? null }),
+        deliverySessionId: attempt.deliverySessionId,
+        reason: auditReason,
+        tryoutId: attempt.tryoutId,
+      },
+    });
+    return disconnectResult(updated, attemptId, runId, "started");
+  });
+}
+
+async function reconcileTryoutDisconnect(
+  attemptId: string,
+  runId: string,
+  actorId: string,
+  reason: string,
+  allowCrossOwner = false,
+) {
+  const auditReason = reason.trim();
+  if (!auditReason) throw new TryoutAttemptValidationError("Alasan audit reconcile disconnect wajib diisi.");
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    const scope = await lockAttemptScope(tx, attemptId);
+    if (!scope) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
+    const preflight = await tx.tryoutAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        admission: { select: { status: true } },
+        tryout: { select: { createdByUserId: true } },
+      },
+    });
+    const preflightAssignment = preflight
+      ? await tx.tryoutDeliveryAssignment.findUnique({
+          where: { admissionId_deliverySessionId: { admissionId: preflight.admissionId, deliverySessionId: preflight.deliverySessionId } },
+          select: { status: true },
+        })
+      : null;
+    const preflightRun = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId }, select: { status: true } });
+    if (!preflight || !preflightRun || !preflightAssignment || (preflight.studentId !== actorId && preflight.tryout.createdByUserId !== actorId && !allowCrossOwner)) {
+      throw new TryoutAttemptValidationError("Anda tidak dapat merekonsiliasi disconnect Tryout dari scope yang diminta.");
+    }
+    if (preflight.admission.status !== "active" || preflightAssignment.status !== TryoutAssignmentStatus.active) {
+      throw new TryoutAttemptValidationError("Reconcile disconnect memerlukan admission dan penugasan aktif.");
+    }
+    if (preflight.status !== AttemptStatus.in_progress || preflight.attemptState !== AssessmentAttemptState.in_progress || preflightRun.status !== TryoutAttemptTestRunStatus.active) {
+      throw new TryoutAttemptValidationError("Reconcile disconnect hanya dapat dilakukan saat Test masih aktif.");
+    }
+    const preflightStudent = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: preflight.studentId } });
+    if (isManagedPreviewPurpose(preflightStudent?.previewPurpose)) {
+      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+    }
+    await synchronizeAttempt(tx, attemptId, now, actorId);
+    const attempt = await tx.tryoutAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        admission: { select: { status: true, tryoutId: true } },
+        deliverySession: { select: { id: true, status: true } },
+        tryout: { select: { createdByUserId: true, id: true } },
+      },
+    });
+    const assignment = attempt
+      ? await tx.tryoutDeliveryAssignment.findUnique({
+          where: { admissionId_deliverySessionId: { admissionId: attempt.admissionId, deliverySessionId: attempt.deliverySessionId } },
+          select: { status: true },
+        })
+      : null;
+    const run = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId }, select: { id: true, status: true } });
+    if (!attempt || !run || attempt.tryoutId !== scope.tryoutId || attempt.deliverySessionId !== scope.deliverySessionId || attempt.admissionId !== scope.admissionId) {
+      throw new TryoutAttemptValidationError("Attempt, Test run, admission, dan sesi Tryout tidak cocok.");
+    }
+    if (attempt.studentId !== actorId && attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) {
+      throw new TryoutAttemptValidationError("Anda tidak dapat merekonsiliasi disconnect Tryout milik peserta lain.");
+    }
+    const student = await tx.user.findUnique({ select: { previewPurpose: true }, where: { id: attempt.studentId } });
+    if (isManagedPreviewPurpose(student?.previewPurpose)) {
+      throw new TryoutAttemptValidationError("Akun preview admin hanya dapat diakses melalui restart Tryout preview.");
+    }
+    if (attempt.admission.status !== "active" || assignment?.status !== TryoutAssignmentStatus.active) throw new TryoutAttemptValidationError("Reconcile disconnect memerlukan admission dan penugasan aktif.");
+    if (attempt.status !== AttemptStatus.in_progress || attempt.attemptState !== AssessmentAttemptState.in_progress || run.status !== TryoutAttemptTestRunStatus.active) {
+      throw new TryoutAttemptValidationError("Reconcile disconnect hanya dapat dilakukan saat Test masih aktif.");
+    }
+    if (!attempt.disconnectStartedAt) throw new TryoutAttemptValidationError("Belum ada marker disconnect yang dapat direkonsiliasi.");
+    if (attempt.reconciledAt) return disconnectResult(attempt, attemptId, runId, "existing");
+    const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - attempt.disconnectStartedAt.getTime()) / 1000));
+    const updated = await tx.tryoutAttempt.update({
+      where: { id: attemptId },
+      data: { reconciledAt: now, totalDisconnectSeconds: attempt.totalDisconnectSeconds + elapsedSeconds },
+      select: { disconnectStartedAt: true, reconciledAt: true, totalDisconnectSeconds: true },
+    });
+    await tx.tryoutDeliveryAudit.create({
+      data: {
+        action: "attempt.disconnect_reconciled",
+        actorUserId: actorId,
+        admissionId: attempt.admissionId,
+        after: json({ reconciledAt: now.toISOString(), totalDisconnectSeconds: updated.totalDisconnectSeconds, runId }),
+        before: json({ disconnectStartedAt: attempt.disconnectStartedAt.toISOString(), reconciledAt: null, totalDisconnectSeconds: attempt.totalDisconnectSeconds }),
+        deliverySessionId: attempt.deliverySessionId,
+        reason: auditReason,
+        tryoutId: attempt.tryoutId,
+      },
+    });
+    return disconnectResult(updated, attemptId, runId, "reconciled");
+  });
 }
 
 function snapshotSection(section: { catItemCount: number | null; catModelVersion: string | null; id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; sequenceNo: number; subtestId: string; testType: string; title: string; items: Array<{ difficulty: string; explanation: string | null; explanationAssetId: string | null; id: string; releaseItemId?: string; prompt: string; promptAssetId?: string | null; points: Prisma.Decimal | number | string; sortOrder: number; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; options: Array<{ assetId?: string | null; id: string; choiceKey: string; content: string; isCorrect: boolean; releaseOptionId?: string; sortOrder: number }> }> }) {
@@ -568,7 +982,7 @@ async function attemptState(attemptId: string, studentId: string) {
     // Legacy nullable trees are historical reads. Do not expire, seal, score,
     // or rewrite them merely because a participant opens the status endpoint;
     // only release-bound runtime attempts may use the synchronizer here.
-    if (!legacyRead) await synchronizeAttempt(tx, attemptId, now);
+    if (!legacyRead) await synchronizeAttempt(tx, attemptId, now, studentId);
     const runs = await tx.tryoutAttemptTestRun.findMany({
       where: { attemptId },
       include: {
@@ -651,7 +1065,7 @@ async function recordTryoutIntegrityEvent(attemptId: string, runId: string, even
     const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assessmentRelease: { select: { id: true } }, deliverySession: { select: { assessmentReleaseId: true, fullscreenPrompt: true } } } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
     if (!attempt.assessmentReleaseId || !attempt.assessmentReleaseNumber || !attempt.assessmentReleaseDigest || attempt.assessmentReleaseId !== attempt.deliverySession.assessmentReleaseId) throw new TryoutAttemptValidationError("Attempt Tryout tidak terikat pada AssessmentRelease sesi.");
-    await synchronizeAttempt(tx, attemptId, now);
+    await synchronizeAttempt(tx, attemptId, now, studentId);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId, status: TryoutAttemptTestRunStatus.active }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, catSnapshot: true, contentSnapshot: true, id: true } });
     if (!run) throw new TryoutAttemptValidationError("Hanya Test aktif yang dapat mencatat peringatan Tryout.");
     assertCompleteFrozenRun(run, { testType: TryoutTestType.cbt }, true);
@@ -688,7 +1102,7 @@ async function startActiveTestRun(attemptId: string, runId: string, studentId: s
       { assessmentReleaseDigest: attempt.deliverySession.assessmentRelease.contentDigest, assessmentReleaseId: attempt.deliverySession.assessmentRelease.id, assessmentReleaseNumber: attempt.deliverySession.assessmentRelease.releaseNumber },
       { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
     );
-    await synchronizeAttempt(tx, attemptId, now);
+    await synchronizeAttempt(tx, attemptId, now, studentId);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, include: { section: true } });
     if (!run || run.status !== TryoutAttemptTestRunStatus.pending) throw new TryoutAttemptValidationError("Hanya Test berikutnya yang belum dimulai dapat dibuka.");
     const frozen = assertCompleteFrozenRun(run, run.section, true);
@@ -727,7 +1141,7 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
       { assessmentReleaseDigest: sessionRelease.contentDigest, assessmentReleaseId: sessionRelease.id, assessmentReleaseNumber: sessionRelease.releaseNumber },
       { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
     );
-    await synchronizeAttempt(tx, attemptId, now);
+    await synchronizeAttempt(tx, attemptId, now, studentId);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId, status: TryoutAttemptTestRunStatus.active }, include: { section: { select: { catItemCount: true, testType: true, tryoutId: true } } } });
     if (!run) throw new TryoutAttemptValidationError("Hanya Test aktif yang dapat menyimpan jawaban.");
     const frozen = assertCompleteFrozenRun(run, run.section, true);
@@ -782,7 +1196,7 @@ async function sealTryoutTestRun(attemptId: string, runId: string, studentId: st
       { assessmentReleaseDigest: sessionRelease.contentDigest, assessmentReleaseId: sessionRelease.id, assessmentReleaseNumber: sessionRelease.releaseNumber },
       { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
     );
-    await synchronizeAttempt(tx, attemptId, new Date());
+    await synchronizeAttempt(tx, attemptId, new Date(), studentId);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, select: { id: true, status: true } });
     if (!run) throw new TryoutAttemptValidationError("Test tidak ditemukan.");
     if (run.status === TryoutAttemptTestRunStatus.active) {
@@ -849,4 +1263,4 @@ async function voidCatTestRun(runId: string, actorId: string, reason: string, al
   });
 }
 
-export { attemptState, recordTryoutIntegrityEvent, retryCatTestRun, saveTryoutAnswer, sealTryoutTestRun, startActiveTestRun, startTryoutAttempt, TryoutAttemptValidationError, voidCatTestRun };
+export { attemptState, reconcileTryoutDisconnect, recordTryoutIntegrityEvent, retryCatTestRun, saveTryoutAnswer, sealTryoutTestRun, startActiveTestRun, startTryoutAttempt, startTryoutDisconnect, synchronizeAttempt, synchronizeTryoutOperations, TryoutAttemptValidationError, voidCatTestRun };

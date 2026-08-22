@@ -5,11 +5,13 @@ import { revalidatePath } from "next/cache";
 import { requireStudentSession } from "@/lib/auth/access";
 import {
   attemptState,
+  reconcileTryoutDisconnect,
   recordTryoutIntegrityEvent,
   saveTryoutAnswer,
   sealTryoutTestRun,
   startActiveTestRun,
   startTryoutAttempt,
+  startTryoutDisconnect,
   TryoutAttemptValidationError,
 } from "@/lib/tryout/attempt-repository";
 import type { TryoutIntegrityEventType } from "@/generated/prisma/client";
@@ -85,6 +87,24 @@ async function startActiveTryoutTestRunAction(attemptId: string, runId: string) 
   }
 }
 
+async function startTryoutDisconnectAction(attemptId: string, runId: string, reason: string) {
+  const session = await participantSession();
+  try {
+    return { ok: true as const, result: await startTryoutDisconnect(attemptId, runId, session.user.id, reason) };
+  } catch (error) {
+    return { ok: false as const, message: message(error) };
+  }
+}
+
+async function reconcileTryoutDisconnectAction(attemptId: string, runId: string, reason: string) {
+  const session = await participantSession();
+  try {
+    return { ok: true as const, result: await reconcileTryoutDisconnect(attemptId, runId, session.user.id, reason) };
+  } catch (error) {
+    return { ok: false as const, message: message(error) };
+  }
+}
+
 async function saveTryoutAnswerAction(attemptId: string, runId: string, itemId: string, optionId: string | null) {
   const session = await participantSession();
   try {
@@ -127,8 +147,10 @@ export {
   recordTryoutIntegrityEventAction,
   participantTryoutResultAction,
   saveTryoutAnswerAction,
+  reconcileTryoutDisconnectAction,
   sealTryoutTestRunAction,
   startActiveTryoutTestRunAction,
+  startTryoutDisconnectAction,
   startTryoutAttemptAction,
   tryoutAttemptStateAction,
 };

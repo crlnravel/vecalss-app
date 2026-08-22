@@ -33,9 +33,20 @@ import {
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import {
   calculateTryoutAttemptAction,
+  reconcileTryoutDisconnectAction,
   retryCatTestRunAction,
+  startTryoutDisconnectAction,
   voidCatTestRunAction,
 } from "@/modules/mentor/tryout-actions";
+
+function formatTimestamp(value: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(value));
+}
 
 function KaptenTryoutAttemptDetailPageModule({
   attemptId,
@@ -49,6 +60,7 @@ function KaptenTryoutAttemptDetailPageModule({
     session.attempts.some((attempt) => attempt.id === attemptId),
   )!;
   const attempt = delivery.attempts.find((item) => item.id === attemptId)!;
+  const activeRun = attempt.runs.find((run) => run.status === "active") ?? null;
   const [auditReason, setAuditReason] = useState("");
   const [voidRunId, setVoidRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -89,6 +101,24 @@ function KaptenTryoutAttemptDetailPageModule({
     const result = await voidCatTestRunAction(voidRunId, auditReason);
     setVoidRunId(null);
     report("Run CAT berhasil di-void.", result);
+  };
+
+  const handleDisconnectStart = async () => {
+    if (!activeRun || !auditReason.trim()) return;
+    setBusy("disconnect-start");
+    report(
+      "Marker disconnect berhasil dimulai dan dicatat di audit delivery.",
+      await startTryoutDisconnectAction(attempt.id, activeRun.id, auditReason),
+    );
+  };
+
+  const handleDisconnectReconcile = async () => {
+    if (!activeRun || !auditReason.trim()) return;
+    setBusy("disconnect-reconcile");
+    report(
+      "Marker disconnect berhasil direkonsiliasi dari waktu server.",
+      await reconcileTryoutDisconnectAction(attempt.id, activeRun.id, auditReason),
+    );
   };
 
   return (
@@ -175,6 +205,31 @@ function KaptenTryoutAttemptDetailPageModule({
                 <Calculator data-icon="inline-start" />
                 {busy === "calculate" ? "Menghitung…" : "Hitung hasil"}
               </Button>
+              <div className="grid gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 p-4" role="status">
+                <div>
+                  <p className="font-semibold text-secondary-900">Lifecycle disconnect</p>
+                  <p className="mt-1 text-xs leading-5 text-secondary-600">Marker hanya berubah lewat perintah server berwenang. Fokus, fullscreen, timer, dan sinyal browser tidak memulai disconnect.</p>
+                </div>
+                {attempt.disconnectStartedAt ? (
+                  <div className="text-sm leading-6 text-secondary-700">
+                    <p>Dimulai {formatTimestamp(attempt.disconnectStartedAt)}</p>
+                    {attempt.reconciledAt ? <p>Direkonsiliasi {formatTimestamp(attempt.reconciledAt)} · total {attempt.totalDisconnectSeconds} detik</p> : <p className="font-medium text-[#6a4a00]">Menunggu reconcile operator.</p>}
+                  </div>
+                ) : <p className="text-sm text-secondary-600">Belum ada marker disconnect.</p>}
+                <div className="flex flex-wrap gap-2">
+                  {!attempt.disconnectStartedAt ? (
+                    <Button disabled={!activeRun || !auditReason.trim() || Boolean(busy)} onClick={() => void handleDisconnectStart()} size="sm" variant="brandOutline">
+                      <ShieldAlert data-icon="inline-start" />
+                      {busy === "disconnect-start" ? "Memulai…" : "Mulai disconnect"}
+                    </Button>
+                  ) : !attempt.reconciledAt ? (
+                    <Button disabled={!activeRun || !auditReason.trim() || Boolean(busy)} onClick={() => void handleDisconnectReconcile()} size="sm" variant="brandOutline">
+                      <ShieldAlert data-icon="inline-start" />
+                      {busy === "disconnect-reconcile" ? "Merekonsiliasi…" : "Rekonsiliasi disconnect"}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </aside>
