@@ -95,6 +95,14 @@
       "dependencies": ["feat-011"],
       "status": "complete",
       "evidence": "9a1e306; server-only assembly repository/actions, aggregate and deterministic source locks, structured stale/duplicate/scope/quota/shortage/calibration errors, candidate snapshots and Blueprint scope-only Ready revisions, shared Kapten Ready binding, temporary-seed read-only preview, focused repository/schema/direct/AS-05/package/release/AssessmentRelease contracts, TypeScript, focused ESLint, diff-check, and pnpm verify; migration remains unapplied to configured database"
+    },
+    {
+      "id": "feat-013",
+      "name": "AS-06 Seeded Pool and Blueprint Release Resolution",
+      "description": "Resolve immutable seeded CBT forms for random Pool and Blueprint assemblies at AssessmentRelease creation",
+      "dependencies": ["feat-012"],
+      "status": "complete",
+      "evidence": "5311eda + 2e0915c; aggregate/Ready-version/source lock order, seeded-fisher-yates-v1 Pool draws, stale/shortage/duplicate/content/media/mode blockers, exact Blueprint difficulty quotas and scope resolution, Blueprint publish materialization, per-section release provenance, publication-intent seed handling, active-session guard, focused random-assembly/repository/schema/direct/AS-05/package/release contracts, TypeScript, focused ESLint, git diff --check, and pnpm verify; migration remains unapplied to configured database"
     }
   ]
 }

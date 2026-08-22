@@ -1,5 +1,33 @@
 # Session Handoff
 
+## Current AS-06 Ticket 4 Handoff (2026-08-22)
+
+- Objective: resolve seeded Pool and Blueprint forms inside the immutable
+  AssessmentRelease publish transaction.
+- Implementation commits: `5311eda` (`feat: resolve seeded pool and blueprint
+  releases`) and `2e0915c` (`fix: allow blueprint release materialization`).
+- Pool resolution rereads every Ready candidate under deterministic aggregate →
+  Ready version → source locks, rejects stale/archived/missing/non-Ready,
+  duplicate, invalid content/media, wrong-Subtest, and shortage states, then
+  applies `seeded-fisher-yates-v1` without replacement.
+- Blueprint resolution uses current Ready questions in the immutable
+  Bank/folder/category scope and active Section Subtest, partitions by
+  Easy/Medium/Hard, and fails closed on exact quota shortage. Blueprint Ready
+  versions intentionally carry no candidate item snapshots; the release
+  transaction creates their physical TryoutItem bridge.
+- Release payloads retain per-section mode, package/version, resolver, seed,
+  requested/candidate/availability evidence, quotas/scope, resolved source
+  IDs, and revision digests. Same explicit publication intent keys are
+  deterministic; active release-bound sessions block seeded rematerialization.
+- Final review artifact:
+  `reviews/as06-pool-blueprint-release-resolution-final-review-20260822`.
+- Verification: focused random assembly/repository/schema/direct/AS-05/
+  package/release contracts, TypeScript, focused ESLint, `git diff --check`,
+  and `pnpm verify` pass (0 errors, 459 baseline warnings, production build).
+  Migration 31 remains unapplied to the configured database.
+- Next: AS-06 Ticket 5 CAT Pool release pinning, then Ticket 6 attachment and
+  Review wiring. Do not deploy migration 31 or reset/reseed without approval.
+
 ## Current AS-06 Schema Handoff (2026-08-22)
 
 - Objective: continue the approved Pool-first flow into the random

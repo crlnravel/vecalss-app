@@ -209,3 +209,31 @@ Store only settled decisions, conventions, and important context that emerged du
   contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass.
   Migration 31 remains unapplied to the configured database; only isolated
   disposable PostgreSQL replay/DB contracts may exercise the schema migration.
+
+## AS-06 seeded Pool and Blueprint release boundary
+
+- Ticket 4 is complete in `5311eda` with the Blueprint publish/idempotency
+  correction in `2e0915c`.
+- `lib/tryout/assessment-release.ts` resolves random Pool and Blueprint forms
+  only while creating an AssessmentRelease. The lock order is Tryout aggregate
+  → sorted Ready assembly versions → sorted Question/Bank/current Revision
+  source rows. Resolution is server-authoritative and no database `random()` is
+  used.
+- Pool uses explicit Ready version item membership, validates every candidate's
+  live source identity/provenance/readiness, fails on any stale candidate or
+  shortage, then applies `seeded-fisher-yates-v1` without replacement. Blueprint
+  uses current Ready questions in the immutable normalized scope and active
+  Section Subtest, then draws exact Easy/Medium/Hard quotas with no fallback.
+- The release payload stores per-section assembly mode/package/version,
+  resolver, seed, requested/candidate/availability evidence, quotas/scope,
+  resolved source IDs, and revision digests. Physical TryoutItem and option
+  bridge rows are replaced atomically only when no active release-bound session
+  would be invalidated. Blueprint Ready versions are scope/quota-only and are
+  allowed through publish so this transaction creates their bridge.
+- Same explicit publication intent keys derive the same seed and canonical
+  digest. Delivery/open/retake callers without a key reuse the pinned release
+  for the same Tryout revision; authoring saves increment the revision, and a
+  new explicit key represents a new publication intent.
+- Verification and final review PASS are recorded in
+  `artifacts/reviews/as06-pool-blueprint-release-resolution-final-review-20260822`.
+  Migration 31 remains unapplied to the configured database.

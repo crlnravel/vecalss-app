@@ -73,6 +73,24 @@
     AS-05 contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify`
     pass. Migration 31 remains unapplied to the configured database.
 
+- [x] AS-06 seeded Pool and Blueprint release resolution (Ticket 4, `5311eda` + `2e0915c`)
+  - AssessmentRelease creation now locks the Tryout aggregate, sorted Ready
+    assembly revisions, and deterministic source rows before resolving a form.
+  - Pool candidates are reread against current Question/Revision/Bank/Subtest
+    readiness and provenance; stale candidates, duplicate identity, shortage,
+    invalid content, and unready media fail closed without replacement.
+  - Blueprint releases resolve current Ready questions in the version-owned
+    Bank/folder/category scope and active Subtest with exact Easy/Medium/Hard
+    quotas; scope-only Ready versions are materialized into the physical bridge
+    only at release.
+  - Persisted per-section release payload metadata includes resolver version,
+    seed, requested/available counts, quotas/scope, resolved source IDs, and
+    revision digests. Same intent keys are deterministic; active bound sessions
+    prevent seeded bridge replacement.
+  - Focused Pool/Blueprint, repository/schema/direct/AS-05, release/package
+    invariants, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass;
+    migration 31 remains unapplied to the configured database.
+
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
     Basics, Sections, Questions, Rules, Schedule & akses, Results, Review,
@@ -139,7 +157,7 @@
 
 ### What's Next
 
-1. Implement AS-06 Ticket 4: seeded Pool and Blueprint release resolution.
+1. Implement AS-06 Ticket 5: CAT Pool release pinning.
 2. Keep the new migration unapplied to the configured database until an
    explicit deployment/rollback decision is made; do not reset or reseed it.
 
@@ -227,6 +245,13 @@ seeded Tryout attempts and 0 in-progress attempts.
   read-only preview repository commands.
 - `modules/mentor/assembly-actions.ts` - Authenticated server-action adapters.
 - `scripts/test-random-assembly-repository.ts` - Focused repository contract.
+- `lib/tryout/assessment-release.ts` - Seeded Pool/Blueprint release
+  resolution, idempotency, source locks, blockers, metadata, and physical
+  bridge materialization.
+- `lib/tryout/repository.ts` - Blueprint scope-only Ready publish allowance and
+  publication intent forwarding.
+- `scripts/test-random-assembly-release.ts` - Focused resolver/release contract.
+- `/Users/ravel/.traycer/epics/788a92f9-1c5a-4fc5-b873-76ac11c9949c/artifacts/reviews/as06-pool-blueprint-release-resolution-final-review-20260822/index.md` - Final review artifact.
 
 - `lib/tryout/participant-view.ts` - Canonical mentor participant projection.
 - `lib/tryout/delivery-repository.ts` - Atomic admission, assignment, and revoke transitions.
@@ -262,6 +287,12 @@ seeded Tryout attempts and 0 in-progress attempts.
   TypeScript, focused ESLint, diff-check, and full `pnpm verify` passed;
   implementation commit is `9a1e306` and no configured-database migration was
   run.
+- [x] AS-06 Ticket 4 release contract: deterministic Pool/Blueprint resolver,
+  stale/shortage/duplicate/content/media/mode blockers, Blueprint publish
+  materialization, publication intent seed handling, active-session bridge guard,
+  repository/schema/direct/AS-05/package/release contracts, TypeScript, focused
+  ESLint, diff-check, and full `pnpm verify` passed; implementation commits are
+  `5311eda` and `2e0915c`, with no configured-database migration run.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.
