@@ -101,3 +101,25 @@ Store only settled decisions, conventions, and important context that emerged du
   and released result passed. The approved full demo reset/reseed removed the
   temporary QA attempt; the clean fixture has 3 canonical seeded Tryout
   attempts and 0 in-progress attempts.
+
+## AS-04 ParticipantView boundary
+
+- Mentor participant surfaces use a canonical server-only
+  `ParticipantView` projection rather than exposing admission and assignment
+  mechanics as the primary product model. The projection combines safe
+  identity, admission status, current/audit session state, attempt state, and
+  score/scoring/release axes; assignment history remains available for audit
+  controls.
+- Registration, approval, invitation, assignment, and revocation commands in
+  `lib/tryout/delivery-repository.ts` share the lock order student →
+  admission/assignment → overlapping sessions → Tryout and re-read state after
+  the aggregate locks. Open registration assigns the sole eligible default;
+  approval/invitation accept a selected session or resolve the default; safe
+  matching replays return the existing active assignment before default
+  resolution.
+- Operations reads are owner-scoped before loading student identities,
+  attempts, or release payloads. Mentor DTO serialization masks email fallback
+  identities and exposes `participants` while retaining audit assignment rows.
+- AS-04 is committed as `ae64528`; it requires no migration. A dedicated
+  invitation-picker UI remains deferred because there is no existing mentor
+  student-selector surface that invokes the invite action.

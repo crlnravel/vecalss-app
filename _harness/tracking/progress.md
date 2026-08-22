@@ -3,12 +3,27 @@
 ## Current State
 
 **Last Updated:** 2026-08-22
-**Session ID:** assessment-as09-deploy
-**Active Feature:** AS-09 durable AssessmentRelease deployment and runtime verification
+**Session ID:** assessment-as04-participant-view
+**Active Feature:** AS-04 ParticipantView and atomic access transitions
 
 ## Status
 
 ### What's Done
+
+- [x] AS-04 ParticipantView and atomic access transitions (`ae64528`)
+  - Added a server-only ParticipantView combining admission, current/audit
+    session, attempt, score, scoring, and release state without removing the
+    underlying assignment/audit rows.
+  - Open registration now assigns one validated default session atomically;
+    approval and invitation assign a selected/default session in the same
+    transaction; assignment and revocation preserve history.
+  - Access commands use deterministic student → admission/assignment →
+    overlapping-session → Tryout locks, post-lock re-reads, ownership checks,
+    and safe idempotent replay behavior.
+  - Mentor operations and participant pages consume the shared projection with
+    masked identity fallback and Indonesian session/attempt/release labels.
+  - No schema migration was needed; the database remains at all 30 applied
+    migrations.
 
 - [x] AS-09 durable AssessmentRelease deployment and verification
   - `20260822120000_add_assessment_release_boundary` applied successfully after
@@ -31,30 +46,16 @@
 
 ### What's In Progress
 
-- [x] AS-03 normalized scoring and release states
-  - Runtime: Kuis materialization and Tryout CBT/CAT scoring are snapshot-backed;
-    Tryout final-run sealing now performs transaction-local seven-run aggregation.
-  - Migration: 20260822100000_normalize_assessment_scoring_release is applied
-    after backup/rollback approval. It quarantines malformed/contradictory
-    legacy JSON, proves canonical
-    seven-section runs and frozen CAT selections, updates existing typed
-    breakdown rows idempotently, and withholds incomplete/rankingless releases.
-  - Follow-up hardening closes per-run deadline aggregation, session-level
-    release/ranking consistency, CAT owner authorization, numeric range guards,
-    and the QuestionRevision seed insert arity defect.
-  - Implementation is `cb1eb8f` plus hardening `7f60c43`; isolated local and
-    configured-database migration replay, seed, and `pnpm db:verify-demo` pass.
-    The entire configured database was reset/reseeded after approval. Kuis DB
-    result smoke passes at 67; Tryout DB release smoke passes at 68.68 with
-    seven runs and seven typed breakdowns.
-- [ ] Runtime browser/DB fixture verification for admin preview
-  - Details: Requires a seeded authenticated admin session and preview fixture.
-  - Blockers: No local E2E/DB fixture harness is available in this workspace.
+- [ ] Dedicated invitation-picker UI
+  - The server action now accepts a selected session and atomically assigns it,
+    but no existing mentor surface currently invokes the invitation action or
+    provides the required student selector. This remains a separate UI slice,
+    not a missing AS-04 server invariant.
 
 ### What's Next
 
-1. Run seeded browser QA for each preview surface and banner save flow.
-2. Run the allowlisted database/event diff around ordinary browsing and restart.
+1. Review the AS-04 changeset and, if desired, add the invitation-picker UI.
+2. Start AS-05: one Tryout authoring workspace.
 3. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
@@ -71,7 +72,7 @@
 ## Blockers / Risks
 
 - [x] Runtime verification fixture: all 29 migrations, full seed, `db:verify-demo`, Kuis result smoke, and seven-section Tryout scoring/release smoke pass against the configured database.
-- [ ] Preview content is treated as untrusted and sanitized/allowlisted before admin-context rendering.
+- [x] Preview content is treated as untrusted and sanitized/allowlisted before admin-context rendering.
 
 ## Decisions Made
 
@@ -81,22 +82,30 @@
 - **Dedicated preview reads**: Preview loaders use explicit DTOs and a forbidden-effects boundary rather than learner loaders with bypass flags.
   - Context: Prevents cache, answer-key, and side-effect leakage.
   - Alternatives considered: Generic `adminPreview` service booleans were rejected.
+- **ParticipantView hides mechanics, not history**: Mentor participant surfaces use one projection while admission and assignment audit rows remain separately queryable.
+  - Context: Keeps the operational mental model simple without weakening revocation, replay, or audit guarantees.
+  - Alternatives considered: Collapsing admission and assignment tables was rejected.
+- **Access transitions share one lock order**: Student → admission/assignment → overlapping sessions → Tryout, followed by post-lock re-reads.
+  - Context: Serializes registration, approval, invitation, assignment, revoke, and participant start races.
+  - Alternatives considered: Per-command lock orders were rejected because they can deadlock or lose access transitions.
 
 ## Files Modified This Session
 
-- `app/admin/student-preview/[[...slug]]/page.tsx` - Dynamic preview route for all student-shaped surfaces.
-- `lib/admin/student-preview-tryout.ts` - Locked, idempotent preview restart service.
-- `lib/admin/student-preview-quiz-reads.ts` - Student-safe quiz DTO/read path.
-- `lib/student/banner-repository.ts` - Published/admin-preview/draft no-store loaders.
-- `modules/admin/student-banners-actions.ts` - Preview-scoped banner mutation.
+- `lib/tryout/participant-view.ts` - Canonical mentor participant projection.
+- `lib/tryout/delivery-repository.ts` - Atomic admission, assignment, and revoke transitions.
+- `lib/tryout/operations-view.ts` - Owner-scoped operations serialization.
+- `modules/mentor/KaptenTryoutParticipantsPageModule.tsx` - Participant list projection.
+- `modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx` - Summary and session selection controls.
+- `scripts/test-assessment-participant-view.ts` - AS-04 contract coverage.
 
 ## Evidence of Completion
 
-- [x] Tests pass: `pnpm test:admin-student-preview-banners`, `pnpm test:admin-student-preview-quiz`, `pnpm test:admin-student-preview-tryout`, and surface contract checks.
+- [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
-- [x] Repository verification: `pnpm verify` passed through commit hook; lint has 459 known warnings and 0 errors, and production build passed.
-- [ ] Manual verification: browser/DB fixture checks pending.
+- [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.
+- [x] Prisma migration status: all 30 migrations are applied; AS-04 required no schema change.
+- [x] Manual code review: no blocking findings; review artifact recorded under `reviews/as04-participant-view-review`.
 
 ## Notes for Next Session
 
-Preview implementation committed as `c46fb98`; AS-03 implementation is `cb1eb8f` with hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility fix. All 30 migrations are applied and the configured database was intentionally reset/reseeded after explicit approval; preserve unrelated preview/harness/document history. Use a seeded admin session before attempting browser mutation-diff verification; do not reset or seed production-like data again without explicit approval.
+AS-04 implementation is committed as `ae64528` (`feat: add participant view access transitions`). AS-03 is `cb1eb8f` with hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility fix. All 30 migrations are applied and the configured database was intentionally reset/reseeded after explicit approval; preserve unrelated preview/harness/document history. No AS-04 DB mutation smoke was run because the implementation was verified through contracts/build and no new migration was required.

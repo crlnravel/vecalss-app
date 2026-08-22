@@ -1,5 +1,39 @@
 # Session Handoff
 
+## Current AS-04 Handoff (2026-08-22)
+
+- Objective: expose one mentor-facing ParticipantView while keeping admission
+  and assignment audit rows intact, and make registration/approval/invitation/
+  assignment/revocation transitions atomic and replay-safe.
+- Implementation commit: `ae64528` (`feat: add participant view access
+  transitions`). No schema or migration change was needed; all 30 migrations
+  are applied and `pnpm exec prisma migrate status` reports the database is up
+  to date.
+- Canonical projection: `lib/tryout/participant-view.ts` combines admission,
+  safe identity, current/audit sessions, attempt, score, scoring, and release
+  state. Email fallback is masked and raw email is not serialized into mentor
+  DTOs.
+- Atomic commands: `lib/tryout/delivery-repository.ts` now uses the shared
+  student → admission/assignment → overlapping-session → Tryout lock order,
+  re-reads after aggregate locks, checks Tryout ownership before PII-bearing
+  graph loads, and preserves historical assignments on revoke. Open
+  registration assigns the sole eligible default; approval and invitation can
+  use a selected session or the default; matching replays short-circuit before
+  default resolution.
+- UI/API: operations serialization exposes `participants`; mentor list/detail
+  pages show one participant summary while retaining audit assignment controls;
+  `selectedSessionId` is threaded through approval/invitation actions. No
+  existing mentor surface invokes invitation or has the required student
+  selector, so a dedicated invite-picker UI remains a follow-up rather than an
+  unimplemented server invariant.
+- Verification: AS-04 ParticipantView contract, participant UX contract,
+  AssessmentRelease/package/release/scoring invariants, Tryout scoring,
+  TypeScript, full lint (0 errors; 459 baseline warnings), production build,
+  Prisma migration status, and diff-check all passed. Manual review artifact:
+  `artifacts/reviews/as04-participant-view-review/index.md`.
+- Recommended pickup: review the changeset, then start AS-05 (one Tryout
+  authoring workspace) unless the invite-picker is prioritized first.
+
 ## Current AS-09 Deployment Handoff (2026-08-22)
 
 - Objective: deploy and verify the durable AssessmentRelease boundary for Tryout deliveries, then preserve the UI/runtime handoff for the next session.

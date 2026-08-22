@@ -55,6 +55,14 @@
       "dependencies": ["feat-006"],
       "status": "complete",
       "evidence": "43dec31; pre-migration pg_dump at /tmp/vecalss-as09-pre-migration-20260822.dump; 20260822120000_add_assessment_release_boundary applied; all 30 migrations up to date; clean reset/reseed; db:verify-demo; DB-backed Kuis smoke 3 scored/released frozen attempts; seven-section Tryout smoke 3 scored/released attempts with 21 runs and 21 typed breakdowns; AssessmentRelease invariants and Prisma validate pass"
+    },
+    {
+      "id": "feat-008",
+      "name": "AS-04 ParticipantView and Atomic Access Transitions",
+      "description": "Expose a canonical mentor participant projection and serialize registration, approval, invitation, assignment, and revoke transitions with shared locking and audit preservation",
+      "dependencies": ["feat-007"],
+      "status": "complete",
+      "evidence": "ae64528; ParticipantView/access-transition contract, participant UX contract, AssessmentRelease/package/release/scoring invariants, Tryout scoring, tsc, full lint (0 errors), production build, migration status, and diff-check pass; no migration required"
     }
   ]
 }
