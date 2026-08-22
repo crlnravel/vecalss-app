@@ -34,8 +34,13 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
+  policyLabels,
+  rankingLabels,
+  type Policy,
+} from "@/modules/mentor/KaptenTryoutOperationsData";
+import {
+  AssessmentReleaseNotice,
   OperationalPageHeader,
   OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
@@ -106,6 +111,10 @@ function KaptenTryoutSessionDetailPageModule({
         trailing={<StatusBadge status={delivery.status} />}
       />
       <OperationNotice message={notice} />
+      <AssessmentReleaseNotice
+        label="Konten sesi"
+        release={delivery.assessmentRelease}
+      />
 
       <Tabs className="mt-5" defaultValue="attempts">
         <TabsList aria-label="Informasi sesi">
@@ -181,7 +190,9 @@ function KaptenTryoutSessionDetailPageModule({
                 </div>
                 <div>
                   <p className="text-secondary-500">Peringkat</p>
-                  <p className="mt-1 font-medium text-secondary-900">{delivery.rankingRule}</p>
+                  <p className="mt-1 font-medium text-secondary-900">
+                    {rankingLabels[delivery.rankingRule as keyof typeof rankingLabels] ?? "Peringkat belum diatur"}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -203,7 +214,7 @@ function KaptenTryoutSessionDetailPageModule({
                 <div className="grid gap-2">
                   {delivery.status === "draft" ? (
                     <Button
-                      disabled={!auditReason.trim()}
+                      disabled={!auditReason.trim() || !delivery.assessmentRelease}
                       onClick={() => setConfirmation("open")}
                       variant="brand"
                     >
@@ -213,7 +224,7 @@ function KaptenTryoutSessionDetailPageModule({
                   ) : null}
                   {effectivePolicy === "manual" && !delivery.releasedAt ? (
                     <Button
-                      disabled={!auditReason.trim()}
+                      disabled={!auditReason.trim() || !delivery.assessmentRelease}
                       onClick={() => setConfirmation("release")}
                       variant="brandOutline"
                     >

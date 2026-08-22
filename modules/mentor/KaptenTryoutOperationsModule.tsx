@@ -26,7 +26,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { modeLabels, policyLabels, type Mode, type Policy } from "./KaptenTryoutOperationsData";
+import {
+  modeLabels,
+  policyLabels,
+  rankingLabels,
+  type Mode,
+  type Policy,
+} from "./KaptenTryoutOperationsData";
+import { AssessmentReleaseNotice } from "./KaptenTryoutOperationalShared";
 
 const statusLabels: Record<string, string> = {
   active: "Aktif",
@@ -116,6 +123,11 @@ function KaptenTryoutOperationsModule({
         </Button>
       </header>
 
+      <AssessmentReleaseNotice
+        label="Rilis konten terbaru"
+        release={initial.assessmentRelease}
+      />
+
       <div className="mt-5 grid gap-4 lg:grid-cols-3">
         <WorkspaceCard
           description={`${modeLabels[initial.admissionMode as Mode]} · rilis ${policyLabels[initial.defaultReleasePolicy as Policy]}`}
@@ -170,7 +182,7 @@ function KaptenTryoutOperationsModule({
                     </CardAction>
                   </CardHeader>
                   <CardContent className="text-sm text-secondary-600">
-                    {session.attempts.length} attempt · peringkat {session.rankingRule}
+                    {session.attempts.length} attempt · {rankingLabels[session.rankingRule as keyof typeof rankingLabels] ?? "Peringkat belum diatur"}
                   </CardContent>
                 </Card>
               </Link>

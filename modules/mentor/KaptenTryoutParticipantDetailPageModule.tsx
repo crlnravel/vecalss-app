@@ -25,6 +25,7 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
+import { assignmentStatusLabels } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
   OperationalPageHeader,
   OperationNotice,
@@ -138,7 +139,9 @@ function KaptenTryoutParticipantDetailPageModule({
                   >
                     <div>
                       <p className="font-medium text-secondary-900">{assignment.name}</p>
-                      <p className="mt-1 text-xs text-secondary-600">{assignment.status}</p>
+                      <p className="mt-1 text-xs text-secondary-600">
+                        {assignmentStatusLabels[assignment.status] ?? assignment.status}
+                      </p>
                     </div>
                     {assignment.status === "active" ? (
                       <Button

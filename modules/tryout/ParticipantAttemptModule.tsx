@@ -562,8 +562,20 @@ function ParticipantAttemptScreen({
         ? "flagged"
         : answerIds.has(candidate.id)
           ? "answered"
-          : "empty",
+        : "empty",
   }));
+  const saveStatusLabel = saveState === "saving"
+    ? "Menyimpan jawaban…"
+    : saveState === "saved"
+      ? "Jawaban tersimpan"
+      : saveState === "error"
+        ? "Gagal tersimpan · pilih lagi"
+        : null;
+  const saveStatusClass = saveState === "error"
+    ? "text-student-status-danger-fg"
+    : saveState === "saved"
+      ? "text-student-status-success-fg"
+      : "text-secondary-500";
 
   return (
     <AssessmentWorkspace
@@ -573,7 +585,18 @@ function ParticipantAttemptScreen({
             <section className="min-w-0">
               <div className="flex min-h-12 items-center justify-between gap-4">
                 <span className="shrink-0 text-lg font-semibold">Soal {Math.min(index + 1, items.length)}</span>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                  {saveStatusLabel ? (
+                    <span
+                      aria-live="polite"
+                      className={cn("inline-flex min-w-0 max-w-[10rem] items-center gap-1.5 truncate text-xs font-semibold sm:max-w-none", saveStatusClass)}
+                      role={saveState === "error" ? "alert" : "status"}
+                    >
+                      {saveState === "saving" ? <SpinnerGap aria-hidden="true" className="size-3.5 shrink-0 animate-spin" /> : saveState === "saved" ? <Check aria-hidden="true" className="size-3.5 shrink-0" /> : <WarningCircle aria-hidden="true" className="size-3.5 shrink-0" />}
+                      <span className="truncate">{saveStatusLabel}</span>
+                    </span>
+                  ) : null}
+                  <div className="flex shrink-0 items-center gap-2">
                   <AssessmentUtilityPill
                     active={reported.has(item.id)}
                     icon={Flag}
@@ -590,12 +613,13 @@ function ParticipantAttemptScreen({
                     icon={Plus}
                     onClick={() => setTextScale((current) => current === "compact" ? "default" : "large")}
                   />
+                  </div>
                 </div>
               </div>
 
               {message ? (
-                <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role="status">
-                  <WarningCircle />{message}
+                <p className="mt-4 flex items-center gap-2 rounded-xl border border-student-status-attention-border bg-student-status-attention-bg p-3 text-sm text-student-status-attention-fg" role={saveState === "error" ? "alert" : "status"}>
+                  <WarningCircle aria-hidden="true" />{message}
                 </p>
               ) : null}
 

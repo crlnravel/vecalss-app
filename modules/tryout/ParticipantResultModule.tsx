@@ -13,6 +13,7 @@ import {
   SpinnerGap,
   Target,
   TrendUp,
+  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
@@ -92,7 +93,7 @@ function formatTime(seconds: number) {
   if (seconds < 60) return `${seconds} detik`;
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
-  return rest ? `${minutes}m ${rest}d` : `${minutes} menit`;
+  return rest ? `${minutes} menit ${rest} detik` : `${minutes} menit`;
 }
 
 function ParticipantResultModule({ attemptId }: { attemptId: string }) {
@@ -176,19 +177,48 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
   });
   const weakRuns = [...runMetrics].sort((left, right) => left.accuracy - right.accuracy).slice(0, 3);
   const targetLabel = [result.target.university, result.target.major].filter(Boolean).join(" · ") || "Belum diatur";
-  const rankingLabel = result.ranking.state === "available" && result.ranking.rank !== null
-    ? `#${result.ranking.rank} / ${result.ranking.total}`
-    : "Belum tersedia";
-  const rankingScope = result.ranking.rule === "cohort" ? "peringkat kelompok" : "peringkat nasional";
+  const rankingLabel = result.ranking.rule === "none"
+    ? "Tidak digunakan"
+    : result.ranking.state === "available" && result.ranking.rank !== null
+      ? `#${result.ranking.rank} / ${result.ranking.total}`
+      : "Belum tersedia";
+  const rankingScope = result.ranking.rule === "cohort"
+    ? "Peringkat kelompok"
+    : result.ranking.rule === "none"
+      ? "Peringkat"
+      : "Peringkat nasional";
   const question = reviewItems[currentQuestion - 1];
 
   if (!question) {
-    return <main className="p-8"><p role="alert">Belum ada soal yang dapat direview.</p></main>;
+    return (
+      <main className="flex min-h-svh items-center justify-center bg-secondary-50 px-5 py-10">
+        <section className="w-full max-w-xl rounded-[2rem] border border-primary-100 bg-white p-7 text-center shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-10" role="status">
+          <WarningCircle aria-hidden="true" className="mx-auto size-12 text-student-status-attention-fg" />
+          <h1 className="mt-5 font-heading text-2xl font-semibold tracking-[-0.035em] text-secondary-900">Belum ada soal untuk ditinjau</h1>
+          <p className="mt-3 text-sm leading-6 text-secondary-600">Belum ada soal yang dapat direview dari paket hasil ini. Kembali ke menu tryout untuk melihat aktivitas lain.</p>
+          <Button className="mt-6" nativeButton={false} render={<Link href="/tryout" />} variant="brand"><ArrowLeft />Kembali ke tryout</Button>
+        </section>
+      </main>
+    );
   }
 
   const selectedOption = question.options.find((option) => option.id === question.selectedOptionId);
   const correctOption = question.options.find((option) => option.correct);
   const state = itemState(question);
+  const selectedAnswerTone = state === "correct"
+    ? {
+        container: "border-student-status-success-border bg-student-status-success-bg",
+        label: "text-student-status-success-fg",
+      }
+    : state === "wrong"
+      ? {
+          container: "border-student-status-danger-border bg-student-status-danger-bg",
+          label: "text-student-status-danger-fg",
+        }
+      : {
+          container: "border-student-status-attention-border bg-student-status-attention-bg",
+          label: "text-student-status-attention-fg",
+        };
   const toggleReport = () => {
     setReportedQuestions((current) => current.includes(currentQuestion)
       ? current.filter((number) => number !== currentQuestion)
@@ -228,6 +258,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
             <ResultStat label="Rata-rata" value={formatTime(metrics.total ? Math.round(metrics.totalTime / metrics.total) : 0)} />
             <ResultStat label={rankingScope} value={rankingLabel} />
           </div>
+          <p className="text-xs leading-5 text-secondary-500">Skor ini untuk latihan dan bukan nilai resmi SNBT.</p>
           {result.ranking.provisional ? <p className="text-xs text-student-status-attention-fg">Peringkat sementara hingga sesi ditutup.</p> : null}
         </div>
       }
@@ -258,8 +289,8 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
         </div>
 
         <div className="mt-7 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg p-4">
-            <p className="font-semibold text-student-status-danger-fg">Jawaban Anda</p>
+          <div className={cn("rounded-2xl border p-4", selectedAnswerTone.container)}>
+            <p className={cn("font-semibold", selectedAnswerTone.label)}>Jawaban Anda</p>
             <p className="mt-2 font-medium text-secondary-900">{selectedOption ? `${selectedOption.choiceKey}. ${selectedOption.content}` : "Tidak dijawab"}</p>
           </div>
           <div className="rounded-2xl border border-student-status-success-border bg-student-status-success-bg p-4">

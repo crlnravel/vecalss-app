@@ -1,6 +1,7 @@
 import "server-only";
 
-import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutTestType } from "@/generated/prisma/client";
+import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
+import { createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { prisma } from "@/lib/prisma";
 
@@ -23,7 +24,7 @@ const sourceInclude = {
 } satisfies Prisma.QuestionInclude;
 const versionInclude = { package: { include: { subtest: true } }, items: { include: { options: { orderBy: { sortOrder: "asc" as const } } }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1 } } satisfies Prisma.ReusableQuestionPackageInclude;
-const tryoutInclude = { sections: { include: { packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
+const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
 function isReadyAsset(asset: { state: string } | null) { return !asset || asset.state === "ready"; }
@@ -65,7 +66,8 @@ function toPackageDto(record: Prisma.ReusableQuestionPackageGetPayload<{ include
   return { description: record.description ?? "", id: record.id, items: record.items.map((item) => ({ pointValue: Number(item.pointValue), sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined })), latestReadyVersionId: record.versions[0]?.id, latestReadyVersionNo: record.versions[0]?.versionNo, revision: record.revision, sourceBankId: record.sourceBankId, sourceBankName: record.sourceBank.name, status: record.status === ContentStatus.published ? "ready" as const : "draft" as const, subtest: record.subtest.code as SubjectCode, title: record.title, updatedAt: record.updatedAt.getTime() };
 }
 function toTryoutDto(record: Prisma.TryoutPackageGetPayload<{ include: typeof tryoutInclude }>) {
-  return { description: record.description ?? "", id: record.id, locked: record.attempts.length > 0, sections: record.sections.map((section) => ({ catItemCount: section.catItemCount ?? undefined, durationMinutes: Math.round(section.durationSeconds / 60), id: section.id, instructions: section.instructions ?? "", packageVersionId: section.packageVersionId ?? undefined, packageVersionLabel: section.packageVersion ? `${section.packageVersion.package.title} · v${section.packageVersion.versionNo}` : undefined, scoringConfig: section.scoringConfig as Record<string, unknown> | undefined, shuffleItems: section.shuffleItems, subtest: section.subtest.code as SubjectCode, testType: section.testType === TryoutTestType.cat ? "cat" as const : "cbt" as const })), status: record.status === ContentStatus.published ? "published" as const : "draft" as const, title: record.title, updatedAt: record.updatedAt.getTime() };
+  const release = record.assessmentReleases[0] ?? null;
+  return { assessmentRelease: release ? { digest: release.contentDigest, id: release.id, number: release.releaseNumber, payload: release.payload, publishedAt: release.publishedAt.toISOString() } : null, description: record.description ?? "", id: record.id, locked: record.attempts.length > 0, sections: record.sections.map((section) => ({ catItemCount: section.catItemCount ?? undefined, durationMinutes: Math.round(section.durationSeconds / 60), id: section.id, instructions: section.instructions ?? "", packageVersionId: section.packageVersionId ?? undefined, packageVersionLabel: section.packageVersion ? `${section.packageVersion.package.title} · v${section.packageVersion.versionNo}` : undefined, scoringConfig: section.scoringConfig as Record<string, unknown> | undefined, shuffleItems: section.shuffleItems, subtest: section.subtest.code as SubjectCode, testType: section.testType === TryoutTestType.cat ? "cat" as const : "cbt" as const })), status: record.status === ContentStatus.published ? "published" as const : "draft" as const, title: record.title, updatedAt: record.updatedAt.getTime() };
 }
 
 async function listReusableQuestionPackages(actorId: string, options: { page?: number; query?: string; status?: "draft" | "ready"; subtest?: string } = {}) {
@@ -235,6 +237,14 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const current = await tx.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: { attempts: { take: 1 } } });
       if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
       if (current.attempts.length) throw new TryoutValidationError("Tryout yang sudah dimulai peserta tidak dapat diubah. Gunakan Duplicate.");
+      // A release-bound active session is participant-accessible. Keep its
+      // physical bridge stable for the pinned release; the author must close
+      // or archive that session before replacing section/item rows.
+      const participantAccessibleRelease = await tx.tryoutDeliverySession.findFirst({
+        where: { assessmentReleaseId: { not: null }, status: TryoutDeliverySessionStatus.active, tryoutId: id },
+        select: { id: true },
+      });
+      if (participantAccessibleRelease) throw new TryoutValidationError("Tryout memiliki sesi aktif yang telah mengikat AssessmentRelease. Tutup atau arsipkan sesi sebelum mengganti baris fisik.");
       await tx.tryoutItem.deleteMany({ where: { tryoutId: id } });
       await tx.tryoutSection.deleteMany({ where: { tryoutId: id } });
       await tx.tryoutPackage.update({ where: { id }, data: { description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, revision: { increment: 1 }, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } });
@@ -264,6 +274,9 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const item = await tx.tryoutItem.create({ data: { difficulty: snapshot.difficulty, explanation: snapshot.explanation, explanationAssetId: snapshot.explanationAssetId, packageCode: version.package.code, packageVersionId: version.id, points: snapshot.pointValue, prompt: snapshot.prompt, promptAssetId: snapshot.promptAssetId, sortOrder: snapshot.sortOrder, sourceContentDigest: snapshot.sourceContentDigest, sourceQuestionId: snapshot.sourceQuestionId, sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId, sourceRevisionProvenance: snapshot.sourceRevisionProvenance, subtestId: snapshot.subtestId, tryoutId: id!, tryoutSectionId: section.id } });
       await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId, tryoutItemId: item.id })) });
     }));
+    if (input.status === "published") {
+      await createOrReuseAssessmentRelease(tx, id!, actorId);
+    }
     return toTryoutDto(await tx.tryoutPackage.findUniqueOrThrow({ where: { id }, include: tryoutInclude }));
   });
 }

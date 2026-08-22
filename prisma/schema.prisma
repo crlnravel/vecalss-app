@@ -611,6 +611,7 @@ model User {
   standaloneQuizParticipations           StandaloneQuizParticipation[]
   quizAttempts                           QuizAttempt[]
   createdTryoutPackages                  TryoutPackage[]                  @relation("TryoutCreatedBy")
+  assessmentReleasesCreated              AssessmentRelease[]              @relation("AssessmentReleaseCreatedBy")
   createdReusableQuestionPackages        ReusableQuestionPackage[]        @relation("ReusableQuestionPackageCreatedBy")
   updatedReusableQuestionPackages        ReusableQuestionPackage[]        @relation("ReusableQuestionPackageUpdatedBy")
   createdReusableQuestionPackageVersions ReusableQuestionPackageVersion[] @relation("ReusableQuestionPackageVersionCreatedBy")
@@ -1767,12 +1768,39 @@ model TryoutPackage {
   sections             TryoutSection[]
   items                TryoutItem[]
   attempts             TryoutAttempt[]
+  assessmentReleases   AssessmentRelease[]
   deliverySessions     TryoutDeliverySession[]
   admissions           TryoutAdmission[]
   tryoutDeliveryAudits TryoutDeliveryAudit[]
   adminPreviewTryoutRestarts AdminPreviewTryoutRestart[]
 
   @@map("tryout_packages")
+}
+
+/// Immutable publication identity for one resolved Tryout form and scoring
+/// policy.  The payload is the logical AssessmentRevision projection over the
+/// existing package-version/TryoutItem snapshot bridge; physical snapshot
+/// deduplication remains intentionally out of scope.
+model AssessmentRelease {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId        String   @map("tryout_id") @db.Uuid
+  releaseNumber   Int      @map("release_number")
+  contentDigest   String   @map("content_digest") @db.VarChar(128)
+  payload         Json     @db.JsonB
+  publishedAt     DateTime @map("published_at") @db.Timestamptz
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tryout          TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  createdBy       User                       @relation("AssessmentReleaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  deliverySessions TryoutDeliverySession[]
+  attempts        TryoutAttempt[]
+  testRuns        TryoutAttemptTestRun[]
+
+  @@unique([tryoutId, releaseNumber])
+  @@unique([tryoutId, contentDigest])
+  @@index([tryoutId, createdAt])
+  @@map("assessment_releases")
 }
 
 model TryoutDeliverySession {
@@ -1795,8 +1823,10 @@ model TryoutDeliverySession {
   releasedByUserId          String?                     @map("released_by_user_id") @db.Uuid
   releaseState               AssessmentResultReleaseState @default(hidden) @map("release_state")
   releaseReason              String?                     @map("release_reason") @db.Text
+  assessmentReleaseId        String?                     @map("assessment_release_id") @db.Uuid
 
   tryout      TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  assessmentRelease AssessmentRelease?   @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
   createdBy   User                       @relation("TryoutDeliverySessionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy   User                       @relation("TryoutDeliverySessionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
   releasedBy  User?                      @relation("TryoutDeliverySessionReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
@@ -2010,6 +2040,9 @@ model TryoutAttempt {
   attemptState           AssessmentAttemptState @default(in_progress) @map("attempt_state")
   scoringState           AssessmentScoringState @default(pending) @map("scoring_state")
   releaseState           AssessmentResultReleaseState @default(hidden) @map("release_state")
+  assessmentReleaseId    String?       @map("assessment_release_id") @db.Uuid
+  assessmentReleaseNumber Int?         @map("assessment_release_number")
+  assessmentReleaseDigest String?      @map("assessment_release_digest") @db.VarChar(128)
   serverStartedAt        DateTime      @map("server_started_at") @db.Timestamptz
   serverDeadlineAt       DateTime      @map("server_deadline_at") @db.Timestamptz
   submittedAt            DateTime?     @map("submitted_at") @db.Timestamptz
@@ -2036,6 +2069,7 @@ model TryoutAttempt {
   updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   tryout              TryoutPackage               @relation(fields: [tryoutId], references: [id])
+  assessmentRelease   AssessmentRelease?          @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
   deliverySession     TryoutDeliverySession       @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
   admission           TryoutAdmission             @relation(fields: [admissionId], references: [id], onDelete: Restrict)
   student             User                        @relation(fields: [studentId], references: [id])
@@ -2061,6 +2095,9 @@ model TryoutAttemptTestRun {
   sequenceNo         Int                        @map("sequence_no")
   status             TryoutAttemptTestRunStatus @default(pending)
   scoringState       AssessmentScoringState      @default(pending) @map("scoring_state")
+  assessmentReleaseId String?                     @map("assessment_release_id") @db.Uuid
+  assessmentReleaseNumber Int?                    @map("assessment_release_number")
+  assessmentReleaseDigest String?                 @map("assessment_release_digest") @db.VarChar(128)
   serverStartedAt    DateTime?                  @map("server_started_at") @db.Timestamptz
   serverDeadlineAt   DateTime?                  @map("server_deadline_at") @db.Timestamptz
   sealedAt           DateTime?                  @map("sealed_at") @db.Timestamptz
@@ -2086,6 +2123,7 @@ model TryoutAttemptTestRun {
   updatedAt          DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   attempt TryoutAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  assessmentRelease AssessmentRelease? @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
   section TryoutSection  @relation(fields: [tryoutSectionId], references: [id], onDelete: Restrict)
   answers TryoutAnswer[]
   catResolutionAudits TryoutCatResolutionAudit[]

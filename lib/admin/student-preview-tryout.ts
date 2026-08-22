@@ -11,6 +11,7 @@ import {
   TryoutResultReleasePolicy,
 } from "@/generated/prisma/client";
 import { requireAdminStudentPreviewContext } from "@/lib/auth/access";
+import { assertTryoutReleaseEligibility, createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -39,7 +40,8 @@ type AdminPreviewTryoutRestartErrorCode =
   | "request_already_used_by_other_admin"
   | "request_id_mismatch"
   | "source_session_not_eligible"
-  | "tryout_not_found";
+  | "tryout_not_found"
+  | "tryout_not_ready";
 
 class AdminPreviewTryoutRestartError extends Error {
   readonly code: AdminPreviewTryoutRestartErrorCode;
@@ -185,42 +187,9 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
     const requestLockKey = `admin.student-preview-request:${previewStudentId}:${parsed.requestId}`;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${requestLockKey}, 0))`;
 
-    const [tryout, sourceSession] = await Promise.all([
-      tx.tryoutPackage.findUnique({
-        select: { id: true, status: true },
-        where: { id: parsed.tryoutId },
-      }),
-      tx.tryoutDeliverySession.findUnique({
-        select: {
-          availableFrom: true,
-          availableUntil: true,
-          id: true,
-          status: true,
-          tryoutId: true,
-        },
-        where: { id: parsed.sourceDeliverySessionId },
-      }),
-    ]);
-
-    if (!tryout || tryout.status !== ContentStatus.published) {
-      throw new AdminPreviewTryoutRestartError(
-        "tryout_not_found",
-        "Tryout preview hanya tersedia untuk konten yang sudah published.",
-      );
-    }
-
-    const now = new Date();
-    if (
-      !sourceSession
-      || sourceSession.tryoutId !== parsed.tryoutId
-      || !isSamePreviewSource(sourceSession, now)
-    ) {
-      throw new AdminPreviewTryoutRestartError(
-        "source_session_not_eligible",
-        "Restart hanya dapat menggunakan sesi Tryout published yang sedang aktif atau sudah closed.",
-      );
-    }
-
+    // Idempotent replays return before any content/release side effect. This
+    // remains valid even if the Tryout was edited or unpublished after the
+    // original request committed.
     const existingRequest = await tx.adminPreviewTryoutRestart.findUnique({
       select: {
         actorUserId: true,
@@ -241,7 +210,6 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
         },
       },
     });
-
     if (existingRequest) {
       if (existingRequest.actorUserId !== actorId) {
         throw new AdminPreviewTryoutRestartError(
@@ -259,9 +227,57 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
           "Request ID sudah digunakan untuk operasi preview yang berbeda.",
         );
       }
-
       return restartResult(existingRequest, true);
     }
+
+    const [tryout, sourceSession] = await Promise.all([
+      tx.tryoutPackage.findUnique({
+        select: { id: true, status: true },
+        where: { id: parsed.tryoutId },
+      }),
+      tx.tryoutDeliverySession.findUnique({
+        select: {
+          availableFrom: true,
+          availableUntil: true,
+          id: true,
+          status: true,
+          tryoutId: true,
+        },
+        where: { id: parsed.sourceDeliverySessionId },
+      }),
+    ]);
+
+    if (!tryout || tryout.status !== ContentStatus.published) {
+      throw new AdminPreviewTryoutRestartError(
+        "tryout_not_ready",
+        "Tryout preview hanya tersedia untuk konten yang sudah published.",
+      );
+    }
+
+    const now = new Date();
+    if (
+      !sourceSession
+      || sourceSession.tryoutId !== parsed.tryoutId
+      || !isSamePreviewSource(sourceSession, now)
+    ) {
+      throw new AdminPreviewTryoutRestartError(
+        "source_session_not_eligible",
+        "Restart hanya dapat menggunakan sesi Tryout published yang sedang aktif atau sudah closed.",
+      );
+    }
+
+    // Preview restarts create a participant-accessible active session too, so
+    // they must pin the same immutable release boundary as ordinary retakes.
+    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${parsed.tryoutId}::uuid FOR UPDATE`;
+    try {
+      await assertTryoutReleaseEligibility(tx, parsed.tryoutId);
+    } catch (error) {
+      throw new AdminPreviewTryoutRestartError(
+        "tryout_not_found",
+        error instanceof Error ? error.message : "Tryout preview belum memenuhi syarat AssessmentRelease.",
+      );
+    }
+    const release = await createOrReuseAssessmentRelease(tx, parsed.tryoutId, actorId);
 
     const admission = await tx.tryoutAdmission.findUnique({
       select: { id: true, status: true },
@@ -331,6 +347,7 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
     );
     const session = await tx.tryoutDeliverySession.create({
       data: {
+        assessmentReleaseId: release.id,
         availableFrom: now,
         availableUntil,
         createdByUserId: actorId,

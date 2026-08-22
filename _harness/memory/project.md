@@ -65,3 +65,26 @@ Store only settled decisions, conventions, and important context that emerged du
   DB-backed Kuis smoke returned a scored/released 67 result; seven-section
   Tryout smoke returned a scored/released 68.68 result with seven runs and
   seven typed breakdowns.
+
+## AS-09 AssessmentRelease boundary
+
+- `20260822120000_add_assessment_release_boundary` is the sole pending migration;
+  it is intentionally unapplied while the UI-first pass is reviewed.
+- Durable release implementation pins published Tryout content, CAT calibration,
+  scoring/configuration, media, and logical section identity. Bound runtime paths
+  fail closed when frozen metadata or exact source/physical bridges are missing.
+- Final adversarial review found no validated P0/P1/P2 findings. Seed locks all
+  Tryout session rows before the Tryout aggregate, refuses active release-bound
+  physical replacement, and repairs existing runs only after exact bridge and
+  frozen-field validation.
+- The mentor UI pass adds shared pinned-release notices and human-readable
+  ranking/assignment labels in Tryout authoring and operations. TypeScript,
+  focused ESLint, full lint (0 errors with existing warnings), diff-check,
+  AssessmentRelease/package/release/scoring invariant suites, and production
+  build all pass. Student Tryout answer-save state and result ranking/time copy
+  were also polished without changing runtime contracts, including the neutral
+  training disclaimer `bukan nilai resmi SNBT` and the participant UX contract
+  test.
+- AS-09 remains uncommitted until the complete backend + UI diff is reviewed.
+  After commit and explicit migration approval, deploy the pending migration and
+  run DB-backed Kuis and seven-section Tryout scoring/release smoke tests.

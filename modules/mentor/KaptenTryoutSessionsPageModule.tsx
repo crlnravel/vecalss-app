@@ -64,8 +64,13 @@ function KaptenTryoutSessionsPageModule({
                   </CardAction>
                 </CardHeader>
                 {session.releasedAt ? (
-                  <CardContent className="text-sm text-secondary-600">
-                    Hasil dirilis
+                  <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary-600">
+                    <span>Hasil dirilis</span>
+                    {session.assessmentRelease ? <span className="font-medium text-primary-800">Konten rilis {session.assessmentRelease.number}</span> : null}
+                  </CardContent>
+                ) : session.assessmentRelease ? (
+                  <CardContent className="text-sm text-primary-800">
+                    Konten terkunci pada rilis {session.assessmentRelease.number}
                   </CardContent>
                 ) : null}
               </Card>

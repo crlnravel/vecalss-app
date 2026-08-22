@@ -1,5 +1,6 @@
 import "server-only";
 
+import { toAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
 import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
 
 type TryoutOperationsRecord = NonNullable<
@@ -10,6 +11,9 @@ type TryoutOperationsView = ReturnType<typeof serializeTryoutOperations>;
 
 function serializeTryoutOperations(operations: TryoutOperationsRecord) {
   return {
+    assessmentRelease: operations.assessmentReleases[0]
+      ? toAssessmentReleaseMetadata(operations.assessmentReleases[0])
+      : null,
     admissionMode: operations.admissionMode,
     defaultReleasePolicy: operations.defaultResultReleasePolicy,
     description: operations.description,
@@ -29,8 +33,14 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
     })),
     sessions: operations.deliverySessions.map((deliverySession) => ({
       attempts: deliverySession.attempts.map((attempt) => ({
+        assessmentRelease: attempt.assessmentRelease
+          ? toAssessmentReleaseMetadata(attempt.assessmentRelease)
+          : null,
         id: attempt.id,
         runs: attempt.runs.map((run) => ({
+          assessmentRelease: run.assessmentRelease
+            ? toAssessmentReleaseMetadata(run.assessmentRelease)
+            : null,
           catState: run.catState,
           id: run.id,
           integrityEvents: run.integrityEvents.length,
@@ -49,6 +59,9 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       })),
       availableFrom: deliverySession.availableFrom.toISOString(),
       availableUntil: deliverySession.availableUntil.toISOString(),
+      assessmentRelease: deliverySession.assessmentRelease
+        ? toAssessmentReleaseMetadata(deliverySession.assessmentRelease)
+        : null,
       fullscreenPrompt: deliverySession.fullscreenPrompt,
       id: deliverySession.id,
       isDefaultOpenRegistration:
@@ -68,8 +81,11 @@ async function getOwnedTryoutOperationsView(
   tryoutId: string,
   actorId: string,
 ) {
-  const operations = await getTryoutDeliveryOperations(tryoutId);
-  if (!operations || operations.createdByUserId !== actorId) return null;
+  // Scope in the database before loading admissions, student identities,
+  // attempts, or release payloads.  The serializer is a presentation
+  // boundary, not an ownership boundary.
+  const operations = await getTryoutDeliveryOperations(tryoutId, actorId);
+  if (!operations) return null;
   return serializeTryoutOperations(operations);
 }
 

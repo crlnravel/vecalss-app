@@ -3,6 +3,11 @@ import "dotenv/config";
 import { createHash, randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import pg from "pg";
+import {
+  buildAssessmentReleasePayload,
+  canonicalAssessmentReleaseJson,
+  digestAssessmentReleasePayload,
+} from "../lib/tryout/assessment-release-canonical.mjs";
 
 const { Client } = pg;
 
@@ -223,6 +228,8 @@ const TRYOUT = {
 };
 
 const TRYOUT_SCORE_AGGREGATION_VERSION = "normalized-test-mean-v1";
+const TRYOUT_CBT_SCORING_VERSION = "cbt-frozen-item-points-v1";
+const TRYOUT_CAT_SCORING_VERSION = "2pl-map-v1";
 
 function roundInternalScore(value) {
   return Math.round(Math.min(100, Math.max(0, value)) * 100) / 100;
@@ -690,32 +697,100 @@ async function seedQuizzes(client, { bankId, questions, studentIds, subtestIds, 
   return quizIds;
 }
 
+async function lockSeedTryoutSessions(client, tryoutId) {
+  const sessions = await client.query(
+    `SELECT id, status, assessment_release_id
+       FROM tryout_delivery_sessions
+      WHERE tryout_id = $1
+      ORDER BY id
+      FOR UPDATE`,
+    [tryoutId],
+  );
+  if (sessions.rows.some((session) => session.status === "active" && session.assessment_release_id !== null)) {
+    throw new Error("The assessment seed cannot replace Tryout rows while an active release-bound delivery session exists. Close or archive the session first.");
+  }
+}
+
 async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }) {
-  await client.query(
-    `UPDATE tryout_packages
-        SET code = $1, idempotency_key = $2
-      WHERE code = 'seed:assessment:tryout:baseline:v1'
-        AND NOT EXISTS (SELECT 1 FROM tryout_packages WHERE code = $1)`,
-    [TRYOUT.code, TRYOUT.idempotencyKey],
-  );
-  const tryoutResult = await client.query(
-    `INSERT INTO tryout_packages (
-       exam_event_id, code, title, description, assessment_type, status, published_at,
-       revision, idempotency_key, admission_mode, default_result_release_policy, created_by_user_id
-     )
-     VALUES ($1, $2, $3, $4, 'tryout', 'published', NOW(), 1, $5, 'approval_required', 'automatic_at_end', $6)
-     ON CONFLICT (code) DO UPDATE
-       SET exam_event_id = EXCLUDED.exam_event_id,
-           title = EXCLUDED.title,
-           description = EXCLUDED.description,
-           status = 'published',
-           published_at = COALESCE(tryout_packages.published_at, NOW()),
-           admission_mode = 'approval_required',
-           default_result_release_policy = 'automatic_at_end',
-           updated_at = NOW()
-     RETURNING id`,
-    [examEventId, TRYOUT.code, TRYOUT.title, TRYOUT.description, TRYOUT.idempotencyKey, tutorId],
-  );
+  const existingTryout = await client.query("SELECT id FROM tryout_packages WHERE code = $1", [TRYOUT.code]);
+  let tryoutResult;
+  if (existingTryout.rowCount) {
+    const tryoutId = existingTryout.rows[0].id;
+    // Participant start locks overlapping sessions before the Tryout row.
+    // Keep the seed in that same order; the deterministic all-session lock
+    // also prevents a concurrent start from appearing after the guard read.
+    await lockSeedTryoutSessions(client, tryoutId);
+    await client.query("SELECT id FROM tryout_packages WHERE id = $1 FOR UPDATE", [tryoutId]);
+    tryoutResult = await client.query(
+      `UPDATE tryout_packages
+          SET exam_event_id = $1,
+              title = $2,
+              description = $3,
+              status = 'published',
+              published_at = COALESCE(published_at, NOW()),
+              admission_mode = 'approval_required',
+              default_result_release_policy = 'automatic_at_end',
+              updated_at = NOW()
+        WHERE id = $4
+        RETURNING id`,
+      [examEventId, TRYOUT.title, TRYOUT.description, tryoutId],
+    );
+  } else {
+    const baselineTryout = await client.query(
+      "SELECT id FROM tryout_packages WHERE code = 'seed:assessment:tryout:baseline:v1'",
+    );
+    if (baselineTryout.rowCount) {
+      const tryoutId = baselineTryout.rows[0].id;
+      await lockSeedTryoutSessions(client, tryoutId);
+      await client.query("SELECT id FROM tryout_packages WHERE id = $1 FOR UPDATE", [tryoutId]);
+      tryoutResult = await client.query(
+        `UPDATE tryout_packages
+            SET code = $1,
+                idempotency_key = $2
+          WHERE id = $3
+            AND NOT EXISTS (SELECT 1 FROM tryout_packages WHERE code = $1)
+          RETURNING id`,
+        [TRYOUT.code, TRYOUT.idempotencyKey, tryoutId],
+      );
+      if (!tryoutResult.rowCount) throw new Error("The assessment seed found a concurrent Tryout code change; retry after the transaction finishes.");
+    } else {
+      // A newly-created Tryout cannot have a participant session before this
+      // transaction commits, so its INSERT lock is the first and only lock
+      // needed on this branch.  If another transaction wins the unique code
+      // race, retry through the existing-row branch to preserve lock order.
+      tryoutResult = await client.query(
+        `INSERT INTO tryout_packages (
+           exam_event_id, code, title, description, assessment_type, status, published_at,
+           revision, idempotency_key, admission_mode, default_result_release_policy, created_by_user_id
+         )
+         VALUES ($1, $2, $3, $4, 'tryout', 'published', NOW(), 1, $5, 'approval_required', 'automatic_at_end', $6)
+         ON CONFLICT (code) DO NOTHING
+         RETURNING id`,
+        [examEventId, TRYOUT.code, TRYOUT.title, TRYOUT.description, TRYOUT.idempotencyKey, tutorId],
+      );
+      if (!tryoutResult.rowCount) {
+        const concurrentTryout = await client.query("SELECT id FROM tryout_packages WHERE code = $1", [TRYOUT.code]);
+        if (!concurrentTryout.rowCount) throw new Error("The assessment seed could not resolve its Tryout after a concurrent code write.");
+        const tryoutId = concurrentTryout.rows[0].id;
+        await lockSeedTryoutSessions(client, tryoutId);
+        await client.query("SELECT id FROM tryout_packages WHERE id = $1 FOR UPDATE", [tryoutId]);
+        tryoutResult = await client.query(
+          `UPDATE tryout_packages
+              SET exam_event_id = $1,
+                  title = $2,
+                  description = $3,
+                  status = 'published',
+                  published_at = COALESCE(published_at, NOW()),
+                  admission_mode = 'approval_required',
+                  default_result_release_policy = 'automatic_at_end',
+                  updated_at = NOW()
+            WHERE id = $4
+            RETURNING id`,
+          [examEventId, TRYOUT.title, TRYOUT.description, tryoutId],
+        );
+      }
+    }
+  }
   const tryoutId = tryoutResult.rows[0].id;
   const attempts = await client.query("SELECT COUNT(*)::int AS count FROM tryout_attempts WHERE tryout_id = $1", [tryoutId]);
   if (attempts.rows[0].count === 0) {
@@ -748,7 +823,8 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
         `SELECT items.id, items.source_question_id, items.sort_order, items.point_value,
                 items.source_question_revision_id, items.source_content_digest,
                 items.source_revision_provenance, items.prompt, items.explanation,
-                items.difficulty, items.subtest_id
+                items.difficulty, items.subtest_id, items.prompt_asset_id,
+                items.explanation_asset_id
            FROM reusable_question_package_version_items items
           WHERE items.package_version_id = $1
           ORDER BY items.sort_order`,
@@ -760,14 +836,14 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
              tryout_id, tryout_section_id, source_question_id, source_question_revision_id,
              source_content_digest, source_revision_provenance, sort_order, points,
              prompt, explanation, difficulty, subtest_id, package_code,
-             idempotency_key, package_version_id
-           ) VALUES ($1, $2, $3, $4, $5, $6::question_revision_provenance, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+             prompt_asset_id, explanation_asset_id, idempotency_key, package_version_id
+           ) VALUES ($1, $2, $3, $4, $5, $6::question_revision_provenance, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
            RETURNING id`,
-          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.source_question_revision_id, versionItem.source_content_digest, versionItem.source_revision_provenance, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, `PKG-${subject.code}-EVALUASI`, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, versionIds.get(subject.code)],
+          [tryoutId, sectionResult.rows[0].id, versionItem.source_question_id, versionItem.source_question_revision_id, versionItem.source_content_digest, versionItem.source_revision_provenance, versionItem.sort_order, versionItem.point_value, versionItem.prompt, versionItem.explanation, versionItem.difficulty, versionItem.subtest_id, `PKG-${subject.code}-EVALUASI`, versionItem.prompt_asset_id, versionItem.explanation_asset_id, `seed:demo:tryout-item:${subject.code.toLowerCase()}:${versionItem.sort_order}`, versionIds.get(subject.code)],
         );
         const versionOptions = await client.query(
           `SELECT choice_key, content, is_correct, sort_order, source_question_option_id,
-                  source_question_revision_option_id
+                  source_question_revision_option_id, asset_id
              FROM reusable_question_package_version_item_options
             WHERE package_version_item_id = $1
             ORDER BY sort_order`,
@@ -777,15 +853,183 @@ async function seedTryout(client, { examEventId, subtestIds, tutorId, versionIds
           await client.query(
             `INSERT INTO tryout_item_options (
                tryout_item_id, choice_key, content, is_correct, sort_order,
-               source_question_option_id, source_question_revision_option_id
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [itemResult.rows[0].id, option.choice_key, option.content, option.is_correct, option.sort_order, option.source_question_option_id, option.source_question_revision_option_id],
+               source_question_option_id, source_question_revision_option_id, asset_id
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [itemResult.rows[0].id, option.choice_key, option.content, option.is_correct, option.sort_order, option.source_question_option_id, option.source_question_revision_option_id, option.asset_id],
           );
         }
       }
     }
   }
   return tryoutId;
+}
+
+async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
+  await client.query("SELECT id FROM tryout_packages WHERE id = $1 FOR UPDATE", [tryoutId]);
+  const tryoutResult = await client.query(
+    `SELECT id, revision
+       FROM tryout_packages
+      WHERE id = $1
+        AND status = 'published'`,
+    [tryoutId],
+  );
+  if (!tryoutResult.rowCount) throw new Error("The assessment seed requires a published Tryout before creating its release.");
+
+  const sectionResult = await client.query(
+    `SELECT section.id, section.cat_item_count, section.cat_model_version,
+            section.duration_seconds, section.instructions,
+            section.package_version_id, section.scoring_config,
+            section.sequence_no, section.shuffle_items, section.subtest_id,
+            section.test_type, section.title, subtest.code AS subtest_code,
+            subtest.name AS subtest_name
+       FROM tryout_sections AS section
+       JOIN subtests AS subtest ON subtest.id = section.subtest_id
+      WHERE section.tryout_id = $1
+      ORDER BY section.sequence_no`,
+    [tryoutId],
+  );
+  const sections = [];
+  for (const section of sectionResult.rows) {
+    const itemResult = await client.query(
+      `SELECT id, difficulty, explanation, explanation_asset_id, package_code,
+              points::text, prompt, prompt_asset_id, sort_order,
+              source_content_digest, source_question_id,
+              source_question_revision_id, source_revision_provenance,
+              subtest_id
+         FROM tryout_items
+        WHERE tryout_section_id = $1
+        ORDER BY sort_order`,
+      [section.id],
+    );
+    const items = [];
+    for (const item of itemResult.rows) {
+      const optionResult = await client.query(
+        `SELECT asset_id, choice_key, content, id, is_correct, sort_order,
+                source_question_option_id, source_question_revision_option_id
+           FROM tryout_item_options
+          WHERE tryout_item_id = $1
+          ORDER BY sort_order`,
+        [item.id],
+      );
+      items.push({
+        difficulty: item.difficulty,
+        explanation: item.explanation,
+        explanationAssetId: item.explanation_asset_id,
+        id: item.id,
+        options: optionResult.rows.map((option) => ({
+          assetId: option.asset_id,
+          choiceKey: option.choice_key,
+          content: option.content,
+          id: option.id,
+          isCorrect: option.is_correct,
+          sortOrder: option.sort_order,
+          sourceQuestionOptionId: option.source_question_option_id,
+          sourceQuestionRevisionOptionId: option.source_question_revision_option_id,
+        })),
+        packageCode: item.package_code,
+        points: item.points,
+        prompt: item.prompt,
+        promptAssetId: item.prompt_asset_id,
+        sortOrder: item.sort_order,
+        sourceContentDigest: item.source_content_digest,
+        sourceQuestionId: item.source_question_id,
+        sourceQuestionRevisionId: item.source_question_revision_id,
+        sourceRevisionProvenance: item.source_revision_provenance,
+        subtestId: item.subtest_id,
+      });
+    }
+    sections.push({
+      catItemCount: section.cat_item_count,
+      catModelVersion: section.cat_model_version,
+      durationSeconds: section.duration_seconds,
+      id: section.id,
+      instructions: section.instructions,
+      items,
+      packageVersionId: section.package_version_id,
+      scoringConfig: section.scoring_config,
+      sequenceNo: section.sequence_no,
+      shuffleItems: section.shuffle_items,
+      subtestCode: section.subtest_code,
+      subtestName: section.subtest_name,
+      subtestId: section.subtest_id,
+      testType: section.test_type,
+      title: section.title,
+    });
+  }
+  if (sections.length !== 7 || sections.some((section) => section.items.length === 0)) throw new Error("The assessment seed expects seven populated Tryout sections.");
+  const catItems = sections.filter((section) => section.testType === "cat").flatMap((section) => section.items);
+  if (catItems.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || !item.sourceRevisionProvenance || item.sourceRevisionProvenance === "legacy_unknown")) {
+    throw new Error("The assessment seed requires complete CAT source provenance.");
+  }
+  const catRevisionIds = [...new Set(catItems.map((item) => item.sourceQuestionRevisionId).filter(Boolean))];
+  if (catRevisionIds.length) {
+    const [revisionResult, calibrationResult] = await Promise.all([
+      client.query(
+        `SELECT id, question_id, content_digest
+           FROM question_revisions
+          WHERE id = ANY($1::uuid[])
+            AND status = 'ready'`,
+        [catRevisionIds],
+      ),
+      client.query(
+        `SELECT id, content_digest, difficulty::text, discrimination::text,
+                question_id, question_revision_id, source_revision_provenance
+           FROM two_pl_question_calibrations
+          WHERE approval_state = 'approved'
+            AND model_version = '2pl-canonical-v1'
+            AND question_revision_id = ANY($1::uuid[])`,
+        [catRevisionIds],
+      ),
+    ]);
+    const revisionById = new Map(revisionResult.rows.map((revision) => [revision.id, revision]));
+    const calibrationByRevision = new Map(calibrationResult.rows.map((calibration) => [calibration.question_revision_id, calibration]));
+    if (revisionResult.rowCount !== catRevisionIds.length || calibrationResult.rowCount !== catRevisionIds.length) throw new Error("The assessment seed requires every CAT QuestionRevision to remain ready with an approved canonical 2PL calibration.");
+    for (const item of catItems) {
+      const revision = revisionById.get(item.sourceQuestionRevisionId);
+      const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId);
+      if (!revision || !calibration || revision.question_id !== item.sourceQuestionId || revision.content_digest !== item.sourceContentDigest || calibration.question_id !== item.sourceQuestionId || calibration.content_digest !== item.sourceContentDigest || calibration.source_revision_provenance === "legacy_unknown" || !Number.isFinite(Number(calibration.difficulty)) || !Number.isFinite(Number(calibration.discrimination)) || Number(calibration.discrimination) <= 0) {
+        throw new Error("The assessment seed requires an approved canonical 2PL calibration matching each CAT source revision digest.");
+      }
+      item.catCalibration = {
+        calibrationDigest: calibration.content_digest,
+        calibrationId: calibration.id,
+        difficulty: Number(calibration.difficulty),
+        discrimination: Number(calibration.discrimination),
+        sourceRevisionProvenance: calibration.source_revision_provenance,
+      };
+    }
+  }
+  const payload = buildAssessmentReleasePayload({
+    aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION,
+    catVersion: TRYOUT_CAT_SCORING_VERSION,
+    cbtVersion: TRYOUT_CBT_SCORING_VERSION,
+    tryoutId,
+    tryoutRevision: tryoutResult.rows[0].revision,
+    sections,
+  });
+  const contentDigest = digestAssessmentReleasePayload(payload);
+  const existing = await client.query(
+    `SELECT id, content_digest, release_number
+       FROM assessment_releases
+      WHERE tryout_id = $1 AND content_digest = $2`,
+    [tryoutId, contentDigest],
+  );
+  if (existing.rowCount) return { ...existing.rows[0], contentDigest: existing.rows[0].content_digest, releaseNumber: existing.rows[0].release_number };
+  const nextNumber = await client.query(
+    `SELECT COALESCE(MAX(release_number), 0) + 1 AS release_number
+       FROM assessment_releases
+      WHERE tryout_id = $1`,
+    [tryoutId],
+  );
+  const inserted = await client.query(
+    `INSERT INTO assessment_releases (
+       tryout_id, release_number, content_digest, payload, published_at,
+       created_by_user_id
+     ) VALUES ($1, $2, $3, $4::jsonb, COALESCE((SELECT published_at FROM tryout_packages WHERE id = $1), NOW()), $5)
+     RETURNING id, content_digest, release_number`,
+    [tryoutId, nextNumber.rows[0].release_number, contentDigest, JSON.stringify(payload), tutorId],
+  );
+  return { ...inserted.rows[0], contentDigest: inserted.rows[0].content_digest, releaseNumber: inserted.rows[0].release_number };
 }
 
 async function upsertAdmission(client, { decidedByUserId, status, studentId, tryoutId }) {
@@ -806,18 +1050,19 @@ async function upsertAdmission(client, { decidedByUserId, status, studentId, try
   return result.rows[0].id;
 }
 
-async function upsertDeliverySession(client, { name, relativeWindow, release, status, tryoutId, tutorId }) {
+async function upsertDeliverySession(client, { assessmentRelease, name, relativeWindow, release, status, tryoutId, tutorId }) {
   const result = await client.query(
     `INSERT INTO tryout_delivery_sessions (
        tryout_id, name, available_from, available_until, result_release_policy,
        ranking_rule, is_default_open_registration, fullscreen_prompt, status,
-       release_state, release_reason,
+       release_state, release_reason, assessment_release_id,
        created_by_user_id, updated_by_user_id, released_at, released_by_user_id
      ) VALUES (
        $1, $2, NOW() + ($3::int * INTERVAL '1 day'), NOW() + ($4::int * INTERVAL '1 day'),
        $5::tryout_result_release_policy, 'cohort', $6, $7, $8::tryout_delivery_session_status,
        CASE WHEN $10::boolean THEN 'released'::assessment_result_release_state ELSE 'hidden'::assessment_result_release_state END,
        CASE WHEN $10::boolean THEN 'Seeded runtime result bundle.' ELSE NULL END,
+       $11::uuid,
        $9::uuid, $9::uuid, CASE WHEN $10::boolean THEN NOW() - INTERVAL '6 days' ELSE NULL END,
        CASE WHEN $10::boolean THEN $9::uuid ELSE NULL END
      )
@@ -831,12 +1076,13 @@ async function upsertDeliverySession(client, { name, relativeWindow, release, st
            status = EXCLUDED.status,
            release_state = EXCLUDED.release_state,
            release_reason = EXCLUDED.release_reason,
+           assessment_release_id = COALESCE(tryout_delivery_sessions.assessment_release_id, EXCLUDED.assessment_release_id),
            updated_by_user_id = EXCLUDED.updated_by_user_id,
            released_at = EXCLUDED.released_at,
            released_by_user_id = EXCLUDED.released_by_user_id,
            updated_at = NOW()
      RETURNING id`,
-    [tryoutId, name, relativeWindow.from, relativeWindow.until, release.policy, release.defaultRegistration, release.fullscreenPrompt, status, tutorId, release.released],
+    [tryoutId, name, relativeWindow.from, relativeWindow.until, release.policy, release.defaultRegistration, release.fullscreenPrompt, status, tutorId, release.released, assessmentRelease.id],
   );
   return result.rows[0].id;
 }
@@ -862,7 +1108,7 @@ async function upsertAssignment(client, { admissionId, assignedDaysAgo = 0, deli
 
 async function sectionSnapshots(client, tryoutId) {
   const sections = await client.query(
-    `SELECT id, subtest_id, sequence_no, duration_seconds, instructions, scoring_config, test_type
+    `SELECT cat_item_count, cat_model_version, id, subtest_id, sequence_no, duration_seconds, instructions, scoring_config, test_type, title
        FROM tryout_sections
       WHERE tryout_id = $1
       ORDER BY sequence_no`,
@@ -871,7 +1117,10 @@ async function sectionSnapshots(client, tryoutId) {
   const snapshots = [];
   for (const section of sections.rows) {
     const items = await client.query(
-      `SELECT id, prompt, explanation, points::text, sort_order
+    `SELECT id, prompt, explanation, explanation_asset_id, prompt_asset_id, points::text, sort_order, difficulty,
+            package_code,
+            source_content_digest, source_question_id, source_question_revision_id,
+            source_revision_provenance, subtest_id
          FROM tryout_items
         WHERE tryout_section_id = $1
         ORDER BY sort_order`,
@@ -880,23 +1129,46 @@ async function sectionSnapshots(client, tryoutId) {
     const snapshotItems = [];
     for (const item of items.rows) {
       const options = await client.query(
-        `SELECT id, choice_key, content, is_correct, sort_order
+        `SELECT asset_id, id, choice_key, content, is_correct, sort_order,
+                source_question_option_id, source_question_revision_option_id
            FROM tryout_item_options
           WHERE tryout_item_id = $1
           ORDER BY sort_order`,
         [item.id],
       );
-      snapshotItems.push({ ...item, options: options.rows.map((option) => ({ choiceKey: option.choice_key, content: option.content, id: option.id, isCorrect: option.is_correct, sortOrder: option.sort_order })) });
+      snapshotItems.push({
+        difficulty: item.difficulty,
+        explanation: item.explanation,
+        explanationAssetId: item.explanation_asset_id,
+        id: item.id,
+        options: options.rows.map((option) => ({ assetId: option.asset_id, choiceKey: option.choice_key, content: option.content, id: option.id, isCorrect: option.is_correct, sortOrder: option.sort_order, sourceQuestionOptionId: option.source_question_option_id, sourceQuestionRevisionOptionId: option.source_question_revision_option_id })),
+        packageCode: item.package_code,
+        points: item.points,
+        prompt: item.prompt,
+        promptAssetId: item.prompt_asset_id,
+        sortOrder: item.sort_order,
+        sourceContentDigest: item.source_content_digest,
+        sourceQuestionId: item.source_question_id,
+        sourceQuestionRevisionId: item.source_question_revision_id,
+        sourceRevisionProvenance: item.source_revision_provenance,
+        subtestId: item.subtest_id,
+      });
     }
     snapshots.push({
       ...section,
       content: {
+        catItemCount: section.cat_item_count,
+        catModelVersion: section.cat_model_version,
         durationSeconds: section.duration_seconds,
         instructions: section.instructions,
         items: snapshotItems,
         scoringConfig: section.scoring_config,
         sectionId: section.id,
+        sequenceNo: section.sequence_no,
+        shuffleItems: section.shuffle_items,
+        subtestId: section.subtest_id,
         testType: section.test_type,
+        title: section.title,
       },
     });
   }
@@ -952,17 +1224,443 @@ async function normalizeSeededAttemptTiming(client, attemptId) {
   );
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertSeedReleaseMetadataCompatible(value, assessmentRelease, label) {
+  const snapshot = isRecord(value) ? value : null;
+  const metadata = snapshot && isRecord(snapshot.assessmentRelease)
+    ? snapshot.assessmentRelease
+    : null;
+  if (!metadata) return;
+  if (metadata.id !== assessmentRelease.id
+    || metadata.number !== assessmentRelease.releaseNumber
+    || metadata.digest !== assessmentRelease.contentDigest) {
+    throw new Error(`The assessment seed found a ${label} snapshot from a different AssessmentRelease.`);
+  }
+}
+
+function assertSeedReleaseBindingCompatible(value, assessmentRelease, label) {
+  const fields = [
+    value.assessment_release_id,
+    value.assessment_release_number,
+    value.assessment_release_digest,
+  ];
+  const hasAny = fields.some((field) => field !== null && field !== undefined);
+  if (!hasAny) return;
+  if (fields.some((field) => field === null || field === undefined)
+    || value.assessment_release_id !== assessmentRelease.id
+    || Number(value.assessment_release_number) !== Number(assessmentRelease.releaseNumber)
+    || value.assessment_release_digest !== assessmentRelease.contentDigest) {
+    throw new Error(`The assessment seed found an incomplete or mismatched ${label} AssessmentRelease binding.`);
+  }
+}
+
+function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
+  if (!isRecord(releaseItem) || !isRecord(snapshotItem) || releaseItem.physicalId !== snapshotItem.id) {
+    throw new Error(`The assessment seed could not prove the immutable item bridge for ${label}.`);
+  }
+  for (const field of [
+    "difficulty",
+    "explanation",
+    "explanationAssetId",
+    "id",
+    "options",
+    "packageCode",
+    "points",
+    "prompt",
+    "promptAssetId",
+    "sortOrder",
+    "sourceContentDigest",
+    "sourceQuestionId",
+    "sourceQuestionRevisionId",
+    "sourceRevisionProvenance",
+    "subtestId",
+  ]) {
+    if (!Object.prototype.hasOwnProperty.call(snapshotItem, field)) {
+      throw new Error(`The assessment seed found an incomplete frozen item for ${label}.`);
+    }
+  }
+  if (releaseItem.difficulty !== snapshotItem.difficulty
+    || releaseItem.explanation !== snapshotItem.explanation
+    || releaseItem.explanationAssetId !== snapshotItem.explanationAssetId
+    || releaseItem.packageCode !== snapshotItem.packageCode
+    || String(releaseItem.points) !== String(snapshotItem.points)
+    || releaseItem.prompt !== snapshotItem.prompt
+    || releaseItem.promptAssetId !== snapshotItem.promptAssetId
+    || releaseItem.sortOrder !== snapshotItem.sortOrder) {
+    throw new Error(`The assessment seed found frozen item content drift for ${label}.`);
+  }
+  for (const field of [
+    "sourceContentDigest",
+    "sourceQuestionId",
+    "sourceQuestionRevisionId",
+    "sourceRevisionProvenance",
+    "subtestId",
+  ]) {
+    if (releaseItem[field] !== snapshotItem[field]) {
+      throw new Error(`The assessment seed found mutable source drift in the item bridge for ${label}.`);
+    }
+  }
+  const releaseOptions = Array.isArray(releaseItem.options) ? releaseItem.options : null;
+  const snapshotOptions = Array.isArray(snapshotItem.options) ? snapshotItem.options : null;
+  if (!releaseOptions || !snapshotOptions || releaseOptions.length !== snapshotOptions.length) {
+    throw new Error(`The assessment seed found an incomplete option snapshot for ${label}.`);
+  }
+  const snapshotOptionIds = snapshotOptions.map((snapshotOption) => {
+    if (!isRecord(snapshotOption) || typeof snapshotOption.id !== "string") {
+      throw new Error(`The assessment seed found an incomplete frozen option for ${label}.`);
+    }
+    return snapshotOption.id;
+  });
+  const releaseOptionIds = releaseOptions.map((releaseOption) => releaseOption.physicalId);
+  if (releaseOptionIds.some((id) => typeof id !== "string")
+    || new Set(snapshotOptionIds).size !== snapshotOptionIds.length
+    || new Set(releaseOptionIds).size !== releaseOptionIds.length
+    || snapshotOptionIds.some((id) => !releaseOptionIds.includes(id))) {
+    throw new Error(`The assessment seed found a non-bijective option bridge for ${label}.`);
+  }
+  for (const snapshotOption of snapshotOptions) {
+    if (!isRecord(snapshotOption)
+      || !Object.prototype.hasOwnProperty.call(snapshotOption, "assetId")
+      || !Object.prototype.hasOwnProperty.call(snapshotOption, "choiceKey")
+      || !Object.prototype.hasOwnProperty.call(snapshotOption, "content")
+      || !Object.prototype.hasOwnProperty.call(snapshotOption, "isCorrect")
+      || !Object.prototype.hasOwnProperty.call(snapshotOption, "sortOrder")) {
+      throw new Error(`The assessment seed found an incomplete frozen option for ${label}.`);
+    }
+    const releaseOption = releaseOptions.find((candidate) => candidate.physicalId === snapshotOption.id);
+    if (!releaseOption
+      || releaseOption.assetId !== snapshotOption.assetId
+      || releaseOption.choiceKey !== snapshotOption.choiceKey
+      || releaseOption.content !== snapshotOption.content
+      || releaseOption.isCorrect !== snapshotOption.isCorrect
+      || releaseOption.sortOrder !== snapshotOption.sortOrder) {
+      throw new Error(`The assessment seed could not prove the immutable option bridge for ${label}.`);
+    }
+    for (const field of ["sourceQuestionOptionId", "sourceQuestionRevisionOptionId"]) {
+      if (!Object.prototype.hasOwnProperty.call(snapshotOption, field)
+        || releaseOption[field] !== snapshotOption[field]) {
+        throw new Error(`The assessment seed found mutable source drift in the option bridge for ${label}.`);
+      }
+    }
+  }
+}
+
+function assertSeedSnapshotMatchesRelease(contentSnapshot, releasePayload, label) {
+  const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
+  const sectionSnapshot = isRecord(snapshot.content) ? snapshot.content : snapshot;
+  const requiredFields = [
+    "catItemCount",
+    "catModelVersion",
+    "durationSeconds",
+    "instructions",
+    "items",
+    "scoringConfig",
+    "sectionId",
+    "sequenceNo",
+    "shuffleItems",
+    "subtestId",
+    "testType",
+    "title",
+  ];
+  if (requiredFields.some((field) => !Object.prototype.hasOwnProperty.call(sectionSnapshot, field))) {
+    throw new Error(`The assessment seed found an incomplete frozen section snapshot for ${label}.`);
+  }
+  const releaseSection = (Array.isArray(releasePayload?.sections) ? releasePayload.sections : [])
+    .find((candidate) => candidate.physicalId === sectionSnapshot.sectionId);
+  if (!releaseSection
+    || releaseSection.sequenceNo !== sectionSnapshot.sequenceNo
+    || releaseSection.subtestId !== sectionSnapshot.subtestId
+    || releaseSection.durationSeconds !== sectionSnapshot.durationSeconds
+    || releaseSection.instructions !== sectionSnapshot.instructions
+    || releaseSection.title !== sectionSnapshot.title
+    || releaseSection.cat?.itemCount !== sectionSnapshot.catItemCount
+    || releaseSection.cat?.modelVersion !== sectionSnapshot.catModelVersion
+    || releaseSection.scoring?.testType !== sectionSnapshot.testType
+    || releaseSection.scoring?.modelVersion !== (sectionSnapshot.testType === "cat" ? sectionSnapshot.catModelVersion : TRYOUT_CBT_SCORING_VERSION)
+    || releaseSection.randomization?.shuffleItems !== Boolean(sectionSnapshot.shuffleItems)
+    || canonicalAssessmentReleaseJson(releaseSection.scoring?.config ?? null) !== canonicalAssessmentReleaseJson(sectionSnapshot.scoringConfig ?? null)) {
+    throw new Error(`The assessment seed could not prove the immutable section bridge for ${label}.`);
+  }
+  const snapshotItems = Array.isArray(sectionSnapshot.items) ? sectionSnapshot.items : null;
+  const releaseItems = Array.isArray(releaseSection.items) ? releaseSection.items : null;
+  if (!snapshotItems || !releaseItems || snapshotItems.length !== releaseItems.length) {
+    throw new Error(`The assessment seed found an incomplete frozen item snapshot for ${label}.`);
+  }
+  const snapshotItemIds = snapshotItems.map((snapshotItem) => {
+    if (!isRecord(snapshotItem) || typeof snapshotItem.id !== "string") {
+      throw new Error(`The assessment seed found an incomplete frozen item snapshot for ${label}.`);
+    }
+    return snapshotItem.id;
+  });
+  const releaseItemIds = releaseItems.map((releaseItem) => releaseItem.physicalId);
+  if (releaseItemIds.some((id) => typeof id !== "string")
+    || new Set(snapshotItemIds).size !== snapshotItemIds.length
+    || new Set(releaseItemIds).size !== releaseItemIds.length
+    || snapshotItemIds.some((id) => !releaseItemIds.includes(id))) {
+    throw new Error(`The assessment seed found a non-bijective item bridge for ${label}.`);
+  }
+  for (const snapshotItem of snapshotItems) {
+    const releaseItem = releaseItems.find((candidate) => candidate.physicalId === snapshotItem.id);
+    assertSeedReleaseItemBridge(releaseItem, snapshotItem, label);
+  }
+}
+
+function assertSeedRunSnapshotIdentity(run, section, label) {
+  const snapshot = isRecord(run.content_snapshot) ? run.content_snapshot : {};
+  const sectionSnapshot = isRecord(snapshot.content) ? snapshot.content : snapshot;
+  if (sectionSnapshot.sectionId !== run.tryout_section_id
+    || sectionSnapshot.sequenceNo !== run.sequence_no
+    || sectionSnapshot.subtestId !== section.subtest_id) {
+    throw new Error(`The assessment seed found a ${label} run whose frozen section identity does not match its physical run row.`);
+  }
+}
+
+function assertSeedFrozenRunComplete(run, section, releasePayload, label) {
+  assertSeedSnapshotMatchesRelease(run.content_snapshot, releasePayload, label);
+  if (!run.scoring_state
+    || !run.scoring_version
+    || !run.scoring_provenance
+    || !run.calculation_version
+    || !isRecord(run.calculation_input)
+    || !isRecord(run.calculation_result)
+    || typeof run.calculation_releaseable !== "boolean") {
+    throw new Error(`The assessment seed found incomplete frozen scoring fields for ${label}.`);
+  }
+  if (section.test_type !== "cat") return;
+  const cat = isRecord(run.cat_snapshot) ? run.cat_snapshot : null;
+  const releaseSection = (releasePayload?.sections ?? []).find((candidate) => candidate.physicalId === section.id);
+  const expectedParameters = releaseSection?.cat?.parameters;
+  if (!cat
+    || cat.modelVersion !== releaseSection?.cat?.modelVersion
+    || !Number.isFinite(Number(cat.currentAbility))
+    || !Number.isFinite(Number(cat.initialAbility))
+    || !Array.isArray(cat.parameters)
+    || !Array.isArray(expectedParameters)
+    || cat.parameters.length !== expectedParameters.length
+    || !Array.isArray(cat.selectedItemIds)
+    || !Array.isArray(cat.updates)) {
+    throw new Error(`The assessment seed found an incomplete frozen CAT snapshot for ${label}.`);
+  }
+  const releaseItemById = new Map((releaseSection?.items ?? []).map((item) => [item.id, item]));
+  for (const parameter of cat.parameters) {
+    const expected = expectedParameters.find((candidate) => {
+      if (candidate.itemId === parameter.itemId) return true;
+      return releaseItemById.get(candidate.itemId)?.physicalId === parameter.itemId;
+    });
+    if (!expected
+      || expected.calibrationDigest !== parameter.calibrationDigest
+      || Number(expected.difficulty) !== Number(parameter.difficulty)
+      || Number(expected.discrimination) !== Number(parameter.discrimination)
+      || expected.sourceContentDigest !== parameter.sourceContentDigest
+      || expected.sourceQuestionId !== parameter.sourceQuestionId
+      || expected.sourceQuestionRevisionId !== parameter.sourceQuestionRevisionId
+      || expected.sourceRevisionProvenance !== parameter.sourceRevisionProvenance) {
+      throw new Error(`The assessment seed found CAT parameter drift for ${label}.`);
+    }
+  }
+}
+
+function mergeReleaseMediaIntoSnapshot(contentSnapshot, releasePayload, assessmentRelease) {
+  const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
+  const sections = Array.isArray(releasePayload?.sections) ? releasePayload.sections : [];
+  const content = isRecord(snapshot.content) ? snapshot.content : null;
+  const sectionSnapshot = content ?? snapshot;
+  const releaseSection = sections.find((section) =>
+    (section.physicalId && sectionSnapshot.sectionId === section.physicalId)
+      || (section.id && sectionSnapshot.releaseSectionId === section.id),
+  );
+  const snapshotItems = Array.isArray(sectionSnapshot.items) ? sectionSnapshot.items : null;
+  const releaseItems = Array.isArray(releaseSection?.items) ? releaseSection.items : [];
+  const mergedItems = snapshotItems
+    ? snapshotItems.map((snapshotItem) => {
+      if (!isRecord(snapshotItem)) return snapshotItem;
+      const releaseItem = releaseItems.find((candidate) =>
+        candidate.physicalId === snapshotItem.id
+          || (candidate.sourceQuestionId && candidate.sourceQuestionId === snapshotItem.sourceQuestionId
+            && candidate.sourceQuestionRevisionId === snapshotItem.sourceQuestionRevisionId
+            && candidate.sourceContentDigest === snapshotItem.sourceContentDigest),
+      );
+      if (!releaseItem) return snapshotItem;
+      const snapshotOptions = Array.isArray(snapshotItem.options) ? snapshotItem.options : null;
+      const releaseOptions = Array.isArray(releaseItem.options) ? releaseItem.options : [];
+      const mergedOptions = snapshotOptions
+        ? snapshotOptions.map((snapshotOption) => {
+          if (!isRecord(snapshotOption)) return snapshotOption;
+          const releaseOption = releaseOptions.find((candidate) =>
+            candidate.physicalId === snapshotOption.id
+              || (candidate.sourceQuestionOptionId && candidate.sourceQuestionOptionId === snapshotOption.sourceQuestionOptionId)
+              || (candidate.sourceQuestionRevisionOptionId && candidate.sourceQuestionRevisionOptionId === snapshotOption.sourceQuestionRevisionOptionId),
+          );
+          return releaseOption && releaseOption.assetId !== undefined
+            ? { ...snapshotOption, assetId: releaseOption.assetId }
+            : snapshotOption;
+        })
+        : snapshotItem.options;
+      return {
+        ...snapshotItem,
+        ...(releaseItem.promptAssetId !== undefined ? { promptAssetId: releaseItem.promptAssetId } : {}),
+        ...(releaseItem.explanationAssetId !== undefined ? { explanationAssetId: releaseItem.explanationAssetId } : {}),
+        ...(mergedOptions ? { options: mergedOptions } : {}),
+      };
+    })
+    : sectionSnapshot.items;
+  const nextSectionSnapshot = mergedItems ? { ...sectionSnapshot, items: mergedItems } : sectionSnapshot;
+  const nextSnapshot = content
+    ? { ...snapshot, content: nextSectionSnapshot }
+    : nextSectionSnapshot;
+  return { ...nextSnapshot, assessmentRelease };
+}
+
+function seedCatSnapshot(section, releasePayload, selectedItemIds) {
+  const releaseSection = (releasePayload?.sections ?? []).find((candidate) =>
+    candidate.physicalId && candidate.physicalId === section.id,
+  );
+  const releaseParameters = releaseSection?.cat?.parameters ?? [];
+  const releaseItems = releaseSection?.items ?? [];
+  if (!releaseSection?.cat?.modelVersion || releaseSection.cat.modelVersion !== "2pl-canonical-v1" || releaseParameters.length !== section.content.items.length) {
+    throw new Error("The assessment seed requires a complete frozen CAT parameter snapshot.");
+  }
+  const parameters = releaseParameters.map((parameter) => {
+    const releaseItem = releaseItems.find((item) => item.id === parameter.itemId);
+    if (!releaseItem?.physicalId) throw new Error("The assessment seed could not bridge a CAT release item to its physical snapshot row.");
+    return { ...parameter, itemId: releaseItem.physicalId };
+  });
+  return {
+    currentAbility: 0,
+    initialAbility: 0,
+    modelVersion: releaseSection.cat.modelVersion,
+    parameters,
+    selectedItemIds,
+    updates: [],
+  };
+}
+
+function completeSeedContentSnapshot(contentSnapshot, section, assessmentRelease) {
+  const snapshot = isRecord(contentSnapshot) ? contentSnapshot : {};
+  const nested = isRecord(snapshot.content) ? snapshot.content : null;
+  const current = nested ?? snapshot;
+  const content = { ...section.content, ...current };
+  return nested
+    ? { ...snapshot, assessmentRelease, content }
+    : { ...content, assessmentRelease };
+}
+
 async function seedCompletedAttempt(client, { admissionId, deliverySessionId, scorePattern, studentId, tryoutId }) {
+  const releaseResult = await client.query(
+    `SELECT session.assessment_release_id AS id,
+            release.release_number,
+            release.content_digest,
+            release.payload
+       FROM tryout_delivery_sessions AS session
+       JOIN assessment_releases AS release ON release.id = session.assessment_release_id
+      WHERE session.id = $1
+        AND session.tryout_id = $2`,
+    [deliverySessionId, tryoutId],
+  );
+  if (!releaseResult.rowCount) throw new Error("The assessment seed requires every delivery session to pin an AssessmentRelease.");
+  const assessmentRelease = {
+    contentDigest: releaseResult.rows[0].content_digest,
+    id: releaseResult.rows[0].id,
+    releaseNumber: releaseResult.rows[0].release_number,
+  };
+  const releasePayload = releaseResult.rows[0].payload;
   const existing = await client.query(
-    "SELECT id FROM tryout_attempts WHERE delivery_session_id = $1 AND student_id = $2",
+    `SELECT id, assessment_release_id, assessment_release_number,
+            assessment_release_digest, content_snapshot
+       FROM tryout_attempts
+      WHERE delivery_session_id = $1
+        AND student_id = $2`,
     [deliverySessionId, studentId],
   );
   if (existing.rowCount) {
+    assertSeedReleaseBindingCompatible(existing.rows[0], assessmentRelease, "attempt");
+    assertSeedReleaseMetadataCompatible(existing.rows[0].content_snapshot, assessmentRelease, "attempt");
+    const existingRuns = await client.query(
+      `SELECT id, assessment_release_id, assessment_release_number,
+              assessment_release_digest, cat_snapshot, content_snapshot,
+              sequence_no, tryout_section_id, scoring_state, scoring_version,
+              scoring_provenance, calculation_input, calculation_result,
+              calculation_version, calculation_releaseable
+         FROM tryout_attempt_test_runs
+        WHERE attempt_id = $1
+        ORDER BY sequence_no`,
+      [existing.rows[0].id],
+    );
+    const existingSections = await sectionSnapshots(client, tryoutId);
+    if (existingRuns.rowCount !== existingSections.length) {
+      throw new Error("The assessment seed refuses to repair an attempt with an incomplete set of frozen Test runs.");
+    }
+    const existingSectionById = new Map(existingSections.map((section) => [section.id, section]));
+    const seenRunSectionIds = new Set();
+    for (const run of existingRuns.rows) {
+      const section = existingSectionById.get(run.tryout_section_id);
+      if (!section || seenRunSectionIds.has(run.tryout_section_id) || run.sequence_no !== section.sequence_no) {
+        throw new Error("The assessment seed refuses to repair duplicate, missing, or re-sequenced frozen Test runs.");
+      }
+      seenRunSectionIds.add(run.tryout_section_id);
+      assertSeedRunSnapshotIdentity(run, section, `run ${run.id}`);
+      assertSeedReleaseBindingCompatible(run, assessmentRelease, "run");
+      assertSeedReleaseMetadataCompatible(run.content_snapshot, assessmentRelease, "run");
+      assertSeedFrozenRunComplete(run, section, releasePayload, `run ${run.id}`);
+    }
+    if (seenRunSectionIds.size !== existingSections.length) {
+      throw new Error("The assessment seed refuses to repair an attempt without one frozen Test run per physical section.");
+    }
+    // The current physical rows must still be exactly the bridge represented
+    // by the pinned release.  If a previous seed rebuilt them, stop before
+    // mixing old release identity with new section/item content.
+    for (const section of existingSections) {
+      assertSeedSnapshotMatchesRelease(section.content, releasePayload, `current section ${section.id}`);
+    }
+    await client.query(
+      `UPDATE tryout_attempts
+          SET assessment_release_id = $2,
+              assessment_release_number = $3,
+              assessment_release_digest = $4,
+              content_snapshot = jsonb_set(
+                CASE WHEN jsonb_typeof(content_snapshot) = 'object' THEN content_snapshot ELSE '{}'::jsonb END,
+                '{assessmentRelease}', $5::jsonb, TRUE
+              )
+        WHERE id = $1`,
+      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(assessmentRelease)],
+    );
+    await client.query(
+      `UPDATE tryout_attempt_test_runs
+          SET assessment_release_id = $2,
+              assessment_release_number = $3,
+              assessment_release_digest = $4,
+              content_snapshot = jsonb_set(
+                CASE WHEN jsonb_typeof(content_snapshot) = 'object' THEN content_snapshot ELSE '{}'::jsonb END,
+                '{assessmentRelease}', $5::jsonb, TRUE
+              )
+        WHERE attempt_id = $1`,
+      [existing.rows[0].id, assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest, JSON.stringify(assessmentRelease)],
+    );
+    for (const run of existingRuns.rows) {
+      const section = existingSectionById.get(run.tryout_section_id);
+      const contentSnapshot = completeSeedContentSnapshot(mergeReleaseMediaIntoSnapshot(run.content_snapshot, releasePayload, assessmentRelease), section, assessmentRelease);
+      const catSnapshot = section.test_type === "cat"
+        ? seedCatSnapshot(section, releasePayload, Array.isArray(run.cat_snapshot?.selectedItemIds) ? run.cat_snapshot.selectedItemIds : section.content.items.slice(0, 2).map((item) => item.id))
+        : null;
+      await client.query(
+        `UPDATE tryout_attempt_test_runs
+            SET content_snapshot = $2::jsonb,
+                cat_snapshot = $3::jsonb
+          WHERE id = $1`,
+        [run.id, JSON.stringify(contentSnapshot), catSnapshot ? JSON.stringify(catSnapshot) : null],
+      );
+    }
     await normalizeSeededAttemptTiming(client, existing.rows[0].id);
     return existing.rows[0].id;
   }
   const sections = await sectionSnapshots(client, tryoutId);
   if (sections.length !== 7 || scorePattern.length !== sections.length) throw new Error("The assessment seed expects seven score inputs.");
+  for (const section of sections) {
+    assertSeedSnapshotMatchesRelease(section.content, releasePayload, `new section ${section.id}`);
+  }
   const normalizedScores = sections.map((section, sectionIndex) => {
     const score = scorePattern[sectionIndex];
     if (section.test_type === "cat") {
@@ -987,6 +1685,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
     `INSERT INTO tryout_attempts (
        tryout_id, delivery_session_id, admission_id, student_id, status,
        attempt_state, scoring_state, release_state,
+       assessment_release_id, assessment_release_number, assessment_release_digest,
        server_started_at, server_deadline_at, submitted_at,
        correct_count, wrong_count, unanswered_count, raw_score, scaled_score, normalized_score, score,
        scoring_version, scoring_provenance, release_at,
@@ -996,13 +1695,14 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
        'submitted'::assessment_attempt_state,
        'scored'::assessment_scoring_state,
        'released'::assessment_result_release_state,
+       $12, $13, $14,
        NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days', NOW() - INTERVAL '8 days',
        $6, $7, 0, $8, $5, $5, $5,
        'normalized-test-mean-v1', 'runtime'::assessment_scoring_provenance,
        NOW() - INTERVAL '6 days',
        $9, $10::jsonb, $11::jsonb
      ) RETURNING id`,
-    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, aggregateCounts.correctCount, aggregateCounts.wrongCount, aggregateCounts.rawScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ tryoutId, tryoutRevision: 1 })],
+    [tryoutId, deliverySessionId, admissionId, studentId, finalScore, aggregateCounts.correctCount, aggregateCounts.wrongCount, aggregateCounts.rawScore, finalScore >= 60 ? 82 : 61, JSON.stringify({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: "cohort", resultReleasePolicy: "manual", scheduledReleaseAt: null }), JSON.stringify({ assessmentRelease, tryoutId, tryoutRevision: releasePayload?.tryout?.revision ?? null }), assessmentRelease.id, assessmentRelease.releaseNumber, assessmentRelease.contentDigest],
   );
   const attemptId = attemptResult.rows[0].id;
   for (const [sectionIndex, section] of sections.entries()) {
@@ -1027,6 +1727,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
          attempt_id, tryout_section_id, sequence_no, status, server_started_at,
          server_deadline_at, sealed_at, content_snapshot, calculation_input,
          calculation_result, calculation_version, scoring_state, scoring_version,
+         assessment_release_id, assessment_release_number, assessment_release_digest,
          scoring_provenance, correct_count, wrong_count, unanswered_count,
          raw_score, max_score, scaled_score, normalized_score,
          cat_state, cat_snapshot,
@@ -1034,7 +1735,9 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
        ) VALUES (
          $1, $2, $3, 'sealed', NOW() - INTERVAL '9 days', NOW() - INTERVAL '8 days',
          NOW() - INTERVAL '8 days', $4::jsonb, $5::jsonb, $6::jsonb, $7,
-         'scored'::assessment_scoring_state, $7, 'runtime'::assessment_scoring_provenance,
+         'scored'::assessment_scoring_state, $7,
+         $16, $17, $18,
+         'runtime'::assessment_scoring_provenance,
          $8, $9, $10, $11, $12, $13, $13,
          $14::tryout_cat_run_state, $15::jsonb, TRUE
        ) RETURNING id`,
@@ -1042,7 +1745,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         attemptId,
         section.id,
         section.sequence_no,
-        JSON.stringify(section.content),
+        JSON.stringify({ ...section.content, assessmentRelease }),
         JSON.stringify(calculationInput),
         JSON.stringify(calculationResult),
         scoringVersion,
@@ -1053,7 +1756,10 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
         maxScore,
         normalizedScore,
         isCat ? "ready" : "not_applicable",
-        isCat ? JSON.stringify({ currentAbility: ability, initialAbility: 0, modelVersion: "2pl-canonical-v1", parameters: [], selectedItemIds, updates: [] }) : null,
+        isCat ? JSON.stringify(seedCatSnapshot(section, releasePayload, selectedItemIds)) : null,
+        assessmentRelease.id,
+        assessmentRelease.releaseNumber,
+        assessmentRelease.contentDigest,
       ],
     );
     const answerableItems = isCat ? section.content.items.slice(0, 2) : section.content.items;
@@ -1089,7 +1795,7 @@ async function seedCompletedAttempt(client, { admissionId, deliverySessionId, sc
   return attemptId;
 }
 
-async function seedTryoutOperations(client, { studentIds, tryoutId, tutorId }) {
+async function seedTryoutOperations(client, { assessmentRelease, studentIds, tryoutId, tutorId }) {
   const admissions = {
     primary: await upsertAdmission(client, { decidedByUserId: tutorId, status: "active", studentId: studentIds.primary, tryoutId }),
     completed: await upsertAdmission(client, { decidedByUserId: tutorId, status: "active", studentId: studentIds.completed, tryoutId }),
@@ -1100,6 +1806,7 @@ async function seedTryoutOperations(client, { studentIds, tryoutId, tutorId }) {
   };
   const [historicalSessionId, activeSessionId] = await Promise.all([
     upsertDeliverySession(client, {
+      assessmentRelease,
       name: "Sesi Evaluasi Sebelumnya",
       relativeWindow: { from: -10, until: -8 },
       release: { defaultRegistration: false, fullscreenPrompt: true, policy: "manual", released: true },
@@ -1108,6 +1815,7 @@ async function seedTryoutOperations(client, { studentIds, tryoutId, tutorId }) {
       tutorId,
     }),
     upsertDeliverySession(client, {
+      assessmentRelease,
       name: "Sesi Reguler Pekan Ini",
       relativeWindow: { from: -1, until: 7 },
       release: { defaultRegistration: true, fullscreenPrompt: true, policy: "automatic_at_end", released: false },
@@ -1151,7 +1859,8 @@ async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) 
     seedQuizzes(client, { bankId, questions, studentIds, subtestIds, tutorId }),
     seedTryout(client, { examEventId, subtestIds, tutorId, versionIds }),
   ]);
-  const sessions = await seedTryoutOperations(client, { studentIds, tryoutId, tutorId });
+  const assessmentRelease = await upsertAssessmentRelease(client, { tryoutId, tutorId });
+  const sessions = await seedTryoutOperations(client, { assessmentRelease, studentIds, tryoutId, tutorId });
   return { bankId, questionCount: questions.length, quizCount: quizIds.size, sessions, tryoutId, versionCount: versionIds.size };
 }
 

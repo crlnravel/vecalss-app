@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
 import { KaptenTryoutPolicyPageModule } from "@/modules/mentor/KaptenTryoutPolicyPageModule";
@@ -118,6 +119,7 @@ function KaptenTryoutBuilderPageModule({ id, initialDraft, initialWorkspace = "a
 
     {error ? <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-500" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</p> : null}
     {draft.locked ? <section className="mt-4 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700"><Lock className="mt-0.5 size-4 shrink-0" /><p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p></section> : null}
+    {operationsInitial ? <AssessmentReleaseNotice label="Rilis konten Tryout" missingDescription="Publikasikan Tryout setelah tujuh Test dan kesiapan CAT tervalidasi untuk membuat rilis pertama." release={operationsInitial.assessmentRelease} /> : null}
 
     <section className="mt-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-[-0.02em] text-secondary-900">{draft.title || "Tryout tanpa judul"}</h1></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${draft.status === "published" ? "bg-[#d7f2d8] text-[#14563e]" : "bg-[#fff0cc] text-[#805700]"}`}>{draft.status === "published" ? "Diterbitkan" : "Draf"}</span></div><div className="mt-5 grid gap-4"><Field><FieldLabel htmlFor="tryout-title">Judul Tryout</FieldLabel><FieldInput disabled={draft.locked} id="tryout-title" onChange={(event) => setDraft({ ...draft, title: event.target.value })} value={draft.title} /></Field><Field><FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-28 px-4 py-3 text-sm leading-6" disabled={draft.locked} id="tryout-description" onChange={(event) => setDraft({ ...draft, description: event.target.value })} value={draft.description} /></Field></div></section>
     <Tabs onValueChange={changeWorkspace} value={workspace}>

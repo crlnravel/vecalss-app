@@ -27,6 +27,7 @@ import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
+  AssessmentReleaseNotice,
   OperationalPageHeader,
   OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
@@ -99,6 +100,10 @@ function KaptenTryoutAttemptDetailPageModule({
         trailing={<StatusBadge status={attempt.status} />}
       />
       <OperationNotice message={notice} />
+      <AssessmentReleaseNotice
+        label="Konten attempt"
+        release={attempt.assessmentRelease}
+      />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]">
         <section className="grid content-start gap-3" aria-labelledby="attempt-runs-title">

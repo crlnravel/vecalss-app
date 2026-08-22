@@ -1,13 +1,31 @@
 import "server-only";
 
-import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
+import {
+  assertMatchingAssessmentRelease,
+  findAssessmentReleaseSectionForRun,
+  releaseMetadataFields,
+  toParticipantAssessmentReleaseMetadata,
+} from "@/lib/tryout/assessment-release";
 import { materializeFrozenAnswers, normalizeCatAbility, TRYOUT_CAT_SCORING_VERSION, TRYOUT_CBT_SCORING_VERSION, TRYOUT_SCORE_AGGREGATION_VERSION } from "@/lib/tryout/scoring";
 import { prisma } from "@/lib/prisma";
 import { materializeTryoutAttemptInTransaction } from "@/lib/tryout/result-repository";
 
 class TryoutAttemptValidationError extends Error {}
+
+function assertAttemptReleaseBinding(
+  expected: Parameters<typeof assertMatchingAssessmentRelease>[0],
+  actual: Parameters<typeof assertMatchingAssessmentRelease>[1],
+  message = "Identitas AssessmentRelease tidak cocok dengan sesi participant.",
+) {
+  try {
+    assertMatchingAssessmentRelease(expected, actual, message);
+  } catch {
+    throw new TryoutAttemptValidationError(message);
+  }
+}
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 const activeAttemptStatuses = [AttemptStatus.in_progress] as const;
@@ -17,7 +35,9 @@ type ItemSnapshot = {
   explanation?: string | null;
   explanationAssetId?: string | null;
   id: string;
-  options: Array<{ choiceKey: string; content: string; id: string; isCorrect: boolean; sortOrder: number }>;
+  promptAssetId?: string | null;
+  releaseItemId?: string;
+  options: Array<{ assetId?: string | null; choiceKey: string; content: string; id: string; isCorrect: boolean; releaseOptionId?: string; sortOrder: number }>;
   points: string;
   prompt: string;
   sortOrder: number;
@@ -26,11 +46,79 @@ type ItemSnapshot = {
   sourceQuestionRevisionId?: string | null;
   sourceRevisionProvenance?: string | null;
 };
-type CatParameter = { calibrationDigest: string; calibrationId: string; discrimination: number; difficulty: number; itemId: string; sortOrder: number; sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string };
+type CatParameter = { calibrationDigest: string; calibrationId: string; discrimination: number; difficulty: number; itemId: string; sortOrder: number; sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string; sourceRevisionProvenance: string };
 type CatSnapshot = { currentAbility: number; initialAbility: number; modelVersion: string; parameters: CatParameter[]; selectedItemIds: string[]; updates: Array<{ abilityAfter: number; abilityBefore: number; itemId: string; probability: number; selectedOptionId: string | null }> };
 
 function remainingSeconds(deadline: Date | null, now: Date) {
   return deadline ? Math.max(0, Math.ceil((deadline.getTime() - now.getTime()) / 1000)) : 0;
+}
+
+function frozenRunFields(
+  contentSnapshot: Prisma.JsonValue,
+  fallback: { catItemCount?: number | null; durationSeconds?: number; scoringConfig?: Prisma.JsonValue | null; testType: string },
+  requireFrozen = false,
+) {
+  // Bound runs always carry these fields in contentSnapshot. The section
+  // fallback exists solely for nullable legacy rows that predate AS-09.
+  const form = contentSnapshot as unknown as {
+    catItemCount?: number | null;
+    catModelVersion?: string | null;
+    durationSeconds?: number;
+    items?: unknown[];
+    scoringConfig?: Prisma.JsonValue | null;
+    sectionId?: string;
+    sequenceNo?: number;
+    subtestId?: string;
+    testType?: string;
+    title?: string;
+  };
+  const complete = typeof form.sectionId === "string"
+    && Number.isInteger(form.sequenceNo)
+    && typeof form.subtestId === "string"
+    && typeof form.title === "string"
+    && Number.isFinite(form.durationSeconds)
+    && form.durationSeconds! >= 0
+    && (form.testType === TryoutTestType.cat || form.testType === TryoutTestType.cbt)
+    && Object.prototype.hasOwnProperty.call(form, "catItemCount")
+    && Object.prototype.hasOwnProperty.call(form, "catModelVersion")
+    && Object.prototype.hasOwnProperty.call(form, "scoringConfig")
+    && Array.isArray(form.items);
+  if (requireFrozen && !complete) throw new TryoutAttemptValidationError("Test run terikat AssessmentRelease tetapi snapshot section/scoring belum lengkap.");
+  if (requireFrozen) {
+    return {
+      catItemCount: form.catItemCount ?? null,
+      durationSeconds: form.durationSeconds!,
+      scoringConfig: form.scoringConfig ?? null,
+      testType: form.testType!,
+    };
+  }
+  return {
+    catItemCount: form.catItemCount ?? fallback.catItemCount ?? null,
+    durationSeconds: Number.isFinite(form.durationSeconds) ? form.durationSeconds! : fallback.durationSeconds ?? 0,
+    scoringConfig: form.scoringConfig ?? fallback.scoringConfig ?? null,
+    testType: form.testType === TryoutTestType.cat || form.testType === TryoutTestType.cbt ? form.testType : fallback.testType,
+  };
+}
+
+function isReleaseBoundRun(run: { assessmentReleaseDigest: string | null; assessmentReleaseId: string | null; assessmentReleaseNumber: number | null }) {
+  return Boolean(run.assessmentReleaseId || run.assessmentReleaseNumber !== null || run.assessmentReleaseDigest);
+}
+
+function assertCompleteFrozenRun(
+  run: { assessmentReleaseDigest: string | null; assessmentReleaseId: string | null; assessmentReleaseNumber: number | null; catSnapshot: Prisma.JsonValue | null; contentSnapshot: Prisma.JsonValue },
+  fallback: { catItemCount?: number | null; durationSeconds?: number; scoringConfig?: Prisma.JsonValue | null; testType: string },
+  boundOverride = false,
+) {
+  const bound = boundOverride || isReleaseBoundRun(run);
+  const frozen = frozenRunFields(run.contentSnapshot, fallback, bound);
+  if (frozen.testType === TryoutTestType.cat && bound) {
+    const form = run.contentSnapshot as unknown as { catItemCount?: number | null; catModelVersion?: string | null };
+    const snapshot = run.catSnapshot as unknown as { modelVersion?: string; parameters?: unknown[]; selectedItemIds?: unknown[]; updates?: unknown[] } | null;
+    if (!form.catItemCount || form.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || !snapshot || snapshot.modelVersion !== form.catModelVersion || !Array.isArray(snapshot.parameters) || snapshot.parameters.length < form.catItemCount || !Array.isArray(snapshot.selectedItemIds) || !Array.isArray(snapshot.updates)) {
+      throw new TryoutAttemptValidationError("Test run CAT terikat AssessmentRelease tetapi snapshot CAT tidak lengkap.");
+    }
+  }
+  return frozen;
 }
 
 async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
@@ -38,6 +126,22 @@ async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
   // pg_advisory_xact_lock returns PostgreSQL `void`; executeRaw consumes the
   // command result without asking Prisma to deserialize that value.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
+}
+
+async function lockOverlappingDeliverySessions(
+  tx: Prisma.TransactionClient,
+  deliverySessionId: string,
+  availableFrom: Date,
+  availableUntil: Date,
+) {
+  await tx.$queryRaw`
+    SELECT id
+      FROM tryout_delivery_sessions
+     WHERE id = ${deliverySessionId}::uuid
+        OR (available_from < ${availableUntil} AND available_until > ${availableFrom})
+     ORDER BY id
+     FOR UPDATE
+  `;
 }
 
 async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, attemptId: string, now: Date, autoCalculate = true) {
@@ -65,10 +169,11 @@ async function markAttemptSubmittedIfComplete(tx: Prisma.TransactionClient, atte
 async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, now: Date, expired = false) {
   const run = await tx.tryoutAttemptTestRun.findUnique({
     where: { id: runId },
-    include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, section: { select: { scoringConfig: true, testType: true } } },
+    include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, attempt: { select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentReleaseId: true } } } }, section: { select: { scoringConfig: true, testType: true } } },
   });
   if (!run || run.status !== TryoutAttemptTestRunStatus.active) return run;
-  if (run.section.testType === TryoutTestType.cat) return calculateAndSealCatRun(tx, run, now, expired);
+  const frozen = assertCompleteFrozenRun(run, run.section, Boolean(run.attempt.assessmentReleaseId || run.attempt.assessmentReleaseNumber !== null || run.attempt.assessmentReleaseDigest || run.attempt.deliverySession.assessmentReleaseId));
+  if (frozen.testType === TryoutTestType.cat) return calculateAndSealCatRun(tx, run, now, expired);
   const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
   const items = content.items ?? [];
   const scored = materializeFrozenAnswers(items, run.answers.map((answer) => ({ itemId: answer.tryoutItemId, selectedOptionId: answer.selectedOptionId })));
@@ -97,7 +202,7 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
   const sealed = await tx.tryoutAttemptTestRun.update({
     where: { id: run.id },
     data: {
-      calculationInput: json({ answersAcknowledged: scored.answeredCount, scoringConfig: run.section.scoringConfig, totalItems: items.length }),
+      calculationInput: json({ answersAcknowledged: scored.answeredCount, scoringConfig: frozen.scoringConfig, totalItems: items.length }),
       calculationResult: json(result),
       calculationVersion: TRYOUT_CBT_SCORING_VERSION,
       calculationReleaseable: true,
@@ -188,40 +293,36 @@ async function synchronizeAttempt(tx: Prisma.TransactionClient, attemptId: strin
   return attempt;
 }
 
-function snapshotSection(section: { id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; testType: string; items: Array<{ difficulty: string; explanation: string | null; explanationAssetId: string | null; id: string; prompt: string; points: Prisma.Decimal; sortOrder: number; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; options: Array<{ id: string; choiceKey: string; content: string; isCorrect: boolean; sortOrder: number }> }> }) {
+function snapshotSection(section: { catItemCount: number | null; catModelVersion: string | null; id: string; durationSeconds: number; instructions: string | null; scoringConfig: Prisma.JsonValue | null; sequenceNo: number; subtestId: string; testType: string; title: string; items: Array<{ difficulty: string; explanation: string | null; explanationAssetId: string | null; id: string; releaseItemId?: string; prompt: string; promptAssetId?: string | null; points: Prisma.Decimal | number | string; sortOrder: number; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; options: Array<{ assetId?: string | null; id: string; choiceKey: string; content: string; isCorrect: boolean; releaseOptionId?: string; sortOrder: number }> }> }) {
   return {
+    catItemCount: section.catItemCount,
+    catModelVersion: section.catModelVersion,
     durationSeconds: section.durationSeconds,
     instructions: section.instructions,
-    items: section.items.map((item) => ({ difficulty: item.difficulty, explanation: item.explanation, explanationAssetId: item.explanationAssetId, id: item.id, options: item.options.map((option) => ({ choiceKey: option.choiceKey, content: option.content, id: option.id, isCorrect: option.isCorrect, sortOrder: option.sortOrder })), points: item.points.toString(), prompt: item.prompt, sortOrder: item.sortOrder, sourceContentDigest: item.sourceContentDigest, sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId, sourceRevisionProvenance: item.sourceRevisionProvenance })),
+    items: section.items.map((item) => ({ difficulty: item.difficulty, explanation: item.explanation, explanationAssetId: item.explanationAssetId, id: item.id, options: item.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, id: option.id, isCorrect: option.isCorrect, releaseOptionId: option.releaseOptionId, sortOrder: option.sortOrder })), points: item.points.toString(), prompt: item.prompt, promptAssetId: item.promptAssetId, releaseItemId: item.releaseItemId, sortOrder: item.sortOrder, sourceContentDigest: item.sourceContentDigest, sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId, sourceRevisionProvenance: item.sourceRevisionProvenance })),
     scoringConfig: section.scoringConfig,
     sectionId: section.id,
+    sequenceNo: section.sequenceNo,
+    subtestId: section.subtestId,
     testType: section.testType,
+    title: section.title,
   };
 }
 
-async function catRunSnapshot(tx: Prisma.TransactionClient, section: { catItemCount: number | null; catModelVersion: string | null; id: string; items: Array<{ id: string; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: QuestionRevisionProvenance | null; sortOrder: number }>; subtestId: string }) {
-  if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || section.items.length < section.catItemCount || section.items.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) throw new TryoutAttemptValidationError("Pool CAT immutable tidak lengkap atau tidak memakai profil 2PL kanonis.");
-  const revisionIds = section.items.map((item) => item.sourceQuestionRevisionId!);
-  const [revisions, calibrations] = await Promise.all([
-    tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
-    tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, id: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
-  ]);
-  const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
-  const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
-  if (revisions.length !== new Set(revisionIds).size || calibrations.length !== new Set(revisionIds).size || section.items.some((item) => {
-    const revision = revisionById.get(item.sourceQuestionRevisionId!);
-    const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);
-    return !revision || !calibration
-      || revision.questionId !== item.sourceQuestionId
-      || revision.contentDigest !== item.sourceContentDigest
-      || calibration.questionId !== item.sourceQuestionId
-      || calibration.contentDigest !== item.sourceContentDigest
-      || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
-  })) throw new TryoutAttemptValidationError("Pool CAT memiliki parameter 2PL kanonis yang belum disetujui untuk QuestionRevision dan digest yang tepat.");
+function catRunSnapshot(section: { catItemCount: number | null; catModelVersion: string | null; catParameters: CatParameter[]; id: string; items: Array<{ id: string; releaseItemId?: string; sourceContentDigest: string | null; sourceQuestionId: string | null; sourceQuestionRevisionId: string | null; sourceRevisionProvenance: string | null; sortOrder: number }>; subtestId: string }) {
+  if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || section.items.length < section.catItemCount || section.items.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown) || section.catParameters.length !== section.items.length) throw new TryoutAttemptValidationError("Pool CAT immutable tidak lengkap atau tidak memakai profil 2PL kanonis.");
+  const parameterByReleaseItemId = new Map(section.catParameters.map((parameter) => [parameter.itemId, parameter]));
   const parameters = section.items.map((item) => {
-    const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);
-    if (!calibration) throw new TryoutAttemptValidationError("Parameter CAT tidak ditemukan.");
-    return { calibrationDigest: calibration.contentDigest, calibrationId: calibration.id, discrimination: Number(calibration.discrimination), difficulty: Number(calibration.difficulty), itemId: item.id, sortOrder: item.sortOrder, sourceContentDigest: item.sourceContentDigest!, sourceQuestionId: item.sourceQuestionId!, sourceQuestionRevisionId: item.sourceQuestionRevisionId! };
+    const parameter = parameterByReleaseItemId.get(item.releaseItemId ?? item.id);
+    if (!parameter
+      || parameter.sourceQuestionId !== item.sourceQuestionId
+      || parameter.sourceQuestionRevisionId !== item.sourceQuestionRevisionId
+      || parameter.sourceContentDigest !== item.sourceContentDigest
+      || parameter.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown
+      || !Number.isFinite(parameter.discrimination)
+      || parameter.discrimination <= 0
+      || !Number.isFinite(parameter.difficulty)) throw new TryoutAttemptValidationError("Parameter CAT beku tidak cocok dengan item AssessmentRelease.");
+    return { ...parameter, itemId: item.id };
   });
   return { currentAbility: 0, initialAbility: 0, modelVersion: CANONICAL_2PL_MODEL_VERSION, parameters, selectedItemIds: [], updates: [] } satisfies CatSnapshot;
 }
@@ -237,37 +338,38 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       throw new TryoutAttemptValidationError("Akun preview admin tidak dapat memulai attempt learner.");
     }
     await lockStudent(tx, studentId);
-    const assignment = await tx.tryoutDeliveryAssignment.findFirst({
+    const candidate = await tx.tryoutDeliveryAssignment.findFirst({
       where: { deliverySessionId, status: TryoutAssignmentStatus.active, admission: { status: "active", studentId } },
-      include: {
-        admission: true,
-        deliverySession: {
-          include: {
-            tryout: {
-              include: {
-                sections: {
-                  include: {
-                    items: {
-                      include: { options: { orderBy: { sortOrder: "asc" } } },
-                      orderBy: { sortOrder: "asc" },
-                    },
-                  },
-                  orderBy: { sequenceNo: "asc" },
-                },
-              },
-            },
-          },
-        },
-      },
+      select: { id: true },
+    });
+    if (!candidate) throw new TryoutAttemptValidationError("Sesi Tryout tidak tersedia untuk peserta ini.");
+
+    // Revocation takes the same participant and assignment locks. Re-read the
+    // active row after those locks so a revoke cannot be bypassed between the
+    // eligibility check and attempt creation.
+    await tx.$queryRaw`SELECT id FROM tryout_delivery_assignments WHERE id = ${candidate.id}::uuid FOR UPDATE`;
+    const assignment = await tx.tryoutDeliveryAssignment.findFirst({
+      where: { id: candidate.id, deliverySessionId, status: TryoutAssignmentStatus.active, admission: { status: "active", studentId } },
+      include: { admission: true, deliverySession: true },
     });
     if (!assignment || assignment.deliverySession.status !== TryoutDeliverySessionStatus.active) throw new TryoutAttemptValidationError("Sesi Tryout tidak tersedia untuk peserta ini.");
     const session = assignment.deliverySession;
     if (session.availableFrom > now || session.availableUntil <= now) throw new TryoutAttemptValidationError("Jendela sesi Tryout belum tersedia atau sudah berakhir.");
+    if (!session.assessmentReleaseId) throw new TryoutAttemptValidationError("Sesi Tryout belum memiliki AssessmentRelease yang valid.");
 
     // Lock every overlapping session in a deterministic order, after the stable student lock.
-    await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${deliverySessionId}::uuid OR (available_from < ${session.availableUntil} AND available_until > ${session.availableFrom}) ORDER BY id FOR UPDATE`;
-    const existing = await tx.tryoutAttempt.findUnique({ where: { deliverySessionId_studentId: { deliverySessionId, studentId } }, select: { id: true } });
-    if (existing) return { attemptId: existing.id, state: "existing" as const };
+    await lockOverlappingDeliverySessions(tx, deliverySessionId, session.availableFrom, session.availableUntil);
+    const release = await tx.assessmentRelease.findFirst({ where: { id: session.assessmentReleaseId, tryoutId: session.tryoutId } });
+    if (!release) throw new TryoutAttemptValidationError("AssessmentRelease sesi Tryout tidak ditemukan.");
+    const existing = await tx.tryoutAttempt.findUnique({ where: { deliverySessionId_studentId: { deliverySessionId, studentId } }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, id: true } });
+    if (existing) {
+      assertAttemptReleaseBinding(
+        { assessmentReleaseDigest: release.contentDigest, assessmentReleaseId: release.id, assessmentReleaseNumber: release.releaseNumber },
+        { assessmentReleaseDigest: existing.assessmentReleaseDigest, assessmentReleaseId: existing.assessmentReleaseId, assessmentReleaseNumber: existing.assessmentReleaseNumber },
+        "Attempt Tryout yang sudah ada tidak cocok dengan AssessmentRelease sesi.",
+      );
+      return { assessmentRelease: { digest: release.contentDigest, id: release.id, number: release.releaseNumber }, attemptId: existing.id, state: "existing" as const };
+    }
     const competing = await tx.tryoutAttempt.findFirst({ where: { studentId, status: { in: [...activeAttemptStatuses] }, deliverySession: { availableFrom: { lt: session.availableUntil }, availableUntil: { gt: session.availableFrom } } }, select: { id: true } });
     if (competing) throw new TryoutAttemptValidationError("Peserta masih memiliki Tryout aktif pada sesi yang waktunya bertumpang tindih.");
 
@@ -287,10 +389,109 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
         },
       },
     });
-    if (lockedTryout.sections.length !== 7 || lockedTryout.sections.some((section) => !section.items.length)) throw new TryoutAttemptValidationError("Konfigurasi tujuh Test Tryout belum lengkap.");
-    const catSnapshotEntries = lockedTryout.sections.reduce<Promise<readonly [string, CatSnapshot]>[]>((entries, section) => {
+    const releasePayload = release.payload as unknown as {
+      sections?: Array<{
+        assembly?: { packageVersionId: string | null };
+        cat?: {
+          itemCount: number | null;
+          modelVersion: string | null;
+          parameters?: CatParameter[];
+        };
+        durationSeconds: number;
+        id: string;
+        instructions: string | null;
+        physicalId?: string;
+        items: Array<{
+          difficulty: string;
+          explanation: string | null;
+          explanationAssetId: string | null;
+          id: string;
+          physicalId?: string;
+          options: Array<{ choiceKey: string; content: string; id: string; isCorrect: boolean; sortOrder: number; sourceQuestionOptionId: string | null; sourceQuestionRevisionOptionId: string | null }>;
+          packageCode: string;
+          points: string;
+          prompt: string;
+          promptAssetId: string | null;
+          sortOrder: number;
+          sourceContentDigest: string | null;
+          sourceQuestionId: string | null;
+          sourceQuestionRevisionId: string | null;
+          sourceRevisionProvenance: string | null;
+          subtestId: string;
+        }>;
+        randomization?: { shuffleItems: boolean };
+        scoring?: { config: Prisma.JsonValue | null; testType: string; modelVersion: string | null };
+        sequenceNo: number;
+        subtestId: string;
+        title: string;
+      }>;
+      tryout?: { revision?: number };
+    };
+    const releaseSections = releasePayload.sections ?? [];
+    if (releaseSections.length !== 7 || releaseSections.some((section) => !section.items?.length)) throw new TryoutAttemptValidationError("AssessmentRelease tidak memiliki tujuh Test berisi yang dapat dimulai.");
+    const currentSectionBySequence = new Map(lockedTryout.sections.map((section) => [section.sequenceNo, section]));
+    if (lockedTryout.sections.length !== 7 || releaseSections.some((section) => {
+      const currentSection = currentSectionBySequence.get(section.sequenceNo);
+      return !currentSection || currentSection.subtestId !== section.subtestId;
+    })) throw new TryoutAttemptValidationError("Tryout saat ini tidak memiliki tujuh Test bridge dengan subject/urutan yang sama seperti AssessmentRelease.");
+    const usedCurrentItemIds = new Set<string>();
+    const projectReleaseItem = (item: (typeof releaseSections)[number]["items"][number], currentSection: (typeof lockedTryout.sections)[number]) => {
+      const sourceMatches = item.sourceQuestionId
+        ? currentSection.items.filter((candidate) => candidate.sourceQuestionId === item.sourceQuestionId
+          && candidate.sourceQuestionRevisionId === item.sourceQuestionRevisionId
+          && candidate.sourceContentDigest === item.sourceContentDigest)
+        : [];
+      const physicalMatch = item.physicalId
+        ? currentSection.items.find((candidate) => candidate.id === item.physicalId)
+        : undefined;
+      // A release may bridge to a recreated current row only through the
+      // immutable source identity captured in the payload. Physical IDs are
+      // accepted only for source-less legacy items, and positional guesses are
+      // intentionally forbidden: R1 content must never point at an unrelated
+      // R2 row merely because it occupies the same slot.
+      const currentItem = item.sourceQuestionId
+        ? sourceMatches.length === 1 ? sourceMatches[0] : undefined
+        : physicalMatch;
+      if (!currentItem) throw new TryoutAttemptValidationError("AssessmentRelease tidak lagi memiliki baris soal sumber yang dapat dijawab.");
+      if (usedCurrentItemIds.has(currentItem.id)) throw new TryoutAttemptValidationError("Tryout saat ini tidak menyediakan bridge unik untuk seluruh item AssessmentRelease.");
+      usedCurrentItemIds.add(currentItem.id);
+      // The release payload supplies every answerable field below. Current
+      // rows contribute only FK-safe IDs so answers can reference the legacy
+      // schema while R1 content remains independent from mutable R2 text.
+      const currentOptionById = new Map(currentItem.options.map((option) => [option.id, option]));
+      const projectedOptions = item.options.map((option) => {
+        const sourceOptionMatches = option.sourceQuestionRevisionOptionId
+          ? currentItem.options.filter((candidate) => candidate.sourceQuestionRevisionOptionId === option.sourceQuestionRevisionOptionId
+            && (!option.sourceQuestionOptionId || candidate.sourceQuestionOptionId === option.sourceQuestionOptionId))
+          : option.sourceQuestionOptionId
+            ? currentItem.options.filter((candidate) => candidate.sourceQuestionOptionId === option.sourceQuestionOptionId)
+            : [];
+        const currentOption = option.sourceQuestionOptionId || option.sourceQuestionRevisionOptionId
+          ? sourceOptionMatches.length === 1 ? sourceOptionMatches[0] : undefined
+          : currentOptionById.get((option as { physicalId?: string }).physicalId ?? option.id);
+        if (!currentOption) throw new TryoutAttemptValidationError("AssessmentRelease tidak lagi memiliki pilihan jawaban sumber yang dapat dijawab.");
+        return { ...option, id: currentOption.id, releaseOptionId: option.id };
+      });
+      return { ...item, id: currentItem.id, releaseItemId: item.id, options: projectedOptions };
+    };
+    const runtimeSections = releaseSections.map((section) => {
+      const currentSection = currentSectionBySequence.get(section.sequenceNo)!;
+      return {
+        ...section,
+        catItemCount: section.cat?.itemCount ?? null,
+        catModelVersion: section.cat?.modelVersion ?? null,
+        catParameters: section.cat?.parameters ?? [],
+        id: currentSection.id,
+        items: section.items.map((item) => projectReleaseItem(item, currentSection)),
+        packageVersionId: section.assembly?.packageVersionId ?? null,
+        scoringConfig: section.scoring?.config ?? null,
+        shuffleItems: section.randomization?.shuffleItems ?? false,
+        testType: section.scoring?.testType ?? currentSection.testType,
+      };
+    });
+    const catSnapshotEntries = runtimeSections.reduce<Promise<readonly [string, CatSnapshot]>[]>((entries, section) => {
       if (section.testType === TryoutTestType.cat) {
-        entries.push(catRunSnapshot(tx, section).then((snapshot) => [section.id, snapshot] as const));
+        entries.push(Promise.resolve(catRunSnapshot(section)).then((snapshot) => [section.id, snapshot] as const));
       }
       return entries;
     }, []);
@@ -299,8 +500,9 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       data: {
         admissionId: assignment.admissionId,
         attemptState: AssessmentAttemptState.in_progress,
-        contentSnapshot: json({ tryoutId: session.tryoutId, tryoutRevision: lockedTryout.revision }),
+        contentSnapshot: json({ assessmentRelease: { digest: release.contentDigest, id: release.id, number: release.releaseNumber }, tryoutId: session.tryoutId, tryoutRevision: releasePayload.tryout?.revision ?? null }),
         deliverySessionId,
+        ...releaseMetadataFields(release),
         releasePolicySnapshot: json({ aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION, rankingRule: session.rankingRule, resultReleasePolicy: session.resultReleasePolicy, scheduledReleaseAt: session.scheduledReleaseAt?.toISOString() ?? null }),
         scoringProvenance: AssessmentScoringProvenance.runtime,
         scoringState: AssessmentScoringState.pending,
@@ -310,8 +512,9 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
         tryoutId: session.tryoutId,
       },
     });
-    await tx.tryoutAttemptTestRun.createMany({ data: lockedTryout.sections.map((section) => ({
-      attemptId: attempt.id,
+    await tx.tryoutAttemptTestRun.createMany({ data: runtimeSections.map((section) => ({
+        attemptId: attempt.id,
+      ...releaseMetadataFields(release),
       calculationReleaseable: false,
       catSnapshot: section.testType === TryoutTestType.cat ? json(catSnapshots.get(section.id)!) : undefined,
       catState: section.testType === TryoutTestType.cat ? TryoutCatRunState.ready : TryoutCatRunState.not_applicable,
@@ -321,7 +524,7 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
       sequenceNo: section.sequenceNo,
       tryoutSectionId: section.id,
     })) });
-    return { attemptId: attempt.id, state: "started" as const };
+    return { assessmentRelease: { digest: release.contentDigest, id: release.id, number: release.releaseNumber }, attemptId: attempt.id, state: "started" as const };
   });
 }
 
@@ -331,7 +534,8 @@ async function attemptState(attemptId: string, studentId: string) {
     const attempt = await tx.tryoutAttempt.findFirst({
       where: { id: attemptId, studentId },
       include: {
-        deliverySession: { select: { fullscreenPrompt: true } },
+        assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
+        deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, fullscreenPrompt: true } },
         tryout: {
           select: {
             createdBy: { select: { fullName: true } },
@@ -343,7 +547,28 @@ async function attemptState(attemptId: string, studentId: string) {
       },
     });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
-    await synchronizeAttempt(tx, attemptId, now);
+    const legacyRead = !attempt.assessmentRelease
+      && !attempt.deliverySession.assessmentRelease
+      && !attempt.assessmentReleaseId
+      && attempt.assessmentReleaseNumber === null
+      && !attempt.assessmentReleaseDigest;
+    if (!legacyRead) {
+      assertAttemptReleaseBinding(
+        { assessmentReleaseDigest: attempt.deliverySession.assessmentRelease?.contentDigest ?? null, assessmentReleaseId: attempt.deliverySession.assessmentRelease?.id ?? null, assessmentReleaseNumber: attempt.deliverySession.assessmentRelease?.releaseNumber ?? null },
+        { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
+      );
+    }
+    const preflightRuns = !legacyRead
+      ? await tx.tryoutAttemptTestRun.findMany({
+          where: { attemptId },
+          include: { section: { select: { durationSeconds: true, testType: true, title: true } } },
+        })
+      : [];
+    if (!legacyRead) preflightRuns.forEach((run) => assertCompleteFrozenRun(run, run.section, true));
+    // Legacy nullable trees are historical reads. Do not expire, seal, score,
+    // or rewrite them merely because a participant opens the status endpoint;
+    // only release-bound runtime attempts may use the synchronizer here.
+    if (!legacyRead) await synchronizeAttempt(tx, attemptId, now);
     const runs = await tx.tryoutAttemptTestRun.findMany({
       where: { attemptId },
       include: {
@@ -359,6 +584,32 @@ async function attemptState(attemptId: string, studentId: string) {
       },
       orderBy: { sequenceNo: "asc" },
     });
+    const projectRunSection = (run: (typeof runs)[number]) => {
+      const form = run.contentSnapshot as unknown as { durationSeconds?: number; items?: unknown[]; testType?: string };
+      const bound = !legacyRead || isReleaseBoundRun(run);
+      const frozen = bound
+        ? assertCompleteFrozenRun(run, run.section, bound)
+        : null;
+      const releaseSection = bound
+        ? findAssessmentReleaseSectionForRun(attempt.assessmentRelease?.payload, run)
+        : null;
+      if (bound && (!releaseSection
+        || typeof releaseSection.subtestCode !== "string"
+        || typeof releaseSection.subtestName !== "string"
+        || typeof releaseSection.title !== "string")) {
+        throw new TryoutAttemptValidationError("Test run terikat AssessmentRelease tetapi label Test beku tidak tersedia.");
+      }
+      return {
+        ...run.section,
+        durationSeconds: frozen?.durationSeconds ?? (Number.isFinite(form.durationSeconds) ? form.durationSeconds! : run.section.durationSeconds),
+        questionCount: Array.isArray(form.items) ? form.items.length : run.section.questionCount,
+        subtest: bound
+          ? { code: releaseSection!.subtestCode!, name: releaseSection!.subtestName! }
+          : run.section.subtest,
+        testType: frozen?.testType ?? (form.testType === TryoutTestType.cat || form.testType === TryoutTestType.cbt ? form.testType : run.section.testType),
+        title: bound ? releaseSection!.title! : run.section.title,
+      };
+    };
     const active = runs.find((run) => run.status === TryoutAttemptTestRunStatus.active);
     const exposed = active
       ? {
@@ -369,7 +620,7 @@ async function attemptState(attemptId: string, studentId: string) {
           contentSnapshot: redactRunSnapshot(active.contentSnapshot, active.catSnapshot),
           fullscreenPrompt: attempt.deliverySession.fullscreenPrompt,
           id: active.id,
-          section: active.section,
+          section: projectRunSection(active),
           serverDeadlineAt: active.serverDeadlineAt,
           sequenceNo: active.sequenceNo,
           status: active.status,
@@ -377,6 +628,7 @@ async function attemptState(attemptId: string, studentId: string) {
       : null;
     return {
       activeRun: exposed,
+      assessmentRelease: attempt.assessmentRelease ? toParticipantAssessmentReleaseMetadata(attempt.assessmentRelease) : null,
       attemptId,
       status: (await tx.tryoutAttempt.findUniqueOrThrow({ where: { id: attemptId }, select: { status: true } })).status,
       tryoutDescription: attempt.tryout.description,
@@ -385,7 +637,7 @@ async function attemptState(attemptId: string, studentId: string) {
       tryoutTitle: attempt.tryout.title,
       runs: runs.map((run) => ({
         id: run.id,
-        section: run.section,
+        section: projectRunSection(run),
         sequenceNo: run.sequenceNo,
         status: run.status,
       })),
@@ -396,11 +648,13 @@ async function attemptState(attemptId: string, studentId: string) {
 async function recordTryoutIntegrityEvent(attemptId: string, runId: string, eventType: TryoutIntegrityEventType, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
-    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { deliverySession: { select: { fullscreenPrompt: true } } } });
+    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assessmentRelease: { select: { id: true } }, deliverySession: { select: { assessmentReleaseId: true, fullscreenPrompt: true } } } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
+    if (!attempt.assessmentReleaseId || !attempt.assessmentReleaseNumber || !attempt.assessmentReleaseDigest || attempt.assessmentReleaseId !== attempt.deliverySession.assessmentReleaseId) throw new TryoutAttemptValidationError("Attempt Tryout tidak terikat pada AssessmentRelease sesi.");
     await synchronizeAttempt(tx, attemptId, now);
-    const run = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } });
+    const run = await tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, id: runId, status: TryoutAttemptTestRunStatus.active }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, catSnapshot: true, contentSnapshot: true, id: true } });
     if (!run) throw new TryoutAttemptValidationError("Hanya Test aktif yang dapat mencatat peringatan Tryout.");
+    assertCompleteFrozenRun(run, { testType: TryoutTestType.cbt }, true);
     if ((eventType === TryoutIntegrityEventType.fullscreen_entered || eventType === TryoutIntegrityEventType.fullscreen_exited) && !attempt.deliverySession.fullscreenPrompt) throw new TryoutAttemptValidationError("Pengingat layar penuh tidak diaktifkan untuk sesi ini.");
     if (eventType === TryoutIntegrityEventType.fullscreen_exited) {
       const entered = await tx.tryoutIntegrityEvent.findFirst({ where: { eventType: TryoutIntegrityEventType.fullscreen_entered, runId }, select: { id: true } });
@@ -427,17 +681,25 @@ function redactRunSnapshot(snapshot: Prisma.JsonValue, cat: Prisma.JsonValue | n
 async function startActiveTestRun(attemptId: string, runId: string, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
-    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { deliverySession: true } });
+    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, include: { assessmentRelease: { select: { id: true, contentDigest: true, releaseNumber: true } }, deliverySession: { include: { assessmentRelease: { select: { id: true, contentDigest: true, releaseNumber: true } } } } } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
+    if (!attempt.assessmentRelease || !attempt.deliverySession.assessmentRelease) throw new TryoutAttemptValidationError("Attempt Tryout belum memiliki AssessmentRelease yang valid.");
+    assertAttemptReleaseBinding(
+      { assessmentReleaseDigest: attempt.deliverySession.assessmentRelease.contentDigest, assessmentReleaseId: attempt.deliverySession.assessmentRelease.id, assessmentReleaseNumber: attempt.deliverySession.assessmentRelease.releaseNumber },
+      { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
+    );
     await synchronizeAttempt(tx, attemptId, now);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, include: { section: true } });
     if (!run || run.status !== TryoutAttemptTestRunStatus.pending) throw new TryoutAttemptValidationError("Hanya Test berikutnya yang belum dimulai dapat dibuka.");
+    const frozen = assertCompleteFrozenRun(run, run.section, true);
+    const runTestType = frozen.testType;
+    const runCatItemCount = frozen.catItemCount;
     const [predecessor, active] = await Promise.all([
       tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, sequenceNo: { lt: run.sequenceNo }, status: { notIn: [TryoutAttemptTestRunStatus.sealed, TryoutAttemptTestRunStatus.expired] } }, select: { id: true } }),
       tx.tryoutAttemptTestRun.findFirst({ where: { attemptId, status: TryoutAttemptTestRunStatus.active }, select: { id: true } }),
     ]);
     if (predecessor || active) throw new TryoutAttemptValidationError("Test sebelumnya harus diselesaikan sebelum Test ini dimulai.");
-    if (run.section.testType === TryoutTestType.cat) {
+    if (runTestType === TryoutTestType.cat) {
       const snapshot = catSnapshot(run.catSnapshot);
       if (!snapshot || run.catState !== TryoutCatRunState.ready) throw new TryoutAttemptValidationError("CAT gagal disiapkan dan tidak dapat dilanjutkan.");
       const first = nextCatItem(snapshot);
@@ -445,7 +707,9 @@ async function startActiveTestRun(attemptId: string, runId: string, studentId: s
       snapshot.selectedItemIds.push(first.itemId);
       await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { catSnapshot: json(snapshot) } });
     }
-    const deadline = new Date(Math.min(now.getTime() + run.section.durationSeconds * 1000, attempt.deliverySession.availableUntil.getTime()));
+    if (runTestType === TryoutTestType.cat && (!runCatItemCount || runCatItemCount < 1)) throw new TryoutAttemptValidationError("Konfigurasi CAT pada AssessmentRelease tidak lengkap.");
+    const durationSeconds = frozen.durationSeconds;
+    const deadline = new Date(Math.min(now.getTime() + durationSeconds * 1000, attempt.deliverySession.availableUntil.getTime()));
     if (deadline <= now) { await expireForSessionCap(tx, attemptId, now); throw new TryoutAttemptValidationError("Waktu sesi Tryout sudah berakhir."); }
     const updated = await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { serverDeadlineAt: deadline, serverStartedAt: now, status: TryoutAttemptTestRunStatus.active } });
     return { deadlineAt: deadline, remainingSeconds: remainingSeconds(deadline, now), run: { ...updated, contentSnapshot: redactRunSnapshot(updated.contentSnapshot, updated.catSnapshot) } };
@@ -455,24 +719,33 @@ async function startActiveTestRun(attemptId: string, runId: string, studentId: s
 async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: string, selectedOptionId: string | null, studentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
-    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { id: true } });
+    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } } } }, id: true } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
+    const sessionRelease = attempt.deliverySession.assessmentRelease;
+    if (!sessionRelease) throw new TryoutAttemptValidationError("Attempt Tryout belum memiliki AssessmentRelease yang valid.");
+    assertAttemptReleaseBinding(
+      { assessmentReleaseDigest: sessionRelease.contentDigest, assessmentReleaseId: sessionRelease.id, assessmentReleaseNumber: sessionRelease.releaseNumber },
+      { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
+    );
     await synchronizeAttempt(tx, attemptId, now);
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId, status: TryoutAttemptTestRunStatus.active }, include: { section: { select: { catItemCount: true, testType: true, tryoutId: true } } } });
     if (!run) throw new TryoutAttemptValidationError("Hanya Test aktif yang dapat menyimpan jawaban.");
+    const frozen = assertCompleteFrozenRun(run, run.section, true);
     const content = run.contentSnapshot as unknown as { items?: ItemSnapshot[] };
+    const runTestType = frozen.testType;
+    const runCatItemCount = frozen.catItemCount;
     const item = content.items?.find((candidate) => candidate.id === tryoutItemId);
     if (!item) throw new TryoutAttemptValidationError("Soal tidak termasuk dalam Test aktif.");
     const adaptive = catSnapshot(run.catSnapshot);
-    if (run.section.testType === TryoutTestType.cat && (!adaptive || run.catState !== TryoutCatRunState.ready || adaptive.selectedItemIds.at(-1) !== tryoutItemId || adaptive.selectedItemIds.slice(0, -1).includes(tryoutItemId))) throw new TryoutAttemptValidationError("CAT hanya menerima jawaban untuk soal aktif berikutnya tanpa kembali ke soal sebelumnya.");
+    if (runTestType === TryoutTestType.cat && (!runCatItemCount || !adaptive || run.catState !== TryoutCatRunState.ready || adaptive.selectedItemIds.at(-1) !== tryoutItemId || adaptive.selectedItemIds.slice(0, -1).includes(tryoutItemId))) throw new TryoutAttemptValidationError("CAT hanya menerima jawaban untuk soal aktif berikutnya tanpa kembali ke soal sebelumnya.");
     if (selectedOptionId) {
       const option = item.options.find((candidate) => candidate.id === selectedOptionId);
       if (!option) throw new TryoutAttemptValidationError("Pilihan jawaban tidak termasuk dalam soal ini.");
     }
     const existingAnswer = await tx.tryoutAnswer.findUnique({ where: { attemptTestRunId_tryoutItemId: { attemptTestRunId: runId, tryoutItemId } } });
-    if (existingAnswer && run.section.testType === TryoutTestType.cat) return { answerId: existingAnswer.id, remainingSeconds: remainingSeconds(run.serverDeadlineAt, now), savedAt: existingAnswer.answeredAt };
+    if (existingAnswer && runTestType === TryoutTestType.cat) return { answerId: existingAnswer.id, remainingSeconds: remainingSeconds(run.serverDeadlineAt, now), savedAt: existingAnswer.answeredAt };
     const answer = await tx.tryoutAnswer.upsert({ where: { attemptTestRunId_tryoutItemId: { attemptTestRunId: runId, tryoutItemId } }, create: { answerText: null, answeredAt: now, attemptId, attemptTestRunId: runId, selectedOptionId, tryoutId: run.section.tryoutId, tryoutItemId }, update: { answeredAt: now, selectedOptionId } });
-    if (run.section.testType === TryoutTestType.cat) {
+    if (runTestType === TryoutTestType.cat) {
       try {
         const parameter = adaptive!.parameters.find((candidate) => candidate.itemId === tryoutItemId);
         if (!parameter) throw new Error("Parameter item CAT hilang.");
@@ -483,13 +756,13 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
         if (!Number.isFinite(abilityAfter)) throw new Error("Pembaruan kemampuan CAT tidak terbatas.");
         adaptive!.currentAbility = abilityAfter;
         adaptive!.updates.push({ abilityAfter, abilityBefore, itemId: tryoutItemId, probability, selectedOptionId });
-        if (adaptive!.selectedItemIds.length < run.section.catItemCount!) {
+        if (adaptive!.selectedItemIds.length < runCatItemCount!) {
           const next = nextCatItem(adaptive!);
           if (!next) throw new Error("Pool CAT habis sebelum jumlah item terpenuhi.");
           adaptive!.selectedItemIds.push(next.itemId);
         }
         await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { catSnapshot: json(adaptive!) } });
-        if (adaptive!.updates.length >= run.section.catItemCount!) await calculateAndSealRun(tx, runId, now);
+        if (adaptive!.updates.length >= runCatItemCount!) await calculateAndSealRun(tx, runId, now);
       } catch (error) {
         await failCatRun(tx, runId, error instanceof Error ? error.message : "Perhitungan CAT gagal.");
         return { answerId: answer.id, calculationFailed: true, remainingSeconds: remainingSeconds(run.serverDeadlineAt, now), savedAt: answer.answeredAt };
@@ -501,15 +774,24 @@ async function saveTryoutAnswer(attemptId: string, runId: string, tryoutItemId: 
 
 async function sealTryoutTestRun(attemptId: string, runId: string, studentId: string) {
   return prisma.$transaction(async (tx) => {
-    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { id: true } });
+    const attempt = await tx.tryoutAttempt.findFirst({ where: { id: attemptId, studentId }, select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } } } }, id: true } });
     if (!attempt) throw new TryoutAttemptValidationError("Attempt Tryout tidak ditemukan.");
+    const sessionRelease = attempt.deliverySession.assessmentRelease;
+    if (!sessionRelease) throw new TryoutAttemptValidationError("Attempt Tryout belum memiliki AssessmentRelease yang valid.");
+    assertAttemptReleaseBinding(
+      { assessmentReleaseDigest: sessionRelease.contentDigest, assessmentReleaseId: sessionRelease.id, assessmentReleaseNumber: sessionRelease.releaseNumber },
+      { assessmentReleaseDigest: attempt.assessmentReleaseDigest, assessmentReleaseId: attempt.assessmentReleaseId, assessmentReleaseNumber: attempt.assessmentReleaseNumber },
+    );
     await synchronizeAttempt(tx, attemptId, new Date());
     const run = await tx.tryoutAttemptTestRun.findFirst({ where: { id: runId, attemptId }, select: { id: true, status: true } });
     if (!run) throw new TryoutAttemptValidationError("Test tidak ditemukan.");
     if (run.status === TryoutAttemptTestRunStatus.active) {
       const active = await tx.tryoutAttemptTestRun.findUniqueOrThrow({ where: { id: run.id }, include: { section: { select: { catItemCount: true, testType: true } } } });
+      const frozen = assertCompleteFrozenRun(active, active.section, true);
+      const runTestType = frozen.testType;
+      const runCatItemCount = frozen.catItemCount;
       const snapshot = catSnapshot(active.catSnapshot);
-      if (active.section.testType === TryoutTestType.cat && active.catState === TryoutCatRunState.ready && snapshot && snapshot.updates.length < (active.section.catItemCount ?? 0)) throw new TryoutAttemptValidationError("CAT hanya selesai setelah jumlah item tetap tercapai atau batas waktu server habis.");
+      if (runTestType === TryoutTestType.cat && active.catState === TryoutCatRunState.ready && snapshot && snapshot.updates.length < (runCatItemCount ?? 0)) throw new TryoutAttemptValidationError("CAT hanya selesai setelah jumlah item tetap tercapai atau batas waktu server habis.");
       await calculateAndSealRun(tx, run.id, new Date());
     }
     const sealed = await tx.tryoutAttemptTestRun.findUniqueOrThrow({ where: { id: runId } });
@@ -521,8 +803,11 @@ function auditJson(value: unknown) { return value as Prisma.InputJsonValue; }
 async function retryCatTestRun(runId: string, actorId: string, reason: string, allowCrossOwner = false) {
   if (!reason.trim()) throw new TryoutAttemptValidationError("Alasan audit retry CAT wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, attempt: { select: { tryout: { select: { createdByUserId: true } } } }, section: { select: { testType: true } } } });
-    if (!run || run.section.testType !== TryoutTestType.cat || run.catState === TryoutCatRunState.voided) throw new TryoutAttemptValidationError("Hanya run CAT gagal yang dapat dicoba ulang.");
+    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { answers: { select: { id: true, selectedOptionId: true, tryoutItemId: true } }, assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, attempt: { select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } } } }, tryout: { select: { createdByUserId: true } } } }, section: { select: { catItemCount: true, scoringConfig: true, testType: true } } } });
+    if (!run || assertCompleteFrozenRun(run, run.section, true).testType !== TryoutTestType.cat || run.catState === TryoutCatRunState.voided) throw new TryoutAttemptValidationError("Hanya run CAT gagal yang dapat dicoba ulang.");
+    if (!run.assessmentRelease || !run.attempt.deliverySession.assessmentRelease) throw new TryoutAttemptValidationError("Run CAT belum memiliki AssessmentRelease yang valid.");
+    if (!run.attempt.assessmentReleaseId || !run.attempt.assessmentReleaseNumber || !run.attempt.assessmentReleaseDigest) throw new TryoutAttemptValidationError("Attempt CAT belum memiliki metadata AssessmentRelease yang lengkap.");
+    if (run.assessmentRelease.id !== run.attempt.assessmentReleaseId || run.assessmentRelease.releaseNumber !== run.attempt.assessmentReleaseNumber || run.assessmentRelease.contentDigest !== run.attempt.assessmentReleaseDigest || run.attempt.deliverySession.assessmentRelease.id !== run.attempt.assessmentReleaseId) throw new TryoutAttemptValidationError("Run CAT tidak cocok dengan AssessmentRelease attempt/sesi.");
     if (run.attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutAttemptValidationError("Anda tidak dapat mengulang CAT Tryout milik Kapten lain.");
     const before = { catFailureReason: run.catFailureReason, catState: run.catState };
     const snapshot = catSnapshot(run.catSnapshot);
@@ -551,8 +836,11 @@ async function retryCatTestRun(runId: string, actorId: string, reason: string, a
 async function voidCatTestRun(runId: string, actorId: string, reason: string, allowCrossOwner = false) {
   if (!reason.trim()) throw new TryoutAttemptValidationError("Alasan audit void CAT wajib diisi.");
   return prisma.$transaction(async (tx) => {
-    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { attempt: { select: { tryout: { select: { createdByUserId: true } } } }, section: { select: { testType: true } } } });
-    if (!run || run.section.testType !== TryoutTestType.cat) throw new TryoutAttemptValidationError("Hanya run CAT dapat divoid.");
+    const run = await tx.tryoutAttemptTestRun.findUnique({ where: { id: runId }, include: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } }, attempt: { select: { assessmentReleaseDigest: true, assessmentReleaseId: true, assessmentReleaseNumber: true, deliverySession: { select: { assessmentRelease: { select: { contentDigest: true, id: true, releaseNumber: true } } } }, tryout: { select: { createdByUserId: true } } } }, section: { select: { catItemCount: true, scoringConfig: true, testType: true } } } });
+    if (!run || assertCompleteFrozenRun(run, run.section, true).testType !== TryoutTestType.cat) throw new TryoutAttemptValidationError("Hanya run CAT dapat divoid.");
+    if (!run.assessmentRelease || !run.attempt.deliverySession.assessmentRelease) throw new TryoutAttemptValidationError("Run CAT belum memiliki AssessmentRelease yang valid.");
+    if (!run.attempt.assessmentReleaseId || !run.attempt.assessmentReleaseNumber || !run.attempt.assessmentReleaseDigest) throw new TryoutAttemptValidationError("Attempt CAT belum memiliki metadata AssessmentRelease yang lengkap.");
+    if (run.assessmentRelease.id !== run.attempt.assessmentReleaseId || run.assessmentRelease.releaseNumber !== run.attempt.assessmentReleaseNumber || run.assessmentRelease.contentDigest !== run.attempt.assessmentReleaseDigest || run.attempt.deliverySession.assessmentRelease.id !== run.attempt.assessmentReleaseId) throw new TryoutAttemptValidationError("Run CAT tidak cocok dengan AssessmentRelease attempt/sesi.");
     if (run.attempt.tryout.createdByUserId !== actorId && !allowCrossOwner) throw new TryoutAttemptValidationError("Anda tidak dapat me-void CAT Tryout milik Kapten lain.");
     const updated = await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationReleaseable: false, catFailureReason: "Run CAT divoid oleh operator berwenang.", catState: TryoutCatRunState.voided, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: reason.trim(), scoringState: AssessmentScoringState.review_required } });
     await tx.tryoutAttempt.update({ where: { id: updated.attemptId }, data: { releaseAt: null, releaseState: AssessmentResultReleaseState.hidden, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: "Run CAT di-void oleh operator.", scoringState: AssessmentScoringState.review_required } });

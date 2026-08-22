@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import { getTryoutDeliveryOperations } from "@/lib/tryout/delivery-repository";
-import { serializeTryoutOperations } from "@/lib/tryout/operations-view";
+import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
 import { getTryoutForEdit, listReadyPackageVersions } from "@/lib/tryout/repository";
 import { KaptenTryoutBuilderPageModule } from "@/modules/mentor/KaptenTryoutBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -12,9 +11,8 @@ export const metadata: Metadata = { title: "Edit Tryout Kapten | Vecalss LMS" };
 
 export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<{ workspace?: string }> }) {
   const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
-  const [initialDraft, operations, readyVersions] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getTryoutDeliveryOperations(tryoutId), listReadyPackageVersions(session.user.id)]);
-  if (!initialDraft) notFound();
-  const operationsInitial = operations ? serializeTryoutOperations(operations) : undefined;
+  const [initialDraft, operationsInitial, readyVersions] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id)]);
+  if (!initialDraft || !operationsInitial) notFound();
   const initialWorkspace = query.workspace === "policy" || query.workspace === "participants" || query.workspace === "sessions"
     ? query.workspace
     : query.workspace === "operations"

@@ -9,9 +9,11 @@ import {
   TryoutDeliverySessionStatus,
   TryoutRankingRule,
   TryoutResultReleasePolicy,
-  QuestionRevisionProvenance,
-  QuestionRevisionStatus,
 } from "@/generated/prisma/client";
+import {
+  assertTryoutReleaseEligibility,
+  createOrReuseAssessmentRelease,
+} from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import { prisma } from "@/lib/prisma";
@@ -78,16 +80,54 @@ async function assertAdmissionStudentIsNotManagedPreview(
   }
 }
 
+async function assertTryoutOwnership(
+  tx: Prisma.TransactionClient,
+  tryoutId: string,
+  actorId: string,
+  allowCrossOwner = false,
+) {
+  const tryout = await tx.tryoutPackage.findUnique({
+    select: { createdByUserId: true },
+    where: { id: tryoutId },
+  });
+  if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
+  if (!allowCrossOwner && tryout.createdByUserId !== actorId) {
+    throw new TryoutDeliveryValidationError("Anda tidak dapat mengubah delivery Tryout milik Kapten lain.");
+  }
+  return tryout;
+}
+
+async function lockStudent(tx: Prisma.TransactionClient, studentId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studentId}, 0))`;
+}
+
+async function lockOverlappingDeliverySessions(
+  tx: Prisma.TransactionClient,
+  deliverySessionId: string,
+  availableFrom: Date,
+  availableUntil: Date,
+) {
+  await tx.$queryRaw`
+    SELECT id
+      FROM tryout_delivery_sessions
+     WHERE id = ${deliverySessionId}::uuid
+        OR (available_from < ${availableUntil} AND available_until > ${availableFrom})
+     ORDER BY id
+     FOR UPDATE
+  `;
+}
+
 async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: string) {
   await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
   const started = await tx.tryoutAttempt.findFirst({ where: { tryoutId }, select: { id: true } });
   if (started) throw new TryoutDeliveryValidationError("Tryout yang sudah dimulai peserta tidak dapat mengubah konfigurasi delivery.");
 }
 
-async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approval_required" | "invitation_only", actorId: string, reason: string) {
+async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approval_required" | "invitation_only", actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
     await assertTryoutNotStarted(tx, tryoutId);
+    await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
     const record = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { admissionMode: true } });
     if (!record) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
     await tx.tryoutPackage.update({ where: { id: tryoutId }, data: { admissionMode: mode as TryoutAdmissionMode } });
@@ -96,10 +136,11 @@ async function configureTryoutAdmission(tryoutId: string, mode: "open" | "approv
   });
 }
 
-async function configureTryoutDefaultResultRelease(tryoutId: string, policy: "immediate" | "manual" | "automatic_at_end", actorId: string, reason: string) {
+async function configureTryoutDefaultResultRelease(tryoutId: string, policy: "immediate" | "manual" | "automatic_at_end", actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
     await assertTryoutNotStarted(tx, tryoutId);
+    await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
     const record = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { defaultResultReleasePolicy: true } });
     if (!record) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
     await tx.tryoutPackage.update({ where: { id: tryoutId }, data: { defaultResultReleasePolicy: policy as TryoutResultReleasePolicy } });
@@ -108,7 +149,7 @@ async function configureTryoutDefaultResultRelease(tryoutId: string, policy: "im
   });
 }
 
-async function createTryoutDeliverySession(input: DeliverySessionInput, actorId: string, reason: string) {
+async function createTryoutDeliverySession(input: DeliverySessionInput, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   const availableFrom = dateOrThrow(input.availableFrom, "Waktu mulai");
   const availableUntil = dateOrThrow(input.availableUntil, "Waktu selesai");
@@ -122,6 +163,7 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
   if (scheduledReleaseAt && scheduledReleaseAt < availableUntil) throw new TryoutDeliveryValidationError("Waktu rilis hasil terjadwal harus sama dengan atau setelah sesi selesai.");
   return prisma.$transaction(async (tx) => {
     await assertTryoutNotStarted(tx, input.tryoutId);
+    await assertTryoutOwnership(tx, input.tryoutId, actorId, allowCrossOwner);
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: input.tryoutId }, select: { id: true } });
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
     const session = await tx.tryoutDeliverySession.create({ data: { availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration: Boolean(input.isDefaultOpenRegistration), name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, tryoutId: input.tryoutId, updatedByUserId: actorId } });
@@ -130,10 +172,11 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
   });
 }
 
-async function openTryoutDeliverySession(deliverySessionId: string, actorId: string, reason: string) {
+async function openTryoutDeliverySession(deliverySessionId: string, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    const session = await tx.tryoutDeliverySession.findUnique({
+    await tx.$queryRaw`SELECT id FROM tryout_delivery_sessions WHERE id = ${deliverySessionId}::uuid FOR UPDATE`;
+    let session = await tx.tryoutDeliverySession.findUnique({
       where: { id: deliverySessionId },
       include: {
         tryout: {
@@ -149,37 +192,38 @@ async function openTryoutDeliverySession(deliverySessionId: string, actorId: str
     });
     if (!session) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan.");
     await assertTryoutNotStarted(tx, session.tryoutId);
+    await assertTryoutOwnership(tx, session.tryoutId, actorId, allowCrossOwner);
+
+    // Authoring also locks the Tryout aggregate. Re-read the session after
+    // acquiring that lock so readiness and the draft transition cannot use a
+    // stale pre-lock status/content view.
+    session = await tx.tryoutDeliverySession.findUnique({
+      where: { id: deliverySessionId },
+      include: {
+        tryout: {
+          include: {
+            sections: {
+              include: {
+                packageVersion: { include: { items: { select: { sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true, sourceRevisionProvenance: true, subtestId: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!session) throw new TryoutDeliveryValidationError("Sesi Tryout tidak ditemukan.");
     if (session.status !== TryoutDeliverySessionStatus.draft) throw new TryoutDeliveryValidationError("Hanya sesi draft yang dapat dibuka.");
-    const ready = session.tryout.status === ContentStatus.published && session.tryout.sections.length === 7 && session.tryout.sections.every((section) => section.packageVersion?.status === ContentStatus.published && section.packageVersion.items.length > 0);
-    if (!ready) throw new TryoutDeliveryValidationError("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap.");
-    const calibrationChecks = session.tryout.sections.reduce<Promise<void>[]>((checks, section) => {
-      if (section.testType === "cat") {
-        checks.push((async () => {
-          const items = section.packageVersion!.items;
-          if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
-          const revisionIds = items.map((item) => item.sourceQuestionRevisionId!);
-          const [revisions, calibrations] = await Promise.all([
-            tx.questionRevision.findMany({ where: { id: { in: revisionIds }, status: QuestionRevisionStatus.ready }, select: { contentDigest: true, id: true, questionId: true } }),
-            tx.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } }),
-          ]);
-          const revisionById = new Map(revisions.map((revision) => [revision.id, revision]));
-          const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
-          if (revisions.length !== new Set(revisionIds).size || calibrations.length !== new Set(revisionIds).size || items.some((item) => {
-            const revision = revisionById.get(item.sourceQuestionRevisionId!);
-            const calibration = calibrationByRevision.get(item.sourceQuestionRevisionId!);
-            return !revision || !calibration
-              || revision.questionId !== item.sourceQuestionId
-              || revision.contentDigest !== item.sourceContentDigest
-              || calibration.questionId !== item.sourceQuestionId
-              || calibration.contentDigest !== item.sourceContentDigest
-              || calibration.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown;
-          })) throw new TryoutDeliveryValidationError("Setiap kandidat pool CAT harus memiliki kalibrasi 2PL kanonis yang disetujui untuk QuestionRevision dan digest yang tepat.");
-        })());
-      }
-      return checks;
-    }, []);
-    await Promise.all(calibrationChecks);
-    const opened = await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { status: TryoutDeliverySessionStatus.active, updatedByUserId: actorId } });
+    try {
+      await assertTryoutReleaseEligibility(tx, session.tryoutId);
+    } catch (error) {
+      throw new TryoutDeliveryValidationError(error instanceof Error ? error.message : "Tryout belum memenuhi syarat AssessmentRelease.");
+    }
+    if (session.tryout.sections.some((section) => section.testType === "cat" && section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION)) throw new TryoutDeliveryValidationError("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
+    const release = session.assessmentReleaseId
+      ? await tx.assessmentRelease.findFirst({ where: { id: session.assessmentReleaseId, tryoutId: session.tryoutId } })
+      : await createOrReuseAssessmentRelease(tx, session.tryoutId, actorId, session.tryout.publishedAt ?? new Date());
+    if (!release) throw new TryoutDeliveryValidationError("Sesi tidak memiliki AssessmentRelease yang valid dan tidak dapat dibuka.");
+    const opened = await tx.tryoutDeliverySession.update({ where: { id: deliverySessionId }, data: { assessmentReleaseId: release.id, status: TryoutDeliverySessionStatus.active, updatedByUserId: actorId } });
     await audit(tx, { action: "delivery_session.opened", actorId, after: { status: opened.status }, before: { status: session.status }, deliverySessionId, reason: auditReason, tryoutId: session.tryoutId });
     return opened;
   });
@@ -215,10 +259,13 @@ async function registerForTryout(
     if (tryout.admissionMode === TryoutAdmissionMode.invitation_only) throw new TryoutDeliveryValidationError("Tryout ini hanya menerima undangan.");
     const status = tryout.admissionMode === TryoutAdmissionMode.open ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.pending;
     const defaultSession = status === TryoutAdmissionStatus.active
-      ? await tx.tryoutDeliverySession.findFirst({ where: { availableUntil: { gt: new Date() }, isDefaultOpenRegistration: true, status: TryoutDeliverySessionStatus.active, tryoutId }, select: { id: true } })
+      ? await tx.tryoutDeliverySession.findFirst({ where: { availableUntil: { gt: new Date() }, isDefaultOpenRegistration: true, status: TryoutDeliverySessionStatus.active, tryoutId }, select: { assessmentReleaseId: true, id: true } })
       : null;
     if (status === TryoutAdmissionStatus.active && !defaultSession) {
       return { admissionId: null, assignmentId: null, state: "unavailable" as const, status: null };
+    }
+    if (status === TryoutAdmissionStatus.active && !defaultSession?.assessmentReleaseId) {
+      throw new TryoutDeliveryValidationError("Tryout belum memiliki AssessmentRelease yang valid untuk akses peserta.");
     }
     if (target) {
       await tx.studentProfile.update({ data: { targetMajorId: target.majorId, targetUniversityId: target.universityId }, where: { userId: studentId } });
@@ -230,11 +277,12 @@ async function registerForTryout(
   });
 }
 
-async function decideTryoutAdmission(admissionId: string, decision: "approve" | "reject", actorId: string, reason: string) {
+async function decideTryoutAdmission(admissionId: string, decision: "approve" | "reject", actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
     const admission = await tx.tryoutAdmission.findUnique({ where: { id: admissionId } });
     if (!admission) throw new TryoutDeliveryValidationError("Pendaftaran Tryout tidak ditemukan.");
+    await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
     if (admission.status !== TryoutAdmissionStatus.pending) throw new TryoutDeliveryValidationError("Hanya pendaftaran menunggu persetujuan yang dapat diputuskan.");
     const status = decision === "approve" ? TryoutAdmissionStatus.active : TryoutAdmissionStatus.rejected;
@@ -244,10 +292,11 @@ async function decideTryoutAdmission(admissionId: string, decision: "approve" | 
   });
 }
 
-async function inviteTryoutParticipant(tryoutId: string, studentId: string, actorId: string, reason: string) {
+async function inviteTryoutParticipant(tryoutId: string, studentId: string, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
     await assertStudent(tx, studentId);
+    await assertTryoutOwnership(tx, tryoutId, actorId, allowCrossOwner);
     const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { id: true } });
     if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
     const admission = await tx.tryoutAdmission.upsert({ where: { tryoutId_studentId: { studentId, tryoutId } }, create: { decidedAt: new Date(), decidedByUserId: actorId, status: TryoutAdmissionStatus.active, studentId, tryoutId }, update: { decidedAt: new Date(), decidedByUserId: actorId, revokeReason: null, status: TryoutAdmissionStatus.active } });
@@ -256,7 +305,7 @@ async function inviteTryoutParticipant(tryoutId: string, studentId: string, acto
   });
 }
 
-async function assignTryoutDeliverySession(input: AssignmentInput, actorId: string, reason: string) {
+async function assignTryoutDeliverySession(input: AssignmentInput, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
     const [admission, session] = await Promise.all([
@@ -264,24 +313,42 @@ async function assignTryoutDeliverySession(input: AssignmentInput, actorId: stri
       tx.tryoutDeliverySession.findUnique({ where: { id: input.deliverySessionId } }),
     ]);
     if (!admission || !session || admission.tryoutId !== session.tryoutId) throw new TryoutDeliveryValidationError("Pendaftaran dan sesi Tryout tidak cocok.");
+    await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
     if (admission.status !== TryoutAdmissionStatus.active || session.status !== TryoutDeliverySessionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif dan sesi aktif diperlukan untuk penugasan.");
+    if (!session.assessmentReleaseId) throw new TryoutDeliveryValidationError("Sesi aktif belum memiliki AssessmentRelease dan tidak dapat diakses peserta.");
     const assignment = await tx.tryoutDeliveryAssignment.upsert({ where: { admissionId_deliverySessionId: { admissionId: input.admissionId, deliverySessionId: input.deliverySessionId } }, create: { admissionId: input.admissionId, assignedByUserId: actorId, deliverySessionId: input.deliverySessionId }, update: { assignedByUserId: actorId, assignedAt: new Date(), revokeReason: null, revokedAt: null, status: TryoutAssignmentStatus.active } });
     await audit(tx, { action: "delivery_session.assigned", actorId, admissionId: admission.id, after: { assignmentId: assignment.id, status: assignment.status }, deliverySessionId: session.id, reason: auditReason, tryoutId: admission.tryoutId });
     return assignment;
   });
 }
 
-async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: string, reason: string) {
+async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   return prisma.$transaction(async (tx) => {
-    const assignment = await tx.tryoutDeliveryAssignment.findUnique({
+    const candidate = await tx.tryoutDeliveryAssignment.findUnique({
+      where: { id: assignmentId },
+      select: { admission: { select: { studentId: true } }, id: true },
+    });
+    if (!candidate) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
+    // Match participant start's lock order: student -> assignment -> all
+    // overlapping sessions. The active assignment is re-read only after all
+    // locks are held, making revoke/start mutually serializable.
+    await lockStudent(tx, candidate.admission.studentId);
+    await tx.$queryRaw`SELECT id FROM tryout_delivery_assignments WHERE id = ${assignmentId}::uuid FOR UPDATE`;
+    let assignment = await tx.tryoutDeliveryAssignment.findUnique({
       where: { id: assignmentId },
       include: { admission: true, deliverySession: true },
     });
     if (!assignment) throw new TryoutDeliveryValidationError("Penugasan sesi Tryout tidak ditemukan.");
+    await assertTryoutOwnership(tx, assignment.admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, assignment.admissionId);
-    if (assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
+    await lockOverlappingDeliverySessions(tx, assignment.deliverySessionId, assignment.deliverySession.availableFrom, assignment.deliverySession.availableUntil);
+    assignment = await tx.tryoutDeliveryAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { admission: true, deliverySession: true },
+    });
+    if (!assignment || assignment.status !== TryoutAssignmentStatus.active) throw new TryoutDeliveryValidationError("Hanya penugasan aktif yang dapat dicabut.");
     const existingAttempt = await tx.tryoutAttempt.findUnique({
       where: { deliverySessionId_studentId: { deliverySessionId: assignment.deliverySessionId, studentId: assignment.admission.studentId } },
       select: { id: true },
@@ -296,7 +363,7 @@ async function revokeTryoutDeliveryAssignment(assignmentId: string, actorId: str
   });
 }
 
-async function createTryoutRetake(input: RetakeInput, actorId: string, reason: string) {
+async function createTryoutRetake(input: RetakeInput, actorId: string, reason: string, allowCrossOwner = false) {
   const auditReason = reasonOrThrow(reason);
   const availableFrom = dateOrThrow(input.availableFrom, "Waktu mulai");
   const availableUntil = dateOrThrow(input.availableUntil, "Waktu selesai");
@@ -311,22 +378,34 @@ async function createTryoutRetake(input: RetakeInput, actorId: string, reason: s
   return prisma.$transaction(async (tx) => {
     const admission = await tx.tryoutAdmission.findUnique({ where: { id: input.admissionId } });
     if (!admission || admission.status !== TryoutAdmissionStatus.active) throw new TryoutDeliveryValidationError("Peserta aktif diperlukan untuk membuat retake.");
+    await assertTryoutOwnership(tx, admission.tryoutId, actorId, allowCrossOwner);
     await assertAdmissionStudentIsNotManagedPreview(tx, admission.id);
+    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${admission.tryoutId}::uuid FOR UPDATE`;
+    try {
+      await assertTryoutReleaseEligibility(tx, admission.tryoutId);
+    } catch (error) {
+      throw new TryoutDeliveryValidationError(error instanceof Error ? error.message : "Tryout belum memenuhi syarat AssessmentRelease.");
+    }
+    const release = await createOrReuseAssessmentRelease(tx, admission.tryoutId, actorId);
     const existing = await tx.tryoutDeliverySession.findFirst({ where: { name, tryoutId: admission.tryoutId }, select: { id: true } });
     if (existing) throw new TryoutDeliveryValidationError("Nama sesi retake sudah digunakan pada Tryout ini.");
-    const session = await tx.tryoutDeliverySession.create({ data: { availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration: false, name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, status: TryoutDeliverySessionStatus.active, tryoutId: admission.tryoutId, updatedByUserId: actorId } });
+    const session = await tx.tryoutDeliverySession.create({ data: { assessmentReleaseId: release.id, availableFrom, availableUntil, createdByUserId: actorId, fullscreenPrompt: Boolean(input.fullscreenPrompt), isDefaultOpenRegistration: false, name, rankingRule: (input.rankingRule ?? "none") as TryoutRankingRule, resultReleasePolicy: resultReleasePolicy as TryoutResultReleasePolicy, scheduledReleaseAt, status: TryoutDeliverySessionStatus.active, tryoutId: admission.tryoutId, updatedByUserId: actorId } });
     const assignment = await tx.tryoutDeliveryAssignment.create({ data: { admissionId: admission.id, assignedByUserId: actorId, deliverySessionId: session.id } });
     await audit(tx, { action: "delivery_session.retake_created", actorId, admissionId: admission.id, after: { assignmentId: assignment.id, sessionId: session.id, window: { availableFrom, availableUntil } }, deliverySessionId: session.id, reason: auditReason, tryoutId: admission.tryoutId });
     return { assignment, session };
   });
 }
 
-async function getTryoutDeliveryOperations(tryoutId: string) {
-  const tryout = await prisma.tryoutPackage.findUnique({
-    where: { id: tryoutId },
+async function getTryoutDeliveryOperations(tryoutId: string, actorId?: string) {
+  const tryout = await prisma.tryoutPackage.findFirst({
+    where: {
+      id: tryoutId,
+      ...(actorId ? { createdByUserId: actorId } : {}),
+    },
     include: {
+      assessmentReleases: { orderBy: { releaseNumber: "desc" }, take: 1 },
       admissions: { include: { student: { select: { email: true, fullName: true } }, assignments: { include: { deliverySession: true }, orderBy: { assignedAt: "desc" } } }, orderBy: { requestedAt: "desc" } },
-      deliverySessions: { include: { attempts: { include: { runs: { include: { integrityEvents: { orderBy: { serverSequence: "asc" } }, catResolutionAudits: { orderBy: { createdAt: "desc" } } }, orderBy: { sequenceNo: "asc" } }, student: { select: { email: true, fullName: true } } }, orderBy: { createdAt: "desc" } }, audits: { orderBy: { createdAt: "desc" }, take: 100 } }, orderBy: { createdAt: "desc" } },
+      deliverySessions: { include: { assessmentRelease: true, attempts: { include: { assessmentRelease: true, runs: { include: { assessmentRelease: true, integrityEvents: { orderBy: { serverSequence: "asc" } }, catResolutionAudits: { orderBy: { createdAt: "desc" } } }, orderBy: { sequenceNo: "asc" } }, student: { select: { email: true, fullName: true } } }, orderBy: { createdAt: "desc" } }, audits: { orderBy: { createdAt: "desc" }, take: 100 } }, orderBy: { createdAt: "desc" } },
     },
   });
   if (!tryout) return null;

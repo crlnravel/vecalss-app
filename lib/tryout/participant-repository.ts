@@ -5,6 +5,7 @@ import {
   Prisma,
   TryoutAssignmentStatus,
 } from "@/generated/prisma/client";
+import { toParticipantAssessmentReleaseMetadata, type ParticipantAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
 
 type ParticipantTryoutSection = {
@@ -19,6 +20,7 @@ type ParticipantTryoutSection = {
 };
 
 type ParticipantTryoutAssignment = {
+  assessmentRelease: ParticipantAssessmentReleaseMetadata | null;
   attempt: { id: string; status: string } | null;
   availableFrom: Date;
   availableUntil: Date;
@@ -30,6 +32,7 @@ type ParticipantTryoutAssignment = {
   name: string;
   rankingRule: string;
   resultReleasePolicy: string;
+  sections: ParticipantTryoutSection[];
   status: string;
 };
 
@@ -39,6 +42,7 @@ type ParticipantTryoutSession = Omit<
 >;
 
 type ParticipantTryout = {
+  assessmentRelease: ParticipantAssessmentReleaseMetadata | null;
   admissionMode: "open" | "approval_required" | "invitation_only";
   admissionStatus: "active" | "pending" | "rejected" | "revoked" | null;
   assessmentType: "tryout" | "diagnostic";
@@ -68,6 +72,7 @@ const tryoutInclude = {
         include: {
           deliverySession: {
             include: {
+              assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
               attempts: {
                 select: { id: true, status: true, studentId: true },
               },
@@ -80,11 +85,13 @@ const tryoutInclude = {
     },
   },
   createdBy: { select: { fullName: true } },
+  assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 },
   deliverySessions: {
     orderBy: { availableFrom: "asc" as const },
     select: {
       availableFrom: true,
       availableUntil: true,
+      assessmentRelease: { select: { contentDigest: true, id: true, payload: true, publishedAt: true, releaseNumber: true } },
       fullscreenPrompt: true,
       id: true,
       isDefaultOpenRegistration: true,
@@ -118,13 +125,64 @@ function sectionDifficulty(items: Array<{ difficulty: string }>) {
   return (Object.entries(counts).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "medium") as ParticipantTryoutSection["difficulty"];
 }
 
+function releaseSections(
+  release: NonNullable<ParticipantTryoutRecord["deliverySessions"][number]["assessmentRelease"]>,
+): ParticipantTryoutSection[] {
+  const payload = release.payload as {
+    sections?: Array<{
+      durationSeconds?: number;
+      items?: Array<{ difficulty?: string }>;
+      scoring?: { testType?: string };
+      sequenceNo?: number;
+      subtestCode?: string | null;
+      subtestName?: string | null;
+      subtestId?: string;
+      title?: string;
+    }>;
+  };
+  return (payload.sections ?? []).map((section) => {
+    const items = section.items ?? [];
+    return {
+      difficulty: sectionDifficulty(items.map((item) => ({ difficulty: item.difficulty ?? "medium" }))),
+      durationSeconds: section.durationSeconds ?? 0,
+      questionCount: items.length,
+      sequenceNo: section.sequenceNo ?? 0,
+      subtestCode: section.subtestCode ?? section.subtestId ?? "",
+      subtestName: section.subtestName ?? section.subtestId ?? "",
+      testType: section.scoring?.testType === "cat" ? "cat" : "cbt",
+      title: section.title ?? "",
+    };
+  });
+}
+
 function serializeTryout(
   tryout: ParticipantTryoutRecord,
   studentId: string,
 ): ParticipantTryout {
   const admission = tryout.admissions[0];
   const now = new Date();
+  const latestRelease = tryout.assessmentReleases[0] ?? null;
+  const assignedSession = admission?.assignments[0]?.deliverySession ?? null;
+  const pinnedAssignmentRelease = assignedSession?.assessmentRelease ?? null;
+  const summaryRelease = pinnedAssignmentRelease ?? (assignedSession ? null : latestRelease);
+  const summarySections = summaryRelease
+    ? releaseSections(summaryRelease)
+    : assignedSession
+      ? []
+      : tryout.sections.map((section) => ({
+        difficulty: sectionDifficulty(section.items),
+        durationSeconds: section.durationSeconds,
+        questionCount: section.questionCount,
+        sequenceNo: section.sequenceNo,
+        subtestCode: section.subtest.code,
+        subtestName: section.subtest.name,
+        testType: section.testType,
+        title: section.title,
+      }));
   return {
+    assessmentRelease: summaryRelease
+      ? toParticipantAssessmentReleaseMetadata(summaryRelease)
+      : null,
     admissionMode: tryout.admissionMode,
     admissionStatus: admission?.status ?? null,
     assessmentType: tryout.assessmentType,
@@ -132,6 +190,9 @@ function serializeTryout(
       const deliverySession = assignment.deliverySession;
       const attempt = deliverySession.attempts.find((candidate) => candidate.studentId === studentId) ?? null;
       return {
+        assessmentRelease: deliverySession.assessmentRelease
+          ? toParticipantAssessmentReleaseMetadata(deliverySession.assessmentRelease)
+          : null,
         attempt: attempt ? { id: attempt.id, status: attempt.status } : null,
         availableFrom: deliverySession.availableFrom,
         availableUntil: deliverySession.availableUntil,
@@ -139,12 +200,16 @@ function serializeTryout(
         id: deliverySession.id,
         isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
         isAvailableNow:
+          Boolean(deliverySession.assessmentRelease) &&
           deliverySession.availableFrom <= now &&
           deliverySession.availableUntil > now,
         isExpired: deliverySession.availableUntil <= now,
         name: deliverySession.name,
         rankingRule: deliverySession.rankingRule,
         resultReleasePolicy: deliverySession.resultReleasePolicy,
+        sections: deliverySession.assessmentRelease
+          ? releaseSections(deliverySession.assessmentRelease)
+          : [],
         status: deliverySession.status,
       };
     }),
@@ -154,29 +219,27 @@ function serializeTryout(
     organizer: tryout.createdBy.fullName,
     participantCount: tryout._count.admissions,
     publishedAt: tryout.publishedAt,
-    sections: tryout.sections.map((section) => ({
-      difficulty: sectionDifficulty(section.items),
-      durationSeconds: section.durationSeconds,
-      questionCount: section.questionCount,
-      sequenceNo: section.sequenceNo,
-      subtestCode: section.subtest.code,
-      subtestName: section.subtest.name,
-      testType: section.testType,
-      title: section.title,
-    })),
+    sections: summarySections,
     sessions: tryout.deliverySessions.map((deliverySession) => ({
+      assessmentRelease: deliverySession.assessmentRelease
+        ? toParticipantAssessmentReleaseMetadata(deliverySession.assessmentRelease)
+        : null,
       availableFrom: deliverySession.availableFrom,
       availableUntil: deliverySession.availableUntil,
       fullscreenPrompt: deliverySession.fullscreenPrompt,
       id: deliverySession.id,
       isDefaultOpenRegistration: deliverySession.isDefaultOpenRegistration,
       isAvailableNow:
+        Boolean(deliverySession.assessmentRelease) &&
         deliverySession.availableFrom <= now &&
         deliverySession.availableUntil > now,
       isExpired: deliverySession.availableUntil <= now,
       name: deliverySession.name,
       rankingRule: deliverySession.rankingRule,
       resultReleasePolicy: deliverySession.resultReleasePolicy,
+      sections: deliverySession.assessmentRelease
+        ? releaseSections(deliverySession.assessmentRelease)
+        : [],
       status: deliverySession.status,
     })),
     title: tryout.title,

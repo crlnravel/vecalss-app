@@ -8,7 +8,7 @@ const sharedCalibrationRepository = await readFile(new URL("../lib/tryout/calibr
 const migration = await readFile(new URL("../prisma/migrations/20260725100000_enforce_ready_package_version_immutability/migration.sql", import.meta.url), "utf8");
 const scoredMigration = await readFile(new URL("../prisma/migrations/20260725150000_make_reusable_packages_one_bank_scored/migration.sql", import.meta.url), "utf8");
 const attemptRepository = await readFile(new URL("../lib/tryout/attempt-repository.ts", import.meta.url), "utf8");
-const deliveryRepository = await readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8");
+const assessmentRelease = await readFile(new URL("../lib/tryout/assessment-release.ts", import.meta.url), "utf8");
 const calibrationRepository = await readFile(new URL("../lib/tryout/calibration-repository.ts", import.meta.url), "utf8");
 const catProfile = await readFile(new URL("../lib/tryout/cat-profile.ts", import.meta.url), "utf8");
 
@@ -60,8 +60,8 @@ assert.match(catProfile, /CANONICAL_2PL_MODEL_VERSION = "2pl-canonical-v1"/);
 assert.doesNotMatch(repository, /type TestInput = \{[^}]*catModelVersion/);
 assert.match(repository, /catModelVersion: sectionInput\.testType === "cat" \? CANONICAL_2PL_MODEL_VERSION : null/);
 assert.match(repository, /modelVersion: CANONICAL_2PL_MODEL_VERSION/);
-assert.match(deliveryRepository, /section\.catModelVersion !== CANONICAL_2PL_MODEL_VERSION/);
-assert.match(deliveryRepository, /modelVersion: CANONICAL_2PL_MODEL_VERSION/);
+assert.match(assessmentRelease, /section\.catModelVersion !== CANONICAL_2PL_MODEL_VERSION/);
+assert.match(assessmentRelease, /modelVersion: CANONICAL_2PL_MODEL_VERSION/);
 assert.match(attemptRepository, /section\.catModelVersion !== CANONICAL_2PL_MODEL_VERSION/);
 assert.match(attemptRepository, /modelVersion: CANONICAL_2PL_MODEL_VERSION/);
 assert.match(calibrationRepository, /modelVersion: CANONICAL_2PL_MODEL_VERSION/);
