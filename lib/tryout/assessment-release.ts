@@ -1,12 +1,26 @@
 import "server-only";
 
-import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus } from "@/generated/prisma/client";
+import { createHash, randomBytes } from "node:crypto";
+
+import {
+  ContentStatus,
+  Prisma,
+  QuestionRevisionProvenance,
+  QuestionRevisionStatus,
+  ReusableQuestionPackageMode,
+} from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import {
   buildAssessmentReleasePayload as buildCanonicalAssessmentReleasePayload,
   canonicalAssessmentReleaseJson,
   digestAssessmentReleasePayload,
 } from "@/lib/tryout/assessment-release-canonical.mjs";
+import {
+  ASSEMBLY_RESOLVER_VERSION,
+  AssemblyResolutionError,
+  resolveBlueprintCandidates,
+  resolvePoolCandidates,
+} from "@/lib/tryout/assembly-validation";
 import {
   TRYOUT_CAT_SCORING_VERSION,
   TRYOUT_CBT_SCORING_VERSION,
@@ -25,8 +39,39 @@ type CatCalibrationSnapshot = {
 };
 
 const releaseTryoutInclude = {
+  assessmentReleases: {
+    orderBy: { releaseNumber: "desc" as const },
+    take: 1,
+  },
   sections: {
     include: {
+      packageVersion: {
+        include: {
+          bankScopes: {
+            include: { questionBank: { select: { id: true, name: true, status: true } } },
+            orderBy: { questionBankId: "asc" as const },
+          },
+          categoryScopes: {
+            include: { category: { select: { id: true, name: true } } },
+            orderBy: { categoryId: "asc" as const },
+          },
+          folderScopes: {
+            include: { folder: { select: { id: true, name: true } } },
+            orderBy: { folderId: "asc" as const },
+          },
+          items: {
+            include: {
+              explanationAsset: true,
+              options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
+              promptAsset: true,
+            },
+            orderBy: { sortOrder: "asc" as const },
+          },
+          package: { select: { code: true, id: true, mode: true, status: true, title: true } },
+          rule: true,
+          subtest: { select: { code: true, id: true, isActive: true, name: true } },
+        },
+      },
       subtest: { select: { code: true, name: true } },
       items: {
         include: { options: { orderBy: { sortOrder: "asc" as const } } },
@@ -40,6 +85,102 @@ const releaseTryoutInclude = {
 type ReleaseTryoutRecord = Prisma.TryoutPackageGetPayload<{
   include: typeof releaseTryoutInclude;
 }>;
+
+type AssessmentReleaseAssemblyMetadata = {
+  availability: Prisma.InputJsonValue;
+  candidateCount: number;
+  mode: "blueprint" | "random_pool";
+  packageId: string;
+  packageVersionId: string;
+  publicationIntentKey?: string;
+  quotas?: Prisma.InputJsonValue;
+  requestedCount: number;
+  resolvedRevisionDigests: string[];
+  resolvedSourceIds: string[];
+  resolverVersion: string;
+  scopeSummary?: Prisma.InputJsonValue;
+  seed: string;
+};
+
+type AssessmentReleaseResolutionBlocker = {
+  code: string;
+  details: Record<string, unknown>;
+  message: string;
+};
+
+class AssessmentReleaseResolutionError extends Error {
+  readonly blockers: AssessmentReleaseResolutionBlocker[];
+  readonly code: string;
+  readonly details: Record<string, unknown>;
+
+  constructor(
+    code: string,
+    message: string,
+    details: Record<string, unknown> = {},
+    blockers: AssessmentReleaseResolutionBlocker[] = [],
+  ) {
+    super(message);
+    this.name = "AssessmentReleaseResolutionError";
+    this.blockers = blockers;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+const releaseSourceInclude = {
+  currentRevision: {
+    include: {
+      explanationAsset: true,
+      options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } },
+      promptAsset: true,
+    },
+  },
+  questionBank: {
+    select: {
+      categories: { select: { categoryId: true } },
+      folderId: true,
+      id: true,
+      name: true,
+      status: true,
+    },
+  },
+  subtest: { select: { code: true, id: true, isActive: true, name: true } },
+} satisfies Prisma.QuestionInclude;
+
+type ReleaseSourceRecord = Prisma.QuestionGetPayload<{ include: typeof releaseSourceInclude }>;
+
+type ReleaseSnapshot = {
+  difficulty: ReleaseTryoutRecord["sections"][number]["items"][number]["difficulty"];
+  explanation: string | null;
+  explanationAssetId: string | null;
+  options: Array<{
+    assetId: string | null;
+    choiceKey: string;
+    content: string;
+    isCorrect: boolean;
+    sortOrder: number;
+    sourceQuestionOptionId: string | null;
+    sourceQuestionRevisionOptionId: string | null;
+  }>;
+  pointValue: number;
+  prompt: string;
+  promptAssetId: string | null;
+  sourceContentDigest: string;
+  sourceQuestionId: string;
+  sourceQuestionRevisionId: string;
+  sourceRevisionProvenance: QuestionRevisionProvenance;
+  subtestId: string;
+};
+
+type AssemblySectionResolution = {
+  metadata: AssessmentReleaseAssemblyMetadata;
+  sectionId: string;
+  snapshots: ReleaseSnapshot[];
+};
+
+type CreateAssessmentReleaseOptions = {
+  publicationIntentKey?: string;
+};
 
 type AssessmentReleaseRecord = {
   contentDigest: string;
@@ -138,7 +279,10 @@ function toParticipantAssessmentReleaseMetadata(
   };
 }
 
-function buildAssessmentReleasePayload(tryout: ReleaseTryoutRecord) {
+function buildAssessmentReleasePayload(
+  tryout: ReleaseTryoutRecord,
+  assemblyBySection = new Map<string, AssessmentReleaseAssemblyMetadata>(),
+) {
   return buildCanonicalAssessmentReleasePayload({
     aggregationVersion: TRYOUT_SCORE_AGGREGATION_VERSION,
     catVersion: TRYOUT_CAT_SCORING_VERSION,
@@ -171,6 +315,7 @@ function buildAssessmentReleasePayload(tryout: ReleaseTryoutRecord) {
         sourceRevisionProvenance: item.sourceRevisionProvenance,
         subtestId: item.subtestId,
       })),
+      assembly: assemblyBySection.get(section.id),
       packageVersionId: section.packageVersionId,
       scoringConfig: section.scoringConfig,
       sequenceNo: section.sequenceNo,
@@ -184,6 +329,667 @@ function buildAssessmentReleasePayload(tryout: ReleaseTryoutRecord) {
     tryoutId: tryout.id,
     tryoutRevision: tryout.revision,
   }) as Prisma.InputJsonObject;
+}
+
+function resolutionBlocker(
+  code: string,
+  message: string,
+  details: Record<string, unknown> = {},
+): AssessmentReleaseResolutionBlocker {
+  return { code, details, message };
+}
+
+function resolutionError(
+  code: string,
+  message: string,
+  details: Record<string, unknown> = {},
+  blockers: AssessmentReleaseResolutionBlocker[] = [],
+): never {
+  throw new AssessmentReleaseResolutionError(code, message, details, blockers);
+}
+
+function readyAsset(asset: { state: string } | null | undefined, assetId: string | null | undefined) {
+  return !assetId || asset?.state === "ready";
+}
+
+function sourceReadinessIssues(
+  source: ReleaseSourceRecord | undefined,
+  expectedSubtestId: string,
+  bankIds: readonly string[],
+  identity?: {
+    sourceContentDigest: string;
+    sourceQuestionId: string;
+    sourceQuestionRevisionId: string;
+    sourceRevisionProvenance?: QuestionRevisionProvenance | null;
+  },
+) {
+  if (!source) {
+    return [resolutionBlocker("stale_candidate", "Soal kandidat tidak lagi ditemukan.", {
+      sourceQuestionId: identity?.sourceQuestionId,
+    })];
+  }
+
+  const blockers: AssessmentReleaseResolutionBlocker[] = [];
+  const bank = source.questionBank;
+  const revision = source.currentRevision;
+  if (!bank || !bankIds.includes(bank.id)) {
+    blockers.push(resolutionBlocker("scope", "Soal kandidat berada di luar cakupan Bank assembly.", {
+      bankId: bank?.id,
+      sourceQuestionId: source.id,
+    }));
+  }
+  if (bank?.status === ContentStatus.archived) {
+    blockers.push(resolutionBlocker("archived_bank", "Bank Soal kandidat sudah diarsipkan.", { bankId: bank.id }));
+  } else if (bank?.status !== ContentStatus.published) {
+    blockers.push(resolutionBlocker("bank_inactive", "Bank Soal kandidat belum berstatus Ready.", {
+      bankId: bank?.id,
+      status: bank?.status,
+    }));
+  }
+  if (source.status === ContentStatus.archived) {
+    blockers.push(resolutionBlocker("stale_candidate", "Soal kandidat sudah diarsipkan.", { sourceQuestionId: source.id }));
+  } else if (source.status !== ContentStatus.published) {
+    blockers.push(resolutionBlocker("stale_candidate", "Soal kandidat belum berstatus Ready.", {
+      sourceQuestionId: source.id,
+      status: source.status,
+    }));
+  }
+  if (!source.subtestId || source.subtestId !== expectedSubtestId || !source.subtest?.isActive) {
+    blockers.push(resolutionBlocker("wrong_subtest", "Subtest soal kandidat tidak cocok atau sedang tidak aktif.", {
+      sourceQuestionId: source.id,
+      sourceSubtestId: source.subtestId,
+      subtestId: expectedSubtestId,
+    }));
+  }
+  if (!revision || revision.status !== QuestionRevisionStatus.ready) {
+    blockers.push(resolutionBlocker("stale_candidate", "Revisi soal kandidat tidak lagi Ready.", {
+      sourceQuestionId: source.id,
+      sourceQuestionRevisionId: identity?.sourceQuestionRevisionId,
+    }));
+    return blockers;
+  }
+  if (identity && (
+    revision.id !== identity.sourceQuestionRevisionId
+    || revision.contentDigest !== identity.sourceContentDigest
+    || revision.provenance !== identity.sourceRevisionProvenance
+  )) {
+    blockers.push(resolutionBlocker("stale_candidate", "Revisi atau digest soal kandidat sudah berubah.", {
+      currentDigest: revision.contentDigest,
+      currentRevisionId: revision.id,
+      sourceQuestionId: source.id,
+      suppliedDigest: identity.sourceContentDigest,
+      suppliedRevisionId: identity.sourceQuestionRevisionId,
+    }));
+  }
+  if (revision.provenance === QuestionRevisionProvenance.legacy_unknown) {
+    blockers.push(resolutionBlocker("stale_candidate", "Provenance revisi soal kandidat tidak dapat dibuktikan.", {
+      sourceQuestionId: source.id,
+      sourceQuestionRevisionId: revision.id,
+    }));
+  }
+  if (revision.difficulty !== "easy" && revision.difficulty !== "medium" && revision.difficulty !== "hard") {
+    blockers.push(resolutionBlocker("mode_incompatible", "Soal kandidat Adaptive hanya dapat dipakai oleh CAT Pool.", {
+      difficulty: revision.difficulty,
+      sourceQuestionId: source.id,
+    }));
+  }
+  if (!revision.stem.trim()) {
+    blockers.push(resolutionBlocker("options", "Stem soal kandidat kosong.", { sourceQuestionId: source.id }));
+  }
+  if (
+    revision.options.length < 2
+    || revision.options.length > 5
+    || revision.options.filter((option) => option.isCorrect).length !== 1
+    || revision.options.some((option) => !option.content.trim())
+  ) {
+    blockers.push(resolutionBlocker("options", "Soal kandidat harus memiliki 2–5 opsi berisi dengan tepat satu jawaban benar.", {
+      optionCount: revision.options.length,
+      sourceQuestionId: source.id,
+    }));
+  }
+  if (!revision.explanation?.trim() && !revision.explanationAssetId) {
+    blockers.push(resolutionBlocker("missing_explanation", "Soal kandidat belum memiliki penjelasan teks atau media.", {
+      sourceQuestionId: source.id,
+    }));
+  }
+  const mediaReady = readyAsset(revision.promptAsset, revision.promptAssetId)
+    && readyAsset(revision.explanationAsset, revision.explanationAssetId)
+    && revision.options.every((option) => readyAsset(option.asset, option.assetId));
+  if (!mediaReady) {
+    blockers.push(resolutionBlocker("media_not_ready", "Media prompt, penjelasan, atau opsi kandidat belum Ready.", {
+      sourceQuestionId: source.id,
+    }));
+  }
+  return blockers;
+}
+
+function sourceMatchesBlueprintScope(
+  source: ReleaseSourceRecord,
+  version: ReleaseAssemblyVersionRecord,
+) {
+  const bank = source.questionBank;
+  if (!bank || !version.bankScopes.some((scope) => scope.questionBankId === bank.id)) return false;
+  if (version.folderScopes.length && (!bank.folderId || !version.folderScopes.some((scope) => scope.folderId === bank.folderId))) {
+    return false;
+  }
+  if (version.categoryScopes.length && !bank.categories.some((category) =>
+    version.categoryScopes.some((scope) => scope.categoryId === category.categoryId),
+  )) return false;
+  return true;
+}
+
+function snapshotFromRevision(
+  source: ReleaseSourceRecord,
+): ReleaseSnapshot {
+  const revision = source.currentRevision;
+  if (!revision || !source.subtestId) {
+    throw new Error("Cannot snapshot a source without a current revision and Subtest.");
+  }
+  return {
+    difficulty: revision.difficulty,
+    explanation: revision.explanation,
+    explanationAssetId: revision.explanationAssetId,
+    options: revision.options.map((option, index) => ({
+      assetId: option.assetId,
+      choiceKey: option.label || String.fromCharCode(65 + index),
+      content: option.content,
+      isCorrect: option.isCorrect,
+      sortOrder: index,
+      sourceQuestionOptionId: null,
+      sourceQuestionRevisionOptionId: option.id,
+    })),
+    pointValue: 1,
+    prompt: revision.stem,
+    promptAssetId: revision.promptAssetId,
+    sourceContentDigest: revision.contentDigest,
+    sourceQuestionId: source.id,
+    sourceQuestionRevisionId: revision.id,
+    sourceRevisionProvenance: revision.provenance,
+    subtestId: source.subtestId,
+  };
+}
+
+function snapshotFromVersionItem(
+  item: ReleaseAssemblyVersionRecord["items"][number],
+): ReleaseSnapshot {
+  if (!item.sourceQuestionRevisionId || !item.sourceContentDigest || !item.sourceRevisionProvenance) {
+    throw new Error("Cannot snapshot a Pool candidate without source revision provenance.");
+  }
+  return {
+    difficulty: item.difficulty,
+    explanation: item.explanation,
+    explanationAssetId: item.explanationAssetId,
+    options: item.options.map((option) => ({
+      assetId: option.assetId,
+      choiceKey: option.choiceKey,
+      content: option.content,
+      isCorrect: option.isCorrect,
+      sortOrder: option.sortOrder,
+      sourceQuestionOptionId: option.sourceQuestionOptionId,
+      sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+    })),
+    pointValue: Number(item.pointValue),
+    prompt: item.prompt,
+    promptAssetId: item.promptAssetId,
+    sourceContentDigest: item.sourceContentDigest,
+    sourceQuestionId: item.sourceQuestionId,
+    sourceQuestionRevisionId: item.sourceQuestionRevisionId,
+    sourceRevisionProvenance: item.sourceRevisionProvenance,
+    subtestId: item.subtestId,
+  };
+}
+
+type ReleaseAssemblyVersionRecord = Prisma.ReusableQuestionPackageVersionGetPayload<{
+  include: {
+    bankScopes: typeof releaseTryoutInclude.sections.include.packageVersion.include.bankScopes;
+    categoryScopes: typeof releaseTryoutInclude.sections.include.packageVersion.include.categoryScopes;
+    folderScopes: typeof releaseTryoutInclude.sections.include.packageVersion.include.folderScopes;
+    items: typeof releaseTryoutInclude.sections.include.packageVersion.include.items;
+    package: typeof releaseTryoutInclude.sections.include.packageVersion.include.package;
+    rule: true;
+    subtest: typeof releaseTryoutInclude.sections.include.packageVersion.include.subtest;
+  };
+}>;
+
+async function lockReadyAssemblyVersions(tx: Prisma.TransactionClient, versionIds: readonly string[]) {
+  const ids = [...new Set(versionIds)].sort();
+  if (!ids.length) return;
+  await tx.$queryRaw`
+    SELECT id
+      FROM reusable_question_package_versions
+     WHERE id IN (${Prisma.join(ids)})
+     ORDER BY id
+     FOR UPDATE
+  `;
+}
+
+async function queryBlueprintSourceIds(
+  tx: Prisma.TransactionClient,
+  version: ReleaseAssemblyVersionRecord,
+) {
+  if (!version.subtestId || !version.bankScopes.length) return [] as string[];
+  const sources = await tx.question.findMany({
+    where: {
+      currentRevision: { status: QuestionRevisionStatus.ready },
+      questionBank: {
+        is: {
+          ...(version.categoryScopes.length ? { categories: { some: { categoryId: { in: version.categoryScopes.map((scope) => scope.categoryId) } } } } : {}),
+          ...(version.folderScopes.length ? { folderId: { in: version.folderScopes.map((scope) => scope.folderId) } } : {}),
+          status: ContentStatus.published,
+        },
+      },
+      questionBankId: { in: version.bankScopes.map((scope) => scope.questionBankId) },
+      status: ContentStatus.published,
+      subtestId: version.subtestId,
+    },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  return sources.map((source) => source.id);
+}
+
+async function lockAndReadReleaseSources(
+  tx: Prisma.TransactionClient,
+  sourceQuestionIds: readonly string[],
+) {
+  const ids = [...new Set(sourceQuestionIds)].sort();
+  if (!ids.length) return [] as ReleaseSourceRecord[];
+  await tx.$queryRaw`
+    SELECT q.id
+      FROM questions q
+      JOIN question_banks b ON b.id = q.question_bank_id
+      JOIN question_revisions r ON r.id = q.current_revision_id
+     WHERE q.id IN (${Prisma.join(ids)})
+     ORDER BY q.id
+     FOR SHARE OF q, b, r
+  `;
+  return tx.question.findMany({ where: { id: { in: ids } }, include: releaseSourceInclude });
+}
+
+function releaseSeed(tryoutId: string, publicationIntentKey?: string) {
+  if (!publicationIntentKey) return randomBytes(16).toString("hex");
+  return createHash("sha256")
+    .update(`assessment-release-publication-intent-v1:${tryoutId}:${publicationIntentKey}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+}
+
+function normalizePublicationIntentKey(publicationIntentKey?: string) {
+  if (publicationIntentKey === undefined) return undefined;
+  const value = publicationIntentKey.trim();
+  if (!value || value.length > 120 || /[\u0000-\u001f\u007f]/u.test(value)) {
+    throw new AssessmentReleaseResolutionError("idempotency", "Kunci idempotensi publikasi tidak valid.", { publicationIntentKey });
+  }
+  return value;
+}
+
+function latestReleaseMatchesIntent(
+  tryout: ReleaseTryoutRecord,
+  publicationIntentKey?: string,
+) {
+  const latest = tryout.assessmentReleases[0];
+  if (!latest) return false;
+  const payload = latest.payload as {
+    sections?: Array<{ assembly?: { mode?: unknown; publicationIntentKey?: unknown } }>;
+    tryout?: { revision?: unknown };
+  };
+  if (payload.tryout?.revision !== tryout.revision) return false;
+  const randomSections = payload.sections?.filter((section) =>
+    section.assembly?.mode === ReusableQuestionPackageMode.random_pool
+    || section.assembly?.mode === ReusableQuestionPackageMode.blueprint,
+  ) ?? [];
+  if (!randomSections.length) return true;
+  return randomSections.every((section) => section.assembly?.publicationIntentKey === publicationIntentKey);
+}
+
+async function resolveAndMaterializeAssemblies(
+  tx: Prisma.TransactionClient,
+  tryout: ReleaseTryoutRecord,
+  publicationIntentKey?: string,
+) {
+  const assemblySections = tryout.sections.filter((section) =>
+    section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
+    || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint,
+  );
+  if (!assemblySections.length) {
+    return {
+      assemblyBySection: new Map<string, AssessmentReleaseAssemblyMetadata>(),
+      tryout,
+    };
+  }
+
+  const versionIds = assemblySections
+    .map((section) => section.packageVersionId)
+    .filter((id): id is string => Boolean(id));
+  // The aggregate lock is held by the caller.  Ready revisions are locked as
+  // one sorted set before any source row is inspected, preserving the
+  // aggregate -> assembly revision -> deterministic source lock order.
+  await lockReadyAssemblyVersions(tx, versionIds);
+  const versions = await tx.reusableQuestionPackageVersion.findMany({
+    where: { id: { in: [...new Set(versionIds)] } },
+    include: {
+      bankScopes: {
+        include: { questionBank: { select: { id: true, name: true, status: true } } },
+        orderBy: { questionBankId: "asc" },
+      },
+      categoryScopes: {
+        include: { category: { select: { id: true, name: true } } },
+        orderBy: { categoryId: "asc" },
+      },
+      folderScopes: {
+        include: { folder: { select: { id: true, name: true } } },
+        orderBy: { folderId: "asc" },
+      },
+      items: {
+        include: {
+          explanationAsset: true,
+          options: { include: { asset: true }, orderBy: { sortOrder: "asc" } },
+          promptAsset: true,
+        },
+        orderBy: { sortOrder: "asc" },
+      },
+      package: { select: { code: true, id: true, mode: true, status: true, title: true } },
+      rule: true,
+      subtest: { select: { code: true, id: true, isActive: true, name: true } },
+    },
+  });
+  const versionById = new Map(versions.map((version) => [version.id, version]));
+  if (versions.length !== new Set(versionIds).size) {
+    resolutionError("stale_candidate", "Versi Ready assembly tidak lagi ditemukan.", {
+      requestedVersionIds: [...new Set(versionIds)].sort(),
+      foundVersionIds: versions.map((version) => version.id).sort(),
+    });
+  }
+
+  const blueprintSourceIdsByVersion = new Map<string, string[]>();
+  const sourceIds: string[] = [];
+  for (const section of assemblySections) {
+    const version = section.packageVersionId ? versionById.get(section.packageVersionId) : undefined;
+    if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak lagi tersedia untuk Section.", { sectionId: section.id });
+    if (version.status !== ContentStatus.published
+      || version.package.status !== ContentStatus.published
+      || version.package.mode !== version.mode
+      || version.mode !== section.packageVersion?.mode
+      || version.subtestId !== section.subtestId
+      || !version.subtest?.isActive
+      || section.testType !== "cbt") {
+      resolutionError("mode_incompatible", "Versi Ready assembly tidak kompatibel dengan Section CBT ini.", {
+        mode: version.mode,
+        packageStatus: version.package.status,
+        sectionId: section.id,
+        sectionSubtestId: section.subtestId,
+        versionSubtestId: version.subtestId,
+      });
+    }
+    if (!version.rule || version.rule.requestedCount < 1) {
+      resolutionError("quota", "Assembly tidak memiliki jumlah soal rilis yang valid.", { sectionId: section.id, versionId: version.id });
+    }
+    if (version.mode === ReusableQuestionPackageMode.random_pool) {
+      sourceIds.push(...version.items.map((item) => item.sourceQuestionId));
+    } else {
+      if (version.items.length) {
+        resolutionError("mode_incompatible", "Blueprint Ready tidak boleh membawa snapshot kandidat fisik.", {
+          itemCount: version.items.length,
+          versionId: version.id,
+        });
+      }
+      const ids = await queryBlueprintSourceIds(tx, version);
+      blueprintSourceIdsByVersion.set(version.id, ids);
+      sourceIds.push(...ids);
+    }
+  }
+
+  // Every source row is locked once, in UUID order, after all Ready revisions
+  // have been locked. Missing explicit Pool IDs remain visible to the stale
+  // candidate report because they are compared against this reread map.
+  const sources = await lockAndReadReleaseSources(tx, sourceIds);
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  const seed = releaseSeed(tryout.id, publicationIntentKey);
+  const resolutions: AssemblySectionResolution[] = [];
+
+  for (const section of assemblySections) {
+    const version = versionById.get(section.packageVersionId!);
+    if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak tersedia setelah penguncian.", { sectionId: section.id });
+    const rule = version.rule!;
+    const bankIds = version.bankScopes.map((scope) => scope.questionBankId).sort();
+    if (version.mode === ReusableQuestionPackageMode.random_pool) {
+      const blockers: AssessmentReleaseResolutionBlocker[] = [];
+      const validItems: typeof version.items = [];
+      const invalidSourceIds: string[] = [];
+      for (const item of version.items) {
+        const itemBlockers = sourceReadinessIssues(sourceById.get(item.sourceQuestionId), version.subtestId!, bankIds, {
+          sourceContentDigest: item.sourceContentDigest ?? "",
+          sourceQuestionId: item.sourceQuestionId,
+          sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
+          sourceRevisionProvenance: item.sourceRevisionProvenance,
+        });
+        if (itemBlockers.length) {
+          invalidSourceIds.push(item.sourceQuestionId);
+          blockers.push(...itemBlockers.map((blocker) => ({
+            ...blocker,
+            details: { ...blocker.details, sourceQuestionId: item.sourceQuestionId },
+          })));
+        } else {
+          validItems.push(item);
+        }
+      }
+      const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
+      for (const item of validItems) {
+        if (item.difficulty === "easy" || item.difficulty === "medium" || item.difficulty === "hard") {
+          availableByDifficulty[item.difficulty] += 1;
+        }
+      }
+      if (validItems.length < rule.requestedCount) {
+        blockers.push(resolutionBlocker("shortage", "Kandidat Pool yang tetap Ready tidak mencukupi jumlah undian.", {
+          availableCount: validItems.length,
+          requestedCount: rule.requestedCount,
+        }));
+      }
+      if (blockers.length) {
+        resolutionError(blockers[0].code, "Publish diblokir karena kandidat Pool tidak lagi siap.", {
+          availableByDifficulty,
+          candidateCount: version.items.length,
+          invalidSourceIds: [...new Set(invalidSourceIds)].sort(),
+          requestedCount: rule.requestedCount,
+        }, blockers);
+      }
+      let selected: typeof validItems;
+      try {
+        selected = resolvePoolCandidates(validItems.map((item) => ({
+          difficulty: item.difficulty === "easy" || item.difficulty === "medium" || item.difficulty === "hard" ? item.difficulty : undefined,
+          sortOrder: item.sortOrder,
+          sourceContentDigest: item.sourceContentDigest!,
+          sourceQuestionId: item.sourceQuestionId,
+          sourceQuestionRevisionId: item.sourceQuestionRevisionId!,
+        })), rule.requestedCount, seed).map((candidate) => validItems.find((item) => item.sourceQuestionId === candidate.sourceQuestionId)!);
+      } catch (error) {
+        if (error instanceof AssemblyResolutionError) {
+          resolutionError(error.code, error.message, error.details);
+        }
+        throw error;
+      }
+      const snapshots = selected.map(snapshotFromVersionItem);
+      const metadata: AssessmentReleaseAssemblyMetadata = {
+        availability: {
+          availableByDifficulty,
+          candidateCount: version.items.length,
+          eligibleCandidateCount: validItems.length,
+          invalidSourceIds: [...new Set(invalidSourceIds)].sort(),
+        },
+        candidateCount: version.items.length,
+        mode: "random_pool",
+        packageId: version.packageId,
+        packageVersionId: version.id,
+        ...(publicationIntentKey ? { publicationIntentKey } : {}),
+        requestedCount: rule.requestedCount,
+        resolvedRevisionDigests: snapshots.map((snapshot) => snapshot.sourceContentDigest),
+        resolvedSourceIds: snapshots.map((snapshot) => snapshot.sourceQuestionId),
+        resolverVersion: ASSEMBLY_RESOLVER_VERSION,
+        seed,
+      };
+      resolutions.push({ metadata, sectionId: section.id, snapshots });
+      continue;
+    }
+
+    const scopedSourceIds = blueprintSourceIdsByVersion.get(version.id) ?? [];
+    const scopedSources = scopedSourceIds
+      .map((sourceId) => sourceById.get(sourceId))
+      .filter((source): source is ReleaseSourceRecord => Boolean(source))
+      .filter((source) => sourceMatchesBlueprintScope(source, version));
+    const invalidSourceIds: string[] = [];
+    const invalidBlockers: AssessmentReleaseResolutionBlocker[] = [];
+    const validSources: ReleaseSourceRecord[] = [];
+    for (const source of scopedSources) {
+      const blockers = sourceReadinessIssues(source, version.subtestId!, bankIds);
+      if (blockers.length) {
+        invalidSourceIds.push(source.id);
+        invalidBlockers.push(...blockers.map((blocker) => ({
+          ...blocker,
+          details: { ...blocker.details, sourceQuestionId: source.id },
+        })));
+      } else {
+        validSources.push(source);
+      }
+    }
+    const availableByDifficulty = { easy: 0, hard: 0, medium: 0 };
+    for (const source of validSources) {
+      const difficulty = source.currentRevision?.difficulty;
+      if (difficulty === "easy" || difficulty === "medium" || difficulty === "hard") availableByDifficulty[difficulty] += 1;
+    }
+    const quotas = {
+      easyCount: rule.easyCount,
+      hardCount: rule.hardCount,
+      mediumCount: rule.mediumCount,
+      requestedCount: rule.requestedCount,
+    };
+    let selectedSources: ReleaseSourceRecord[];
+    try {
+      selectedSources = resolveBlueprintCandidates(validSources.map((source) => ({
+        difficulty: source.currentRevision?.difficulty === "easy" || source.currentRevision?.difficulty === "medium" || source.currentRevision?.difficulty === "hard"
+          ? source.currentRevision.difficulty
+          : undefined,
+        sourceContentDigest: source.currentRevision?.contentDigest ?? "",
+        sourceQuestionId: source.id,
+        sourceQuestionRevisionId: source.currentRevision?.id ?? "",
+      })), quotas, seed).map((candidate) => validSources.find((source) => source.id === candidate.sourceQuestionId)!);
+    } catch (error) {
+      if (error instanceof AssemblyResolutionError) {
+        resolutionError(error.code, error.message, {
+          availableByDifficulty,
+          candidateCount: scopedSources.length,
+          invalidSourceIds: [...new Set(invalidSourceIds)].sort(),
+          requestedByDifficulty: {
+            easy: quotas.easyCount,
+            hard: quotas.hardCount,
+            medium: quotas.mediumCount,
+          },
+          scopeSourceIds: scopedSourceIds,
+        }, invalidBlockers);
+      }
+      throw error;
+    }
+    const snapshots = selectedSources.map(snapshotFromRevision);
+    const scopeSummary = {
+      availableByDifficulty,
+      bankIds,
+      candidateCount: scopedSources.length,
+      categoryIds: version.categoryScopes.map((scope) => scope.categoryId).sort(),
+      eligibleCount: validSources.length,
+      folderIds: version.folderScopes.map((scope) => scope.folderId).sort(),
+      invalidSourceIds: [...new Set(invalidSourceIds)].sort(),
+      subtestId: version.subtestId,
+    };
+    const metadata: AssessmentReleaseAssemblyMetadata = {
+      availability: {
+        ...scopeSummary,
+        requestedByDifficulty: {
+          easy: quotas.easyCount,
+          hard: quotas.hardCount,
+          medium: quotas.mediumCount,
+        },
+      },
+      candidateCount: scopedSources.length,
+      mode: "blueprint",
+      packageId: version.packageId,
+      packageVersionId: version.id,
+      ...(publicationIntentKey ? { publicationIntentKey } : {}),
+      quotas,
+      requestedCount: rule.requestedCount,
+      resolvedRevisionDigests: snapshots.map((snapshot) => snapshot.sourceContentDigest),
+      resolvedSourceIds: snapshots.map((snapshot) => snapshot.sourceQuestionId),
+      resolverVersion: ASSEMBLY_RESOLVER_VERSION,
+      scopeSummary,
+      seed,
+    };
+    resolutions.push({ metadata, sectionId: section.id, snapshots });
+  }
+
+  const sourceOwners = new Map<string, string>();
+  for (const section of tryout.sections) {
+    const resolution = resolutions.find((candidate) => candidate.sectionId === section.id);
+    const sourceIdsForSection = resolution
+      ? resolution.snapshots.map((snapshot) => snapshot.sourceQuestionId)
+      : section.items.map((item) => item.sourceQuestionId).filter((id): id is string => Boolean(id));
+    for (const sourceQuestionId of sourceIdsForSection) {
+      const previousSectionId = sourceOwners.get(sourceQuestionId);
+      if (previousSectionId) {
+        resolutionError("duplicate_source", "Satu soal sumber tidak boleh muncul dua kali dalam satu Tryout release.", {
+          previousSectionId,
+          sourceQuestionId,
+          sectionId: section.id,
+        });
+      }
+      sourceOwners.set(sourceQuestionId, section.id);
+    }
+  }
+
+  for (const resolution of resolutions) {
+    await tx.tryoutItem.deleteMany({ where: { tryoutSectionId: resolution.sectionId } });
+    await tx.tryoutSection.update({ where: { id: resolution.sectionId }, data: { questionCount: resolution.snapshots.length } });
+    const version = versionById.get(tryout.sections.find((section) => section.id === resolution.sectionId)?.packageVersionId ?? "");
+    if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak tersedia saat membuat bridge fisik.", { sectionId: resolution.sectionId });
+    await Promise.all(resolution.snapshots.map(async (snapshot, index) => {
+      const item = await tx.tryoutItem.create({
+        data: {
+          difficulty: snapshot.difficulty,
+          explanation: snapshot.explanation,
+          explanationAssetId: snapshot.explanationAssetId,
+          packageCode: version.package.code,
+          packageVersionId: version.id,
+          points: snapshot.pointValue,
+          prompt: snapshot.prompt,
+          promptAssetId: snapshot.promptAssetId,
+          sortOrder: index + 1,
+          sourceContentDigest: snapshot.sourceContentDigest,
+          sourceQuestionId: snapshot.sourceQuestionId,
+          sourceQuestionRevisionId: snapshot.sourceQuestionRevisionId,
+          sourceRevisionProvenance: snapshot.sourceRevisionProvenance,
+          subtestId: snapshot.subtestId,
+          tryoutId: tryout.id,
+          tryoutSectionId: resolution.sectionId,
+        },
+      });
+      await tx.tryoutItemOption.createMany({
+        data: snapshot.options.map((option) => ({
+          assetId: option.assetId,
+          choiceKey: option.choiceKey,
+          content: option.content,
+          isCorrect: option.isCorrect,
+          sortOrder: option.sortOrder,
+          sourceQuestionOptionId: option.sourceQuestionOptionId,
+          sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+          tryoutItemId: item.id,
+        })),
+      });
+    }));
+  }
+
+  const reread = await tx.tryoutPackage.findUnique({ where: { id: tryout.id }, include: releaseTryoutInclude });
+  if (!reread) resolutionError("stale_candidate", "Tryout tidak dapat dibaca setelah materialisasi release.", { tryoutId: tryout.id });
+  return {
+    assemblyBySection: new Map(resolutions.map((resolution) => [resolution.sectionId, resolution.metadata])),
+    tryout: reread,
+  };
 }
 
 async function attachCatCalibrationSnapshots(
@@ -281,6 +1087,7 @@ async function assertTryoutReleaseEligibility(
           },
           packageVersion: {
             select: {
+              mode: true,
               items: {
                 select: {
                   packageVersionId: true,
@@ -301,7 +1108,20 @@ async function assertTryoutReleaseEligibility(
   });
   if (!tryout || tryout.status !== ContentStatus.published || tryout.sections.length !== 7 || tryout.sections.some((section) => {
     if (section.packageVersionId) {
-      return section.packageVersion?.status !== ContentStatus.published || !section.packageVersion.items.length;
+      const seededAssembly = section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
+        || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint;
+      return section.packageVersion?.status !== ContentStatus.published
+        || (section.packageVersion.mode !== ReusableQuestionPackageMode.blueprint && !section.packageVersion.items.length)
+        || (section.packageVersion.mode === ReusableQuestionPackageMode.blueprint && !section.items.length)
+        || (seededAssembly && (section.items.length === 0 || section.items.some((item) =>
+          item.packageVersionId !== section.packageVersionId
+          || item.subtestId !== section.subtestId
+          || !item.sourceQuestionId
+          || !item.sourceQuestionRevisionId
+          || !item.sourceContentDigest
+          || item.sourceRevisionProvenance === null
+          || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown,
+        )));
     }
     return section.items.length === 0 || section.items.some((item) =>
       item.packageVersionId !== null
@@ -355,6 +1175,7 @@ async function createOrReuseAssessmentRelease(
   tryoutId: string,
   actorId: string,
   publishedAt = new Date(),
+  options: CreateAssessmentReleaseOptions = {},
 ) {
   // Publishing, opening, and retake creation all share this aggregate lock.
   // Callers may already hold it; PostgreSQL row locks are re-entrant inside
@@ -368,15 +1189,32 @@ async function createOrReuseAssessmentRelease(
   if (!tryout || tryout.status !== "published") {
     throw new Error("Tryout harus diterbitkan sebelum AssessmentRelease dibuat.");
   }
+  const publicationIntentKey = normalizePublicationIntentKey(options.publicationIntentKey);
+  const hasSeededAssembly = tryout.sections.some((section) =>
+    section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
+    || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint,
+  );
+  if (hasSeededAssembly && latestReleaseMatchesIntent(tryout, publicationIntentKey)) {
+    const latest = tryout.assessmentReleases[0];
+    if (latest) return latest;
+  }
+
+  const resolved = await resolveAndMaterializeAssemblies(tx, tryout, publicationIntentKey);
+  const resolvedTryout = resolved.tryout;
   if (
-    tryout.sections.length !== 7 ||
-    tryout.sections.some((section) => section.items.length === 0)
+    resolvedTryout.sections.length !== 7 ||
+    resolvedTryout.sections.some((section) => {
+      const mode = section.packageVersion?.mode;
+      return section.items.length === 0
+        && mode !== ReusableQuestionPackageMode.random_pool
+        && mode !== ReusableQuestionPackageMode.blueprint;
+    })
   ) {
     throw new Error("AssessmentRelease memerlukan tepat tujuh Test dengan item yang siap.");
   }
 
-  const releaseTryout = await attachCatCalibrationSnapshots(tx, tryout);
-  const payload = buildAssessmentReleasePayload(releaseTryout);
+  const releaseTryout = await attachCatCalibrationSnapshots(tx, resolvedTryout);
+  const payload = buildAssessmentReleasePayload(releaseTryout, resolved.assemblyBySection);
   // Compute the canonical bytes here as an explicit invariant. The digest
   // helper calls the same canonicalizer, while this value is useful in tests
   // and makes the runtime/seed contract visible at the call site.
@@ -393,8 +1231,27 @@ async function createOrReuseAssessmentRelease(
     _max: { releaseNumber: true },
     where: { tryoutId },
   });
+  const releaseAssemblies = [...resolved.assemblyBySection.values()];
+  // The Ticket 2 migration keeps nullable release columns as a compatibility
+  // projection for a single assembly.  A Tryout may carry multiple random
+  // sections; their complete per-section metadata remains in payload while
+  // the projection is populated only when it is unambiguous.
+  const assembly = releaseAssemblies.length === 1 ? releaseAssemblies[0] : null;
   return tx.assessmentRelease.create({
     data: {
+      ...(assembly ? {
+        assemblyCandidateCount: assembly.candidateCount,
+        assemblyMode: assembly.mode as ReusableQuestionPackageMode,
+        assemblyPackageId: assembly.packageId,
+        assemblyPackageVersionId: assembly.packageVersionId,
+        assemblyQuotas: assembly.quotas,
+        assemblyRequestedCount: assembly.requestedCount,
+        assemblyResolvedRevisionDigests: assembly.resolvedRevisionDigests,
+        assemblyResolvedSourceIds: assembly.resolvedSourceIds,
+        assemblyScopeSummary: assembly.scopeSummary ?? assembly.availability,
+        assemblySeed: assembly.seed,
+        resolverVersion: assembly.resolverVersion,
+      } : {}),
       contentDigest,
       createdByUserId: actorId,
       payload,
@@ -442,6 +1299,7 @@ function assertMatchingAssessmentRelease(
 
 export {
   ASSESSMENT_RELEASE_SCHEMA_VERSION,
+  AssessmentReleaseResolutionError,
   assertMatchingAssessmentRelease,
   buildAssessmentReleasePayload,
   createOrReuseAssessmentRelease,
@@ -452,8 +1310,11 @@ export {
   toAssessmentReleaseMetadata,
 };
 export type {
+  AssessmentReleaseAssemblyMetadata,
   AssessmentReleaseMetadata,
   AssessmentReleaseSectionLabel,
+  AssessmentReleaseResolutionBlocker,
+  CreateAssessmentReleaseOptions,
   ParticipantAssessmentReleaseMetadata,
   ReleaseTryoutRecord,
 };

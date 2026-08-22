@@ -20,7 +20,7 @@ type PackageVersionReadiness = {
   itemCount: number;
   sourceQuestionIds: string[];
 };
-type SaveTryoutInput = { description: string; id?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
+type SaveTryoutInput = { description: string; id?: string; publicationIntentKey?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
 class TryoutValidationError extends Error {}
 
 const sourceInclude = {
@@ -441,7 +441,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       await tx.tryoutItemOption.createMany({ data: snapshot.options.map((option) => ({ assetId: option.assetId, choiceKey: option.choiceKey, content: option.content, isCorrect: option.isCorrect, sortOrder: option.sortOrder, sourceQuestionOptionId: option.sourceQuestionOptionId, sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId, tryoutItemId: item.id })) });
     }));
     if (input.status === "published") {
-      await createOrReuseAssessmentRelease(tx, id!, actorId);
+      await createOrReuseAssessmentRelease(tx, id!, actorId, undefined, { publicationIntentKey: input.publicationIntentKey });
     }
     return toTryoutDto(await tx.tryoutPackage.findUniqueOrThrow({ where: { id }, include: tryoutInclude }));
   });
