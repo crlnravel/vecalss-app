@@ -3,8 +3,8 @@
 ## Current State
 
 **Last Updated:** 2026-08-23
-**Session ID:** assessment-as07-realtime-hardening
-**Active Feature:** AS-07 realtime/polling hardening closeout
+**Session ID:** assessment-as04-invitation-picker-closeout
+**Active Feature:** AS-04 dedicated invitation-picker UI closeout
 
 ## Status
 
@@ -243,22 +243,34 @@
   - The broad `test:assessment-release-invariants` baseline remains blocked
     only by the preserved unrelated admin-preview dirty source.
 
+- [x] AS-04 dedicated invitation-picker UI (`a72d5fd`, `5c422ac`)
+  - Added an owner-scoped student search action that returns only safe selector
+    identity and active assignment context; email, full account metadata, and
+    raw operations payloads remain outside the client boundary.
+  - Added the Kapten Participants picker with loading/empty/error states,
+    keyboard combobox/listbox navigation, selected-student confirmation,
+    available-session choice, required Bahasa audit reason, and idempotent
+    invite action using the existing server-owned transition.
+  - Invite refresh now applies `toTryoutWorkspaceView`: hidden participant
+    scores are nulled and `sessions[].attempts` plus release/integrity payloads
+    are stripped. Busy search/selection callbacks are invalidated and ignored;
+    `aria-expanded`, `required`, and `aria-required` semantics are covered.
+  - Focused invitation/participant/live contracts, focused ESLint, diff-check,
+    Impeccable detector `[]`, authenticated ego-browser desktop/mobile QA, and
+    lint/build verification pass. Full TypeScript/verify stop only on the
+    unrelated concurrent `scripts/test-admin-student-preview-surfaces.ts`
+    `ProcessEnv.NODE_ENV` fixtures; all six concurrent files remain unstaged.
+
 ### What's In Progress
 
-- [ ] Dedicated invitation-picker UI
-  - The server action now accepts a selected session and atomically assigns it,
-  but no existing mentor surface currently invokes the invitation action or
-  provides the required student selector. This remains a separate UI slice,
-  not a missing AS-04 server invariant.
+- None for the current AS-04 invitation-picker slice.
 
 ### What's Next
 
-1. Keep the dedicated invitation-picker UI as the remaining separate AS-04
-   backlog item; it is not required for the completed delivery/realtime slices.
-2. Preserve the three protected admin-preview files and record the known broad
-   AssessmentRelease invariant baseline separately from feature verification.
-3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
-   already implemented under AS-02 unless a new defect is found.
+1. Preserve the six unrelated admin-preview/config files and record the known
+   TypeScript/AssessmentRelease baseline separately from feature verification.
+2. Continue with the next approved backlog slice; do not reopen AS-08 physical
+   QuestionRevision/Ready lifecycle unless a new defect is found.
 
 ### AS-09 Browser QA
 

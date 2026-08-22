@@ -71,8 +71,29 @@ Store only settled decisions, conventions, and important context that emerged du
   ESLint, diff-check, `pnpm verify`, authenticated ego-browser 1512/390px QA,
   and Impeccable detector `[]` pass. Final review PASS:
   `artifacts/reviews/as07-realtime-hardening-final-independent-review-20260823`.
-- The dedicated invitation-picker UI remains a separate backlog item;
-  AS-08 stays closed and the protected admin-preview files remain untouched.
+- The dedicated invitation-picker UI is complete in `a72d5fd` plus `5c422ac`;
+  AS-08 stays closed and the protected/concurrent admin-preview files remain
+  untouched.
+
+## AS-04 invitation-picker UI
+
+- The Kapten Tryout Participants workspace now has an owner-scoped student
+  picker. Search returns only safe student identity and active assignment
+  context; invitation uses the existing selected-session/idempotent server
+  transition and required audit reason.
+- `getOwnedTryoutParticipantsView` must sanitize through
+  `toTryoutWorkspaceView` before returning refresh data. This hides participant
+  scores until the existing release gate and strips session attempts, release,
+  and integrity payloads. Do not return the raw operations view from a refresh
+  action.
+- The picker uses native combobox/listbox semantics with keyboard navigation,
+  required audit input, busy-state request invalidation, and no horizontal
+  overflow at 390px. Fresh independent review and Impeccable detector `[]`
+  pass; authenticated ego-browser QA covered desktop/mobile search and
+  selection.
+- No schema or migration change was needed. The current full TypeScript/verify
+  limitation is unrelated concurrent admin-preview ProcessEnv fixtures; keep
+  those six dirty files out of feature commits.
 
 ## Assessment state normalization
 
@@ -160,9 +181,9 @@ Store only settled decisions, conventions, and important context that emerged du
 - Operations reads are owner-scoped before loading student identities,
   attempts, or release payloads. Mentor DTO serialization masks email fallback
   identities and exposes `participants` while retaining audit assignment rows.
-- AS-04 is committed as `ae64528`; it requires no migration. A dedicated
-  invitation-picker UI remains deferred because there is no existing mentor
-  student-selector surface that invokes the invite action.
+- AS-04 ParticipantView is committed as `ae64528`; the follow-up dedicated
+  invitation-picker UI is committed as `a72d5fd` plus `5c422ac` and requires no
+  migration. Its refresh DTO remains subject to the AS-07 workspace sanitizer.
 
 ## AS-05 Tryout authoring workspace
 

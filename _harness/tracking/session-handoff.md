@@ -1,5 +1,26 @@
 # Session Handoff
 
+## Current AS-04 invitation-picker closeout (2026-08-23)
+
+- Dedicated Kapten invitation picker is complete at `a72d5fd` plus `5c422ac`.
+  It adds owner-scoped safe student search, selected-session threading,
+  required audit reason, idempotent invitation, and authoritative refresh in
+  the existing Tryout Participants workspace.
+- The refresh boundary applies `toTryoutWorkspaceView`, so hidden participant
+  scores are nulled and session attempts/release/integrity metadata are removed
+  before the browser receives the response. Search/selection callbacks are
+  invalidated while inviting; combobox/listbox and required-field semantics
+  are explicit.
+- Fresh independent review PASS:
+  `artifacts/reviews/as04-invitation-picker-ui-followup-review-20260823`.
+  Focused invitation/participant/live contracts, focused ESLint, diff-check,
+  Impeccable detector `[]`, and authenticated ego-browser desktop/mobile QA
+  pass. Lint/build pass with 0 errors and 459 baseline warnings.
+- Full `tsc`/`pnpm verify` stop only on the unrelated concurrent
+  `scripts/test-admin-student-preview-surfaces.ts` fixtures missing
+  `ProcessEnv.NODE_ENV`; no invitation-picker file is implicated. Preserve
+  all six concurrent dirty files and do not stage them.
+
 ## Current AS-07 realtime closeout / AS-06 Kuis handoff (2026-08-23)
 
 - AS-06 durable Kuis assembly binding is complete at `047d5d7`, `331b7c7`,
@@ -41,8 +62,9 @@
   ESLint, diff-check, and `pnpm verify` pass; authenticated ego-browser QA
   passed at 1512px and 390px; Impeccable detector `[]`; final review PASS:
   `artifacts/reviews/as07-realtime-hardening-final-independent-review-20260823`.
-- Next backlog item is the separate dedicated invitation-picker UI. Do not
-  reopen AS-08 or alter the protected admin-preview files.
+- The dedicated invitation-picker closeout above is complete. Continue with
+  the next approved backlog slice; do not reopen AS-08 or alter the protected
+  admin-preview files.
 
 ## Historical AS-07 Live delivery/result closeout (2026-08-23)
 
