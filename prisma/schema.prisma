@@ -154,6 +154,23 @@ enum TryoutPackageType {
   @@map("tryout_package_type")
 }
 
+enum ReusableQuestionPackageMode {
+  fixed_set
+  random_pool
+  blueprint
+  cat_pool
+
+  @@map("reusable_question_package_mode")
+}
+
+enum ReusableQuestionPackageVersionProvenance {
+  authored
+  legacy_provable
+  legacy_unknown
+
+  @@map("reusable_question_package_version_provenance")
+}
+
 enum TryoutTestType {
   cbt
   cat
@@ -1021,6 +1038,7 @@ model Subtest {
   tryoutItems                         TryoutItem[]
   tryoutSections                      TryoutSection[]
   reusableQuestionPackages            ReusableQuestionPackage[]
+  reusableQuestionPackageVersions     ReusableQuestionPackageVersion[] @relation("ReusablePackageVersionSubtest")
   reusableQuestionPackageVersionItems ReusableQuestionPackageVersionItem[]
   tryoutScoreBreakdowns               TryoutScoreBreakdown[]
   subtestPerformances                 StudentSubtestPerformance[]
@@ -1179,6 +1197,7 @@ model QuestionBank {
   adaptivePracticeSessions AdaptivePracticeSession[]
   reusableQuestionPackages ReusableQuestionPackage[] @relation("ReusablePackageSourceBank")
   reusableQuestionPackageVersions ReusableQuestionPackageVersion[] @relation("ReusablePackageVersionSourceBank")
+  reusableQuestionPackageVersionBankScopes ReusableQuestionPackageVersionBankScope[]
 
   @@index([folderId])
   @@map("question_banks")
@@ -1351,6 +1370,7 @@ model QuestionBankFolder {
   parent    QuestionBankFolder?  @relation("QuestionBankFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
   children  QuestionBankFolder[] @relation("QuestionBankFolderTree")
   banks     QuestionBank[]
+  reusableQuestionPackageVersionFolderScopes ReusableQuestionPackageVersionFolderScope[]
   createdBy User                 @relation("QuestionBankFolderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy User                 @relation("QuestionBankFolderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
 
@@ -1369,6 +1389,7 @@ model QuestionBankCategory {
   createdBy User                         @relation("QuestionBankCategoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy User                         @relation("QuestionBankCategoryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
   banks     QuestionBankCategoryAssignment[]
+  reusableQuestionPackageVersionCategoryScopes ReusableQuestionPackageVersionCategoryScope[]
 
   @@index([name])
   @@map("question_bank_categories")
@@ -1636,6 +1657,7 @@ model ReusableQuestionPackage {
   description     String?       @db.Text
   sourceBankId    String        @map("source_bank_id") @db.Uuid
   subtestId       String        @map("subtest_id") @db.Uuid
+  mode            ReusableQuestionPackageMode @default(fixed_set)
   status          ContentStatus @default(draft)
   revision        Int           @default(1)
   createdByUserId String        @map("created_by_user_id") @db.Uuid
@@ -1649,8 +1671,10 @@ model ReusableQuestionPackage {
   updatedBy User                             @relation("ReusableQuestionPackageUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
   items     ReusableQuestionPackageItem[]
   versions  ReusableQuestionPackageVersion[]
+  assessmentReleasesByAssembly AssessmentRelease[] @relation("AssessmentReleaseAssemblyPackage")
 
   @@index([subtestId, status])
+  @@index([mode, status])
   @@map("reusable_question_packages")
 }
 
@@ -1678,7 +1702,11 @@ model ReusableQuestionPackageVersion {
   id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   packageId       String        @map("package_id") @db.Uuid
   sourceBankId    String        @map("source_bank_id") @db.Uuid
+  subtestId       String?       @map("subtest_id") @db.Uuid
   versionNo       Int           @map("version_no")
+  mode            ReusableQuestionPackageMode @default(fixed_set)
+  definitionDigest String?       @map("definition_digest") @db.VarChar(128)
+  provenance      ReusableQuestionPackageVersionProvenance @default(authored)
   status          ContentStatus @default(draft)
   readyAt         DateTime?     @map("ready_at") @db.Timestamptz
   createdByUserId String        @map("created_by_user_id") @db.Uuid
@@ -1686,14 +1714,80 @@ model ReusableQuestionPackageVersion {
 
   package        ReusableQuestionPackage              @relation(fields: [packageId], references: [id], onDelete: Restrict)
   sourceBank     QuestionBank                         @relation("ReusablePackageVersionSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
+  subtest        Subtest?                             @relation("ReusablePackageVersionSubtest", fields: [subtestId], references: [id], onDelete: Restrict)
   createdBy      User                                 @relation("ReusableQuestionPackageVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   items          ReusableQuestionPackageVersionItem[]
+  bankScopes     ReusableQuestionPackageVersionBankScope[]
+  folderScopes   ReusableQuestionPackageVersionFolderScope[]
+  categoryScopes ReusableQuestionPackageVersionCategoryScope[]
+  rule           ReusableQuestionPackageVersionRule?
   tryoutSections TryoutSection[]
   tryoutItems    TryoutItem[]
+  assessmentReleasesByAssembly AssessmentRelease[] @relation("AssessmentReleaseAssemblyPackageVersion")
 
   @@unique([packageId, versionNo])
   @@index([packageId, status])
+  @@index([subtestId, mode, status])
   @@map("reusable_question_package_versions")
+}
+
+/// Version-owned Bank scope. Multiple rows form a union; folder and category
+/// scope rows narrow that union without replacing the active Subtest rule.
+model ReusableQuestionPackageVersionBankScope {
+  packageVersionId String   @map("package_version_id") @db.Uuid
+  questionBankId   String   @map("question_bank_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  questionBank   QuestionBank                    @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
+
+  @@id([packageVersionId, questionBankId])
+  @@index([questionBankId, packageVersionId])
+  @@map("reusable_question_package_version_bank_scopes")
+}
+
+model ReusableQuestionPackageVersionFolderScope {
+  packageVersionId String   @map("package_version_id") @db.Uuid
+  folderId         String   @map("folder_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  folder        QuestionBankFolder              @relation(fields: [folderId], references: [id], onDelete: Restrict)
+
+  @@id([packageVersionId, folderId])
+  @@index([folderId, packageVersionId])
+  @@map("reusable_question_package_version_folder_scopes")
+}
+
+model ReusableQuestionPackageVersionCategoryScope {
+  packageVersionId String   @map("package_version_id") @db.Uuid
+  categoryId       String   @map("category_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  category      QuestionBankCategory            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([packageVersionId, categoryId])
+  @@index([categoryId, packageVersionId])
+  @@map("reusable_question_package_version_category_scopes")
+}
+
+/// A mode-specific rule. Pool/CAT use requestedCount as the draw/delivery
+/// count; Blueprint uses it as the total and requires the exact difficulty
+/// quota sum. Fixed Sets do not need a rule row.
+model ReusableQuestionPackageVersionRule {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageVersionId String   @unique @map("package_version_id") @db.Uuid
+  requestedCount   Int      @map("requested_count")
+  easyCount        Int      @default(0) @map("easy_count")
+  mediumCount      Int      @default(0) @map("medium_count")
+  hardCount        Int      @default(0) @map("hard_count")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+
+  @@index([requestedCount])
+  @@map("reusable_question_package_version_rules")
 }
 
 model ReusableQuestionPackageVersionItem {
@@ -1787,11 +1881,25 @@ model AssessmentRelease {
   releaseNumber   Int      @map("release_number")
   contentDigest   String   @map("content_digest") @db.VarChar(128)
   payload         Json     @db.JsonB
+  assemblyMode    ReusableQuestionPackageMode? @map("assembly_mode")
+  assemblyPackageId String? @map("assembly_package_id") @db.Uuid
+  assemblyPackageVersionId String? @map("assembly_package_version_id") @db.Uuid
+  resolverVersion String? @map("resolver_version") @db.VarChar(120)
+  assemblySeed    String? @map("assembly_seed") @db.VarChar(128)
+  assemblyRequestedCount Int? @map("assembly_requested_count")
+  assemblyCandidateCount Int? @map("assembly_candidate_count")
+  assemblyQuotas Json? @map("assembly_quotas") @db.JsonB
+  assemblyScopeSummary Json? @map("assembly_scope_summary") @db.JsonB
+  assemblyResolvedSourceIds Json? @map("assembly_resolved_source_ids") @db.JsonB
+  assemblyResolvedRevisionDigests Json? @map("assembly_resolved_revision_digests") @db.JsonB
+  assemblyCatCalibration Json? @map("assembly_cat_calibration") @db.JsonB
   publishedAt     DateTime @map("published_at") @db.Timestamptz
   createdByUserId String   @map("created_by_user_id") @db.Uuid
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   tryout          TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  assemblyPackage ReusableQuestionPackage?   @relation("AssessmentReleaseAssemblyPackage", fields: [assemblyPackageId], references: [id], onDelete: Restrict)
+  assemblyPackageVersion ReusableQuestionPackageVersion? @relation("AssessmentReleaseAssemblyPackageVersion", fields: [assemblyPackageVersionId], references: [id], onDelete: Restrict)
   createdBy       User                       @relation("AssessmentReleaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   deliverySessions TryoutDeliverySession[]
   attempts        TryoutAttempt[]
@@ -1799,6 +1907,8 @@ model AssessmentRelease {
 
   @@unique([tryoutId, releaseNumber])
   @@unique([tryoutId, contentDigest])
+  @@index([assemblyPackageId])
+  @@index([assemblyPackageVersionId])
   @@index([tryoutId, createdAt])
   @@map("assessment_releases")
 }
