@@ -3,8 +3,8 @@
 ## Current State
 
 **Last Updated:** 2026-08-23
-**Session ID:** assessment-as06-e2e-closeout
-**Active Feature:** Deferred Kuis assembly binding
+**Session ID:** assessment-as07-realtime-hardening
+**Active Feature:** AS-07 realtime/polling hardening
 
 ## Status
 
@@ -125,8 +125,35 @@
     database after the migration backfill trigger fix, reseeded the fixture,
     passed `db:verify-demo`, and completed authenticated ego-browser desktop/
     mobile QA for attach, preview, save, Review, and Publish gating.
-  - Kuis assembly binding is explicitly deferred to the schema-backed follow-up
-    ticket; existing Kuis direct/fixed paths remain unchanged.
+  - At the time of Ticket 7 this section intentionally left Kuis assembly
+    deferred; that follow-up is now complete in the closeout below.
+
+- [x] AS-06 durable Kuis assembly binding (`047d5d7`, `331b7c7`, `4791020`,
+  `a892ec4`, `394e240`)
+  - Added durable `StandaloneQuiz` assembly mode, package-version identity,
+    definition digest, and deterministic seed fields with migrations
+    `20260823100000_add_standalone_quiz_assembly_binding` and
+    `20260823110000_pin_kuis_assembly_version_identity`; both are applied to
+    the authorized development database and migration status is current.
+  - Server-owned Set/Pool/Blueprint attachment revalidates Ready identity,
+    source revision/digest/provenance, Bank/Subtest scope, content/options,
+    media, and canonical definition digest. CAT Pool, multi-Bank, wrong
+    Subtest, forged direct-plus-assembly, and invalid legacy rows fail closed.
+  - Fixed Sets use immutable version-item snapshots, so normal source edits do
+    not invalidate a pinned Ready revision; package draft identity edits do
+    not break the published version boundary. Reload, save, bulk publish,
+    attach, and persisted detach preserve the binding contract.
+  - Saved-quiz detach updates the server first, retains canonical materialized
+    items, and preserves unrelated unsaved editor changes; clean editors stay
+    clean. Existing direct/fixed Kuis behavior remains compatible.
+  - `pnpm test:kuis-assembly-binding`, related assembly/direct/release
+    contracts, Prisma validate/migrate status, TypeScript, focused ESLint,
+    diff-check, and `pnpm verify` pass. Authenticated ego-browser QA covered
+    Ready Pool attach, reload, detach, direct recovery, mobile 390px layout,
+    and dirty-state preservation. Impeccable detector `[]`; final review PASS:
+    `reviews/as06-kuis-assembly-binding-final-review-394e240-20260823`.
+  - The broad `test:assessment-release-invariants` baseline remains blocked
+    only by the preserved unrelated admin-preview dirty source.
 
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
@@ -202,21 +229,21 @@
   provides the required student selector. This remains a separate UI slice,
   not a missing AS-04 server invariant.
 
-- [ ] Deferred Kuis assembly binding
-  - Durable Kuis Set/Pool/Blueprint attachment is the next implementation
-    slice. The boundary must persist assembly mode/package/version identity,
-    preserve reload/detach/republish semantics, and reject CAT Pool/Kuis
-    combinations server-side.
-  - AS-07 realtime/polling hardening remains later; AS-08 QuestionRevision
-    lifecycle remains implemented and should not be reopened without a defect.
+- [ ] AS-07 realtime/polling hardening
+  - Add authoritative disconnect-start/reconcile writers, idempotent audit
+    locking, and persisted deadline-expiry synchronization for live runs.
+  - Add safe polling/read-refresh boundaries without client-side inference,
+    while preserving human-review-only integrity signals and release/result
+    sanitization. AS-08 remains closed unless a new defect appears.
 
 ### What's Next
 
-1. Implement the deferred Kuis assembly binding boundary: persisted
-   mode/package/version identity, reload/detach/republish revalidation, and
-   CAT Pool rejection. This is prioritized over AS-07 realtime hardening.
-2. Keep AS-07 realtime/polling hardening as a later enhancement; the initial
-   snapshot-on-load Live projection is accepted for this slice.
+1. Implement AS-07 realtime/polling hardening: authoritative disconnect/
+   reconcile transitions, deadline-expiry synchronization, and bounded Live
+   refresh/polling.
+2. Run focused contracts, full verification, authenticated ego-browser
+   desktop/390px QA, and the Impeccable UI pass, then request independent
+   review.
 3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
    already implemented under AS-02 unless a new defect is found.
 
@@ -397,14 +424,12 @@ the fresh final finish-review PASS against `72b95e9` recorded at
 `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
 
 AS-06 Pool-first authoring is approved; Tickets 2–5 are complete. Ticket 2 is
-committed as `4f2dbd0` and the forward-only migration has been replayed through
-all 31 migrations in an isolated local PostgreSQL instance, but it has not been
-deployed to the configured database. Tickets 3–5 are committed as `9a1e306`,
-`5311eda`/`2e0915c`, and `347cc37`/`e4bb17c`/`1ef8e85`. The next implementation
-session should start Ticket 6: Kuis/Tryout assembly attachment and Review
-wiring. Preserve the unrelated dirty admin-preview files. (Ticket 6 and the
-Tryout-only narrowed boundary are now complete; Kuis binding remains the
-follow-up described above.)
+committed as `4f2dbd0`; Tickets 3–5 are `9a1e306`, `5311eda`/`2e0915c`, and
+`347cc37`/`e4bb17c`/`1ef8e85`. Ticket 6/7 Tryout attachment and E2E are
+complete, and the durable Kuis binding follow-up is now complete at
+`047d5d7`/`331b7c7`/`4791020`/`a892ec4`/`394e240`. Migrations 32 and 33 are
+applied to the authorized development database. Preserve the unrelated dirty
+admin-preview files.
 
 AS-07 is complete at `ea0d296` + `d437043` + `6fd1794`; final review PASS is
 recorded at `reviews/as07-live-delivery-result-workspaces-final-fixup-review-
@@ -412,5 +437,7 @@ recorded at `reviews/as07-live-delivery-result-workspaces-final-fixup-review-
 `reviews/as07-live-delivery-result-workspaces-impeccable-audit-20260823`.
 The development server QA used the seeded published Tryout
 `90c28688-58ab-401c-9f1c-3cb961f33c33`; do not treat that fixture as a new
-production seed. The next slice is durable Kuis assembly binding, with AS-07
-realtime/polling hardening intentionally later.
+production seed. The current next slice is AS-07 realtime/polling hardening
+under `artifacts/tickets/as07-realtime-hardening`: authoritative
+disconnect/reconcile writers, deadline-expiry synchronization, and bounded
+Live refresh/polling. AS-08 remains closed.

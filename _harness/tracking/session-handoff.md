@@ -1,5 +1,36 @@
 # Session Handoff
 
+## Current AS-06 Kuis closeout / AS-07 realtime pickup (2026-08-23)
+
+- AS-06 durable Kuis assembly binding is complete at `047d5d7`, `331b7c7`,
+  `4791020`, `a892ec4`, and `394e240`. The final independent review is PASS:
+  `artifacts/reviews/as06-kuis-assembly-binding-final-review-394e240-20260823`.
+- Prisma migrations
+  `20260823100000_add_standalone_quiz_assembly_binding` and
+  `20260823110000_pin_kuis_assembly_version_identity` are applied to the
+  authorized development database; `prisma migrate status` is current.
+  Set/Pool/Blueprint bindings are durable and server-owned; CAT Pool,
+  multi-Bank, wrong-Subtest, stale revision/digest, forged direct-plus-
+  assembly, and invalid legacy rows are rejected or hidden. Fixed Sets use
+  immutable version snapshots, including through package draft edits.
+- Persisted detach updates the server before clearing local state, retains
+  materialized canonical items, and preserves unrelated unsaved editor edits.
+  Direct/fixed Kuis behavior remains compatible. Focused contracts, Prisma
+  validation, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass.
+- Authenticated ego-browser QA covered Ready Pool attach, reload, detach,
+  direct-picker recovery, mobile 390px layout, and dirty-state preservation.
+  Impeccable detector returned `[]`; the post-detach audit found no P0/P1
+  issue. The broad AssessmentRelease invariant remains a known baseline
+  failure caused by the preserved dirty `lib/admin/student-preview-tryout.ts`.
+- Preserve the three unrelated dirty files exactly:
+  `lib/admin/student-preview-tryout.ts`,
+  `prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql`,
+  and `scripts/test-admin-student-preview-tryout.ts`.
+- Next slice: AS-07 realtime/polling hardening. Add server-authoritative
+  disconnect-start/reconcile writers, idempotent audit locking, persisted
+  deadline-expiry synchronization, and safe Live polling/read refresh. Keep
+  focus/fullscreen human-review-only and do not reopen AS-08.
+
 ## Current AS-07 closeout / Kuis assembly pickup (2026-08-23)
 
 - AS-07 is complete at `ea0d296` + `d437043` + `6fd1794`. The final review

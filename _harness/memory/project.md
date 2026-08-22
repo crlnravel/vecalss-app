@@ -34,6 +34,33 @@ Store only settled decisions, conventions, and important context that emerged du
 - Kuis and Tryout preview surfaces use explicit recursive allowlists; Tryout restart uses a fixed safe retake policy, transaction-scoped advisory locks, an idempotency row keyed by preview student + request ID, and supersedes the prior current assignment without creating attempts.
 - Banner editing is available only at the admin preview route, uses the CodeMirror editor with hidden form values, and keeps draft/admin-preview/published loaders and revalidation paths separate.
 
+## Current AS-06 Kuis binding and AS-07 pickup (2026-08-23)
+
+- Durable Kuis assembly binding is complete in `047d5d7`, `331b7c7`,
+  `4791020`, `a892ec4`, and `394e240`, with final independent review PASS.
+- StandaloneQuiz persists assembly mode, Ready package-version identity,
+  definition digest, and deterministic seed. Migrations 32 and 33
+  (`20260823100000_add_standalone_quiz_assembly_binding` and
+  `20260823110000_pin_kuis_assembly_version_identity`) are applied in the
+  authorized development database. Version-owned identity is authoritative;
+  package draft edits must not invalidate an existing pinned version.
+- Kuis accepts only one-Bank/one-Subtest Set, Pool, and Blueprint assemblies.
+  CAT Pool, multi-Bank, wrong-Subtest, stale revision/digest, invalid
+  content/media, forged direct-plus-assembly, and invalid legacy rows fail
+  closed. Fixed Sets use immutable version-item snapshots; Pool/Blueprint
+  retain server-owned Ready validation and persisted identity.
+- Persisted detach must call the server first, update the saved quiz from the
+  response, preserve canonical materialized items, and retain any unrelated
+  unsaved editor changes. Existing direct/fixed Kuis routes remain compatible.
+- Protected dirty files are never staged: admin preview source, the unrelated
+  admin-preview migration, and its contract script. The broad
+  `test:assessment-release-invariants` failure caused by that source is a
+  known baseline, not an AS-06 regression.
+- Next implementation slice is AS-07 realtime/polling hardening: authoritative
+  disconnect/reconcile writers, idempotent audit locking, deadline-expiry
+  synchronization, and safe Live polling/read refresh. Focus/fullscreen remain
+  human-review-only; AS-08 stays closed.
+
 ## Assessment state normalization
 
 - AS-03 keeps canonical StandaloneQuiz and Tryout attempt, scoring, and release

@@ -133,8 +133,16 @@
       "name": "Durable Kuis Assembly Binding",
       "description": "Persist Set/Pool/Blueprint assembly identity on StandaloneQuiz with server-owned Ready revision validation and CAT Pool rejection",
       "dependencies": ["feat-016"],
+      "status": "complete",
+      "evidence": "047d5d7 + 331b7c7 + 4791020 + a892ec4 + 394e240; Prisma migrations 20260823100000_add_standalone_quiz_assembly_binding and 20260823110000_pin_kuis_assembly_version_identity applied to the authorized development database; durable Set/Pool/Blueprint identity, version-owned lifecycle checks, immutable fixed-set snapshots, CAT/multi-Bank/wrong-Subtest/stale revision-digest rejection, server-persisted detach with dirty-editor preservation, direct/fixed compatibility, Kuis contract, TypeScript, focused ESLint, Prisma validate/migrate status, diff-check, pnpm verify, authenticated ego-browser desktop/mobile QA, Impeccable detector [], and final independent review PASS at artifacts/reviews/as06-kuis-assembly-binding-final-review-394e240-20260823; protected admin-preview files preserved; broad assessment-release invariant remains a known unrelated baseline failure"
+    },
+    {
+      "id": "feat-018",
+      "name": "AS-07 Realtime Delivery State Hardening",
+      "description": "Add authoritative disconnect/reconcile transitions, deadline-expiry synchronization, and bounded Live refresh/polling without changing scoring or release semantics",
+      "dependencies": ["feat-017"],
       "status": "in-progress",
-      "evidence": "Ticket artifact artifacts/tickets/as06-kuis-assembly-binding; selected immediately after AS-07 final review/E2E; implementation agent dispatched; preserve direct/fixed Kuis behavior and protected admin-preview edits"
+      "evidence": "Ticket artifact artifacts/tickets/as07-realtime-hardening; dispatched after AS-06 Kuis final review PASS; preserve AS-07 release/sanitization boundaries, AS-08 closure, and protected admin-preview edits"
     }
   ]
 }
