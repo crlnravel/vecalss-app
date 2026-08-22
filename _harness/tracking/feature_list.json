@@ -79,6 +79,14 @@
       "dependencies": ["feat-009"],
       "status": "complete",
       "evidence": "9e0fafe + 61abfbb + c8a6d05; direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, git diff --check, and Impeccable detector; no migration required; independent finish review PASS on recheck"
+    },
+    {
+      "id": "feat-011",
+      "name": "AS-06 Random Assembly Schema Boundaries",
+      "description": "Add durable Pool, Blueprint, and CAT Pool assembly modes, version-owned definitions, release provenance, and immutable Ready revision guards",
+      "dependencies": ["feat-010"],
+      "status": "complete",
+      "evidence": "4f2dbd0; forward-only 20260822130000_add_random_assembly_schema migration with fixed-Set backfill, derived legacy provenance, normalized scopes/rules, Ready metadata digest transition, release readiness/provenance guards, static contract, opt-in disposable PostgreSQL contract, 31-migration replay, Prisma validate/generate, TypeScript, focused ESLint, diff-check, and pnpm verify; migration not deployed to configured database"
     }
   ]
 }

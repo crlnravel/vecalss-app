@@ -43,7 +43,14 @@
     edit access, and AssessmentRelease-owned resolution/provenance snapshots.
   - Core flow: `artifacts/as06-random-assembly-core-flow`.
   - Technical plan: `artifacts/as06-random-assembly-technical-plan`.
-  - No application, schema, migration, or database changes were made.
+  - Pool-first mock flow was approved and implemented in `8deaad7`; schema
+    Ticket 2 is now complete in `4f2dbd0` with no configured-database deploy.
+  - The forward migration adds mode/provenance metadata, version-owned scope
+    and rule tables, AssessmentRelease assembly provenance, Ready transition
+    metadata, and database immutability/readiness guards.
+  - The migration replays cleanly through all 31 migrations on an isolated
+    local PostgreSQL instance; legacy provenance is derived conservatively and
+    existing fixed Sets remain the compatibility path.
 
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
@@ -111,10 +118,10 @@
 
 ### What's Next
 
-1. Break the approved random assembly plan into implementation tickets, then
-   validate the authoring UI flow before adding schema or server logic.
-2. Keep the pre-migration dump available for rollback investigation; do not
-   reset or reseed the configured database without explicit approval.
+1. Implement AS-06 Ticket 3: the assembly repository, creator/shared-read
+   access, Ready revision commands, and read-only Pool/Blueprint preview.
+2. Keep the new migration unapplied to the configured database until an
+   explicit deployment/rollback decision is made; do not reset or reseed it.
 
 ### AS-09 Browser QA
 
@@ -188,6 +195,14 @@ seeded Tryout attempts and 0 in-progress attempts.
 - `scripts/test-tryout-authoring-workspace.ts` - Focused AS-05 contract checks.
 - `package.json` - Focused AS-05 test script.
 
+- `prisma/schema.prisma` - Random assembly modes, scopes, rules, revision
+  metadata, and AssessmentRelease assembly fields.
+- `prisma/migrations/20260822130000_add_random_assembly_schema/migration.sql`
+  - Forward-only schema/backfill and database guard functions/triggers.
+- `scripts/test-random-assembly-schema.ts` - Static schema contract.
+- `scripts/test-random-assembly-schema-db.ts` - Opt-in disposable local DB
+  contract for migration guards.
+
 - `lib/tryout/participant-view.ts` - Canonical mentor participant projection.
 - `lib/tryout/delivery-repository.ts` - Atomic admission, assignment, and revoke transitions.
 - `lib/tryout/operations-view.ts` - Owner-scoped operations serialization.
@@ -210,6 +225,13 @@ seeded Tryout attempts and 0 in-progress attempts.
 - [x] Authenticated ego-browser desktop/mobile QA and interaction checks.
 - [x] Fresh AS-05 final review: PASS against `72b95e9`; artifact recorded at
   `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
+- [x] AS-06 schema contract: `pnpm test:random-assembly-schema`.
+- [x] AS-06 isolated DB contract: `pnpm test:random-assembly-schema-db` against
+  a disposable local PostgreSQL database after replaying all 31 migrations.
+- [x] AS-06 schema/release regression contracts, Prisma validate/generate,
+  TypeScript, focused ESLint, diff-check, and `pnpm verify` passed; the schema
+  commit is `4f2dbd0` and the configured database remains at its prior 30
+  applied migrations.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.
@@ -232,8 +254,10 @@ covered by focused contracts, full verification, authenticated browser QA, and
 the fresh final finish-review PASS against `72b95e9` recorded at
 `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
 
-AS-06 random assembly planning is complete with no application or database
-changes. The Core Flow and technical plan artifacts settle Pool, Blueprint,
-CAT Pool, revision, access, and release-resolution boundaries. The next
-implementation session should break that plan into tickets and start with the
-authoring UI/mock-flow confirmation.
+AS-06 Pool-first authoring is approved and AS-06 Ticket 2 is committed as
+`4f2dbd0` (`feat: add random assembly schema boundaries`). The migration is
+forward-only and has been replayed through all 31 migrations in an isolated
+local PostgreSQL instance, but it has not been deployed to the configured
+database. The next implementation session should start Ticket 3: repository
+commands, creator/shared-read authorization, Ready revisions, and read-only
+Pool/Blueprint preview.

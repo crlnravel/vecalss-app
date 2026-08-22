@@ -1,6 +1,34 @@
 # Session Handoff
 
-## Current AS-06 Random Assembly Planning Handoff (2026-08-22)
+## Current AS-06 Schema Handoff (2026-08-22)
+
+- Objective: continue the approved Pool-first flow into the random
+  Pool/Blueprint/CAT assembly schema and immutable Ready revision boundary.
+- Pool-first mock flow is approved and committed in `8deaad7`.
+- Schema Ticket 2 is complete in `4f2dbd0` (`feat: add random assembly schema
+  boundaries`). It adds the four assembly modes, conservative legacy
+  provenance backfill, normalized Bank/folder/category scopes, quota rules,
+  Ready metadata/digest transition guards, and AssessmentRelease assembly
+  provenance fields.
+- Database guards cover non-empty non-fixed scope, exact Blueprint quotas,
+  fixed-mode child restrictions, old/new-parent Ready immutability, published
+  revision release gating, package/version mode at Ready, and mode-specific
+  Pool/Blueprint/CAT release provenance.
+- `scripts/test-random-assembly-schema-db.ts` is an opt-in contract. Set
+  `RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL` to a disposable local database;
+  it rejects use of the configured `DATABASE_URL` and does not run migrations.
+- Verification: fresh replay of all 31 migrations in isolated PostgreSQL,
+  static and DB schema contracts, package/release/AssessmentRelease/direct/
+  Tryout/Pool contracts, Prisma validate/generate, TypeScript, focused ESLint,
+  diff-check, and `pnpm verify` all pass. Lint remains at 0 errors with 459
+  baseline warnings; production build completes.
+- The migration is not deployed to the configured database; the configured
+  database remains at its prior 30 applied migrations.
+- Next: implement Ticket 3 repository commands, creator/shared-read access,
+  Ready revision creation, and read-only Pool/Blueprint preview. Resolver
+  algorithms and release integration remain later tickets.
+
+### Planning record
 
 - Objective: settle the product and persistence boundaries for random Pool,
   Blueprint, and CAT Pool assembly after the completed direct-pick/fixed-Set
@@ -27,13 +55,11 @@
   - `artifacts/as06-random-assembly-core-flow`
   - `artifacts/as06-random-assembly-technical-plan`
   - follow-up recorded in `artifacts/as06-direct-question-picks`
-- Verification: planning-only pass; no application, schema, migration, or
-  database changes were made. Existing AS-06 direct, AS-05 workspace, package,
-  release, TypeScript, ESLint, `pnpm verify`, and finish-review checks remain
-  green from the prior implementation handoff.
-- Recommended pickup: run ticket breakdown for the approved plan, beginning
-  with the authoring UI/mock-flow gate; do not add schema before that UX
-  confirmation.
+- Verification: the planning pass preceded the approved Pool-first mock flow
+  and schema implementation. Its boundaries are now represented by the
+  committed Ticket 2 migration and the ticket artifacts.
+- The planning gate was satisfied; the next pickup is Ticket 3 repository and
+  preview work.
 
 ## Current AS-06 Handoff (2026-08-22)
 

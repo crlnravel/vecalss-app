@@ -151,3 +151,30 @@ Store only settled decisions, conventions, and important context that emerged du
   verification, Impeccable detector, and authenticated 390/900px browser QA
   pass. The fresh final review against `72b95e9` passed; its artifact is
   `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
+
+## AS-06 random assembly schema boundary
+
+- Pool-first authoring was approved after the side-effect-free UI/mock gate;
+  the schema ticket is committed as `4f2dbd0`.
+- `ReusableQuestionPackageMode` supports `fixed_set`, `random_pool`,
+  `blueprint`, and `cat_pool`. Existing package/version rows remain fixed Sets;
+  legacy version provenance is derived from source revision identity/digest
+  proof rather than upgraded unconditionally.
+- Version-owned Bank/folder/category scope rows and one exact quota rule row
+  define non-fixed revisions. Fixed Sets retain their existing item snapshots
+  and compatibility source-Bank projection; Blueprint does not require item
+  membership at schema level.
+- Ready transition triggers fill the compatible Subtest and stable definition
+  digest for the existing fixed-Set writer, enforce package/version mode at the
+  Ready boundary, and extend child immutability to both old and new parents.
+- AssessmentRelease assembly metadata is tied to a published version and
+  checks mode-specific Pool/Blueprint/CAT seed, candidate, resolution, quota,
+  scope, and calibration presence/cardinality. Direct releases remain the
+  nullable no-assembly path.
+- Migration validation uses isolated local PostgreSQL only. The opt-in DB
+  contract is `pnpm test:random-assembly-schema-db` with
+  `RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL`; it rejects the configured
+  `DATABASE_URL`. The configured database has not received migration 31.
+- Ticket 3 owns repository commands, creator/shared-read authorization, Ready
+  revision creation, and read-only preview; resolver/release integration is
+  later work.
