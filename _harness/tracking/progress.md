@@ -10,7 +10,7 @@
 
 ### What's Done
 
-- [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`)
+- [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
     Basics, Sections, Questions, Rules, Schedule & akses, Results, Review,
     and Publish.
@@ -164,8 +164,9 @@ seeded Tryout attempts and 0 in-progress attempts.
 ## Notes for Next Session
 
 AS-05 implementation is committed as `1ea7b3d` (`feat: consolidate tryout
-authoring workspace`), tablet containment as `c22ecb2`, and finish-review fixes
-as `17a9d53` (`fix: close AS-05 workspace review gaps`). AS-04 remains `ae64528`; AS-03 is `cb1eb8f` with
+ authoring workspace`), tablet containment as `c22ecb2`, finish-review fixes
+as `17a9d53` (`fix: close AS-05 workspace review gaps`), and the explicit
+draft-save regression guard as `a1bca11`. AS-04 remains `ae64528`; AS-03 is `cb1eb8f` with
 hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility
 fix. All 30 migrations are applied and the configured database was intentionally
 reset/reseeded after explicit approval; preserve unrelated preview/harness/

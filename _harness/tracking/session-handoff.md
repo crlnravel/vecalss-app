@@ -6,9 +6,10 @@
   workspace with Basics, Sections, Questions, Rules, Schedule & akses, Results,
   Review, and Publish areas.
 - Implementation commits: `1ea7b3d` (`feat: consolidate tryout authoring
-  workspace`), `c22ecb2` (tablet containment), and `17a9d53` (`fix: close
-  AS-05 workspace review gaps`). No schema or migration change was needed; all
-  30 migrations are applied.
+  workspace`), `c22ecb2` (tablet containment), `17a9d53` (`fix: close AS-05
+  workspace review gaps`), and `a1bca11` (no-argument draft-save regression
+  guard). No schema or migration change was needed; all 30 migrations are
+  applied.
 - Builder behavior: the workspace keeps the seven fixed subject sections,
   CBT/CAT constraints, local draft state while switching tabs, the durable
   AssessmentRelease notice, explicit draft save versus publish, locked release
