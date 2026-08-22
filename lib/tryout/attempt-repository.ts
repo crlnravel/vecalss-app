@@ -563,28 +563,41 @@ async function synchronizeAttempt(
 
 async function synchronizeTryoutOperations(tryoutId: string, actorId: string) {
   const now = new Date();
-  return prisma.$transaction(async (tx) => {
-    const ownedTryout = await tx.tryoutPackage.findFirst({
-      select: { id: true },
-      where: { createdByUserId: actorId, id: tryoutId },
-    });
-    if (!ownedTryout) return false;
-    const candidates = await tx.tryoutAttempt.findMany({
-      orderBy: { id: "asc" },
-      select: { id: true },
-      where: {
-        status: AttemptStatus.in_progress,
-        tryoutId,
-        OR: [
-          { serverDeadlineAt: { lte: now } },
-          { deliverySession: { availableUntil: { lte: now } } },
-          { runs: { some: { serverDeadlineAt: { lte: now }, status: TryoutAttemptTestRunStatus.active } } },
-        ],
-      },
-    });
-    for (const candidate of candidates) await synchronizeAttempt(tx, candidate.id, now, actorId);
-    return true;
+  const ownedTryout = await prisma.tryoutPackage.findFirst({
+    select: { id: true },
+    where: { createdByUserId: actorId, id: tryoutId },
   });
+  if (!ownedTryout) return false;
+  const candidates = await prisma.tryoutAttempt.findMany({
+    orderBy: { id: "asc" },
+    select: { id: true },
+    where: {
+      status: AttemptStatus.in_progress,
+      tryoutId,
+      OR: [
+        { serverDeadlineAt: { lte: now } },
+        { deliverySession: { availableUntil: { lte: now } } },
+        { runs: { some: { serverDeadlineAt: { lte: now }, status: TryoutAttemptTestRunStatus.active } } },
+      ],
+    },
+  });
+  for (const candidate of candidates) {
+    // Keep each candidate scope in its own short transaction. A single
+    // refresh transaction would retain student/session/Tryout locks from A
+    // while waiting for B, which can deadlock against participant commands
+    // that acquire B before an overlapping session row.
+    const synchronized = await prisma.$transaction(async (tx) => {
+      const currentOwner = await tx.tryoutPackage.findFirst({
+        select: { id: true },
+        where: { createdByUserId: actorId, id: tryoutId },
+      });
+      if (!currentOwner) return false;
+      await synchronizeAttempt(tx, candidate.id, now, actorId);
+      return true;
+    });
+    if (!synchronized) return false;
+  }
+  return true;
 }
 
 type DisconnectCommandResult = {

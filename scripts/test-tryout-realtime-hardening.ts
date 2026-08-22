@@ -30,6 +30,16 @@ assert.match(attemptRepository, /after: json\(\{ attemptId, disconnectStartedAt:
 assert.match(attemptRepository, /origin\.runId !== runId/u);
 assert.match(attemptRepository, /isManagedPreviewPurpose/u);
 assert.match(attemptRepository, /assignment\.status !== TryoutAssignmentStatus\.active/u);
+const operationsSync = attemptRepository.slice(
+  attemptRepository.indexOf("async function synchronizeTryoutOperations"),
+  attemptRepository.indexOf("type DisconnectCommandResult"),
+);
+assert.match(operationsSync, /const candidates = await prisma\.tryoutAttempt\.findMany/u);
+assert.match(operationsSync, /for \(const candidate of candidates\) \{/u);
+assert.match(operationsSync, /const synchronized = await prisma\.\$transaction\(async \(tx\) =>/u);
+assert.match(operationsSync, /synchronizeAttempt\(tx, candidate\.id, now, actorId\)/u);
+assert.match(operationsSync, /if \(!synchronized\) return false/u);
+assert.doesNotMatch(operationsSync, /return prisma\.\$transaction\(async \(tx\) => \{[\s\S]*const candidates/u, "refresh must not retain candidate locks across the candidate loop");
 
 assert.match(operationsView, /synchronizeTryoutOperations\(tryoutId, actorId\)/u);
 assert.match(operationsView, /if \(!synchronized\) return null/u);
