@@ -7,13 +7,15 @@ import {
   assertAssemblyAttachmentCompatibility,
 } from "../lib/tryout/assembly-validation";
 
-const [repository, actions, builder, createPage, editPage, tryoutRepository] = await Promise.all([
+const [repository, actions, builder, createPage, editPage, tryoutRepository, release, sourceRepository] = await Promise.all([
   readFile(new URL("../lib/tryout/assembly-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/assembly-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/create/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/repository.ts", import.meta.url), "utf8"),
+  readFile(new URL("../lib/tryout/assessment-release.ts", import.meta.url), "utf8"),
+  readFile(new URL("../lib/question-bank/repository.ts", import.meta.url), "utf8"),
 ]);
 
 for (const mode of ["fixed_set", "random_pool", "blueprint", "cat_pool"] as const) {
@@ -50,6 +52,17 @@ assert.throws(
     subtestCode: "PU",
     target: "tryout",
     targetTestType: "cbt",
+    targetSubtestCode: "PU",
+  }),
+  (error: unknown) => error instanceof AssemblyValidationError && error.code === "invalid_mode",
+);
+assert.throws(
+  () => assertAssemblyAttachmentCompatibility({
+    bankIds: ["bank-1"],
+    mode: "fixed_set",
+    subtestCode: "PU",
+    target: "tryout",
+    targetTestType: "cat",
     targetSubtestCode: "PU",
   }),
   (error: unknown) => error instanceof AssemblyValidationError && error.code === "invalid_mode",
@@ -103,13 +116,19 @@ assert.match(editPage, /listReadyAssemblyRevisions/u);
 assert.match(editPage, /readyAssemblies=\{readyAssemblies\}/u);
 
 assert.match(tryoutRepository, /sectionInput\.packageVersionId && \(!version \|\| version\.status !== ContentStatus\.published/u);
-assert.match(tryoutRepository, /version\.package\.subtest\.code !== sectionInput\.subtest/u);
+assert.match(tryoutRepository, /version\.subtestId !== subtest\.id/u);
 assert.match(tryoutRepository, /if \(version && directSelections\.length\)/u);
 assert.match(tryoutRepository, /Number\.isFinite\(Number\(calibration\.difficulty\)\)/u);
 assert.match(tryoutRepository, /Number\(calibration\.discrimination\) <= 0/u);
+assert.match(tryoutRepository, /version\.subtestId !== subtest\.id/u, "save must compare the immutable version Subtest identity");
+assert.match(tryoutRepository, /version\.mode === ReusableQuestionPackageMode\.cat_pool\) !== \(sectionInput\.testType === "cat"\)/u, "save must reject forged assembly/Test type combinations");
+assert.match(sourceRepository, /Number\.isFinite\(Number\(calibration\.difficulty\)\)/u, "direct Question DTO must expose numeric CAT readiness parity");
+assert.match(sourceRepository, /Number\(calibration\.discrimination\) > 0/u, "direct Question DTO must require positive discrimination");
 
-const release = await readFile(new URL("../lib/tryout/assessment-release.ts", import.meta.url), "utf8");
 assert.match(release, /version\.package\.status === ContentStatus\.archived/u);
 assert.doesNotMatch(release, /version\.package\.status !== ContentStatus\.published/u);
+assert.match(release, /subtestId: true/u, "release eligibility must load immutable version Subtest identity");
+assert.match(release, /section\.packageVersion\.subtestId !== section\.subtestId/u, "release eligibility must reject legacy Subtest mismatches");
+assert.match(release, /!modeMatchesTestType/u, "release eligibility must reject forged fixed Set/CAT combinations");
 
 console.log("Tryout assembly attachment contract passed.");

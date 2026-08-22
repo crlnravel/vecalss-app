@@ -587,7 +587,7 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
   const records = await prisma.question.findMany({ where: { id: { in: ids } }, include: sourceQuestionInclude });
   const revisionIds = records.flatMap((record) => record.currentRevision?.id ? [record.currentRevision.id] : []);
   const calibrations = revisionIds.length
-    ? await prisma.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } })
+    ? await prisma.twoPlQuestionCalibration.findMany({ where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION, questionRevisionId: { in: revisionIds } }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, questionRevisionId: true, sourceRevisionProvenance: true } })
     : [];
   const calibrationByRevision = new Map(calibrations.map((calibration) => [calibration.questionRevisionId, calibration]));
   const recordById = new Map(records.map((record) => [record.id, record]));
@@ -599,7 +599,14 @@ async function listQuestionBankSourceQuestions(bankId: string, options: { page?:
       const record = recordById.get(id);
       const revision = record?.currentRevision;
       const calibration = revision ? calibrationByRevision.get(revision.id) : undefined;
-      const catReady = Boolean(revision && calibration && calibration.questionId === record?.id && calibration.contentDigest === revision.contentDigest && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
+      const catReady = Boolean(revision
+        && calibration
+        && calibration.questionId === record?.id
+        && calibration.contentDigest === revision.contentDigest
+        && Number.isFinite(Number(calibration.difficulty))
+        && Number.isFinite(Number(calibration.discrimination))
+        && Number(calibration.discrimination) > 0
+        && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown);
       return record ? [toBankQuestionDto(record as SourceQuestionRecord, bankId, catReady)] : [];
     }),
     total: rows[0]?.total ?? 0,

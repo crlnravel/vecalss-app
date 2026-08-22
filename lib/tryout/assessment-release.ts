@@ -1334,6 +1334,7 @@ async function assertTryoutReleaseEligibility(
           packageVersion: {
             select: {
               mode: true,
+              subtestId: true,
               items: {
                 select: {
                   packageVersionId: true,
@@ -1357,9 +1358,14 @@ async function assertTryoutReleaseEligibility(
       const seededAssembly = section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
         || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint
         || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool;
+      const modeMatchesTestType = section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool
+        ? section.testType === "cat"
+        : section.testType === "cbt";
       return section.packageVersion?.status !== ContentStatus.published
+        || section.packageVersion.subtestId !== section.subtestId
         || (section.packageVersion.mode !== ReusableQuestionPackageMode.blueprint && !section.packageVersion.items.length)
         || (section.packageVersion.mode === ReusableQuestionPackageMode.blueprint && !section.items.length)
+        || !modeMatchesTestType
         || (seededAssembly && (section.items.length === 0 || section.items.some((item) =>
           item.packageVersionId !== section.packageVersionId
           || item.subtestId !== section.subtestId
