@@ -58,6 +58,16 @@
 3. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
+### AS-09 Browser QA
+
+- [x] Authenticated mentor Tryout QA: catalogue, locked builder, sessions,
+  participants, and participant detail all rendered with HTTP 200.
+- [x] Authenticated student Tryout QA: catalogue, waiting room, explicit Start,
+  first section, answer persistence status, and released result all passed.
+- [ ] Optional fixture cleanup: QA left resumable attempt
+  `0c4472b5-c1d7-4a89-86b6-cc008251228c` for `student@vecalss.local` with one
+  saved answer. Reset only with explicit approval.
+
 ## Blockers / Risks
 
 - [x] Runtime verification fixture: all 29 migrations, full seed, `db:verify-demo`, Kuis result smoke, and seven-section Tryout scoring/release smoke pass against the configured database.

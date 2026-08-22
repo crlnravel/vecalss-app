@@ -95,5 +95,9 @@ Store only settled decisions, conventions, and important context that emerged du
   smoke passed: Kuis has 3 scored/released attempts with frozen forms; Tryout
   has 3 scored/released attempts, 21 runs, 21 typed breakdowns, and 7 sections;
   one AssessmentRelease binds 2 sessions, 3 attempts, and 21 runs.
-- Browser QA was previously blocked by the unapplied migration and is now the
-  next recommended step against the migrated seeded database.
+- Browser QA is complete against the migrated seeded database. Mentor Tryout
+  catalogue, locked builder, sessions, participants, and participant detail
+  passed; student catalogue, waiting room, explicit Start, answer persistence,
+  and released result passed. QA intentionally left resumable attempt
+  `0c4472b5-c1d7-4a89-86b6-cc008251228c` for the seeded primary student with
+  one saved answer; reset only with explicit fixture approval.
