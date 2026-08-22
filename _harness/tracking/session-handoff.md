@@ -1,5 +1,40 @@
 # Session Handoff
 
+## Current AS-06 Random Assembly Planning Handoff (2026-08-22)
+
+- Objective: settle the product and persistence boundaries for random Pool,
+  Blueprint, and CAT Pool assembly after the completed direct-pick/fixed-Set
+  slice.
+- Pool: explicit candidate membership and draw count; preview is illustrative;
+  every explicit candidate is revalidated at publish, stale/archived/missing/
+  non-Ready candidates block rather than being silently replaced, and one
+  system-generated seed resolves one shared form per AssessmentRelease.
+- Blueprint: one Section/one active Subtest; selected-Bank union with optional
+  folder/category narrowing; exact total plus Easy/Medium/Hard quotas; shortage
+  blocks publish with no fallback. Kuis keeps its existing one-Bank boundary,
+  so multi-Bank Blueprint scopes are Tryout-only until explicitly expanded.
+- CAT Pool: explicit calibrated candidates, canonical `2pl-canonical-v1`
+  approval for every candidate, candidate count at least delivered count, and
+  release-pinned calibration parameters; CAT remains Tryout-only.
+- Lifecycle/access: named draft plus immutable Ready revisions; all Kapten can
+  read and attach Ready revisions, while only the creator edits or revises a
+  definition.
+- Persistence: extend the existing package aggregate with normalized
+  mode/scope/rule definitions; AssessmentRelease owns final Pool/Blueprint
+  resolution and CAT candidate/calibration snapshots. Publish idempotency
+  reuses the original seed and digest for the same publication intent.
+- Durable artifacts:
+  - `artifacts/as06-random-assembly-core-flow`
+  - `artifacts/as06-random-assembly-technical-plan`
+  - follow-up recorded in `artifacts/as06-direct-question-picks`
+- Verification: planning-only pass; no application, schema, migration, or
+  database changes were made. Existing AS-06 direct, AS-05 workspace, package,
+  release, TypeScript, ESLint, `pnpm verify`, and finish-review checks remain
+  green from the prior implementation handoff.
+- Recommended pickup: run ticket breakdown for the approved plan, beginning
+  with the authoring UI/mock-flow gate; do not add schema before that UX
+  confirmation.
+
 ## Current AS-06 Handoff (2026-08-22)
 
 - Objective: add direct question picks and an optional inline fixed Set path to
@@ -36,8 +71,8 @@
   hardening), and `c8a6d05` (required revision identity). Independent
   finish-review recheck is PASS against `c8a6d05`.
 - Durable ticket: `artifacts/as06-direct-question-picks`.
-- Recommended pickup: hold the next Pool/Blueprint/CAT assembly decision
-  before adding schema.
+- Recommended pickup: see the Current AS-06 Random Assembly Planning Handoff
+  above; the direct/fixed-Set slice remains complete.
 
 ## Current AS-05 Handoff (2026-08-22)
 

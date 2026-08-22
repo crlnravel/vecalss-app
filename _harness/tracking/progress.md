@@ -4,7 +4,7 @@
 
 **Last Updated:** 2026-08-22
 **Session ID:** assessment-as06-direct-question-picks
-**Active Feature:** AS-06 direct question picks and optional Set assembly UX
+**Active Feature:** AS-06 random Pool/Blueprint/CAT assembly decisions
 
 ## Status
 
@@ -12,8 +12,8 @@
 
 - [x] AS-06 direct question picks and optional Set assembly UX
   - Added inline Questions modes for direct Ready-question picks and existing
-    immutable fixed Sets; random Pool/Blueprint/CAT assembly authoring remains
-    deferred by the approved first-slice decision.
+    immutable fixed Sets; random Pool/Blueprint/CAT authoring is a separate
+    follow-up and is now covered by the approved planning artifacts below.
   - Direct browsing filters any non-archived Bank Soal by the active Section
     subject, supports search/pagination, cross-bank selection, ordering, and
     removal, and keeps source readiness visible in the authoring Review.
@@ -30,6 +30,20 @@
   - Added `test:tryout-direct-question-picks`; focused contracts, TypeScript,
     focused ESLint, full `pnpm verify`, diff-check, and Impeccable detector
     passed.
+
+- [x] AS-06 random Pool/Blueprint/CAT assembly decisions
+  - Settled Pool resolution at AssessmentRelease creation, explicit candidate
+    membership, preview-only sampling, and system-generated persisted seeds.
+  - Settled one-Section/one-Subtest Blueprints with selected-Bank union,
+    optional folder/category narrowing, exact Easy/Medium/Hard quotas, and
+    fail-closed shortage reports.
+  - Settled explicit calibrated CAT candidates, canonical 2PL pinning, and
+    candidate count at least the delivered count; CAT remains Tryout-only.
+  - Settled named drafts plus immutable Ready revisions, shared-read/creator-
+    edit access, and AssessmentRelease-owned resolution/provenance snapshots.
+  - Core flow: `artifacts/as06-random-assembly-core-flow`.
+  - Technical plan: `artifacts/as06-random-assembly-technical-plan`.
+  - No application, schema, migration, or database changes were made.
 
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
@@ -97,8 +111,8 @@
 
 ### What's Next
 
-1. Continue with random Pool/Blueprint/CAT assembly only after a new product
-   and persistence decision.
+1. Break the approved random assembly plan into implementation tickets, then
+   validate the authoring UI flow before adding schema or server logic.
 2. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
@@ -152,6 +166,18 @@ seeded Tryout attempts and 0 in-progress attempts.
   - Context: Serializes registration, approval, invitation, assignment, revoke, and participant start races.
   - Alternatives considered: Per-command lock orders were rejected because they can deadlock or lose access transitions.
 
+### Random assembly decision record
+
+- **Random assembly resolves at release**: Pool and Blueprint resolution is
+  AssessmentRelease-owned; CAT releases pin the explicit candidate set and
+  canonical 2PL parameters. Stale explicit Pool candidates, quota shortages,
+  and calibration drift block new publication without mutating existing
+  releases.
+  - Context: Keeps previews illustrative while making every delivered form
+    reproducible and auditable.
+  - Alternatives considered: Per-participant Pool draws, silent candidate
+    replacement, quota fallback, and mentor-controlled seeds were rejected.
+
 ## Files Modified This Session
 
 - `modules/mentor/KaptenTryoutBuilderPageModule.tsx` - Eight-area workspace
@@ -168,6 +194,9 @@ seeded Tryout attempts and 0 in-progress attempts.
 - `modules/mentor/KaptenTryoutParticipantsPageModule.tsx` - Participant list projection.
 - `modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx` - Summary and session selection controls.
 - `scripts/test-assessment-participant-view.ts` - AS-04 contract coverage.
+- `_harness/tracking/progress.md` - random assembly planning handoff.
+- `_harness/tracking/session-handoff.md` - random assembly decisions and next
+  implementation step.
 
 ## Evidence of Completion
 
@@ -202,3 +231,9 @@ needed beyond the existing release/runtime evidence; its new behavior is
 covered by focused contracts, full verification, authenticated browser QA, and
 the fresh final finish-review PASS against `72b95e9` recorded at
 `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
+
+AS-06 random assembly planning is complete with no application or database
+changes. The Core Flow and technical plan artifacts settle Pool, Blueprint,
+CAT Pool, revision, access, and release-resolution boundaries. The next
+implementation session should break that plan into tickets and start with the
+authoring UI/mock-flow confirmation.
