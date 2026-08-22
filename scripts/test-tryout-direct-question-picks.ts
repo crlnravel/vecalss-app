@@ -20,9 +20,9 @@ assert.match(builder, /subjectCoverage: \[activeSection\.subtest\]/u, "source Ba
 assert.match(builder, /subjectCode: activeSection\.subtest/u, "source questions must be filtered by the active Section subject");
 
 assert.match(repository, /type DirectQuestionInput/u, "the save boundary must define direct question inputs");
-assert.match(repository, /type DirectQuestionInput = \{ sourceContentDigest: string;/u, "direct selections must carry a required source digest");
+assert.match(repository, /type DirectQuestionInput = \{ sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string \}/u, "direct selections must carry required source identity");
 assert.match(repository, /async function readAndValidateDirectSources/u, "direct source IDs must be re-read on the server");
-assert.match(repository, /sourceQuestionRevisionId && selection\.sourceQuestionRevisionId !== revision\.id/u, "stale direct revisions must be rejected");
+assert.match(repository, /!selection\.sourceQuestionRevisionId[\s\S]*?selection\.sourceQuestionRevisionId !== revision\.id/u, "missing or stale direct revisions must be rejected");
 assert.match(repository, /!selection\.sourceContentDigest[\s\S]*?selection\.sourceContentDigest !== revision\.contentDigest/u, "missing or stale direct content digests must be rejected");
 assert.match(repository, /FOR SHARE OF q, b/u, "direct source reads must share-lock Question and Bank rows");
 assert.match(repository, /packageCode: version\?\.package\.code \?\? "direct"/u, "direct snapshots must not require a saved package");

@@ -10,7 +10,7 @@ type SubjectCode = (typeof SUBJECTS)[number];
 type PackageItemInput = { pointValue: number; sourceQuestionId: string; sourceQuestionRevisionId?: string };
 type PackageInput = { description: string; id?: string; items: PackageItemInput[]; sourceBankId: string; subtest: SubjectCode; title: string };
 type PackageMetadataInput = { description: string; id: string; title: string };
-type DirectQuestionInput = { sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId?: string };
+type DirectQuestionInput = { sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string };
 type TestInput = { catItemCount?: number; directQuestions?: DirectQuestionInput[]; durationMinutes: number; instructions: string; packageVersionId?: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
 type PackageVersionReadiness = {
   catReady: boolean;
@@ -114,7 +114,8 @@ function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: 
       || source.subtest?.code !== subtest
       || revision?.status !== QuestionRevisionStatus.ready
       || !selection
-      || (selection.sourceQuestionRevisionId && selection.sourceQuestionRevisionId !== revision.id)
+      || !selection.sourceQuestionRevisionId
+      || selection.sourceQuestionRevisionId !== revision.id
       || !selection.sourceContentDigest
       || selection.sourceContentDigest !== revision.contentDigest
       || options.length < 2
@@ -441,7 +442,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     return toTryoutDto(await tx.tryoutPackage.findUniqueOrThrow({ where: { id }, include: tryoutInclude }));
   });
 }
-async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId })), durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
+async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })), durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
 export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, TryoutValidationError };
 export type { DirectQuestionInput, PackageInput, PackageItemInput, PackageMetadataInput, PackageVersionReadiness, SaveTryoutInput, TestInput };
