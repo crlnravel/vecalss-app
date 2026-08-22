@@ -149,4 +149,5 @@ Store only settled decisions, conventions, and important context that emerged du
   Review/Publish gates content/media/duplicate/CAT/duration/schedule readiness
   before the server publish action. Focused contract, full repository
   verification, Impeccable detector, and authenticated 390/900px browser QA
-  pass.
+  pass. The fresh final review against `72b95e9` passed; its artifact is
+  `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.

@@ -39,9 +39,10 @@
   all tabs, query persistence, draft switching, preview copy, seven subjects,
   CAT rules, release notice, locked published Tryout, policy state persistence,
   review gating, one-main landmark, and no 390px/900px body overflow.
-- Recommended pickup: complete the fresh finish-review pass against `72b95e9`,
-  then start AS-06 (direct
-  question picks and optional Set/Pool assembly). Keep the existing
+- Fresh final review: PASS against `72b95e9`; artifact:
+  `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
+- Recommended pickup: start AS-06 (direct question picks and optional Set/Pool
+  assembly). Keep the existing
   `/tmp/vecalss-as09-pre-migration-20260822.dump` available for rollback
   investigation and do not reset/reseed without explicit approval.
 

@@ -76,9 +76,8 @@
 
 ### What's Next
 
-1. Complete the fresh AS-05 finish-review pass against `72b95e9`.
-2. Start AS-06: direct question picks and optional Set/Pool assembly UX.
-3. Keep the pre-migration dump available for rollback investigation; do not
+1. Start AS-06: direct question picks and optional Set/Pool assembly UX.
+2. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
 
 ### AS-09 Browser QA
@@ -158,6 +157,8 @@ seeded Tryout attempts and 0 in-progress attempts.
   lint has 0 errors and 459 baseline warnings, and production build passed.
 - [x] Impeccable deterministic detector: no findings (`[]`).
 - [x] Authenticated ego-browser desktop/mobile QA and interaction checks.
+- [x] Fresh AS-05 final review: PASS against `72b95e9`; artifact recorded at
+  `reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.
@@ -177,4 +178,5 @@ reset/reseeded after explicit approval; preserve unrelated preview/harness/
 document history. AS-05 introduces no migration and no DB mutation smoke is
 needed beyond the existing release/runtime evidence; its new behavior is
 covered by focused contracts, full verification, authenticated browser QA, and
-the fresh finish-review pass requested against `72b95e9`.
+the fresh final finish-review PASS against `72b95e9` recorded at
+`reviews/as05-tryout-authoring-workspace-final-72b95e9-review-20260822`.
