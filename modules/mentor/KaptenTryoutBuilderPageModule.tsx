@@ -1008,11 +1008,11 @@ function KaptenTryoutBuilderPageModule({
               <div aria-label="Mode sumber soal" className="grid gap-2 rounded-2xl border border-primary-100 bg-white p-1 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup">
                 <Button aria-checked={activeSelectionMode === "direct"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "direct" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("direct")} role="radio" variant="ghost">
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Plus className="size-4" /></span>
-                  <span><span className="block font-semibold">Pilih langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pilih soal lintas Bank.</span></span>
+                  <span><span className="block font-semibold">Pilih soal langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pilih soal lintas Bank Soal.</span></span>
                 </Button>
                 <Button aria-checked={activeSelectionMode === "set"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "set" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("set")} role="radio" variant="ghost">
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><ClipboardList className="size-4" /></span>
-                  <span><span className="block font-semibold">Set siap</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pakai koleksi tetap.</span></span>
+                  <span><span className="block font-semibold">Gunakan Set Soal siap</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pakai assembly tetap yang sudah dirilis.</span></span>
                 </Button>
                 <Button aria-checked={activeSelectionMode === "pool"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "pool" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("pool")} role="radio" variant="ghost">
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><SlidersHorizontal className="size-4" /></span>
