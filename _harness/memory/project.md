@@ -178,3 +178,34 @@ Store only settled decisions, conventions, and important context that emerged du
 - Ticket 3 owns repository commands, creator/shared-read authorization, Ready
   revision creation, and read-only preview; resolver/release integration is
   later work.
+
+## AS-06 assembly repository and preview boundary
+
+- Ticket 3 is committed as `9a1e306` (`feat: add random assembly repository
+  workflow`). `lib/tryout/assembly-repository.ts` is server-only and owns
+  package aggregate locking, mutable named drafts, immutable Ready revision
+  snapshots, shared Ready reads, readiness reports, and temporary-seed
+  previews. `lib/tryout/assembly-validation.ts` contains pure shape/quota/error
+  and deterministic seeded-shuffle helpers; mentor server actions live in
+  `modules/mentor/assembly-actions.ts`.
+- Draft candidate membership remains in `ReusableQuestionPackageItem`; the
+  current draft version owns normalized Bank/folder/category scopes and one
+  mode-specific rule. Ready Pool/CAT/fixed definitions snapshot candidate
+  content/options into version items. Ready Blueprint definitions freeze only
+  scope and quotas, leaving final question resolution to AssessmentRelease.
+- Mutations require the package creator or admin; published Ready list/detail
+  and preview are shared through the Kapten capability action boundary. The
+  existing Tryout package binding path now reads published Ready versions as
+  shared assets instead of filtering them by creator.
+- Repository validation is fail-closed for stale QuestionRevision/digest,
+  duplicate identity, wrong/inactive Subtest, archived/inactive Bank, invalid
+  options, missing explanation, unready media, quota/scope/shortage, and CAT
+  canonical `2pl-canonical-v1` calibration mismatch. Errors expose stable codes
+  and details to Review/server-action consumers.
+- Preview is read-only and returns a generated temporary seed, illustrative
+  sample, availability counts, and blockers; it does not create versions,
+  physical items, releases, delivery sessions, attempts, or CAT runs.
+- `pnpm test:random-assembly-repository`, related AS-06/AS-05 regression
+  contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify` pass.
+  Migration 31 remains unapplied to the configured database; only isolated
+  disposable PostgreSQL replay/DB contracts may exercise the schema migration.

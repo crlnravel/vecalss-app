@@ -3,8 +3,8 @@
 ## Current State
 
 **Last Updated:** 2026-08-22
-**Session ID:** assessment-as06-direct-question-picks
-**Active Feature:** AS-06 random Pool/Blueprint/CAT assembly decisions
+**Session ID:** assessment-as06-assembly-repository
+**Active Feature:** AS-06 Ticket 4 seeded Pool/Blueprint release resolution
 
 ## Status
 
@@ -51,6 +51,27 @@
   - The migration replays cleanly through all 31 migrations on an isolated
     local PostgreSQL instance; legacy provenance is derived conservatively and
     existing fixed Sets remain the compatibility path.
+
+- [x] AS-06 assembly repository and preview (Ticket 3, `9a1e306`)
+  - Added server-only draft create/update commands with package aggregate
+    locking, deterministic source locks, server-owned revision/digest/media
+    rereads, and named draft/version DTOs.
+  - Added creator/admin mutation authorization with shared Kapten Ready list
+    and detail reads; existing Tryout Ready binding now treats published
+    revisions as shared assets rather than creator-owned rows.
+  - Added Pool, Blueprint, CAT Pool, and fixed-Set shape/readiness checks with
+    structured stale, duplicate, wrong-Subtest, inactive/archived Bank,
+    options, explanation, media, quota, shortage, and canonical-2PL
+    calibration errors.
+  - Added immutable Ready revision creation that snapshots candidate content
+    and options into version-owned rows; Blueprint Ready freezes scope/quota
+    without resolving a final question list.
+  - Added a read-only temporary-seed preview and server-action adapters; the
+    preview returns an illustrative sample/readiness report and has no durable
+    writes.
+  - Added `test:random-assembly-repository`; focused repository/schema/direct/
+    AS-05 contracts, TypeScript, focused ESLint, diff-check, and `pnpm verify`
+    pass. Migration 31 remains unapplied to the configured database.
 
 - [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
@@ -118,8 +139,7 @@
 
 ### What's Next
 
-1. Implement AS-06 Ticket 3: the assembly repository, creator/shared-read
-   access, Ready revision commands, and read-only Pool/Blueprint preview.
+1. Implement AS-06 Ticket 4: seeded Pool and Blueprint release resolution.
 2. Keep the new migration unapplied to the configured database until an
    explicit deployment/rollback decision is made; do not reset or reseed it.
 
@@ -202,6 +222,11 @@ seeded Tryout attempts and 0 in-progress attempts.
 - `scripts/test-random-assembly-schema.ts` - Static schema contract.
 - `scripts/test-random-assembly-schema-db.ts` - Opt-in disposable local DB
   contract for migration guards.
+- `lib/tryout/assembly-validation.ts` - Pure assembly shape/error/seed helpers.
+- `lib/tryout/assembly-repository.ts` - Draft, Ready, access, validation, and
+  read-only preview repository commands.
+- `modules/mentor/assembly-actions.ts` - Authenticated server-action adapters.
+- `scripts/test-random-assembly-repository.ts` - Focused repository contract.
 
 - `lib/tryout/participant-view.ts` - Canonical mentor participant projection.
 - `lib/tryout/delivery-repository.ts` - Atomic admission, assignment, and revoke transitions.
@@ -232,6 +257,11 @@ seeded Tryout attempts and 0 in-progress attempts.
   TypeScript, focused ESLint, diff-check, and `pnpm verify` passed; the schema
   commit is `4f2dbd0` and the configured database remains at its prior 30
   applied migrations.
+- [x] AS-06 Ticket 3 repository contract: `pnpm test:random-assembly-repository`,
+  AS-06 schema/direct/AS-05/package/release/AssessmentRelease contracts,
+  TypeScript, focused ESLint, diff-check, and full `pnpm verify` passed;
+  implementation commit is `9a1e306` and no configured-database migration was
+  run.
 - [x] Tests pass: `pnpm test:assessment-participant-view`, participant UX, AssessmentRelease/package/release/scoring invariants, and Tryout scoring contract.
 - [x] Type check clean: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Repository verification: `pnpm verify` passed through the AS-04 commit hook; lint has 459 known warnings and 0 errors, and production build passed.

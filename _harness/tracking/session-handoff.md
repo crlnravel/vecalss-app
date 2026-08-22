@@ -28,6 +28,51 @@
   Ready revision creation, and read-only Pool/Blueprint preview. Resolver
   algorithms and release integration remain later tickets.
 
+## Current AS-06 Ticket 3 Handoff (2026-08-22)
+
+- Objective: implement the server-only assembly draft/Ready revision boundary,
+  creator/shared-read access, source readiness validation, and illustrative
+  Pool/Blueprint preview after the approved mock flow and schema migration.
+- Implementation commit: `9a1e306` (`feat: add random assembly repository
+  workflow`).
+- Repository: `lib/tryout/assembly-repository.ts` owns draft save/update,
+  package aggregate locking, deterministic source locks, Ready snapshot
+  creation, shared Ready reads, readiness reports, and temporary-seed preview.
+  `lib/tryout/assembly-validation.ts` owns pure shape/quota/error/seed helpers;
+  `modules/mentor/assembly-actions.ts` provides authenticated server actions.
+- Draft lifecycle: package rows hold mutable candidate membership; the one
+  current draft `ReusableQuestionPackageVersion` holds normalized Bank/folder/
+  category scope and the mode rule. Ready transitions snapshot Pool/CAT/fixed
+  candidate content/options into immutable version items. Blueprint Ready
+  freezes scope/quota only and does not resolve a question list.
+- Access: mutation commands require the package creator or `isAdmin`; Ready
+  list/detail and preview reads are shared through the Kapten management action
+  boundary. Existing Tryout package binding no longer filters published Ready
+  revisions by creator, so a shared Ready asset can be selected by another
+  Kapten without granting edit access.
+- Validation: source Question, current Ready revision, digest, active/published
+  Bank, active Subtest, duplicate identity, option cardinality/correctness,
+  explanation, media readiness, CAT canonical `2pl-canonical-v1` calibration,
+  scope/folder/category membership, quota, and candidate shortages are
+  server-authoritative. Errors carry stable codes and details for Review/action
+  consumers.
+- Preview: reads only; it creates no assembly versions, TryoutItems,
+  AssessmentReleases, sessions, attempts, or CAT runs. It generates a
+  temporary seed and returns a replayable illustrative sample plus readiness
+  blockers/availability counts. Blueprint preview uses current eligible Ready
+  content but Ready creation does not resolve it.
+- Verification: `pnpm test:random-assembly-repository`, schema/direct/AS-05/
+  package/release/AssessmentRelease contracts, `pnpm exec tsc --noEmit
+  --pretty false`, focused ESLint, `git diff --check`, and `pnpm verify` all
+  pass (0 lint errors, 459 baseline warnings, production build complete).
+- Database boundary: migration `20260822130000_add_random_assembly_schema` was
+  replayed only in an isolated disposable PostgreSQL verification database;
+  the configured database remains at 30 applied migrations. Do not run
+  `migrate deploy`, reset, or reseed without explicit deployment approval.
+- Out of scope and next: AssessmentRelease Pool/Blueprint resolution,
+  release-owned seed/idempotency, CAT release pinning, physical materialization,
+  and final Kuis/Tryout UI attachment remain Tickets 4–6.
+
 ### Planning record
 
 - Objective: settle the product and persistence boundaries for random Pool,

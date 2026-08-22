@@ -87,6 +87,14 @@
       "dependencies": ["feat-010"],
       "status": "complete",
       "evidence": "4f2dbd0; forward-only 20260822130000_add_random_assembly_schema migration with fixed-Set backfill, derived legacy provenance, normalized scopes/rules, Ready metadata digest transition, release readiness/provenance guards, static contract, opt-in disposable PostgreSQL contract, 31-migration replay, Prisma validate/generate, TypeScript, focused ESLint, diff-check, and pnpm verify; migration not deployed to configured database"
+    },
+    {
+      "id": "feat-012",
+      "name": "AS-06 Assembly Repository and Preview",
+      "description": "Implement creator-owned assembly drafts, immutable Ready revisions, shared Ready reads, source/CAT readiness validation, and read-only Pool/Blueprint preview",
+      "dependencies": ["feat-011"],
+      "status": "complete",
+      "evidence": "9a1e306; server-only assembly repository/actions, aggregate and deterministic source locks, structured stale/duplicate/scope/quota/shortage/calibration errors, candidate snapshots and Blueprint scope-only Ready revisions, shared Kapten Ready binding, temporary-seed read-only preview, focused repository/schema/direct/AS-05/package/release/AssessmentRelease contracts, TypeScript, focused ESLint, diff-check, and pnpm verify; migration remains unapplied to configured database"
     }
   ]
 }
