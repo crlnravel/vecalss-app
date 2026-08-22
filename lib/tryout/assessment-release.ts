@@ -269,10 +269,21 @@ async function assertTryoutReleaseEligibility(
     include: {
       sections: {
         include: {
+          items: {
+            select: {
+              packageVersionId: true,
+              sourceContentDigest: true,
+              sourceQuestionId: true,
+              sourceQuestionRevisionId: true,
+              sourceRevisionProvenance: true,
+              subtestId: true,
+            },
+          },
           packageVersion: {
             select: {
               items: {
                 select: {
+                  packageVersionId: true,
                   sourceContentDigest: true,
                   sourceQuestionId: true,
                   sourceQuestionRevisionId: true,
@@ -288,13 +299,26 @@ async function assertTryoutReleaseEligibility(
       },
     },
   });
-  if (!tryout || tryout.status !== ContentStatus.published || tryout.sections.length !== 7 || tryout.sections.some((section) => section.packageVersion?.status !== ContentStatus.published || !section.packageVersion.items.length)) {
-    throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap.");
+  if (!tryout || tryout.status !== ContentStatus.published || tryout.sections.length !== 7 || tryout.sections.some((section) => {
+    if (section.packageVersionId) {
+      return section.packageVersion?.status !== ContentStatus.published || !section.packageVersion.items.length;
+    }
+    return section.items.length === 0 || section.items.some((item) =>
+      item.packageVersionId !== null
+      || item.subtestId !== section.subtestId
+      || !item.sourceQuestionId
+      || !item.sourceQuestionRevisionId
+      || !item.sourceContentDigest
+      || item.sourceRevisionProvenance === null
+      || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown,
+    );
+  })) {
+    throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
   }
   const catItems = tryout.sections
     .filter((section) => section.testType === "cat")
     .flatMap((section) => {
-      const items = section.packageVersion?.items ?? [];
+      const items = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
       if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
         throw new Error("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
       }

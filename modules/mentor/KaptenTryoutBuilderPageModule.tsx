@@ -403,7 +403,7 @@ function KaptenTryoutBuilderPageModule({
         id,
         sections: draft.sections.map((section) => ({
           catItemCount: section.catItemCount,
-          directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest, sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId })),
+          directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId })),
           durationMinutes: section.durationMinutes,
           instructions: section.instructions,
           packageVersionId: section.packageVersionId,
