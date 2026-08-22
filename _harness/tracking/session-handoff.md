@@ -7,9 +7,10 @@
   Review, and Publish areas.
 - Implementation commits: `1ea7b3d` (`feat: consolidate tryout authoring
   workspace`), `c22ecb2` (tablet containment), `17a9d53` (`fix: close AS-05
-  workspace review gaps`), and `a1bca11` (no-argument draft-save regression
-  guard). No schema or migration change was needed; all 30 migrations are
-  applied.
+  workspace review gaps`), `a1bca11` (no-argument draft-save regression
+  guard), and `72b95e9` (preserve the shell-owned `main` landmark with a
+  structural contract assertion). No schema or migration change was needed;
+  all 30 migrations are applied.
 - Builder behavior: the workspace keeps the seven fixed subject sections,
   CBT/CAT constraints, local draft state while switching tabs, the durable
   AssessmentRelease notice, explicit draft save versus publish, locked release
@@ -38,7 +39,7 @@
   all tabs, query persistence, draft switching, preview copy, seven subjects,
   CAT rules, release notice, locked published Tryout, policy state persistence,
   review gating, one-main landmark, and no 390px/900px body overflow.
-- Recommended pickup: complete the fresh finish-review pass against `17a9d53`,
+- Recommended pickup: complete the fresh finish-review pass against `72b95e9`,
   then start AS-06 (direct
   question picks and optional Set/Pool assembly). Keep the existing
   `/tmp/vecalss-as09-pre-migration-20260822.dump` available for rollback

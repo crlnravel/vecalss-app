@@ -10,7 +10,7 @@
 
 ### What's Done
 
-- [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`)
+- [x] AS-05 one Tryout authoring workspace (`1ea7b3d`, `c22ecb2`, `17a9d53`, `a1bca11`, `72b95e9`)
   - Reframed the mentor Tryout builder as one eight-area workspace:
     Basics, Sections, Questions, Rules, Schedule & akses, Results, Review,
     and Publish.
@@ -28,6 +28,9 @@
     duration/schedule invariants, embedded landmarks and section-button
     semantics are valid, historical releases are labeled, and the tablet/mobile
     tab rail is bounded with a scroll cue.
+  - Kept the route content as a `div` beneath the shell-owned `main` landmark
+    on both create and edit routes and locked that boundary in the focused
+    structural contract.
 
 - [x] AS-04 ParticipantView and atomic access transitions (`ae64528`)
   - Added a server-only ParticipantView combining admission, current/audit
@@ -73,7 +76,7 @@
 
 ### What's Next
 
-1. Complete the fresh AS-05 finish-review pass against `17a9d53`.
+1. Complete the fresh AS-05 finish-review pass against `72b95e9`.
 2. Start AS-06: direct question picks and optional Set/Pool assembly UX.
 3. Keep the pre-migration dump available for rollback investigation; do not
    reset or reseed the configured database without explicit approval.
@@ -150,7 +153,7 @@ seeded Tryout attempts and 0 in-progress attempts.
 - [x] AS-05 contract: `pnpm test:tryout-authoring-workspace`.
 - [x] Type check: `pnpm exec tsc --noEmit --pretty false`.
 - [x] Diff check: `git diff --check`.
-- [x] Full verification: `pnpm verify` passed through the AS-05 review-fix
+- [x] Full verification: `pnpm verify` passed through the AS-05 landmark-composition
   commit hook;
   lint has 0 errors and 459 baseline warnings, and production build passed.
 - [x] Impeccable deterministic detector: no findings (`[]`).
@@ -165,12 +168,13 @@ seeded Tryout attempts and 0 in-progress attempts.
 
 AS-05 implementation is committed as `1ea7b3d` (`feat: consolidate tryout
  authoring workspace`), tablet containment as `c22ecb2`, finish-review fixes
-as `17a9d53` (`fix: close AS-05 workspace review gaps`), and the explicit
-draft-save regression guard as `a1bca11`. AS-04 remains `ae64528`; AS-03 is `cb1eb8f` with
+as `17a9d53` (`fix: close AS-05 workspace review gaps`), the explicit
+draft-save regression guard as `a1bca11`, and the shell landmark composition
+contract as `72b95e9`. AS-04 remains `ae64528`; AS-03 is `cb1eb8f` with
 hardening `7f60c43`; AS-09 backend/UI is `43dec31` plus the seed compatibility
 fix. All 30 migrations are applied and the configured database was intentionally
 reset/reseeded after explicit approval; preserve unrelated preview/harness/
 document history. AS-05 introduces no migration and no DB mutation smoke is
 needed beyond the existing release/runtime evidence; its new behavior is
 covered by focused contracts, full verification, authenticated browser QA, and
-the fresh finish-review pass requested against `17a9d53`.
+the fresh finish-review pass requested against `72b95e9`.

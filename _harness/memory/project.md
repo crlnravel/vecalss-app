@@ -142,8 +142,9 @@ Store only settled decisions, conventions, and important context that emerged du
   offer duplication. Participant preview is read-only and states that it does
   not create attempts, admission, or sessions.
 - AS-05 is committed as `1ea7b3d`, tablet containment as `c22ecb2`, finish-review
-  fixes as `17a9d53`, and the no-argument draft-save regression guard as
-  `a1bca11`; it requires no migration. Ordinary Save
+  fixes as `17a9d53`, the no-argument draft-save regression guard as
+  `a1bca11`, and the shell landmark composition contract as `72b95e9`; it
+  requires no migration. Ordinary Save
   explicitly stays draft, Schedule & akses remains mounted across tabs, and
   Review/Publish gates content/media/duplicate/CAT/duration/schedule readiness
   before the server publish action. Focused contract, full repository
