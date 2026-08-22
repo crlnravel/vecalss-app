@@ -127,6 +127,14 @@
       "dependencies": ["feat-015"],
       "status": "complete",
       "evidence": "ea0d296 + d437043 + 6fd1794; final fixup review PASS at artifacts/reviews/as07-live-delivery-result-workspaces-final-fixup-review-20260823; Live/Attempts/Results projections reuse ParticipantView, AssessmentRelease, delivery, attempt, scoring, and result boundaries; client score/release sanitization, human-review-only integrity signals, actionable participant/attempt links, mobile active-tab scrolling, and single-landmark detail routes verified; Impeccable audit 18/20 with no P0/P1 findings; focused contracts, participant view, TypeScript, focused ESLint, detector [], diff-check, pnpm verify, and authenticated ego-browser desktop/mobile QA pass; disconnected lifecycle telemetry and expiry reconciliation remain explicit later-slice deviations; assessment-release invariant baseline remains blocked only by preserved dirty admin-preview source"
+    },
+    {
+      "id": "feat-017",
+      "name": "Durable Kuis Assembly Binding",
+      "description": "Persist Set/Pool/Blueprint assembly identity on StandaloneQuiz with server-owned Ready revision validation and CAT Pool rejection",
+      "dependencies": ["feat-016"],
+      "status": "in-progress",
+      "evidence": "Ticket artifact artifacts/tickets/as06-kuis-assembly-binding; selected immediately after AS-07 final review/E2E; implementation agent dispatched; preserve direct/fixed Kuis behavior and protected admin-preview edits"
     }
   ]
 }
