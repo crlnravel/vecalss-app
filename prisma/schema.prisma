@@ -1448,6 +1448,10 @@ model StandaloneQuiz {
   formBehavior              StandaloneQuizFormBehavior              @default(same) @map("form_behavior")
   reviewTiming              StandaloneQuizReviewTiming               @default(immediate) @map("review_timing")
   correctAnswerVisibility   StandaloneQuizCorrectAnswerVisibility    @default(show) @map("correct_answer_visibility")
+  assemblyMode              ReusableQuestionPackageMode?             @map("assembly_mode")
+  assemblyPackageVersionId  String?                                  @map("assembly_package_version_id") @db.Uuid
+  assemblyDefinitionDigest  String?                                  @map("assembly_definition_digest") @db.VarChar(128)
+  assemblySeed              String?                                  @map("assembly_seed") @db.VarChar(128)
   revision                  Int                                     @default(1)
   idempotencyKey            String?                                 @unique @map("idempotency_key") @db.VarChar(120)
   createdByUserId           String                                  @map("created_by_user_id") @db.Uuid
@@ -1457,11 +1461,13 @@ model StandaloneQuiz {
   createdBy  User                    @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
   subtest    Subtest                 @relation(fields: [subtestId], references: [id], onDelete: Restrict)
   sourceBank QuestionBank?           @relation(fields: [sourceBankId], references: [id], onDelete: Restrict)
+  assemblyPackageVersion ReusableQuestionPackageVersion? @relation("StandaloneQuizAssemblyVersion", fields: [assemblyPackageVersionId], references: [id], onDelete: Restrict)
   items      StandaloneQuizItem[]
   participations StandaloneQuizParticipation[]
 
   @@index([status, opensAt, closesAt])
   @@index([subtestId, status])
+  @@index([assemblyPackageVersionId])
   @@map("standalone_quizzes")
 }
 
@@ -1724,6 +1730,7 @@ model ReusableQuestionPackageVersion {
   tryoutSections TryoutSection[]
   tryoutItems    TryoutItem[]
   assessmentReleasesByAssembly AssessmentRelease[] @relation("AssessmentReleaseAssemblyPackageVersion")
+  standaloneQuizzes StandaloneQuiz[] @relation("StandaloneQuizAssemblyVersion")
 
   @@unique([packageId, versionNo])
   @@index([packageId, status])

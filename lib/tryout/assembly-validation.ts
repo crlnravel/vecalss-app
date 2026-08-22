@@ -1,6 +1,6 @@
 type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
 
-type AssemblyAttachmentTarget = "tryout";
+type AssemblyAttachmentTarget = "kuis" | "tryout";
 
 type AssemblyAttachmentTestType = "cbt" | "cat";
 
@@ -251,6 +251,19 @@ function assemblyCompatibleWithTestType(mode: AssemblyMode, targetTestType: Asse
 }
 
 function assertAssemblyAttachmentCompatibility(input: AssemblyAttachmentCompatibilityInput) {
+  if (input.target === "kuis" && input.mode === "cat_pool") {
+    throw new AssemblyValidationError("invalid_mode", "CAT Pool tidak didukung oleh Kuis.", {
+      mode: input.mode,
+      target: input.target,
+      targetTestType: input.targetTestType,
+    });
+  }
+  if (input.target === "kuis" && input.bankIds.length !== 1) {
+    throw new AssemblyValidationError("scope", "Kuis hanya dapat memakai assembly dari satu Bank Soal.", {
+      bankIds: input.bankIds,
+      target: input.target,
+    });
+  }
   if (input.subtestCode !== input.targetSubtestCode) {
     throw new AssemblyValidationError("wrong_subtest", "Assembly tidak cocok dengan Subtest yang sedang dipilih.", {
       assemblySubtest: input.subtestCode,

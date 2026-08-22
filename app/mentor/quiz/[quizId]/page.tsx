@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireTutorSession } from "@/lib/auth/access";
 import { listQuestionBankCategories, listQuestionBankSourcePage } from "@/lib/question-bank/repository";
 import { getMentorStandaloneQuiz } from "@/lib/quiz/repository";
+import { listReadyAssemblyRevisions } from "@/lib/tryout/assembly-repository";
 import { KaptenQuizBuilderPageModule } from "@/modules/mentor/KaptenQuizBuilderPageModule";
 
 type MentorQuizBuilderPageProps = {
@@ -22,9 +23,10 @@ export default async function MentorQuizBuilderPage({
   const [{ quizId }, session] = await Promise.all([params, requireTutorSession()]);
   const initial = await getMentorStandaloneQuiz(quizId, session.user.id);
   if (!initial) notFound();
-  const [sourcePage, sourceCategories] = await Promise.all([
+  const [sourcePage, sourceCategories, readyAssemblies] = await Promise.all([
     listQuestionBankSourcePage({ page: 1, pageSize: 20, subjectCoverage: [initial.quiz.subjectCode ?? ""] }),
     listQuestionBankCategories(),
+    listReadyAssemblyRevisions(),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function MentorQuizBuilderPage({
       initialQuestions={initial.questions}
       mode="edit"
       quizId={quizId}
+      readyAssemblies={readyAssemblies}
       session={session}
       sourceCatalog={sourcePage.items.map(({ bank }) => ({ bank, questions: [] }))}
       sourceCatalogPage={sourcePage}

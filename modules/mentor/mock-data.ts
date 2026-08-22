@@ -45,6 +45,23 @@ type KaptenResource = {
 };
 
 type KaptenQuiz = KaptenResource & {
+  assembly?: {
+    bankId: string;
+    bankName: string;
+    categoryIds: string[];
+    categoryNames: string[];
+    definitionDigest: string;
+    folderIds: string[];
+    folderNames: string[];
+    mode: "fixed_set" | "random_pool" | "blueprint";
+    packageId: string;
+    packageTitle: string;
+    readyAt: string | null;
+    rule: { easyCount: number; hardCount: number; mediumCount: number; requestedCount: number } | null;
+    subtestCode: string;
+    versionId: string;
+    versionNo: number;
+  } | null;
   attemptsAllowed?: number | null;
   correctAnswerVisibility?: QuizCorrectAnswerVisibility;
   formBehavior?: QuizFormBehavior;

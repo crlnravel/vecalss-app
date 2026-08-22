@@ -16,7 +16,10 @@ import { prisma } from "@/lib/prisma";
 
 import {
   AssemblyValidationError,
+  AssemblyResolutionError,
   assertAssemblyAttachmentCompatibility,
+  resolveBlueprintCandidates,
+  resolvePoolCandidates,
   seededShuffle,
   validateAssemblyDefinitionShape,
 } from "./assembly-validation";
@@ -147,7 +150,7 @@ const versionInclude = {
     },
     orderBy: { sortOrder: "asc" as const },
   },
-  package: { select: { createdByUserId: true, description: true, id: true, mode: true, subtestId: true, title: true } },
+  package: { select: { createdByUserId: true, description: true, id: true, mode: true, sourceBankId: true, subtestId: true, title: true } },
   rule: true,
   sourceBank: { select: { id: true, name: true, status: true } },
   subtest: { select: { code: true, id: true, isActive: true, name: true } },
@@ -162,6 +165,44 @@ type CalibrationRecord = {
   discrimination: number;
   questionId: string;
   sourceRevisionProvenance: QuestionRevisionProvenance;
+};
+
+type KuisAssemblyItem = {
+  difficulty: DifficultyLevel;
+  explanation: string | null;
+  explanationAssetId: string | null;
+  options: Array<{
+    assetId: string | null;
+    choiceKey: string;
+    content: string;
+    isCorrect: boolean;
+    sortOrder: number;
+    sourceQuestionRevisionOptionId: string | null;
+  }>;
+  prompt: string;
+  promptAssetId: string | null;
+  sourceContentDigest: string;
+  sourceQuestionId: string;
+  sourceQuestionRevisionId: string;
+  sourceRevisionProvenance: QuestionRevisionProvenance;
+  subtestId: string;
+};
+
+type KuisAssemblyMaterialization = {
+  assemblyDefinitionDigest: string;
+  assemblyMode: AssemblyMode;
+  assemblyPackageId: string;
+  assemblyPackageVersionId: string;
+  assemblySeed: string | null;
+  items: KuisAssemblyItem[];
+  sourceBankId: string;
+  subtestId: string;
+};
+
+type KuisAssemblyResolutionOptions = {
+  expectedDefinitionDigest?: string | null;
+  expectedMode?: AssemblyMode | null;
+  seed?: string | null;
 };
 
 function issue(code: AssemblyErrorCode, message: string, details: AssemblyErrorDetails = {}): AssemblyReadinessIssue {
@@ -241,11 +282,13 @@ function candidateFromPackageItem(item: {
 }
 
 function candidateFromVersionItem(item: {
+  pointValue: Prisma.Decimal;
   sourceContentDigest: string | null;
   sourceQuestionId: string;
   sourceQuestionRevisionId: string | null;
 }) {
   return {
+    pointValue: Number(item.pointValue),
     sourceContentDigest: item.sourceContentDigest ?? "",
     sourceQuestionId: item.sourceQuestionId,
     sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
@@ -1074,6 +1117,226 @@ async function collectReadiness(
   };
 }
 
+function kuisItemFromVersionItem(item: VersionItemRecord): KuisAssemblyItem {
+  return {
+    difficulty: item.difficulty,
+    explanation: item.explanation,
+    explanationAssetId: item.explanationAssetId,
+    options: item.options.map((option) => ({
+      assetId: option.assetId,
+      choiceKey: option.choiceKey,
+      content: option.content,
+      isCorrect: option.isCorrect,
+      sortOrder: option.sortOrder,
+      sourceQuestionRevisionOptionId: option.sourceQuestionRevisionOptionId,
+    })),
+    prompt: item.prompt,
+    promptAssetId: item.promptAssetId,
+    sourceContentDigest: item.sourceContentDigest ?? "",
+    sourceQuestionId: item.sourceQuestionId,
+    sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
+    sourceRevisionProvenance: item.sourceRevisionProvenance ?? QuestionRevisionProvenance.legacy_unknown,
+    subtestId: item.subtestId,
+  };
+}
+
+function kuisItemFromSource(source: SourceRecord, subtestId: string): KuisAssemblyItem {
+  const revision = source.currentRevision;
+  if (!revision) {
+    throw new AssemblyValidationError("stale_candidate", "Kandidat Kuis tidak lagi menunjuk revisi Ready.", { sourceQuestionId: source.id });
+  }
+  return {
+    difficulty: revision.difficulty,
+    explanation: revision.explanation ?? source.explanation ?? null,
+    explanationAssetId: revision.explanationAssetId ?? source.explanationAssetId ?? null,
+    options: revision.options.map((option, index) => ({
+      assetId: option.assetId,
+      choiceKey: option.label || String.fromCharCode(65 + index),
+      content: option.content,
+      isCorrect: option.isCorrect,
+      sortOrder: index,
+      sourceQuestionRevisionOptionId: option.id,
+    })),
+    prompt: revision.stem,
+    promptAssetId: revision.promptAssetId ?? source.promptAssetId ?? null,
+    sourceContentDigest: revision.contentDigest,
+    sourceQuestionId: source.id,
+    sourceQuestionRevisionId: revision.id,
+    sourceRevisionProvenance: revision.provenance,
+    subtestId,
+  };
+}
+
+/**
+ * Resolve a Ready assembly into the existing StandaloneQuiz item shape while
+ * retaining the package/version identity in the caller's transaction.  Kuis
+ * intentionally supports only one published Bank and never CAT Pool.
+ */
+async function resolveReadyAssemblyForKuis(
+  tx: Prisma.TransactionClient,
+  versionId: string,
+  targetSubtestId: string,
+  options: KuisAssemblyResolutionOptions = {},
+): Promise<KuisAssemblyMaterialization> {
+  await tx.$queryRaw`
+    SELECT version.id
+    FROM reusable_question_package_versions version
+    JOIN reusable_question_packages package ON package.id = version.package_id
+    WHERE version.id = ${versionId}::uuid
+    FOR SHARE OF version, package
+  `;
+  const version = await tx.reusableQuestionPackageVersion.findFirst({
+    where: {
+      id: versionId,
+      package: { status: { not: ContentStatus.archived } },
+      status: ContentStatus.published,
+    },
+    include: versionInclude,
+  });
+  if (!version) {
+    throw new AssemblyValidationError("not_found", "Assembly Ready tidak ditemukan atau sudah tidak tersedia.", { versionId });
+  }
+  if (!version.definitionDigest) {
+    throw new AssemblyValidationError("stale_candidate", "Assembly Ready tidak memiliki definition digest yang dapat diverifikasi.", { versionId });
+  }
+  if (version.package.mode !== version.mode) {
+    throw new AssemblyValidationError("invalid_mode", "Mode assembly tidak cocok dengan package.", {
+      packageMode: version.package.mode,
+      versionMode: version.mode,
+      versionId,
+    });
+  }
+  if (!version.subtestId || version.package.subtestId !== version.subtestId) {
+    throw new AssemblyValidationError("wrong_subtest", "Subtest assembly tidak cocok dengan package.", {
+      packageSubtestId: version.package.subtestId,
+      versionSubtestId: version.subtestId,
+      versionId,
+    });
+  }
+  if (options.expectedDefinitionDigest && options.expectedDefinitionDigest !== version.definitionDigest) {
+    throw new AssemblyValidationError("stale_candidate", "Definition assembly berubah. Muat ulang Kuis sebelum menyimpan.", {
+      currentDefinitionDigest: version.definitionDigest,
+      expectedDefinitionDigest: options.expectedDefinitionDigest,
+      versionId,
+    });
+  }
+  if (options.expectedMode && options.expectedMode !== version.mode) {
+    throw new AssemblyValidationError("invalid_mode", "Mode assembly berubah. Muat ulang Kuis sebelum menyimpan.", {
+      currentMode: version.mode,
+      expectedMode: options.expectedMode,
+      versionId,
+    });
+  }
+
+  const definition = validateAssemblyDefinitionShape(definitionInputForVersion(version));
+  const recomputedDefinitionDigest = assemblyDefinitionDigest(definition);
+  if (recomputedDefinitionDigest !== version.definitionDigest) {
+    throw new AssemblyValidationError("stale_candidate", "Definition assembly tidak lagi cocok dengan versi Ready.", {
+      recomputedDefinitionDigest,
+      versionDefinitionDigest: version.definitionDigest,
+      versionId,
+    });
+  }
+  const scopeState = await assertScope(tx, definition);
+  assertAssemblyAttachmentCompatibility({
+    bankIds: definition.scope.bankIds,
+    mode: definition.mode,
+    subtestCode: version.subtest?.code ?? "",
+    target: "kuis",
+    targetTestType: "cbt",
+    targetSubtestCode: version.subtest?.code ?? "",
+  });
+  if (version.subtestId !== targetSubtestId || !version.subtest?.isActive) {
+    throw new AssemblyValidationError("wrong_subtest", "Assembly Ready tidak cocok dengan Subtest Kuis yang aktif.", {
+      assemblySubtestId: version.subtestId,
+      targetSubtestId,
+      versionId,
+    });
+  }
+  if (scopeState.banks.length !== 1) {
+    throw new AssemblyValidationError("scope", "Kuis hanya dapat memakai assembly dari satu Bank Soal.", {
+      bankIds: definition.scope.bankIds,
+      versionId,
+    });
+  }
+
+  const sourceBankId = scopeState.banks[0]?.id;
+  if (!sourceBankId) {
+    throw new AssemblyValidationError("scope", "Assembly Ready tidak memiliki Bank Soal aktif.", { versionId });
+  }
+  if (version.sourceBankId !== sourceBankId || version.package.sourceBankId !== sourceBankId) {
+    throw new AssemblyValidationError("scope", "Bank sumber assembly tidak cocok dengan cakupan Bank Soal.", {
+      packageSourceBankId: version.package.sourceBankId,
+      scopeBankId: sourceBankId,
+      versionSourceBankId: version.sourceBankId,
+      versionId,
+    });
+  }
+  const assemblySeed = definition.mode === "fixed_set"
+    ? null
+    : options.seed?.trim() || randomBytes(16).toString("hex");
+  let items: KuisAssemblyItem[];
+
+  if (definition.mode === "fixed_set" || definition.mode === "random_pool") {
+    const candidates = version.items.map(candidateFromVersionItem);
+    await assertCandidates(tx, definition, candidates, true);
+    const snapshotBlockers = version.items.flatMap((item) => versionItemContentIssues(item, targetSubtestId));
+    if (snapshotBlockers.length) throwIssue(snapshotBlockers[0]);
+    if (definition.mode === "fixed_set") {
+      items = version.items.map(kuisItemFromVersionItem);
+    } else {
+      let selected;
+      try {
+        selected = resolvePoolCandidates(version.items.map((item) => ({
+          difficulty: item.difficulty === DifficultyLevel.easy || item.difficulty === DifficultyLevel.medium || item.difficulty === DifficultyLevel.hard
+            ? item.difficulty
+            : undefined,
+          sortOrder: item.sortOrder,
+          sourceContentDigest: item.sourceContentDigest ?? "",
+          sourceQuestionId: item.sourceQuestionId,
+          sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? "",
+        })), definition.rule!.requestedCount, assemblySeed!).map((candidate) => version.items.find((item) => item.sourceQuestionId === candidate.sourceQuestionId)!);
+      } catch (error) {
+        if (error instanceof AssemblyResolutionError) throw new AssemblyValidationError(error.code === "shortage" ? "shortage" : "scope", error.message, error.details);
+        throw error;
+      }
+      items = selected.map(kuisItemFromVersionItem);
+    }
+  } else {
+    if (version.items.length) {
+      throw new AssemblyValidationError("scope", "Blueprint Ready tidak boleh membawa snapshot kandidat fisik.", { itemCount: version.items.length, versionId });
+    }
+    const report = await collectReadiness(tx, definitionInputForVersion(version));
+    if (report.readiness.blockers.length) throwIssue(report.readiness.blockers[0]);
+    let selectedSources;
+    try {
+      selectedSources = resolveBlueprintCandidates(report.sources.map((source) => ({
+        difficulty: source.currentRevision?.difficulty === DifficultyLevel.easy || source.currentRevision?.difficulty === DifficultyLevel.medium || source.currentRevision?.difficulty === DifficultyLevel.hard
+          ? source.currentRevision.difficulty
+          : undefined,
+        sourceContentDigest: source.currentRevision?.contentDigest ?? "",
+        sourceQuestionId: source.id,
+        sourceQuestionRevisionId: source.currentRevision?.id ?? "",
+      })), definition.rule!, assemblySeed!).map((candidate) => report.sources.find((source) => source.id === candidate.sourceQuestionId)!);
+    } catch (error) {
+      if (error instanceof AssemblyResolutionError) throw new AssemblyValidationError(error.code === "shortage" ? "shortage" : "scope", error.message, error.details);
+      throw error;
+    }
+    items = selectedSources.map((source) => kuisItemFromSource(source, targetSubtestId));
+  }
+
+  return {
+    assemblyDefinitionDigest: version.definitionDigest ?? "",
+    assemblyMode: definition.mode,
+    assemblyPackageId: version.packageId,
+    assemblyPackageVersionId: version.id,
+    assemblySeed,
+    items,
+    sourceBankId,
+    subtestId: targetSubtestId,
+  };
+}
+
 async function validateAssemblyDraft(packageId: string, actorId: string, options: AssemblyActorOptions = {}) {
   return prisma.$transaction(async (tx) => {
     const packageRecord = await assertEditablePackage(tx, packageId, actorId, options.isAdmin === true);
@@ -1165,6 +1428,7 @@ export {
   listReadyAssemblyRevisions,
   previewAssembly,
   readyAssemblyDraft,
+  resolveReadyAssemblyForKuis,
   saveAssemblyDraft,
   validateAssemblyDraft,
 };
@@ -1174,6 +1438,9 @@ export type {
   AssemblyPreview,
   AssemblyReadiness,
   AssemblyReadinessIssue,
+  KuisAssemblyItem,
+  KuisAssemblyMaterialization,
+  KuisAssemblyResolutionOptions,
   PreviewAssemblyInput,
   SaveAssemblyDraftInput,
 };

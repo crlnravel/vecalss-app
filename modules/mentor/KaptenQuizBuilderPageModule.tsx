@@ -42,6 +42,7 @@ import {
   FieldTextarea,
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
+import type { AssemblyAttachmentSummary } from "@/lib/tryout/assembly-repository";
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { DropdownField } from "@/modules/mentor/components/kapten-ui";
@@ -138,6 +139,7 @@ function getInitialState(quiz?: KaptenQuiz | null): QuizBuilderState {
     : []);
 
   return {
+    assemblyVersionId: quiz?.assembly?.versionId ?? null,
     attemptsAllowed: quiz?.attemptsAllowed === undefined ? 1 : quiz.attemptsAllowed,
     closesAt: quiz?.closesAt ?? "",
     correctAnswerVisibility: quiz?.correctAnswerVisibility ?? "show",
@@ -181,6 +183,7 @@ function createQuizBuilderActions({
   setQuestionSearchQuery,
   setSourceQuestionPage,
   setSourceQuestionTotal,
+  readyAssemblies,
 }: {
   builderState: QuizBuilderState;
   confirmationRequest: ConfirmationRequest | null;
@@ -196,6 +199,7 @@ function createQuizBuilderActions({
   setQuestionSearchQuery: (query: string) => void;
   setSourceQuestionPage: (page: number) => void;
   setSourceQuestionTotal: (total: number) => void;
+  readyAssemblies: AssemblyAttachmentSummary[];
 }) {
   function markChanged(nextState: QuizBuilderState) {
     setBuilderState(nextState);
@@ -203,7 +207,7 @@ function createQuizBuilderActions({
   }
 
   function updateMetadata(
-    field: Exclude<keyof QuizBuilderState, "questions" | "sourceBankId" | "attemptsAllowed" | "retryDelaySeconds" | "correctAnswerVisibility" | "formBehavior" | "reviewTiming" | "scorePolicy">,
+    field: Exclude<keyof QuizBuilderState, "assemblyVersionId" | "questions" | "sourceBankId" | "attemptsAllowed" | "retryDelaySeconds" | "correctAnswerVisibility" | "formBehavior" | "reviewTiming" | "scorePolicy">,
     value: string,
   ) {
     markChanged({ ...builderState, [field]: value });
@@ -227,6 +231,7 @@ function createQuizBuilderActions({
   function applySubject(nextSubjectCode: string, shouldClear: boolean) {
     markChanged({
       ...builderState,
+      assemblyVersionId: shouldClear ? null : builderState.assemblyVersionId,
       questions: shouldClear ? [] : builderState.questions,
       sourceBankId: shouldClear ? "" : builderState.sourceBankId,
       subjectCode: nextSubjectCode,
@@ -241,7 +246,7 @@ function createQuizBuilderActions({
   function selectSubject(nextSubjectCode: string) {
     if (nextSubjectCode === builderState.subjectCode) return;
 
-    const needsClear = Boolean(builderState.sourceBankId || builderState.questions.length);
+    const needsClear = Boolean(builderState.assemblyVersionId || builderState.sourceBankId || builderState.questions.length);
     if (needsClear) {
       setConfirmationRequest({
         confirmLabel: "Ubah subject",
@@ -259,6 +264,7 @@ function createQuizBuilderActions({
   function applySourceBank(nextSourceBankId: string) {
     markChanged({
       ...builderState,
+      assemblyVersionId: null,
       questions: [],
       sourceBankId: nextSourceBankId,
     });
@@ -272,7 +278,7 @@ function createQuizBuilderActions({
   function selectSourceBank(nextSourceBankId: string) {
     if (nextSourceBankId === builderState.sourceBankId) return;
 
-    if (builderState.questions.length > 0) {
+    if (builderState.assemblyVersionId || builderState.questions.length > 0) {
       setConfirmationRequest({
         confirmLabel: "Ganti Question Bank",
         description: "Mengganti Question Bank akan menghapus semua soal yang sudah dipilih, termasuk soal lokal.",
@@ -284,6 +290,41 @@ function createQuizBuilderActions({
     }
 
     applySourceBank(nextSourceBankId);
+  }
+
+  function applyAssembly(versionId: string | null) {
+    const selected = versionId ? readyAssemblies.find((assembly) => assembly.id === versionId) : null;
+    markChanged({
+      ...builderState,
+      assemblyVersionId: versionId,
+      questions: versionId ? [] : builderState.questions,
+      sourceBankId: selected?.bankIds[0] ?? builderState.sourceBankId,
+    });
+    setQuestionPage(1);
+    setQuestionSearchQuery("");
+    setSourceQuestionPage(1);
+    setSourceQuestionTotal(0);
+    setIsAddingLocalQuestion(false);
+  }
+
+  function selectAssembly(versionId: string) {
+    if (versionId === builderState.assemblyVersionId) return;
+    if (versionId && (builderState.questions.length > 0 || builderState.sourceBankId)) {
+      setConfirmationRequest({
+        confirmLabel: "Gunakan assembly",
+        description: "Memilih assembly akan mengganti soal langsung dan mengunci sumber Kuis ke versi Ready ini.",
+        onConfirm: () => applyAssembly(versionId),
+        title: "Ganti sumber soal Kuis?",
+        variant: "warning",
+      });
+      return;
+    }
+    applyAssembly(versionId);
+  }
+
+  function detachAssembly() {
+    if (!builderState.assemblyVersionId) return;
+    applyAssembly(null);
   }
 
   function addBankQuestion(question: BankQuestion) {
@@ -360,6 +401,8 @@ function createQuizBuilderActions({
     confirmPendingAction,
     moveQuestion,
     removeQuestion,
+    detachAssembly,
+    selectAssembly,
     selectSourceBank,
     selectSubject,
     updateLocalChoice,
@@ -371,6 +414,7 @@ function createQuizBuilderActions({
 function KaptenQuizBuilderPageModule({
   initialQuiz = null,
   initialQuestions,
+  readyAssemblies = [],
   sourceCatalog,
   mode,
   quizId,
@@ -380,6 +424,7 @@ function KaptenQuizBuilderPageModule({
 }: {
   initialQuiz?: KaptenQuiz | null;
   initialQuestions?: QuizQuestionSnapshot[];
+  readyAssemblies?: AssemblyAttachmentSummary[];
   sourceCatalog: SourceCatalogEntry[];
   sourceCatalogPage?: SourceCatalogPage;
   sourceCategories?: SourceCategory[];
@@ -536,6 +581,7 @@ function KaptenQuizBuilderPageModule({
   );
   const visibleQuestionPage = Math.min(questionPage, questionPageCount);
   const readyQuestionCount = getReadiness(builderState.questions);
+  const selectedAssembly = readyAssemblies.find((assembly) => assembly.id === builderState.assemblyVersionId) ?? null;
   const quizStatus = savedQuiz?.status ?? "draft";
   const isDraft = quizStatus === "draft";
   const saveLabel = isDraft ? "Simpan Draft" : quizStatus === "published" ? "Simpan perubahan" : "Diarsipkan";
@@ -547,9 +593,13 @@ function KaptenQuizBuilderPageModule({
   const publishError = scheduleError
     ?? (!builderState.title.trim()
       ? "Isi judul quiz sebelum menerbitkan."
-      : builderState.questions.length === 0
+      : builderState.assemblyVersionId && !selectedAssembly
+        ? "Assembly Ready tidak lagi tersedia. Muat ulang sebelum menerbitkan."
+        : builderState.assemblyVersionId && selectedAssembly && !selectedAssembly.readiness.ready
+          ? "Assembly belum siap diterbitkan. Periksa sumber dan kuotanya."
+          : !builderState.assemblyVersionId && builderState.questions.length === 0
         ? "Tambahkan minimal satu soal sebelum menerbitkan."
-        : readyQuestionCount !== builderState.questions.length
+        : !builderState.assemblyVersionId && readyQuestionCount !== builderState.questions.length
           ? "Lengkapi semua soal sebelum menerbitkan."
           : null);
 
@@ -595,11 +645,13 @@ function KaptenQuizBuilderPageModule({
     setQuestionSearchQuery,
     setSourceQuestionPage,
     setSourceQuestionTotal,
+    readyAssemblies,
   });
   async function saveQuiz(status: "draft" | "published" = quizStatus === "published" ? "published" : "draft") {
     setIsSaving(true); setSaveError(null);
     try {
       const result = await saveStandaloneQuizAction({
+        assemblyVersionId: builderState.assemblyVersionId,
         attemptsAllowed: builderState.attemptsAllowed,
         closesAt: builderState.closesAt,
         correctAnswerVisibility: builderState.correctAnswerVisibility,
@@ -607,7 +659,7 @@ function KaptenQuizBuilderPageModule({
         formBehavior: builderState.formBehavior,
         id: savedQuiz?.id ?? quizId,
         opensAt: builderState.opensAt,
-        questions: builderState.questions,
+        questions: builderState.assemblyVersionId ? [] : builderState.questions,
         retryDelaySeconds: builderState.retryDelaySeconds,
         reviewTiming: builderState.reviewTiming,
         scorePolicy: builderState.scorePolicy,
@@ -678,6 +730,7 @@ function KaptenQuizBuilderPageModule({
         sourceQuestionTotal,
         visibleCompatibleBanks,
         visibleQuestionPage,
+        readyAssemblies,
       }}
       mode={mode}
       session={session}
@@ -699,6 +752,7 @@ function KaptenQuizBuilderPageModule({
         readyQuestionCount,
         saveError,
         saveLabel,
+        selectedAssembly,
       }}
       actions={{
         ...quizActions,
@@ -754,6 +808,7 @@ type QuizBuilderViewState = {
   readyQuestionCount: number;
   saveError: string | null;
   saveLabel: string;
+  selectedAssembly: AssemblyAttachmentSummary | null;
 };
 
 type QuizBuilderViewData = {
@@ -775,6 +830,7 @@ type QuizBuilderViewData = {
   sourceQuestionTotal: number;
   visibleCompatibleBanks: { bank: KaptenQuestionBank; questions: BankQuestion[] }[];
   visibleQuestionPage: number;
+  readyAssemblies: AssemblyAttachmentSummary[];
 };
 
 type QuizBuilderScreenActions = QuizBuilderActionHandlers & {
@@ -1059,24 +1115,27 @@ function QuizContentTab({
 
   return (
     <TabsContent className="m-0" value="content">
-      <section className="grid gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
+      <KuisAssemblySourcePicker actions={actions} data={data} state={state} />
+      <section className="mt-6 grid gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
         <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
           <div><p className="text-sm font-semibold text-secondary-900">Susunan soal</p><p className="mt-1 text-xs text-secondary-500">{builderState.questions.length} dipilih</p></div>
           <div className="mt-4 flex gap-1 overflow-x-auto border-t border-primary-100 pt-3 xl:mt-5 xl:block xl:space-y-1">
             {builderState.questions.length > 0 ? builderState.questions.map((question, index) => (
-              <div className="flex min-w-[215px] items-center gap-2 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-primary-50/60 xl:w-full" key={question.id}>
-                <GripVertical className="size-4 shrink-0 text-secondary-300" />
-                <button className="min-w-0 flex-1 text-left" onClick={() => { actions.onActiveTabChange("content"); actions.onPreviewQuestionIndex(index); actions.onOpenPreview(); }} type="button">
+                <div className="flex min-w-[215px] items-center gap-2 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-primary-50/60 xl:w-full" key={question.id}>
+                  <GripVertical className="size-4 shrink-0 text-secondary-300" />
+                <button className="min-w-0 flex-1 text-left" disabled={Boolean(builderState.assemblyVersionId)} onClick={() => { actions.onActiveTabChange("content"); actions.onPreviewQuestionIndex(index); actions.onOpenPreview(); }} type="button">
                   <span className="block truncate text-sm font-semibold text-secondary-900">{String(index + 1).padStart(2, "0")}. {question.prompt || "Soal tanpa pertanyaan"}</span>
                   <span className="mt-1 block text-xs text-secondary-500">{question.origin === "local" ? "Soal lokal" : data.selectedBank?.title ?? "Question Bank"}</span>
                 </button>
-                <div className="flex shrink-0 items-center"><Button aria-label="Pindah soal ke atas" onClick={() => actions.moveQuestion(question.id, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp className="size-3.5" /></Button><Button aria-label="Pindah soal ke bawah" onClick={() => actions.moveQuestion(question.id, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown className="size-3.5" /></Button><Button aria-label="Hapus soal" onClick={() => actions.removeQuestion(question.id)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-3.5" /></Button></div>
+                {!builderState.assemblyVersionId ? <div className="flex shrink-0 items-center"><Button aria-label="Pindah soal ke atas" onClick={() => actions.moveQuestion(question.id, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp className="size-3.5" /></Button><Button aria-label="Pindah soal ke bawah" onClick={() => actions.moveQuestion(question.id, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown className="size-3.5" /></Button><Button aria-label="Hapus soal" onClick={() => actions.removeQuestion(question.id)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-3.5" /></Button></div> : null}
               </div>
             )) : <p className="px-2 py-4 text-sm leading-6 text-secondary-500">Belum ada soal di quiz ini.</p>}
           </div>
         </aside>
 
         <div className="order-1 xl:order-none">
+          {builderState.assemblyVersionId ? <div className="rounded-3xl border border-primary-100 bg-primary-50/45 p-5"><p className="text-sm font-semibold text-secondary-900">Assembly terpasang</p><p className="mt-2 text-sm leading-6 text-secondary-600">Soal fisik di sini berasal dari versi Ready yang tersimpan. Lepaskan assembly untuk mengubah pilihan soal secara langsung.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-secondary-500">Mode</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.mode === "random_pool" ? "Pool acak" : state.selectedAssembly?.mode === "blueprint" ? "Blueprint" : "Set tetap"}</p></div><div><p className="text-xs text-secondary-500">Versi</p><p className="mt-1 text-sm font-semibold text-secondary-900">v{state.selectedAssembly?.versionNo ?? "—"}</p></div><div><p className="text-xs text-secondary-500">Bank</p><p className="mt-1 truncate text-sm font-semibold text-secondary-900">{state.selectedAssembly?.bankNames[0] ?? "—"}</p></div></div><Button className="mt-5" onClick={actions.detachAssembly} type="button" variant="brandOutline">Lepaskan assembly</Button></div> : null}
+          {!builderState.assemblyVersionId ? <>
           <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-secondary-900">Pilih soal</p><p className="mt-1 text-sm text-secondary-500">{data.selectedBank ? `Soal dari ${data.selectedBank.title} akan disalin ke quiz ini.` : "Pilih Question Bank yang sesuai dengan subject terlebih dahulu."}</p></div><Button onClick={() => actions.onSetAddingLocalQuestion(!state.isAddingLocalQuestion)} type="button" variant="brandOutline"><Plus />Soal lokal</Button></div>
 
           {data.selectedBank ? (
@@ -1091,9 +1150,48 @@ function QuizContentTab({
           ) : <div className="mt-5 flex items-start gap-3 rounded-2xl border border-dashed border-primary-200 px-4 py-5 text-sm leading-6 text-secondary-500"><CircleHelp className="mt-0.5 size-5 shrink-0 text-primary-800" /><p>{data.compatibleBanks.length === 0 ? "Belum ada Question Bank yang sesuai dengan subject ini. " : "Question Bank yang tampil akan selalu mengikuti subject Quiz. "}{data.compatibleBanks.length === 0 ? <Link className="font-semibold text-primary-800 underline underline-offset-4" href="/mentor/quiz/question-bank">Buka Question Bank</Link> : null}</p></div>}
 
           {state.isAddingLocalQuestion ? <LocalQuestionForm state={state} actions={actions} /> : null}
+          </> : null}
         </div>
       </section>
     </TabsContent>
+  );
+}
+
+function KuisAssemblySourcePicker({
+  actions,
+  data,
+  state,
+}: {
+  actions: QuizBuilderScreenActions;
+  data: QuizBuilderViewData;
+  state: QuizBuilderViewState;
+}) {
+  const supportedAssemblies = data.readyAssemblies.filter((assembly) => assembly.mode !== "cat_pool" && assembly.bankIds.length === 1 && assembly.subtest === state.builderState.subjectCode);
+  const options = [
+    { label: "Soal langsung / lokal", value: "direct" },
+    ...supportedAssemblies.map((assembly) => ({
+      label: `${assembly.packageTitle} · v${assembly.versionNo} · ${assembly.mode === "random_pool" ? "Pool" : assembly.mode === "blueprint" ? "Blueprint" : "Set"}`,
+      value: assembly.id,
+    })),
+  ];
+  return (
+    <section className="rounded-3xl border border-primary-100 bg-white p-5 md:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-secondary-900">Sumber soal Kuis</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-500">Pilih soal langsung seperti biasa, atau pasang satu versi Ready dari Set, Pool, atau Blueprint. Kuis selalu memakai satu Bank dan satu Subtest.</p>
+        </div>
+        {state.selectedAssembly ? <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">Assembly terpasang</span> : null}
+      </div>
+      <div className="mt-5 max-w-2xl">
+        <Field>
+          <FieldLabel htmlFor="kuis-assembly-source">Assembly Ready (opsional)</FieldLabel>
+          <DropdownField id="kuis-assembly-source" onValueChange={(value) => value === "direct" ? actions.detachAssembly() : actions.selectAssembly(value)} options={options} placeholder="Pilih sumber soal" value={state.builderState.assemblyVersionId ?? "direct"} />
+        </Field>
+        {state.selectedAssembly ? <p className="mt-3 text-xs leading-5 text-secondary-500">Digest versi: <span className="font-mono">{(state.selectedAssembly.definitionDigest ?? "").slice(0, 16)}…</span>. Perubahan sumber akan divalidasi ulang saat simpan dan terbitkan.</p> : null}
+        {supportedAssemblies.length === 0 ? <p className="mt-3 text-xs leading-5 text-secondary-500">Belum ada Set, Pool, atau Blueprint Ready satu-Bank yang dapat dipakai Kuis.</p> : null}
+      </div>
+    </section>
   );
 }
 

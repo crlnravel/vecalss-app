@@ -26,6 +26,7 @@ export type QuizReviewTiming = "immediate" | "after_close" | "never";
 export type QuizCorrectAnswerVisibility = "show" | "hide";
 
 export type QuizBuilderState = {
+  assemblyVersionId: string | null;
   attemptsAllowed: number | null;
   closesAt: string;
   correctAnswerVisibility: QuizCorrectAnswerVisibility;
