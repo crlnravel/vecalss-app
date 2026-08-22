@@ -141,8 +141,8 @@
       "name": "AS-07 Realtime Delivery State Hardening",
       "description": "Add authoritative disconnect/reconcile transitions, deadline-expiry synchronization, and bounded Live refresh/polling without changing scoring or release semantics",
       "dependencies": ["feat-017"],
-      "status": "in-progress",
-      "evidence": "Ticket artifact artifacts/tickets/as07-realtime-hardening; dispatched after AS-06 Kuis final review PASS; preserve AS-07 release/sanitization boundaries, AS-08 closure, and protected admin-preview edits"
+      "status": "complete",
+      "evidence": "d8eb288 + 59d090e + ba1291c; authenticated/idempotent disconnect start/reconcile with origin-run audit binding, fail-closed legacy/cross-run guards, exactly-once bounded terminal closure on authoritative expiry, terminal Live projection ordering, owner-scoped per-candidate short transactions preventing refresh/start/revoke deadlocks, visibility-aware 15s Live polling with in-flight guard/3-failure cap/manual retry, sanitized DTO and release/score boundaries, focused realtime/live/authoring/participant contracts, TypeScript, focused ESLint, diff-check, pnpm verify, authenticated ego-browser 1512/390px QA, Impeccable detector [], and final independent review PASS at artifacts/reviews/as07-realtime-hardening-final-independent-review-20260823; protected admin-preview files preserved; assessment-release-invariants remains a known unrelated baseline failure"
     }
   ]
 }

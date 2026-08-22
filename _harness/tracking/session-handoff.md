@@ -1,6 +1,6 @@
 # Session Handoff
 
-## Current AS-06 Kuis closeout / AS-07 realtime pickup (2026-08-23)
+## Current AS-07 realtime closeout / AS-06 Kuis handoff (2026-08-23)
 
 - AS-06 durable Kuis assembly binding is complete at `047d5d7`, `331b7c7`,
   `4791020`, `a892ec4`, and `394e240`. The final independent review is PASS:
@@ -26,12 +26,25 @@
   `lib/admin/student-preview-tryout.ts`,
   `prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql`,
   and `scripts/test-admin-student-preview-tryout.ts`.
-- Next slice: AS-07 realtime/polling hardening. Add server-authoritative
-  disconnect-start/reconcile writers, idempotent audit locking, persisted
-  deadline-expiry synchronization, and safe Live polling/read refresh. Keep
-  focus/fullscreen human-review-only and do not reopen AS-08.
+- AS-07 realtime hardening is complete at `d8eb288`, `59d090e`, and `ba1291c`.
+  Disconnect start/reconcile is authenticated, idempotent, audit-backed, and
+  bound to the originating run; legacy/unbound/cross-run markers fail closed.
+  Authoritative expiry closes a verified open marker once with bounded elapsed
+  time and a terminal audit, without mutating score/release state. Terminal
+  Live states win over stale markers.
+- Operations refresh discovers candidates outside a transaction and syncs each
+  candidate in a short owner-rechecked transaction with one shared timestamp,
+  preventing refresh/start/revoke deadlocks. Live polling is visibility-aware,
+  15-second, in-flight guarded, capped after three failures, and manually
+  retryable. DTO/release/score sanitization remains intact.
+- Focused realtime/live/authoring/participant contracts, TypeScript, focused
+  ESLint, diff-check, and `pnpm verify` pass; authenticated ego-browser QA
+  passed at 1512px and 390px; Impeccable detector `[]`; final review PASS:
+  `artifacts/reviews/as07-realtime-hardening-final-independent-review-20260823`.
+- Next backlog item is the separate dedicated invitation-picker UI. Do not
+  reopen AS-08 or alter the protected admin-preview files.
 
-## Current AS-07 closeout / Kuis assembly pickup (2026-08-23)
+## Historical AS-07 Live delivery/result closeout (2026-08-23)
 
 - AS-07 is complete at `ea0d296` + `d437043` + `6fd1794`. The final review
   artifact `reviews/as07-live-delivery-result-workspaces-final-fixup-review-
@@ -45,18 +58,16 @@
   `reviews/as07-live-delivery-result-workspaces-impeccable-audit-20260823`,
   18/20 with no P0/P1 findings. Authenticated ego-browser QA passed at
   1512px and 390px.
-- Disconnected lifecycle telemetry writers/reconciliation and expiry
-  persistence are intentionally deferred. The UI does not infer disconnected
-  state, and zero deadlines remain advisory until a participant/detail action
-  synchronizes authoritative state.
+- At this initial projection checkpoint, disconnected lifecycle writers and
+  expiry persistence were intentionally deferred; the later realtime-hardening
+  section above supersedes that bounded deviation.
 - Preserve the unrelated dirty files:
   `lib/admin/student-preview-tryout.ts`,
   `prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql`,
   and `scripts/test-admin-student-preview-tryout.ts`.
-- Next: implement the durable Kuis assembly binding slice. It must settle
-  persisted mode/package/version identity, reload/detach/republish
-  revalidation, and CAT Pool rejection. AS-07 realtime/polling hardening is
-  later; AS-08 remains closed unless a new defect appears.
+- This historical checkpoint preceded the durable Kuis binding and realtime
+  hardening closeouts recorded above; AS-08 remains closed unless a new defect
+  appears.
 
 ## Current AS-06 closeout / AS-07 pickup (2026-08-23)
 

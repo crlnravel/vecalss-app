@@ -56,10 +56,23 @@ Store only settled decisions, conventions, and important context that emerged du
   admin-preview migration, and its contract script. The broad
   `test:assessment-release-invariants` failure caused by that source is a
   known baseline, not an AS-06 regression.
-- Next implementation slice is AS-07 realtime/polling hardening: authoritative
-  disconnect/reconcile writers, idempotent audit locking, deadline-expiry
-  synchronization, and safe Live polling/read refresh. Focus/fullscreen remain
-  human-review-only; AS-08 stays closed.
+- AS-07 realtime/polling hardening is complete in `d8eb288`, `59d090e`, and
+  `ba1291c`. Disconnect start/reconcile is authenticated, idempotent,
+  audit-backed, and bound to the originating run; legacy/unbound/cross-run
+  markers fail closed. Authoritative expiry closes a verified open marker once
+  with bounded elapsed time and a terminal audit without changing score/release
+  state. Terminal Live states win over stale markers.
+- Operations refresh discovers candidates outside a transaction and syncs each
+  candidate in a short owner-rechecked transaction using one shared timestamp,
+  preventing refresh/start/revoke deadlocks. Live polling is visibility-aware,
+  15-second, in-flight guarded, capped after three failures, and manually
+  retryable. DTO/release/score sanitization remains intact.
+- Focused realtime/live/authoring/participant contracts, TypeScript, focused
+  ESLint, diff-check, `pnpm verify`, authenticated ego-browser 1512/390px QA,
+  and Impeccable detector `[]` pass. Final review PASS:
+  `artifacts/reviews/as07-realtime-hardening-final-independent-review-20260823`.
+- The dedicated invitation-picker UI remains a separate backlog item;
+  AS-08 stays closed and the protected admin-preview files remain untouched.
 
 ## Assessment state normalization
 
@@ -335,7 +348,7 @@ Store only settled decisions, conventions, and important context that emerged du
   `artifacts/tickets/as07-live-delivery-result-workspaces`. Implementation
   agent `6af221fe-77a2-46fa-927b-2234b52a0201` was dispatched on 2026-08-23.
 
-## AS-07 closeout
+## Historical AS-07 Live delivery/result closeout
 
 - Commits `ea0d296`, `d437043`, and `6fd1794` are the accepted implementation:
   Live/Attempts/Results projections, score/release DTO sanitization, mobile
@@ -345,14 +358,12 @@ Store only settled decisions, conventions, and important context that emerged du
   Impeccable audit:
   `artifacts/reviews/as07-live-delivery-result-workspaces-impeccable-audit-20260823`
   (18/20, no P0/P1 findings).
-- Disconnected/reconciled timestamps remain marker-driven and have no normal
-  writer/reconciler in this slice; zeroed deadlines are advisory until an
-  authoritative participant/detail action. Do not infer either state on the
-  client.
+- Disconnected/reconciled timestamps were marker-driven with no normal writer
+  in this initial slice; the later realtime-hardening section above supersedes
+  that bounded deviation. Do not infer either state on the client.
 
-## Next-slice order decision
+## Superseded next-slice order decision
 
-- After AS-07 final review/E2E QA, implement the deferred durable Kuis
-  assembly binding before adding realtime/polling hardening to AS-07. Kuis has
-  a correctness gap across save/reload/detach/republish; AS-07's snapshot-on-
-  load Live projection is an accepted first operational slice.
+- The former order was Kuis binding before realtime hardening. Both slices are
+  now complete; the remaining separate backlog item is the invitation-picker
+  UI. Do not reopen AS-08 without a new defect.

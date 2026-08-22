@@ -4,7 +4,7 @@
 
 **Last Updated:** 2026-08-23
 **Session ID:** assessment-as07-realtime-hardening
-**Active Feature:** AS-07 realtime/polling hardening
+**Active Feature:** AS-07 realtime/polling hardening closeout
 
 ## Status
 
@@ -217,9 +217,31 @@
     signals, mobile active-tab scrolling, and single-landmark detail routes
     are covered by focused contracts and the final review artifact.
   - Authenticated ego-browser QA passed at 1512px and 390px; Impeccable audit
-    is 18/20 with no P0/P1 findings. Disconnected lifecycle telemetry and
-    expiry reconciliation remain explicitly deferred, not inferred on the
-    client.
+    is 18/20 with no P0/P1 findings. The realtime hardening follow-up below
+    closes the previously deferred lifecycle writers and expiry reconciliation.
+
+- [x] AS-07 realtime/polling hardening (`d8eb288`, `59d090e`, `ba1291c`)
+  - Added authenticated/idempotent disconnect-start and reconcile commands with
+    deterministic scope locks, audit events, origin-run binding, and
+    fail-closed legacy/cross-run guards.
+  - Authoritative deadline synchronization closes a verified open marker once,
+    bounds elapsed time to server/session/run deadlines, records a terminal
+    audit, and leaves score/release state untouched. Terminal Live states take
+    precedence over stale markers.
+  - Live operations discovery uses owner checks outside the loop and one short
+    transaction per candidate with a shared timestamp, preventing refresh
+    locks from spanning candidates and deadlocking participant start/revoke.
+  - Live refresh is visibility-aware at 15 seconds, in-flight guarded, capped
+    after three automatic failures, and manually retryable. DTO sanitization,
+    release/score boundaries, and human-review-only integrity semantics remain
+    intact.
+  - Focused realtime/live/authoring/participant contracts, TypeScript, focused
+    ESLint, diff-check, and `pnpm verify` pass (0 errors; 459 existing
+    warnings). Authenticated ego-browser QA passed at 1512px and 390px;
+    Impeccable detector `[]`; final independent review PASS at
+    `reviews/as07-realtime-hardening-final-independent-review-20260823`.
+  - The broad `test:assessment-release-invariants` baseline remains blocked
+    only by the preserved unrelated admin-preview dirty source.
 
 ### What's In Progress
 
@@ -229,21 +251,12 @@
   provides the required student selector. This remains a separate UI slice,
   not a missing AS-04 server invariant.
 
-- [ ] AS-07 realtime/polling hardening
-  - Add authoritative disconnect-start/reconcile writers, idempotent audit
-    locking, and persisted deadline-expiry synchronization for live runs.
-  - Add safe polling/read-refresh boundaries without client-side inference,
-    while preserving human-review-only integrity signals and release/result
-    sanitization. AS-08 remains closed unless a new defect appears.
-
 ### What's Next
 
-1. Implement AS-07 realtime/polling hardening: authoritative disconnect/
-   reconcile transitions, deadline-expiry synchronization, and bounded Live
-   refresh/polling.
-2. Run focused contracts, full verification, authenticated ego-browser
-   desktop/390px QA, and the Impeccable UI pass, then request independent
-   review.
+1. Keep the dedicated invitation-picker UI as the remaining separate AS-04
+   backlog item; it is not required for the completed delivery/realtime slices.
+2. Preserve the three protected admin-preview files and record the known broad
+   AssessmentRelease invariant baseline separately from feature verification.
 3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
    already implemented under AS-02 unless a new defect is found.
 
