@@ -98,6 +98,6 @@ Store only settled decisions, conventions, and important context that emerged du
 - Browser QA is complete against the migrated seeded database. Mentor Tryout
   catalogue, locked builder, sessions, participants, and participant detail
   passed; student catalogue, waiting room, explicit Start, answer persistence,
-  and released result passed. QA intentionally left resumable attempt
-  `0c4472b5-c1d7-4a89-86b6-cc008251228c` for the seeded primary student with
-  one saved answer; reset only with explicit fixture approval.
+  and released result passed. The approved full demo reset/reseed removed the
+  temporary QA attempt; the clean fixture has 3 canonical seeded Tryout
+  attempts and 0 in-progress attempts.

@@ -9,8 +9,8 @@
 - Seed fix: `prisma/seed-assessment.mjs` now skips legacy `question_options` mutations when the current physical QuestionRevision is Ready/Retired, so reruns respect the database immutability guard. Clean reset/reseed remains the supported path when an active release-bound session prevents physical Tryout replacement.
 - UI/runtime status: AS-09 mentor release notices and student answer-save/result-state polish are committed and verified. Authenticated browser QA now passes against the migrated seeded database.
 - Browser QA coverage: mentor Tryout catalogue, locked builder, sessions, participants, and participant detail; student catalogue, waiting room, explicit Start, first section, answer persistence (`Jawaban tersimpan`), and released result.
-- QA created one intentional in-progress demo attempt for `student@vecalss.local`: `0c4472b5-c1d7-4a89-86b6-cc008251228c`, with one saved answer. It remains resumable; no application code or migration files changed. The dev server and browser task space were closed after QA.
-- Next action: decide whether to retain this resumable QA attempt or reset the demo database during the next approved fixture refresh. The pre-migration dump remains available for rollback investigation.
+- The QA attempt `0c4472b5-c1d7-4a89-86b6-cc008251228c` was removed by the explicitly approved full demo reset/reseed. The clean fixture now has 3 canonical seeded Tryout attempts, 0 in-progress attempts, and no matching QA attempt. The pre-migration dump remains available for rollback investigation.
+- No application code or migration files changed during cleanup; the dev server and browser task space were closed after QA.
 
 ## Historical AS-03 Pickup (2026-08-22)
 

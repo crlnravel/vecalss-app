@@ -64,9 +64,9 @@
   participants, and participant detail all rendered with HTTP 200.
 - [x] Authenticated student Tryout QA: catalogue, waiting room, explicit Start,
   first section, answer persistence status, and released result all passed.
-- [ ] Optional fixture cleanup: QA left resumable attempt
-  `0c4472b5-c1d7-4a89-86b6-cc008251228c` for `student@vecalss.local` with one
-  saved answer. Reset only with explicit approval.
+- [x] Fixture cleanup: the approved full demo reset/reseed removed QA attempt
+  `0c4472b5-c1d7-4a89-86b6-cc008251228c`; verification confirms 3 canonical
+  seeded Tryout attempts and 0 in-progress attempts.
 
 ## Blockers / Risks
 
