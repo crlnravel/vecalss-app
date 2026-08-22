@@ -18,9 +18,11 @@ import {
 import { ChevronDown } from "@/lib/icons";
 
 function StudentPageSizeSelect({
+  basePath = "/admin/enrollment",
   pageSize,
   query,
 }: {
+  basePath?: string;
   pageSize: DirectoryPageSize;
   query: string;
 }) {
@@ -38,7 +40,7 @@ function StudentPageSizeSelect({
     }
 
     const queryString = params.toString();
-    router.replace(queryString ? `/admin/enrollment?${queryString}` : "/admin/enrollment", { scroll: false });
+    router.replace(queryString ? `${basePath}?${queryString}` : basePath, { scroll: false });
   };
 
   return (

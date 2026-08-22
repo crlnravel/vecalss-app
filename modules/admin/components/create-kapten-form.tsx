@@ -12,13 +12,13 @@ import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
 import { createKaptenEnrollmentAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
-function CreateKaptenForm() {
+function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
   const [state, formAction] = useActionState(createKaptenEnrollmentAction, EMPTY_FORM_STATE);
 
   return (
     <form
       action={formAction}
-      className={`${ADMIN_CARD_CLASS_NAME} space-y-5 overflow-hidden p-6`}
+      className={embedded ? "space-y-5" : `${ADMIN_CARD_CLASS_NAME} space-y-5 overflow-hidden p-6`}
       id="create-kapten-account"
     >
       <div>

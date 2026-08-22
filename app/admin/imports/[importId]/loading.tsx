@@ -27,7 +27,7 @@ export default function AdminImportDetailLoading() {
   return (
     <SidebarProvider>
       <div aria-busy="true" aria-label="Loading import preview rows" className="flex min-h-svh w-full bg-secondary-50 text-secondary-900">
-        <AdminPortalNav activeSection="imports" />
+        <AdminPortalNav activeSection="students" />
 
         <SidebarInset className="bg-transparent">
           <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl">

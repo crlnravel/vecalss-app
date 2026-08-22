@@ -273,7 +273,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
       createdAt: handoff.createdAt.toISOString(),
       detail: `${displayRole} · ${method} · ${handoff.user.email}`,
       href: handoff.sourceImportRow?.importId
-        ? `/admin/imports?focus=${encodeURIComponent(handoff.sourceImportRow.importId)}`
+        ? `/admin/imports/${encodeURIComponent(handoff.sourceImportRow.importId)}`
         : role === "kapten"
           ? `/admin/kapten?focus=${encodeURIComponent(handoff.user.id)}`
           : `/admin/enrollment?focus=${encodeURIComponent(handoff.user.id)}`,
@@ -291,7 +291,7 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
   const importAttention: OperationsAttentionItem[] = imports.map((item) => ({
     createdAt: item.createdAt.toISOString(),
     detail: `${item.role === "tutor" ? "Kapten" : "Students"} · ${item.rowCount} rows · ${item.sourceFilename}`,
-    href: `/admin/imports?focus=${encodeURIComponent(item.id)}`,
+    href: `/admin/imports/${encodeURIComponent(item.id)}`,
     id: item.id,
     kind: "import",
     label: "Import",

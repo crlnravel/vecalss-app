@@ -1,24 +1,17 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { fieldControlClassName } from "@/components/ui/field-constants";
 import type { EnrollmentHandoff, TutorProfile, User, UserStatus } from "@/generated/prisma/client";
-import { buildDirectoryQuery } from "@/lib/admin/operations/validation";
+import { buildDirectoryQuery, type DirectoryPageSize, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/validation";
 import type { SessionContext } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
-import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 
-import {
-  deactivateKaptenEnrollmentAction,
-  reactivateKaptenEnrollmentAction,
-  updateKaptenEnrollmentAction,
-} from "./actions";
-import { CreateKaptenForm } from "./components/create-kapten-form";
+import { AddKaptenDialog } from "./components/add-kapten-dialog";
 import { FocusRestorer } from "./components/focus-restorer";
-import { HandoffControls } from "./components/handoff-controls";
+import { KaptenDirectoryTable, type KaptenDirectoryItem } from "./components/kapten-directory-table";
+import { StudentPageSizeSelect } from "./components/student-page-size-select";
 
 type EnrolledKapten = Pick<User, "createdAt" | "email" | "fullName" | "id" | "phone" | "status"> & {
   enrollmentHandoffs: Pick<EnrollmentHandoff, "expiresAt" | "id" | "method" | "sourceImportRowId" | "status">[];
@@ -40,6 +33,29 @@ const errorMessages: Record<string, string> = {
   "update-failed": "We're sorry, we couldn't update that Kapten account. Please try again.",
 };
 
+type PaginationItem = number | "ellipsis-before" | "ellipsis-after";
+
+function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  const visiblePages = new Set([1, pageCount, page - 1, page, page + 1]);
+  const sortedPages = [...visiblePages]
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= pageCount)
+    .sort((left, right) => left - right);
+  const items: PaginationItem[] = [];
+
+  sortedPages.forEach((pageNumber, index) => {
+    if (index > 0 && pageNumber - sortedPages[index - 1] > 1) {
+      items.push(pageNumber > page ? "ellipsis-after" : "ellipsis-before");
+    }
+    items.push(pageNumber);
+  });
+
+  return items;
+}
+
 function KaptenPageModule({
   error,
   focus,
@@ -47,8 +63,11 @@ function KaptenPageModule({
   notice,
   page,
   pageCount,
+  pageSize,
   session,
   search,
+  sort,
+  direction,
   statusFilter,
   total,
 }: {
@@ -58,16 +77,42 @@ function KaptenPageModule({
   notice?: string | null;
   page: number;
   pageCount: number;
+  pageSize: DirectoryPageSize;
   session: SessionContext;
   search: string;
+  sort: DirectorySortKey | null;
+  direction: DirectorySortDirection;
   statusFilter: UserStatus | "all";
   total: number;
 }) {
   const pageHref = (nextPage: number) => {
-    const query = buildDirectoryQuery({ focus: null, page: nextPage, search, status: statusFilter });
+    const query = buildDirectoryQuery({ direction, focus: null, page: nextPage, pageSize, search, sort, status: statusFilter });
     return query ? `/admin/kapten${query}` : "/admin/kapten";
   };
-  const directoryQuery = buildDirectoryQuery({ focus: focus ?? null, page, search, status: statusFilter });
+  const directoryQuery = buildDirectoryQuery({ direction, focus: focus ?? null, page, pageSize, search, sort, status: statusFilter });
+  const visibleStart = kapten.length ? (page - 1) * pageSize + 1 : 0;
+  const visibleEnd = Math.min(page * pageSize, (page - 1) * pageSize + kapten.length);
+  const paginationItems = getPaginationItems(page, pageCount);
+
+  const rows: KaptenDirectoryItem[] = kapten.map((person) => ({
+    bio: person.tutorProfile?.bio ?? null,
+    createdAt: person.createdAt.toISOString(),
+    email: person.email,
+    fullName: person.fullName,
+    headline: person.tutorProfile?.headline ?? null,
+    id: person.id,
+    latestHandoff: person.enrollmentHandoffs[0]
+      ? {
+          expiresAt: person.enrollmentHandoffs[0].expiresAt?.toISOString() ?? null,
+          id: person.enrollmentHandoffs[0].id,
+          method: person.enrollmentHandoffs[0].method,
+          sourceImportRowId: person.enrollmentHandoffs[0].sourceImportRowId ?? null,
+          status: person.enrollmentHandoffs[0].status,
+        }
+      : null,
+    phone: person.phone,
+    status: person.status,
+  }));
 
   return (
     <PortalShell
@@ -77,124 +122,49 @@ function KaptenPageModule({
       session={session}
       title="Kapten"
     >
-      <div className="space-y-6">
-        <h1 className="sr-only">Kapten</h1>
-        <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-directory-heading" noticeId="kapten-directory-notice" targetId={focus ? `kapten-${focus}` : null} />
-        <CreateKaptenForm />
+      <div className="space-y-7">
+        <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-heading" noticeId="kapten-directory-notice" targetId={focus ? `kapten-${focus}` : null} />
+
+        <header className="flex items-start justify-between gap-5">
+          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl" id="kapten-heading">Kapten</h1>
+          <AddKaptenDialog />
+        </header>
 
         <p aria-live="polite" className="sr-only" id="kapten-directory-announcement">{focus ? "Returned to the selected Kapten directory row." : ""}</p>
         {notice ? <div id="kapten-directory-notice" tabIndex={-1}><FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice></div> : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <section className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden p-6`}>
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="kapten-directory-heading" tabIndex={-1}>Manage Kapten accounts</h2>
+        <section aria-label="Kapten directory" className="overflow-hidden rounded-2xl bg-white">
+          <KaptenDirectoryTable
+            direction={direction}
+            focus={focus ?? null}
+            kapten={rows}
+            page={page}
+            pageSize={pageSize}
+            search={search}
+            sort={sort}
+            status={statusFilter}
+          />
+
+          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="text-xs tabular-nums text-secondary-600"><span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}</p>
+              <StudentPageSizeSelect basePath="/admin/kapten" pageSize={pageSize} query={directoryQuery} />
             </div>
-            <p className="text-sm leading-6 text-secondary-600">Edit profiles or change access status.</p>
-          </div>
-
-          <form className="mt-5 grid gap-3 rounded-3xl border border-primary-100 bg-primary-50/60 p-4 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end" method="get">
-            <label className="space-y-2 text-sm">
-              <span className="font-medium text-secondary-900">Search Kapten</span>
-              <input className={fieldControlClassName} defaultValue={search} name="q" placeholder="Name or email" type="search" />
-            </label>
-            <label className="space-y-2 text-sm">
-              <span className="font-medium text-secondary-900">Status</span>
-              <select className={`${fieldControlClassName} pr-12`} defaultValue={statusFilter} name="status">
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="disabled">Disabled</option>
-                <option value="locked">Locked</option>
-              </select>
-            </label>
-            <Button type="submit" variant="brand">Apply filters</Button>
-          </form>
-
-          <div className="mt-6 space-y-4">
-            {kapten.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-primary-200 bg-secondary-50 px-6 py-8 md:px-8 md:py-10">
-                <h3 className="max-w-[18ch] text-2xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 md:text-3xl">{total === 0 ? "No Kapten accounts match this view." : "No Kapten match these filters."}</h3>
-                <p className="mt-4 max-w-[58ch] text-sm leading-7 text-secondary-600 md:text-base">{total === 0 ? "Use the form above to add the first Kapten account and choose its handoff." : "Try another name, email, or status filter."}</p>
-                <div className="mt-6">
-                  <Button
-                    nativeButton={false}
-                    render={<Link href="#create-kapten-account" />}
-                    variant="brand"
-                  >
-                    Return to the create form
-                  </Button>
-                </div>
-              </div>
-            ) : kapten.map((person) => (
-              <article
-                className={cn("overflow-hidden rounded-3xl border border-primary-100 bg-white p-5", focus === person.id && "shadow-[0_0_0_2px_rgba(26,107,60,0.18)]")}
-                data-directory-row="true"
-                id={`kapten-${person.id}`}
-                key={person.id}
-                tabIndex={-1}
-              >
-                <form action={updateKaptenEnrollmentAction} className="grid min-w-0 gap-5 xl:grid-cols-3">
-                  <input name="userId" type="hidden" value={person.id} />
-                  <input name="directoryQuery" type="hidden" value={directoryQuery} />
-                  <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Kapten name</span><input className={fieldControlClassName} defaultValue={person.fullName} name="fullName" required /></label>
-                  <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Kapten email</span><input className={fieldControlClassName} defaultValue={person.email} name="email" required type="email" /></label>
-                  <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Phone</span><input className={fieldControlClassName} defaultValue={person.phone ?? ""} name="phone" type="tel" /></label>
-                  <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Headline</span><input className={fieldControlClassName} defaultValue={person.tutorProfile?.headline ?? ""} name="headline" /></label>
-                  <label className="min-w-0 space-y-2 text-sm xl:col-span-2"><span className="font-medium text-secondary-900">Bio</span><textarea className={`${fieldControlClassName} min-h-24 py-3`} defaultValue={person.tutorProfile?.bio ?? ""} name="bio" /></label>
-                  <div className="flex justify-start md:justify-end xl:col-span-3"><Button type="submit" variant="brand">Save changes</Button></div>
-                </form>
-
-                <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-primary-50 px-4 py-3 text-sm leading-6 text-secondary-700 md:flex-row md:items-center md:justify-between">
-                  <div><p className="font-medium text-secondary-900">Account state</p><p className="mt-1 capitalize">{person.status.replaceAll("_", " ")}</p><p className="mt-1">Active role: Kapten</p></div>
-                  {person.status === "active" ? (
-                    <form action={deactivateKaptenEnrollmentAction} className="space-y-3">
-                      <input name="userId" type="hidden" value={person.id} />
-                      <input name="directoryQuery" type="hidden" value={directoryQuery} />
-                      <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
-                        <input className="mt-1" name="confirmation" required type="checkbox" value="deactivate" />
-                        <span>I understand this disables the account, revokes active sessions, and invalidates open handoffs.</span>
-                      </label>
-                      <Button type="submit" variant="destructive">Deactivate</Button>
-                    </form>
-                  ) : person.status === "disabled" ? (
-                    <form action={reactivateKaptenEnrollmentAction} className="space-y-3">
-                      <input name="userId" type="hidden" value={person.id} />
-                      <input name="directoryQuery" type="hidden" value={directoryQuery} />
-                      <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
-                        <input className="mt-1" name="confirmation" required type="checkbox" value="reactivate" />
-                        <span>I understand reactivation does not restore old sessions or handoffs.</span>
-                      </label>
-                      <button className={buttonVariants({ variant: "brandOutline" })} type="submit">Reactivate</button>
-                    </form>
-                  ) : (
-                    <p className="max-w-xs rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">
-                      This account needs manual recovery before enrollment status can be changed.
-                    </p>
-                  )}
-                </div>
-                {person.enrollmentHandoffs[0] ? (
-                  <HandoffControls
-                    expiresAt={person.enrollmentHandoffs[0].expiresAt}
-                    handoffId={person.enrollmentHandoffs[0].id}
-                    method={person.enrollmentHandoffs[0].method}
-                    sourceImportRowId={person.enrollmentHandoffs[0].sourceImportRowId ?? null}
-                    status={person.enrollmentHandoffs[0].status}
-                  />
-                ) : null}
-
-                <p className="mt-4 text-xs leading-6 text-secondary-500">Created on {person.createdAt.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}</p>
-              </article>
-            ))}
-          </div>
-
-          <div className="mt-6 flex flex-col gap-3 border-t border-primary-100 pt-4 text-sm md:flex-row md:items-center md:justify-between">
-            <p className="text-xs text-secondary-600">Showing {kapten.length ? (page - 1) * 20 + 1 : 0}–{Math.min(page * 20, (page - 1) * 20 + kapten.length)} of {total} Kapten</p>
             {pageCount > 1 ? (
-              <nav aria-label="Kapten directory pages" className="flex items-center gap-2">
-                {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={pageHref(page - 1)}>Previous</Link> : null}
-                <span aria-current="page" className="rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Page {page} of {pageCount}</span>
-                {page < pageCount ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={pageHref(page + 1)}>Next</Link> : null}
+              <nav aria-label="Kapten directory pages" className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
+                <div className="flex min-w-0 items-center gap-0.5">
+                  {page > 1 ? <Link aria-label="Previous Kapten directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
+                  <ol className="flex items-center gap-0.5">
+                    {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
+                      <li key={item}><span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">More pages</span></li>
+                    ) : (
+                      <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Go to page ${item}`} className={buttonVariants({ className: item === page ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800" : "size-9 rounded-lg p-0 text-secondary-700 hover:bg-primary-50 hover:text-primary-800", size: "icon-sm", variant: item === page ? "brand" : "ghost" })} href={pageHref(item)}>{item}</Link></li>
+                    ))}
+                  </ol>
+                  {page < pageCount ? <Link aria-label="Next Kapten directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
+                </div>
               </nav>
             ) : null}
           </div>

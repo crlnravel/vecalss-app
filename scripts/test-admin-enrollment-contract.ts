@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [enrollment, actions, inviteRoute, inviteForm, reissueRoute, paths, studentPage, studentModule, kaptenPage, kaptenModule, rootLayout, authShell, authActions, authService, authSession, rateLimit, handoffService, config] = await Promise.all([
+const [enrollment, actions, inviteRoute, inviteForm, reissueRoute, paths, studentPage, studentModule, kaptenPage, rootLayout, authShell, authActions, authService, authSession, rateLimit, handoffService, config] = await Promise.all([
   readFile(resolve(root, "lib/admin/enrollment/service.ts"), "utf8"),
   readFile(resolve(root, "modules/admin/actions.ts"), "utf8"),
   readFile(resolve(root, "app/api/invite/[token]/route.ts"), "utf8"),
@@ -14,7 +14,6 @@ const [enrollment, actions, inviteRoute, inviteForm, reissueRoute, paths, studen
   readFile(resolve(root, "app/admin/enrollment/page.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/EnrollmentPageModule.tsx"), "utf8"),
   readFile(resolve(root, "app/admin/kapten/page.tsx"), "utf8"),
-  readFile(resolve(root, "modules/admin/KaptenPageModule.tsx"), "utf8"),
   readFile(resolve(root, "app/layout.tsx"), "utf8"),
   readFile(resolve(root, "modules/auth/components/auth-shell.tsx"), "utf8"),
   readFile(resolve(root, "modules/auth/actions.ts"), "utf8"),
@@ -24,6 +23,7 @@ const [enrollment, actions, inviteRoute, inviteForm, reissueRoute, paths, studen
   readFile(resolve(root, "lib/admin/handoffs/service.ts"), "utf8"),
   readFile(resolve(root, "lib/config.ts"), "utf8"),
 ]);
+const kaptenDirectoryModule = await readFile(resolve(root, "modules/admin/components/kapten-directory-table.tsx"), "utf8");
 
 assert.match(enrollment, /createStudentEnrollment/);
 assert.match(enrollment, /createKaptenEnrollment/);
@@ -85,7 +85,7 @@ assert.match(config, /pathless absolute HTTP\(S\) origin/);
 assert.match(handoffService, /worker\/scheduler boundary/);
 assert.match(handoffService, /passwordResetToken\.updateMany/);
 assert.match(studentModule, /status === "disabled"/);
-assert.match(kaptenModule, /status === "disabled"/);
+assert.match(kaptenDirectoryModule, /status === "disabled"/);
 
 const releaseServiceStart = handoffService.indexOf("async function releaseEnrollmentHandoff");
 const releaseServiceEnd = handoffService.indexOf("async function revokeOpenEnrollmentHandoffs");

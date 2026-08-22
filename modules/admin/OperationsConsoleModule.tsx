@@ -371,7 +371,7 @@ function HandoffAttentionAction({
   if (item.sourceImportRowId && !isAwaitingAcknowledgement) {
     return (
       <p className={`rounded-2xl border px-3 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
-        Reissue is disabled for this import-sourced handoff until an authenticated handoff-file recovery workflow is reachable. Open Imports to inspect the source record; do not replace this handoff from the directory.
+        Reissue is disabled for this import-sourced handoff until an authenticated handoff-file recovery workflow is reachable. Open the source import from the attention item to inspect it; do not replace this handoff from the directory.
       </p>
     );
   }
@@ -535,7 +535,7 @@ function OperationDetailSheet({
                 <ImportAttentionAction item={item} onResolved={() => onResolved(item.id, true)} />
               ) : (
                 <p className="rounded-3xl border border-primary-100 bg-primary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
-                  This import is already queued or processing. Review its live status in the Imports workspace before taking the next account action.
+                  This import is already queued or processing. Open the source import from this item to review its live status before taking the next account action.
                 </p>
               )}
             </div>
@@ -697,16 +697,16 @@ function OperationsConsoleModule({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-secondary-900">Import roster</h2>
-              <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Choose Students or Kapten on the imports workspace, then review the preview before any account changes occur.</p>
+              <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Bulk roster imports now start from the enrollment workspace, where you can review the preview before any account changes occur.</p>
             </div>
             <Button
               className="shrink-0"
               nativeButton={false}
-              render={<Link href="/admin/imports" />}
+              render={<Link href="/admin/enrollment" />}
               size="default"
               variant="brand"
             >
-              Open imports <ArrowUpRight size={16} />
+              Open enrollment <ArrowUpRight size={16} />
             </Button>
           </div>
         </section>

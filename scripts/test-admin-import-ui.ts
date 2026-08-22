@@ -25,12 +25,12 @@ import { getSafeAdminReturnPath } from "@/lib/auth/paths";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const [importsPage, intakeModule, detailModule, detailPage, loadingSource, intakeLoadingSource, statusRoute, previewRoute, skipRoute, confirmRoute, cancelRoute, retryRoute, handoffRoute, acknowledgeRoute, reissueRoute, service, handoffFile, handoffService, processingSource, authActions, authPaths, loginPage] = await Promise.all([
-  readFile(resolve(root, "app/admin/imports/page.tsx"), "utf8"),
+  readFile(resolve(root, "app/admin/imports/[importId]/page.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/imports/ImportsIntakeModule.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/imports/ImportDetailModule.tsx"), "utf8"),
   readFile(resolve(root, "app/admin/imports/[importId]/page.tsx"), "utf8"),
   readFile(resolve(root, "app/admin/imports/[importId]/loading.tsx"), "utf8"),
-  readFile(resolve(root, "app/admin/imports/loading.tsx"), "utf8"),
+  readFile(resolve(root, "app/admin/kapten/loading.tsx"), "utf8"),
   readFile(resolve(root, "app/api/admin/imports/[importId]/route.ts"), "utf8"),
   readFile(resolve(root, "app/api/admin/imports/preview/route.ts"), "utf8"),
   readFile(resolve(root, "app/api/admin/imports/[importId]/rows/skip/route.ts"), "utf8"),
@@ -150,11 +150,11 @@ assert.match(detailPage, /getEnrollmentImportStatus/u);
 assert.match(detailPage, /returnTo=/u);
 assert.match(loadingSource, /Loading import preview rows/u);
 assert.match(loadingSource, /LoadingRow/u);
-assert.match(intakeLoadingSource, /Loading imports workspace/u);
-assert.match(intakeLoadingSource, /activeSection="imports"/u);
+assert.match(intakeLoadingSource, /Loading Kapten directory/u);
+assert.match(intakeLoadingSource, /activeSection="kapten"/u);
 assert.match(intakeLoadingSource, /SidebarProvider/u);
 assert.match(intakeLoadingSource, /SidebarInset/u);
-assert.match(intakeLoadingSource, /Loading roster import intake/u);
+assert.match(intakeLoadingSource, /Loading Kapten directory/u);
 assert.doesNotMatch(importsPage, /createdByUserId: session\.user\.id/u);
 assert.doesNotMatch(importsPage, /Your recent imports/u);
 assert.match(intakeModule, /FormData/u);

@@ -41,7 +41,7 @@ const [route, validation, actions, operationsService, handoffService, consoleMod
   readFile(resolve(root, "modules/admin/components/handoff-delivery-notice.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/EnrollmentPageModule.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/KaptenPageModule.tsx"), "utf8"),
-  readFile(resolve(root, "app/admin/imports/page.tsx"), "utf8"),
+  readFile(resolve(root, "app/admin/imports/[importId]/page.tsx"), "utf8"),
   readFile(resolve(root, "app/api/admin/imports/[importId]/cancel/route.ts"), "utf8"),
   readFile(resolve(root, "app/api/admin/imports/[importId]/retry/route.ts"), "utf8"),
   readFile(resolve(root, "components/ui/sheet.tsx"), "utf8"),
@@ -53,6 +53,7 @@ const [route, validation, actions, operationsService, handoffService, consoleMod
   readFile(resolve(root, "modules/admin/components/create-kapten-form.tsx"), "utf8"),
   readFile(resolve(root, "modules/admin/components/student-directory-table.tsx"), "utf8"),
 ]);
+const kaptenDirectoryModule = await readFile(resolve(root, "modules/admin/components/kapten-directory-table.tsx"), "utf8");
 
 const validId = "550e8400-e29b-41d4-a716-446655440000";
 assert.equal(isUuid(validId), true);
@@ -268,10 +269,11 @@ assert.match(deliveryNotice, /className="min-h-11"/);
 assert.match(studentModule, /directoryQuery/);
 assert.match(studentModule, /pageSize/);
 assert.match(studentDirectoryTable, /data-directory-row/);
-assert.match(kaptenModule, /data-directory-row/);
-assert.match(kaptenModule, /directoryQuery/);
-assert.match(kaptenModule, /min-h-11/);
-assert.match(importsPage, /ImportsIntakeModule/);
+assert.match(kaptenModule, /KaptenDirectoryTable/);
+assert.match(kaptenDirectoryModule, /data-directory-row/);
+assert.match(kaptenDirectoryModule, /directoryQuery/);
+assert.match(kaptenDirectoryModule, /SheetContent/);
+assert.match(importsPage, /ImportDetailModule/);
 assert.match(cancelRoute, /cancelEnrollmentImport/);
 assert.match(cancelRoute, /revalidatePath\("\/admin"\)/);
 assert.match(retryRoute, /retryEnrollmentImport/);

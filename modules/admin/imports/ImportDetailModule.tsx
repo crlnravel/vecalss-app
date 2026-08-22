@@ -961,12 +961,12 @@ function ImportDetailView({
         <Button
           className="w-fit"
           nativeButton={false}
-          render={<Link href={`/admin/imports?focus=${encodeURIComponent(importStatus.importId)}#import-${encodeURIComponent(importStatus.importId)}`} />}
+          render={<Link href="/admin/enrollment" />}
           size="default"
           variant="ghost"
         >
           <ArrowLeft aria-hidden="true" size={15} />
-          Back to imports
+          Back to enrollment
         </Button>
         <div className="flex items-center gap-2">
           <Button aria-label="Refresh import status" disabled={refreshing} onClick={() => void loadStatus()} size="default" variant="brandOutline">

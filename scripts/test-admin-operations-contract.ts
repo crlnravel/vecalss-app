@@ -57,7 +57,7 @@ assert.doesNotMatch(consoleModule, /uppercase[^>]*>People directories/);
 assert.match(shell, /Dashboard/);
 assert.match(shell, /Students/);
 assert.match(shell, /Kapten/);
-assert.match(shell, /Imports/);
+assert.doesNotMatch(shell, /Imports/);
 assert.match(shell, /Media/);
 assert.match(studentPage, /contains: search/);
 assert.match(studentPage, /skip: \(page - 1\) \* pageSize/);

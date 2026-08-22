@@ -1,8 +1,27 @@
 import { EnrollmentHandoffStatus, Prisma, RoleName } from "@/generated/prisma/client";
 import { requireAdminSession } from "@/lib/auth/access";
-import { parseDirectoryParams } from "@/lib/admin/operations/validation";
+import { parseDirectoryParams, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
 import { KaptenPageModule } from "@/modules/admin/KaptenPageModule";
+
+function kaptenOrderBy(
+  sort: DirectorySortKey | null,
+  direction: DirectorySortDirection,
+): Prisma.UserOrderByWithRelationInput[] {
+  if (sort === "email") {
+    return [{ email: direction }, { fullName: "asc" }, { id: "asc" }];
+  }
+
+  if (sort === "added") {
+    return [{ createdAt: direction }, { fullName: "asc" }, { id: "asc" }];
+  }
+
+  if (sort === "status") {
+    return [{ status: direction }, { fullName: "asc" }, { id: "asc" }];
+  }
+
+  return [{ fullName: direction }, { id: "asc" }];
+}
 
 export default async function KaptenEnrollmentPage({
   searchParams,
@@ -17,8 +36,7 @@ export default async function KaptenEnrollmentPage({
     q: params.q,
     status: params.status,
   });
-  const { page, search, status } = directory;
-  const pageSize = 20;
+  const { direction, page, pageSize, search, sort, status } = directory;
   const kaptenWhere: Prisma.UserWhereInput = {
     roleAssignments: {
       some: {
@@ -64,7 +82,7 @@ export default async function KaptenEnrollmentPage({
         },
         tutorProfile: true,
       },
-      orderBy: { fullName: "asc" },
+      orderBy: kaptenOrderBy(sort, direction),
       skip: (page - 1) * pageSize,
       take: pageSize,
       where: kaptenWhere,
@@ -79,8 +97,11 @@ export default async function KaptenEnrollmentPage({
       notice={typeof params.notice === "string" ? params.notice : null}
       page={page}
       pageCount={Math.max(1, Math.ceil(total / pageSize))}
+      pageSize={pageSize}
       session={session}
       search={search}
+      sort={sort}
+      direction={direction}
       statusFilter={status}
       total={total}
     />

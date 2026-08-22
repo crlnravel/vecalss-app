@@ -295,7 +295,7 @@ function ImportsIntakeModule({
             <div className="flex flex-wrap gap-2">
               <Button
                 nativeButton={false}
-                render={<Link href={sessionIssue === "expired" ? getImportLoginRecoveryHref("/admin/imports") : "/admin"} />}
+                render={<Link href={sessionIssue === "expired" ? getImportLoginRecoveryHref("/admin/enrollment") : "/admin"} />}
                 size="default"
                 variant="dangerOutline"
               >

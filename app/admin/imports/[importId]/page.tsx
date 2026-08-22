@@ -40,7 +40,7 @@ export default async function AdminImportDetailPage({
 
   return (
     <PortalShell
-      activeAdminSection="imports"
+      activeAdminSection="students"
       audience="admin"
       description="Review rows and release the next handoff."
       session={session}
