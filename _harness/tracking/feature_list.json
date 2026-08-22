@@ -119,6 +119,14 @@
       "dependencies": ["feat-014"],
       "status": "complete",
       "evidence": "4c85278 + 617735f + 01e4078 + cb49aac; final Ticket 6 PASS review; focused attachment/random/CAT/direct/AS-05/package/release contracts, TypeScript, focused ESLint, pnpm verify, approved migration 31 reset/reseed, db:verify-demo, and authenticated ego-browser task 20 desktop/mobile QA. Kuis assembly remains explicitly deferred; assessment-release invariant baseline fails only on protected admin-preview dirty source; schema DB contract skipped without RANDOM_ASSEMBLY_SCHEMA_TEST_DATABASE_URL"
+    },
+    {
+      "id": "feat-016",
+      "name": "AS-07 Live Delivery and Result Workspaces",
+      "description": "Add Live, Attempts, and Results projections inside the mentor Tryout workspace with actionable participant/run navigation and human-review-only integrity signals",
+      "dependencies": ["feat-015"],
+      "status": "in-progress",
+      "evidence": "Ticket artifact created at artifacts/tickets/as07-live-delivery-result-workspaces; implementation agent dispatched; preserve AS-04 ParticipantView, AS-09 AssessmentRelease, attempt/result repositories, and protected admin-preview edits"
     }
   ]
 }

@@ -291,3 +291,17 @@ Store only settled decisions, conventions, and important context that emerged du
 - Next implementation is AS-07 Live delivery and result workspaces. AS-08's
   physical QuestionRevision/Ready lifecycle is already present under AS-02;
   do not reopen it absent a new defect.
+
+## AS-07 kickoff
+
+- AS-07 is scoped to the existing mentor Tryout workspace: Live operational
+  state, Attempts/Test runs, and Results/release projections with actionable
+  participant/run navigation. Reuse ParticipantView, delivery-repository,
+  AssessmentRelease, attempt, scoring, and result-release boundaries rather
+  than adding parallel state machines.
+- Focus/fullscreen events are human-review signals only; no automatic penalty,
+  revoke, void, score change, or release block is allowed. Kuis assembly and
+  AS-08 QuestionRevision lifecycle are explicitly out of scope.
+- Ticket artifact:
+  `artifacts/tickets/as07-live-delivery-result-workspaces`. Implementation
+  agent `6af221fe-77a2-46fa-927b-2234b52a0201` was dispatched on 2026-08-23.

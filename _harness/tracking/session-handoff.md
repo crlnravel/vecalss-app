@@ -30,6 +30,18 @@
   QuestionRevision/Ready lifecycle is already implemented under AS-02 and
   should not be reopened without a new defect.
 
+## Current AS-07 kickoff (2026-08-23)
+
+- Ticket artifact: `artifacts/tickets/as07-live-delivery-result-workspaces`.
+- Implementation agent `6af221fe-77a2-46fa-927b-2234b52a0201` is dispatched
+  with `traycer-implement` to extend the existing mentor Tryout workspace with
+  Live, Attempts, and Results projections.
+- Preserve ParticipantView, delivery-repository, AssessmentRelease, attempt,
+  scoring, and result-release server boundaries. Focus/fullscreen events remain
+  human-review signals only. Kuis assembly and AS-08 are out of scope.
+- Protected dirty files remain untouched and unstaged; use ego-browser for
+  authenticated desktop/mobile QA when implementation is ready.
+
 ## Current AS-06 Ticket 5 Handoff (2026-08-22)
 
 - Objective: pin explicit CAT Pool candidates and canonical 2PL calibration

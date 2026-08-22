@@ -4,7 +4,7 @@
 
 **Last Updated:** 2026-08-23
 **Session ID:** assessment-as06-e2e-closeout
-**Active Feature:** AS-06 Ticket 7 E2E verification
+**Active Feature:** AS-07 Live delivery and result workspaces
 
 ## Status
 
@@ -188,13 +188,21 @@
 
 - [ ] Dedicated invitation-picker UI
   - The server action now accepts a selected session and atomically assigns it,
-    but no existing mentor surface currently invokes the invitation action or
-    provides the required student selector. This remains a separate UI slice,
-    not a missing AS-04 server invariant.
+  but no existing mentor surface currently invokes the invitation action or
+  provides the required student selector. This remains a separate UI slice,
+  not a missing AS-04 server invariant.
+
+- [ ] AS-07 Live delivery and result workspaces
+  - Ticket artifact: `artifacts/tickets/as07-live-delivery-result-workspaces`.
+  - Implementation agent dispatched to extend the existing Tryout workspace
+    with Live, Attempts, and Results projections while reusing ParticipantView,
+    AssessmentRelease, attempt, scoring, and result boundaries.
+  - Kuis assembly and AS-08 QuestionRevision lifecycle remain out of scope.
 
 ### What's Next
 
-1. Start AS-07 Live delivery and result workspaces.
+1. Complete AS-07 implementation and fresh review with authenticated
+   ego-browser desktop/mobile QA.
 2. Keep Kuis assembly binding deferred until its schema-backed identity,
    reload, detach, and republish boundary is implemented and reviewed.
 3. Do not reopen AS-08 physical QuestionRevision/Ready lifecycle; that work is
