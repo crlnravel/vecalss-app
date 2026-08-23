@@ -3,13 +3,46 @@ import "server-only";
 import { ContentStatus, Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import type { QuestionBankReadiness } from "@/lib/question-bank/readiness";
 
 import { questionBankFolderLabel } from "./labels";
 
 const MAX_FOLDER_DEPTH = 512;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-class QuestionBankError extends Error {}
+type QuestionBankErrorCode =
+  | "archived_locked"
+  | "invalid_input"
+  | "invalid_lifecycle_transition"
+  | "not_found"
+  | "published_content_locked"
+  | "question_retired"
+  | "readiness_failed"
+  | "scheduled_unsupported"
+  | "stale_revision";
+
+type QuestionBankErrorOptions = {
+  attemptedInput?: unknown;
+  code?: QuestionBankErrorCode;
+  details?: Record<string, unknown>;
+  readiness?: QuestionBankReadiness;
+};
+
+class QuestionBankError extends Error {
+  readonly attemptedInput?: unknown;
+  readonly code?: QuestionBankErrorCode;
+  readonly details: Record<string, unknown>;
+  readonly readiness?: QuestionBankReadiness;
+
+  constructor(message: string, options: QuestionBankErrorOptions = {}) {
+    super(message);
+    this.name = "QuestionBankError";
+    this.attemptedInput = options.attemptedInput;
+    this.code = options.code;
+    this.details = options.details ?? {};
+    this.readiness = options.readiness;
+  }
+}
 const QuestionBankOrganizationError = QuestionBankError;
 
 type OrganizationMutationOptions = {
@@ -104,6 +137,15 @@ function assertExpectedBankVersion(
   assertExpectedUpdatedAt(bank.updatedAt, expectedUpdatedAt);
   if (expectedRevision !== undefined && bank.revision !== expectedRevision) {
     throw new QuestionBankOrganizationError("Bank Soal telah diperbarui. Muat ulang lalu coba lagi.");
+  }
+}
+
+function assertBankMutationSupported(status: ContentStatus) {
+  if (status === ContentStatus.scheduled) {
+    throw new QuestionBankOrganizationError(
+      "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
+      { code: "scheduled_unsupported", details: { status } },
+    );
   }
 }
 
@@ -521,6 +563,7 @@ async function setQuestionBankCategories(bankId: string, categoryIds: string[], 
       const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
+      assertBankMutationSupported(bank.status);
       if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
 
       const categories = await tx.questionBankCategory.findMany({ where: { id: { in: uniqueCategoryIds } }, select: { id: true } });
@@ -551,6 +594,7 @@ async function assignQuestionBankCategories(bankId: string, categoryIds: string[
       const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
+      assertBankMutationSupported(bank.status);
       if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
       const categories = await tx.questionBankCategory.findMany({ where: { id: { in: uniqueCategoryIds } }, select: { id: true } });
       if (categories.length !== uniqueCategoryIds.length) throw new QuestionBankOrganizationError("Sebagian kategori tidak ditemukan.");
@@ -578,6 +622,7 @@ async function removeQuestionBankCategoryAssignment(bankId: string, categoryId: 
       const bank = await tx.questionBank.findUnique({ where: { id: bankId }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (!bank) throw new QuestionBankOrganizationError("Bank Soal tidak ditemukan.");
       assertExpectedBankVersion(bank, options);
+      assertBankMutationSupported(bank.status);
       if (bank.status === ContentStatus.archived) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dikategorikan.");
       const category = await tx.questionBankCategory.findUnique({ where: { id: categoryId }, select: { id: true } });
       if (!category) throw new QuestionBankOrganizationError("Kategori tidak ditemukan.");
@@ -604,6 +649,7 @@ async function moveQuestionBanksToFolder(bankIds: string[], folderId: string | n
       const banks = await tx.questionBank.findMany({ where: { id: { in: uniqueBankIds } }, select: { id: true, revision: true, status: true, updatedAt: true } });
       if (banks.length !== uniqueBankIds.length) throw new QuestionBankOrganizationError("Sebagian Bank Soal tidak ditemukan.");
       banks.forEach((bank) => assertExpectedBankVersion(bank, options?.expected?.[bank.id]));
+      banks.forEach((bank) => assertBankMutationSupported(bank.status));
       if (banks.some((bank) => bank.status === ContentStatus.archived)) throw new QuestionBankOrganizationError("Bank Soal yang diarsipkan tidak dapat dipindahkan.");
       await tx.questionBank.updateMany({ data: { folderId, updatedByUserId: actorId }, where: { id: { in: uniqueBankIds } } });
       const updatedBanks = await tx.questionBank.findMany({ where: { id: { in: uniqueBankIds } }, select: { id: true, revision: true, updatedAt: true } });
@@ -644,4 +690,5 @@ export type {
   QuestionBankCategoryDto,
   QuestionBankFolderBreadcrumb,
   QuestionBankFolderDto,
+  QuestionBankErrorCode,
 };
