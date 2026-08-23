@@ -41,7 +41,7 @@ async function ensureFolder(client, { name, parentId = null, tutorId }) {
   const existing = await client.query(
     `SELECT id
        FROM question_bank_folders
-      WHERE LOWER(name) = LOWER($1)
+      WHERE LOWER(BTRIM(name)) = LOWER(BTRIM($1))
         AND parent_id IS NOT DISTINCT FROM $2::uuid
       ORDER BY created_at ASC, id ASC
       LIMIT 1`,
@@ -62,7 +62,7 @@ async function ensureCategory(client, { name, tutorId }) {
   const existing = await client.query(
     `SELECT id
        FROM question_bank_categories
-      WHERE LOWER(name) = LOWER($1)
+      WHERE LOWER(BTRIM(name)) = LOWER(BTRIM($1))
       ORDER BY created_at ASC, id ASC
       LIMIT 1`,
     [name],
@@ -79,6 +79,7 @@ async function ensureCategory(client, { name, tutorId }) {
 }
 
 async function seedQuestionBankOrganization(client, { tutorId }) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended('vecalss.question-bank-organization-seed-v1', 0))");
   const folders = new Map();
   let foldersCreated = 0;
   for (const folder of DEFAULT_FOLDERS) {
