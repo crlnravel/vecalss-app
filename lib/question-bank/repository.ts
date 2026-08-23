@@ -13,6 +13,11 @@ import {
 import { prisma } from "@/lib/prisma";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
+import {
+  getQuestionBankReadinessFromRevisions,
+  type QuestionBankReadiness,
+  type QuestionRevisionReadinessInput,
+} from "@/lib/question-bank/readiness";
 
 import {
   assignQuestionBankCategories,
@@ -104,7 +109,8 @@ type QuestionBankDto = QuestionBankOrganization & QuestionBankDiscovery & {
   title: string;
   updatedAt: string;
 };
-type QuestionBankEntry = { bank: QuestionBankDto; questions: BankQuestionDto[] };
+type QuestionBankEditDto = { bank: QuestionBankDto; questions: BankQuestionDto[]; readiness: QuestionBankReadiness };
+type QuestionBankEntry = QuestionBankEditDto;
 type QuestionBankCatalogEntry = { bank: QuestionBankDto };
 type QuestionBankSourceEntry = { bank: QuestionBankDto };
 
@@ -362,12 +368,17 @@ async function getFolderRows(client: typeof prisma | Prisma.TransactionClient = 
 function toDto(
   bank: Prisma.QuestionBankGetPayload<{ include: typeof bankInclude }>,
   folderRows: readonly FolderRow[],
-): QuestionBankEntry {
+): QuestionBankEditDto {
   // The editor and catalogue represent the active inventory. Archived rows
   // remain in the database for snapshot/history integrity but are intentionally
   // excluded from counts, readiness, and the editable question list.
   const activeQuestionRecords = bank.questions.filter((question) => question.status !== ContentStatus.archived);
   const questions: BankQuestionDto[] = activeQuestionRecords.map((question) => toBankQuestionDto(question, bank.id));
+  const readinessInputs: QuestionRevisionReadinessInput[] = activeQuestionRecords.map((question) => ({
+    questionId: question.id,
+    revision: question.currentRevision,
+    subtestCode: question.subtest?.code,
+  }));
   const ready = activeQuestionRecords.filter((question) => isReadyRevision(question.currentRevision)).length;
   const subjectCoverage = [...new Set(
     activeQuestionRecords
@@ -382,6 +393,7 @@ function toDto(
   return {
     bank: catalog.bank,
     questions,
+    readiness: getQuestionBankReadinessFromRevisions(readinessInputs),
   };
 }
 
@@ -1056,6 +1068,7 @@ export type {
   BankQuestionDto,
   QuestionBankDiscovery,
   QuestionBankDto,
+  QuestionBankEditDto,
   QuestionBankEntry,
   QuestionBankFolderPath,
   QuestionBankListPage,
