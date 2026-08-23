@@ -51,6 +51,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { MediaAssetDto } from "@/lib/media/types";
+import { questionBankFolderLabel } from "@/lib/question-bank/labels";
 import { cn } from "@/lib/utils";
 import {
   MediaAssetPreview,
@@ -70,6 +71,9 @@ import {
 } from "@/modules/mentor/question-bank-actions";
 
 const INVENTORY_QUESTIONS_PER_PAGE = 9;
+const ROOT_FOLDER_VALUE = "__bank_soal_root__";
+
+type QuestionBankEditorTab = "questions" | "details";
 
 type ConfirmationRequest = {
   confirmLabel: string;
@@ -85,7 +89,7 @@ type MediaPickerTarget =
 
 type QuestionBankEditorState = {
   activeQuestionId: string | null;
-  activeTab: string;
+  activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
   inventoryPage: number;
   questionDraft: BankQuestion;
@@ -124,8 +128,6 @@ type QuestionBankOrganizationPatch = {
   categoryIds?: string[];
   folderId?: string | null;
 };
-
-const UNFILED_FOLDER_VALUE = "__unfiled__";
 
 type QuestionBankEditorAction = { type: "patch"; patch: Partial<QuestionBankEditorState> };
 
@@ -279,7 +281,7 @@ function QuestionBankEditorForm({
       </div>
       <div className="flex justify-end"><Button disabled={questionDraft.choices.length >= 5 || isQuestionContentLocked} onClick={onAddChoice} size="sm" type="button" variant="brandOutline"><Plus />Tambah opsi</Button></div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field><FieldLabel htmlFor="question-subtest">Tag subject / Topik</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : undefined} className="w-full justify-between" id="question-subtest" type="button" variant="context" />}><span className="truncate">{kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name ? `${questionDraft.subjectCode} - ${kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name}` : "Pilih subject"}</span><ChevronDown className="size-4 text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih subject / topik</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>{isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}</Field>
+        <Field><FieldLabel htmlFor="question-subtest">Subtest</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : undefined} className="w-full justify-between" id="question-subtest" type="button" variant="context" />}><span className="truncate">{kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name ? `${questionDraft.subjectCode} - ${kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name}` : "Pilih Subtest"}</span><ChevronDown className="size-4 text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>{isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}</Field>
         <Field><FieldLabel htmlFor="question-difficulty">Tingkat kesulitan</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button className="w-full justify-between" id="question-difficulty" type="button" variant="context" />}><span>{questionDraft.difficulty === "easy" ? "Mudah" : questionDraft.difficulty === "hard" ? "Sulit" : "Sedang"}</span><ChevronDown className="text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih tingkat kesulitan</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, difficulty: value as BankQuestion["difficulty"] })} value={questionDraft.difficulty}><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="easy">Mudah</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="medium">Sedang</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="hard">Sulit</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></Field>
       </div>
       <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button disabled={!activeQuestionId || isQuestionContentLocked} onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
@@ -307,31 +309,53 @@ function QuestionBankInventory({ activeQuestionId, builderState, inventoryPageCo
 function QuestionBankOrganizationPanel({
   builderState,
   categories,
+  collapsedByDefault = false,
   folders,
   isDisabled,
   onUpdate,
 }: {
   builderState: QuestionBankBuilderFormState;
   categories: QuestionBankCategoryOption[];
+  collapsedByDefault?: boolean;
   folders: QuestionBankFolderNode[];
   isDisabled: boolean;
   onUpdate: (patch: QuestionBankOrganizationPatch) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(!collapsedByDefault);
   const folder = findQuestionBankFolder(folders, builderState.folderId);
-  const folderLabel = builderState.folderId ? folder?.name ?? "Folder tidak ditemukan" : "Unfiled";
+  const folderLabel = questionBankFolderLabel(builderState.folderId, folder?.name ?? "Folder tidak ditemukan");
   const selectedCategories = categories.filter((category) => builderState.categoryIds.includes(category.id));
   const folderOptions = flattenQuestionBankFolders(folders);
 
   return (
     <section className="rounded-3xl border border-primary-100 bg-primary-50/35 p-5 md:p-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <button
+          aria-controls="bank-organization-fields"
+          aria-expanded={isOpen}
+          className="min-w-0 flex-1 text-left"
+          onClick={() => setIsOpen((open) => !open)}
+          type="button"
+        >
           <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Organisasi</p>
-          <h2 className="mt-1 text-xl font-semibold text-secondary-900">Lokasi dan kategori</h2>
-        </div>
-        <Folder className="mt-1 size-5 text-primary-700" />
+          <h2 className="mt-1 text-xl font-semibold text-secondary-900">Organisasi (opsional)</h2>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">Atur folder dan kategori tanpa mengubah isi soal.</p>
+        </button>
+        <Button
+          aria-controls="bank-organization-fields"
+          aria-expanded={isOpen}
+          aria-label={isOpen ? "Sembunyikan organisasi" : "Tampilkan organisasi"}
+          className="mt-0.5 shrink-0"
+          onClick={() => setIsOpen((open) => !open)}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <ChevronDown className={cn("transition-transform", isOpen ? "rotate-180" : undefined)} />
+        </Button>
+        <Folder className="mt-1 hidden size-5 shrink-0 text-primary-700 sm:block" />
       </div>
-      <div className="mt-5 grid gap-5">
+      {isOpen ? <div className="mt-5 grid gap-5" id="bank-organization-fields">
         <Field>
           <FieldLabel htmlFor="bank-folder">Folder</FieldLabel>
           <DropdownMenu>
@@ -345,10 +369,10 @@ function QuestionBankOrganizationPanel({
             <DropdownMenuContent align="start" className="w-(--anchor-width)">
               <DropdownMenuLabel>Pilih folder</DropdownMenuLabel>
               <DropdownMenuRadioGroup
-                onValueChange={(value) => onUpdate({ folderId: value === UNFILED_FOLDER_VALUE ? null : value })}
-                value={builderState.folderId ?? UNFILED_FOLDER_VALUE}
+                onValueChange={(value) => onUpdate({ folderId: value === ROOT_FOLDER_VALUE ? null : value })}
+                value={builderState.folderId ?? ROOT_FOLDER_VALUE}
               >
-                <DropdownMenuRadioItem disabled={isDisabled} value={UNFILED_FOLDER_VALUE}>Unfiled</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem disabled={isDisabled} value={ROOT_FOLDER_VALUE}>Bank soal</DropdownMenuRadioItem>
                 {folderOptions.map(({ depth, folder: option }) => (
                   <DropdownMenuRadioItem
                     className="pr-3"
@@ -391,7 +415,7 @@ function QuestionBankOrganizationPanel({
           </DropdownMenu>
           {selectedCategories.length ? <div className="mt-3 flex flex-wrap gap-2">{selectedCategories.map((category) => <Badge key={category.id} size="ui" variant="mint">{category.name}</Badge>)}</div> : null}
         </Field>
-      </div>
+      </div> : <p className="mt-3 text-sm text-secondary-600">Folder dan kategori bersifat opsional.</p>}
     </section>
   );
 }
@@ -406,7 +430,7 @@ type QuestionBankBuilderFormState = {
 };
 type QuestionBankBuilderViewState = {
   activeQuestionId: string | null;
-  activeTab: string;
+  activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
   hasSubmittedPreview: boolean;
   hasUnsavedChanges: boolean;
@@ -450,21 +474,42 @@ type QuestionBankBuilderActions = {
   updateLifecycle: (operation: "publish" | "unpublish" | "restore") => void;
 };
 
+function QuestionBankEditorHeader({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
+  const titleMissing = mode === "create" && !builderState.title.trim();
+  const saveLabel = mode === "create" ? "Buat dan mulai menulis" : "Simpan perubahan";
+
+  return (
+    <section className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1><span className={cn("inline-flex items-center gap-2 text-sm font-medium", state.hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}><span aria-hidden="true" className={cn("size-2 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />{state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}</span></div></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button aria-describedby={titleMissing ? "create-bank-title-help" : undefined} aria-label={saveLabel} disabled={state.isSaving || state.lifecycleStatus === "archived" || titleMissing} onClick={actions.saveDraft} size={mode === "create" ? "sm" : "icon-sm"} title={mode === "create" ? undefined : saveLabel} type="button" variant="brand"><Save />{mode === "create" ? saveLabel : null}</Button>
+        {titleMissing ? <p className="text-xs font-medium text-secondary-600" id="create-bank-title-help">Judul bank wajib diisi</p> : null}
+        {mode === "edit" ? (state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.isDraftLifecycle ? <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button> : <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>) : null}
+      </div>
+    </section>
+  );
+}
+
+function QuestionBankQuestionWorkspace({ actions, builderState, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; state: QuestionBankBuilderViewState }) {
+  return <section className="grid items-start gap-6 xl:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] xl:gap-6"><div className="order-2 min-w-0 xl:col-start-2 xl:row-start-1 xl:order-none"><div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div><Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}><TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList><TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent><TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent></Tabs></div><QuestionBankInventory activeQuestionId={state.activeQuestionId} builderState={builderState} inventoryPageCount={state.inventoryPageCount} onAddQuestion={actions.addQuestion} onNextPage={actions.onNextPage} onOpenQuestion={actions.onOpenQuestion} onPreviousPage={actions.onPreviousPage} onRemoveQuestion={actions.onRemoveQuestion} paginatedQuestions={state.paginatedQuestions} visibleInventoryPage={state.visibleInventoryPage} /></section>;
+}
+
+function QuestionBankTabs({ actions, builderState, categories, folders, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
+  return <Tabs className="gap-8" onValueChange={actions.onChangeTab} value={state.activeTab}>
+    {state.isQuestionContentLocked ? <Alert><AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle><AlertDescription className="text-secondary-900">Soal dan informasi bank dikunci saat diarsipkan. Pulihkan bank untuk membuat revisi baru.</AlertDescription></Alert> : null}
+    <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max min-w-full sm:min-w-0"><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="questions">Soal <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{builderState.questions.length}</span></TabsTrigger><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="details">Detail bank</TabsTrigger></TabsList></div>
+    <TabsContent className="m-0" value="details"><section className="grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start"><div className="grid gap-5"><Field><FieldLabel htmlFor="bank-title">Judul bank</FieldLabel><FieldInput aria-describedby={mode === "create" && !builderState.title.trim() ? "bank-title-help" : undefined} aria-invalid={mode === "create" && !builderState.title.trim()} aria-required={mode === "create"} disabled={state.lifecycleStatus === "archived"} id="bank-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} required={mode === "create"} value={builderState.title} />{mode === "create" && !builderState.title.trim() ? <p className="text-xs text-secondary-600" id="bank-title-help">Judul bank wajib diisi sebelum mulai menulis.</p> : null}</Field><Field><FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-[100px]" disabled={state.lifecycleStatus === "archived"} id="bank-description" onChange={(event) => actions.updateMetadata("description", event.target.value)} value={builderState.description} /></Field></div><QuestionBankOrganizationPanel builderState={builderState} categories={categories} collapsedByDefault={mode === "create"} folders={folders} isDisabled={state.lifecycleStatus === "archived"} onUpdate={actions.updateOrganization} /></section></TabsContent>
+    <TabsContent className="m-0" value="questions"><QuestionBankQuestionWorkspace actions={actions} builderState={builderState} state={state} /></TabsContent>
+  </Tabs>;
+}
+
 function QuestionBankBuilderScreen({ actions, builderState, categories, folders, mode, session, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; session: SessionContext; state: QuestionBankBuilderViewState }) {
   const confirmation = state.confirmationRequest;
   return (
     <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel={mode === "create" ? "Buat Bank Soal" : "Edit Bank Soal"} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges}>
-      <section className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1><span className={cn("inline-flex items-center gap-2 text-sm font-medium", state.hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}><span aria-hidden="true" className={cn("size-2 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />{state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}</span></div></div>
-        <div className="flex flex-wrap gap-2"><Button aria-label="Simpan perubahan" disabled={state.isSaving || state.lifecycleStatus === "archived"} onClick={actions.saveDraft} size="icon-sm" title="Simpan perubahan" type="button" variant="brand"><Save /></Button>{state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.isDraftLifecycle ? <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button> : <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>}</div>
-      </section>
+      <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
       {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
-      <Tabs className="gap-8" onValueChange={actions.onChangeTab} value={state.activeTab}>
-        {state.isQuestionContentLocked ? <Alert><AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle><AlertDescription className="text-secondary-900">Soal dan informasi bank dikunci saat diarsipkan. Pulihkan bank untuk membuat revisi baru.</AlertDescription></Alert> : null}
-        <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max min-w-full sm:min-w-0"><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="information">Informasi bank</TabsTrigger><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="content">Isi bank <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{builderState.questions.length}</span></TabsTrigger></TabsList></div>
-        <TabsContent className="m-0" value="information"><section className="grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start"><div className="grid gap-5"><Field><FieldLabel htmlFor="bank-title">Judul bank</FieldLabel><FieldInput disabled={state.lifecycleStatus === "archived"} id="bank-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} value={builderState.title} /></Field><Field><FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-[100px]" disabled={state.lifecycleStatus === "archived"} id="bank-description" onChange={(event) => actions.updateMetadata("description", event.target.value)} value={builderState.description} /></Field></div><QuestionBankOrganizationPanel builderState={builderState} categories={categories} folders={folders} isDisabled={state.lifecycleStatus === "archived"} onUpdate={actions.updateOrganization} /></section></TabsContent>
-        <TabsContent className="m-0" value="content"><section className="grid items-start gap-6 xl:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] xl:gap-6"><div className="order-2 min-w-0 xl:col-start-2 xl:row-start-1 xl:order-none"><div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div><Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}><TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList><TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent><TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent></Tabs></div><QuestionBankInventory activeQuestionId={state.activeQuestionId} builderState={builderState} inventoryPageCount={state.inventoryPageCount} onAddQuestion={actions.addQuestion} onNextPage={actions.onNextPage} onOpenQuestion={actions.onOpenQuestion} onPreviousPage={actions.onPreviousPage} onRemoveQuestion={actions.onRemoveQuestion} paginatedQuestions={state.paginatedQuestions} visibleInventoryPage={state.visibleInventoryPage} /></section></TabsContent>
-      </Tabs>
+      <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} />
       <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
       <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </MentorWorkspaceShell>
@@ -516,7 +561,7 @@ function useQuestionBankPersistence({
         description: savedBank.description,
         folderId: desiredFolderId,
         questions: result.result.questions,
-        subjectCode: "PU",
+        subjectCode: builderState.subjectCode,
         title: savedBank.title,
       };
       let organizationVersion = { expectedRevision: savedBank.revision, expectedUpdatedAt: savedBank.updatedAt };
@@ -599,16 +644,16 @@ function KaptenQuestionBankBuilderPageModule({
       folderId: initialBank?.folderId ?? null,
       questions,
       subjectCode,
-      title: initialBank?.title ?? "Bank Soal Baru",
+      title: initialBank?.title ?? "",
     };
   });
   const initialQuestion = localBuilderState.questions[0]!;
   const [editorState, dispatch] = useReducer(questionBankEditorReducer, {
     activeQuestionId: initialQuestion.id,
-    activeTab: "information",
+    activeTab: mode === "create" ? "details" : "questions",
     confirmationRequest: null,
     hasSubmittedPreview: false,
-    hasUnsavedChanges: initialQuestions.length === 0,
+    hasUnsavedChanges: mode === "create",
     inventoryPage: 1,
     isSaving: false,
     lifecycleError: null,
@@ -842,7 +887,9 @@ function KaptenQuestionBankBuilderPageModule({
       addQuestion,
       closeConfirmation,
       confirmPendingAction,
-      onChangeTab: (value) => updateEditor({ activeTab: value }),
+      onChangeTab: (value) => {
+        if (value === "questions" || value === "details") updateEditor({ activeTab: value });
+      },
       onChoiceChange: (value) => updateEditor({ hasSubmittedPreview: false, previewChoiceId: value }),
       onCloseMedia: () => updateEditor({ mediaPickerTarget: null }),
       onEditorTabChange: (value) => updateEditor({ questionEditorTab: value }),
