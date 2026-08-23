@@ -51,7 +51,7 @@ function dateOrThrow(value: Date | string, field: string) {
 function json(value: unknown): Prisma.InputJsonValue { return value as Prisma.InputJsonValue; }
 
 async function audit(tx: Prisma.TransactionClient, input: { action: string; admissionId?: string; after: unknown; before?: unknown; deliverySessionId?: string; reason: string; tryoutId: string; actorId: string }) {
-  await tx.tryoutDeliveryAudit.create({ data: { action: input.action, actorUserId: input.actorId, admissionId: input.admissionId, after: json(input.after), before: input.before === undefined ? undefined : json(input.before), deliverySessionId: input.deliverySessionId, reason: input.reason, tryoutId: input.tryoutId } });
+  return tx.tryoutDeliveryAudit.create({ data: { action: input.action, actorUserId: input.actorId, admissionId: input.admissionId, after: json(input.after), before: input.before === undefined ? undefined : json(input.before), deliverySessionId: input.deliverySessionId, reason: input.reason, tryoutId: input.tryoutId } });
 }
 
 async function assertStudent(tx: Prisma.TransactionClient, studentId: string) {
@@ -690,11 +690,14 @@ async function inviteTryoutParticipant(
     const assignment = existingAssignment?.status === TryoutAssignmentStatus.active
       ? existingAssignment
       : await ensureActiveAssignment(tx, restored.id, lockedSelected.id, actorId);
-    await audit(tx, { action: "admission.invited", actorId, admissionId: restored.id, after: { assignmentId: assignment.id, sessionId: lockedSelected.id, status: restored.status, studentId }, reason: auditReason, deliverySessionId: lockedSelected.id, tryoutId });
+    // The assignment row is reused when a revoked invite is restored. Use the
+    // audit row created for this invitation lifecycle as the notification key
+    // so a fresh reinvite cannot be deduped against its prior unread/read one.
+    const invitationAudit = await audit(tx, { action: "admission.invited", actorId, admissionId: restored.id, after: { assignmentId: assignment.id, sessionId: lockedSelected.id, status: restored.status, studentId }, reason: auditReason, deliverySessionId: lockedSelected.id, tryoutId });
     if (existingAssignment?.status !== TryoutAssignmentStatus.active) {
       await createTryoutInvitationNotification({
         recipientUserId: studentId,
-        sourceEntityId: assignment.id,
+        sourceEntityId: invitationAudit.id,
         tryoutId,
         tx,
       });

@@ -120,7 +120,10 @@ assert.ok(invitation.indexOf("replayAssignment") < invitation.indexOf("findDefau
 assert.ok(invitation.indexOf("assertTryoutOwnership") < invitation.indexOf("assertStudent"), "invitation ownership must precede participant reads");
 assert.match(invitation, /createTryoutInvitationNotification/u);
 assert.ok(invitation.indexOf("await audit(tx, { action: \"admission.invited\"") < invitation.indexOf("createTryoutInvitationNotification"), "invitation notification must follow the admission audit");
+assert.match(invitation, /const invitationAudit = await audit\(tx, \{ action: "admission\.invited"/u, "invitation notification must use the lifecycle audit event");
+assert.match(invitation, /sourceEntityId: invitationAudit\.id/u, "invitation notification dedupe must use a lifecycle-specific key");
 assert.match(invitation, /existingAssignment\?\.status !== TryoutAssignmentStatus\.active/u, "replayed active invitations must not notify again");
+assert.match(invitation, /ensureActiveAssignment\(tx, restored\.id, lockedSelected\.id, actorId\)/u, "reinviting a revoked assignment must preserve the existing assignment lifecycle");
 assert.match(delivery, /status === TryoutDeliverySessionStatus\.closed/);
 assert.match(delivery, /status === TryoutDeliverySessionStatus\.archived/);
 assert.match(delivery, /!session\.assessmentReleaseId/);
