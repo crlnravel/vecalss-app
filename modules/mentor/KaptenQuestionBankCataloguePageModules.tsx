@@ -459,33 +459,21 @@ function KaptenQuestionBankPageModule({
       width: 34,
     },
     {
-      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-600">{row.folder.bankCount} bank · {row.folder.children?.length ?? 0} subfolder</span> : <span className="text-sm text-secondary-600">{row.bank.questionCount} soal</span>,
-      id: "contents",
-      label: "Isi",
-      width: 15,
-    },
-    {
-      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">Folder</span> : (
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
         <div className="flex max-w-[24rem] flex-wrap gap-1.5">
           {row.bank.subjectCoverage.map((subject) => <Badge key={subject} size="ui" variant="mint">{subject}</Badge>)}
           {row.bank.categories.map((category) => <span className="inline-flex items-center rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
         </div>
       ),
       id: "coverage",
-      label: "Coverage",
-      width: 24,
+      label: "Kategori",
+      width: 28,
     },
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : <StatusPill status={row.bank.status} />,
       id: "status",
       label: "Status",
       width: 13,
-    },
-    {
-      cell: (row) => row.kind === "folder" ? <span className="flex max-w-[15rem] items-center gap-1.5 truncate text-sm text-secondary-600"><Folder className="size-3.5 shrink-0 text-secondary-400" />{currentPath[currentPath.length - 1]?.name}</span> : <span className="flex max-w-[15rem] items-center gap-1.5 truncate text-sm text-secondary-600" title={row.bank.folderPath.map((item) => item.name).join(" / ")}><Folder className="size-3.5 shrink-0 text-secondary-400" />{row.bank.folderPath.map((item) => item.name).join(" / ")}</span>,
-      id: "location",
-      label: "Lokasi",
-      width: 17,
     },
     {
       cell: (row) => row.kind === "folder" ? (
@@ -562,12 +550,11 @@ function KaptenQuestionBankPageModule({
   );
 
   const activeFilters: DataTableFilter[] = [
-    ...(selectedFolder !== ROOT_FOLDER ? [{ id: "folder", label: "Folder", value: selectedFolder === null ? "Belum ditempatkan" : currentPath[currentPath.length - 1]?.name ?? "Folder", href: questionBankHref({ categories: selectedCategories, folder: ROOT_FOLDER, page: 1, query: initialSearch, sort: initialSort, status: statusFilter, subjects: selectedSubjects }) }] : []),
     ...(selectedSubjects.length ? [{ id: "subjects", label: "Subject", value: selectedSubjects.join(", "), href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, status: statusFilter }) }] : []),
     ...(selectedCategories.length ? [{ id: "categories", label: "Kategori", value: `${selectedCategories.length} dipilih`, href: questionBankHref({ folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, status: statusFilter, subjects: selectedSubjects }) }] : []),
     ...(statusFilter ? [{ id: "status", label: "Status", value: statusCopy(statusFilter as KaptenQuestionBank["status"]), href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, subjects: selectedSubjects }) }] : []),
   ];
-  const clearFiltersHref = questionBankHref({ page: 1, sort: initialSort });
+  const clearFiltersHref = questionBankHref({ folder: selectedFolder, page: 1, sort: initialSort });
   const folderBreadcrumb = (
     <nav aria-label="Breadcrumb folder" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500">
       {currentPath.map((item, index) => (

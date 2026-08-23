@@ -21,6 +21,10 @@ assert.match(bankCatalogue, /MentorCatalogueTable/u, "Bank Soal should use the r
 assert.match(bankCatalogue, /caption="Daftar folder dan bank soal"/u, "Bank Soal should expose one integrated table caption");
 assert.match(bankCatalogue, /headingIcon=\{<LibraryBig/u, "Bank Soal should lead the table with a recognizable icon");
 assert.match(bankCatalogue, /folderBreadcrumb/u, "Bank Soal should expose the active folder breadcrumb");
+assert.match(bankCatalogue, /label: "Kategori"/u, "Bank Soal should label bank coverage as categories");
+assert.match(bankCatalogue, /row\.kind === "folder" \? <span className="text-sm text-secondary-400">—<\/span>/u, "Folder rows should show a dash for categories");
+assert.doesNotMatch(bankCatalogue, /label: "Isi"|label: "Lokasi"|id: "location"/u, "Bank Soal should keep location details in the breadcrumb instead of table columns");
+assert.doesNotMatch(bankCatalogue, /id: "folder", label: "Folder"/u, "The active folder should be represented by the breadcrumb, not an active filter chip");
 assert.doesNotMatch(bankCatalogue, /viewMode|setViewMode|Tampilan grid|Tampilan daftar/u, "Bank Soal should not expose grid/list presentation toggles");
 assert.match(bankCatalogue, /const catalogueRows: QuestionBankCatalogueRow\[\]/u, "Bank Soal should integrate folders and banks into one table data set");
 assert.match(bankCatalogue, /kind: "folder"/u, "The integrated Bank Soal table should include folder rows");
