@@ -7,29 +7,29 @@ const bankCatalogue = read("modules/mentor/KaptenQuestionBankCataloguePageModule
 const packageBuilder = read("modules/mentor/KaptenPackageBuilderPageModule.tsx");
 const packageVersionDetail = read("modules/mentor/KaptenPackageVersionDetailModule.tsx");
 
-assert.match(bankCatalogue, /<p className="mt-1 text-sm text-secondary-600">\{bank\.questionCount\} soal<\/p>/u, "Bank cards should show the question count as their primary metadata");
-assert.doesNotMatch(bankCatalogue, /\{bank\.questionCount\} soal · \{bank\.progress\}% siap(?: · \{bank\.difficultyMix\})?/u, "Bank cards should not append readiness metadata to the visible question count");
+assert.match(bankCatalogue, /\{bank\.questionCount\} soal/u, "Bank rows should show the question count as their primary metadata");
+assert.doesNotMatch(bankCatalogue, /\{bank\.questionCount\} soal · \{bank\.progress\}% siap(?: · \{bank\.difficultyMix\})?/u, "Bank rows should not append readiness metadata to the visible question count");
 
 assert.doesNotMatch(bankCatalogue, /function FolderTree|<FolderTree|organizationOpen|Tampilkan lokasi|Sembunyikan lokasi|question-bank-organization-panel/u, "Bank Soal folder navigation should live in the main catalogue, not a collapsible sidebar");
 assert.match(bankCatalogue, /Kelola kategori bersama/u, "Category management should remain reachable from the main catalogue toolbar");
 assert.match(bankCatalogue, /Buat folder/u, "Folder creation should remain reachable from the main catalogue");
-assert.match(bankCatalogue, /aria-label=\{`Kelola folder \$\{folder\.name\}`\}/u, "Folder cards should keep folder management actions accessible");
+assert.match(bankCatalogue, /aria-label=\{`Kelola folder \$\{folder\.name\}`\}/u, "Folder rows should keep folder management actions accessible");
 assert.match(bankCatalogue, /Koleksi utama/u, "Root copy should describe the direct unfiled collection honestly");
 assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on the shell's single page landmark");
 assert.doesNotMatch(bankCatalogue, /<main className="min-w-0 space-y-4">/u, "Bank Soal should not nest a second main landmark");
-assert.match(bankCatalogue, /type BankViewMode = "grid" \| "list"/u, "Bank Soal should offer media-library grid/list views");
-assert.match(bankCatalogue, /const \[viewMode, setViewMode\]/u);
-assert.match(bankCatalogue, /aria-pressed=\{viewMode === "grid"\}/u);
-assert.match(bankCatalogue, /aria-pressed=\{viewMode === "list"\}/u);
-assert.match(bankCatalogue, /Folder di koleksi utama|Subfolder di lokasi ini/u, "Folder navigation should be visible as media-library cards");
+assert.match(bankCatalogue, /MentorCatalogueTable/u, "Bank Soal should use the reusable table wrapper");
+assert.match(bankCatalogue, /caption="Daftar bank soal"/u, "Bank Soal should expose a table caption");
+assert.match(bankCatalogue, /headingIcon=\{<LibraryBig/u, "Bank Soal should lead the table with a recognizable icon");
+assert.match(bankCatalogue, /folderBreadcrumb/u, "Bank Soal should expose the active folder breadcrumb");
+assert.doesNotMatch(bankCatalogue, /viewMode|setViewMode|Tampilan grid|Tampilan daftar/u, "Bank Soal should not expose grid/list presentation toggles");
+assert.match(bankCatalogue, /Folder di koleksi utama|Subfolder di lokasi ini/u, "Folder navigation should remain visible above the folder table");
 assert.match(bankCatalogue, /Belum ditempatkan/u, "Unfiled should use a user-facing Indonesian label");
 assert.match(bankCatalogue, /type BankSortMode = "updated" \| "name" \| "questions"/u);
 assert.match(bankCatalogue, /initialSort = "updated"/u, "Bank Soal should hydrate sort from the URL");
-assert.match(bankCatalogue, /const \[committedSearch, setCommittedSearch\]/u, "search summary should use committed query state");
-assert.match(bankCatalogue, /focus-visible:opacity-100/u, "folder actions should remain visible for keyboard focus");
+assert.match(bankCatalogue, /search=\{\{ action: "\/mentor\/quiz\/question-bank"/u, "Bank Soal should use the table search control");
 assert.match(bankCatalogue, /aria-label=\{`Pindahkan \$\{bank\.title\}`\}/u, "move actions should name their bank");
 assert.match(bankCatalogue, /aria-label=\{`Kelola kategori \$\{bank\.title\}`\}/u, "category actions should name their bank");
-assert.match(bankCatalogue, /navigateCatalogue\(\{ sort: next, page: 1 \}\)/u, "sort changes should persist in the URL");
+assert.match(bankCatalogue, /navigateCatalogue\(\{ sort: value as BankSortMode, page: 1 \}\)/u, "sort changes should persist in the URL");
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /const folderId = requestedFolder === undefined \? null/u, "The root catalogue should list only unfiled banks");
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /initialSelectedFolder=\{requestedFolder === undefined \? "root" : folderId\}/u, "The UI should hydrate the root folder state separately from an explicit unfiled filter");
@@ -67,6 +67,12 @@ assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /li
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /updateLifecycle\(operation: "publish" \| "unpublish" \| "restore"\)/u);
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /disabled=\{isQuestionContentLocked\} id="question-prompt"/u, "Archived question fields should be visibly disabled");
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /id=\{`bank-correct-choice-\$\{choice\.id\}`\}/u, "Correct-answer radios need stable ids for their letter labels");
-assert.match(read("modules/mentor/KaptenPackageCataloguePageModule.tsx"), /nativeButton=\{false\} render=\{<Link href="\/mentor\/packages\/create" \/>\}/u);
+const packageCatalogue = read("modules/mentor/KaptenPackageCataloguePageModule.tsx");
+assert.match(packageCatalogue, /MentorCatalogueTable/u, "Paket Soal should use the reusable table wrapper");
+assert.match(packageCatalogue, /caption="Daftar Paket Soal"/u, "Paket Soal should expose a table caption");
+assert.match(packageCatalogue, /headingIcon=\{<PackageCheck/u, "Paket Soal should lead the table with a recognizable icon");
+assert.match(packageCatalogue, /aria-label="Breadcrumb"/u, "Paket Soal should expose a breadcrumb");
+assert.doesNotMatch(packageCatalogue, /className="grid gap-3"|sm:grid-cols/u, "Paket Soal rows should not use a card grid");
+assert.match(packageCatalogue, /nativeButton=\{false\} render=\{<Link href="\/mentor\/packages\/create" \/>\}/u);
 
 console.log("Mentor Bank Soal and Paket Soal UI contracts passed.");
