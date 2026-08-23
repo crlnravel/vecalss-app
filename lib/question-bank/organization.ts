@@ -4,6 +4,8 @@ import { ContentStatus, Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
+import { questionBankFolderLabel } from "./labels";
+
 const MAX_FOLDER_DEPTH = 512;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -136,7 +138,7 @@ async function lockBanks(tx: Prisma.TransactionClient, ids: string[]) {
 }
 
 function folderPathFromRows(folderId: string | null, rows: readonly FolderRow[]): QuestionBankFolderBreadcrumb[] {
-  if (!folderId) return [{ id: null, name: "Unfiled" }];
+  if (folderId === null) return [{ id: null, name: questionBankFolderLabel(folderId) }];
 
   const byId = new Map(rows.map((row) => [row.id, row]));
   const path: QuestionBankFolderBreadcrumb[] = [];
@@ -246,7 +248,7 @@ function buildQuestionBankFolderTree(
       children: [],
       createdAt: "",
       id: null,
-      name: "Unfiled",
+      name: questionBankFolderLabel(null),
       parentId: null,
       updatedAt: "",
     });
@@ -633,6 +635,7 @@ export {
   renameQuestionBankCategory,
   renameQuestionBankFolder,
   setQuestionBankCategories,
+  questionBankFolderLabel,
 };
 export type {
   OrganizationMutationOptions,
