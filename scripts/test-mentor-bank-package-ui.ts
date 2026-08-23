@@ -14,7 +14,8 @@ assert.doesNotMatch(bankCatalogue, /function FolderTree|<FolderTree|organization
 assert.match(bankCatalogue, /Kelola kategori bersama/u, "Category management should remain reachable from the main catalogue toolbar");
 assert.match(bankCatalogue, /Buat folder/u, "Folder creation should remain reachable from the main catalogue");
 assert.match(bankCatalogue, /aria-label=\{`Kelola folder \$\{row\.folder\.name\}`\}/u, "Folder rows should keep folder management actions accessible");
-assert.match(bankCatalogue, /Koleksi utama/u, "Root copy should describe the direct unfiled collection honestly");
+assert.match(bankCatalogue, /name: "Bank soal"/u, "Root copy should use the Bank Soal product label");
+assert.doesNotMatch(bankCatalogue, /Koleksi utama/u, "Root copy should not use the superseded collection label");
 assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on the shell's single page landmark");
 assert.doesNotMatch(bankCatalogue, /<main className="min-w-0 space-y-4">/u, "Bank Soal should not nest a second main landmark");
 assert.match(bankCatalogue, /MentorCatalogueTable/u, "Bank Soal should use the reusable table wrapper");

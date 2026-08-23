@@ -265,7 +265,7 @@ function KaptenQuestionBankPageModule({
 
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
   const currentFolder = selectedFolder !== ROOT_FOLDER && selectedFolder !== null ? findFolder(folders, selectedFolder) : selectedFolder === null ? findFolder(folders, null) : null;
-  const currentPath = selectedFolder === ROOT_FOLDER ? [{ id: null, name: "Koleksi utama" }] : [{ id: null, name: "Koleksi utama" }, ...(selectedFolder === null ? [{ id: null, name: "Belum ditempatkan" }] : folderPath(folders, selectedFolder))];
+  const currentPath = selectedFolder === ROOT_FOLDER ? [{ id: null, name: "Bank soal" }] : [{ id: null, name: "Bank soal" }, ...(selectedFolder === null ? [{ id: null, name: "Belum ditempatkan" }] : folderPath(folders, selectedFolder))];
   const folderCreateParentId = selectedFolder === ROOT_FOLDER || selectedFolder === null ? null : selectedFolder;
   const folderCreateLabel = selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat folder" : "Buat subfolder";
   const totalPages = Math.max(1, Math.ceil(initialTotal / initialPageSize));
@@ -649,21 +649,21 @@ function KaptenQuestionBankPageModule({
           <Button disabled={Boolean(categoryEditor)} onClick={openCategoryCreate} size="sm" type="button" variant="brandOutline"><Plus />Buat kategori</Button>
         </div>
         <div className="grid gap-2">
-          {categoryEditor?.kind === "create" ? <div className="rounded-2xl border border-primary-200 bg-primary-50/40 p-2">
-            <Field>
+          {categoryEditor?.kind === "create" ? <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1">
+            <Field className="min-w-0 flex-1">
               <FieldLabel className="sr-only" htmlFor="category-name">Nama kategori baru</FieldLabel>
-              <FieldInput autoFocus id="category-name" maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
+              <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id="category-name" maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
             </Field>
-            <div className="mt-2 flex flex-wrap justify-end gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-2">
               <Button disabled={isApplying} onClick={cancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
               <Button disabled={isApplying || !categoryName.trim()} onClick={() => void submitCategoryEditor()} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
             </div>
           </div> : null}
           {categories.map((category) => categoryEditor?.kind === "rename" && categoryEditor.categoryId === category.id ? (
-            <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-2 sm:flex-row sm:items-center" key={category.id}>
+            <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1" key={category.id}>
               <Field className="min-w-0 flex-1">
                 <FieldLabel className="sr-only" htmlFor={`category-name-${category.id}`}>Nama kategori</FieldLabel>
-                <FieldInput autoFocus id={`category-name-${category.id}`} maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
+                <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id={`category-name-${category.id}`} maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
               </Field>
               <div className="flex shrink-0 items-center justify-end gap-2">
                 <Button disabled={isApplying} onClick={cancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
