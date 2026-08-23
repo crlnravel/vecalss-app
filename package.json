@@ -58,6 +58,7 @@
     "test:tryout-live-result-workspaces": "tsx scripts/test-tryout-live-result-workspaces.ts",
     "test:tryout-realtime-hardening": "tsx scripts/test-tryout-realtime-hardening.ts",
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",
+    "test:mentor-bank-package-ui": "tsx scripts/test-mentor-bank-package-ui.ts",
     "test:tryout-pool-authoring-mock": "tsx scripts/test-tryout-pool-authoring-mock.ts",
     "test:random-assembly-schema": "tsx scripts/test-random-assembly-schema.ts",
     "test:random-assembly-schema-db": "tsx scripts/test-random-assembly-schema-db.ts",

@@ -12,5 +12,5 @@ export default async function PackageEditPage({ params }: { params: Promise<{ pa
   const [{ packageId }, session] = await Promise.all([params, requireTutorSession()]);
   const hub = await getReusableQuestionPackageVersionHub(packageId, session.user.id);
   if (!hub) notFound();
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Edit Paket Soal" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session}><KaptenPackageMetadataEditorModule initialMetadata={hub} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Edit Paket Soal" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageMetadataEditorModule initialMetadata={hub} /></MentorWorkspaceShell>;
 }

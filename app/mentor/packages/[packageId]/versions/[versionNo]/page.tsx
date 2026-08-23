@@ -14,5 +14,5 @@ export default async function PackageVersionDetailPage({ params }: { params: Pro
   if (!Number.isInteger(versionNo) || versionNo < 1) notFound();
   const detail = await getReusableQuestionPackageVersionDetail(packageId, versionNo, session.user.id);
   if (!detail) notFound();
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel={`Paket v${versionNo}`} mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session}><KaptenPackageVersionDetailModule detail={detail} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel={`Paket v${versionNo}`} contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageVersionDetailModule detail={detail} /></MentorWorkspaceShell>;
 }

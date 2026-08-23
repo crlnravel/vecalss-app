@@ -18,5 +18,5 @@ export default async function PackagePage({ searchParams }: PageProps<"/mentor/p
   const rawPage = typeof params.page === "string" ? Number.parseInt(params.page, 10) : 1;
   const catalogue = await listReusableQuestionPackages(session.user.id, { page: Number.isFinite(rawPage) ? rawPage : 1, query, status, subtest });
 
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Paket Soal" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session}><KaptenPackageCataloguePageModule {...catalogue} query={query} status={status ?? ""} subtest={subtest} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Paket Soal" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageCataloguePageModule {...catalogue} query={query} status={status ?? ""} subtest={subtest} /></MentorWorkspaceShell>;
 }

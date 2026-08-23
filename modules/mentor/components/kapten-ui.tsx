@@ -276,6 +276,7 @@ function PaginationLinks({
       {previousHref ? (
         <Button
           aria-label="Halaman sebelumnya"
+          nativeButton={false}
           render={<Link href={previousHref} />}
           size="icon-sm"
           variant="ghost"
@@ -293,6 +294,7 @@ function PaginationLinks({
       {nextHref ? (
         <Button
           aria-label="Halaman berikutnya"
+          nativeButton={false}
           render={<Link href={nextHref} />}
           size="icon-sm"
           variant="ghost"

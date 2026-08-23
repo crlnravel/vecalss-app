@@ -13,5 +13,5 @@ export default async function PackageVersionHubPage({ params }: { params: Promis
   const hub = await getReusableQuestionPackageVersionHub(packageId, session.user.id);
   if (!hub) notFound();
 
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Versi Paket" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session}><KaptenPackageVersionHubModule hub={hub} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Versi Paket" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageVersionHubModule hub={hub} /></MentorWorkspaceShell>;
 }

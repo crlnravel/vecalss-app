@@ -36,7 +36,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
           <h1 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">Paket Soal</h1>
           <p className="mt-2 text-sm text-secondary-500">Kelola informasi Paket dan versi soal siap pakai.</p>
         </div>
-        <Button aria-label="Buat Paket Soal" render={<Link href="/mentor/packages/create" />} size="icon" title="Buat Paket Soal" variant="brand"><Plus /></Button>
+        <Button aria-label="Buat Paket Soal" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="icon" title="Buat Paket Soal" variant="brand"><Plus /></Button>
       </div>
 
       <form action="/mentor/packages" role="search">

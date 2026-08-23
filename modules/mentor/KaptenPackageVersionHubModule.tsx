@@ -15,10 +15,10 @@ type Hub = {
 function KaptenPackageVersionHubModule({ hub }: { hub: Hub }) {
   return <div>
     <div>
-      <Button aria-label="Kembali ke Paket Soal" render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke Paket Soal" variant="ghost"><ChevronLeft /></Button>
+      <Button aria-label="Kembali ke Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke Paket Soal" variant="ghost"><ChevronLeft /></Button>
     </div>
     <header className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
-      <div className="flex items-start justify-between gap-3"><h1 className="text-3xl font-semibold tracking-[-0.03em] text-secondary-900">{hub.title}</h1><Button aria-label="Edit informasi Paket" render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit informasi Paket" variant="brandOutline"><Pencil /></Button></div>
+      <div className="flex items-start justify-between gap-3"><h1 className="text-3xl font-semibold tracking-[-0.03em] text-secondary-900">{hub.title}</h1><Button aria-label="Edit informasi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit informasi Paket" variant="brandOutline"><Pencil /></Button></div>
       {hub.description ? <p className="mt-2 text-sm text-secondary-500">{hub.description}</p> : null}
       <div className="mt-4"><span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{hub.subtest}</span></div>
     </header>

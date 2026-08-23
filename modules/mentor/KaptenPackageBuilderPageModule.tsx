@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ChevronLeft, CircleAlert, CircleHelp, ListFilter, PackageCheck, Plus, Save, Search, Upload, X } from "@/lib/icons";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -33,8 +33,14 @@ function packageBankLabel(bank: KaptenQuestionBank) {
   return [bank.title, `${bank.questionCount} soal`, categoryNames, folderName].filter(Boolean).join(" · ");
 }
 
+function packageDraftSignature(draft: PackageDraft) {
+  return JSON.stringify({ description: draft.description, items: draft.items, sourceBankId: draft.sourceBankId, subtest: draft.subtest, title: draft.title });
+}
+
 function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourceCatalogPage, sourceCategories = [] }: { id?: string; initialDraft?: PackageDraft | null; sourceCatalog: Source[]; sourceCatalogPage?: SourceCatalogPage; sourceCategories?: SourceCategory[] }) {
   const [draft, setDraft] = useState<PackageDraft>(() => initialDraft ?? { description: "", id: id ?? "baru", items: [], sourceBankId: "", status: "draft", subtest: "PU", title: "Paket Soal Baru" });
+  const [savedDraftSignature, setSavedDraftSignature] = useState(() => packageDraftSignature(initialDraft ?? { description: "", id: id ?? "baru", items: [], sourceBankId: "", status: "draft", subtest: "PU", title: "Paket Soal Baru" }));
+  const builderRootRef = useRef<HTMLDivElement>(null);
   const [bankSearch, setBankSearch] = useState("");
   const [bankCategoryFilter, setBankCategoryFilter] = useState("");
   const [questionSearch, setQuestionSearch] = useState("");
@@ -51,6 +57,26 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   const [pendingBankId, setPendingBankId] = useState<string | null>(null);
   const [confirmReady, setConfirmReady] = useState(false);
   const saved = Boolean(id);
+  const hasUnsavedChanges = useMemo(() => packageDraftSignature(draft) !== savedDraftSignature, [draft, savedDraftSignature]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    const handleRouteClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!target || target.getAttribute("target") === "_blank" || target.getAttribute("href")?.startsWith("#")) return;
+      if (!window.confirm("Perubahan belum disimpan. Tinggalkan halaman ini?")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("click", handleRouteClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleRouteClick, true);
+    };
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,14 +142,14 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   const availableQuestions = useMemo(() => candidates.filter((question) => !draft.items.some((item) => item.sourceQuestionId === question.id) && question.prompt.toLowerCase().includes(questionSearch.trim().toLowerCase())), [candidates, draft.items, questionSearch]);
   const canReady = saved && draft.items.length > 0 && draft.items.every((item) => Number.isFinite(item.pointValue) && item.pointValue > 0);
 
-  const changeBank = (bankId: string) => {
+  const changeBank = useCallback((bankId: string) => {
     if (bankId === draft.sourceBankId) return;
     if (draft.items.length) { setPendingBankId(bankId); return; }
     setDraft((current) => ({ ...current, items: [], sourceBankId: bankId, subtest: "PU" }));
     setQuestionSearch("");
     setSourceQuestionPage(1);
     setSourceQuestionTotal(0);
-  };
+  }, [draft.items.length, draft.sourceBankId]);
   const confirmBankChange = () => {
     if (!pendingBankId) return;
     setDraft((current) => ({ ...current, items: [], sourceBankId: pendingBankId, subtest: "PU" }));
@@ -156,7 +182,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" })),
     [sourceCategories, sourceEntries],
   );
-  const sourceBankOptions = sourceEntries.reduce<ReactNode[]>((options, { bank }) => {
+  const sourceBankOptions = useMemo(() => sourceEntries.reduce<ReactNode[]>((options, { bank }) => {
     const searchText = [
       bank.title,
       bank.description,
@@ -166,7 +192,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
     if (!searchText.includes(bankSearch.trim().toLowerCase()) || (bankCategoryFilter && !bank.categoryIds?.includes(bankCategoryFilter))) return options;
     options.push(<Button className="h-auto justify-start py-2 text-left" key={bank.id} onClick={() => changeBank(bank.id)} variant={bank.id === draft.sourceBankId ? "contextSelected" : "ghost"}><span className="min-w-0 truncate">{packageBankLabel(bank)}</span></Button>);
     return options;
-  }, []);
+  }, []), [bankCategoryFilter, bankSearch, changeBank, draft.sourceBankId, sourceEntries]);
   const save = async () => {
     setError(null);
     if (!validate()) return;
@@ -175,6 +201,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
       const result = await saveReusableQuestionPackageAction({ description: draft.description, id, items: draft.items, sourceBankId: draft.sourceBankId, subtest: draft.subtest, title: draft.title });
       if (!result.ok) { setError(result.message); return; }
       setDraft(result.result);
+      setSavedDraftSignature(packageDraftSignature(result.result));
       if (!id) window.location.assign(`/mentor/packages/${result.result.id}/versions/new`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Paket Soal belum dapat disimpan.");
@@ -207,14 +234,19 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
     return { ...current, items: next };
   });
 
-  return <div>
+  return <div ref={builderRootRef}>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Button aria-label={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} render={<Link href={saved ? `/mentor/packages/${id}` : "/mentor/packages"} />} size="icon" title={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} variant="ghost"><ChevronLeft /></Button>
+      <Button aria-label={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} nativeButton={false} render={<Link href={saved ? `/mentor/packages/${id}` : "/mentor/packages"} />} size="icon" title={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} variant="ghost"><ChevronLeft /></Button>
       <div className="flex flex-wrap gap-2">
         <Button disabled={saving} onClick={() => void save()} size="sm" variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draf"}</Button>
         {saved ? <Button disabled={saving || !canReady} onClick={() => setConfirmReady(true)} size="sm" variant="brand"><Upload />Rilis</Button> : null}
       </div>
     </div>
+
+    <header className="mt-3 max-w-3xl">
+      <h1 className="text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 sm:text-4xl">{saved ? `Edit ${draft.title}` : "Buat Paket Soal"}</h1>
+      <p className="mt-2 text-sm leading-6 text-secondary-500">{saved ? "Tinjau soal dan kesiapan versi sebelum dirilis ke Tryout." : "Tentukan sumber Bank Soal, lalu susun soal yang akan dibekukan sebagai versi."}</p>
+    </header>
 
     {!saved ? <section className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
       {error ? <p className="flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</p> : null}
@@ -225,7 +257,7 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
       <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
         <section className="rounded-3xl border border-primary-100 bg-white p-4">
           <div className="flex items-center gap-2"><h2 className="font-semibold text-secondary-900">Informasi Bank Soal</h2><TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Bantuan informasi Bank Soal" size="icon-xs" variant="ghost" />}><CircleHelp /></TooltipTrigger><TooltipContent>Menampilkan Bank Soal dan Subtest yang digunakan untuk versi ini.</TooltipContent></Tooltip></TooltipProvider></div>
-          {saved ? <div className="mt-4 grid gap-4 text-sm"><div><p className="text-secondary-500">Bank Soal</p><p className="mt-1 font-semibold text-secondary-900">{selectedSource?.bank.title ?? draft.sourceBankName}</p>{selectedSource?.bank.folderPath?.length || selectedSource?.bank.categories?.length ? <div className="mt-2 flex flex-wrap gap-2">{selectedSource.bank.folderPath?.length ? <span className="rounded-full bg-secondary-50 px-2.5 py-1 text-xs text-secondary-600">{selectedSource.bank.folderPath.map((item) => item.name).join(" / ")}</span> : null}{selectedSource.bank.categories?.map((category) => <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800" key={category.id}>{category.name}</span>)}</div> : null}</div><div><p className="text-secondary-500">Subtest</p><p className="mt-1"><span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{draft.subtest} · {subjectName(draft.subtest)}</span></p></div><div><p className="text-secondary-500">Versi</p><p className="mt-1 font-semibold text-secondary-900">{draft.latestReadyVersionNo ? `v${draft.latestReadyVersionNo}` : "Draf"}</p></div></div> : <div className="mt-4 grid gap-4"><Field><FieldLabel>Bank Soal</FieldLabel><Picker label={selectedSource?.bank.title ?? "Pilih Bank Soal"} empty="Tidak ada Bank Soal siap." openContent={<><FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl px-3 py-2 text-sm" onChange={(event) => { setBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={bankSearch} /><select aria-label="Filter kategori Bank Soal" className="min-h-10 rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" onChange={(event) => { setBankCategoryFilter(event.target.value); setSourceBankPage(1); }} value={bankCategoryFilter}><option value="">Semua kategori</option>{sourceBankCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{sourceBankLoading ? <p className="px-2 py-1 text-xs text-secondary-500">Memuat bank soal…</p> : null}{sourceBankOptions}</>} /></Field>{Math.max(1, Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE)) > 1 ? <div className="flex items-center justify-between text-xs text-secondary-500"><span>Halaman {sourceBankPage} dari {Math.max(1, Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE))}</span><span className="flex gap-1"><Button aria-label="Bank soal sebelumnya" disabled={sourceBankPage === 1} onClick={() => setSourceBankPage((page) => Math.max(1, page - 1))} size="icon-xs" type="button" variant="ghost"><ChevronLeft /></Button><Button aria-label="Bank soal berikutnya" disabled={sourceBankPage >= Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE)} onClick={() => setSourceBankPage((page) => page + 1)} size="icon-xs" type="button" variant="ghost"><ArrowDown className="rotate-[-90deg]" /></Button></span></div> : null}<Field><FieldLabel>Subtest</FieldLabel><Picker label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank terlebih dahulu"} disabled={!draft.sourceBankId} empty="Tidak ada Subtest." openContent={subjectCodes.map((code) => { const count = selectedSource?.questions.filter((question) => question.subjectCode === code).length ?? 0; const hasSubject = Boolean(selectedSource?.bank.subjectCoverage?.includes(code) || count); return <Button className="justify-start" disabled={!hasSubject} key={code} onClick={() => changeSubtest(code)} variant={code === draft.subtest ? "contextSelected" : "ghost"}>{code} · {subjectName(code)}</Button>; })} /></Field></div>}
+          {saved ? <div className="mt-4 grid gap-4 text-sm"><div><p className="text-secondary-500">Bank Soal</p><p className="mt-1 font-semibold text-secondary-900">{selectedSource?.bank.title ?? draft.sourceBankName}</p>{selectedSource?.bank.folderPath?.length || selectedSource?.bank.categories?.length ? <div className="mt-2 flex flex-wrap gap-2">{selectedSource.bank.folderPath?.length ? <span className="rounded-full bg-secondary-50 px-2.5 py-1 text-xs text-secondary-600">{selectedSource.bank.folderPath.map((item) => item.name).join(" / ")}</span> : null}{selectedSource.bank.categories?.map((category) => <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800" key={category.id}>{category.name}</span>)}</div> : null}</div><div><p className="text-secondary-500">Subtest</p><p className="mt-1"><span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{draft.subtest} · {subjectName(draft.subtest)}</span></p></div><div><p className="text-secondary-500">Versi</p><p className="mt-1 font-semibold text-secondary-900">{draft.latestReadyVersionNo ? `v${draft.latestReadyVersionNo}` : "Draf"}</p></div></div> : <div className="mt-4 grid gap-4"><Field><FieldLabel htmlFor="package-source-bank-picker">Bank Soal</FieldLabel><Picker id="package-source-bank-picker" label={selectedSource?.bank.title ?? "Pilih Bank Soal"} empty="Tidak ada Bank Soal siap." openContent={<><FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl px-3 py-2 text-sm" onChange={(event) => { setBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={bankSearch} /><select aria-label="Filter kategori Bank Soal" className="min-h-10 rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" onChange={(event) => { setBankCategoryFilter(event.target.value); setSourceBankPage(1); }} value={bankCategoryFilter}><option value="">Semua kategori</option>{sourceBankCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{sourceBankLoading ? <p className="px-2 py-1 text-xs text-secondary-500">Memuat bank soal…</p> : null}{sourceBankOptions}</>} /></Field>{Math.max(1, Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE)) > 1 ? <div className="flex items-center justify-between text-xs text-secondary-500"><span>Halaman {sourceBankPage} dari {Math.max(1, Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE))}</span><span className="flex gap-1"><Button aria-label="Bank soal sebelumnya" disabled={sourceBankPage === 1} onClick={() => setSourceBankPage((page) => Math.max(1, page - 1))} size="icon-xs" type="button" variant="ghost"><ChevronLeft /></Button><Button aria-label="Bank soal berikutnya" disabled={sourceBankPage >= Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE)} onClick={() => setSourceBankPage((page) => page + 1)} size="icon-xs" type="button" variant="ghost"><ArrowDown className="rotate-[-90deg]" /></Button></span></div> : null}<Field><FieldLabel htmlFor="package-subtest-picker">Subtest</FieldLabel><Picker id="package-subtest-picker" label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank terlebih dahulu"} disabled={!draft.sourceBankId} empty="Tidak ada Subtest." openContent={subjectCodes.map((code) => { const count = selectedSource?.questions.filter((question) => question.subjectCode === code).length ?? 0; const hasSubject = Boolean(selectedSource?.bank.subjectCoverage?.includes(code) || count); return <Button className="justify-start" disabled={!hasSubject} key={code} onClick={() => changeSubtest(code)} variant={code === draft.subtest ? "contextSelected" : "ghost"}>{code} · {subjectName(code)}</Button>; })} /></Field></div>}
         </section>
       </aside>
 
@@ -240,8 +272,8 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   </div>;
 }
 
-function Picker({ label, disabled, empty, openContent }: { label: string; disabled?: boolean; empty: string; openContent: React.ReactNode }) {
-  return <Popover><PopoverTrigger disabled={disabled} render={<Button aria-haspopup="listbox" className="w-full justify-between" variant="context" />}>{label}<ArrowDown /></PopoverTrigger><PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] gap-2"><div aria-label={empty} className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">{openContent}</div></PopoverContent></Popover>;
+function Picker({ id, label, disabled, empty, openContent }: { id?: string; label: string; disabled?: boolean; empty: string; openContent: React.ReactNode }) {
+  return <Popover><PopoverTrigger disabled={disabled} render={<Button aria-haspopup="dialog" className="w-full justify-between" id={id} variant="context" />}>{label}<ArrowDown /></PopoverTrigger><PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] gap-2"><div aria-label={empty} className="grid max-h-72 gap-1 overflow-y-auto" role="group">{openContent}</div></PopoverContent></Popover>;
 }
 
 function PackageDiscoveryEmpty({ icon, text }: { icon: React.ReactNode; text: string }) { return <Empty className="mt-5 rounded-2xl border border-primary-200 px-4 py-10 text-secondary-500"><EmptyHeader><EmptyMedia className="bg-primary-50 text-primary-800" variant="icon">{icon}</EmptyMedia><EmptyDescription>{text}</EmptyDescription></EmptyHeader></Empty>; }

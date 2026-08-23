@@ -164,11 +164,13 @@ function sameStringSet(left: string[], right: string[]) {
 
 function QuestionMediaAttachment({
   assetId,
+  disabled = false,
   label,
   onRemove,
   onReplace,
 }: {
   assetId: string;
+  disabled?: boolean;
   label: string;
   onRemove: () => void;
   onReplace: () => void;
@@ -182,6 +184,7 @@ function QuestionMediaAttachment({
       />
       <div className="flex flex-wrap justify-end gap-2">
         <Button
+          disabled={disabled}
           onClick={onReplace}
           size="sm"
           type="button"
@@ -190,7 +193,7 @@ function QuestionMediaAttachment({
           <ImagePlus data-icon="inline-start" />
           Ganti
         </Button>
-        <Button onClick={onRemove} size="sm" type="button" variant="ghost">
+        <Button disabled={disabled} onClick={onRemove} size="sm" type="button" variant="ghost">
           <X data-icon="inline-start" />
           Lepas
         </Button>
@@ -254,9 +257,9 @@ function QuestionBankEditorForm({
   return (
     <div className="grid min-w-0 gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm md:p-7">
       <Field>
-        <div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-prompt">Pertanyaan</FieldLabel><Button disabled={!activeQuestionId} onClick={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div>
-        <FieldTextarea id="question-prompt" onChange={(event) => onUpdate({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} />
-        {questionDraft.promptMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.promptMediaAssetId} label="Gambar pertanyaan" onRemove={() => onUpdate({ ...questionDraft, promptMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} /> : null}
+        <div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-prompt">Pertanyaan</FieldLabel><Button disabled={!activeQuestionId || isQuestionContentLocked} onClick={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div>
+        <FieldTextarea disabled={isQuestionContentLocked} id="question-prompt" onChange={(event) => onUpdate({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} />
+        {questionDraft.promptMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.promptMediaAssetId} disabled={isQuestionContentLocked} label="Gambar pertanyaan" onRemove={() => onUpdate({ ...questionDraft, promptMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "prompt", label: "Gambar pertanyaan" })} /> : null}
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         {questionDraft.choices.map((choice, index) => {
@@ -264,13 +267,13 @@ function QuestionBankEditorForm({
           const inputId = `bank-choice-${choice.id}`;
           return <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-primary-100 px-3 py-3" key={choice.id}>
             <div className="flex min-w-0 items-center gap-3">
-              <input aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
-              <label className="text-xs font-semibold text-primary-800" htmlFor={inputId}>{choiceLabel}</label>
-              <input aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${choiceLabel}`} value={choice.text} />
-              <Button aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`} disabled={!activeQuestionId} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
+              <input aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" disabled={isQuestionContentLocked} id={`bank-correct-choice-${choice.id}`} name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
+              <label className="text-xs font-semibold text-primary-800" htmlFor={`bank-correct-choice-${choice.id}`}>{choiceLabel}</label>
+              <input aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${choiceLabel}`} value={choice.text} />
+              <Button aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`} disabled={!activeQuestionId || isQuestionContentLocked} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
               <Button aria-label={`Hapus opsi ${choiceLabel}`} disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked} onClick={() => onRemoveChoice(choice.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
             </div>
-            {choice.mediaAssetId ? <QuestionMediaAttachment assetId={choice.mediaAssetId} label={`Gambar opsi ${choiceLabel}`} onRemove={() => onRemoveChoiceMedia(choice.id)} onReplace={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} /> : null}
+            {choice.mediaAssetId ? <QuestionMediaAttachment assetId={choice.mediaAssetId} disabled={isQuestionContentLocked} label={`Gambar opsi ${choiceLabel}`} onRemove={() => onRemoveChoiceMedia(choice.id)} onReplace={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} /> : null}
           </div>;
         })}
       </div>
@@ -279,7 +282,7 @@ function QuestionBankEditorForm({
         <Field><FieldLabel htmlFor="question-subtest">Tag subject / Topik</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : undefined} className="w-full justify-between" id="question-subtest" type="button" variant="context" />}><span className="truncate">{kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name ? `${questionDraft.subjectCode} - ${kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name}` : "Pilih subject"}</span><ChevronDown className="size-4 text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih subject / topik</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>{isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}</Field>
         <Field><FieldLabel htmlFor="question-difficulty">Tingkat kesulitan</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button className="w-full justify-between" id="question-difficulty" type="button" variant="context" />}><span>{questionDraft.difficulty === "easy" ? "Mudah" : questionDraft.difficulty === "hard" ? "Sulit" : "Sedang"}</span><ChevronDown className="text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih tingkat kesulitan</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, difficulty: value as BankQuestion["difficulty"] })} value={questionDraft.difficulty}><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="easy">Mudah</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="medium">Sedang</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="hard">Sulit</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></Field>
       </div>
-      <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button disabled={!activeQuestionId} onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
+      <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button disabled={!activeQuestionId || isQuestionContentLocked} onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
     </div>
   );
 }
@@ -444,20 +447,20 @@ type QuestionBankBuilderActions = {
   saveDraft: () => void;
   updateMetadata: (field: "title" | "description", value: string) => void;
   updateOrganization: (patch: QuestionBankOrganizationPatch) => void;
-  updateLifecycle: (operation: "publish" | "unpublish") => void;
+  updateLifecycle: (operation: "publish" | "unpublish" | "restore") => void;
 };
 
 function QuestionBankBuilderScreen({ actions, builderState, categories, folders, mode, session, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; session: SessionContext; state: QuestionBankBuilderViewState }) {
   const confirmation = state.confirmationRequest;
   return (
-    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel={mode === "create" ? "Buat Bank Soal" : "Edit Bank Soal"} mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} shouldGuardNavigation={state.hasUnsavedChanges}>
+    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel={mode === "create" ? "Buat Bank Soal" : "Edit Bank Soal"} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges}>
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1><span className={cn("inline-flex items-center gap-2 text-sm font-medium", state.hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}><span aria-hidden="true" className={cn("size-2 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />{state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}</span></div></div>
-        <div className="flex flex-wrap gap-2"><Button aria-label="Simpan perubahan" disabled={state.isSaving || state.lifecycleStatus === "archived"} onClick={actions.saveDraft} size="icon-sm" title="Simpan perubahan" type="button" variant="brand"><Save /></Button>{state.isDraftLifecycle ? <Button disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">Terbitkan</Button> : <Button disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">Jadikan draf</Button>}</div>
+        <div className="flex flex-wrap gap-2"><Button aria-label="Simpan perubahan" disabled={state.isSaving || state.lifecycleStatus === "archived"} onClick={actions.saveDraft} size="icon-sm" title="Simpan perubahan" type="button" variant="brand"><Save /></Button>{state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.isDraftLifecycle ? <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button> : <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>}</div>
       </section>
       {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
       <Tabs className="gap-8" onValueChange={actions.onChangeTab} value={state.activeTab}>
-        {state.isQuestionContentLocked ? <Alert><AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle><AlertDescription className="text-secondary-900">Soal tidak dapat diubah saat Bank diarsipkan. Pulihkan Bank dari katalog untuk membuat revisi baru.</AlertDescription></Alert> : null}
+        {state.isQuestionContentLocked ? <Alert><AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle><AlertDescription className="text-secondary-900">Soal dan informasi bank dikunci saat diarsipkan. Pulihkan bank untuk membuat revisi baru.</AlertDescription></Alert> : null}
         <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max min-w-full sm:min-w-0"><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="information">Informasi bank</TabsTrigger><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="content">Isi bank <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{builderState.questions.length}</span></TabsTrigger></TabsList></div>
         <TabsContent className="m-0" value="information"><section className="grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start"><div className="grid gap-5"><Field><FieldLabel htmlFor="bank-title">Judul bank</FieldLabel><FieldInput disabled={state.lifecycleStatus === "archived"} id="bank-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} value={builderState.title} /></Field><Field><FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-[100px]" disabled={state.lifecycleStatus === "archived"} id="bank-description" onChange={(event) => actions.updateMetadata("description", event.target.value)} value={builderState.description} /></Field></div><QuestionBankOrganizationPanel builderState={builderState} categories={categories} folders={folders} isDisabled={state.lifecycleStatus === "archived"} onUpdate={actions.updateOrganization} /></section></TabsContent>
         <TabsContent className="m-0" value="content"><section className="grid items-start gap-6 xl:grid-cols-[minmax(17rem,19rem)_minmax(0,1fr)] xl:gap-8"><div className="order-1 min-w-0 xl:col-start-2 xl:row-start-1"><div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div><Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}><TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList><TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent><TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent></Tabs></div><QuestionBankInventory activeQuestionId={state.activeQuestionId} builderState={builderState} inventoryPageCount={state.inventoryPageCount} onAddQuestion={actions.addQuestion} onNextPage={actions.onNextPage} onOpenQuestion={actions.onOpenQuestion} onPreviousPage={actions.onPreviousPage} onRemoveQuestion={actions.onRemoveQuestion} paginatedQuestions={state.paginatedQuestions} visibleInventoryPage={state.visibleInventoryPage} /></section></TabsContent>
@@ -548,13 +551,18 @@ function useQuestionBankPersistence({
     }
   }
 
-  async function updateLifecycle(operation: "publish" | "unpublish") {
+  async function updateLifecycle(operation: "publish" | "unpublish" | "restore") {
     const id = bankIdRef.current;
     if (!id) return;
-    const result = await updateQuestionBankLifecycleAction(id, operation, { expectedRevision: revisionRef.current ?? 1 });
-    if (!result.ok) { updateEditor({ lifecycleError: result.message }); return; }
-    revisionRef.current = result.result.revision;
-    updateEditor({ hasUnsavedChanges: false, lifecycleError: null, lifecycleStatus: result.result.status });
+    updateEditor({ isSaving: true, lifecycleError: null });
+    try {
+      const result = await updateQuestionBankLifecycleAction(id, operation, { expectedRevision: revisionRef.current ?? 1 });
+      if (!result.ok) { updateEditor({ lifecycleError: result.message }); return; }
+      revisionRef.current = result.result.revision;
+      updateEditor({ hasUnsavedChanges: false, lifecycleError: null, lifecycleStatus: result.result.status });
+    } finally {
+      updateEditor({ isSaving: false });
+    }
   }
 
   return { saveDraft, updateLifecycle };
