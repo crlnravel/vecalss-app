@@ -153,6 +153,7 @@ assert.match(notificationService, /Aksesmu ke Tryout sudah aktif/u);
 assert.match(notificationService, /notificationDelivery\.create/u);
 assert.ok(notificationService.indexOf("if (existing) return existing") < notificationService.indexOf("notificationDelivery.create"), "invitation notification creation must be idempotent");
 assert.match(notificationDetail, /Buka ruang tunggu/u);
-assert.match(notificationDetail, /notification\.href !== "\/notifications"/u);
+assert.match(notificationDetail, /isTryoutWaitingRoomLink/u);
+assert.match(notificationDetail, /\^\\\/tryout\\\/\[\^\/\]\+\\\/waiting\$/u);
 
 console.log("Assessment ParticipantView and access-transition contracts passed.");

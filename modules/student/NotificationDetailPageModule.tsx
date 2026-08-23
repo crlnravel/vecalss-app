@@ -111,6 +111,8 @@ function NotificationDetailPageModule({
   notificationUnreadCount: number;
   session: SessionContext;
 }) {
+  const isTryoutWaitingRoomLink = /^\/tryout\/[^/]+\/waiting$/u.test(notification.href);
+
   return (
     <StudentWorkspaceShell
       activeLabel="Notifikasi"
@@ -159,7 +161,7 @@ function NotificationDetailPageModule({
               Buka tautan Zoom
               <ArrowUpRight aria-hidden="true" className="size-4" />
             </Button>
-          ) : notification.href !== "/notifications" ? (
+          ) : isTryoutWaitingRoomLink ? (
             <Button
               className="mt-8"
               nativeButton={false}
