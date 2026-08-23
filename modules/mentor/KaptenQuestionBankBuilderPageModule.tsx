@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
   CircleHelp,
   Folder,
   ImagePlus,
@@ -15,7 +14,13 @@ import {
   Trash2,
   X,
 } from "@/lib/icons";
-import { useEffect, useReducer, useRef, useState } from "react";
+import {
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -52,6 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { MediaAssetDto } from "@/lib/media/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
+import { getQuestionReadinessFromDraft } from "@/lib/question-bank/readiness";
 import { cn } from "@/lib/utils";
 import {
   MediaAssetPreview,
@@ -70,10 +76,14 @@ import {
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
 
-const INVENTORY_QUESTIONS_PER_PAGE = 9;
 const ROOT_FOLDER_VALUE = "__bank_soal_root__";
 
 type QuestionBankEditorTab = "questions" | "details";
+type InventoryFilter = "all" | "incomplete";
+
+type QuestionRowRefs = {
+  current: Record<string, HTMLLIElement | null>;
+};
 
 type ConfirmationRequest = {
   confirmLabel: string;
@@ -91,7 +101,7 @@ type QuestionBankEditorState = {
   activeQuestionId: string | null;
   activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
-  inventoryPage: number;
+  inventoryFilter: InventoryFilter;
   questionDraft: BankQuestion;
   hasUnsavedChanges: boolean;
   pendingRouteReplacement: string | null;
@@ -219,14 +229,17 @@ const emptyQuestion = (bankId: string, subjectCode: string): BankQuestion => ({
   tags: [],
 });
 
+function createQuestionId(subjectCode: string) {
+  // Temporary question ids are persisted by the bank repository until the
+  // first save, which recognizes the subject-question-<digits> shape.
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 1_000_000)
+    .toString()
+    .padStart(6, "0")}`;
+  return `${subjectCode.toLowerCase()}-question-${suffix}`;
+}
+
 function isReady(question: BankQuestion) {
-  return (
-    question.prompt.trim() &&
-    question.choices.length >= 2 &&
-    question.choices.length <= 5 &&
-    question.choices.every((choice) => choice.text.trim()) &&
-    question.choices.some((choice) => choice.id === question.correctChoiceId)
-  );
+  return getQuestionReadinessFromDraft(question).length === 0;
 }
 
 function toQuestionDraft(question: BankQuestion): BankQuestion {
@@ -298,12 +311,242 @@ function QuestionBankPreview({ hasSubmittedPreview, onChoiceChange, onSubmit, pr
   </section>;
 }
 
-function QuestionBankInventory({ activeQuestionId, builderState, inventoryPageCount, onAddQuestion, onNextPage, onOpenQuestion, onPreviousPage, onRemoveQuestion, paginatedQuestions, visibleInventoryPage }: { activeQuestionId: string | null; builderState: { questions: BankQuestion[] }; inventoryPageCount: number; onAddQuestion: () => void; onNextPage: () => void; onOpenQuestion: (question: BankQuestion) => void; onPreviousPage: () => void; onRemoveQuestion: (id: string) => void; paginatedQuestions: BankQuestion[]; visibleInventoryPage: number }) {
-  return <aside className="order-1 min-w-0 rounded-2xl border border-primary-100 bg-white p-3 md:p-4 xl:col-start-1 xl:row-start-1 xl:order-none xl:sticky xl:top-24 xl:self-start">
-    <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-secondary-900">Inventori soal</h2><Button aria-label="Tambah soal" onClick={onAddQuestion} size="icon-sm" type="button" variant="brandOutline"><Plus /></Button></div>
-    <div className="mt-3 max-h-56 overflow-y-auto border-t border-primary-100 xl:max-h-[calc(100svh-24rem)]"><div className="grid grid-cols-2 gap-1.5 pt-3 pr-1 md:grid-cols-3 xl:grid-cols-1">{paginatedQuestions.length > 0 ? paginatedQuestions.map((question, index) => { const questionNumber = (visibleInventoryPage - 1) * INVENTORY_QUESTIONS_PER_PAGE + index + 1; return <div className={cn("group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors", activeQuestionId === question.id ? "border-primary-200 bg-primary-50" : "hover:border-primary-100 hover:bg-primary-50/60")} key={question.id}><button className="min-w-0 flex-1 text-left" onClick={() => onOpenQuestion(question)} type="button"><span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-4 text-secondary-900"><span className="min-w-0 flex-1 truncate">{questionNumber}. {question.prompt || "Soal tanpa pertanyaan"}</span>{isReady(question) ? <Check aria-label="Siap dipakai Quiz" className="size-3.5 shrink-0 text-primary-700" /> : null}</span><span className="mt-1 flex min-w-0 items-center gap-1.5"><Badge size="ui" variant="mint">{question.subjectCode}</Badge>{!isReady(question) ? <span className="truncate text-xs text-secondary-500">Belum lengkap</span> : null}</span></button><Button aria-label={`Hapus soal ${questionNumber}`} disabled={builderState.questions.length <= 1} onClick={() => onRemoveQuestion(question.id)} size="icon-sm" title={builderState.questions.length <= 1 ? "Bank Soal minimal memiliki satu soal" : undefined} type="button" variant="ghost"><Trash2 className="size-3.5" /></Button></div>; }) : <p className="col-span-full px-2 py-4 text-sm leading-6 text-secondary-500">Belum ada soal. Tambahkan soal pertama dan pilih Subtest-nya.</p>}</div></div>
-    {builderState.questions.length > 0 ? <div className="mt-3 flex items-center justify-between gap-2 border-t border-primary-100 pt-3"><p className="text-xs text-secondary-500">{visibleInventoryPage} dari {inventoryPageCount}</p><div className="flex items-center gap-1"><Button aria-label="Halaman sebelumnya" disabled={visibleInventoryPage === 1} onClick={onPreviousPage} size="icon-sm" title="Halaman sebelumnya" type="button" variant="brandOutline"><ChevronLeft /></Button><Button aria-label="Halaman berikutnya" disabled={visibleInventoryPage === inventoryPageCount} onClick={onNextPage} size="icon-sm" title="Halaman berikutnya" type="button" variant="brandOutline"><ChevronRight /></Button></div></div> : null}
-  </aside>;
+function QuestionBankInventory({
+  activeQuestionId,
+  builderState,
+  filter,
+  isDisabled,
+  onAddQuestion,
+  onFilterChange,
+  onOpenQuestion,
+  onRemoveQuestion,
+  questionRowRefs,
+  visibleQuestions,
+}: {
+  activeQuestionId: string | null;
+  builderState: { questions: BankQuestion[] };
+  filter: InventoryFilter;
+  isDisabled: boolean;
+  onAddQuestion: () => void;
+  onFilterChange: (filter: InventoryFilter) => void;
+  onOpenQuestion: (questionId: string) => void;
+  onRemoveQuestion: (id: string) => void;
+  questionRowRefs: QuestionRowRefs;
+  visibleQuestions: BankQuestion[];
+}) {
+  const incompleteCount = builderState.questions.filter((question) => !isReady(question)).length;
+  const focusableQuestionId =
+    visibleQuestions.find((question) => question.id === activeQuestionId)?.id ??
+    visibleQuestions[0]?.id ??
+    null;
+  const retainedReadyQuestion =
+    filter === "incomplete" &&
+    activeQuestionId !== null &&
+    visibleQuestions.some((question) => question.id === activeQuestionId) &&
+    builderState.questions.some(
+      (question) => question.id === activeQuestionId && isReady(question),
+    );
+
+  function focusQuestion(questionId: string) {
+    onOpenQuestion(questionId);
+    window.requestAnimationFrame(() => {
+      questionRowRefs.current[questionId]?.querySelector<HTMLButtonElement>("button")?.focus();
+    });
+  }
+
+  function handleQuestionKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    questionId: string,
+  ) {
+    if (![
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "End",
+      "Home",
+    ].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    const currentIndex = visibleQuestions.findIndex((question) => question.id === questionId);
+    if (currentIndex < 0 || visibleQuestions.length === 0) return;
+
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? visibleQuestions.length - 1
+          : ["ArrowDown", "ArrowRight"].includes(event.key)
+            ? Math.min(currentIndex + 1, visibleQuestions.length - 1)
+            : Math.max(currentIndex - 1, 0);
+    const nextQuestion = visibleQuestions[nextIndex];
+    if (nextQuestion && nextQuestion.id !== questionId) {
+      focusQuestion(nextQuestion.id);
+    }
+  }
+
+  function handleFilterKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+
+    event.preventDefault();
+    const nextFilter =
+      event.key === "Home" || event.key === "ArrowLeft" ? "all" : "incomplete";
+    onFilterChange(nextFilter);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`question-bank-filter-${nextFilter}`)?.focus();
+    });
+  }
+
+  return (
+    <aside
+      aria-labelledby="question-bank-inventory-title"
+      className="order-1 min-w-0 rounded-2xl border border-primary-100 bg-white p-3 md:p-4 xl:col-start-1 xl:row-start-1 xl:order-none xl:sticky xl:top-24 xl:self-start"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-secondary-900" id="question-bank-inventory-title">
+            Inventori soal
+          </h2>
+          <p className="mt-1 text-xs text-secondary-500">
+            {builderState.questions.length} soal · {incompleteCount} perlu diperbaiki
+          </p>
+        </div>
+        <Button
+          aria-label="Tambah soal"
+          disabled={isDisabled}
+          onClick={onAddQuestion}
+          size="icon-sm"
+          type="button"
+          variant="brandOutline"
+        >
+          <Plus />
+        </Button>
+      </div>
+      <nav aria-label="Navigasi soal" className="mt-3 border-t border-primary-100 pt-3">
+        <div
+          aria-label="Filter inventori soal"
+          className="flex flex-wrap gap-1 rounded-xl bg-secondary-50 p-1"
+          role="tablist"
+        >
+          {(["all", "incomplete"] as const).map((nextFilter) => {
+            const isSelected = filter === nextFilter;
+            const label = nextFilter === "all" ? "Semua soal" : "Perlu diperbaiki";
+            const count = nextFilter === "all" ? builderState.questions.length : incompleteCount;
+            return (
+              <button
+                aria-controls="question-bank-inventory-list"
+                aria-selected={isSelected}
+                className={cn(
+                  "min-h-10 flex-1 rounded-lg px-2.5 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200",
+                  isSelected
+                    ? "bg-primary-700 text-white shadow-sm"
+                    : "text-secondary-600 hover:bg-white hover:text-secondary-900",
+                )}
+                id={`question-bank-filter-${nextFilter}`}
+                key={nextFilter}
+                onClick={() => onFilterChange(nextFilter)}
+                onKeyDown={handleFilterKeyDown}
+                role="tab"
+                tabIndex={isSelected ? 0 : -1}
+                type="button"
+              >
+                {label} <span className="font-normal">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+        <div
+          aria-labelledby={`question-bank-filter-${filter}`}
+          className="mt-3 max-h-56 overflow-y-auto pr-1 xl:max-h-[calc(100svh-24rem)]"
+          id="question-bank-inventory-list"
+          role="tabpanel"
+          tabIndex={-1}
+        >
+          <ul aria-label={filter === "all" ? "Semua soal" : "Soal yang perlu diperbaiki"} className="grid grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-1">
+            {visibleQuestions.length > 0 ? visibleQuestions.map((question) => {
+              const questionNumber = builderState.questions.findIndex((item) => item.id === question.id) + 1;
+              const ready = isReady(question);
+              const isActive = activeQuestionId === question.id;
+              const statusLabel = ready ? "siap dipakai" : "belum lengkap";
+              const deleteHelpId = `question-bank-delete-help-${question.id}`;
+              return (
+                <li
+                  className={cn(
+                    "group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors",
+                    isActive
+                      ? "border-primary-200 bg-primary-50"
+                      : "hover:border-primary-100 hover:bg-primary-50/60",
+                  )}
+                  key={question.id}
+                  ref={(element) => {
+                    questionRowRefs.current[question.id] = element;
+                  }}
+                >
+                  <button
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={`Soal ${questionNumber}, ${statusLabel}${isActive ? ", dipilih" : ""}`}
+                    className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+                    onClick={() => onOpenQuestion(question.id)}
+                    onKeyDown={(event) => handleQuestionKeyDown(event, question.id)}
+                    tabIndex={question.id === focusableQuestionId ? 0 : -1}
+                    type="button"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-4 text-secondary-900">
+                      <span className="min-w-0 flex-1 truncate">
+                        {questionNumber}. {question.prompt || "Soal tanpa pertanyaan"}
+                      </span>
+                    </span>
+                    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <Badge size="ui" variant="mint">{question.subjectCode}</Badge>
+                      {ready ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-primary-700">
+                          <Check aria-hidden="true" className="size-3.5 shrink-0" />
+                          <span>Siap dipakai</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-secondary-600">
+                          <span aria-hidden="true" className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-secondary-400 text-xs font-bold leading-none">!</span>
+                          <span>Belum lengkap</span>
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <Button
+                    aria-describedby={builderState.questions.length <= 1 ? deleteHelpId : undefined}
+                    aria-label={`Hapus soal ${questionNumber}`}
+                    disabled={isDisabled || builderState.questions.length <= 1}
+                    onClick={() => onRemoveQuestion(question.id)}
+                    onKeyDown={(event) => handleQuestionKeyDown(event, question.id)}
+                    size="icon-sm"
+                    tabIndex={isActive ? 0 : -1}
+                    title={builderState.questions.length <= 1 ? "Soal terakhir tidak dapat dihapus" : undefined}
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                  {builderState.questions.length <= 1 ? <span className="sr-only" id={deleteHelpId}>Soal terakhir tidak dapat dihapus.</span> : null}
+                </li>
+              );
+            }) : (
+              <li className="col-span-full px-2 py-4 text-sm leading-6 text-secondary-500">
+                {filter === "incomplete" && incompleteCount === 0 ? "Semua soal sudah siap." : "Belum ada soal. Tambahkan soal pertama dan pilih Subtest-nya."}
+              </li>
+            )}
+          </ul>
+        </div>
+        <p aria-live="polite" className="mt-3 text-xs text-secondary-500">
+          {filter === "incomplete" && incompleteCount === 0
+            ? "Semua soal sudah siap. Pilih Semua soal untuk melihat seluruh inventori."
+            : retainedReadyQuestion
+              ? `${visibleQuestions.length} soal ditampilkan. Soal aktif tetap ditampilkan.`
+            : `${visibleQuestions.length} soal ditampilkan`}
+        </p>
+      </nav>
+    </aside>
+  );
 }
 
 function QuestionBankOrganizationPanel({
@@ -432,22 +675,22 @@ type QuestionBankBuilderViewState = {
   activeQuestionId: string | null;
   activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
+  filteredQuestions: BankQuestion[];
   hasSubmittedPreview: boolean;
   hasUnsavedChanges: boolean;
-  inventoryPageCount: number;
+  inventoryFilter: InventoryFilter;
   isQuestionContentLocked: boolean;
   isSaving: boolean;
   isDraftLifecycle: boolean;
   lifecycleStatus: KaptenQuestionBank["status"];
   lifecycleError: string | null;
   mediaPickerTarget: MediaPickerTarget | null;
-  paginatedQuestions: BankQuestion[];
   pendingRouteReplacement: string | null;
   previewChoiceId: string | null;
+  questionRowRefs: QuestionRowRefs;
   questionDraft: BankQuestion;
   questionEditorTab: string;
   selectedMediaAssetId: string | undefined;
-  visibleInventoryPage: number;
 };
 type QuestionBankBuilderActions = {
   addChoice: () => void;
@@ -458,10 +701,9 @@ type QuestionBankBuilderActions = {
   onChoiceChange: (value: string) => void;
   onCloseMedia: () => void;
   onEditorTabChange: (value: string) => void;
-  onNextPage: () => void;
+  onInventoryFilterChange: (filter: InventoryFilter) => void;
   onOpenMedia: (target: MediaPickerTarget) => void;
-  onOpenQuestion: (question: BankQuestion) => void;
-  onPreviousPage: () => void;
+  onOpenQuestion: (questionId: string) => void;
   onRemoveChoice: (choiceId: string) => void;
   onRemoveChoiceMedia: (choiceId: string) => void;
   onRemoveQuestion: (id: string) => void;
@@ -490,26 +732,59 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
   );
 }
 
-function QuestionBankQuestionWorkspace({ actions, builderState, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; state: QuestionBankBuilderViewState }) {
-  return <section className="grid items-start gap-6 xl:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] xl:gap-6"><div className="order-2 min-w-0 xl:col-start-2 xl:row-start-1 xl:order-none"><div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div><Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}><TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList><TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent><TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent></Tabs></div><QuestionBankInventory activeQuestionId={state.activeQuestionId} builderState={builderState} inventoryPageCount={state.inventoryPageCount} onAddQuestion={actions.addQuestion} onNextPage={actions.onNextPage} onOpenQuestion={actions.onOpenQuestion} onPreviousPage={actions.onPreviousPage} onRemoveQuestion={actions.onRemoveQuestion} paginatedQuestions={state.paginatedQuestions} visibleInventoryPage={state.visibleInventoryPage} /></section>;
+function QuestionBankQuestionWorkspace({
+  actions,
+  builderState,
+  state,
+  workspaceRef,
+}: {
+  actions: QuestionBankBuilderActions;
+  builderState: QuestionBankBuilderFormState;
+  state: QuestionBankBuilderViewState;
+  workspaceRef: { current: HTMLDivElement | null };
+}) {
+  return (
+    <section className="grid items-start gap-6 xl:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] xl:gap-6">
+      <div className="order-2 min-w-0 scroll-mt-24 xl:col-start-2 xl:row-start-1 xl:order-none" ref={workspaceRef}>
+        <div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div>
+        <Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
+          <TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList>
+          <TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent>
+          <TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent>
+        </Tabs>
+      </div>
+      <QuestionBankInventory
+        activeQuestionId={state.activeQuestionId}
+        builderState={builderState}
+        filter={state.inventoryFilter}
+        isDisabled={state.isQuestionContentLocked}
+        onAddQuestion={actions.addQuestion}
+        onFilterChange={actions.onInventoryFilterChange}
+        onOpenQuestion={actions.onOpenQuestion}
+        onRemoveQuestion={actions.onRemoveQuestion}
+        questionRowRefs={state.questionRowRefs}
+        visibleQuestions={state.filteredQuestions}
+      />
+    </section>
+  );
 }
 
-function QuestionBankTabs({ actions, builderState, categories, folders, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
+function QuestionBankTabs({ actions, builderState, categories, folders, mode, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
   return <Tabs className="gap-8" onValueChange={actions.onChangeTab} value={state.activeTab}>
     {state.isQuestionContentLocked ? <Alert><AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle><AlertDescription className="text-secondary-900">Soal dan informasi bank dikunci saat diarsipkan. Pulihkan bank untuk membuat revisi baru.</AlertDescription></Alert> : null}
     <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max min-w-full sm:min-w-0"><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="questions">Soal <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{builderState.questions.length}</span></TabsTrigger><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="details">Detail bank</TabsTrigger></TabsList></div>
     <TabsContent className="m-0" value="details"><section className="grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start"><div className="grid gap-5"><Field><FieldLabel htmlFor="bank-title">Judul bank</FieldLabel><FieldInput aria-describedby={mode === "create" && !builderState.title.trim() ? "bank-title-help" : undefined} aria-invalid={mode === "create" && !builderState.title.trim()} aria-required={mode === "create"} disabled={state.lifecycleStatus === "archived"} id="bank-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} required={mode === "create"} value={builderState.title} />{mode === "create" && !builderState.title.trim() ? <p className="text-xs text-secondary-600" id="bank-title-help">Judul bank wajib diisi sebelum mulai menulis.</p> : null}</Field><Field><FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-[100px]" disabled={state.lifecycleStatus === "archived"} id="bank-description" onChange={(event) => actions.updateMetadata("description", event.target.value)} value={builderState.description} /></Field></div><QuestionBankOrganizationPanel builderState={builderState} categories={categories} collapsedByDefault={mode === "create"} folders={folders} isDisabled={state.lifecycleStatus === "archived"} onUpdate={actions.updateOrganization} /></section></TabsContent>
-    <TabsContent className="m-0" value="questions"><QuestionBankQuestionWorkspace actions={actions} builderState={builderState} state={state} /></TabsContent>
+    <TabsContent className="m-0" value="questions"><QuestionBankQuestionWorkspace actions={actions} builderState={builderState} state={state} workspaceRef={workspaceRef} /></TabsContent>
   </Tabs>;
 }
 
-function QuestionBankBuilderScreen({ actions, builderState, categories, folders, mode, session, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; session: SessionContext; state: QuestionBankBuilderViewState }) {
+function QuestionBankBuilderScreen({ actions, builderState, categories, folders, mode, session, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; session: SessionContext; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
   const confirmation = state.confirmationRequest;
   return (
     <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel={mode === "create" ? "Buat Bank Soal" : "Edit Bank Soal"} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges}>
       <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
       {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
-      <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} />
+      <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} workspaceRef={workspaceRef} />
       <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
       <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </MentorWorkspaceShell>
@@ -654,7 +929,7 @@ function KaptenQuestionBankBuilderPageModule({
     confirmationRequest: null,
     hasSubmittedPreview: false,
     hasUnsavedChanges: mode === "create",
-    inventoryPage: 1,
+    inventoryFilter: "all",
     isSaving: false,
     lifecycleError: null,
     lifecycleStatus: initialBank?.status ?? "draft",
@@ -670,7 +945,7 @@ function KaptenQuestionBankBuilderPageModule({
     confirmationRequest,
     hasSubmittedPreview,
     hasUnsavedChanges,
-    inventoryPage,
+    inventoryFilter,
     isSaving,
     lifecycleError,
     lifecycleStatus,
@@ -683,6 +958,10 @@ function KaptenQuestionBankBuilderPageModule({
   const updateEditor = (patch: Partial<QuestionBankEditorState>) => dispatch({ patch, type: "patch" });
   const revisionRef = useRef(initialBank?.revision);
   const bankIdRef = useRef(initialBank?.id ?? bankId);
+  const questionRowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const previousActiveQuestionIdRef = useRef<string | null>(activeQuestionId);
+  const questionFocusAfterDeleteRef = useRef<string | null>(null);
 
   const builderState = localBuilderState;
 
@@ -693,14 +972,11 @@ function KaptenQuestionBankBuilderPageModule({
     : null;
   const isQuestionContentLocked = lifecycleStatus === "archived";
   const isDraftLifecycle = lifecycleStatus === "draft";
-  const inventoryPageCount = Math.max(
-    1,
-    Math.ceil(builderState.questions.length / INVENTORY_QUESTIONS_PER_PAGE),
-  );
-  const visibleInventoryPage = Math.min(inventoryPage, inventoryPageCount);
-  const paginatedQuestions = builderState.questions.slice(
-    (visibleInventoryPage - 1) * INVENTORY_QUESTIONS_PER_PAGE,
-    visibleInventoryPage * INVENTORY_QUESTIONS_PER_PAGE,
+  const filteredQuestions = builderState.questions.filter(
+    (question) =>
+      inventoryFilter === "all" ||
+      !isReady(question) ||
+      question.id === activeQuestionId,
   );
   const selectedMediaAssetId =
     mediaPickerTarget?.kind === "prompt"
@@ -714,6 +990,36 @@ function KaptenQuestionBankBuilderPageModule({
           : undefined;
 
   useQuestionBankNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
+
+  useEffect(() => {
+    const activeQuestionChanged = previousActiveQuestionIdRef.current !== activeQuestionId;
+    previousActiveQuestionIdRef.current = activeQuestionId;
+    if (!activeQuestionId) return;
+
+    const row = questionRowRefs.current[activeQuestionId];
+    row?.scrollIntoView?.({ block: "nearest" });
+    const questionFocusAfterDelete = questionFocusAfterDeleteRef.current;
+    if (questionFocusAfterDelete === activeQuestionId) {
+      window.requestAnimationFrame(() => {
+        questionRowRefs.current[questionFocusAfterDelete]
+          ?.querySelector<HTMLButtonElement>("button")
+          ?.focus();
+        if (questionFocusAfterDeleteRef.current === questionFocusAfterDelete) {
+          questionFocusAfterDeleteRef.current = null;
+        }
+      });
+    } else if (questionFocusAfterDelete) {
+      questionFocusAfterDeleteRef.current = null;
+    }
+    if (
+      activeQuestionChanged &&
+      typeof window !== "undefined" &&
+      window.innerWidth < 1280
+    ) {
+      const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      workspaceRef.current?.scrollIntoView?.({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
+    }
+  }, [activeQuestionId, builderState.questions.length, inventoryFilter]);
 
   function markChanged(nextState: typeof builderState) {
     setLocalBuilderState(nextState);
@@ -746,13 +1052,15 @@ function KaptenQuestionBankBuilderPageModule({
     pendingRequest?.onConfirm();
   }
 
-  function openQuestion(question: BankQuestion) {
+  function openQuestion(questionId: string) {
+    const question = builderState.questions.find((item) => item.id === questionId);
+    if (!question) return;
+
     updateEditor({
       activeQuestionId: question.id,
       hasSubmittedPreview: false,
       previewChoiceId: null,
       questionDraft: toQuestionDraft(question),
-      questionEditorTab: "edit",
     });
   }
 
@@ -820,7 +1128,7 @@ function KaptenQuestionBankBuilderPageModule({
   function addQuestion() {
     if (isQuestionContentLocked) return;
     const subjectCode = activeQuestion?.subjectCode ?? builderState.questions.at(-1)?.subjectCode ?? "PU";
-    const id = `${subjectCode.toLowerCase()}-question-${Date.now()}`;
+    const id = createQuestionId(subjectCode);
     const nextQuestion = {
       ...emptyQuestion(
         bankId ?? initialBank?.id ?? id,
@@ -835,10 +1143,8 @@ function KaptenQuestionBankBuilderPageModule({
     updateEditor({
       activeQuestionId: id,
       hasSubmittedPreview: false,
-      inventoryPage: Math.ceil((builderState.questions.length + 1) / INVENTORY_QUESTIONS_PER_PAGE),
       previewChoiceId: null,
       questionDraft: nextQuestion,
-      questionEditorTab: "edit",
     });
   }
 
@@ -847,15 +1153,14 @@ function KaptenQuestionBankBuilderPageModule({
     const questions = builderState.questions.filter(
       (question) => question.id !== id,
     );
-    const firstQuestion = questions[0]!;
+    const nextActiveQuestion = questions[0]!;
+    questionFocusAfterDeleteRef.current = nextActiveQuestion.id;
     markChanged({ ...builderState, questions });
     updateEditor({
-      activeQuestionId: firstQuestion.id,
+      activeQuestionId: nextActiveQuestion.id,
       hasSubmittedPreview: false,
-      inventoryPage: 1,
       previewChoiceId: null,
-      questionDraft: toQuestionDraft(firstQuestion),
-      questionEditorTab: "edit",
+      questionDraft: toQuestionDraft(nextActiveQuestion),
     });
   }
 
@@ -893,10 +1198,9 @@ function KaptenQuestionBankBuilderPageModule({
       onChoiceChange: (value) => updateEditor({ hasSubmittedPreview: false, previewChoiceId: value }),
       onCloseMedia: () => updateEditor({ mediaPickerTarget: null }),
       onEditorTabChange: (value) => updateEditor({ questionEditorTab: value }),
-      onNextPage: () => updateEditor({ inventoryPage: visibleInventoryPage + 1 }),
+      onInventoryFilterChange: (filter) => updateEditor({ inventoryFilter: filter }),
       onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }),
       onOpenQuestion: openQuestion,
-      onPreviousPage: () => updateEditor({ inventoryPage: visibleInventoryPage - 1 }),
       onRemoveChoice: removeChoice,
       onRemoveChoiceMedia: removeChoiceMedia,
       onRemoveQuestion: requestQuestionRemoval,
@@ -913,7 +1217,8 @@ function KaptenQuestionBankBuilderPageModule({
     folders={initialFolderTree}
     mode={mode}
     session={session}
-    state={{ activeQuestionId, activeTab, confirmationRequest, hasSubmittedPreview, hasUnsavedChanges, inventoryPageCount, isQuestionContentLocked, isSaving, isDraftLifecycle, lifecycleError, lifecycleStatus, mediaPickerTarget, paginatedQuestions, pendingRouteReplacement, previewChoiceId, questionDraft, questionEditorTab, selectedMediaAssetId, visibleInventoryPage }}
+    state={{ activeQuestionId, activeTab, confirmationRequest, filteredQuestions, hasSubmittedPreview, hasUnsavedChanges, inventoryFilter, isQuestionContentLocked, isSaving, isDraftLifecycle, lifecycleError, lifecycleStatus, mediaPickerTarget, pendingRouteReplacement, previewChoiceId, questionDraft, questionEditorTab, questionRowRefs, selectedMediaAssetId }}
+    workspaceRef={workspaceRef}
   />;
 }
 
