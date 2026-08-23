@@ -11,9 +11,9 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 
 export const metadata: Metadata = { title: "Edit Tryout Kapten | Vecalss LMS" };
 
-export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<{ delivery?: string; workspace?: string }> }) {
+export default async function TryoutPage({ params, searchParams }: { params: Promise<{ tryoutId: string }>; searchParams: Promise<{ delivery?: string; parent?: string; session?: string; workspace?: string }> }) {
   const [{ tryoutId }, query, session] = await Promise.all([params, searchParams, requireTutorSession()]);
-  const [initialDraft, operations, readyVersions, readyAssemblies, sourceCatalog] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id), listReadyAssemblyRevisions(), listQuestionBankSourcePage({ page: 1, pageSize: 20 })]);
+  const [initialDraft, operations, readyVersions, readyAssemblies, sourceCatalog, parentDraft] = await Promise.all([getTryoutForEdit(tryoutId, session.user.id), getOwnedTryoutOperationsView(tryoutId, session.user.id), listReadyPackageVersions(session.user.id), listReadyAssemblyRevisions(), listQuestionBankSourcePage({ page: 1, pageSize: 20 }), query.parent ? getTryoutForEdit(query.parent, session.user.id) : Promise.resolve(null)]);
   // The builder only needs session schedule/release metadata and a gated
   // ParticipantView. Keep attempt details and hidden scores on separately
   // authorized detail routes so the client-bound workspace cannot inspect
@@ -24,5 +24,5 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   // transitional authoring/policy/sessions/participants query values for
   // bookmarked compatibility URLs.
   const initialWorkspace = query.workspace ?? "basics";
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDeliveryArea={query.delivery} initialDraft={initialDraft} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyAssemblies={readyAssemblies} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDeliveryArea={query.delivery} initialDraft={initialDraft} initialParent={parentDraft ? { id: parentDraft.id, publishedAt: parentDraft.assessmentRelease?.publishedAt, title: parentDraft.title } : undefined} initialSessionId={query.session} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyAssemblies={readyAssemblies} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }

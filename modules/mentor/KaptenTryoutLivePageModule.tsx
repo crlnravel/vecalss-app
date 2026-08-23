@@ -59,7 +59,7 @@ function LiveStateBadge({ severity, state }: { severity: LiveSeverity; state: Li
   );
 }
 
-function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView }) {
+function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
   const [view, setView] = useState(initial);
   const [refreshState, setRefreshState] = useState<"idle" | "refreshing" | "error">("idle");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
@@ -120,7 +120,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
   }, [refresh]);
 
   const counts = liveStates.reduce<Record<LiveState, number>>((summary, state) => {
-    summary[state] = view.live.filter((item) => item.state === state).length;
+    summary[state] = scopedLive.filter((item) => item.state === state).length;
     return summary;
   }, {
     cat_failure: 0,
@@ -132,11 +132,13 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
     submitted: 0,
   });
   const updatedLabel = formatTimestamp(lastUpdatedAt);
-  const orderedLive = useMemo(() => [...view.live].sort((left, right) => {
+  const scopedLive = selectedSessionId ? view.live.filter((item) => item.session?.id === selectedSessionId) : view.live;
+  const selectedSession = selectedSessionId ? view.sessions.find((session) => session.id === selectedSessionId) : null;
+  const orderedLive = useMemo(() => [...scopedLive].sort((left, right) => {
     const priorityDelta = liveActionPriority[left.state] - liveActionPriority[right.state];
     if (priorityDelta !== 0) return priorityDelta;
     return left.participant.displayName.localeCompare(right.participant.displayName, "id");
-  }), [view.live]);
+  }), [scopedLive]);
 
   return (
     <section className="grid gap-6" aria-labelledby="tryout-live-title">
@@ -148,7 +150,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
           <div>
             <h2 className="text-xl font-semibold text-secondary-900" id="tryout-live-title">Live</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
-              Pantau posisi peserta dari admission sampai terkirim dalam satu proyeksi operasional.
+              Pantau posisi peserta dari admission sampai terkirim dalam satu proyeksi operasional{selectedSession ? ` · ${selectedSession.name}` : ""}.
             </p>
           </div>
         </div>
@@ -166,7 +168,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
             <RefreshCw className={refreshState === "refreshing" ? "animate-spin" : undefined} data-icon="inline-start" />
             Refresh
           </Button>
-          <Badge className="rounded-full" size="ui" variant="mint">{view.live.length} peserta terpantau</Badge>
+          <Badge className="rounded-full" size="ui" variant="mint">{scopedLive.length} peserta terpantau</Badge>
         </div>
       </header>
 
@@ -211,7 +213,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
           </Link>
         </div>
 
-        {view.live.length ? (
+            {scopedLive.length ? (
           <div className="grid gap-3">
             {orderedLive.map((item) => (
               <Card className="shadow-none ring-primary-100" key={item.admissionId}>

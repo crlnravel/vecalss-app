@@ -18,9 +18,7 @@ for (const label of [
   "Operations",
   "Results",
   "Overview",
-  "Sections",
-  "Questions",
-  "Rules",
+  "Configure Sections",
   "Readiness",
   "Published versions",
   "Policy",
@@ -34,7 +32,10 @@ for (const label of [
   assert.match(workspace, new RegExp(escapedLabel, "u"), `workspace should expose ${label}`);
 }
 
-assert.match(workspace, /const workspacePhases/u, "primary navigation must be grouped into task phases");
+assert.match(workspace, /const draftWorkspacePhases/u, "draft navigation must be grouped into lifecycle phases");
+assert.match(workspace, /const publishedWorkspacePhases/u, "published navigation must be grouped into lifecycle phases");
+assert.match(workspace, /const lifecyclePhaseOrder/u, "the lifecycle roadmap must preserve orientation while future phases are locked");
+assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
 assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a persistent rail");
 assert.match(workspace, /sectionReadiness/u, "Section rail must expose per-section readiness");
@@ -48,7 +49,7 @@ assert.match(workspace, /deliveryAreaFor/u, "legacy Delivery query values must l
 assert.match(workspace, /value === "operations"\) return "sessions"/u, "legacy operations query must land on Sessions");
 
 assert.match(workspace, /saveTryoutAction/u, "draft and publish must use the canonical Tryout save action");
-assert.match(workspace, /const save = async \(status: "draft" \| "published" = "draft"\)/u, "ordinary save must default to draft");
+assert.match(workspace, /const save = async \(status: "draft" \| "published" = "draft"\): Promise<boolean>/u, "ordinary save must default to draft and report server success");
 assert.match(workspace, /void save\("draft"\)/u, "ordinary save controls must explicitly persist a draft");
 assert.doesNotMatch(workspace, /void save\(\)/u, "ordinary save paths must never inherit draft.status");
 assert.match(workspace, /void save\("published"\)/u, "publish must remain a separate explicit action");
@@ -66,6 +67,9 @@ assert.match(shell, /<SidebarInset\b/u, "workspace shell must render the page la
 assert.match(sidebar, /function SidebarInset[\s\S]*?<main\b/u, "sidebar inset must own the page main landmark");
 assert.match(workspace, /AssessmentReleaseNotice/u, "workspace must expose the durable release state");
 assert.match(workspace, /Simpan perubahan/u, "workspace must expose draft persistence");
+assert.match(workspace, /dirtyNavigationOpen/u, "dirty navigation must require an explicit Save, Discard, or Stay decision");
+assert.match(workspace, /updateTryoutMetadataAction/u, "published details must use a metadata-only server action");
+assert.match(workspace, /Buat draf perubahan/u, "published structural changes must use an explicit change draft");
 assert.doesNotMatch(workspace, /\/mentor\/packages(?:\/|\b)/u, "workspace must not route mentors through package authoring");
 assert.match(workspace, /Buka Bank Soal/u, "missing sources should point back to Bank Soal, not package authoring");
 assert.match(route, /initialWorkspace = query\.workspace \?\? "basics"/u, "route must preserve new workspace query values on reload");

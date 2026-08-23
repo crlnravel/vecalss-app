@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { BarChart3, ChevronRight, CircleAlert, ExternalLink, ShieldCheck, Upload } from "@/lib/icons";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +19,19 @@ function ResultPill({ label, tone = "neutral" }: { label: string; tone?: "attent
   return <Badge className="rounded-full" size="ui" variant={tone === "success" ? "mint" : "accent"}>{label}</Badge>;
 }
 
-function KaptenTryoutResultsPageModule({ initial }: { initial: TryoutOperationsView }) {
+function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(selectedSessionId ?? initial.sessions[0]?.id ?? null);
+  const validSessionId = useMemo(() => initial.sessions.some((session) => session.id === activeSessionId) ? activeSessionId : initial.sessions[0]?.id ?? null, [activeSessionId, initial.sessions]);
+  const activeSession = initial.sessions.find((session) => session.id === validSessionId) ?? null;
+  const visibleSessions = activeSession ? [activeSession] : [];
+
+  const selectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("workspace", "results");
+    url.searchParams.set("session", sessionId);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  };
   const scored = initial.results.filter((result) => result.resultReadiness === "scored").length;
   const reviewRequired = initial.results.filter((result) => result.resultReadiness === "review_required").length;
   const released = initial.results.filter((result) => result.releaseState === "released").length;
@@ -55,8 +70,16 @@ function KaptenTryoutResultsPageModule({ initial }: { initial: TryoutOperationsV
         <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Peringkat tersedia</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{rankingAvailable}</p></CardContent></Card>
       </div>
 
+      {initial.sessions.length ? <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3.5">
+        <label className="text-sm font-semibold text-secondary-900" htmlFor="results-session">Sesi yang ditampilkan</label>
+        <select className="min-h-10 min-w-0 flex-1 rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100 sm:max-w-md" id="results-session" onChange={(event) => selectSession(event.target.value)} value={validSessionId ?? ""}>
+          {initial.sessions.map((session) => <option key={session.id} value={session.id}>{session.name} · {session.status === "closed" ? "Ditutup" : session.status === "active" ? "Aktif" : "Draf"}</option>)}
+        </select>
+        {selectedSessionId && selectedSessionId !== validSessionId ? <p className="basis-full text-xs leading-5 text-[#8a5e00]">Sesi dari tautan sebelumnya tidak tersedia. Sesi ini dipilih agar konteks tetap aman.</p> : null}
+      </div> : null}
+
       <div className="grid gap-4">
-        {initial.sessions.length ? initial.sessions.map((session) => {
+        {visibleSessions.length ? visibleSessions.map((session) => {
           const results = initial.results.filter((result) => result.sessionId === session.id);
           const sessionScored = results.filter((result) => result.resultReadiness === "scored").length;
           const sessionReview = results.filter((result) => result.resultReadiness === "review_required").length;
@@ -93,7 +116,7 @@ function KaptenTryoutResultsPageModule({ initial }: { initial: TryoutOperationsV
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end"><span className="min-w-24 text-right text-sm font-semibold tabular-nums text-secondary-900">{result.scoreVisible && result.displayScore !== null ? Number(result.displayScore).toFixed(2) : "Skor ditahan"}</span><Link className="inline-flex min-h-10 items-center justify-center rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/participants/${result.admissionId}`}>Participant</Link><Link aria-label={`Buka analisis attempt ${result.participant}`} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/attempts/${result.attemptId}`}>Analisis <ExternalLink aria-hidden="true" className="size-4" /></Link></div>
                   </div>
-                ))}</div> : <p className="rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center text-sm text-secondary-500">Belum ada attempt untuk sesi ini.</p>}
+                ))}</div> : <p className="rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center text-sm text-secondary-500">{session.status === "closed" ? "Tidak ada attempt untuk sesi ini. Sesi tetap tersimpan untuk audit." : "Belum ada attempt untuk sesi ini."}</p>}
 
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-primary-100 pt-3"><p className="text-xs text-secondary-600">{canReleaseManually ? "Rilis manual tersedia dari detail sesi; server akan memeriksa kesiapan hasil." : releaseBlocked ? `Rilis manual tertahan: ${releaseBlockers.join(" · ")}.` : "Buka detail sesi untuk validasi bundle lengkap dan tindakan lanjutan."}</p><div className="flex flex-wrap gap-2">{canReleaseManually ? <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}?tab=details#session-actions`}><Upload aria-hidden="true" className="size-4" />Rilis hasil</Link> : null}<Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}?tab=details#session-actions`}>Detail sesi <ChevronRight aria-hidden="true" className="size-4" /></Link></div></div>
               </CardContent>

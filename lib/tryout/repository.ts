@@ -11,6 +11,7 @@ type SubjectCode = (typeof SUBJECTS)[number];
 type PackageItemInput = { pointValue: number; sourceQuestionId: string; sourceQuestionRevisionId?: string };
 type PackageInput = { description: string; id?: string; items: PackageItemInput[]; sourceBankId: string; subtest: SubjectCode; title: string };
 type PackageMetadataInput = { description: string; id: string; title: string };
+type TryoutMetadataInput = { description: string; id: string; title: string };
 type DirectQuestionInput = { sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string };
 type TestInput = { catItemCount?: number; directQuestions?: DirectQuestionInput[]; durationMinutes: number; instructions: string; packageVersionId?: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
 type PackageVersionReadiness = {
@@ -278,6 +279,26 @@ async function saveReusableQuestionPackageMetadata(input: PackageMetadataInput, 
   });
 }
 
+async function updateTryoutMetadata(input: TryoutMetadataInput, actorId: string) {
+  if (!input.title.trim()) throw new TryoutValidationError("Judul Tryout wajib diisi.");
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${input.id}::uuid FOR UPDATE`;
+    const current = await tx.tryoutPackage.findFirst({
+      where: { id: input.id, createdByUserId: actorId },
+      include: tryoutInclude,
+    });
+    if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
+    return toTryoutDto(await tx.tryoutPackage.update({
+      where: { id: input.id },
+      data: {
+        description: input.description.trim() || null,
+        title: input.title.trim(),
+      },
+      include: tryoutInclude,
+    }));
+  });
+}
+
 async function readyReusableQuestionPackageVersion(packageId: string, actorId: string) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${packageId}::uuid FOR UPDATE`;
@@ -466,5 +487,5 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
 }
 async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })), durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
-export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, TryoutValidationError };
-export type { DirectQuestionInput, PackageInput, PackageItemInput, PackageMetadataInput, PackageVersionReadiness, SaveTryoutInput, TestInput };
+export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, TryoutValidationError, updateTryoutMetadata };
+export type { DirectQuestionInput, PackageInput, PackageItemInput, PackageMetadataInput, PackageVersionReadiness, SaveTryoutInput, TestInput, TryoutMetadataInput };
