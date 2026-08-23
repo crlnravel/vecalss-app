@@ -380,10 +380,13 @@ function toDto(
   bank: Prisma.QuestionBankGetPayload<{ include: typeof bankInclude }>,
   folderRows: readonly FolderRow[],
 ): QuestionBankEditDto {
-  // The editor and catalogue represent the active inventory. Archived rows
-  // remain in the database for snapshot/history integrity but are intentionally
-  // excluded from counts, readiness, and the editable question list.
-  const activeQuestionRecords = bank.questions.filter((question) => question.status !== ContentStatus.archived);
+  // The editor represents archived banks as a locked snapshot so they can be
+  // restored without losing the questions archived as part of the bank
+  // lifecycle. Intentionally retired revisions remain historical and are
+  // excluded from the hydrated question list.
+  const activeQuestionRecords = bank.questions.filter((question) => bank.status === ContentStatus.archived
+    ? question.currentRevision?.status !== QuestionRevisionStatus.retired
+    : question.status !== ContentStatus.archived);
   const questions: BankQuestionDto[] = activeQuestionRecords.map((question) => toBankQuestionDto(question, bank.id));
   const readinessInputs: QuestionRevisionReadinessInput[] = activeQuestionRecords.map((question) => ({
     questionId: question.id,

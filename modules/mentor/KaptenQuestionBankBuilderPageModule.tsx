@@ -921,7 +921,7 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
       <div className="flex flex-wrap items-center gap-2">
         <Button aria-describedby={titleMissing ? "create-bank-title-help" : undefined} aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "brandOutline"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
         {titleMissing ? <p className="text-xs font-medium text-secondary-600" id="create-bank-title-help">Judul bank wajib diisi</p> : null}
-        {mode === "edit" ? (state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.lifecycleStatus === "scheduled" ? null : state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : <><Button aria-busy={state.isSaving} aria-describedby={lifecycleDisabledReason ? "lifecycle-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>{lifecycleDisabledReason ? <p className="text-xs text-secondary-600" id="lifecycle-disabled-reason">{lifecycleDisabledReason}</p> : null}</>) : null}
+        {mode === "edit" ? (state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="restore" disabled={state.isSaving} id="question-bank-lifecycle-restore" onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.lifecycleStatus === "scheduled" ? null : state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0} id="question-bank-lifecycle-publish" onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="unpublish" aria-describedby={lifecycleDisabledReason ? "lifecycle-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges} id="question-bank-lifecycle-unpublish" onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>{lifecycleDisabledReason ? <p className="text-xs text-secondary-600" id="lifecycle-disabled-reason">{lifecycleDisabledReason}</p> : null}</>) : null}
         {mode === "edit" && state.lifecycleStatus !== "archived" && state.lifecycleStatus !== "scheduled" ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label="Aksi destruktif Bank Soal" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem disabled={state.isSaving || Boolean(lifecycleDisabledReason)} onClick={actions.requestArchive} variant="destructive"><Archive />Arsipkan</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu> : null}
       </div>
     </section>
@@ -1217,17 +1217,16 @@ function KaptenQuestionBankBuilderPageModule({
             )?.mediaAssetId
           : undefined;
 
-  function questionNumber(questionId: string) {
+  const questionNumber = useCallback((questionId: string) => {
     const index = builderState.questions.findIndex((question) => question.id === questionId);
     return index < 0 ? 0 : index + 1;
-  }
+  }, [builderState.questions]);
 
   const focusIssueTarget = useCallback((issue: QuestionReadinessIssue, question: BankQuestion) => {
     const workspace = workspaceRef.current;
-    if (!workspace) return false;
-    const anchors = Array.from(
-      workspace.querySelectorAll<HTMLElement>("[data-question-anchor]"),
-    );
+    const anchors = workspace
+      ? Array.from(workspace.querySelectorAll<HTMLElement>("[data-question-anchor]"))
+      : [];
     let target: HTMLElement | undefined;
     if (issue.field === "prompt") {
       target = anchors.find((element) => element.dataset.questionAnchor === "prompt");
@@ -1249,10 +1248,22 @@ function KaptenQuestionBankBuilderPageModule({
       target = anchors.find((element) => element.dataset.questionAnchor === "media" && element.dataset.questionFieldKey === mediaKey && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
       target ??= anchors.find((element) => element.dataset.questionAnchor === "media" && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
     }
-    if (!target || target.hasAttribute("disabled")) return false;
+    if (!target || target.hasAttribute("disabled")) {
+      const lifecycleAction = lifecycleStatus === "published"
+        ? "unpublish"
+        : lifecycleStatus === "archived"
+          ? "restore"
+          : null;
+      const lifecycleTarget = lifecycleAction
+        ? document.querySelector<HTMLButtonElement>(`[data-question-bank-lifecycle-action="${lifecycleAction}"]`)
+        : null;
+      if (!lifecycleTarget || lifecycleTarget.disabled) return false;
+      lifecycleTarget.focus({ preventScroll: true });
+      return "handoff";
+    }
     target.focus({ preventScroll: true });
-    return true;
-  }, [readiness.issues]);
+    return "exact";
+  }, [lifecycleStatus, readiness.issues]);
 
   function announceIssue(issue: QuestionReadinessIssue, issueIndex: number, totalIssues: number) {
     updateEditor({ readinessAnnouncement: `Masalah ${issueIndex + 1} dari ${totalIssues}: Soal ${questionNumber(issue.questionId)}, ${readinessFieldLabel(issue)}.` });
@@ -1331,12 +1342,22 @@ function KaptenQuestionBankBuilderPageModule({
       workspaceRef.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       window.requestAnimationFrame(() => {
         if (pendingIssueFocusRef.current !== pendingIssue) return;
-        focusIssueTarget(pendingIssue, activeQuestion);
+        const focusResult = focusIssueTarget(pendingIssue, activeQuestion);
+        if (focusResult === "handoff") {
+          const lifecycleAction = lifecycleStatus === "published"
+            ? "Jadikan draf"
+            : lifecycleStatus === "archived"
+              ? "Pulihkan bank"
+              : "buka kunci lifecycle";
+          updateEditor({ readinessAnnouncement: `Soal ${questionNumber(pendingIssue.questionId)} memiliki masalah ${readinessFieldLabel(pendingIssue)} yang terkunci. Pilih ${lifecycleAction} untuk membuka perbaikan.` });
+        } else if (!focusResult) {
+          updateEditor({ readinessAnnouncement: `Masalah ${readinessFieldLabel(pendingIssue)} pada Soal ${questionNumber(pendingIssue.questionId)} belum dapat difokuskan.` });
+        }
         pendingIssueFocusRef.current = null;
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeQuestion, activeQuestionId, activeTab, focusIssueTarget, inventoryFilter, readiness.issues]);
+  }, [activeQuestion, activeQuestionId, activeTab, focusIssueTarget, inventoryFilter, lifecycleStatus, questionNumber, readiness.issues]);
 
   const readinessSignature = `${readiness.totalCount}:${readiness.readyCount}:${readiness.incompleteCount}:${readiness.issues.map(readinessIssueKey).join("|")}`;
   useEffect(() => {
