@@ -442,6 +442,18 @@ async function removeQuestionBankFolder(
       assertExpectedUpdatedAt(current.updatedAt, expectedUpdatedAt);
 
       await tx.$queryRaw`SELECT id FROM question_banks ORDER BY id FOR UPDATE`;
+      const scheduledBankCount = await tx.questionBank.count({
+        where: { folderId: id, status: ContentStatus.scheduled },
+      });
+      if (scheduledBankCount) {
+        throw new QuestionBankOrganizationError(
+          "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
+          {
+            code: "scheduled_unsupported",
+            details: { bankCount: scheduledBankCount, operation: "remove_folder", status: ContentStatus.scheduled },
+          },
+        );
+      }
       await tx.questionBank.updateMany({
         data: { folderId: current.parentId, updatedByUserId: actorId },
         where: { folderId: id },

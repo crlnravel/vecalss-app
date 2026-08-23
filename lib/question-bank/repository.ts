@@ -15,6 +15,7 @@ import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import {
   getQuestionBankReadinessFromRevisions,
+  getQuestionReadinessFromRevision,
   type QuestionBankReadiness,
   type QuestionRevisionReadinessInput,
 } from "@/lib/question-bank/readiness";
@@ -43,6 +44,7 @@ import {
 } from "./organization";
 
 const SUBJECT_CODES = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"] as const;
+const TEMPORARY_QUESTION_ID_PATTERN = /^(?:pu|ppu|pbm|pk|lbi|lbe|pm)-question-\d+$/i;
 
 type BankChoiceInput = { id: string; mediaAssetId?: string; text: string };
 type BankQuestionInput = {
@@ -141,6 +143,10 @@ type QuestionBankSourceQuestionPage = {
   questions: BankQuestionDto[];
   total: number;
 };
+
+function isTemporaryQuestionId(id: string | undefined) {
+  return Boolean(id && TEMPORARY_QUESTION_ID_PATTERN.test(id));
+}
 
 type QuestionBankSourcePage = {
   items: QuestionBankSourceEntry[];
@@ -1013,8 +1019,9 @@ async function saveQuestionBank(input: SaveBankInput, actorId: string) {
     for (const [questionIndex, question] of input.questions.entries()) {
       const subtest = subtestByCode.get(question.subjectCode);
       if (!subtest) throw new QuestionBankError(`Subtest ${question.subjectCode} tidak ditemukan.`, { code: "invalid_input" });
-      const current = question.id ? existingById.get(question.id) : undefined;
-      if (question.id && !current) {
+      const isTemporary = isTemporaryQuestionId(question.id);
+      const current = question.id && !isTemporary ? existingById.get(question.id) : undefined;
+      if (question.id && !isTemporary && !current) {
         throw new QuestionBankError("Soal tidak ditemukan di Bank Soal ini.", { code: "invalid_input", details: { questionId: question.id } });
       }
       if (current?.currentRevision?.status === QuestionRevisionStatus.retired) {
@@ -1205,9 +1212,17 @@ type QuestionRevisionLifecycleOptions = { expectedStatus: QuestionRevisionLifecy
 
 async function updateQuestionRevisionLifecycle(id: string, targetStatus: QuestionRevisionLifecycleStatus, actorId: string, options: QuestionRevisionLifecycleOptions) {
   return prisma.$transaction(async (tx) => {
-    // Ready edits lock the Question through the Bank aggregate. Take the same
-    // row lock before reading the revision so a lifecycle command cannot make
-    // a stale decision about which revision is current.
+    // Take the parent bank lock first, matching saveQuestionBank and bank
+    // lifecycle operations. Standalone questions have no bank row, so their
+    // question/revision lock below remains the serialization boundary.
+    await tx.$queryRaw`
+      SELECT qb.id
+      FROM question_banks qb
+      JOIN questions q ON q.question_bank_id = qb.id
+      JOIN question_revisions r ON r.question_id = q.id
+      WHERE r.id = ${id}::uuid
+      FOR UPDATE OF qb
+    `;
     await tx.$queryRaw`
       SELECT q.id
       FROM questions q
@@ -1229,7 +1244,12 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
         options: { include: { asset: true }, orderBy: { sortOrder: "asc" } },
         promptAsset: true,
         explanationAsset: true,
-        question: { include: { questionBank: { select: { status: true } } } },
+        question: {
+          include: {
+            questionBank: { select: { status: true } },
+            subtest: { select: { code: true } },
+          },
+        },
       },
     });
     if (!revision) throw new QuestionBankError("Revisi soal tidak ditemukan.", { code: "not_found" });
@@ -1237,6 +1257,12 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
       throw new QuestionBankError(
         "Bank Soal Terjadwal belum didukung untuk perubahan di editor ini.",
         { code: "scheduled_unsupported", details: { status: revision.question.questionBank.status } },
+      );
+    }
+    if (revision.question.questionBank?.status === ContentStatus.archived) {
+      throw new QuestionBankError(
+        "Bank Soal yang diarsipkan harus dipulihkan sebelum revisinya dapat diubah.",
+        { code: "archived_locked", details: { status: revision.question.questionBank.status } },
       );
     }
     if (revision.status !== options.expectedStatus || revision.updatedAt.getTime() !== new Date(options.expectedUpdatedAt).getTime()) {
@@ -1254,7 +1280,23 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
     }
     if (target === QuestionRevisionStatus.ready) {
       if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat dipindahkan ke Ready.", { code: "invalid_lifecycle_transition" });
-      if (!isValidRevision(revision)) throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", { code: "readiness_failed" });
+      const issues = getQuestionReadinessFromRevision({
+        questionId: revision.questionId,
+        revision,
+        subtestCode: revision.question.subtest?.code,
+      });
+      if (issues.length) {
+        throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", {
+          code: "readiness_failed",
+          details: { questionId: revision.questionId },
+          readiness: {
+            incompleteCount: 1,
+            issues,
+            readyCount: 0,
+            totalCount: 1,
+          },
+        });
+      }
     }
     if (target === QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
       throw new QuestionBankError("Hanya revisi Draft atau Review yang dapat masuk ke Draft.", { code: "invalid_lifecycle_transition" });
