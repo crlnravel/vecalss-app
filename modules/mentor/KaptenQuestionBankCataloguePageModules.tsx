@@ -242,7 +242,7 @@ function KaptenQuestionBankPageModule({
   const [categoryManagementOpen, setCategoryManagementOpen] = useState(false);
   const [bankCategoryId, setBankCategoryId] = useState<string | null>(null);
   const [bankCategorySelection, setBankCategorySelection] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<BankViewMode>("grid");
+  const [viewMode, setViewMode] = useState<BankViewMode>("list");
   const [sortMode, setSortMode] = useState<BankSortMode>(initialSort);
 
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
@@ -434,7 +434,7 @@ function KaptenQuestionBankPageModule({
   function renderFolderCard(folder: FolderNode) {
     if (!folder.id) return null;
     return (
-      <div className="group relative flex min-h-20 items-center gap-3 rounded-3xl border border-primary-100 bg-white p-4 text-left shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)]" key={folder.id}>
+      <div className="group relative flex min-h-20 items-center gap-3 rounded-2xl border border-primary-100 bg-white p-4 text-left transition-[background-color,border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/20 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)]" key={folder.id}>
         <button aria-label={`Buka folder ${folder.name}`} className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20" onClick={() => selectFolder(folder.id)} type="button">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800"><Folder className="size-6" /></span>
           <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">{folder.name}</span><span className="mt-1 block text-xs text-secondary-500">{folder.bankCount} bank{folder.children?.length ? ` · ${folder.children.length} subfolder` : ""}</span></span>
@@ -457,7 +457,7 @@ function KaptenQuestionBankPageModule({
   function renderBankCard(bank: BankEntry["bank"]) {
     const compact = viewMode === "list";
     return (
-      <article className={cn("rounded-3xl border border-primary-100 bg-white shadow-sm transition-[border-color,box-shadow] hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)]", compact ? "p-3" : "p-4")} key={bank.id}>
+      <article className={cn("rounded-2xl border border-primary-100 bg-white transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)]", compact ? "p-4" : "p-5")} key={bank.id}>
         <div className={cn("min-w-0", compact ? "flex flex-col gap-3 sm:flex-row sm:items-center" : "space-y-4")}>
           <div className={cn("flex min-w-0 gap-3", compact ? "flex-1 items-center" : "items-start")}>
             <span className={cn("flex size-12 shrink-0 items-center justify-center rounded-2xl", compact ? "bg-secondary-50 text-secondary-700" : "bg-primary-50 text-primary-800")}>
@@ -497,7 +497,7 @@ function KaptenQuestionBankPageModule({
   }
 
   return <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false}>
-    <div className="space-y-6">
+    <div className="space-y-8">
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl"><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1><p className="mt-3 max-w-[62ch] text-sm leading-6 text-secondary-500">Satu ruang bersama untuk menyimpan, mengelompokkan, dan menerbitkan bank soal yang dapat dipakai ulang.</p></div>
         <div className="flex flex-wrap items-center gap-2">
@@ -506,7 +506,7 @@ function KaptenQuestionBankPageModule({
         </div>
       </section>
 
-      <div className="min-w-0 space-y-5">
+      <div className="min-w-0 space-y-8">
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav aria-label="Breadcrumb folder" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500">{currentPath.map((item, index) => <span className="flex shrink-0 items-center gap-1" key={`${item.id ?? "root"}-${item.name}`}><button className={cn("rounded-lg px-1.5 py-1 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200", index === currentPath.length - 1 ? "font-semibold text-secondary-900" : "")} onClick={() => { const next = index === 0 ? ROOT_FOLDER : item.id; setSelectedFolder(next); resetPage(); navigateCatalogue({ folder: next, page: 1 }); }} type="button">{item.name}</button>{index < currentPath.length - 1 ? <ChevronRight className="size-3.5 text-secondary-300" /> : null}</span>)}</nav>
@@ -523,7 +523,7 @@ function KaptenQuestionBankPageModule({
           </div>
         </section>
 
-        <div className="flex flex-col gap-3 rounded-3xl border border-primary-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <span className="hidden size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800 sm:flex"><SlidersHorizontal className="size-5" /></span>
             <div className="min-w-0"><p className="font-semibold text-secondary-900">{initialTotal} bank ditemukan</p><p className="text-xs text-secondary-500">{isGlobalSearch ? "Pencarian di semua folder" : selectedFolder === ROOT_FOLDER ? "Bank belum ditempatkan · folder ada di atas" : currentFolder ? `Lokasi: ${currentFolder.name}` : "Bank belum ditempatkan"}</p></div>
@@ -540,9 +540,9 @@ function KaptenQuestionBankPageModule({
           </div>
         </div>
 
-        <section aria-label="Koleksi bank soal" className="space-y-5">
-          {(!isGlobalSearch || childFolders.length) ? <div className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-secondary-900">{selectedFolder === ROOT_FOLDER ? "Folder di koleksi utama" : "Subfolder di lokasi ini"}</h2><p className="text-xs text-secondary-500">{selectedFolder === ROOT_FOLDER ? "Bank yang belum ditempatkan tampil di sini; buka folder untuk melihat bank yang sudah diatur." : "Buka subfolder untuk melihat bank di dalamnya."}</p></div><div className="flex items-center gap-2"><span className="text-xs tabular-nums text-secondary-500">{childFolders.length} folder</span><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div></div>{childFolders.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{childFolders.map(renderFolderCard)}</div> : <p className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/35 px-4 py-5 text-sm text-secondary-600">Belum ada folder di lokasi ini. Buat folder untuk mulai mengelompokkan bank.</p>}</div> : null}
-          {sortedEntries.length ? <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>{sortedEntries.map(({ bank }) => renderBankCard(bank))}</div> : <div className="rounded-3xl border border-dashed border-primary-200 bg-white px-5 py-12 text-center"><LibraryBig className="mx-auto size-8 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{needle ? "Tidak ada hasil pencarian" : selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Belum ada bank yang belum ditempatkan" : "Folder ini masih kosong"}</h2><p className="mx-auto mt-2 max-w-[48ch] text-sm leading-6 text-secondary-600">{needle ? "Coba kata kunci lain atau bersihkan filter untuk melihat semua bank." : selectedFolder === ROOT_FOLDER ? "Buat bank baru, atau pindahkan bank yang sudah ada ke folder tertentu." : "Buat bank baru, atau pindahkan bank yang sudah ada ke lokasi ini."}</p><Button className="mt-5" nativeButton={selectedFolder !== ROOT_FOLDER && selectedFolder !== null} onClick={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : () => openFolderCreate(selectedFolder)} render={selectedFolder === ROOT_FOLDER || selectedFolder === null ? <Link href="/mentor/quiz/question-bank/create" /> : undefined} size="sm" type={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : "button"} variant="brand">{selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat bank soal" : "Buat subfolder"}</Button></div>}
+        <section aria-label="Koleksi bank soal" className="space-y-8">
+          {(!isGlobalSearch || childFolders.length) ? <section aria-labelledby="folder-section-title" className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-secondary-900" id="folder-section-title">{selectedFolder === ROOT_FOLDER ? "Folder di koleksi utama" : "Subfolder di lokasi ini"}</h2><p className="mt-1 text-sm leading-6 text-secondary-500">{selectedFolder === ROOT_FOLDER ? "Bank yang belum ditempatkan tampil di sini; buka folder untuk melihat bank yang sudah diatur." : "Buka subfolder untuk melihat bank di dalamnya."}</p></div><div className="flex items-center gap-2"><span className="text-sm tabular-nums text-secondary-500">{childFolders.length} folder</span><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div></div>{childFolders.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{childFolders.map(renderFolderCard)}</div> : <p className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/35 px-4 py-4 text-sm leading-6 text-secondary-600">Belum ada folder di lokasi ini. Buat folder untuk mulai mengelompokkan bank.</p>}</section> : null}
+          <section aria-labelledby="bank-inventory-title" className="space-y-4"><div className="flex flex-wrap items-end justify-between gap-3 border-t border-primary-100 pt-7"><div><h2 className="text-lg font-semibold text-secondary-900" id="bank-inventory-title">{isGlobalSearch ? "Hasil pencarian" : "Bank soal di lokasi ini"}</h2><p className="mt-1 text-sm leading-6 text-secondary-500">{isGlobalSearch ? "Bank dari seluruh folder yang sesuai dengan pencarian dan filter." : "Buka bank untuk melanjutkan penyuntingan atau atur ulang lokasinya."}</p></div></div>{sortedEntries.length ? <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3" : "space-y-3"}>{sortedEntries.map(({ bank }) => renderBankCard(bank))}</div> : <div className="rounded-2xl border border-dashed border-primary-200 bg-white px-5 py-12 text-center"><LibraryBig className="mx-auto size-8 text-primary-300" /><h3 className="mt-3 font-semibold text-secondary-900">{needle ? "Tidak ada hasil pencarian" : selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Belum ada bank yang belum ditempatkan" : "Folder ini masih kosong"}</h3><p className="mx-auto mt-2 max-w-[48ch] text-sm leading-6 text-secondary-600">{needle ? "Coba kata kunci lain atau bersihkan filter untuk melihat semua bank." : selectedFolder === ROOT_FOLDER ? "Buat bank baru, atau pindahkan bank yang sudah ada ke folder tertentu." : "Buat bank baru, atau pindahkan bank yang sudah ada ke lokasi ini."}</p><Button className="mt-5" nativeButton={selectedFolder !== ROOT_FOLDER && selectedFolder !== null} onClick={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : () => openFolderCreate(selectedFolder)} render={selectedFolder === ROOT_FOLDER || selectedFolder === null ? <Link href="/mentor/quiz/question-bank/create" /> : undefined} size="sm" type={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : "button"} variant="brand">{selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat bank soal" : "Buat subfolder"}</Button></div>}</section>
         </section>
         {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
       </div>
