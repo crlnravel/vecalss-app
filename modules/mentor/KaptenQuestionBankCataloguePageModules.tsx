@@ -195,7 +195,7 @@ function FolderTree({ folders, selected, onCreate, onManage, onSelect }: { folde
       <div className="group flex items-center gap-1">
         <button aria-current={selected === folder.id ? "page" : undefined} className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200", selected === folder.id ? "bg-primary-50 font-semibold text-primary-900" : "text-secondary-700")} onClick={() => onSelect(folder.id)} style={{ paddingLeft: `${12 + depth * 16}px` }} type="button">
           <Folder className={cn("size-4 shrink-0", selected === folder.id ? "text-primary-700" : "text-secondary-400")} />
-          <span className="min-w-0 flex-1 truncate">{folder.name}</span>
+          <span className="min-w-0 flex-1 truncate">{folder.id === null ? "Belum ditempatkan" : folder.name}</span>
           <span className="text-xs tabular-nums text-secondary-400">{folder.bankCount}</span>
         </button>
         {folder.id && folder.id !== ALL_FOLDER ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${folder.name}`} className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => onCreate(folder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => onManage(folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => onManage(folder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onManage(folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
@@ -467,11 +467,11 @@ function KaptenQuestionBankPageModule({
             </div>
           </div>
           <div className={cn("flex shrink-0 items-center gap-2", compact ? "justify-end sm:justify-start" : "flex-wrap") }>
-            <Button aria-label={`Edit ${bank.title}`} nativeButton={false} render={<Link href={bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
-            <Button disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="sm" type="button" variant="brandOutline"><Folder />Pindahkan</Button>
-            <Button disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="sm" type="button" variant="ghost">Kategori</Button>
+            <Button aria-label={`Edit ${bank.title}`} className="min-h-11 min-w-11" nativeButton={false} render={<Link href={bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
+            <Button className="min-h-11" disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="sm" type="button" variant="brandOutline"><Folder />Pindahkan</Button>
+            <Button className="min-h-11" disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="sm" type="button" variant="ghost">Kategori</Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+              <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} className="min-h-11 min-w-11" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuGroup>
                   {bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
@@ -512,8 +512,8 @@ function KaptenQuestionBankPageModule({
                 <DropdownMenuContent align="end"><DropdownMenuLabel>Urutkan koleksi</DropdownMenuLabel><DropdownMenuRadioGroup onValueChange={(value) => setSortMode(value as BankSortMode)} value={sortMode}><DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem><DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent>
               </DropdownMenu>
               <div aria-label="Tampilan koleksi" className="flex items-center rounded-xl border border-primary-100 bg-primary-50/50 p-0.5" role="group">
-                <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")} size="icon-sm" title="Tampilan grid" type="button" variant={viewMode === "grid" ? "contextSelected" : "ghost"}><LayoutGrid /></Button>
-                <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")} size="icon-sm" title="Tampilan daftar" type="button" variant={viewMode === "list" ? "contextSelected" : "ghost"}><ListIcon /></Button>
+                <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} className="min-h-11 min-w-11" onClick={() => setViewMode("grid")} size="icon-sm" title="Tampilan grid" type="button" variant={viewMode === "grid" ? "contextSelected" : "ghost"}><LayoutGrid /></Button>
+                <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} className="min-h-11 min-w-11" onClick={() => setViewMode("list")} size="icon-sm" title="Tampilan daftar" type="button" variant={viewMode === "list" ? "contextSelected" : "ghost"}><ListIcon /></Button>
               </div>
               {selectedFolder !== ALL_FOLDER && !isGlobalSearch ? <Button onClick={() => openFolderCreate(selectedFolder)} size="sm" type="button" variant="brandOutline"><FolderPlus />Subfolder</Button> : null}
             </div>
