@@ -639,6 +639,7 @@ function KaptenTryoutBuilderPageModule({
   const [workspace, setWorkspace] = useState<Workspace>(() => normalizeWorkspace(initialWorkspace));
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
+  const activeSectionIndex = Math.max(0, draft.sections.findIndex((section) => section.subtest === activeSection.subtest));
   const boundCount = draft.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
   const selectedVersions = draft.sections.map((section) => section.packageVersionId ? readyVersions.find((version) => version.id === section.packageVersionId) : undefined);
   const selectedAssemblies = draft.sections.map((section) => section.packageVersionId ? assemblyOverrides[section.packageVersionId] ?? readyAssemblies.find((assembly) => assembly.id === section.packageVersionId) : undefined);
@@ -685,6 +686,13 @@ function KaptenTryoutBuilderPageModule({
   const activeSelectionMode = selectionModes[activeSection.subtest] ?? (activeSection.packageVersionId ? "set" : "direct");
   const activeDirectQuestions = activeSection.directQuestions ?? [];
   const activeAssembly = activeSection.packageVersionId ? assemblyOverrides[activeSection.packageVersionId] ?? readyAssemblies.find((assembly) => assembly.id === activeSection.packageVersionId) : undefined;
+  const activeSectionHasSource = Boolean(activeSection.packageVersionId || activeDirectQuestions.length);
+  const activeDirectBankTitles = [...new Set(activeDirectQuestions.map((question) => question.bankTitle).filter(Boolean))];
+  const activeSectionSourceSummary = activeSection.packageVersionId
+    ? `${assemblyModeLabel(activeAssembly?.mode ?? activeSection.packageVersionMode ?? "fixed_set")} · ${activeAssembly?.packageTitle ?? activeSection.packageVersionLabel ?? "Sumber Ready terpasang"}`
+    : activeDirectQuestions.length
+      ? `${activeDirectQuestions.length} soal langsung dipilih${activeDirectBankTitles.length ? ` · ${activeDirectBankTitles.join(", ")}` : ""}`
+      : "Sumber belum dipilih";
   const activeReadyAssemblies = useMemo(() => readyAssemblies.filter((assembly) => assembly.subtest === activeSection.subtest), [activeSection.subtest, readyAssemblies]);
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
@@ -1033,47 +1041,54 @@ function KaptenTryoutBuilderPageModule({
               </div>
             </header>
 
-            <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)]">
-              <ul className="grid min-w-0 content-start gap-2" aria-label="Daftar Section Tryout">
-                {draft.sections.map((section, index) => {
-                  const selected = section.subtest === activeSection.subtest;
-                  return (
-                    <li key={section.subtest}>
-                      <Button
-                        aria-current={selected ? "true" : undefined}
-                        className={`h-auto min-h-14 w-full justify-start gap-3 rounded-2xl border px-3 py-3 text-left ${selected ? "border-primary-300 bg-primary-50 text-primary-950" : "border-primary-100 bg-white text-secondary-800"}`}
-                        onClick={() => changeActiveCode(section.subtest)}
-                        variant="ghost"
-                      >
-                        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-secondary-50 text-xs font-bold text-secondary-600">{String(index + 1).padStart(2, "0")}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold">{section.subtest} · {subjectName(section.subtest)}</span>
-                          <span className={`mt-0.5 block text-xs ${section.packageVersionId || section.directQuestions?.length ? "text-primary-700" : "text-secondary-500"}`}>{section.packageVersionId ? assemblyModeLabel(selectedAssemblies[index]?.mode ?? section.packageVersionMode ?? "fixed_set") : section.directQuestions?.length ? `${section.directQuestions.length} soal langsung` : "Sumber belum dipilih"}</span>
-                        </span>
-                        {section.packageVersionId || section.directQuestions?.length ? <Check className="size-4 shrink-0 text-primary-700" /> : <CircleAlert className="size-4 shrink-0 text-[#a46b00]" />}
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
+            <div className="grid min-w-0 gap-5">
+              <Field>
+                <FieldLabel htmlFor="section-subject">Subject / Section</FieldLabel>
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button aria-describedby="section-order-help" aria-label="Pilih Subject / Section" className="w-full justify-between bg-white" disabled={draft.locked} id="section-subject" variant="context" />}>
+                    <span className="min-w-0 truncate">Section {activeSectionIndex + 1} · {activeSection.subtest} · {subjectName(activeSection.subtest)}</span>
+                    <ChevronDown />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-96 w-[min(34rem,calc(100vw-2rem))]">
+                    <DropdownMenuLabel>Urutan Section Tryout</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup onValueChange={(value) => changeActiveCode(value as SubjectCode)} value={activeCode}>
+                      {draft.sections.map((section, index) => {
+                        const hasSource = Boolean(section.packageVersionId || section.directQuestions?.length);
+                        return (
+                          <DropdownMenuRadioItem className="gap-3" key={section.subtest} value={section.subtest}>
+                            <span className="min-w-0 flex-1 truncate">{index + 1}. {section.subtest} · {subjectName(section.subtest)}</span>
+                            <span className={`shrink-0 text-xs font-medium ${hasSource ? "text-primary-700" : "text-secondary-500"}`}>{hasSource ? "Sumber siap" : "Belum siap"}</span>
+                          </DropdownMenuRadioItem>
+                        );
+                      })}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <p className="text-sm leading-6 text-secondary-600" id="section-order-help">Urutan peserta: PU → PPU → PBM → PK → LBI → LBE → PM. Pilih satu Section untuk mengatur detailnya.</p>
+              </Field>
 
-              <div className="grid min-w-0 gap-5 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
+              <div aria-live="polite" className="grid gap-4 border-y border-primary-100 py-5" role="status">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Test {String(subjectCodes.indexOf(activeSection.subtest) + 1).padStart(2, "0")}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Section {activeSectionIndex + 1} dari 7</p>
                     <h3 className="mt-1 text-lg font-semibold text-secondary-900">{activeSection.subtest} · {subjectName(activeSection.subtest)}</h3>
                   </div>
-                  <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? assemblyModeLabel(activeAssembly?.mode ?? activeSection.packageVersionMode ?? "fixed_set") : activeSection.directQuestions?.length ? "Soal siap" : "Perlu sumber"}</Badge>
+                  <Badge className="rounded-full" size="ui" variant={activeSectionHasSource ? "mint" : "accent"}>{activeSection.packageVersionId ? assemblyModeLabel(activeAssembly?.mode ?? activeSection.packageVersionMode ?? "fixed_set") : activeDirectQuestions.length ? "Soal siap" : "Perlu sumber"}</Badge>
                 </div>
-                <div className="grid gap-5">
-                  <Field className="md:max-w-xs">
-                    <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi</FieldLabel>
-                    <div className="relative">
-                      <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => update(activeSection.subtest, { durationMinutes: Number(event.target.value) })} type="number" value={activeSection.durationMinutes} />
-                      <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
-                    </div>
-                  </Field>
+                <div className="grid gap-1 text-sm leading-6">
+                  <p className="font-semibold text-secondary-900">{activeSectionSourceSummary}</p>
+                  {activeSection.packageVersionId && activeAssembly ? <p className="text-secondary-600">{assemblyReadinessSummary(activeAssembly)} · {activeAssembly.bankNames.join(", ") || "Bank Soal belum terbaca"}</p> : activeDirectQuestions.length ? <p className="text-secondary-600">Soal langsung tetap tersimpan pada Section ini dan akan divalidasi saat disimpan atau diterbitkan.</p> : <p className="text-secondary-600">Pilih sumber soal dari Questions untuk membuat Section ini siap.</p>}
                 </div>
+              </div>
+
+              <div className="grid items-start gap-5 border-t border-primary-100 pt-5 md:grid-cols-[minmax(12rem,16rem)_minmax(0,1fr)]">
+                <Field>
+                  <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi</FieldLabel>
+                  <div className="relative">
+                    <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => update(activeSection.subtest, { durationMinutes: Number(event.target.value) })} type="number" value={activeSection.durationMinutes} />
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
+                  </div>
+                </Field>
                 <Field>
                   <FieldLabel htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
                   <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => update(activeSection.subtest, { instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />

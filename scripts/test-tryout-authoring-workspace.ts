@@ -50,7 +50,15 @@ for (const redundantNavigationLabel of [
 ]) {
   assert.doesNotMatch(workspace, new RegExp(redundantNavigationLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `${redundantNavigationLabel} must not be rendered as in-panel navigation`);
 }
-assert.match(workspace, /lg:grid-cols-\[minmax\(15rem,18rem\)_minmax\(0,1fr\)\]/u, "Sections must use a stable desktop grid");
+assert.match(workspace, /htmlFor="section-subject"/u, "Sections must label the subject/section dropdown");
+assert.match(workspace, /id="section-subject"/u, "Sections must expose a stable subject/section dropdown id");
+assert.match(workspace, /className="w-full justify-between bg-white" disabled=\{draft\.locked\} id="section-subject"/u, "Subject/section dropdown must span the Sections card");
+assert.match(workspace, /Urutan Section Tryout/u, "Sections must keep the seven-section order in the selector");
+assert.match(workspace, /Urutan peserta: PU → PPU → PBM → PK → LBI → LBE → PM/u, "Sections must state the participant order");
+assert.match(workspace, /activeSectionSourceSummary/u, "Sections must expose the selected section source summary");
+assert.match(workspace, /md:grid-cols-\[minmax\(12rem,16rem\)_minmax\(0,1fr\)\]/u, "Section fields must reflow responsively inside one card");
+assert.doesNotMatch(workspace, /lg:grid-cols-\[minmax\(15rem,18rem\)_minmax\(0,1fr\)\]/u, "Sections must not render the old list/detail split");
+assert.doesNotMatch(workspace, /aria-label="Daftar Section Tryout"/u, "Sections must not render the old seven-item rail");
 assert.match(workspace, /htmlFor="question-subject"/u, "Questions must label the subject dropdown");
 assert.match(workspace, /id="question-subject"/u, "Questions must expose a full-width subject dropdown");
 assert.match(workspace, /className="w-full justify-between bg-white" disabled=\{draft\.locked\} id="question-subject"/u, "Subject dropdown must span the source form");
