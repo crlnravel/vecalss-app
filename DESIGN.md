@@ -348,6 +348,20 @@ the user's job; it is not chosen ad hoc by route.
   a visible disabled treatment, and a short tonal or lift response on hover.
   Learning actions may add a short downward press; reduced motion removes
   translation while preserving color, border, and loading-state changes.
+- **Compact utility preference:** For familiar, repeated utility actions such
+  as search, close, edit, preview, and more-actions, prefer an icon-only button
+  with the shared `Tooltip`, `TooltipTrigger`, and `TooltipContent` primitives
+  over a lengthy text button. The icon should communicate the action clearly;
+  the tooltip should name the outcome, not just the icon.
+- **When text stays visible:** Keep a visible text label for primary,
+  destructive, unfamiliar, onboarding, or high-consequence actions. A tooltip
+  is supporting guidance, not a reason to hide an action whose meaning is not
+  immediately recognizable.
+- **Icon-only accessibility:** Every icon-only trigger needs an explicit
+  `aria-label`, visible keyboard focus, and a touch target of at least 44px.
+  Compact utility controls may use the shared 40px size only when the
+  surrounding density and spacing keep the target clear. Do not rely on a
+  browser `title` or hover-only tooltip as the accessible name.
 - **Labeling:** Use a verb-led label that describes the result (“Mulai
   belajar”, “Simpan”, “Lihat program”). Keep one primary action per group and
   let secondary/ghost controls recede through surface and border treatment.
@@ -538,6 +552,8 @@ locked, or next; do not use it as a generic decorative badge.
   compact filters and Variant 2 for full-width peer workspaces.
 - **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
   and action lists instead of reaching for browser-native dropdowns.
+- **Do** prefer icon-only buttons with the shared tooltip for familiar compact
+  utilities, while keeping visible text for primary or ambiguous actions.
 - **Do** carry the same tactile language into Kapten and admin surfaces while
   reducing decorative density for operational work.
 - **Do** choose the button family from the surface: pill for marketing and
@@ -562,6 +578,8 @@ locked, or next; do not use it as a generic decorative badge.
   span the full available width.
 - **Don't** use a raw `<select>` or one-off dropdown implementation when the
   shared custom dropdown primitive can express the interaction.
+- **Don't** replace a consequential or ambiguous text action with an icon-only
+  control whose meaning depends on hover or a tooltip.
 - **Don't** copy the Materi zig-zag road onto screens whose job is editing,
   reviewing, or managing content.
 - **Don't** use a capsule badge with a leading status dot for full-sentence
