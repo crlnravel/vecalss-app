@@ -6,12 +6,10 @@ import {
   BookOpenCheck,
   Bell,
   Eye,
-  FileText,
   History,
   Image,
   LayoutDashboard,
   Users,
-  SlidersHorizontal,
 } from "@/lib/icons";
 
 import {
@@ -48,16 +46,8 @@ const adminDirectoryNavigation: AdminNavigationItem[] = [
   { href: "/admin/kapten", icon: BookOpenCheck, id: "kapten", label: "Kapten" },
 ];
 
-const adminContentNavigation: AdminNavigationItem[] = [
-  { href: "/admin/student-banners", icon: SlidersHorizontal, id: "student-banners", label: "Student banners" },
-];
-
 const adminPreviewNavigation: AdminNavigationItem[] = [
   { href: "/admin/student-preview", icon: Eye, id: "student-preview", label: "Student preview" },
-];
-
-const adminSupportNavigation: AdminNavigationItem[] = [
-  { href: "/admin/docs", icon: FileText, id: "docs", label: "Documentation" },
 ];
 
 function AdminNavigationGroup({
@@ -124,11 +114,6 @@ function AdminPortalNav({
           items={adminDirectoryNavigation}
           label="Directories"
         />
-        <AdminNavigationGroup
-          activeSection={activeSection}
-          items={adminContentNavigation}
-          label="Content"
-        />
         {studentPreviewEnabled ? (
           <AdminNavigationGroup
             activeSection={activeSection}
@@ -136,11 +121,6 @@ function AdminPortalNav({
             label="Preview"
           />
         ) : null}
-        <AdminNavigationGroup
-          activeSection={activeSection}
-          items={adminSupportNavigation}
-          label="Support"
-        />
       </SidebarContent>
     </Sidebar>
   );
