@@ -25,7 +25,9 @@ export default async function MentorQuestionBankPage({
     .filter((code) => kaptenSubjects.some((subject) => subject.code === code));
   const requestedCategories = typeof params.category === "string" ? [params.category] : Array.isArray(params.category) ? params.category : [];
   const requestedFolder = typeof params.folder === "string" ? params.folder : undefined;
-  const folderId = requestedFolder === undefined ? undefined : requestedFolder === "unfiled" ? null : requestedFolder;
+  // The catalogue root is the unfiled collection. A committed search is the
+  // only state that intentionally spans every folder.
+  const folderId = requestedFolder === undefined ? null : requestedFolder === "unfiled" ? null : requestedFolder;
   const requestedStatus = typeof params.status === "string" ? params.status : "";
   const status = ["draft", "scheduled", "published", "archived"].includes(requestedStatus) ? requestedStatus as "draft" | "scheduled" | "published" | "archived" : undefined;
   const page = Math.max(1, Number.parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1);
@@ -47,7 +49,7 @@ export default async function MentorQuestionBankPage({
       initialPageSize={banks.pageSize}
       initialSearch={search}
       initialSelectedCategories={requestedCategories}
-      initialSelectedFolder={requestedFolder === undefined ? "all" : folderId}
+      initialSelectedFolder={requestedFolder === undefined ? "root" : folderId}
       initialSelectedSubjects={requestedSubjects}
       initialSort={requestedSort}
       initialStatusFilter={status ?? ""}
