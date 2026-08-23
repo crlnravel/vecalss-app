@@ -362,6 +362,29 @@ the user's job; it is not chosen ad hoc by route.
   unavailable, or not-found message; use inline copy or a contextual state
   block instead.
 
+### Tabs
+
+Vecalss has exactly two visual tab variants. The number of tabs in a group can
+vary, but every tab group must choose one of these two patterns rather than
+introducing a third treatment.
+
+- **Variant 1 — compact filter tabs:** Use a fit-content, horizontal row of
+  pill-shaped triggers for filters or categories within one collection, as on
+  `/tryout` (“Semua”, “Tryout saya”, “Selesai”, “Latihan”). The active trigger
+  uses Voyage Deep with white text; inactive triggers use the quiet context
+  treatment. Let the row scroll horizontally on narrow screens instead of
+  forcing each filter to equal width.
+- **Variant 2 — full-width line tabs:** Prefer this variant whenever the tab
+  bar should span the available width or switch between peer workspace areas,
+  as on `/vera-ai` (“Percakapan”, “Konteks”, “Studio”). Use equal-width
+  triggers, a transparent background, muted inactive text, and a visible
+  Voyage Deep underline for the active tab. Icons are allowed when they help
+  distinguish workspace areas, but they must remain secondary to the label.
+- **Shared behavior:** Use semantic tabs with one clearly selected state,
+  visible keyboard focus, readable labels, and a minimum 44px touch target.
+  Variant 2 is the preferred default for full-width layouts; Variant 1 is for
+  compact, content-sized filtering.
+
 ### Student status tokens
 
 Student badges and status chips use the semantic `student-status-*` token
@@ -491,6 +514,8 @@ locked, or next; do not use it as a generic decorative badge.
   such as “Tryout Workspace.”
 - **Do** use a chevron-left back control that returns exactly one level to the
   immediate parent, with an accessible parent-specific name.
+- **Do** choose between the two tab variants by layout intent: Variant 1 for
+  compact filters and Variant 2 for full-width peer workspaces.
 - **Do** carry the same tactile language into Kapten and admin surfaces while
   reducing decorative density for operational work.
 - **Do** choose the button family from the surface: pill for marketing and
@@ -511,6 +536,8 @@ locked, or next; do not use it as a generic decorative badge.
   stack when the title alone communicates the destination.
 - **Don't** make Back jump from a child page to its grandparent, a broad
   catalogue, or an arbitrary history entry.
+- **Don't** invent a third tab style or use Variant 1 when a tab bar needs to
+  span the full available width.
 - **Don't** copy the Materi zig-zag road onto screens whose job is editing,
   reviewing, or managing content.
 - **Don't** use a capsule badge with a leading status dot for full-sentence
