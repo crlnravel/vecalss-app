@@ -490,8 +490,10 @@ references before creating a new table shell:
   semantic markup.
 - **Geometry:** Keep the muted `secondary-50/80` header, 44px header controls,
   compact labels, `px-4 py-3.5` cells (`sm:px-5`), soft `primary-100`
-  separators, and a minimum width appropriate to the column set (`760px` for
-  directories; `1100px` for the Bank Soal catalogue).
+  separators, and a compact minimum width appropriate to the column set
+  (`760px` for directories and the Bank Soal catalogue). Keep per-column
+  minimums modest, truncate long names and categories, and allow horizontal
+  overflow only when the available container cannot satisfy those minimums.
 - **States:** Use `secondary-50/70` row hover, `primary-50` selected/focused
   treatment with a visible focus cue, and readable dot-plus-text status states.
   Keep empty and error messaging in the table content flow rather than in

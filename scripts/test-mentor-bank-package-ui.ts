@@ -29,6 +29,16 @@ assert.match(bankCatalogue, /import \{[\s\S]*Tag[\s\S]*\} from "@\/lib\/icons"/u
 assert.match(bankCatalogue, /aria-label="Kelola kategori bersama"[\s\S]*size="icon-sm"[\s\S]*title="Kelola kategori bersama"/u, "Category toolbar action should be icon-only with an accessible label");
 assert.match(bankCatalogue, /aria-label="Buat bank soal baru"[\s\S]*size="icon-sm"[\s\S]*title="Buat bank soal baru"/u, "Bank creation toolbar action should be icon-only with an accessible label");
 assert.match(bankCatalogue, /aria-label=\{folderCreateLabel\}[\s\S]*size="icon-sm"[\s\S]*title=\{folderCreateLabel\}/u, "Folder creation toolbar action should be icon-only with an accessible label");
+assert.match(bankCatalogue, /variant="brand"><Plus \/>Buat bank soal<\/Button>/u, "Empty Bank Soal state should make bank creation the primary action");
+assert.match(bankCatalogue, /variant="brandOutline"><FolderPlus \/>\{folderCreateLabel\}<\/Button>/u, "Empty Bank Soal state should offer folder creation as the secondary action");
+assert.match(bankCatalogue, /max-w-\[calc\(100vw-2rem\)\] whitespace-normal/u, "Empty Bank Soal copy should wrap within the viewport on narrow screens");
+assert.match(bankCatalogue, /headerClassName: "min-w-\[14rem\]"/u, "Bank name column should keep a compact minimum width");
+assert.match(bankCatalogue, /headerClassName: "min-w-\[12rem\]"/u, "Bank category column should keep a compact minimum width");
+assert.match(bankCatalogue, /headerClassName: "min-w-\[7rem\]"/u, "Bank status column should keep a compact minimum width");
+assert.match(bankCatalogue, /headerClassName: "min-w-\[5rem\] text-right"/u, "Bank actions column should keep a compact minimum width");
+assert.match(bankCatalogue, /tableClassName="min-w-\[760px\]"/u, "Bank Soal should avoid an unnecessarily wide desktop table floor");
+assert.match(bankCatalogue, /title=\{row\.bank\.title\}[\s\S]*truncate/u, "Bank names should truncate while preserving the full title");
+assert.match(bankCatalogue, /overflow-hidden" title=\{\[\.\.\.row\.bank\.subjectCoverage/u, "Bank categories should truncate within their compact column");
 assert.doesNotMatch(bankCatalogue, /viewMode|setViewMode|Tampilan grid|Tampilan daftar/u, "Bank Soal should not expose grid/list presentation toggles");
 assert.match(bankCatalogue, /const catalogueRows: QuestionBankCatalogueRow\[\]/u, "Bank Soal should integrate folders and banks into one table data set");
 assert.match(bankCatalogue, /kind: "folder"/u, "The integrated Bank Soal table should include folder rows");

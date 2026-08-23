@@ -440,20 +440,20 @@ function KaptenQuestionBankPageModule({
   const catalogueColumns: DataTableColumn<QuestionBankCatalogueRow>[] = [
     {
       cell: (row) => row.kind === "folder" ? (
-        <button aria-label={`Buka folder ${row.folder.name}`} className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" onClick={() => selectFolder(row.folder.id)} type="button">
+        <button aria-label={`Buka folder ${row.folder.name}`} className="flex min-w-0 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" onClick={() => selectFolder(row.folder.id)} type="button">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Folder size={18} /></span>
-          <span className="min-w-0 truncate font-semibold text-secondary-900">{row.folder.name}</span>
+          <span className="min-w-0 truncate font-semibold text-secondary-900" title={row.folder.name}>{row.folder.name}</span>
         </button>
       ) : (
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 max-w-full items-center gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><LibraryBig size={18} /></span>
           <div className="min-w-0">
-            <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={row.bank.href}>{row.bank.title}</Link>
+            <Link className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={row.bank.href} title={row.bank.title}>{row.bank.title}</Link>
             <span className="mt-1 block text-xs text-secondary-500">{row.bank.questionCount} soal</span>
           </div>
         </div>
       ),
-      headerClassName: "min-w-[20rem]",
+      headerClassName: "min-w-[14rem]",
       hideable: false,
       id: "name",
       label: "Nama",
@@ -461,17 +461,19 @@ function KaptenQuestionBankPageModule({
     },
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
-        <div className="flex max-w-[24rem] flex-wrap gap-1.5">
-          {row.bank.subjectCoverage.map((subject) => <Badge key={subject} size="ui" variant="mint">{subject}</Badge>)}
-          {row.bank.categories.map((category) => <span className="inline-flex items-center rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
+        <div className="flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden" title={[...row.bank.subjectCoverage, ...row.bank.categories.map((category) => category.name)].join(" · ")}>
+          {row.bank.subjectCoverage.map((subject) => <Badge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="ui" variant="mint">{subject}</Badge>)}
+          {row.bank.categories.map((category) => <span className="inline-flex min-w-0 max-w-[10rem] shrink-0 items-center truncate rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
         </div>
       ),
+      headerClassName: "min-w-[12rem]",
       id: "coverage",
       label: "Kategori",
       width: 28,
     },
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : <StatusPill status={row.bank.status} />,
+      headerClassName: "min-w-[7rem]",
       id: "status",
       label: "Status",
       width: 13,
@@ -505,7 +507,7 @@ function KaptenQuestionBankPageModule({
         </DropdownMenu>
       ),
       cellClassName: "text-right",
-      headerClassName: "text-right",
+      headerClassName: "min-w-[5rem] text-right",
       id: "actions",
       label: "Aksi",
       width: 14,
@@ -593,7 +595,7 @@ function KaptenQuestionBankPageModule({
           caption="Daftar folder dan bank soal"
           clearFiltersHref={clearFiltersHref}
           columns={catalogueColumns}
-          emptyState={<div className="py-2 text-left"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p><Button className="mt-5" nativeButton={selectedFolder === ROOT_FOLDER || selectedFolder === null} onClick={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : () => openFolderCreate(selectedFolder)} render={selectedFolder === ROOT_FOLDER || selectedFolder === null ? <Link href="/mentor/quiz/question-bank/create" /> : undefined} size="sm" type={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : "button"} variant="brand">{selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat bank soal" : "Buat subfolder"}</Button></div>}
+          emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal py-2 text-left"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center gap-2"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank/create" />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
           filterPanel={filterPanel}
           filters={activeFilters}
           getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
@@ -601,7 +603,7 @@ function KaptenQuestionBankPageModule({
           moreMenu={sortMenu}
           rows={catalogueRows}
           search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
-          tableClassName="min-w-[1100px]"
+          tableClassName="min-w-[760px]"
         />
         {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
       </div>
