@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   Check,
   ChevronDown,
   ChevronLeft,
   CircleHelp,
+  Ellipsis,
   Folder,
   ImagePlus,
   Plus,
@@ -15,6 +17,7 @@ import {
   X,
 } from "@/lib/icons";
 import {
+  useCallback,
   useEffect,
   useReducer,
   useRef,
@@ -47,6 +50,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -57,7 +61,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { MediaAssetDto } from "@/lib/media/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
-import { getQuestionReadinessFromDraft } from "@/lib/question-bank/readiness";
+import {
+  getQuestionBankReadinessFromDrafts,
+  getQuestionReadinessFromDraft,
+  type QuestionBankReadiness,
+  type QuestionReadinessIssue,
+} from "@/lib/question-bank/readiness";
 import { cn } from "@/lib/utils";
 import {
   MediaAssetPreview,
@@ -101,10 +110,16 @@ type QuestionBankEditorState = {
   activeQuestionId: string | null;
   activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
+  focusedIssueKey: string | null;
   inventoryFilter: InventoryFilter;
   questionDraft: BankQuestion;
   hasUnsavedChanges: boolean;
+  issueCursorIndex: number | null;
+  issueCursorWasLast: boolean;
+  issueLoopEnded: boolean;
   pendingRouteReplacement: string | null;
+  readinessAnnouncement: string;
+  serverReadiness: QuestionBankReadiness | null;
   mediaPickerTarget: MediaPickerTarget | null;
   lifecycleError: string | null;
   lifecycleStatus: KaptenQuestionBank["status"];
@@ -249,6 +264,91 @@ function isReady(question: BankQuestion) {
   return getQuestionReadinessFromDraft(question).length === 0;
 }
 
+function readinessIssueKey(issue: QuestionReadinessIssue) {
+  return [issue.questionId, issue.code, issue.field, issue.choiceId ?? ""].join(":");
+}
+
+function readinessFieldLabel(issue: QuestionReadinessIssue) {
+  if (issue.field === "prompt") return "pertanyaan";
+  if (issue.field === "choice") return issue.choiceId ? "teks opsi" : "jumlah opsi";
+  if (issue.field === "correctChoice") return "jawaban benar";
+  if (issue.field === "media") return issue.choiceId ? "media opsi" : "media soal";
+  return "Subtest";
+}
+
+function mergeQuestionBankReadiness(
+  questions: readonly BankQuestion[],
+  localReadiness: QuestionBankReadiness,
+  serverReadiness: QuestionBankReadiness | null,
+): QuestionBankReadiness {
+  const localIssuesByQuestion = new Map<string, QuestionReadinessIssue[]>();
+  for (const issue of localReadiness.issues) {
+    const issues = localIssuesByQuestion.get(issue.questionId) ?? [];
+    issues.push(issue);
+    localIssuesByQuestion.set(issue.questionId, issues);
+  }
+  const serverIssuesByQuestion = new Map<string, QuestionReadinessIssue[]>();
+  for (const issue of serverReadiness?.issues ?? []) {
+    const issues = serverIssuesByQuestion.get(issue.questionId) ?? [];
+    issues.push(issue);
+    serverIssuesByQuestion.set(issue.questionId, issues);
+  }
+
+  const issues = questions.flatMap((question) => {
+    const localIssues = localIssuesByQuestion.get(question.id) ?? [];
+    const localKeys = new Set(localIssues.map(readinessIssueKey));
+    const serverIssues = (serverIssuesByQuestion.get(question.id) ?? []).filter(
+      (issue) => !localKeys.has(readinessIssueKey(issue)),
+    );
+    return [...localIssues, ...serverIssues];
+  });
+  const incompleteQuestionIds = new Set(issues.map((issue) => issue.questionId));
+  const totalCount = questions.length;
+  const incompleteCount = incompleteQuestionIds.size;
+  return {
+    incompleteCount,
+    issues,
+    readyCount: totalCount - incompleteCount,
+    totalCount,
+  };
+}
+
+function pruneServerReadinessForDraftChange(
+  readiness: QuestionBankReadiness | null,
+  previousQuestions: readonly BankQuestion[],
+  nextQuestions: readonly BankQuestion[],
+) {
+  if (!readiness) return null;
+  const previousById = new Map(previousQuestions.map((question) => [question.id, question]));
+  const nextById = new Map(nextQuestions.map((question) => [question.id, question]));
+  const issues = readiness.issues.filter((issue) => {
+    const previous = previousById.get(issue.questionId);
+    const next = nextById.get(issue.questionId);
+    if (!next) return false;
+    if (!previous) return true;
+    if (issue.field === "prompt") return previous.prompt === next.prompt;
+    if (issue.field === "subtest") return previous.subjectCode === next.subjectCode;
+    if (issue.field === "correctChoice") return previous.correctChoiceId === next.correctChoiceId;
+    if (issue.field === "choice") {
+      if (previous.choices.length !== next.choices.length) return false;
+      if (!issue.choiceId) return true;
+      return previous.choices.find((choice) => choice.id === issue.choiceId)?.text === next.choices.find((choice) => choice.id === issue.choiceId)?.text;
+    }
+    if (issue.choiceId) {
+      return previous.choices.find((choice) => choice.id === issue.choiceId)?.mediaAssetId === next.choices.find((choice) => choice.id === issue.choiceId)?.mediaAssetId;
+    }
+    return previous.promptMediaAssetId === next.promptMediaAssetId && previous.explanationMediaAssetId === next.explanationMediaAssetId;
+  });
+  if (!issues.length) return null;
+  const incompleteQuestionIds = new Set(issues.map((issue) => issue.questionId));
+  return {
+    ...readiness,
+    incompleteCount: incompleteQuestionIds.size,
+    issues,
+    readyCount: readiness.totalCount - incompleteQuestionIds.size,
+  };
+}
+
 function toQuestionDraft(question: BankQuestion): BankQuestion {
   return {
     ...question,
@@ -266,6 +366,7 @@ function QuestionBankEditorForm({
   onRemoveChoiceMedia,
   onUpdate,
   questionDraft,
+  readinessIssues,
 }: {
   activeQuestionId: string | null;
   isQuestionContentLocked: boolean;
@@ -275,7 +376,16 @@ function QuestionBankEditorForm({
   onRemoveChoiceMedia: (choiceId: string) => void;
   onUpdate: (question: BankQuestion) => void;
   questionDraft: BankQuestion;
+  readinessIssues: QuestionReadinessIssue[];
 }) {
+  const hasIssue = (field: QuestionReadinessIssue["field"], choiceId?: string) =>
+    readinessIssues.some((issue) => issue.field === field && issue.choiceId === choiceId);
+  const hasMediaIssue = (choiceId?: string) =>
+    readinessIssues.some((issue) => issue.field === "media" && issue.choiceId === choiceId);
+  const readinessHint = readinessIssues.length
+    ? `Perbaiki ${readinessIssues.map(readinessFieldLabel).join(", ")}.`
+    : undefined;
+
   return (
     <div className="grid min-w-0 gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm md:p-7">
       <Field>
@@ -296,7 +406,7 @@ function QuestionBankEditorForm({
             {questionDraft.promptMediaAssetId ? "Ganti gambar" : "Tambah gambar"}
           </Button>
         </div>
-        <FieldTextarea data-question-anchor="prompt" data-question-field="prompt" disabled={isQuestionContentLocked} id="question-prompt" onChange={(event) => onUpdate({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} />
+        <FieldTextarea aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasIssue("prompt")} data-question-anchor="prompt" data-question-field="prompt" disabled={isQuestionContentLocked} id="question-prompt" onChange={(event) => onUpdate({ ...questionDraft, prompt: event.target.value })} value={questionDraft.prompt} />
         {questionDraft.promptMediaAssetId ? (
           <QuestionMediaAttachment
             assetId={questionDraft.promptMediaAssetId}
@@ -314,10 +424,10 @@ function QuestionBankEditorForm({
           const inputId = `bank-choice-${choice.id}`;
           return <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-primary-100 px-3 py-3" key={choice.id}>
             <div className="flex min-w-0 items-center gap-3">
-              <input aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={`bank-correct-choice-${choice.id}`} name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
+              <input aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={`bank-correct-choice-${choice.id}`} name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
               <label className="text-xs font-semibold text-primary-800" htmlFor={`bank-correct-choice-${choice.id}`}>{choiceLabel}</label>
-              <input aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" data-question-anchor="choice" data-question-choice-id={choice.id} data-question-field="choice" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${choiceLabel}`} value={choice.text} />
-              <Button aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`} data-question-anchor="media" data-question-choice-id={choice.id} data-question-field="media" data-question-field-key={`choice:${choice.id}`} disabled={!activeQuestionId || isQuestionContentLocked} id={`question-media-choice-${choice.id}`} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
+              <input aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasIssue("choice", choice.id)} aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" data-question-anchor="choice" data-question-choice-id={choice.id} data-question-field="choice" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${choiceLabel}`} value={choice.text} />
+              <Button aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasMediaIssue(choice.id)} aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`} data-question-anchor="media" data-question-choice-id={choice.id} data-question-field="media" data-question-field-key={`choice:${choice.id}`} disabled={!activeQuestionId || isQuestionContentLocked} id={`question-media-choice-${choice.id}`} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
               <Button aria-label={`Hapus opsi ${choiceLabel}`} disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked} onClick={() => onRemoveChoice(choice.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
             </div>
             {choice.mediaAssetId ? <QuestionMediaAttachment assetId={choice.mediaAssetId} disabled={isQuestionContentLocked} field={`choice-${choice.id}`} label={`Gambar opsi ${choiceLabel}`} onRemove={() => onRemoveChoiceMedia(choice.id)} onReplace={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} /> : null}
@@ -326,10 +436,11 @@ function QuestionBankEditorForm({
       </div>
       <div className="flex justify-end"><Button disabled={questionDraft.choices.length >= 5 || isQuestionContentLocked} onClick={onAddChoice} size="sm" type="button" variant="brandOutline"><Plus />Tambah opsi</Button></div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field><FieldLabel htmlFor="question-subtest">Subtest</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : undefined} className="w-full justify-between" data-question-anchor="subtest" data-question-field="subtest" id="question-subtest" type="button" variant="context" />}><span className="truncate">{kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name ? `${questionDraft.subjectCode} - ${kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name}` : "Pilih Subtest"}</span><ChevronDown className="size-4 text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>{isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}</Field>
+        <Field><FieldLabel htmlFor="question-subtest">Subtest</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasIssue("subtest")} className="w-full justify-between" data-question-anchor="subtest" data-question-field="subtest" id="question-subtest" type="button" variant="context" />}><span className="truncate">{kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name ? `${questionDraft.subjectCode} - ${kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name}` : "Pilih Subtest"}</span><ChevronDown className="size-4 text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>{isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}</Field>
         <Field><FieldLabel htmlFor="question-difficulty">Tingkat kesulitan</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button className="w-full justify-between" id="question-difficulty" type="button" variant="context" />}><span>{questionDraft.difficulty === "easy" ? "Mudah" : questionDraft.difficulty === "hard" ? "Sulit" : "Sedang"}</span><ChevronDown className="text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih tingkat kesulitan</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, difficulty: value as BankQuestion["difficulty"] })} value={questionDraft.difficulty}><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="easy">Mudah</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="medium">Sedang</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="hard">Sulit</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></Field>
       </div>
-      <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button data-question-anchor="media" data-question-field="media" data-question-field-key="explanation" disabled={!activeQuestionId || isQuestionContentLocked} id="question-media-explanation" onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} field="explanation" label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
+      <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasMediaIssue()} data-question-anchor="media" data-question-field="media" data-question-field-key="explanation" disabled={!activeQuestionId || isQuestionContentLocked} id="question-media-explanation" onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} field="explanation" label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
+      {readinessHint ? <p className="sr-only" id="question-readiness-hint">{readinessHint}</p> : null}
     </div>
   );
 }
@@ -353,6 +464,7 @@ function QuestionBankInventory({
   onOpenQuestion,
   onRemoveQuestion,
   questionRowRefs,
+  readiness,
   visibleQuestions,
 }: {
   activeQuestionId: string | null;
@@ -364,9 +476,12 @@ function QuestionBankInventory({
   onOpenQuestion: (questionId: string) => void;
   onRemoveQuestion: (id: string) => void;
   questionRowRefs: QuestionRowRefs;
+  readiness: QuestionBankReadiness;
   visibleQuestions: BankQuestion[];
 }) {
-  const incompleteCount = builderState.questions.filter((question) => !isReady(question)).length;
+  const isQuestionReady = (questionId: string) =>
+    !readiness.issues.some((issue) => issue.questionId === questionId);
+  const incompleteCount = readiness.incompleteCount;
   const focusableQuestionId =
     visibleQuestions.find((question) => question.id === activeQuestionId)?.id ??
     visibleQuestions[0]?.id ??
@@ -375,9 +490,7 @@ function QuestionBankInventory({
     filter === "incomplete" &&
     activeQuestionId !== null &&
     visibleQuestions.some((question) => question.id === activeQuestionId) &&
-    builderState.questions.some(
-      (question) => question.id === activeQuestionId && isReady(question),
-    );
+    isQuestionReady(activeQuestionId);
 
   function focusQuestion(questionId: string) {
     onOpenQuestion(questionId);
@@ -499,9 +612,10 @@ function QuestionBankInventory({
           <ul aria-label={filter === "all" ? "Semua soal" : "Soal yang perlu diperbaiki"} className="grid grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-1">
             {visibleQuestions.length > 0 ? visibleQuestions.map((question) => {
               const questionNumber = builderState.questions.findIndex((item) => item.id === question.id) + 1;
-              const ready = isReady(question);
+              const ready = isQuestionReady(question.id) && isReady(question);
               const isActive = activeQuestionId === question.id;
               const statusLabel = ready ? "siap dipakai" : "belum lengkap";
+              const issueCount = readiness.issues.filter((issue) => issue.questionId === question.id).length;
               const deleteHelpId = `question-bank-delete-help-${question.id}`;
               return (
                 <li
@@ -518,7 +632,7 @@ function QuestionBankInventory({
                 >
                   <button
                     aria-current={isActive ? "true" : undefined}
-                    aria-label={`Soal ${questionNumber}, ${statusLabel}${isActive ? ", dipilih" : ""}`}
+                    aria-label={`Soal ${questionNumber}, ${statusLabel}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`}
                     className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
                     onClick={() => onOpenQuestion(question.id)}
                     onKeyDown={(event) => handleQuestionKeyDown(event, question.id)}
@@ -708,8 +822,12 @@ type QuestionBankBuilderViewState = {
   activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
   filteredQuestions: BankQuestion[];
+  focusedIssueKey: string | null;
   hasSubmittedPreview: boolean;
   hasUnsavedChanges: boolean;
+  issueCursorIndex: number | null;
+  issueCursorWasLast: boolean;
+  issueLoopEnded: boolean;
   inventoryFilter: InventoryFilter;
   isMetadataLocked: boolean;
   isQuestionContentLocked: boolean;
@@ -723,6 +841,8 @@ type QuestionBankBuilderViewState = {
   questionRowRefs: QuestionRowRefs;
   questionDraft: BankQuestion;
   questionEditorTab: string;
+  readiness: QuestionBankReadiness;
+  readinessAnnouncement: string;
   selectedMediaAssetId: string | undefined;
 };
 type QuestionBankBuilderActions = {
@@ -734,6 +854,8 @@ type QuestionBankBuilderActions = {
   onChoiceChange: (value: string) => void;
   onCloseMedia: () => void;
   onEditorTabChange: (value: string) => void;
+  focusFirstIssue: () => void;
+  focusNextIssue: () => void;
   onInventoryFilterChange: (filter: InventoryFilter) => void;
   onOpenMedia: (target: MediaPickerTarget) => void;
   onOpenQuestion: (questionId: string) => void;
@@ -743,23 +865,31 @@ type QuestionBankBuilderActions = {
   onSelectMedia: (asset: MediaAssetDto) => void;
   onSubmitPreview: () => void;
   onUpdateDraft: (question: BankQuestion) => void;
+  requestArchive: () => void;
   saveDraft: () => void;
   updateMetadata: (field: "title" | "description", value: string) => void;
   updateOrganization: (patch: QuestionBankOrganizationPatch) => void;
-  updateLifecycle: (operation: "publish" | "unpublish" | "restore") => void;
+  updateLifecycle: (operation: "archive" | "publish" | "unpublish" | "restore") => void;
 };
 
 function QuestionBankEditorHeader({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
   const titleMissing = mode === "create" && !builderState.title.trim();
   const saveLabel = mode === "create" ? "Buat dan mulai menulis" : "Simpan perubahan";
+  const publishDisabledReason = state.hasUnsavedChanges
+    ? "Simpan dulu untuk menerbitkan"
+    : state.readiness.incompleteCount > 0
+      ? `${state.readiness.incompleteCount} soal belum lengkap`
+      : undefined;
+  const lifecycleDisabledReason = state.hasUnsavedChanges ? "Simpan dulu untuk mengubah status" : undefined;
 
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1><span className={cn("inline-flex items-center gap-2 text-sm font-medium", state.hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}><span aria-hidden="true" className={cn("size-2 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />{state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}</span></div></div>
+      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1><span className={cn("inline-flex items-center gap-2 text-sm font-medium", state.hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}><span aria-hidden="true" className={cn("size-2 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />{state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}</span><p className="text-sm text-secondary-600" id="question-bank-readiness-summary">{state.readiness.readyCount}/{state.readiness.totalCount} soal siap · {state.readiness.incompleteCount} perlu diperbaiki</p>{state.readiness.incompleteCount === 0 ? <p className="text-sm font-medium text-secondary-700">Semua soal siap diterbitkan.</p> : <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm text-primary-800 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><CircleHelp data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button>}</div></div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button aria-describedby={titleMissing ? "create-bank-title-help" : undefined} aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size={mode === "create" ? "sm" : "icon-sm"} title={mode === "create" ? undefined : saveLabel} type="button" variant="brand"><Save />{mode === "create" ? saveLabel : null}</Button>
+        <Button aria-describedby={titleMissing ? "create-bank-title-help" : undefined} aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "brandOutline"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
         {titleMissing ? <p className="text-xs font-medium text-secondary-600" id="create-bank-title-help">Judul bank wajib diisi</p> : null}
-        {mode === "edit" ? (state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.lifecycleStatus === "scheduled" ? null : state.isDraftLifecycle ? <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button> : <Button aria-busy={state.isSaving} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>) : null}
+        {mode === "edit" ? (state.lifecycleStatus === "archived" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.updateLifecycle("restore")} type="button" variant="brandOutline">{state.isSaving ? "Memulihkan…" : "Pulihkan bank"}</Button> : state.lifecycleStatus === "scheduled" ? null : state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0} onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : <><Button aria-busy={state.isSaving} aria-describedby={lifecycleDisabledReason ? "lifecycle-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges} onClick={() => actions.updateLifecycle("unpublish")} type="button" variant="brandOutline">{state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}</Button>{lifecycleDisabledReason ? <p className="text-xs text-secondary-600" id="lifecycle-disabled-reason">{lifecycleDisabledReason}</p> : null}</>) : null}
+        {mode === "edit" && state.lifecycleStatus !== "archived" && state.lifecycleStatus !== "scheduled" ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label="Aksi destruktif Bank Soal" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem disabled={state.isSaving || Boolean(lifecycleDisabledReason)} onClick={actions.requestArchive} variant="destructive"><Archive />Arsipkan</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu> : null}
       </div>
     </section>
   );
@@ -776,14 +906,19 @@ function QuestionBankQuestionWorkspace({
   state: QuestionBankBuilderViewState;
   workspaceRef: { current: HTMLDivElement | null };
 }) {
+  const questionIssues = state.readiness.issues.filter(
+    (issue) => issue.questionId === state.activeQuestionId,
+  );
+
   return (
     <section className="grid items-start gap-6 xl:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] xl:gap-6">
       <div className="order-2 min-w-0 scroll-mt-24 xl:col-start-2 xl:row-start-1 xl:order-none" data-question-workspace="current" id="question-bank-question-workspace" ref={workspaceRef}>
-        <div className="flex min-h-11 items-center"><h2 className="text-2xl font-semibold text-secondary-900">Edit soal</h2></div>
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-semibold text-secondary-900" id="question-bank-question-workspace-title">Edit soal</h2><Button aria-label="Masalah berikutnya" disabled={state.readiness.issues.length === 0} onClick={actions.focusNextIssue} size="sm" type="button" variant="brandOutline">Masalah berikutnya</Button></div>
+        {questionIssues.length ? <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">Soal ini memiliki {questionIssues.length} masalah. Pilih Masalah berikutnya untuk memindai masalah secara berurutan.</p> : null}
         {state.lifecycleStatus === "published" ? <Alert className="mt-4"><AlertTitle>Bank diterbitkan</AlertTitle><AlertDescription>Prompt, opsi, kunci jawaban, media, tingkat kesulitan, dan Subtest dikunci. Pilih <span className="font-semibold">Jadikan draf</span> untuk membuat perubahan.</AlertDescription></Alert> : null}
         <Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
           <TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList>
-          <TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} /></TabsContent>
+          <TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} readinessIssues={questionIssues} /></TabsContent>
           <TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent>
         </Tabs>
       </div>
@@ -797,6 +932,7 @@ function QuestionBankQuestionWorkspace({
         onOpenQuestion={actions.onOpenQuestion}
         onRemoveQuestion={actions.onRemoveQuestion}
         questionRowRefs={state.questionRowRefs}
+        readiness={state.readiness}
         visibleQuestions={state.filteredQuestions}
       />
     </section>
@@ -818,6 +954,7 @@ function QuestionBankBuilderScreen({ actions, builderState, categories, folders,
   return (
     <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel={mode === "create" ? "Buat Bank Soal" : "Edit Bank Soal"} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges}>
       <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
+      <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
       {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
       <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} workspaceRef={workspaceRef} />
       <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
@@ -846,6 +983,7 @@ function useQuestionBankPersistence({
   builderState,
   mode,
   revisionRef,
+  setServerReadiness,
   setLocalBuilderState,
   updateEditor,
 }: {
@@ -853,6 +991,7 @@ function useQuestionBankPersistence({
   builderState: LocalQuestionBankState;
   mode: "create" | "edit";
   revisionRef: { current: number | undefined };
+  setServerReadiness: (readiness: QuestionBankReadiness | null) => void;
   setLocalBuilderState: (state: LocalQuestionBankState) => void;
   updateEditor: (patch: Partial<QuestionBankEditorState>) => void;
 }) {
@@ -860,7 +999,7 @@ function useQuestionBankPersistence({
     updateEditor({ isSaving: true, lifecycleError: null });
     try {
       const result = await saveQuestionBankAction({ description: builderState.description, id: bankIdRef.current, questions: builderState.questions, revision: revisionRef.current, title: builderState.title });
-      if (!result.ok) { updateEditor({ lifecycleError: result.message }); return; }
+      if (!result.ok) { if (result.readiness) setServerReadiness(result.readiness); updateEditor({ lifecycleError: result.message }); return; }
       revisionRef.current = result.result.bank.revision;
       bankIdRef.current = result.result.bank.id;
       const savedBank = result.result.bank;
@@ -897,6 +1036,7 @@ function useQuestionBankPersistence({
       }
 
       setLocalBuilderState(contentState);
+      setServerReadiness(result.result.readiness);
       updateEditor({ hasUnsavedChanges: false, lifecycleStatus: result.result.bank.status });
       if (mode === "create") updateEditor({ pendingRouteReplacement: `/mentor/quiz/question-bank/${result.result.bank.id}` });
     } catch (saveError) {
@@ -906,14 +1046,15 @@ function useQuestionBankPersistence({
     }
   }
 
-  async function updateLifecycle(operation: "publish" | "unpublish" | "restore") {
+  async function updateLifecycle(operation: "archive" | "publish" | "unpublish" | "restore") {
     const id = bankIdRef.current;
     if (!id) return;
     updateEditor({ isSaving: true, lifecycleError: null });
     try {
       const result = await updateQuestionBankLifecycleAction(id, operation, { expectedRevision: revisionRef.current ?? 1 });
-      if (!result.ok) { updateEditor({ lifecycleError: result.message }); return; }
+      if (!result.ok) { if (result.readiness) setServerReadiness(result.readiness); updateEditor({ lifecycleError: result.message }); return; }
       revisionRef.current = result.result.revision;
+      setServerReadiness(null);
       updateEditor({ hasUnsavedChanges: false, lifecycleError: null, lifecycleStatus: result.result.status });
     } finally {
       updateEditor({ isSaving: false });
@@ -962,14 +1103,20 @@ function KaptenQuestionBankBuilderPageModule({
     activeQuestionId: initialQuestion.id,
     activeTab: mode === "create" ? "details" : "questions",
     confirmationRequest: null,
+    focusedIssueKey: null,
     hasSubmittedPreview: false,
     hasUnsavedChanges: mode === "create",
+    issueCursorIndex: null,
+    issueCursorWasLast: false,
+    issueLoopEnded: false,
     inventoryFilter: "all",
     isSaving: false,
     lifecycleError: null,
     lifecycleStatus: initialBank?.status ?? "draft",
     mediaPickerTarget: null,
     pendingRouteReplacement: null,
+    readinessAnnouncement: "",
+    serverReadiness: null,
     previewChoiceId: null,
     questionDraft: toQuestionDraft(initialQuestion),
     questionEditorTab: "edit",
@@ -978,8 +1125,12 @@ function KaptenQuestionBankBuilderPageModule({
     activeQuestionId,
     activeTab,
     confirmationRequest,
+    focusedIssueKey,
     hasSubmittedPreview,
     hasUnsavedChanges,
+    issueCursorIndex,
+    issueCursorWasLast,
+    issueLoopEnded,
     inventoryFilter,
     isSaving,
     lifecycleError,
@@ -989,6 +1140,8 @@ function KaptenQuestionBankBuilderPageModule({
     previewChoiceId,
     questionDraft,
     questionEditorTab,
+    readinessAnnouncement,
+    serverReadiness,
   } = editorState;
   const updateEditor = (patch: Partial<QuestionBankEditorState>) => dispatch({ patch, type: "patch" });
   const revisionRef = useRef(initialBank?.revision);
@@ -997,6 +1150,8 @@ function KaptenQuestionBankBuilderPageModule({
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const previousActiveQuestionIdRef = useRef<string | null>(activeQuestionId);
   const questionFocusAfterDeleteRef = useRef<string | null>(null);
+  const pendingIssueFocusRef = useRef<QuestionReadinessIssue | null>(null);
+  const previousReadinessSignatureRef = useRef<string | null>(null);
 
   const builderState = localBuilderState;
 
@@ -1008,10 +1163,12 @@ function KaptenQuestionBankBuilderPageModule({
   const isMetadataLocked = lifecycleStatus === "archived" || lifecycleStatus === "scheduled";
   const isQuestionContentLocked = lifecycleStatus !== "draft";
   const isDraftLifecycle = lifecycleStatus === "draft";
+  const localReadiness = getQuestionBankReadinessFromDrafts(builderState.questions);
+  const readiness = mergeQuestionBankReadiness(builderState.questions, localReadiness, serverReadiness);
   const filteredQuestions = builderState.questions.filter(
     (question) =>
       inventoryFilter === "all" ||
-      !isReady(question) ||
+      readiness.issues.some((issue) => issue.questionId === question.id) ||
       question.id === activeQuestionId,
   );
   const selectedMediaAssetId =
@@ -1024,6 +1181,79 @@ function KaptenQuestionBankBuilderPageModule({
               (choice) => choice.id === mediaPickerTarget.choiceId,
             )?.mediaAssetId
           : undefined;
+
+  function questionNumber(questionId: string) {
+    const index = builderState.questions.findIndex((question) => question.id === questionId);
+    return index < 0 ? 0 : index + 1;
+  }
+
+  const focusIssueTarget = useCallback((issue: QuestionReadinessIssue, question: BankQuestion) => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return false;
+    const anchors = Array.from(
+      workspace.querySelectorAll<HTMLElement>("[data-question-anchor]"),
+    );
+    let target: HTMLElement | undefined;
+    if (issue.field === "prompt") {
+      target = anchors.find((element) => element.dataset.questionAnchor === "prompt");
+    } else if (issue.field === "choice") {
+      target = anchors.find((element) => element.dataset.questionAnchor === "choice" && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
+    } else if (issue.field === "correctChoice") {
+      target = anchors.find((element) => element.dataset.questionAnchor === "correctChoice");
+    } else if (issue.field === "subtest") {
+      target = anchors.find((element) => element.dataset.questionAnchor === "subtest");
+    } else {
+      const mediaIssues = readiness.issues.filter((item) => item.questionId === issue.questionId && item.field === "media" && !item.choiceId);
+      const mediaIssueIndex = mediaIssues.findIndex((item) => readinessIssueKey(item) === readinessIssueKey(issue));
+      const mediaKey = !question.promptMediaAssetId && question.explanationMediaAssetId
+        ? "explanation"
+        : mediaIssueIndex > 0
+          ? "explanation"
+          : "prompt";
+      target = anchors.find((element) => element.dataset.questionAnchor === "media" && element.dataset.questionFieldKey === mediaKey && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
+      target ??= anchors.find((element) => element.dataset.questionAnchor === "media" && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
+    }
+    if (!target || target.hasAttribute("disabled")) return false;
+    target.focus({ preventScroll: true });
+    return true;
+  }, [readiness.issues]);
+
+  function announceIssue(issue: QuestionReadinessIssue, issueIndex: number, totalIssues: number) {
+    updateEditor({ readinessAnnouncement: `Masalah ${issueIndex + 1} dari ${totalIssues}: Soal ${questionNumber(issue.questionId)}, ${readinessFieldLabel(issue)}.` });
+  }
+
+  function focusIssueAt(index: number) {
+    const issue = readiness.issues[index];
+    if (!issue) return;
+    pendingIssueFocusRef.current = issue;
+    updateEditor({ activeTab: "questions", focusedIssueKey: readinessIssueKey(issue), inventoryFilter: "incomplete", issueCursorIndex: index, issueCursorWasLast: index === readiness.issues.length - 1, issueLoopEnded: false });
+    openQuestion(issue.questionId);
+    announceIssue(issue, index, readiness.issues.length);
+  }
+
+  function focusFirstIssue() {
+    focusIssueAt(0);
+  }
+
+  function focusNextIssue() {
+    if (!readiness.issues.length) {
+      updateEditor({ focusedIssueKey: null, issueCursorIndex: null, issueCursorWasLast: false, issueLoopEnded: false, readinessAnnouncement: "Tidak ada masalah yang perlu diperbaiki." });
+      return;
+    }
+    const currentIndex = focusedIssueKey
+      ? readiness.issues.findIndex((issue) => readinessIssueKey(issue) === focusedIssueKey)
+      : -1;
+    if (currentIndex === readiness.issues.length - 1 && !issueLoopEnded) {
+      updateEditor({ issueLoopEnded: true, readinessAnnouncement: `Ini masalah terakhir dari ${readiness.issues.length}. Pilih Masalah berikutnya lagi untuk kembali ke awal.` });
+      return;
+    }
+    const nextIndex = currentIndex >= 0
+      ? (currentIndex + 1) % readiness.issues.length
+      : issueCursorWasLast
+        ? 0
+        : Math.min(issueCursorIndex ?? 0, readiness.issues.length - 1);
+    focusIssueAt(nextIndex);
+  }
 
   useQuestionBankNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
 
@@ -1057,9 +1287,36 @@ function KaptenQuestionBankBuilderPageModule({
     }
   }, [activeQuestionId, builderState.questions.length, inventoryFilter]);
 
+  useEffect(() => {
+    const pendingIssue = pendingIssueFocusRef.current;
+    if (!pendingIssue || pendingIssue.questionId !== activeQuestionId || !activeQuestion) return;
+    const frame = window.requestAnimationFrame(() => {
+      questionRowRefs.current[pendingIssue.questionId]?.scrollIntoView?.({ block: "nearest" });
+      workspaceRef.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      window.requestAnimationFrame(() => {
+        if (pendingIssueFocusRef.current !== pendingIssue) return;
+        focusIssueTarget(pendingIssue, activeQuestion);
+        pendingIssueFocusRef.current = null;
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeQuestion, activeQuestionId, activeTab, focusIssueTarget, inventoryFilter, readiness.issues]);
+
+  const readinessSignature = `${readiness.totalCount}:${readiness.readyCount}:${readiness.incompleteCount}:${readiness.issues.map(readinessIssueKey).join("|")}`;
+  useEffect(() => {
+    if (previousReadinessSignatureRef.current !== readinessSignature) {
+      updateEditor({ readinessAnnouncement: `${readiness.readyCount} dari ${readiness.totalCount} soal siap. ${readiness.incompleteCount} perlu diperbaiki.` });
+      previousReadinessSignatureRef.current = readinessSignature;
+    }
+  }, [readiness.incompleteCount, readiness.issues, readiness.readyCount, readinessSignature, readiness.totalCount]);
+
   function markChanged(nextState: typeof builderState) {
     setLocalBuilderState(nextState);
-    updateEditor({ hasUnsavedChanges: true });
+    updateEditor({
+      hasUnsavedChanges: true,
+      issueLoopEnded: false,
+      serverReadiness: pruneServerReadinessForDraftChange(serverReadiness, builderState.questions, nextState.questions),
+    });
   }
 
   function updateMetadata(
@@ -1099,7 +1356,13 @@ function KaptenQuestionBankBuilderPageModule({
       hasSubmittedPreview: false,
       previewChoiceId: null,
       questionDraft: toQuestionDraft(question),
+      readinessAnnouncement: `Soal ${questionNumber(question.id)}, ${readiness.issues.some((issue) => issue.questionId === question.id) ? "belum lengkap" : "siap dipakai"}, dipilih.`,
     });
+  }
+
+  function selectQuestion(questionId: string) {
+    updateEditor({ focusedIssueKey: null, issueCursorIndex: null, issueCursorWasLast: false, issueLoopEnded: false });
+    openQuestion(questionId);
   }
 
   function updateQuestionDraft(next: BankQuestion) {
@@ -1215,11 +1478,25 @@ function KaptenQuestionBankBuilderPageModule({
     } });
   }
 
+  function requestArchive() {
+    updateEditor({ confirmationRequest: {
+      confirmLabel: "Arsipkan",
+      description: "Bank Soal ini akan dipindahkan ke arsip dan tidak dapat dipakai untuk authoring sampai dipulihkan.",
+      onConfirm: () => updateLifecycle("archive"),
+      title: "Arsipkan Bank Soal?",
+    } });
+  }
+
+  function setServerReadiness(nextReadiness: QuestionBankReadiness | null) {
+    updateEditor({ serverReadiness: nextReadiness });
+  }
+
   const { saveDraft, updateLifecycle } = useQuestionBankPersistence({
     bankIdRef,
     builderState,
     mode,
     revisionRef,
+    setServerReadiness,
     setLocalBuilderState,
     updateEditor,
   });
@@ -1230,6 +1507,8 @@ function KaptenQuestionBankBuilderPageModule({
       addQuestion,
       closeConfirmation,
       confirmPendingAction,
+      focusFirstIssue,
+      focusNextIssue,
       onChangeTab: (value) => {
         if (value === "questions" || value === "details") updateEditor({ activeTab: value });
       },
@@ -1238,13 +1517,14 @@ function KaptenQuestionBankBuilderPageModule({
       onEditorTabChange: (value) => updateEditor({ questionEditorTab: value }),
       onInventoryFilterChange: (filter) => updateEditor({ inventoryFilter: filter }),
       onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }),
-      onOpenQuestion: openQuestion,
+      onOpenQuestion: selectQuestion,
       onRemoveChoice: removeChoice,
       onRemoveChoiceMedia: removeChoiceMedia,
       onRemoveQuestion: requestQuestionRemoval,
       onSelectMedia: selectMediaAsset,
       onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }),
       onUpdateDraft: updateQuestionDraft,
+      requestArchive,
       saveDraft,
       updateLifecycle,
       updateMetadata,
@@ -1255,7 +1535,7 @@ function KaptenQuestionBankBuilderPageModule({
     folders={initialFolderTree}
     mode={mode}
     session={session}
-    state={{ activeQuestionId, activeTab, confirmationRequest, filteredQuestions, hasSubmittedPreview, hasUnsavedChanges, inventoryFilter, isMetadataLocked, isQuestionContentLocked, isSaving, isDraftLifecycle, lifecycleError, lifecycleStatus, mediaPickerTarget, pendingRouteReplacement, previewChoiceId, questionDraft, questionEditorTab, questionRowRefs, selectedMediaAssetId }}
+    state={{ activeQuestionId, activeTab, confirmationRequest, filteredQuestions, focusedIssueKey, hasSubmittedPreview, hasUnsavedChanges, issueCursorIndex, issueCursorWasLast, issueLoopEnded, inventoryFilter, isMetadataLocked, isQuestionContentLocked, isSaving, isDraftLifecycle, lifecycleError, lifecycleStatus, mediaPickerTarget, pendingRouteReplacement, previewChoiceId, questionDraft, questionEditorTab, questionRowRefs, readiness, readinessAnnouncement, selectedMediaAssetId }}
     workspaceRef={workspaceRef}
   />;
 }
