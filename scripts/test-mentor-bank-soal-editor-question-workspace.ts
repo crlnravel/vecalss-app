@@ -12,6 +12,9 @@ const workspace = builder.match(
 const editorForm = builder.match(
   /function QuestionBankEditorForm\([\s\S]*?\n\}\n\nfunction QuestionBankPreview/u,
 )?.[0] ?? "";
+const preview = builder.match(
+  /function QuestionBankPreview\([\s\S]*?\n\}\n\nfunction QuestionBankInventory/u,
+)?.[0] ?? "";
 const openQuestionBlock = builder.match(
   /function openQuestion\(questionId: string\) \{[\s\S]*?\n  \}/u,
 )?.[0] ?? "";
@@ -28,9 +31,58 @@ assert.match(openQuestionBlock, /previewChoiceId: null/u);
 assert.doesNotMatch(openQuestionBlock, /questionEditorTab\s*:/u);
 assert.match(builder, /onChoiceChange: \(value\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u);
 assert.match(builder, /onSubmitPreview: \(\) => updateEditor\(\{ hasSubmittedPreview: true \}\)/u);
+assert.match(preview, /<RadioGroup key=\{questionDraft\.id\}/u);
 assert.doesNotMatch(
   builder.match(/saveQuestionBankAction\(\{[\s\S]*?\}\)/u)?.[0] ?? "",
   /previewChoiceId|hasSubmittedPreview/u,
+);
+
+type PreviewState = {
+  activeQuestionId: string;
+  hasSubmittedPreview: boolean;
+  previewChoiceId: string | null;
+  questionEditorTab: "edit" | "preview";
+};
+
+function selectQuestion(
+  state: PreviewState,
+  questionId: string,
+): PreviewState {
+  return {
+    ...state,
+    activeQuestionId: questionId,
+    hasSubmittedPreview: false,
+    previewChoiceId: null,
+  };
+}
+
+const previewAfterAnsweringQuestionOne: PreviewState = {
+  activeQuestionId: "question-1",
+  hasSubmittedPreview: true,
+  previewChoiceId: "b",
+  questionEditorTab: "preview",
+};
+const previewAfterSelectingQuestionTwo = selectQuestion(
+  previewAfterAnsweringQuestionOne,
+  "question-2",
+);
+assert.deepEqual(
+  {
+    activeQuestionId: previewAfterSelectingQuestionTwo.activeQuestionId,
+    hasSubmittedPreview: previewAfterSelectingQuestionTwo.hasSubmittedPreview,
+    previewChoiceId: previewAfterSelectingQuestionTwo.previewChoiceId,
+  },
+  {
+    activeQuestionId: "question-2",
+    hasSubmittedPreview: false,
+    previewChoiceId: null,
+  },
+  "switching questions clears answer/feedback state",
+);
+assert.equal(
+  previewAfterSelectingQuestionTwo.questionEditorTab,
+  "preview",
+  "switching questions keeps Preview active",
 );
 
 for (const label of ["Pertanyaan", "Subtest", "Tingkat kesulitan", "Penjelasan"]) {
