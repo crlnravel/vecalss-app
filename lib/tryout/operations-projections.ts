@@ -184,6 +184,22 @@ function deriveTryoutLiveProjection(input: {
     };
   }
 
+  if (terminal) {
+    return {
+      activeRunSequenceNo: null,
+      attemptId: attempt.attemptId ?? null,
+      catFailureSequenceNo: null,
+      ...lifecycle,
+      integrityEventCount,
+      label: liveStateLabels.submitted,
+      reason: attempt.attemptState === "expired"
+        ? "Attempt berakhir karena waktu; status tetap dapat ditinjau dari detail attempt."
+        : "Attempt sudah dikirim dan menunggu atau telah melewati tahap rilis hasil.",
+      severity: "neutral",
+      state: "submitted",
+    };
+  }
+
   if (failedCatRun) {
     return {
       activeRunSequenceNo: activeRun?.sequenceNo ?? null,
@@ -211,22 +227,6 @@ function deriveTryoutLiveProjection(input: {
         ?? `Ada ${integrityEventCount} sinyal integritas untuk review manusia; tidak ada konsekuensi otomatis.`,
       severity: "attention",
       state: "needs_attention",
-    };
-  }
-
-  if (terminal) {
-    return {
-      activeRunSequenceNo: null,
-      attemptId: attempt.attemptId ?? null,
-      catFailureSequenceNo: null,
-      ...lifecycle,
-      integrityEventCount,
-      label: liveStateLabels.submitted,
-      reason: attempt.attemptState === "expired"
-        ? "Attempt berakhir karena waktu; status tetap dapat ditinjau dari detail attempt."
-        : "Attempt sudah dikirim dan menunggu atau telah melewati tahap rilis hasil.",
-      severity: "neutral",
-      state: "submitted",
     };
   }
 

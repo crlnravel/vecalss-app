@@ -71,21 +71,30 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshState("refreshing");
-    const result = await refreshTryoutLiveAction(initial.id);
-    refreshInFlight.current = false;
-    if (!result.ok) {
+    try {
+      const result = await refreshTryoutLiveAction(initial.id);
+      if (!result.ok) {
+        automaticFailureCount.current += 1;
+        setRefreshState("error");
+        setRefreshMessage(automaticFailureCount.current >= MAX_AUTO_REFRESH_FAILURES
+          ? "Refresh otomatis dihentikan setelah beberapa kegagalan. Coba lagi secara manual."
+          : result.message);
+        return;
+      }
+      automaticFailureCount.current = 0;
+      setView(result.result);
+      setLastUpdatedAt(result.serverUpdatedAt);
+      setRefreshState("idle");
+      setRefreshMessage(null);
+    } catch (error) {
       automaticFailureCount.current += 1;
       setRefreshState("error");
       setRefreshMessage(automaticFailureCount.current >= MAX_AUTO_REFRESH_FAILURES
         ? "Refresh otomatis dihentikan setelah beberapa kegagalan. Coba lagi secara manual."
-        : result.message);
-      return;
+        : error instanceof Error ? error.message : "Refresh Live gagal. Coba lagi.");
+    } finally {
+      refreshInFlight.current = false;
     }
-    automaticFailureCount.current = 0;
-    setView(result.result);
-    setLastUpdatedAt(result.serverUpdatedAt);
-    setRefreshState("idle");
-    setRefreshMessage(null);
   }, [initial.id]);
 
   const retryRefresh = () => {

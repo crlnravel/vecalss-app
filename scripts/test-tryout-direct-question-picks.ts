@@ -11,8 +11,8 @@ const [builder, repository, sourceRepository, createRoute, editRoute, catalogue]
 ]);
 const assessmentRelease = await readFile(new URL("../lib/tryout/assessment-release.ts", import.meta.url), "utf8");
 
-assert.match(builder, /Pilih soal langsung/u, "Tryout Questions must expose direct selection");
-assert.match(builder, /Gunakan Set Soal siap/u, "Tryout Questions must expose optional saved Set selection");
+assert.match(builder, /Pilih langsung/u, "Tryout Questions must expose direct selection");
+assert.match(builder, /Set Ready/u, "Tryout Questions must expose optional saved Set selection");
 assert.match(builder, /listQuestionBankSourcePageAction/u, "direct selection must browse source Banks through the server action");
 assert.match(builder, /listQuestionBankSourceQuestionsAction/u, "direct selection must load Ready questions through the server action");
 assert.match(builder, /directQuestions/u, "the draft must carry direct question selections");

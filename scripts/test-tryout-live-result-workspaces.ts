@@ -7,7 +7,7 @@ import {
   sanitizeTryoutWorkspaceParticipant,
 } from "../lib/tryout/operations-projections";
 
-const [delivery, operations, workspace, live, attempts, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute] = await Promise.all([
+const [delivery, operations, workspace, live, attempts, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, operationsRoute] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
@@ -19,6 +19,7 @@ const [delivery, operations, workspace, live, attempts, results, participants, a
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/attempts/[attemptId]/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/participants/[admissionId]/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/page.tsx", import.meta.url), "utf8"),
 ]);
 
 const baseRun = {
@@ -48,6 +49,9 @@ assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { 
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, runs: [{ ...baseRun, catState: "failed", catFailureReason: "CAT timeout" }] } }).state, "cat_failure");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted" } }).state, "submitted");
 assert.match(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, integrityEvents: 1 } }).reason, /tidak ada konsekuensi otomatis/iu);
+assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", integrityEvents: 1 } }).state, "submitted");
+assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", scoringReviewReason: "Tinjau" , scoringState: "review_required" } }).state, "submitted");
+assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", runs: [{ ...baseRun, catState: "failed", catFailureReason: "CAT timeout" }] } }).state, "submitted");
 
 const hidden = deriveTryoutResultProjection({
   attempt: { ...baseAttempt, attemptState: "submitted", releaseReady: true, releaseState: "hidden", score: "88.50", scoringState: "scored", status: "submitted" },
@@ -115,13 +119,17 @@ const releasedParticipant = sanitizeTryoutWorkspaceParticipant(participantFixtur
 assert.equal(releasedParticipant.attempt?.score, "91");
 assert.equal(releasedParticipant.score.score, "91");
 
-for (const label of ["Live", "Attempts", "Results", "Schedule & akses"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
+for (const label of ["Delivery", "Policy", "Sessions", "Participants", "Operations", "Live", "Attempts", "Results", "Results & release", "Review & Publish"]) assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"));
 assert.match(workspace, /value="live"/u);
 assert.match(workspace, /value="attempts"/u);
+assert.match(workspace, /value="schedule"/u);
+assert.match(workspace, /deliveryAreaFor/u);
+assert.match(workspace, /value === "operations"\) return "sessions"/u);
 assert.match(workspace, /KaptenTryoutLivePageModule/u);
 assert.match(workspace, /KaptenTryoutAttemptsPageModule/u);
 assert.match(workspace, /KaptenTryoutResultsPageModule/u);
-assert.match(operations, /participants,\n    live,\n    attempts,\n    results/u);
+assert.match(operations, /participantsWithAttention/u);
+assert.match(operations, /participants: participantsWithAttention/u);
 assert.match(operations, /deriveTryoutLiveProjection/u);
 assert.match(operations, /deriveTryoutResultProjection/u);
 assert.match(operations, /integrityEventTrail/u);
@@ -157,10 +165,13 @@ assert.match(results, /scoreVisible/u);
 assert.match(results, /rankingAvailabilityLabels/u);
 assert.match(results, /operations\/participants\/\$\{result\.admissionId\}/u);
 assert.match(results, /bundle hasil parsial/u);
-assert.match(participants, /Menunggu rilis/u);
+assert.match(results, /releaseBlockers/u);
+assert.match(results, /Rilis manual tertahan/u);
+assert.match(participants, /participant\.attention/u);
 assert.doesNotMatch(attemptDetail, /<main\b/u, "attempt detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.doesNotMatch(participantDetail, /<main\b/u, "participant detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.match(attemptDetailRoute, /contentElement="div"/u);
 assert.match(participantDetailRoute, /contentElement="div"/u);
+assert.match(operationsRoute, /workspace=schedule&delivery=sessions/u, "legacy operations route must land on Delivery Sessions");
 
 console.log("Tryout Live, Attempts, and Results workspace contracts passed.");

@@ -263,6 +263,7 @@ function phaseForWorkspace(value: Workspace): WorkspacePhase {
 function deliveryAreaFor(value?: string): DeliveryArea {
   if (value === "sessions") return "sessions";
   if (value === "participants") return "participants";
+  if (value === "operations") return "sessions";
   return "policy";
 }
 
@@ -794,6 +795,14 @@ function KaptenTryoutBuilderPageModule({
   const selectedDirectQuestions = draft.sections.flatMap((section) => section.directQuestions ?? []);
   const selectedSourceQuestionIds = [...selectedVersions.flatMap((version) => version?.sourceQuestionIds ?? []), ...selectedDirectQuestions.map((question) => question.sourceQuestionId)];
   const duplicateSourceCount = selectedSourceQuestionIds.length - new Set(selectedSourceQuestionIds).size;
+  const directQuestionsReady = (questions: DirectQuestionDraft[]) => Boolean(
+    questions.length
+      && questions.every((question) => Boolean(question.prompt?.trim()) && question.hasExplanation === true && question.hasReadyMedia !== false),
+  );
+  const assemblyContentReady = (index: number) => Boolean(
+    selectedAssemblies[index]?.readiness.ready
+      ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia),
+  );
   const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
   const invalidAssemblyTypeSections = draft.sections.filter((section, index) => {
     const assembly = selectedAssemblies[index];
@@ -805,10 +814,9 @@ function KaptenTryoutBuilderPageModule({
     return !section.directQuestions?.length || section.directQuestions.length < section.catItemCount || section.directQuestions.some((question) => !question.catReady);
   });
   const incompleteSections = draft.sections.filter((section, index) => {
-    const selectedVersion = selectedVersions[index];
     const directQuestions = section.directQuestions ?? [];
     const hasSource = Boolean(section.packageVersionId || directQuestions.length);
-    const contentReady = section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? selectedVersion?.contentReady) : directQuestions.every((question) => question.hasReadyMedia !== false && question.prompt?.trim());
+    const contentReady = section.packageVersionId ? assemblyContentReady(index) : directQuestionsReady(directQuestions);
     return !hasSource
       || !contentReady
       || invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest)
@@ -838,7 +846,7 @@ function KaptenTryoutBuilderPageModule({
       target = "questions";
     }
     if (incompleteSections.some((candidate) => candidate.subtest === section.subtest) && !issues.length) {
-      issues.push("Konten soal atau media belum siap.");
+      issues.push("Konten soal, penjelasan, atau media belum siap.");
       target = "questions";
     }
     return [section.subtest, {
@@ -850,12 +858,13 @@ function KaptenTryoutBuilderPageModule({
   })) as Record<SubjectCode, SectionReadiness>;
   const scheduleSessions = operationsInitial?.sessions ?? [];
   const scheduleConflicts = scheduleSessions.some((session) => new Date(session.availableUntil) <= new Date(session.availableFrom)) || scheduleSessions.filter((session) => session.isDefaultOpenRegistration).length > 1;
+  const explanationsAndMediaReady = draft.sections.every((section, index) => section.packageVersionId ? assemblyContentReady(index) : directQuestionsReady(section.directQuestions ?? []));
   const reviewChecks = [
     { detail: draft.title.trim() ? "Judul Tryout sudah terisi." : "Tambahkan judul sebelum publikasi.", label: "Basics lengkap", status: Boolean(draft.title.trim()) },
     { detail: draft.sections.length === 7 ? "PU, PPU, PBM, PK, LBI, LBE, dan PM tersedia." : "Tryout harus memiliki tepat tujuh Section.", label: "Tujuh Section tetap", status: draft.sections.length === 7 },
     { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
     { detail: incompleteSections.length === 0 ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: incompleteSections.length === 0 },
-    { detail: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia)) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan, media, atau blocker assembly yang belum siap.", label: "Penjelasan & media siap", status: draft.sections.every((section, index) => section.packageVersionId ? Boolean(selectedAssemblies[index]?.readiness.ready ?? (selectedVersions[index]?.hasExplanations && selectedVersions[index]?.hasReadyMedia)) : Boolean(section.directQuestions?.length && section.directQuestions.every((question) => question.hasExplanation && question.hasReadyMedia !== false))) },
+    { detail: explanationsAndMediaReady ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan, media, atau blocker assembly yang belum siap.", label: "Penjelasan & media siap", status: explanationsAndMediaReady },
     { detail: draft.sections.every((section, index) => !section.packageVersionId || (Boolean(selectedAssemblies[index]?.readiness.ready) && !invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest))) ? "Set, Pool, Blueprint, dan CAT Pool tidak memiliki blocker saat ini." : draft.sections.filter((section, index) => section.packageVersionId && (!selectedAssemblies[index]?.readiness.ready || invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest))).map((section) => `${section.subtest}: ${invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest) ? "mode assembly tidak cocok dengan tipe Test" : selectedAssemblies[draft.sections.indexOf(section)]?.readiness.blockers[0]?.message ?? "sumber Ready perlu ditinjau"}`).join(" · "), label: "Assembly siap dirilis", status: draft.sections.every((section, index) => !section.packageVersionId || (Boolean(selectedAssemblies[index]?.readiness.ready) && !invalidAssemblyTypeSections.some((candidate) => candidate.subtest === section.subtest))) },
     { detail: duplicateSourceCount ? `${duplicateSourceCount} soal sumber muncul lebih dari sekali.` : "Tidak ada soal sumber yang duplikat.", label: "Sumber soal unik", status: duplicateSourceCount === 0 },
     { detail: invalidCatSections.length ? "Setiap CAT harus memiliki pool cukup dan kalibrasi 2PL siap." : "CAT dan kalibrasi 2PL siap.", label: "CAT & 2PL siap", status: invalidCatSections.length === 0 },

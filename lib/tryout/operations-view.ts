@@ -356,6 +356,20 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
             : null,
       };
     });
+  const liveByAdmissionId = new Map(live.map((item) => [item.admissionId, item]));
+  const participantsWithAttention = participants.map((participant) => {
+    const projection = liveByAdmissionId.get(participant.admissionId);
+    const attention = projection && ["needs_attention", "disconnected", "cat_failure"].includes(projection.state)
+      ? {
+          attemptId: projection.attemptId,
+          label: projection.label,
+          reason: projection.reason,
+          severity: projection.severity,
+          state: projection.state,
+        }
+      : null;
+    return { ...participant, attention };
+  });
   const results = attemptRecords.map((attempt) => {
     const session = sessions.find((candidate) => candidate.id === attempt.sessionId)!;
     const projection = deriveTryoutResultProjection({
@@ -399,7 +413,7 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
     defaultReleasePolicy: operations.defaultResultReleasePolicy,
     description: operations.description,
     id: operations.id,
-    participants,
+    participants: participantsWithAttention,
     live,
     attempts,
     results,

@@ -6,7 +6,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const workspace = await readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8");
 const liveWorkspace = workspace.slice(workspace.indexOf("function KaptenTryoutBuilderPageModule"));
 
-for (const label of ["Pool Soal", "Blueprint", "CAT Pool", "Pasang sumber", "Preview", "Lihat preview dan kesiapan"]) {
+for (const label of ["Pool Soal", "Blueprint", "CAT Pool", "Pasang sumber", "Sample sumber", "Lihat sample sumber &amp; kesiapan"]) {
   assert.match(workspace, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `workspace should expose ${label}`);
 }
 

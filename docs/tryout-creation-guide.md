@@ -45,7 +45,8 @@ baris menampilkan status utama, jumlah isu, ringkasan isu pertama, dan tautan
 
 Pola status yang digunakan adalah:
 
-- **Ready** — sumber, durasi, dan aturan dasar tidak memiliki isu yang diketahui;
+- **Ready** — sumber, durasi, aturan dasar, penjelasan, dan media tidak memiliki
+  isu yang diketahui;
 - **Belum disiapkan** — sumber belum dipilih;
 - **Perlu ditinjau** — ada isu durasi, tipe assembly, CAT, media, atau
   readiness lain yang harus diperbaiki.
@@ -92,9 +93,21 @@ apa yang masih perlu dikerjakan sebagai follow-up.
 - [x] Pertahankan redirect route operasi lama ke query Delivery baru.
 - [x] Urutkan Live berdasarkan kebutuhan tindakan dan tampilkan freshness state.
 - [x] Standarkan label Access/Attempt/Attention/Result dan tambahkan CTA
-  **Rilis hasil** dari Results jika rilis manual tersedia.
+  **Rilis hasil** dari Results hanya ketika gate server yang sama menyatakan
+  seluruh attempt siap dirilis.
 - [x] Pisahkan checklist **Content readiness** dan **Delivery readiness**.
 - [x] Bedakan **Sample sumber**, **Preview alur peserta**, dan **Versi terbit**.
+- [x] Jadikan terminal Live tetap **Terkirim** walaupun masih membawa marker
+  CAT, integritas, atau review lama.
+- [x] Pulihkan state dan tombol retry Live ketika refresh server melempar error.
+- [x] Tampilkan sinyal operasional server (**Terputus**, **CAT perlu ditinjau**,
+  atau **Butuh tindakan**) pada kolom **Perhatian** di Participants.
+- [x] Samakan predicate readiness Section rail dan Review, termasuk penjelasan
+  dan media soal langsung.
+- [x] Arahkan bookmark `?workspace=operations` ke **Delivery → Sessions**,
+  sama dengan redirect `/operations`.
+- [x] Perbarui contract test IA dan regression test state operasional agar
+  istilah legacy tidak mengunci implementasi pada sepuluh tab lama.
 
 ### Follow-up yang sengaja belum digabung
 

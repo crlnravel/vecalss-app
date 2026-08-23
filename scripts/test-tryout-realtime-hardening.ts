@@ -112,5 +112,16 @@ assert.equal(deriveTryoutLiveProjection({
     runs: [{ catState: "not_applicable", sequenceNo: 1, status: "expired", scoringState: "pending" }],
   },
 }).state, "needs_attention");
+assert.equal(deriveTryoutLiveProjection({
+  admissionStatus: "active",
+  attempt: {
+    attemptId: "attempt-terminal-integrity",
+    attemptState: "submitted",
+    integrityEvents: 1,
+    scoringState: "review_required",
+    status: "submitted",
+    runs: [{ catState: "failed", sequenceNo: 1, status: "sealed", scoringState: "review_required" }],
+  },
+}).state, "submitted");
 
 console.log("Tryout realtime hardening contracts passed.");
