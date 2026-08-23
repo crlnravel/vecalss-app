@@ -18,6 +18,8 @@ assert.match(repository, /const isTemporary = isTemporaryQuestionId\(question\.i
 assert.match(repository, /!isTemporary && !current/u);
 assert.match(repository, /getQuestionBankReadinessFromRevisions\(activeQuestions\.map/u);
 assert.match(repository, /getQuestionReadinessFromRevision\(/u);
+assert.match(repository, /if \(!revision\.question\.questionBank\) \{[\s\S]*isValidRevision\(revision\)/u);
+assert.match(repository, /if \(issues\.length\) \{[\s\S]*readiness:/u);
 assert.match(repository, /code: "readiness_failed"/u);
 assert.match(repository, /readiness,/u);
 assert.match(repository, /const allowedOperations: Record<ContentStatus, readonly string\[\]>/u);

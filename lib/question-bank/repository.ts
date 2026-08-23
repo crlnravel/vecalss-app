@@ -1280,22 +1280,31 @@ async function updateQuestionRevisionLifecycle(id: string, targetStatus: Questio
     }
     if (target === QuestionRevisionStatus.ready) {
       if (!isCurrent) throw new QuestionBankError("Hanya revisi aktif yang dapat dipindahkan ke Ready.", { code: "invalid_lifecycle_transition" });
-      const issues = getQuestionReadinessFromRevision({
-        questionId: revision.questionId,
-        revision,
-        subtestCode: revision.question.subtest?.code,
-      });
-      if (issues.length) {
-        throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", {
-          code: "readiness_failed",
-          details: { questionId: revision.questionId },
-          readiness: {
-            incompleteCount: 1,
-            issues,
-            readyCount: 0,
-            totalCount: 1,
-          },
+      if (!revision.question.questionBank) {
+        // Standalone revisions predate the Bank Soal readiness contract and
+        // intentionally have no Subtest requirement. Preserve that structural
+        // predicate while keeping the typed failure used by the action.
+        if (!isValidRevision(revision)) {
+          throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", { code: "readiness_failed" });
+        }
+      } else {
+        const issues = getQuestionReadinessFromRevision({
+          questionId: revision.questionId,
+          revision,
+          subtestCode: revision.question.subtest?.code,
         });
+        if (issues.length) {
+          throw new QuestionBankError("Revisi belum memenuhi syarat untuk Ready.", {
+            code: "readiness_failed",
+            details: { questionId: revision.questionId },
+            readiness: {
+              incompleteCount: 1,
+              issues,
+              readyCount: 0,
+              totalCount: 1,
+            },
+          });
+        }
       }
     }
     if (target === QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.draft && current !== QuestionRevisionStatus.review) {
