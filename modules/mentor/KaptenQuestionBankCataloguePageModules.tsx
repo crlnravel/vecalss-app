@@ -198,7 +198,7 @@ function FolderTree({ folders, selected, onCreate, onManage, onSelect }: { folde
           <span className="min-w-0 flex-1 truncate">{folder.id === null ? "Belum ditempatkan" : folder.name}</span>
           <span className="text-xs tabular-nums text-secondary-400">{folder.bankCount}</span>
         </button>
-        {folder.id && folder.id !== ALL_FOLDER ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${folder.name}`} className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => onCreate(folder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => onManage(folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => onManage(folder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onManage(folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
+        {folder.id && folder.id !== ALL_FOLDER ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${folder.name}`} className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => onCreate(folder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => onManage(folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => onManage(folder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => onManage(folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
       </div>
       {hasChildren ? <div>{folder.children?.map((child) => renderNode(child, depth + 1))}</div> : null}
     </div>;
@@ -214,6 +214,7 @@ function KaptenQuestionBankPageModule({
   initialPage = 1,
   initialPageSize = BANKS_PER_PAGE,
   initialSearch = "",
+  initialSort = "updated",
   initialSelectedCategories = [],
   initialSelectedFolder = ALL_FOLDER,
   initialSelectedSubjects = [],
@@ -227,6 +228,7 @@ function KaptenQuestionBankPageModule({
   initialPage?: number;
   initialPageSize?: number;
   initialSearch?: string;
+  initialSort?: BankSortMode;
   initialSelectedCategories?: string[];
   initialSelectedFolder?: FolderSelection;
   initialSelectedSubjects?: string[];
@@ -240,6 +242,7 @@ function KaptenQuestionBankPageModule({
   const [categories, setCategories] = useState(initialCategories);
   const [selectedFolder, setSelectedFolder] = useState<FolderSelection>(initialSelectedFolder);
   const [query, setQuery] = useState(initialSearch);
+  const [committedSearch, setCommittedSearch] = useState(initialSearch);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialSelectedCategories);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(initialSelectedSubjects);
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
@@ -260,12 +263,12 @@ function KaptenQuestionBankPageModule({
   const [bankCategorySelection, setBankCategorySelection] = useState<string[]>([]);
   const [organizationOpen, setOrganizationOpen] = useState(true);
   const [viewMode, setViewMode] = useState<BankViewMode>("grid");
-  const [sortMode, setSortMode] = useState<BankSortMode>("updated");
+  const [sortMode, setSortMode] = useState<BankSortMode>(initialSort);
 
   const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
   const currentFolder = selectedFolder !== ALL_FOLDER && selectedFolder !== null ? findFolder(folders, selectedFolder) : selectedFolder === null ? findFolder(folders, null) : null;
   const currentPath = selectedFolder === ALL_FOLDER ? [{ id: null, name: "Semua bank" }] : [{ id: null, name: "Semua bank" }, ...(selectedFolder === null ? [{ id: null, name: "Belum ditempatkan" }] : folderPath(folders, selectedFolder))];
-  const needle = query.trim().toLowerCase();
+  const needle = committedSearch.trim().toLowerCase();
   // The repository applies the filters and returns only the current page.
   // Keep the client-side list bounded even when the shared library is large.
   const totalPages = Math.max(1, Math.ceil(initialTotal / initialPageSize));
@@ -284,10 +287,11 @@ function KaptenQuestionBankPageModule({
   const selectedBank = bankMoveId ? entries.find(({ bank }) => bank.id === bankMoveId)?.bank ?? null : null;
   const categoryBank = bankCategoryId ? entries.find(({ bank }) => bank.id === bankCategoryId)?.bank ?? null : null;
 
-  function navigateCatalogue(next: { categories?: string[]; folder?: FolderSelection; page?: number; query?: string; status?: string; subjects?: string[] } = {}) {
+  function navigateCatalogue(next: { categories?: string[]; folder?: FolderSelection; page?: number; query?: string; sort?: BankSortMode; status?: string; subjects?: string[] } = {}) {
     const nextCategories = next.categories ?? selectedCategories;
     const nextFolder = next.folder ?? selectedFolder;
-    const nextQuery = next.query ?? query;
+    const nextQuery = next.query ?? committedSearch;
+    const nextSort = next.sort ?? sortMode;
     const nextStatus = next.status ?? statusFilter;
     const nextSubjects = next.subjects ?? selectedSubjects;
     const nextPage = next.page ?? 1;
@@ -297,6 +301,7 @@ function KaptenQuestionBankPageModule({
     nextCategories.forEach((id) => params.append("category", id));
     nextSubjects.forEach((code) => params.append("subtest", code));
     if (nextStatus) params.set("status", nextStatus);
+    if (nextSort !== "updated") params.set("sort", nextSort);
     if (nextPage > 1) params.set("page", String(nextPage));
     router.push(`/mentor/quiz/question-bank${params.toString() ? `?${params.toString()}` : ""}`);
   }
@@ -468,8 +473,8 @@ function KaptenQuestionBankPageModule({
           </div>
           <div className={cn("flex shrink-0 items-center gap-2", compact ? "justify-end sm:justify-start" : "flex-wrap") }>
             <Button aria-label={`Edit ${bank.title}`} className="min-h-[44px] min-w-[44px]" nativeButton={false} render={<Link href={bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
-            <Button className="min-h-[44px]" disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="sm" type="button" variant="brandOutline"><Folder />Pindahkan</Button>
-            <Button className="min-h-[44px]" disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="sm" type="button" variant="ghost">Kategori</Button>
+            <Button aria-label={`Pindahkan ${bank.title}`} className="min-h-[44px]" disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="sm" type="button" variant="brandOutline"><Folder />Pindahkan</Button>
+            <Button aria-label={`Kelola kategori ${bank.title}`} className="min-h-[44px]" disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="sm" type="button" variant="ghost">Kategori</Button>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} className="min-h-[44px] min-w-[44px]" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
@@ -495,11 +500,11 @@ function KaptenQuestionBankPageModule({
           <section className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 lg:hidden"><DropdownMenu><DropdownMenuTrigger render={<Button className="min-h-11 flex-1 justify-between" type="button" variant="context" />}><span className="flex min-w-0 items-center gap-2"><Folder className="size-4 text-primary-700" /><span className="truncate">{selectedFolder === ALL_FOLDER ? "Semua bank" : selectedFolder === null ? "Belum ditempatkan" : currentFolder?.name ?? "Pilih folder"}</span></span><ChevronDown /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuRadioGroup onValueChange={(value) => { const next = value === ALL_FOLDER ? ALL_FOLDER : value === "unfiled" ? null : value; setSelectedFolder(next); resetPage(); navigateCatalogue({ folder: next, page: 1 }); }} value={selectedFolder === ALL_FOLDER ? ALL_FOLDER : selectedFolder === null ? "unfiled" : selectedFolder}><DropdownMenuRadioItem value={ALL_FOLDER}>Semua bank</DropdownMenuRadioItem><DropdownMenuRadioItem value="unfiled">Belum ditempatkan</DropdownMenuRadioItem>{flatFolders.map(({ depth, folder }) => <DropdownMenuRadioItem className="pl-(--dropdown-menu-item-inset)" key={folder.id} style={{ paddingLeft: `${12 + depth * 12}px` }} value={folder.id ?? ""}>{folder.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="ghost"><Pencil /></Button><Button aria-label="Buat folder utama" onClick={() => openFolderCreate(null)} size="icon-sm" title="Buat folder utama" type="button" variant="brandOutline"><FolderPlus /></Button></div>
           <nav aria-label="Breadcrumb folder" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500">{currentPath.map((item, index) => <span className="flex shrink-0 items-center gap-1" key={`${item.id ?? "root"}-${item.name}`}><button className={cn("rounded-lg px-1.5 py-1 hover:bg-primary-50 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200", index === currentPath.length - 1 ? "font-semibold text-secondary-900" : "")} onClick={() => { const next = index === 0 ? ALL_FOLDER : item.id; setSelectedFolder(next); resetPage(); navigateCatalogue({ folder: next, page: 1 }); }} type="button">{item.name}</button>{index < currentPath.length - 1 ? <ChevronRight className="size-3.5 text-secondary-300" /> : null}</span>)}</nav>
-            <label className="relative block" htmlFor="question-bank-search"><Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><input aria-label="Cari bank soal" className="min-h-11 w-full rounded-2xl border border-primary-100 bg-white pl-10 pr-3 text-sm text-secondary-900 outline-none transition-colors placeholder:text-secondary-400 focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="question-bank-search" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); resetPage(); navigateCatalogue({ query, page: 1 }); } }} placeholder="Cari judul, folder, subject, atau kategori..." type="search" value={query} /></label>
+            <label className="relative block" htmlFor="question-bank-search"><Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><input aria-label="Cari bank soal" className="min-h-11 w-full rounded-2xl border border-primary-100 bg-white pl-10 pr-3 text-sm text-secondary-900 outline-none transition-colors placeholder:text-secondary-400 focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="question-bank-search" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setCommittedSearch(query); resetPage(); navigateCatalogue({ query, page: 1 }); } }} placeholder="Cari judul, folder, subject, atau kategori..." type="search" value={query} /></label>
             <DropdownMenu><DropdownMenuTrigger render={<Button className="justify-between" type="button" variant="context" />}><span>Subject{selectedSubjects.length ? ` · ${selectedSubjects.length}` : ""}</span><ChevronDown /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-64"><DropdownMenuLabel>Coverage subject</DropdownMenuLabel>{kaptenSubjects.map((subject) => <DropdownMenuCheckboxItem checked={selectedSubjects.includes(subject.code)} key={subject.code} onCheckedChange={(checked) => { const next = checked ? [...selectedSubjects, subject.code] : selectedSubjects.filter((code) => code !== subject.code); setSelectedSubjects(next); resetPage(); navigateCatalogue({ subjects: next, page: 1 }); }}>{subject.code} · {subject.name}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu>
             <DropdownMenu><DropdownMenuTrigger render={<Button className="justify-between" type="button" variant="context" />}><span>Kategori{selectedCategories.length ? ` · ${selectedCategories.length}` : ""}</span><ChevronDown /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-64"><DropdownMenuLabel>Kategori bersama</DropdownMenuLabel>{categories.length ? categories.map((category) => <DropdownMenuCheckboxItem checked={selectedCategories.includes(category.id)} key={category.id} onCheckedChange={(checked) => { const next = checked ? [...selectedCategories, category.id] : selectedCategories.filter((id) => id !== category.id); setSelectedCategories(next); resetPage(); navigateCatalogue({ categories: next, page: 1 }); }}>{category.name}</DropdownMenuCheckboxItem>) : <div className="px-3 py-2 text-sm text-secondary-500">Belum ada kategori bersama.</div>}</DropdownMenuContent></DropdownMenu>
             <DropdownMenu><DropdownMenuTrigger render={<Button className="justify-between" type="button" variant="context" />}><span>{statusFilter ? statusCopy(statusFilter as KaptenQuestionBank["status"]) : "Status"}</span><ChevronDown /></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup onValueChange={(value) => { setStatusFilter(value); resetPage(); navigateCatalogue({ status: value, page: 1 }); }} value={statusFilter}><DropdownMenuRadioItem value="">Semua status</DropdownMenuRadioItem><DropdownMenuRadioItem value="draft">Draf</DropdownMenuRadioItem><DropdownMenuRadioItem value="published">Diterbitkan</DropdownMenuRadioItem><DropdownMenuRadioItem value="archived">Diarsipkan</DropdownMenuRadioItem><DropdownMenuRadioItem value="scheduled">Terjadwal</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-            {(query || selectedCategories.length || selectedSubjects.length || statusFilter || selectedFolder !== ALL_FOLDER) ? <Button onClick={() => { setQuery(""); setSelectedCategories([]); setSelectedSubjects([]); setStatusFilter(""); setSelectedFolder(ALL_FOLDER); resetPage(); navigateCatalogue({ categories: [], folder: ALL_FOLDER, query: "", status: "", subjects: [], page: 1 }); }} size="sm" type="button" variant="ghost">Bersihkan filter</Button> : null}
+            {(query || committedSearch || selectedCategories.length || selectedSubjects.length || statusFilter || selectedFolder !== ALL_FOLDER) ? <Button onClick={() => { setQuery(""); setCommittedSearch(""); setSelectedCategories([]); setSelectedSubjects([]); setStatusFilter(""); setSelectedFolder(ALL_FOLDER); resetPage(); navigateCatalogue({ categories: [], folder: ALL_FOLDER, query: "", status: "", subjects: [], page: 1 }); }} size="sm" type="button" variant="ghost">Bersihkan filter</Button> : null}
           </section>
           <div className="flex flex-col gap-3 rounded-3xl border border-primary-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="flex min-w-0 items-center gap-3">
@@ -509,7 +514,7 @@ function KaptenQuestionBankPageModule({
             <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button className="min-h-10" size="sm" type="button" variant="context" />}><ListFilter className="size-4" />{sortMode === "name" ? "Nama" : sortMode === "questions" ? "Jumlah soal" : "Terbaru"}<ChevronDown /></DropdownMenuTrigger>
-                <DropdownMenuContent align="end"><DropdownMenuLabel>Urutkan koleksi</DropdownMenuLabel><DropdownMenuRadioGroup onValueChange={(value) => setSortMode(value as BankSortMode)} value={sortMode}><DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem><DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent>
+                <DropdownMenuContent align="end"><DropdownMenuLabel>Urutkan koleksi</DropdownMenuLabel><DropdownMenuRadioGroup onValueChange={(value) => { const next = value as BankSortMode; setSortMode(next); resetPage(); navigateCatalogue({ sort: next, page: 1 }); }} value={sortMode}><DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem><DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent>
               </DropdownMenu>
               <div aria-label="Tampilan koleksi" className="flex items-center rounded-xl border border-primary-100 bg-primary-50/50 p-0.5" role="group">
                 <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} className="min-h-[44px] min-w-[44px]" onClick={() => setViewMode("grid")} size="icon-sm" title="Tampilan grid" type="button" variant={viewMode === "grid" ? "contextSelected" : "ghost"}><LayoutGrid /></Button>

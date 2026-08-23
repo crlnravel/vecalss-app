@@ -108,11 +108,14 @@ type QuestionBankEntry = { bank: QuestionBankDto; questions: BankQuestionDto[] }
 type QuestionBankCatalogEntry = { bank: QuestionBankDto };
 type QuestionBankSourceEntry = { bank: QuestionBankDto };
 
+type QuestionBankSort = "updated" | "name" | "questions";
+
 type ListQuestionBanksOptions = {
   categoryId?: string;
   categoryIds?: string[];
   folderId?: string | null;
   search?: string;
+  sort?: QuestionBankSort;
   status?: ContentStatus;
   subjectCoverage?: string[];
 };
@@ -418,8 +421,13 @@ async function listQuestionBankPage(options: ListQuestionBanksOptions & { page?:
   const pageSize = Math.min(50, Math.max(1, options.pageSize ?? 25));
   const page = Math.max(1, options.page ?? 1);
   const where = buildListWhere(options);
+  const orderBy = options.sort === "name"
+    ? [{ name: "asc" as const }, { id: "asc" as const }]
+    : options.sort === "questions"
+      ? [{ questions: { _count: "desc" as const } }, { updatedAt: "desc" as const }, { id: "desc" as const }]
+      : [{ updatedAt: "desc" as const }, { id: "desc" as const }];
   const [records, total, folderRows] = await Promise.all([
-    prisma.questionBank.findMany({ include: bankCatalogInclude, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], skip: (page - 1) * pageSize, take: pageSize, where }),
+    prisma.questionBank.findMany({ include: bankCatalogInclude, orderBy, skip: (page - 1) * pageSize, take: pageSize, where }),
     prisma.questionBank.count({ where }),
     getFolderRows(),
   ]);
@@ -1044,6 +1052,7 @@ export {
 };
 export type {
   ListQuestionBanksOptions,
+  QuestionBankSort,
   BankQuestionDto,
   QuestionBankDiscovery,
   QuestionBankDto,

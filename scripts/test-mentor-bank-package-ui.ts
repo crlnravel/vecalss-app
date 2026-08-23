@@ -20,7 +20,15 @@ assert.match(bankCatalogue, /aria-pressed=\{viewMode === "list"\}/u);
 assert.match(bankCatalogue, /Folder di lokasi ini/u, "Folder navigation should be visible as media-library cards");
 assert.match(bankCatalogue, /Belum ditempatkan/u, "Unfiled should use a user-facing Indonesian label");
 assert.match(bankCatalogue, /type BankSortMode = "updated" \| "name" \| "questions"/u);
+assert.match(bankCatalogue, /initialSort = "updated"/u, "Bank Soal should hydrate sort from the URL");
+assert.match(bankCatalogue, /const \[committedSearch, setCommittedSearch\]/u, "search summary should use committed query state");
+assert.match(bankCatalogue, /focus-visible:opacity-100/u, "folder actions should remain visible for keyboard focus");
+assert.match(bankCatalogue, /aria-label=\{`Pindahkan \$\{bank\.title\}`\}/u, "move actions should name their bank");
+assert.match(bankCatalogue, /aria-label=\{`Kelola kategori \$\{bank\.title\}`\}/u, "category actions should name their bank");
+assert.match(bankCatalogue, /navigateCatalogue\(\{ sort: next, page: 1 \}\)/u, "sort changes should persist in the URL");
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
+assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /sort: requestedSort/u, "question bank sorting should be server-side");
+assert.match(read("lib/question-bank/repository.ts"), /questions: \{ _count: "desc"/u, "question-count sorting should be collection-wide");
 
 assert.match(packageBuilder, /<h1[^>]*>\{saved \? `Edit \$\{draft\.title\}` : "Buat Paket Soal"\}/u, "Paket Soal builder needs a page-level heading");
 assert.match(packageBuilder, /useMemo\(\(\) => sourceEntries\.reduce/u, "source picker options should be derived from current inputs");

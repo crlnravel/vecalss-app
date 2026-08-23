@@ -6,6 +6,7 @@ import {
   listQuestionBankFolderTree,
   listQuestionBankPage,
 } from "@/lib/question-bank/repository";
+import type { QuestionBankSort } from "@/lib/question-bank/repository";
 import { KaptenQuestionBankPageModule } from "@/modules/mentor/KaptenQuestionBankCataloguePageModules";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 
@@ -29,15 +30,16 @@ export default async function MentorQuestionBankPage({
   const status = ["draft", "scheduled", "published", "archived"].includes(requestedStatus) ? requestedStatus as "draft" | "scheduled" | "published" | "archived" : undefined;
   const page = Math.max(1, Number.parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1);
   const search = typeof params.q === "string" ? params.q : "";
+  const requestedSort = typeof params.sort === "string" && ["updated", "name", "questions"].includes(params.sort) ? params.sort as QuestionBankSort : "updated";
   const [banks, folderTree, categories] = await Promise.all([
-    listQuestionBankPage({ categoryIds: requestedCategories, folderId: search.trim() ? undefined : folderId, page, pageSize: 25, search, status, subjectCoverage: requestedSubjects }),
+    listQuestionBankPage({ categoryIds: requestedCategories, folderId: search.trim() ? undefined : folderId, page, pageSize: 25, search, sort: requestedSort, status, subjectCoverage: requestedSubjects }),
     listQuestionBankFolderTree(),
     listQuestionBankCategories(),
   ]);
 
   return (
     <KaptenQuestionBankPageModule
-      key={JSON.stringify({ category: requestedCategories, folder: requestedFolder, page, q: search, status, subtest: requestedSubjects })}
+      key={JSON.stringify({ category: requestedCategories, folder: requestedFolder, page, q: search, sort: requestedSort, status, subtest: requestedSubjects })}
       initialCategories={categories}
       initialEntries={banks.items}
       initialFolderTree={folderTree}
@@ -47,6 +49,7 @@ export default async function MentorQuestionBankPage({
       initialSelectedCategories={requestedCategories}
       initialSelectedFolder={requestedFolder === undefined ? "all" : folderId}
       initialSelectedSubjects={requestedSubjects}
+      initialSort={requestedSort}
       initialStatusFilter={status ?? ""}
       initialTotal={banks.total}
       session={session}
