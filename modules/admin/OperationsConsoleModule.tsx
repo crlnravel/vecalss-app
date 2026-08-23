@@ -8,10 +8,8 @@ import {
   ArrowUpRight,
   CheckCircle2,
   ChevronRight,
-  CircleAlert,
   Clock3,
   FileClock,
-  ShieldCheck,
   UserPlus,
   X,
 } from "@/lib/icons";
@@ -293,10 +291,7 @@ function ActivityPanel({
 }) {
   return (
     <section>
-      <div className="flex items-start justify-between gap-4">
-        <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Recent activity</h2>
-        <ShieldCheck aria-hidden="true" className="text-primary-600" size={20} />
-      </div>
+      <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Recent activity</h2>
       {audits.length === 0 ? (
         <p className="mt-5 rounded-3xl border border-primary-200 bg-white/65 px-4 py-5 text-sm leading-6 text-secondary-600">No audit activity has been recorded yet.</p>
       ) : (
@@ -314,13 +309,13 @@ function ActivityPanel({
       )}
       <div className="mt-5 flex justify-center">
         <Button
+          className="font-bold text-primary-700 hover:bg-transparent hover:text-primary-800"
           nativeButton={false}
           render={<Link href="/admin/audit-logs" />}
           size="default"
           variant="ghost"
         >
           See more
-          <ArrowUpRight aria-hidden="true" size={16} />
         </Button>
       </div>
     </section>
@@ -660,11 +655,9 @@ function OperationsConsoleModule({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Quick actions</h2>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <OperationControl active={selectedOperation === "add-student"} icon={UserPlus} onSelect={() => selectOperation("add-student")} operation="add-student" />
           <OperationControl active={selectedOperation === "add-kapten"} icon={UserPlus} onSelect={() => selectOperation("add-kapten")} operation="add-kapten" />
-          <OperationControl count={snapshot.counts.importsNeedingReview} active={selectedOperation === "import-roster"} icon={FileClock} onSelect={() => selectOperation("import-roster")} operation="import-roster" />
-          <OperationControl count={visibleAttentionTotal} active={selectedOperation === "exceptions"} icon={CircleAlert} onSelect={() => selectOperation("exceptions")} operation="exceptions" />
         </div>
       </section>
 

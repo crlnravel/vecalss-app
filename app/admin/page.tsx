@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "Admin Dashboard | Vecalss LMS",
 };
 
-const operationKeys: OperationKey[] = ["add-student", "add-kapten", "import-roster", "exceptions"];
+const operationKeys: OperationKey[] = ["add-student", "add-kapten"];
 
 function readOperation(value: string | string[] | undefined): OperationKey | undefined {
   const candidate = Array.isArray(value) ? value[0] : value;

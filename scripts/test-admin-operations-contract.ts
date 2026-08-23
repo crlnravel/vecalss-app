@@ -18,6 +18,9 @@ const [page, service, consoleModule, consoleError, shell, studentPage, kaptenPag
 assert.match(page, /requireAdminSession/);
 assert.match(page, /getAdminOperationsSnapshot/);
 assert.match(page, /dynamic = "force-dynamic"/);
+assert.match(page, /const operationKeys: OperationKey\[\] = \["add-student", "add-kapten"\]/);
+assert.doesNotMatch(page, /"import-roster"/);
+assert.doesNotMatch(page, /"exceptions"/);
 assert.match(service, /import "server-only"/);
 assert.match(service, /prisma\.user\.count/);
 assert.match(service, /prisma\.enrollmentHandoff\.count/);
@@ -35,6 +38,8 @@ assert.doesNotMatch(service, /seed|fixture|demo/i);
 for (const label of ["Add student", "Add Kapten", "Import roster", "Review exceptions"]) {
   assert.match(consoleModule, new RegExp(label.replace(" ", "\\s+")));
 }
+assert.doesNotMatch(consoleModule, /<OperationControl count=\{snapshot\.counts\.importsNeedingReview\}/);
+assert.doesNotMatch(consoleModule, /<OperationControl count=\{visibleAttentionTotal\}/);
 assert.match(consoleModule, /SheetContent/);
 assert.match(consoleModule, /lastTrigger/);
 assert.match(consoleModule, /MobileAttentionQueue/);

@@ -32,16 +32,13 @@ function AdminLoading() {
             <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
               <section>
                 <LoadingBlock className="h-7 w-40" />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {Array.from({ length: 4 }, (_, index) => <LoadingBlock className="h-[88px] bg-white shadow-[0_18px_34px_-30px_rgba(1,76,56,0.45)]" key={index} />)}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {Array.from({ length: 2 }, (_, index) => <LoadingBlock className="h-[88px] bg-white shadow-[0_18px_34px_-30px_rgba(1,76,56,0.45)]" key={index} />)}
                 </div>
               </section>
 
               <section>
-                <div className="flex items-start justify-between gap-4">
-                  <LoadingBlock className="h-7 w-44" />
-                  <LoadingBlock className="size-5 rounded-full" />
-                </div>
+                <LoadingBlock className="h-7 w-44" />
                 <div className="mt-5 space-y-3">
                   {Array.from({ length: 10 }, (_, index) => <LoadingBlock className="h-10 w-full" key={index} />)}
                 </div>
