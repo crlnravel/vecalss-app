@@ -4,6 +4,8 @@ import fs from "node:fs";
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
 const bankCatalogue = read("modules/mentor/KaptenQuestionBankCataloguePageModules.tsx");
+const bankCatalogueLoading = read("app/mentor/quiz/question-bank/loading.tsx");
+const dataTable = read("components/ui/data-table.tsx");
 const packageBuilder = read("modules/mentor/KaptenPackageBuilderPageModule.tsx");
 const packageVersionDetail = read("modules/mentor/KaptenPackageVersionDetailModule.tsx");
 
@@ -20,6 +22,12 @@ assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on t
 assert.doesNotMatch(bankCatalogue, /<main className="min-w-0 space-y-4">/u, "Bank Soal should not nest a second main landmark");
 assert.match(bankCatalogue, /MentorCatalogueTable/u, "Bank Soal should use the reusable table wrapper");
 assert.match(bankCatalogue, /caption="Daftar folder dan bank soal"/u, "Bank Soal should expose one integrated table caption");
+assert.match(bankCatalogue, /isLoading=\{isCataloguePending\}/u, "Bank Soal should mark the table busy during catalogue fetches");
+assert.match(bankCatalogue, /loadingLabel="Memuat bank soal…"/u, "Bank Soal loading state should use product language");
+assert.match(dataTable, /isLoading\?: boolean/u, "DataTable should accept an external loading state");
+assert.match(dataTable, /isLoading \? \(/u, "DataTable should render loading content before its empty state");
+assert.match(bankCatalogueLoading, /LoaderCircle[\s\S]*Memuat bank soal…/u, "Bank Soal route loading should show a spinner while the initial fetch is pending");
+assert.match(bankCatalogueLoading, /role="status"/u, "Bank Soal loading should be announced to assistive technology");
 assert.doesNotMatch(bankCatalogue, /headingIcon=\{<LibraryBig/u, "Bank Soal breadcrumb should not render a leading book tile");
 assert.match(bankCatalogue, /folderBreadcrumb/u, "Bank Soal should expose the active folder breadcrumb");
 assert.match(bankCatalogue, /label: "Kategori"/u, "Bank Soal should label bank coverage as categories");

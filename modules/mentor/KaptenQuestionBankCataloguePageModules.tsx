@@ -17,7 +17,7 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -240,6 +240,7 @@ function KaptenQuestionBankPageModule({
   session: SessionContext;
 }) {
   const router = useRouter();
+  const [isCataloguePending, startCatalogueTransition] = useTransition();
   const [entries, setEntries] = useState(initialEntries);
   const [folders, setFolders] = useState(initialFolderTree);
   const [categories, setCategories] = useState(initialCategories);
@@ -286,10 +287,14 @@ function KaptenQuestionBankPageModule({
     const nextStatus = next.status ?? statusFilter;
     const nextSubjects = next.subjects ?? selectedSubjects;
     const nextPage = next.page ?? 1;
-    router.push(questionBankHref({ categories: nextCategories, folder: nextFolder, page: nextPage, query: nextQuery, sort: nextSort, status: nextStatus, subjects: nextSubjects }));
+    startCatalogueTransition(() => {
+      router.push(questionBankHref({ categories: nextCategories, folder: nextFolder, page: nextPage, query: nextQuery, sort: nextSort, status: nextStatus, subjects: nextSubjects }));
+    });
   }
   function resetPage() { setPage(1); }
-  function refreshFromServer() { router.refresh(); }
+  function refreshFromServer() {
+    startCatalogueTransition(() => router.refresh());
+  }
   function openFolderCreate(parentId: string | null) { setFolderError(null); setFolderName(""); setFolderParentId(parentId); setFolderDialog({ kind: "create" }); }
   function openFolderManage(folder: FolderNode, kind: "move" | "rename" | "remove") {
     if (kind === "remove") {
@@ -629,6 +634,8 @@ function KaptenQuestionBankPageModule({
           moreMenu={sortMenu}
           rows={catalogueRows}
           search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
+          isLoading={isCataloguePending}
+          loadingLabel="Memuat bank soal…"
           tableClassName="min-w-[760px]"
         />
         {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}

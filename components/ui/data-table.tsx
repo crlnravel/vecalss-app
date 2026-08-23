@@ -90,6 +90,8 @@ type DataTableProps<T> = {
   filters?: readonly DataTableFilter[];
   clearFiltersHref?: string;
   getRowId: (row: T) => string;
+  isLoading?: boolean;
+  loadingLabel?: string;
   moreMenu?: ReactNode;
   rowClassName?: (row: T, selected: boolean) => string | undefined;
   rowProps?: (row: T) => ComponentProps<typeof TableRow>;
@@ -165,6 +167,8 @@ type DataTableGridProps<T> = {
   emptyState?: ReactNode;
   getRowId: (row: T) => string;
   hasPartialSelection: boolean;
+  isLoading: boolean;
+  loadingLabel?: string;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T, selected: boolean) => string | undefined;
   rowProps?: (row: T) => ComponentProps<typeof TableRow>;
@@ -221,6 +225,8 @@ function DataTableGrid<T>({
   emptyState,
   getRowId,
   hasPartialSelection,
+  isLoading,
+  loadingLabel,
   onRowClick,
   rowClassName,
   rowProps,
@@ -236,7 +242,7 @@ function DataTableGrid<T>({
   visibleColumns,
 }: DataTableGridProps<T>) {
   return (
-    <Table className={cn("min-w-[760px] table-fixed border-separate border-spacing-y-0", tableClassName)}>
+    <Table aria-busy={isLoading} className={cn("min-w-[760px] table-fixed border-separate border-spacing-y-0", tableClassName)}>
       <caption className="sr-only">{caption}</caption>
       <TableHeader>
         <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
@@ -280,7 +286,16 @@ function DataTableGrid<T>({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.length ? rows.map((row) => {
+        {isLoading ? (
+          <TableRow>
+            <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
+              <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-500" role="status">
+                <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
+                <span>{loadingLabel ?? "Loading…"}</span>
+              </div>
+            </TableCell>
+          </TableRow>
+        ) : rows.length ? rows.map((row) => {
           const id = getRowId(row);
           const selected = selectedIds.has(id);
           const additionalRowProps = rowProps?.(row);
@@ -364,6 +379,8 @@ function DataTable<T>({
   filterPanel,
   filters = [],
   getRowId,
+  isLoading = false,
+  loadingLabel,
   moreMenu,
   onRowClick,
   rowClassName,
@@ -386,6 +403,7 @@ function DataTable<T>({
   );
 
   const visibleIds = rows.map((row) => getRowId(row));
+  const tableIsLoading = isLoading || isSearchDebouncing || isSearchPending;
   const visibleColumns = columns.filter((column) => visibleColumnIds.has(column.id));
   const visibleColumnWidthTotal = visibleColumns.reduce((total, column) => total + (column.width ?? 1), 0);
   const selectedVisibleCount = visibleIds.filter((id) => selectedIds.has(id)).length;
@@ -499,7 +517,7 @@ function DataTable<T>({
     <>
       <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
         {search ? (
-          <form aria-busy={isSearchDebouncing || isSearchPending} action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get" onSubmit={handleSearchSubmit}>
+          <form aria-busy={tableIsLoading} action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get" onSubmit={handleSearchSubmit}>
             {isSearchDebouncing || isSearchPending ? (
               <LoaderCircle aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin text-secondary-400" size={17} />
             ) : (
@@ -623,6 +641,8 @@ function DataTable<T>({
         emptyState={emptyState}
         getRowId={getRowId}
         hasPartialSelection={hasPartialSelection}
+        isLoading={tableIsLoading}
+        loadingLabel={loadingLabel}
         onRowClick={onRowClick}
         rowClassName={rowClassName}
         rowIsClickable={rowIsClickable}
