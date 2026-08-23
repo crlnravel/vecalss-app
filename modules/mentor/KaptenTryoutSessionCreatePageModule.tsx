@@ -57,7 +57,7 @@ function KaptenTryoutSessionCreatePageModule({
   const [session, setSession] = useState<SessionDraft>(emptySession);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
-  const sessionsHref = `/mentor/tryout/${initial.id}?workspace=sessions`;
+  const sessionsHref = `/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`;
 
   const handleCreate = async () => {
     if (
@@ -242,7 +242,7 @@ function KaptenTryoutSessionCreatePageModule({
         <CardFooter className="justify-end border-t border-primary-100">
           <Button disabled={busy} onClick={() => void handleCreate()} variant="brand">
             <Save data-icon="inline-start" />
-            {busy ? "Menyimpan…" : "Simpan draft"}
+            {busy ? "Menyimpan…" : "Simpan sesi"}
           </Button>
         </CardFooter>
       </Card>

@@ -10,11 +10,14 @@ export const metadata: Metadata = { title: "Detail Sesi Tryout | Vecalss LMS" };
 
 export default async function TryoutSessionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ sessionId: string; tryoutId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
-  const [{ sessionId, tryoutId }, session] = await Promise.all([
+  const [{ sessionId, tryoutId }, query, session] = await Promise.all([
     params,
+    searchParams,
     requireTutorSession(),
   ]);
   const operations = await getOwnedTryoutOperationsView(
@@ -33,6 +36,7 @@ export default async function TryoutSessionDetailPage({
     >
       <KaptenTryoutSessionDetailPageModule
         initial={operations}
+        initialTab={query.tab === "details" ? "details" : "attempts"}
         sessionId={sessionId}
       />
     </MentorWorkspaceShell>

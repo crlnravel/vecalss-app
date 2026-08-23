@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertTriangle, ChevronRight, RefreshCw, ShieldAlert, Users } from "@/lib/icons";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,16 @@ const liveSeverityLabels: Record<LiveSeverity, string> = {
   attention: "Perlu ditinjau",
   critical: "Butuh tindakan",
   neutral: "Normal",
+};
+
+const liveActionPriority: Record<LiveState, number> = {
+  needs_attention: 0,
+  disconnected: 1,
+  cat_failure: 2,
+  in_progress: 3,
+  registered: 4,
+  checked_in: 4,
+  submitted: 5,
 };
 
 function formatTimestamp(value: string | null) {
@@ -113,6 +123,11 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
     submitted: 0,
   });
   const updatedLabel = formatTimestamp(lastUpdatedAt);
+  const orderedLive = useMemo(() => [...view.live].sort((left, right) => {
+    const priorityDelta = liveActionPriority[left.state] - liveActionPriority[right.state];
+    if (priorityDelta !== 0) return priorityDelta;
+    return left.participant.displayName.localeCompare(right.participant.displayName, "id");
+  }), [view.live]);
 
   return (
     <section className="grid gap-6" aria-labelledby="tryout-live-title">
@@ -130,7 +145,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="text-right text-xs text-secondary-500" aria-live="polite">
-            {refreshState === "refreshing" ? "Memperbarui dari server…" : updatedLabel ? `Terakhir diperbarui ${updatedLabel}` : "Menunggu refresh server"}
+            {refreshState === "refreshing" ? "Memperbarui dari server…" : updatedLabel ? `Diperbarui ${updatedLabel}` : "Menunggu refresh server"}
           </div>
           <Button
             aria-label="Refresh status Live"
@@ -148,7 +163,7 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
 
       {refreshMessage ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#f3d486] bg-[#fff7e5] px-4 py-3.5 text-sm leading-6 text-[#6a4a00]" role="alert">
-          <span>{refreshMessage}</span>
+          <span>Data mungkin tertinggal. {refreshMessage}</span>
           <Button onClick={retryRefresh} size="sm" variant="outline">Coba lagi</Button>
         </div>
       ) : null}
@@ -182,14 +197,14 @@ function KaptenTryoutLivePageModule({ initial }: { initial: TryoutOperationsView
             <h3 className="text-lg font-semibold text-secondary-900" id="tryout-live-participants-title">Peserta dan next action</h3>
             <p className="mt-1 text-sm text-secondary-600">Buka participant untuk akses, atau attempt untuk run dan sinyal yang lebih rinci.</p>
           </div>
-          <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4 hover:text-primary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${view.id}?workspace=schedule`}>
-            Buka Schedule &amp; akses <ChevronRight aria-hidden="true" className="size-4" />
+          <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 underline decoration-primary-300 underline-offset-4 hover:text-primary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${view.id}?workspace=schedule&delivery=participants`}>
+            Buka Participants <ChevronRight aria-hidden="true" className="size-4" />
           </Link>
         </div>
 
         {view.live.length ? (
           <div className="grid gap-3">
-            {view.live.map((item) => (
+            {orderedLive.map((item) => (
               <Card className="shadow-none ring-primary-100" key={item.admissionId}>
                 <CardHeader>
                   <CardTitle className="flex min-w-0 items-center gap-2 font-semibold">

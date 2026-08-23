@@ -22,8 +22,8 @@ import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/
 import { KaptenTryoutInvitationPicker } from "@/modules/mentor/KaptenTryoutInvitationPicker";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
+  admissionStatusLabels,
   participantAttemptStateLabels,
-  participantSessionStateLabels,
 } from "@/modules/mentor/KaptenTryoutOperationsData";
 import { OperationalPageHeader } from "@/modules/mentor/KaptenTryoutOperationalShared";
 
@@ -47,7 +47,7 @@ function KaptenTryoutParticipantsPageModule({
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
       {embedded ? <header><h2 className="text-xl font-semibold text-secondary-900">Peserta</h2><p className="mt-1 text-sm text-secondary-600">Admission dan penugasan sesi peserta.</p></header> : <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}?workspace=participants`}
+        backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=participants`}
         description={initial.title}
         title="Peserta"
       />}
@@ -74,10 +74,11 @@ function KaptenTryoutParticipantsPageModule({
                     <ChevronRight aria-hidden="true" className="text-secondary-400" />
                   </CardAction>
                 </CardHeader>
-                <CardContent className="grid gap-2 text-sm text-secondary-600 sm:grid-cols-3">
-                  <span><strong className="font-medium text-secondary-800">Sesi:</strong> {participant.session?.name ?? "Belum ditugaskan"} · {participantSessionStateLabels[participant.session?.state ?? "not_assigned"]}</span>
-                  <span><strong className="font-medium text-secondary-800">Attempt:</strong> {participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] ?? participant.attempt.attemptState : "Belum mulai"}</span>
-                  <span><strong className="font-medium text-secondary-800">Nilai:</strong> {participant.score.score === null ? participant.score.scoringState === "not_started" ? "Belum dihitung" : "Menunggu rilis" : Number(participant.score.score).toFixed(2)}</span>
+                <CardContent className="grid gap-3 text-sm text-secondary-600 sm:grid-cols-2 lg:grid-cols-4">
+                  <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Akses</strong><span className="mt-1 block font-medium text-secondary-800">{admissionStatusLabels[participant.admission.status] ?? participant.admission.status}</span></span>
+                  <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Attempt</strong><span className="mt-1 block font-medium text-secondary-800">{participant.attempt ? participantAttemptStateLabels[participant.attempt.attemptState] ?? participant.attempt.attemptState : "Belum mulai"}</span></span>
+                  <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Perhatian</strong><span className="mt-1 block font-medium text-secondary-800">{participant.attempt?.scoringState === "review_required" ? "Butuh tindakan" : "—"}</span></span>
+                  <span><strong className="block text-xs font-medium uppercase tracking-[0.08em] text-secondary-500">Hasil</strong><span className="mt-1 block font-medium text-secondary-800">{participant.score.score === null ? participant.score.scoringState === "not_started" ? "Belum dihitung" : "Menunggu rilis" : Number(participant.score.score).toFixed(2)}</span></span>
                 </CardContent>
               </Card>
             </Link>

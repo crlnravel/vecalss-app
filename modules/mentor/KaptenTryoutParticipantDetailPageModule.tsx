@@ -123,7 +123,7 @@ function KaptenTryoutParticipantDetailPageModule({
   return (
     <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}?workspace=participants`}
+        backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=participants`}
         description={initial.title}
         title={admission.student}
         trailing={<StatusBadge status={admission.status} />}

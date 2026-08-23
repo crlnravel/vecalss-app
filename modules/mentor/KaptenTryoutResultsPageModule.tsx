@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, ChevronRight, CircleAlert, ExternalLink, ShieldCheck } from "@/lib/icons";
+import { BarChart3, ChevronRight, CircleAlert, ExternalLink, ShieldCheck, Upload } from "@/lib/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +61,7 @@ function KaptenTryoutResultsPageModule({ initial }: { initial: TryoutOperationsV
           const sessionScored = results.filter((result) => result.resultReadiness === "scored").length;
           const sessionReview = results.filter((result) => result.resultReadiness === "review_required").length;
           const effectivePolicy = (session.releasePolicy === "inherit" ? initial.defaultReleasePolicy : session.releasePolicy) as Policy;
+          const canReleaseManually = effectivePolicy === "manual" && !session.releasedAt && Boolean(session.assessmentRelease);
           return (
             <Card className="shadow-none ring-primary-100" key={session.id}>
               <CardHeader>
@@ -87,7 +88,7 @@ function KaptenTryoutResultsPageModule({ initial }: { initial: TryoutOperationsV
                   </div>
                 ))}</div> : <p className="rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center text-sm text-secondary-500">Belum ada attempt untuk sesi ini.</p>}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-primary-100 pt-3"><p className="text-xs text-secondary-600">Buka detail sesi untuk tindakan rilis dan validasi bundle lengkap.</p><Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}`}>Detail sesi <ChevronRight aria-hidden="true" className="size-4" /></Link></div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-primary-100 pt-3"><p className="text-xs text-secondary-600">{canReleaseManually ? "Rilis manual tersedia dari detail sesi; server akan memeriksa kesiapan hasil." : "Buka detail sesi untuk validasi bundle lengkap dan tindakan lanjutan."}</p><div className="flex flex-wrap gap-2">{canReleaseManually ? <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}?tab=details#session-actions`}><Upload aria-hidden="true" className="size-4" />Rilis hasil</Link> : null}<Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}?tab=details#session-actions`}>Detail sesi <ChevronRight aria-hidden="true" className="size-4" /></Link></div></div>
               </CardContent>
             </Card>
           );

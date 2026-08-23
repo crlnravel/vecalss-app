@@ -98,12 +98,12 @@ type WorkspaceParticipantInput = {
 };
 
 const liveStateLabels: Record<LiveState, string> = {
-  cat_failure: "CAT gagal",
-  checked_in: "Sudah check-in",
+  cat_failure: "CAT perlu ditinjau",
+  checked_in: "Siap mulai",
   disconnected: "Terputus",
   in_progress: "Berlangsung",
-  needs_attention: "Perlu perhatian",
-  registered: "Terdaftar",
+  needs_attention: "Butuh tindakan",
+  registered: "Belum mulai",
   submitted: "Terkirim",
 };
 

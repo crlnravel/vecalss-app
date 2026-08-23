@@ -59,9 +59,11 @@ const sessionDateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
 
 function KaptenTryoutSessionDetailPageModule({
   initial,
+  initialTab = "attempts",
   sessionId,
 }: {
   initial: TryoutOperationsView;
+  initialTab?: "attempts" | "details";
   sessionId: string;
 }) {
   const router = useRouter();
@@ -104,7 +106,7 @@ function KaptenTryoutSessionDetailPageModule({
   return (
     <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
       <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}?workspace=sessions`}
+        backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`}
         description={initial.title}
         divider={false}
         title={delivery.name}
@@ -116,7 +118,7 @@ function KaptenTryoutSessionDetailPageModule({
         release={delivery.assessmentRelease}
       />
 
-      <Tabs className="mt-5" defaultValue="attempts">
+      <Tabs className="mt-5" defaultValue={initialTab}>
         <TabsList aria-label="Informasi sesi">
           <TabsTrigger value="attempts">Attempt peserta</TabsTrigger>
           <TabsTrigger value="details">Detail &amp; tindakan</TabsTrigger>
@@ -172,7 +174,7 @@ function KaptenTryoutSessionDetailPageModule({
 
         <TabsContent className="mt-5" value="details">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)]">
-            <Card className="shadow-none ring-primary-100">
+            <Card className="shadow-none ring-primary-100" id="session-actions">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
               </CardHeader>

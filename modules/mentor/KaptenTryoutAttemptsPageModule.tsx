@@ -18,8 +18,8 @@ const attemptFilters: Array<{ label: string; value: AttemptFilter }> = [
   { label: "Semua", value: "all" },
   { label: "Berlangsung", value: "in_progress" },
   { label: "Terputus", value: "disconnected" },
-  { label: "Perlu perhatian", value: "needs_attention" },
-  { label: "CAT gagal", value: "cat_failure" },
+  { label: "Butuh tindakan", value: "needs_attention" },
+  { label: "CAT perlu ditinjau", value: "cat_failure" },
   { label: "Terkirim", value: "submitted" },
 ];
 
@@ -81,7 +81,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Berlangsung</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{counts.inProgress}</p></CardContent></Card>
-        <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Perlu perhatian</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{counts.attention}</p><p className="mt-1 text-xs text-secondary-600">Review manusia, disconnect, atau CAT gagal</p></CardContent></Card>
+        <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Butuh tindakan</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{counts.attention}</p><p className="mt-1 text-xs text-secondary-600">Review manusia, disconnect, atau CAT perlu ditinjau</p></CardContent></Card>
         <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Terkirim</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{counts.submitted}</p></CardContent></Card>
       </div>
 
