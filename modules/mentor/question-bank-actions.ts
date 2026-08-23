@@ -222,4 +222,3 @@ export {
   updateQuestionBankLifecycleAction,
   updateQuestionRevisionLifecycleAction,
 };
-export type { QuestionBankActionFailure };

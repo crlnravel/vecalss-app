@@ -44,6 +44,7 @@ assert.match(organization, /scheduledBankCount = await tx\.questionBank\.count/u
 assert.match(organization, /operation: "remove_folder"/u);
 
 assert.match(actions, /type QuestionBankActionFailure =/u);
+assert.doesNotMatch(actions, /export type \{ QuestionBankActionFailure \}/u, "Next Server Actions must not expose the failure type as a runtime action");
 assert.match(actions, /attemptedInput\?: unknown/u);
 assert.match(actions, /readiness\?: QuestionBankReadiness/u);
 assert.match(actions, /questionBankActionFailure\(error, "Bank Soal tidak dapat disimpan saat ini\."\)/u);
