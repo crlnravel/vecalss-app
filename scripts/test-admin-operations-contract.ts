@@ -58,7 +58,7 @@ assert.match(shell, /Dashboard/);
 assert.match(shell, /Students/);
 assert.match(shell, /Kapten/);
 assert.doesNotMatch(shell, /Imports/);
-assert.match(shell, /Media/);
+assert.doesNotMatch(shell, /Media/);
 assert.match(studentPage, /contains: search/);
 assert.match(studentPage, /skip: \(page - 1\) \* pageSize/);
 assert.match(kaptenPage, /contains: search/);

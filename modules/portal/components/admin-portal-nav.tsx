@@ -7,7 +7,6 @@ import {
   Bell,
   Eye,
   History,
-  Image,
   LayoutDashboard,
   Users,
 } from "@/lib/icons";
@@ -37,7 +36,6 @@ type AdminNavigationItem = {
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
   { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifications" },
-  { href: "/admin/media", icon: Image, id: "media", label: "Media" },
   { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Audit logs" },
 ];
 
