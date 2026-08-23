@@ -51,6 +51,10 @@ assert.match(bankCatalogue, /headerClassName: "min-w-\[5rem\] text-right"/u, "Ba
 assert.match(bankCatalogue, /tableClassName="min-w-\[760px\]"/u, "Bank Soal should avoid an unnecessarily wide desktop table floor");
 assert.match(bankCatalogue, /title=\{row\.bank\.title\}[\s\S]*truncate/u, "Bank names should truncate while preserving the full title");
 assert.match(bankCatalogue, /overflow-hidden" title=\{\[\.\.\.row\.bank\.subjectCoverage/u, "Bank categories should truncate within their compact column");
+assert.match(bankCatalogue, /max-h-14 min-w-0 max-w-full flex-wrap/u, "Bank categories should wrap within a two-row table cell");
+assert.doesNotMatch(bankCatalogue, /<DropdownMenuItem onClick=\{\(\) => openFolderCreate\(row\.folder\.id\)\}>[\s\S]*Buat subfolder/u, "Folder row actions should not offer subfolder creation");
+assert.doesNotMatch(bankCatalogue, /<DropdownMenuItem onClick=\{\(\) => openFolderManage\(row\.folder, "move"\)\}>/u, "Folder row actions should not offer folder moving");
+assert.doesNotMatch(bankCatalogue, /setBankMoveId\(row\.bank\.id\)[\s\S]*Pindahkan bank/u, "Bank row actions should not offer bank moving");
 assert.doesNotMatch(bankCatalogue, /viewMode|setViewMode|Tampilan grid|Tampilan daftar/u, "Bank Soal should not expose grid/list presentation toggles");
 assert.match(bankCatalogue, /const catalogueRows: QuestionBankCatalogueRow\[\]/u, "Bank Soal should integrate folders and banks into one table data set");
 assert.match(bankCatalogue, /kind: "folder"/u, "The integrated Bank Soal table should include folder rows");

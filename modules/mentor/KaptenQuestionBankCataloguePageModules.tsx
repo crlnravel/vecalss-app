@@ -492,7 +492,7 @@ function KaptenQuestionBankPageModule({
     },
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
-        <div className="flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden" title={[...row.bank.subjectCoverage, ...row.bank.categories.map((category) => category.name)].join(" · ")}>
+        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={[...row.bank.subjectCoverage, ...row.bank.categories.map((category) => category.name)].join(" · ")}>
           {row.bank.subjectCoverage.map((subject) => <Badge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="ui" variant="mint">{subject}</Badge>)}
           {row.bank.categories.map((category) => <span className="inline-flex min-w-0 max-w-[10rem] shrink-0 items-center truncate rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
         </div>
@@ -514,9 +514,7 @@ function KaptenQuestionBankPageModule({
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${row.folder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => openFolderCreate(row.folder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem>
             <DropdownMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openFolderManage(row.folder, "move")}><Folder />Pindahkan</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem>
           </DropdownMenuContent>
@@ -526,7 +524,6 @@ function KaptenQuestionBankPageModule({
           <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</DropdownMenuItem>
-            <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => { setFolderParentId(row.bank.folderId); setFolderError(null); setBankMoveId(row.bank.id); }}><Folder />Pindahkan bank</DropdownMenuItem>
             <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -630,7 +627,7 @@ function KaptenQuestionBankPageModule({
           filterPanel={filterPanel}
           filters={activeFilters}
           getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
-          headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderCreate(currentFolder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
+          headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
           moreMenu={sortMenu}
           rows={catalogueRows}
           search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
