@@ -360,8 +360,8 @@ function DataTableGrid<T>({
             </TableRow>
           );
         }) : (
-          <TableRow>
-            <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
+          <TableRow className="hover:bg-transparent">
+            <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
               {emptyState ?? <span className="text-sm text-secondary-500">No results found.</span>}
             </TableCell>
           </TableRow>

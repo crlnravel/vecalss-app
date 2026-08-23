@@ -24,6 +24,8 @@ assert.match(bankCatalogue, /MentorCatalogueTable/u, "Bank Soal should use the r
 assert.match(bankCatalogue, /caption="Daftar folder dan bank soal"/u, "Bank Soal should expose one integrated table caption");
 assert.match(bankCatalogue, /isLoading=\{isCataloguePending\}/u, "Bank Soal should mark the table busy during catalogue fetches");
 assert.match(bankCatalogue, /loadingLabel="Memuat bank soal…"/u, "Bank Soal loading state should use product language");
+assert.match(dataTable, /<TableRow className="hover:bg-transparent">/u, "Empty tables should not tint their row on hover");
+assert.match(bankCatalogue, /max-w-\[calc\(100vw-2rem\)\] whitespace-normal flex flex-col items-center[\s\S]*text-center/u, "Bank Soal empty state should center its indicator and copy");
 assert.match(dataTable, /isLoading\?: boolean/u, "DataTable should accept an external loading state");
 assert.match(dataTable, /isLoading \? \(/u, "DataTable should render loading content before its empty state");
 assert.match(bankCatalogueLoading, /LoaderCircle[\s\S]*Memuat bank soal…/u, "Bank Soal route loading should show a spinner while the initial fetch is pending");
