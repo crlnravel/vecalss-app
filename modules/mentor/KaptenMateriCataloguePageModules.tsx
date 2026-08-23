@@ -272,7 +272,7 @@ function KaptenMateriPageModule({
       searchPlaceholder="Cari materi..."
       session={session}
     >
-      <PageIntro description="Susun bacaan PDF untuk siswa, lalu tambahkan video pendamping bila diperlukan." title="Materi" />
+      <PageIntro title="Materi" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {subjects.map((subject) => (
           <SubjectCard key={subject.slug} subject={subject} />
