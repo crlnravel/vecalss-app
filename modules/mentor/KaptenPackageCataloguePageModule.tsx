@@ -172,6 +172,17 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
   );
   const previousPageHref = page > 1 ? catalogueHref(query, page - 1, status, subtest) : undefined;
   const nextPageHref = page < totalPages ? catalogueHref(query, page + 1, status, subtest) : undefined;
+  const hasActiveCatalogueConstraints = Boolean(query || status || subtest);
+  const emptyStateTitle = query
+    ? "Tidak ada Paket Soal yang cocok dengan pencarian ini."
+    : hasActiveCatalogueConstraints
+      ? "Tidak ada Paket Soal yang cocok dengan filter ini."
+      : "Belum ada Paket Soal.";
+  const emptyStateDescription = query
+    ? "Coba kata kunci lain atau bersihkan pencarian untuk melihat semua Paket Soal."
+    : hasActiveCatalogueConstraints
+      ? "Coba ubah filter atau bersihkan filter untuk melihat semua Paket Soal."
+      : "Buat paket dari bank soal yang sudah siap dipakai.";
 
   return (
     <div className="space-y-8">
@@ -180,38 +191,40 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
         <Button aria-label="Buat Paket Soal" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="icon-sm" title="Buat Paket Soal" variant="brand"><Plus /></Button>
       </section>
 
-      <MentorCatalogueTable
-        breadcrumb={<nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500"><span className="shrink-0 font-semibold text-secondary-900">Paket Soal</span></nav>}
-        caption="Daftar Paket Soal"
-        clearFiltersHref={catalogueHref("", 1, "", "")}
-        columns={columns}
-        emptyState={<div className="mx-auto flex min-w-0 max-w-[calc(100vw-2rem)] flex-col items-center whitespace-normal py-2 text-center"><PackageCheck className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{query ? "Tidak ada Paket Soal yang cocok dengan pencarian ini." : "Belum ada Paket Soal."}</h2><p className="mt-1 max-w-[42ch] text-sm font-normal leading-6 text-secondary-600">{query ? "Coba kata kunci lain atau bersihkan pencarian untuk melihat semua Paket Soal." : "Buat paket dari bank soal yang sudah siap dipakai."}</p>{!query ? <Button className="mt-5" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="brand"><Plus />Buat Paket Soal</Button> : null}</div>}
-        filterPanel={filterPanel}
-        filters={filters}
-        getRowId={(item) => item.id}
-        headingIcon={<PackageCheck size={18} />}
-        isLoading={isCataloguePending}
-        loadingLabel="Memuat Paket Soal…"
-        rows={items}
-        search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau Subtest…", value: query }}
-        tableClassName="min-w-[880px]"
-      />
+      <div className="min-w-0">
+        <MentorCatalogueTable
+          breadcrumb={<nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-secondary-500"><span className="shrink-0 font-semibold text-secondary-900">Paket Soal</span></nav>}
+          caption="Daftar Paket Soal"
+          clearFiltersHref={catalogueHref("", 1, "", "")}
+          columns={columns}
+          emptyState={<div className="mx-auto flex min-w-0 max-w-[calc(100vw-2rem)] flex-col items-center whitespace-normal py-2 text-center"><PackageCheck className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{emptyStateTitle}</h2><p className="mt-1 max-w-[42ch] text-sm font-normal leading-6 text-secondary-600">{emptyStateDescription}</p>{!hasActiveCatalogueConstraints ? <Button className="mt-5" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="brand"><Plus />Buat Paket Soal</Button> : null}</div>}
+          filterPanel={filterPanel}
+          filters={filters}
+          getRowId={(item) => item.id}
+          headingIcon={<PackageCheck size={18} />}
+          isLoading={isCataloguePending}
+          loadingLabel="Memuat Paket Soal…"
+          rows={items}
+          search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau Subtest…", value: query }}
+          tableClassName="min-w-[880px]"
+        />
 
-      {totalItems ? (
-        <nav aria-label="Paginasi paket soal" className="flex items-center justify-center gap-2 pt-2">
-          {previousPageHref ? (
-            <Button aria-label="Halaman sebelumnya" nativeButton={false} render={<Link href={previousPageHref} />} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
-          ) : (
-            <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
-          )}
-          <span aria-current="page" className="text-sm text-secondary-500">Halaman {page} dari {totalPages}</span>
-          {nextPageHref ? (
-            <Button aria-label="Halaman berikutnya" nativeButton={false} render={<Link href={nextPageHref} />} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
-          ) : (
-            <Button aria-label="Halaman berikutnya" disabled size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
-          )}
-        </nav>
-      ) : null}
+        {totalItems ? (
+          <nav aria-label="Paginasi paket soal" className="flex items-center justify-center gap-2 pt-2">
+            {previousPageHref ? (
+              <Button aria-label="Halaman sebelumnya" nativeButton={false} render={<Link href={previousPageHref} />} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
+            ) : (
+              <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
+            )}
+            <span aria-current="page" className="text-sm text-secondary-500">Halaman {page} dari {totalPages}</span>
+            {nextPageHref ? (
+              <Button aria-label="Halaman berikutnya" nativeButton={false} render={<Link href={nextPageHref} />} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
+            ) : (
+              <Button aria-label="Halaman berikutnya" disabled size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
+            )}
+          </nav>
+        ) : null}
+      </div>
     </div>
   );
 }
