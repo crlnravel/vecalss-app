@@ -437,6 +437,26 @@ outer card contract should not.
   disabled controls, and use a clear message plus an additional state cue for
   errors.
 
+### Dropdowns / Menus
+
+Use the shared custom `DropdownMenu` family from
+`components/ui/dropdown-menu.tsx` for product menus, filters, sort choices,
+and action lists. Avoid raw browser-native `<select>` elements and one-off
+dropdown markup in ordinary product UI; they bypass the Vecalss geometry,
+colors, focus treatment, and interaction behavior. If a value-selection flow
+needs listbox or combobox semantics rather than menu semantics, extend the
+shared primitive or add a reusable shared wrapper instead of falling back to a
+browser-default control. Native controls are an exception only when a
+platform-specific requirement is documented.
+
+- **Trigger:** Use a clearly labeled trigger with the shared button geometry,
+  visible focus, and at least a 44px touch target.
+- **Menu:** Use the shared portal, surface, radius, shadow, spacing, and
+  highlighted/selected states; do not restyle each screen with a competing
+  dropdown language.
+- **Behavior:** Preserve keyboard navigation, Escape-to-close, outside-click
+  dismissal, correct menu/listbox semantics, and readable selected state.
+
 ### TanStack interaction patterns
 
 Vecalss uses TanStack selectively as a headless behavior layer, not as a visual
@@ -516,6 +536,8 @@ locked, or next; do not use it as a generic decorative badge.
   immediate parent, with an accessible parent-specific name.
 - **Do** choose between the two tab variants by layout intent: Variant 1 for
   compact filters and Variant 2 for full-width peer workspaces.
+- **Do** reuse the shared `DropdownMenu` family for menus, filters, sorting,
+  and action lists instead of reaching for browser-native dropdowns.
 - **Do** carry the same tactile language into Kapten and admin surfaces while
   reducing decorative density for operational work.
 - **Do** choose the button family from the surface: pill for marketing and
@@ -538,6 +560,8 @@ locked, or next; do not use it as a generic decorative badge.
   catalogue, or an arbitrary history entry.
 - **Don't** invent a third tab style or use Variant 1 when a tab bar needs to
   span the full available width.
+- **Don't** use a raw `<select>` or one-off dropdown implementation when the
+  shared custom dropdown primitive can express the interaction.
 - **Don't** copy the Materi zig-zag road onto screens whose job is editing,
   reviewing, or managing content.
 - **Don't** use a capsule badge with a leading status dot for full-sentence
