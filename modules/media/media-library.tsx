@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +84,7 @@ import { fieldControlClassName } from "@/components/ui/field-constants";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   allMediaMimeTypes,
   formatMediaBytes,
@@ -131,6 +133,9 @@ type MediaSortMode = "updated" | "name" | "size";
 type MediaAssetFilter = "all" | "images" | "pdf";
 
 const jakartaMonthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"] as const;
+const driveAssetGridStyle = { gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))" };
+const driveFolderGridStyle = { gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" };
+const itemContextMenuPopupClassName = "z-50 max-h-(--available-height) w-52 overflow-x-hidden overflow-y-auto rounded-4xl bg-popover p-1.5 text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95";
 
 const readJson = async <T,>(response: Response): Promise<T> => {
   const payload: unknown = await response.json().catch(() => null);
@@ -280,11 +285,25 @@ function MediaLibraryScreen({
 }) {
   const { isDragging, isDrive, isLoading, isPicker } = viewState;
   const isMutationPending = (mutation: MediaMutation) => mutationPending === mutation;
+  const renderItemMenuItems = (item: { id: string; kind: "asset" | "folder"; name: string; parentId: string | null }) => (
+    <DropdownMenuGroup>
+      <DropdownMenuItem onClick={() => actions.openRename(item)}><Pencil />Ganti nama</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => actions.openMove(item)}><FolderInput />Pindahkan</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => actions.setTrashRequest(item)} variant="destructive"><Trash2 />Masukkan Sampah</DropdownMenuItem>
+    </DropdownMenuGroup>
+  );
   const renderItemMenu = (item: { id: string; kind: "asset" | "folder"; name: string; parentId: string | null }) => (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${item.name}`} size="icon-sm" variant="ghost" />}><MoreHorizontal /></DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem onClick={() => actions.openRename(item)}><Pencil />Ganti nama</DropdownMenuItem><DropdownMenuItem onClick={() => actions.openMove(item)}><FolderInput />Pindahkan</DropdownMenuItem><DropdownMenuItem onClick={() => actions.setTrashRequest(item)} variant="destructive"><Trash2 />Masukkan Sampah</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent>
+      <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${item.name}`} className="size-8" size="icon-sm" variant="ghost" />}><MoreHorizontal /></DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">{renderItemMenuItems(item)}</DropdownMenuContent>
     </DropdownMenu>
+  );
+  const renderItemContextMenu = (item: { id: string; kind: "asset" | "folder"; name: string; parentId: string | null }) => (
+    <ContextMenuPrimitive.Portal>
+      <ContextMenuPrimitive.Positioner className="isolate z-50 outline-none">
+        <ContextMenuPrimitive.Popup className={itemContextMenuPopupClassName}>{renderItemMenuItems(item)}</ContextMenuPrimitive.Popup>
+      </ContextMenuPrimitive.Positioner>
+    </ContextMenuPrimitive.Portal>
   );
   const moveTargetOptions = snapshot?.moveTargets.reduce<ReactNode[]>((options, target) => {
     if (target.id !== moveRequest?.id) options.push(<option key={target.id} value={target.id}>{target.name}</option>);
@@ -294,7 +313,6 @@ function MediaLibraryScreen({
   const [sortMode, setSortMode] = useState<MediaSortMode>("updated");
   const [assetFilter, setAssetFilter] = useState<MediaAssetFilter>("all");
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [assetPage, setAssetPage] = useState(1);
 
   const compareFolders = (left: { name: string }, right: { name: string }) => left.name.localeCompare(right.name, "id");
@@ -311,7 +329,6 @@ function MediaLibraryScreen({
   const assetPageCount = Math.max(1, Math.ceil(allVisibleAssets.length / assetPageSize));
   const activeAssetPage = Math.min(assetPage, assetPageCount);
   const visibleAssets = allVisibleAssets.slice((activeAssetPage - 1) * assetPageSize, activeAssetPage * assetPageSize);
-  const shouldShowSearchInput = isSearchOpen || Boolean(searchInput) || Boolean(query);
   const visibleItemIds = [...visibleFolders.map((folderItem) => folderItem.id), ...visibleAssets.map((asset) => asset.id)];
   const selectedVisibleItemCount = visibleItemIds.filter((id) => selectedItemIds.has(id)).length;
   const allVisibleItemsSelected = visibleItemIds.length > 0 && visibleItemIds.every((id) => selectedItemIds.has(id));
@@ -333,50 +350,55 @@ function MediaLibraryScreen({
     setAssetPage(1);
     actions.setFolderId(id);
   };
-  const renderDriveFolder = (folderItem: MediaLibrarySnapshot["folders"][number]) => (
-    <div
-      className={cn(
-        "group relative flex min-h-16 items-center gap-3 rounded-lg border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-22px_rgba(23,107,77,0.55)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/35 hover:shadow-[0_14px_26px_-22px_rgba(23,107,77,0.7)]",
-        selectedItemIds.has(folderItem.id) && "border-primary-300 bg-primary-50/60",
-      )}
-      key={folderItem.id}
-    >
-      <Checkbox
-        aria-label={`Pilih folder ${folderItem.name}`}
-        checked={selectedItemIds.has(folderItem.id)}
-        className="size-5 rounded-md border-primary-200 bg-white"
-        onCheckedChange={() => toggleSelectedItem(folderItem.id)}
-      />
-      <button
-        className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20"
-        onClick={() => navigateToFolder(folderItem.id)}
-        type="button"
-      >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-500">
-          <Folder className="size-5" weight="fill" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-secondary-900">{folderItem.name}</span>
-          <span className="mt-0.5 block truncate text-xs text-secondary-500">Updated {getItemDate(folderItem.updatedAt)}</span>
-        </span>
-      </button>
-      <div className="shrink-0 opacity-60 transition-opacity group-hover:opacity-100">{renderItemMenu({ id: folderItem.id, kind: "folder", name: folderItem.name, parentId: folderItem.parentId })}</div>
-    </div>
-  );
+  const renderDriveFolder = (folderItem: MediaLibrarySnapshot["folders"][number]) => {
+    const item = { id: folderItem.id, kind: "folder" as const, name: folderItem.name, parentId: folderItem.parentId };
+
+    return (
+      <ContextMenuPrimitive.Root key={folderItem.id}>
+        <ContextMenuPrimitive.Trigger
+          className={cn(
+            "group relative flex min-h-16 items-center gap-3 rounded-lg border border-primary-100 bg-white px-3.5 py-2.5 shadow-[0_8px_20px_-22px_rgba(23,107,77,0.55)] transition-[border-color,background-color,box-shadow,transform] hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/35 hover:shadow-[0_14px_26px_-22px_rgba(23,107,77,0.7)]",
+            selectedItemIds.has(folderItem.id) && "border-primary-300 bg-primary-50/60",
+          )}
+        >
+          <Checkbox
+            aria-label={`Pilih folder ${folderItem.name}`}
+            checked={selectedItemIds.has(folderItem.id)}
+            className="size-5 rounded-md border-primary-200 bg-white"
+            onCheckedChange={() => toggleSelectedItem(folderItem.id)}
+          />
+          <button
+            className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20"
+            onClick={() => navigateToFolder(folderItem.id)}
+            type="button"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-800">
+              <Folder className="size-5" weight="fill" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-secondary-900">{folderItem.name}</span>
+              <span className="mt-0.5 block truncate text-xs text-secondary-500">Updated {getItemDate(folderItem.updatedAt)}</span>
+            </span>
+          </button>
+          <div className="shrink-0 opacity-60 transition-opacity group-hover:opacity-100">{renderItemMenu(item)}</div>
+        </ContextMenuPrimitive.Trigger>
+        {renderItemContextMenu(item)}
+      </ContextMenuPrimitive.Root>
+    );
+  };
 
   const renderDriveAsset = (asset: MediaAssetDto) => {
     const assetUrl = asset.thumbnailUrl ?? asset.previewUrl;
-    const typeLabel = isPdfMimeType(asset.mimeType) ? "PDF" : asset.mimeType.split("/")[1]?.toUpperCase() ?? "IMAGE";
-    const dimensions = asset.width && asset.height ? `${asset.width} × ${asset.height}` : formatMediaBytes(asset.sizeBytes);
+    const item = { id: asset.id, kind: "asset" as const, name: asset.name, parentId: asset.parentId };
 
     return (
-      <article
-        className={cn(
-          "group overflow-hidden rounded-lg border border-primary-100 bg-white shadow-[0_12px_26px_-24px_rgba(23,107,77,0.7)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_30px_-22px_rgba(23,107,77,0.75)]",
-          selectedItemIds.has(asset.id) && "border-primary-300 shadow-[0_18px_34px_-22px_rgba(23,107,77,0.8)]",
-        )}
-        key={asset.id}
-      >
+      <ContextMenuPrimitive.Root key={asset.id}>
+        <ContextMenuPrimitive.Trigger
+          className={cn(
+            "group relative overflow-hidden rounded-lg border border-primary-100 bg-white shadow-[0_12px_26px_-24px_rgba(23,107,77,0.7)] transition-[border-color,box-shadow,transform] hover:z-10 hover:scale-[1.015] hover:border-primary-200 hover:shadow-[0_18px_30px_-22px_rgba(23,107,77,0.75)]",
+            selectedItemIds.has(asset.id) && "border-primary-300 shadow-[0_18px_34px_-22px_rgba(23,107,77,0.8)]",
+          )}
+        >
         <div className="relative aspect-[1.84] overflow-hidden bg-primary-50/75">
           <button
             aria-label={`Preview ${asset.name}`}
@@ -384,7 +406,7 @@ function MediaLibraryScreen({
             onClick={() => void actions.handlePreview(asset)}
             type="button"
           >
-            {isPdfMimeType(asset.mimeType) ? <FileText className="size-10 text-primary-700" /> : assetUrl ? <NextImage alt="" className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.025]" fill loading="lazy" sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 768px) 33vw, 100vw" src={assetUrl} unoptimized /> : <FileImage className="size-7 text-primary-700" />}
+            {isPdfMimeType(asset.mimeType) ? <FileText className="size-10 text-primary-700" /> : assetUrl ? <NextImage alt="" className="size-full object-cover" fill loading="lazy" sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 768px) 33vw, 100vw" src={assetUrl} unoptimized /> : <FileImage className="size-7 text-primary-700" />}
           </button>
           <Checkbox
             aria-label={`Pilih ${asset.name}`}
@@ -392,16 +414,17 @@ function MediaLibraryScreen({
             className="absolute top-2.5 left-2.5 z-10 size-5 rounded-md border-white/80 bg-white/90 shadow-sm"
             onCheckedChange={() => toggleSelectedItem(asset.id)}
           />
-          <div className="absolute top-2 right-2 z-10 rounded-full bg-white/90 opacity-60 shadow-sm transition-opacity group-hover:opacity-100">{renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}</div>
+          <div className="absolute top-2 right-2 z-10 rounded-full bg-white/90 opacity-60 shadow-sm transition-opacity group-hover:opacity-100">{renderItemMenu(item)}</div>
         </div>
-        <div className="flex min-w-0 items-start justify-between gap-2.5 px-3 py-2.5">
+        <div className="min-w-0 px-3 py-2.5">
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold text-secondary-900" title={asset.name}>{asset.name}</p>
-            <p className="mt-0.5 truncate text-xs text-secondary-500">{typeLabel} · {dimensions}</p>
+            <p className="mt-0.5 truncate text-xs text-secondary-500">{formatMediaBytes(asset.sizeBytes)}</p>
           </div>
-          <span className="shrink-0 rounded-md bg-secondary-100 px-1.5 py-0.5 text-ui-xs font-bold tracking-[0.08em] text-secondary-500">{typeLabel}</span>
         </div>
-      </article>
+        </ContextMenuPrimitive.Trigger>
+        {renderItemContextMenu(item)}
+      </ContextMenuPrimitive.Root>
     );
   };
 
@@ -420,26 +443,41 @@ function MediaLibraryScreen({
       {error ? <div className="flex flex-col gap-3 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert"><span>{error}</span><Button onClick={actions.refreshLibrary} size="sm" variant="ghost"><RefreshCw data-icon="inline-start" />Coba lagi</Button></div> : null}
       <div className={cn("relative min-h-[28rem] overflow-hidden transition-[border-color,background-color] duration-150", !isDrive && "rounded-[2rem] border border-primary-100 bg-white", isDrive && "flex min-h-0 flex-1 flex-col", isDragging && "border-2 border-primary-500 bg-primary-50/70")} onDragEnter={(event) => { event.preventDefault(); actions.setIsDragging(true); }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) actions.setIsDragging(false); }} onDragOver={(event) => event.preventDefault()} onDrop={actions.handleDrop}>
         {isDragging ? <div className="pointer-events-none absolute inset-3 flex items-center justify-center rounded-[1.5rem] border-2 border-dashed border-primary-500 bg-primary-50/90 text-center"><div className="flex flex-col items-center gap-2 text-primary-900"><Upload className="size-8" /><p className="font-semibold">Lepaskan {mediaLabel} untuk upload</p><p className="text-sm text-secondary-600">{acceptedMimeTypes.join(", ")} · maksimal 15 MB</p></div></div> : null}
-        <div className={cn("flex flex-col gap-4 px-5 py-4 md:px-6", !isDrive && "border-b border-primary-100", isDrive && "gap-7 px-5 py-7 md:px-8 md:py-8")}>
+        <div className={cn("flex flex-col gap-4 px-5 py-4 md:px-6", !isDrive && "border-b border-primary-100", isDrive && "gap-4 px-5 py-7 md:px-8 md:py-8")}>
           {isDrive ? <>
             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
                 <h1 className="text-2xl leading-tight font-semibold tracking-[-0.035em] text-secondary-900 md:text-3xl">Media Library</h1>
-                <p className="mt-1 text-sm text-secondary-500">{snapshot?.folders.length ?? 0} {(snapshot?.folders.length ?? 0) === 1 ? "folder" : "folders"} - {snapshot?.assets.length ?? 0} {(snapshot?.assets.length ?? 0) === 1 ? "asset" : "assets"}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button aria-label="Buat folder baru" onClick={() => actions.setFolderDialogOpen(true)} variant="brandOutline"><Plus />Add new folder</Button>
-                <Button aria-label={uploadStatus ? `Mengupload ${mediaLabel}` : `Upload ${mediaLabel}`} disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} variant="brand"><Plus />{uploadStatus ? "Mengupload" : "Add new assets"}</Button>
-                <input accept={acceptedMimeTypes.join(",")} aria-label={`Pilih ${mediaLabel} untuk diunggah`} className="sr-only" multiple onChange={(event) => void actions.handleFiles(Array.from(event.target.files ?? []))} ref={fileInputRef} type="file" />
-              </div>
-            </div>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex size-9 items-center justify-center rounded-md border border-primary-100 bg-white">
-                  <Checkbox aria-label="Pilih semua item yang terlihat" checked={allVisibleItemsSelected} className="size-5 rounded-md border-primary-200" onCheckedChange={toggleAllVisibleItems} />
+              <TooltipProvider>
+                <div className="flex self-end items-center gap-2 xl:self-auto">
+                  <Tooltip>
+                    <TooltipTrigger render={<Button aria-label="Buat folder baru" onClick={() => actions.setFolderDialogOpen(true)} size="icon" variant="brandOutline" />}><FolderPlus /></TooltipTrigger>
+                    <TooltipContent>Buat folder baru</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger render={<Button aria-label={uploadStatus ? `Mengupload ${mediaLabel}` : "Tambah asset baru"} disabled={!snapshot?.isStorageConfigured || Boolean(uploadStatus)} onClick={() => fileInputRef.current?.click()} size="icon" variant="brand" />}>{uploadStatus ? <LoaderCircle className="animate-spin" /> : <Plus />}</TooltipTrigger>
+                    <TooltipContent>{uploadStatus ? `Mengupload ${mediaLabel}…` : "Tambah asset baru"}</TooltipContent>
+                  </Tooltip>
                 </div>
+              </TooltipProvider>
+                <input accept={acceptedMimeTypes.join(",")} aria-label={`Pilih ${mediaLabel} untuk diunggah`} className="sr-only" multiple onChange={(event) => void actions.handleFiles(Array.from(event.target.files ?? []))} ref={fileInputRef} type="file" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-primary-100 bg-white">
+                <Checkbox aria-label="Pilih semua item yang terlihat" checked={allVisibleItemsSelected} className="size-5 rounded-md border-primary-200" onCheckedChange={toggleAllVisibleItems} />
+              </div>
+              <label className="relative block min-w-0 flex-1 basis-[12rem]">
+                <span className="sr-only">Search {mediaLabel}</span>
+                <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-secondary-500" />
+                <Input className="h-10 border-primary-100 bg-primary-50/45 pl-10 shadow-none" onChange={(event) => actions.setSearchInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setAssetPage(1); actions.setQuery(searchInput.trim()); } }} placeholder={`Search ${mediaLabel}...`} value={searchInput} />
+              </label>
+              <TooltipProvider>
                 <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button className="h-9 gap-2" variant="brandOutline" />}><ListFilter className="size-4" />Sort by<ChevronDown className="size-4" /></DropdownMenuTrigger>
+                  <Tooltip>
+                    <TooltipTrigger render={<DropdownMenuTrigger render={<Button aria-label="Urutkan media" size="icon" variant="brandOutline" />} />}><ListFilter /></TooltipTrigger>
+                    <TooltipContent>Urutkan media</TooltipContent>
+                  </Tooltip>
                   <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuRadioGroup onValueChange={(value) => { setSortMode(value as MediaSortMode); setAssetPage(1); }} value={sortMode}>
                       <DropdownMenuRadioItem closeOnClick value="updated">Latest</DropdownMenuRadioItem>
@@ -449,7 +487,10 @@ function MediaLibraryScreen({
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button className="h-9 gap-2" variant="brandOutline" />}><SlidersHorizontal className="size-4" />Filters<ChevronDown className="size-4" /></DropdownMenuTrigger>
+                  <Tooltip>
+                    <TooltipTrigger render={<DropdownMenuTrigger render={<Button aria-label="Filter media" size="icon" variant="brandOutline" />} />}><SlidersHorizontal /></TooltipTrigger>
+                    <TooltipContent>Filter media</TooltipContent>
+                  </Tooltip>
                   <DropdownMenuContent align="start" className="w-44">
                     <DropdownMenuRadioGroup onValueChange={(value) => { setAssetFilter(value as MediaAssetFilter); setAssetPage(1); }} value={assetFilter}>
                       <DropdownMenuRadioItem closeOnClick value="all">All media</DropdownMenuRadioItem>
@@ -458,26 +499,25 @@ function MediaLibraryScreen({
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {selectedVisibleItemCount > 0 ? <span className="ml-1 text-sm font-medium text-primary-800">{selectedVisibleItemCount} dipilih</span> : null}
-              </div>
-              {shouldShowSearchInput ? <label className="relative block w-full lg:max-w-xs"><span className="sr-only">Search {mediaLabel}</span><Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-secondary-500" /><Input autoFocus={isSearchOpen && !searchInput} className="h-10 border-primary-100 bg-primary-50/45 pl-10 shadow-none" onChange={(event) => actions.setSearchInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setAssetPage(1); actions.setQuery(searchInput.trim()); } }} placeholder={`Search ${mediaLabel}...`} value={searchInput} /></label> : <Button aria-label={`Search ${mediaLabel}`} className="size-9" onClick={() => setIsSearchOpen(true)} size="icon" variant="brandOutline"><Search /></Button>}
+              </TooltipProvider>
+              {selectedVisibleItemCount > 0 ? <span className="shrink-0 text-sm font-medium text-primary-800">{selectedVisibleItemCount} dipilih</span> : null}
             </div>
           </> : null}
           <div className={cn("flex flex-wrap items-center justify-between gap-3", isDrive && snapshot?.breadcrumbs.length === 1 && "hidden")}><Breadcrumb><BreadcrumbList>{snapshot?.breadcrumbs.map((breadcrumb, index) => <Fragment key={breadcrumb.id ?? "root"}>{index > 0 ? <BreadcrumbSeparator /> : null}<BreadcrumbItem>{index === (snapshot?.breadcrumbs.length ?? 0) - 1 ? <BreadcrumbPage>{breadcrumb.name}</BreadcrumbPage> : <button className="min-h-11 rounded-xl px-2 text-sm font-medium text-secondary-600 transition-colors hover:bg-primary-50 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" onClick={() => navigateToFolder(breadcrumb.id)} type="button">{breadcrumb.name}</button>}</BreadcrumbItem></Fragment>)}</BreadcrumbList></Breadcrumb></div>
         </div>
-        {uploadStatus ? <div className="border-b border-primary-100 bg-primary-50/60 px-5 py-4 md:px-6" role="status"><div className="flex items-center justify-between gap-4 text-sm"><span className="truncate font-medium text-secondary-900">{uploadStatus.current}/{uploadStatus.total} · {uploadStatus.fileName}</span><span className="text-primary-800">{uploadStatus.progress}%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-primary-100"><div className="h-full rounded-full bg-primary-700 transition-[width] duration-150" style={{ width: `${uploadStatus.progress}%` }} /></div></div> : null}
+        {uploadStatus ? <div className="bg-primary-50/60 px-5 py-4 md:px-6" role="status"><div className="flex items-center justify-between gap-4 text-sm"><span className="truncate font-medium text-secondary-900">{uploadStatus.current}/{uploadStatus.total} · {uploadStatus.fileName}</span><span className="text-primary-800">{uploadStatus.progress}%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-primary-100"><div className="h-full rounded-full bg-primary-700 transition-[width] duration-150" style={{ width: `${uploadStatus.progress}%` }} /></div></div> : null}
         <div className={cn("min-h-0", isDrive && "flex-1 overflow-y-auto")}>
-          {isLoading ? <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && viewMode === "grid" && "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6")}>{Array.from({ length: 6 }, (_, index) => <Skeleton className={cn("h-16 w-full rounded-2xl", isDrive && viewMode === "grid" && "h-44")} key={index} />)}</div> : snapshot && (visibleFolders.length > 0 || visibleAssets.length > 0) ? <div className={cn("flex flex-col", isDrive && "gap-8 p-5 md:p-8")}>
+          {isLoading ? <div className={cn("flex flex-col gap-3 p-5 md:p-6", isDrive && viewMode === "grid" && "grid")} style={isDrive && viewMode === "grid" ? driveAssetGridStyle : undefined}>{Array.from({ length: 6 }, (_, index) => <Skeleton className={cn("h-16 w-full rounded-2xl", isDrive && viewMode === "grid" && "h-44")} key={index} />)}</div> : snapshot && (visibleFolders.length > 0 || visibleAssets.length > 0) ? <div className={cn("flex flex-col", isDrive && "gap-8 p-5 md:p-8")}>
             {visibleFolders.length > 0 ? <section className={cn("flex flex-col", isDrive ? "gap-3" : "gap-0")}>
               <div className={cn("px-5 pt-5 pb-2 text-sm font-semibold text-secondary-900 md:px-6", isDrive && "px-0 pt-0 pb-1")}>{isDrive ? "Folders" : "Folder"}</div>
-              <div className={cn(isDrive ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "")}>{visibleFolders.map((folderItem) => isDrive ? renderDriveFolder(folderItem) : <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.7fr_44px] md:px-6" key={folderItem.id}><button className="flex min-h-16 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20" onClick={() => actions.setFolderId(folderItem.id)} type="button"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800"><Folder className="size-5" /></span><span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{folderItem.name}</span></span></button><span className="hidden text-sm text-secondary-500 md:block">Diperbarui {getItemDate(folderItem.updatedAt)}</span>{isPicker ? <ChevronRight className="size-4 text-secondary-400" /> : renderItemMenu({ id: folderItem.id, kind: "folder", name: folderItem.name, parentId: folderItem.parentId })}</div>)}</div>
+              <div className={cn(isDrive ? "grid gap-3" : "")} style={isDrive ? driveFolderGridStyle : undefined}>{visibleFolders.map((folderItem) => isDrive ? renderDriveFolder(folderItem) : <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.7fr_44px] md:px-6" key={folderItem.id}><button className="flex min-h-16 min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20" onClick={() => actions.setFolderId(folderItem.id)} type="button"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800"><Folder className="size-5" /></span><span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{folderItem.name}</span></span></button><span className="hidden text-sm text-secondary-500 md:block">Diperbarui {getItemDate(folderItem.updatedAt)}</span>{isPicker ? <ChevronRight className="size-4 text-secondary-400" /> : renderItemMenu({ id: folderItem.id, kind: "folder", name: folderItem.name, parentId: folderItem.parentId })}</div>)}</div>
             </section> : null}
             {visibleFolders.length > 0 && visibleAssets.length > 0 && !isDrive ? <Separator /> : null}
             {visibleAssets.length > 0 ? <section className={cn("flex flex-col", isDrive ? "gap-3" : "gap-0")}>
-              {isDrive ? <div className="flex items-center justify-between gap-3 border-t border-primary-100 pt-7"><h2 className="text-sm font-semibold text-secondary-900">All assets</h2><span className="text-xs text-secondary-500">{allVisibleAssets.length}</span></div> : null}
+              {isDrive ? <div className="flex items-center justify-between gap-3 pt-1"><h2 className="text-sm font-semibold text-secondary-900">All assets</h2><span className="text-xs text-secondary-500">{allVisibleAssets.length}</span></div> : null}
               {!(isDrive && viewMode === "grid") ? <div className={cn("hidden grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] gap-3 px-6 py-3 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase md:grid", isDrive && viewMode === "list" && "px-4")}><span>Nama</span><span>Ukuran</span><span>Dimensi</span><span>Diperbarui</span><span /></div> : null}
-              {isDrive && viewMode === "grid" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">{visibleAssets.map(renderDriveAsset)}</div> : <div>{visibleAssets.map((asset) => <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-primary-100 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", isDrive && viewMode === "list" && "min-h-16 rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}><button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "list" && "min-h-16")} onClick={() => void actions.handlePreview(asset)} type="button"><span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800">{isPdfMimeType(asset.mimeType) ? <FileText className="size-7" /> : asset.thumbnailUrl ?? asset.previewUrl ? <NextImage alt="" className="size-full object-cover" fill loading="lazy" sizes="3rem" src={asset.thumbnailUrl ?? asset.previewUrl ?? ""} unoptimized /> : <FileImage className="size-5" />}</span><span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className="mt-1 block text-xs text-secondary-500 md:hidden">{formatMediaBytes(asset.sizeBytes)} · {getItemDate(asset.updatedAt)}</span></span></button><span className="hidden text-sm text-secondary-500 md:block">{formatMediaBytes(asset.sizeBytes)}</span><span className="hidden text-sm text-secondary-500 md:block">{asset.width && asset.height ? `${asset.width} × ${asset.height}` : "—"}</span><div className="hidden items-center gap-2 text-sm text-secondary-500 md:flex"><span>{getItemDate(asset.updatedAt)}</span>{isPicker ? <Button onClick={() => actions.onSelect?.(asset)} size="sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}>{selectedAssetId === asset.id ? "Dipilih" : "Pilih"}<ChevronRight data-icon="inline-end" /></Button> : null}</div>{isPicker ? <Button aria-label={`Pilih ${asset.name}`} className="md:hidden" onClick={() => actions.onSelect?.(asset)} size="icon-sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}><ChevronRight /></Button> : <div>{renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}</div>}</div>)}</div>}
-              {isDrive ? <div className="flex flex-wrap items-center justify-between gap-4 border-t border-primary-100 pt-4 text-xs text-secondary-500"><div className="flex items-center gap-2"><Button aria-label="Entries per page" className="h-8 gap-1.5 rounded-md px-2.5" size="sm" variant="brandOutline">10<ChevronDown className="size-3.5" /></Button><span>Entries per page</span></div><div className="flex items-center gap-1"><Button aria-label="Previous page" disabled={activeAssetPage <= 1} onClick={() => setAssetPage((page) => Math.max(1, page - 1))} size="icon-sm" variant="ghost"><ChevronLeft /></Button><Button aria-current="page" className="size-8 rounded-md" size="icon-sm" variant="brandOutline">{activeAssetPage}</Button><Button aria-label="Next page" disabled={activeAssetPage >= assetPageCount} onClick={() => setAssetPage((page) => Math.min(assetPageCount, page + 1))} size="icon-sm" variant="ghost"><ChevronRight /></Button></div></div> : null}
+              {isDrive && viewMode === "grid" ? <div className="grid gap-3" style={driveAssetGridStyle}>{visibleAssets.map(renderDriveAsset)}</div> : <div>{visibleAssets.map((asset) => <div className={cn("grid min-h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 transition-colors hover:bg-primary-50/45 md:grid-cols-[minmax(0,1.4fr)_0.55fr_0.65fr_0.7fr_44px] md:px-6", !isDrive && "border-t border-primary-100", isDrive && viewMode === "list" && "min-h-16 rounded-2xl border border-primary-100 px-3 hover:border-primary-200 md:px-4", selectedAssetId === asset.id && "bg-primary-50")} key={asset.id}><button className={cn("flex min-h-[4.5rem] min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/20", isDrive && viewMode === "list" && "min-h-16")} onClick={() => void actions.handlePreview(asset)} type="button"><span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-50 text-primary-800">{isPdfMimeType(asset.mimeType) ? <FileText className="size-7" /> : asset.thumbnailUrl ?? asset.previewUrl ? <NextImage alt="" className="size-full object-cover" fill loading="lazy" sizes="3rem" src={asset.thumbnailUrl ?? asset.previewUrl ?? ""} unoptimized /> : <FileImage className="size-5" />}</span><span className="min-w-0"><span className="block truncate font-semibold text-secondary-900">{asset.name}</span><span className="mt-1 block text-xs text-secondary-500 md:hidden">{formatMediaBytes(asset.sizeBytes)} · {getItemDate(asset.updatedAt)}</span></span></button><span className="hidden text-sm text-secondary-500 md:block">{formatMediaBytes(asset.sizeBytes)}</span><span className="hidden text-sm text-secondary-500 md:block">{asset.width && asset.height ? `${asset.width} × ${asset.height}` : "—"}</span><div className="hidden items-center gap-2 text-sm text-secondary-500 md:flex"><span>{getItemDate(asset.updatedAt)}</span>{isPicker ? <Button onClick={() => actions.onSelect?.(asset)} size="sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}>{selectedAssetId === asset.id ? "Dipilih" : "Pilih"}<ChevronRight data-icon="inline-end" /></Button> : null}</div>{isPicker ? <Button aria-label={`Pilih ${asset.name}`} className="md:hidden" onClick={() => actions.onSelect?.(asset)} size="icon-sm" variant={selectedAssetId === asset.id ? "brand" : "brandOutline"}><ChevronRight /></Button> : <div>{renderItemMenu({ id: asset.id, kind: "asset", name: asset.name, parentId: asset.parentId })}</div>}</div>)}</div>}
+              {isDrive ? <div className="flex flex-wrap items-center justify-between gap-4 pt-4 text-xs text-secondary-500"><div className="flex items-center gap-2"><Button aria-label="Entries per page" className="h-8 gap-1.5 rounded-md px-2.5" size="sm" variant="brandOutline">10<ChevronDown className="size-3.5" /></Button><span>Entries per page</span></div><div className="flex items-center gap-1"><Button aria-label="Previous page" disabled={activeAssetPage <= 1} onClick={() => setAssetPage((page) => Math.max(1, page - 1))} size="icon-sm" variant="ghost"><ChevronLeft /></Button><Button aria-current="page" className="size-8 rounded-md" size="icon-sm" variant="brandOutline">{activeAssetPage}</Button><Button aria-label="Next page" disabled={activeAssetPage >= assetPageCount} onClick={() => setAssetPage((page) => Math.min(assetPageCount, page + 1))} size="icon-sm" variant="ghost"><ChevronRight /></Button></div></div> : null}
             </section> : null}
           </div> : <Empty className="min-h-[22rem] border-0"><EmptyHeader><EmptyMedia variant="icon">{query || assetFilter !== "all" ? <Search /> : <FileImage />}</EmptyMedia><EmptyTitle>{isDrive ? (query ? "No assets found" : assetFilter !== "all" ? "No matching media" : "This folder is empty") : query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : assetFilter !== "all" ? "Tidak ada media dengan filter ini" : "Folder ini masih kosong"}</EmptyTitle><EmptyDescription>{isDrive ? (query ? "Try another file name or clear your search." : assetFilter !== "all" ? "Choose another filter to see more media." : "Upload assets or create a folder to start building your library.") : query ? "Coba nama file lain atau hapus pencarian." : assetFilter !== "all" ? "Pilih filter lain untuk melihat media yang tersedia." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}</EmptyDescription></EmptyHeader>{!query && assetFilter === "all" ? <EmptyContent><Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />{isDrive ? "Upload assets" : `Upload ${mediaLabel}`}</Button></EmptyContent> : null}</Empty>}
         </div>
