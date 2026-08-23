@@ -91,6 +91,10 @@ import {
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  FullWidthLineTabsList,
+  FullWidthLineTabsTrigger,
+} from "@/components/ui/full-width-line-tabs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -862,36 +866,31 @@ function WorkspaceTabs({
 }) {
   return (
     <div className="mb-2 md:mb-3">
-      <TabsList
+      <FullWidthLineTabsList
         aria-label="Area kerja Vera"
-        className="grid h-10 w-full grid-cols-3 rounded-none bg-transparent p-0"
-        variant="line"
       >
-        <TabsTrigger
-          className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+        <FullWidthLineTabsTrigger
           onClick={() => onChange("chat")}
           value="chat"
         >
           <MessageCircleMore data-icon="inline-start" />
           Percakapan
-        </TabsTrigger>
-        <TabsTrigger
-          className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+        </FullWidthLineTabsTrigger>
+        <FullWidthLineTabsTrigger
           onClick={() => onChange("context")}
           value="context"
         >
           <LibraryBig data-icon="inline-start" />
           Konteks
-        </TabsTrigger>
-        <TabsTrigger
-          className="rounded-none text-xs after:bg-primary-700 data-active:bg-transparent data-active:text-primary-900 sm:text-sm"
+        </FullWidthLineTabsTrigger>
+        <FullWidthLineTabsTrigger
           onClick={() => onChange("studio")}
           value="studio"
         >
           <Sparkles data-icon="inline-start" />
           Studio
-        </TabsTrigger>
-      </TabsList>
+        </FullWidthLineTabsTrigger>
+      </FullWidthLineTabsList>
     </div>
   );
 }
