@@ -214,7 +214,7 @@ function KaptenTryoutSessionDetailPageModule({
                 <div className="grid gap-2">
                   {delivery.status === "draft" ? (
                     <Button
-                      disabled={!auditReason.trim() || !delivery.assessmentRelease}
+                      disabled={!auditReason.trim()}
                       onClick={() => setConfirmation("open")}
                       variant="brand"
                     >
