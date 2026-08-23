@@ -28,7 +28,6 @@ const adminSectionLabels = {
   "audit-logs": "Audit logs",
   docs: "Documentation",
   kapten: "Kapten",
-  media: "Media",
   notifications: "Notifications",
   overview: "Dashboard",
   "student-banners": "Student banners",
@@ -40,7 +39,6 @@ const adminSectionRootHrefs = {
   "audit-logs": "/admin/audit-logs",
   docs: "/admin/docs",
   kapten: "/admin/kapten",
-  media: "/admin/media",
   notifications: "/admin/notifications",
   overview: "/admin",
   "student-banners": "/admin/student-banners",
@@ -57,7 +55,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "media" | "notifications" | "audit-logs" | "student-banners" | "student-preview" | "docs";
+  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "student-banners" | "student-preview" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
