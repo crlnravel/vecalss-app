@@ -15,6 +15,7 @@ const readiness = fs.readFileSync("lib/question-bank/readiness.ts", "utf8");
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8")) as {
   scripts?: Record<string, string>;
 };
+const lifecycleSource = builder.match(/async function updateLifecycle\([\s\S]*?\n  \}\n\n  return \{ saveDraft, updateLifecycle \};/u)?.[0] ?? "";
 
 assert.match(builder, /getQuestionBankReadinessFromDrafts\(builderState\.questions\)/u);
 assert.match(builder, /mergeQuestionBankReadiness\(/u);
@@ -40,6 +41,8 @@ assert.match(builder, /initialReadiness\?: QuestionBankReadiness \| null/u);
 assert.match(builder, /serverReadiness: mode === "edit" \? initialReadiness : null/u);
 assert.match(builder, /if \(result\.readiness\) setServerReadiness\(result\.readiness\)/u);
 assert.match(builder, /setServerReadiness\(result\.result\.readiness\)/u);
+assert.match(lifecycleSource, /if \(operation === "publish"\) setServerReadiness\(null\)/u);
+assert.equal((lifecycleSource.match(/setServerReadiness\(null\)/gu) ?? []).length, 1, "archive/unpublish/restore must preserve server readiness");
 assert.match(builder, /questionIssues = state\.readiness\.issues\.filter/u);
 assert.match(builder, /aria-invalid=\{hasIssue\("prompt"\)\}/u);
 assert.match(builder, /aria-invalid=\{hasIssue\("choice", choice\.id\)\}/u);
@@ -47,6 +50,7 @@ assert.match(builder, /aria-invalid=\{hasIssue\("subtest"\)\}/u);
 assert.match(builder, /aria-invalid=\{hasChoiceCountIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasCorrectChoiceIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasPromptMediaIssue\}/u);
+assert.match(builder, /<input[^>]*className="[^"]*focus-visible:ring-3 focus-visible:ring-primary-200[^"]*"[^>]*data-question-anchor="choice"/u);
 assert.match(builder, /question-choice-count-error/u);
 assert.match(builder, /question-correct-choice-error/u);
 assert.match(builder, /question-prompt-media-error/u);
