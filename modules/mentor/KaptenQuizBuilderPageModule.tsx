@@ -11,6 +11,7 @@ import {
   CircleHelp,
   Ellipsis,
   Eye,
+  FilePenLine,
   GripVertical,
   Plus,
   Save,
@@ -32,7 +33,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -935,9 +936,7 @@ function QuizBuilderHeader({
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
-        <Button aria-label="Kembali ke quiz" render={<Link href="/mentor/quiz" />} size="icon-sm" title="Kembali ke quiz" variant="ghost">
-          <ChevronLeft />
-        </Button>
+        {state.isPreviewOpen ? <Button aria-label="Kembali mengedit" onClick={actions.onClosePreview} size="icon-sm" type="button" variant="ghost"><ChevronLeft /></Button> : <Button aria-label="Kembali ke quiz" render={<Link href="/mentor/quiz" />} size="icon-sm" title="Kembali ke quiz" variant="ghost"><ChevronLeft /></Button>}
         <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
             {mode === "create" ? "Buat Quiz" : state.builderState.title}
@@ -958,19 +957,14 @@ function QuizBuilderHeader({
           <Save />
           {state.isSaving ? "Menyimpan..." : state.saveLabel}
         </Button>
+        {state.isDraft ? <Button aria-busy={state.isSaving} disabled={state.isSaving || Boolean(state.publishError)} onClick={actions.onPublish} type="button" variant="brandOutline"><Upload />{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button> : state.quizStatus === "published" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.onSetConfirmationRequest({ confirmLabel: "Batalkan publikasi", description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.", onConfirm: actions.onUnpublish, title: "Batalkan publikasi quiz?", variant: "warning" })} type="button" variant="brandOutline"><FilePenLine />{state.isSaving ? "Membatalkan…" : "Batalkan publikasi"}</Button> : null}
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button aria-label="Aksi Quiz" size="icon-sm" type="button" variant="ghost" />}>
             <Ellipsis />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuGroup>
-              {state.isDraft ? (
-                <DropdownMenuItem disabled={Boolean(state.publishError)} onClick={actions.onPublish}><Upload />Terbitkan</DropdownMenuItem>
-              ) : state.quizStatus === "published" ? (
-                <DropdownMenuItem onClick={() => actions.onSetConfirmationRequest({ confirmLabel: "Batalkan publikasi", description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.", onConfirm: actions.onUnpublish, title: "Batalkan publikasi quiz?", variant: "warning" })}>Batalkan publikasi</DropdownMenuItem>
-              ) : null}
               {state.quizStatus !== "archived" ? <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("restore")}>Pulihkan</DropdownMenuItem>}
-              <DropdownMenuSeparator />
               <DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -991,13 +985,12 @@ function QuizBuilderPreview({
 
   return (
     <section aria-live="polite" className="rounded-3xl border border-primary-100 bg-white px-5 py-6 shadow-sm md:px-7">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start gap-4">
         <div>
           <p className="text-sm font-semibold text-primary-800">Preview learner</p>
           <h2 className="mt-2 text-2xl font-semibold text-secondary-900">{builderState.title}</h2>
           <p className="mt-2 text-sm text-secondary-500">{getSubjectName(builderState.subjectCode)} · Soal {previewQuestionIndex + 1} dari {builderState.questions.length}</p>
         </div>
-        <Button onClick={actions.onClosePreview} size="sm" type="button" variant="brandOutline">Kembali mengedit</Button>
       </div>
 
       {previewQuestion ? (

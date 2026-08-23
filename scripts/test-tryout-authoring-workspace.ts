@@ -51,9 +51,18 @@ for (const redundantNavigationLabel of [
   assert.doesNotMatch(workspace, new RegExp(redundantNavigationLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `${redundantNavigationLabel} must not be rendered as in-panel navigation`);
 }
 assert.match(workspace, /lg:grid-cols-\[minmax\(15rem,18rem\)_minmax\(0,1fr\)\]/u, "Sections must use a stable desktop grid");
-assert.match(workspace, /question-source-help/u, "Questions must explain how to choose a source");
-assert.match(workspace, /Pilih langsung untuk menambahkan soal satu per satu/u, "Questions must clarify direct picks");
-assert.match(workspace, /pilih Ready untuk memasang satu sumber/u, "Questions must clarify Ready assembly picks");
+assert.match(workspace, /htmlFor="question-subject"/u, "Questions must label the subject dropdown");
+assert.match(workspace, /id="question-subject"/u, "Questions must expose a full-width subject dropdown");
+assert.match(workspace, /className="w-full justify-between bg-white" disabled=\{draft\.locked\} id="question-subject"/u, "Subject dropdown must span the source form");
+assert.match(workspace, /htmlFor="question-selection-mode"/u, "Questions must label the selection-mode dropdown");
+assert.match(workspace, /id="question-selection-mode"/u, "Questions must expose a full-width selection-mode dropdown");
+assert.match(workspace, /className="w-full justify-between bg-white" disabled=\{draft\.locked\} id="question-selection-mode"/u, "Selection-mode dropdown must span the source form");
+assert.ok(workspace.indexOf('id="question-subject"') < workspace.indexOf('id="question-selection-mode"'), "Subject dropdown must precede selection mode");
+assert.match(workspace, /selectionModeOptions\.map/u, "Questions must keep all supported source modes in the dropdown");
+assert.match(workspace, /selectionModeDescription\(activeSelectionMode\)/u, "Questions must keep helper text next to the selected mode");
+assert.doesNotMatch(workspace, /Cara memilih soal/u, "Questions must not repeat the source-choice heading");
+assert.doesNotMatch(workspace, /aria-label="Mode sumber soal"/u, "Questions must not render the old source-card radio rail");
+assert.doesNotMatch(workspace, /sm:grid-cols-2 lg:grid-cols-5/u, "Questions must not render a horizontal source-card rail");
 assert.doesNotMatch(workspace, /<FieldLabel>Urutan<\/FieldLabel>/u, "section editor must not expose a redundant order field");
 assert.match(route, /contentElement="div"/u, "Edit Tryout route should keep the shell landmark as the only main");
 assert.match(createRoute, /contentElement="div"/u, "Create Tryout route should keep the shell landmark as the only main");

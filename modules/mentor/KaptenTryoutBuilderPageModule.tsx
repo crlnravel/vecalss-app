@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowDown,
   ArrowUp,
-  BarChart3,
   CalendarDays,
   Check,
   ChevronDown,
@@ -300,6 +299,22 @@ function assemblyModeLabel(mode: AssemblyMode) {
   if (mode === "random_pool") return "Pool Soal";
   if (mode === "blueprint") return "Blueprint";
   return "CAT Pool";
+}
+
+const selectionModeOptions: Array<{ description: string; label: string; value: SelectionMode }> = [
+  { description: "Pilih langsung untuk menambahkan soal satu per satu dari Bank Soal.", label: "Pilih langsung", value: "direct" },
+  { description: "Pasang satu Set Ready yang sudah disiapkan dari Bank Soal.", label: "Set Ready", value: "set" },
+  { description: "Pool acak mengundi kandidat saat Tryout diterbitkan.", label: "Pool acak", value: "pool" },
+  { description: "Blueprint menentukan kuota soal berdasarkan tingkat kesulitan.", label: "Blueprint", value: "blueprint" },
+  { description: "CAT Pool memakai kandidat dengan kalibrasi 2PL yang siap.", label: "CAT Pool", value: "cat_pool" },
+];
+
+function selectionModeLabel(mode: SelectionMode) {
+  return selectionModeOptions.find((option) => option.value === mode)?.label ?? selectionModeOptions[0].label;
+}
+
+function selectionModeDescription(mode: SelectionMode) {
+  return selectionModeOptions.find((option) => option.value === mode)?.description ?? selectionModeOptions[0].description;
 }
 
 function assemblyReadinessSummary(assembly: AssemblyAttachmentSummary) {
@@ -1078,52 +1093,39 @@ function KaptenTryoutBuilderPageModule({
             </header>
 
             <div className="grid gap-5 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Subject aktif</p>
-                  <h3 className="mt-1 text-lg font-semibold text-secondary-900">{activeSection.subtest} · {subjectName(activeSection.subtest)}</h3>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button className="justify-between sm:min-w-64" variant="context" />}>
-                    Pindah subject
-                    <ChevronDown />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="max-h-96 w-[min(28rem,calc(100vw-2rem))]">
-                    <DropdownMenuLabel>Pilih Section</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup onValueChange={(value) => changeActiveCode(value as SubjectCode)} value={activeCode}>
-                      {draft.sections.map((section) => <DropdownMenuRadioItem key={section.subtest} value={section.subtest}>{section.subtest} · {subjectName(section.subtest)}</DropdownMenuRadioItem>)}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <div aria-label="Sumber soal" className="grid gap-4" id="question-source-chooser">
+                <Field>
+                  <FieldLabel htmlFor="question-subject">Subject</FieldLabel>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button aria-label="Pilih subject Tryout" className="w-full justify-between bg-white" disabled={draft.locked} id="question-subject" variant="context" />}>
+                      <span className="min-w-0 truncate">{activeSection.subtest} · {subjectName(activeSection.subtest)}</span>
+                      <ChevronDown />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="max-h-96 w-[min(30rem,calc(100vw-2rem))]">
+                      <DropdownMenuLabel>Pilih Subject</DropdownMenuLabel>
+                      <DropdownMenuRadioGroup onValueChange={(value) => changeActiveCode(value as SubjectCode)} value={activeCode}>
+                        {draft.sections.map((section) => <DropdownMenuRadioItem key={section.subtest} value={section.subtest}>{section.subtest} · {subjectName(section.subtest)}</DropdownMenuRadioItem>)}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </Field>
 
-              <div aria-labelledby="question-source-help" className="grid gap-3 rounded-2xl border border-primary-100 bg-white p-4" id="question-source-chooser">
-                <div id="question-source-help">
-                  <p className="font-semibold text-secondary-900">Cara memilih soal</p>
-                  <p className="mt-1 text-sm leading-6 text-secondary-600">Pilih langsung untuk menambahkan soal satu per satu dari Bank Soal, atau pilih Ready untuk memasang satu sumber yang sudah disiapkan.</p>
-                </div>
-                <div aria-describedby="question-source-help" aria-label="Mode sumber soal" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup">
-                <Button aria-checked={activeSelectionMode === "direct"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "direct" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("direct")} role="radio" variant="ghost">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Plus className="size-4" /></span>
-                  <span><span className="block font-semibold">Pilih langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Tambah soal satu per satu.</span></span>
-                </Button>
-                <Button aria-checked={activeSelectionMode === "set"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "set" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("set")} role="radio" variant="ghost">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><ClipboardList className="size-4" /></span>
-                  <span><span className="block font-semibold">Gunakan Set Ready</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pasang paket yang sudah disiapkan.</span></span>
-                </Button>
-                <Button aria-checked={activeSelectionMode === "pool"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "pool" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("pool")} role="radio" variant="ghost">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><SlidersHorizontal className="size-4" /></span>
-                  <span><span className="block font-semibold">Pool acak</span><span className="mt-0.5 block text-xs font-normal opacity-75">Undi saat publish.</span></span>
-                </Button>
-                <Button aria-checked={activeSelectionMode === "blueprint"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "blueprint" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("blueprint")} role="radio" variant="ghost">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><ListChecks className="size-4" /></span>
-                  <span><span className="block font-semibold">Blueprint</span><span className="mt-0.5 block text-xs font-normal opacity-75">Isi kuota kesulitan.</span></span>
-                </Button>
-                <Button aria-checked={activeSelectionMode === "cat_pool"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "cat_pool" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("cat_pool")} role="radio" variant="ghost">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><BarChart3 className="size-4" /></span>
-                  <span><span className="block font-semibold">CAT Pool</span><span className="mt-0.5 block text-xs font-normal opacity-75">Kandidat 2PL siap.</span></span>
-                </Button>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="question-selection-mode">Tipe pemilihan soal</FieldLabel>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button aria-describedby="question-source-help" aria-label="Pilih tipe pemilihan soal" className="w-full justify-between bg-white" disabled={draft.locked} id="question-selection-mode" variant="context" />}>
+                      <span className="min-w-0 truncate">{selectionModeLabel(activeSelectionMode)}</span>
+                      <ChevronDown />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-[min(30rem,calc(100vw-2rem))]">
+                      <DropdownMenuLabel>Tipe pemilihan soal</DropdownMenuLabel>
+                      <DropdownMenuRadioGroup onValueChange={(value) => chooseSelectionMode(value as SelectionMode)} value={activeSelectionMode}>
+                        {selectionModeOptions.map((option) => <DropdownMenuRadioItem key={option.value} value={option.value}>{option.label}</DropdownMenuRadioItem>)}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <p className="text-sm leading-6 text-secondary-600" id="question-source-help">{selectionModeDescription(activeSelectionMode)}</p>
+                </Field>
               </div>
 
               {activeSelectionMode !== "direct" ? (
