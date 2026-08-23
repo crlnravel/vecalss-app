@@ -35,7 +35,26 @@ assert.match(workspace, /contentReady/u, "review must include package content re
 assert.match(workspace, /catReady/u, "review must include CAT readiness");
 assert.match(workspace, /duplicateSourceCount/u, "review must include duplicate source detection");
 assert.doesNotMatch(workspace, /role="listitem"/u, "section selector buttons must retain native button semantics");
-assert.match(workspace, /Geser untuk area lain/u, "mobile tab rail must expose its horizontal-scroll cue");
+assert.match(workspace, /flex-wrap/u, "workspace tabs must wrap instead of requiring horizontal scrolling");
+assert.match(workspace, /data-active:bg-white/u, "workspace tabs must expose a visible active state");
+assert.doesNotMatch(workspace, /overflow-x-auto/u, "workspace tabs must not introduce horizontal overflow");
+assert.doesNotMatch(workspace, /tabRailRef/u, "workspace tabs must not depend on a horizontal scroll rail");
+for (const redundantNavigationLabel of [
+  "Lanjut ke Sections",
+  "Sebelumnya",
+  "Atur Questions",
+  "Kembali ke Sections",
+  "Atur Rules",
+  "Atur Schedule & akses",
+  "Lanjut ke Publish",
+]) {
+  assert.doesNotMatch(workspace, new RegExp(redundantNavigationLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `${redundantNavigationLabel} must not be rendered as in-panel navigation`);
+}
+assert.match(workspace, /lg:grid-cols-\[minmax\(15rem,18rem\)_minmax\(0,1fr\)\]/u, "Sections must use a stable desktop grid");
+assert.match(workspace, /question-source-help/u, "Questions must explain how to choose a source");
+assert.match(workspace, /Pilih langsung untuk menambahkan soal satu per satu/u, "Questions must clarify direct picks");
+assert.match(workspace, /pilih Ready untuk memasang satu sumber/u, "Questions must clarify Ready assembly picks");
+assert.doesNotMatch(workspace, /<FieldLabel>Urutan<\/FieldLabel>/u, "section editor must not expose a redundant order field");
 assert.match(route, /contentElement="div"/u, "Edit Tryout route should keep the shell landmark as the only main");
 assert.match(createRoute, /contentElement="div"/u, "Create Tryout route should keep the shell landmark as the only main");
 assert.match(shell, /<SidebarInset\b/u, "workspace shell must render the page landmark container");

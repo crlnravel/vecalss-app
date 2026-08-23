@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
-  ChevronRight,
   CircleAlert,
   CircleHelp,
   ClipboardList,
@@ -26,7 +25,7 @@ import {
   Users,
   X,
 } from "@/lib/icons";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -623,7 +622,6 @@ function KaptenTryoutBuilderPageModule({
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace>(() => normalizeWorkspace(initialWorkspace));
-  const tabRailRef = useRef<HTMLDivElement>(null);
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
   const boundCount = draft.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
@@ -907,23 +905,6 @@ function KaptenTryoutBuilderPageModule({
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [activeSection.subtest, activeSelectionMode, browseBankId, sourceQuestionPage, sourceQuestionSearch, workspace]);
 
-  useEffect(() => {
-    let timeout: number | undefined;
-    const frame = window.requestAnimationFrame(() => {
-      timeout = window.setTimeout(() => {
-        const scroller = tabRailRef.current;
-        const activeTab = scroller?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-        if (!scroller || !activeTab) return;
-        const targetLeft = activeTab.offsetLeft - Math.max(0, (scroller.clientWidth - activeTab.offsetWidth) / 2);
-        scroller.scrollTo({ left: Math.max(0, targetLeft), top: 0, behavior: "auto" });
-      }, 50);
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      if (timeout !== undefined) window.clearTimeout(timeout);
-    };
-  }, [workspace]);
-
   const goTo = (nextWorkspace: Workspace) => {
     changeWorkspace(nextWorkspace);
   };
@@ -991,18 +972,12 @@ function KaptenTryoutBuilderPageModule({
         state={draft.status === "draft" ? "historical" : "current"}
       />
 
-      <Tabs className="mt-6" onValueChange={changeWorkspace} value={workspace}>
-        <div className="relative">
-          <div className="overflow-x-auto pb-1" ref={tabRailRef}>
-          <TabsList aria-label="Ruang kerja Tryout" className="min-w-max rounded-2xl bg-primary-50 p-1">
-            {workspaceItems.map((item) => (
-              <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>
-            ))}
-          </TabsList>
-          </div>
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f7faf8] to-transparent sm:hidden" />
-          <p className="mt-1 text-right text-xs text-secondary-500 sm:hidden">Geser untuk area lain →</p>
-        </div>
+      <Tabs className="mt-6 min-w-0" onValueChange={changeWorkspace} value={workspace}>
+        <TabsList aria-label="Ruang kerja Tryout" className="flex h-auto w-full max-w-full flex-wrap items-stretch justify-start gap-1 rounded-2xl bg-primary-50 p-1">
+          {workspaceItems.map((item) => (
+            <TabsTrigger className="min-h-9 flex-none rounded-full px-3 py-2 text-left data-active:bg-white data-active:text-primary-950 data-active:shadow-sm" key={item.value} value={item.value}>{item.label}</TabsTrigger>
+          ))}
+        </TabsList>
 
         <TabsContent className="mt-5" value="basics">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
@@ -1023,9 +998,6 @@ function KaptenTryoutBuilderPageModule({
                 <FieldTextarea className="min-h-32 px-4 py-3 text-sm leading-6" disabled={draft.locked} id="tryout-description" onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
               </Field>
             </div>
-            <footer className="flex justify-end border-t border-primary-100 pt-5">
-              <Button onClick={() => goTo("sections")} variant="brand">Lanjut ke Sections <ChevronRight /></Button>
-            </footer>
           </section>
         </TabsContent>
 
@@ -1046,8 +1018,8 @@ function KaptenTryoutBuilderPageModule({
               </div>
             </header>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(14rem,0.5fr)_minmax(0,1.5fr)]">
-              <ul className="grid content-start gap-2" aria-label="Daftar Section Tryout">
+            <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)]">
+              <ul className="grid min-w-0 content-start gap-2" aria-label="Daftar Section Tryout">
                 {draft.sections.map((section, index) => {
                   const selected = section.subtest === activeSection.subtest;
                   return (
@@ -1078,27 +1050,19 @@ function KaptenTryoutBuilderPageModule({
                   </div>
                   <Badge className="rounded-full" size="ui" variant={activeSection.packageVersionId || activeSection.directQuestions?.length ? "mint" : "accent"}>{activeSection.packageVersionId ? assemblyModeLabel(activeAssembly?.mode ?? activeSection.packageVersionMode ?? "fixed_set") : activeSection.directQuestions?.length ? "Soal siap" : "Perlu sumber"}</Badge>
                 </div>
-                <div className="grid gap-5 md:grid-cols-2">
-                  <Field>
+                <div className="grid gap-5">
+                  <Field className="md:max-w-xs">
                     <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi</FieldLabel>
                     <div className="relative">
                       <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => update(activeSection.subtest, { durationMinutes: Number(event.target.value) })} type="number" value={activeSection.durationMinutes} />
                       <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
                     </div>
                   </Field>
-                  <Field>
-                    <FieldLabel>Urutan</FieldLabel>
-                    <div className="flex h-11 items-center rounded-xl border border-secondary-900/14 bg-white px-3 text-sm text-secondary-700">Test {subjectCodes.indexOf(activeSection.subtest) + 1} dari 7</div>
-                  </Field>
                 </div>
                 <Field>
                   <FieldLabel htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
                   <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => update(activeSection.subtest, { instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
                 </Field>
-                <footer className="flex flex-wrap justify-between gap-2 border-t border-primary-100 pt-4">
-                  <Button disabled={subjectCodes.indexOf(activeSection.subtest) === 0} onClick={() => changeActiveCode(subjectCodes[subjectCodes.indexOf(activeSection.subtest) - 1])} variant="brandOutline">Sebelumnya</Button>
-                  <Button onClick={() => goTo("questions")} variant="brand">Atur Questions <ChevronRight /></Button>
-                </footer>
               </div>
             </div>
           </section>
@@ -1111,7 +1075,6 @@ function KaptenTryoutBuilderPageModule({
                 <h2 className="text-xl font-semibold text-secondary-900">Pilih Questions</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih soal langsung atau pasang satu sumber Ready: Set Soal, Pool Soal, Blueprint, atau CAT Pool.</p>
               </div>
-              <Button onClick={() => goTo("sections")} variant="brandOutline">Kembali ke Sections</Button>
             </header>
 
             <div className="grid gap-5 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
@@ -1134,14 +1097,19 @@ function KaptenTryoutBuilderPageModule({
                 </DropdownMenu>
               </div>
 
-              <div aria-label="Mode sumber soal" className="grid gap-2 rounded-2xl border border-primary-100 bg-white p-1 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup">
+              <div aria-labelledby="question-source-help" className="grid gap-3 rounded-2xl border border-primary-100 bg-white p-4" id="question-source-chooser">
+                <div id="question-source-help">
+                  <p className="font-semibold text-secondary-900">Cara memilih soal</p>
+                  <p className="mt-1 text-sm leading-6 text-secondary-600">Pilih langsung untuk menambahkan soal satu per satu dari Bank Soal, atau pilih Ready untuk memasang satu sumber yang sudah disiapkan.</p>
+                </div>
+                <div aria-describedby="question-source-help" aria-label="Mode sumber soal" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup">
                 <Button aria-checked={activeSelectionMode === "direct"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "direct" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("direct")} role="radio" variant="ghost">
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Plus className="size-4" /></span>
-                  <span><span className="block font-semibold">Pilih soal langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pilih soal lintas Bank Soal.</span></span>
+                  <span><span className="block font-semibold">Pilih langsung</span><span className="mt-0.5 block text-xs font-normal opacity-75">Tambah soal satu per satu.</span></span>
                 </Button>
                 <Button aria-checked={activeSelectionMode === "set"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "set" ? "bg-[#d7f2d8] text-[#14563e] hover:bg-[#c8ebca]" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("set")} role="radio" variant="ghost">
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><ClipboardList className="size-4" /></span>
-                  <span><span className="block font-semibold">Gunakan Set Soal siap</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pakai assembly tetap yang sudah dirilis.</span></span>
+                  <span><span className="block font-semibold">Gunakan Set Ready</span><span className="mt-0.5 block text-xs font-normal opacity-75">Pasang paket yang sudah disiapkan.</span></span>
                 </Button>
                 <Button aria-checked={activeSelectionMode === "pool"} className={`h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-3 text-left ${activeSelectionMode === "pool" ? "bg-accent-200 text-secondary-900" : "text-secondary-600"}`} disabled={draft.locked} onClick={() => chooseSelectionMode("pool")} role="radio" variant="ghost">
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><SlidersHorizontal className="size-4" /></span>
@@ -1155,6 +1123,7 @@ function KaptenTryoutBuilderPageModule({
                   <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-accent-200 text-primary-800"><BarChart3 className="size-4" /></span>
                   <span><span className="block font-semibold">CAT Pool</span><span className="mt-0.5 block text-xs font-normal opacity-75">Kandidat 2PL siap.</span></span>
                 </Button>
+                </div>
               </div>
 
               {activeSelectionMode !== "direct" ? (
@@ -1196,7 +1165,6 @@ function KaptenTryoutBuilderPageModule({
                 </div>
               )}
             </div>
-            <footer className="flex justify-end border-t border-primary-100 pt-5"><Button onClick={() => goTo("rules")} variant="brand">Atur Rules <ChevronRight /></Button></footer>
           </section>
         </TabsContent>
 
@@ -1225,7 +1193,6 @@ function KaptenTryoutBuilderPageModule({
                 </Card>
               ))}
             </div>
-            <footer className="flex justify-end border-t border-primary-100 pt-5"><Button onClick={() => goTo("schedule")} variant="brand">Atur Schedule &amp; akses <ChevronRight /></Button></footer>
           </section>
         </TabsContent>
 
@@ -1282,7 +1249,6 @@ function KaptenTryoutBuilderPageModule({
               <div className="flex items-start gap-3"><ListChecks className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900">Server checks tetap berlaku</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Saat publish, server memeriksa sumber Ready, opsi, duplicate question, kesiapan CAT 2PL, dan snapshot AssessmentRelease. Checklist ini membantu navigasi; bukan pengganti validasi otoritatif.</p></div></div>
               {incompleteSections.length ? <div className="flex flex-wrap gap-2 border-t border-primary-100 pt-4">{incompleteSections.map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => { changeActiveCode(section.subtest); goTo("questions"); }} variant="outline">Lengkapi {section.subtest}</Button>)}</div> : null}
             </section>
-            <footer className="flex justify-end"><Button disabled={!readyToPublish} onClick={() => goTo("publish")} variant="brand">Lanjut ke Publish <ChevronRight /></Button></footer>
           </section>
         </TabsContent>
 
