@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { Input } from "@/components/ui/input";
 import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
 import type { SessionContext } from "@/lib/auth/types";
@@ -160,23 +161,16 @@ function ParticipantTryoutWorkspace({
             />
           </label>
 
-          <div
+          <CompactFilterTabs
             aria-label="Filter tryout"
-            className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden lg:justify-end"
-            role="group"
-          >
-            {filters.map((item) => (
-              <Button
-                aria-pressed={filter === item.id}
-                className="shrink-0 rounded-full"
-                key={item.id}
-                onClick={() => setFilter(item.id)}
-                variant={filter === item.id ? "brand" : "context"}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
+            className="lg:ml-auto"
+            items={filters.map((item) => ({
+              label: item.label,
+              value: item.id,
+            }))}
+            onValueChange={setFilter}
+            value={filter}
+          />
         </div>
 
         {visibleTryouts.length ? (
