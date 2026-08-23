@@ -66,6 +66,10 @@ type FolderNode = {
   updatedAt: string;
 };
 
+type QuestionBankCatalogueRow =
+  | { bank: BankEntry["bank"]; kind: "bank" }
+  | { folder: FolderNode; kind: "folder" };
+
 type CategoryNode = {
   bankCount: number;
   createdAt: string;
@@ -427,106 +431,86 @@ function KaptenQuestionBankPageModule({
     navigateCatalogue({ folder, page: 1 });
   }
 
-  const folderColumns: DataTableColumn<FolderNode>[] = [
-    {
-      cell: (folder) => (
-        <button aria-label={`Buka folder ${folder.name}`} className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" onClick={() => selectFolder(folder.id)} type="button">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Folder size={18} /></span>
-          <span className="min-w-0 truncate font-semibold text-secondary-900">{folder.name}</span>
-        </button>
-      ),
-      headerClassName: "min-w-[18rem]",
-      hideable: false,
-      id: "folder",
-      label: "Folder",
-      width: 52,
-    },
-    {
-      cell: (folder) => <span className="tabular-nums text-secondary-700">{folder.bankCount}</span>,
-      id: "banks",
-      label: "Bank soal",
-      width: 16,
-    },
-    {
-      cell: (folder) => <span className="tabular-nums text-secondary-700">{folder.children?.length ?? 0}</span>,
-      id: "subfolders",
-      label: "Subfolder",
-      width: 16,
-    },
-    {
-      cell: (folder) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${folder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => openFolderCreate(folder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openFolderManage(folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openFolderManage(folder, "move")}><Folder />Pindahkan</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => openFolderManage(folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-      cellClassName: "text-right",
-      headerClassName: "text-right",
-      id: "actions",
-      label: "Aksi",
-      width: 16,
-    },
+  const catalogueRows: QuestionBankCatalogueRow[] = [
+    ...childFolders.map((folder) => ({ folder, kind: "folder" as const })),
+    ...entries.map(({ bank }) => ({ bank, kind: "bank" as const })),
   ];
 
-  const bankColumns: DataTableColumn<BankEntry["bank"]>[] = [
+  const catalogueColumns: DataTableColumn<QuestionBankCatalogueRow>[] = [
     {
-      cell: (bank) => (
+      cell: (row) => row.kind === "folder" ? (
+        <button aria-label={`Buka folder ${row.folder.name}`} className="flex min-w-0 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" onClick={() => selectFolder(row.folder.id)} type="button">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Folder size={18} /></span>
+          <span className="min-w-0 truncate font-semibold text-secondary-900">{row.folder.name}</span>
+        </button>
+      ) : (
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><LibraryBig size={18} /></span>
           <div className="min-w-0">
-            <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={bank.href}>{bank.title}</Link>
-            <span className="mt-1 block text-xs text-secondary-500">{bank.questionCount} soal</span>
+            <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={row.bank.href}>{row.bank.title}</Link>
+            <span className="mt-1 block text-xs text-secondary-500">{row.bank.questionCount} soal</span>
           </div>
         </div>
       ),
-      headerClassName: "min-w-[18rem]",
+      headerClassName: "min-w-[20rem]",
       hideable: false,
-      id: "bank",
-      label: "Bank soal",
-      width: 30,
+      id: "name",
+      label: "Nama",
+      width: 34,
     },
     {
-      cell: (bank) => (
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-600">{row.folder.bankCount} bank · {row.folder.children?.length ?? 0} subfolder</span> : <span className="text-sm text-secondary-600">{row.bank.questionCount} soal</span>,
+      id: "contents",
+      label: "Isi",
+      width: 15,
+    },
+    {
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">Folder</span> : (
         <div className="flex max-w-[24rem] flex-wrap gap-1.5">
-          {bank.subjectCoverage.map((subject) => <Badge key={subject} size="ui" variant="mint">{subject}</Badge>)}
-          {bank.categories.map((category) => <span className="inline-flex items-center rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
+          {row.bank.subjectCoverage.map((subject) => <Badge key={subject} size="ui" variant="mint">{subject}</Badge>)}
+          {row.bank.categories.map((category) => <span className="inline-flex items-center rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
         </div>
       ),
       id: "coverage",
       label: "Coverage",
-      width: 25,
+      width: 24,
     },
     {
-      cell: (bank) => <StatusPill status={bank.status} />,
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : <StatusPill status={row.bank.status} />,
       id: "status",
       label: "Status",
-      width: 14,
+      width: 13,
     },
     {
-      cell: (bank) => <span className="flex max-w-[15rem] items-center gap-1.5 truncate text-sm text-secondary-600" title={bank.folderPath.map((item) => item.name).join(" / ")}><Folder className="size-3.5 shrink-0 text-secondary-400" />{bank.folderPath.map((item) => item.name).join(" / ")}</span>,
+      cell: (row) => row.kind === "folder" ? <span className="flex max-w-[15rem] items-center gap-1.5 truncate text-sm text-secondary-600"><Folder className="size-3.5 shrink-0 text-secondary-400" />{currentPath[currentPath.length - 1]?.name}</span> : <span className="flex max-w-[15rem] items-center gap-1.5 truncate text-sm text-secondary-600" title={row.bank.folderPath.map((item) => item.name).join(" / ")}><Folder className="size-3.5 shrink-0 text-secondary-400" />{row.bank.folderPath.map((item) => item.name).join(" / ")}</span>,
       id: "location",
       label: "Lokasi",
       width: 17,
     },
     {
-      cell: (bank) => (
+      cell: (row) => row.kind === "folder" ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${row.folder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => openFolderCreate(row.folder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openFolderManage(row.folder, "move")}><Folder />Pindahkan</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
         <div className="flex items-center justify-end gap-1.5">
-          <Button aria-label={`Edit ${bank.title}`} nativeButton={false} render={<Link href={bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
-          <Button aria-label={`Pindahkan ${bank.title}`} disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="icon-sm" title="Pindahkan bank" type="button" variant="ghost"><Folder /></Button>
-          <Button aria-label={`Kelola kategori ${bank.title}`} disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="icon-sm" title="Kelola kategori" type="button" variant="ghost"><Pencil /></Button>
+          <Button aria-label={`Edit ${row.bank.title}`} nativeButton={false} render={<Link href={row.bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
+          <Button aria-label={`Pindahkan ${row.bank.title}`} disabled={row.bank.status === "archived"} onClick={() => { setFolderParentId(row.bank.folderId); setFolderError(null); setBankMoveId(row.bank.id); }} size="icon-sm" title="Pindahkan bank" type="button" variant="ghost"><Folder /></Button>
+          <Button aria-label={`Kelola kategori ${row.bank.title}`} disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)} size="icon-sm" title="Kelola kategori" type="button" variant="ghost"><Pencil /></Button>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+            <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuGroup>
-                {bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
-                {bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
-                {bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
+                {row.bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
+                {row.bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
+                {row.bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -608,46 +592,30 @@ function KaptenQuestionBankPageModule({
   return <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false}>
     <div className="space-y-8">
       <section className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-3xl"><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1><p className="mt-3 max-w-[62ch] text-sm leading-6 text-secondary-500">Satu ruang bersama untuk menyimpan, mengelompokkan, dan menerbitkan bank soal yang dapat dipakai ulang.</p></div>
+        <div><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1></div>
         <div className="flex flex-wrap items-center gap-2">
           <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="sm" title="Kelola kategori bersama" type="button" variant="context"><Pencil />Kelola kategori</Button>
           <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button>
         </div>
       </section>
 
-      <div className="min-w-0 space-y-8">
-        {(!isGlobalSearch || childFolders.length) ? (
-          <section aria-labelledby="folder-section-title" className="space-y-3">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div><h2 className="text-lg font-semibold text-secondary-900" id="folder-section-title">{selectedFolder === ROOT_FOLDER ? "Folder di koleksi utama" : "Subfolder di lokasi ini"}</h2><p className="mt-1 text-sm leading-6 text-secondary-500">{selectedFolder === ROOT_FOLDER ? "Bank yang belum ditempatkan tampil di sini; buka folder untuk melihat bank yang sudah diatur." : "Buka subfolder untuk melihat bank di dalamnya."}</p></div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm tabular-nums text-secondary-500">{childFolders.length} folder</span>
-                {selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderCreate(currentFolder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
-                <Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button>
-              </div>
-            </div>
-            <MentorCatalogueTable caption="Daftar folder bank soal" columns={folderColumns} emptyState={<div className="py-2 text-left"><p className="font-semibold text-secondary-900">Belum ada folder di lokasi ini.</p><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat folder untuk mulai mengelompokkan bank.</p></div>} getRowId={(folder) => folder.id ?? folder.name} headingIcon={<Folder size={18} />} rows={childFolders} tableClassName="min-w-[680px]" />
-          </section>
-        ) : null}
-
-        <section aria-labelledby="bank-inventory-title" className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-semibold text-secondary-900" id="bank-inventory-title">{isGlobalSearch ? "Hasil pencarian" : "Bank soal di lokasi ini"}</h2><p className="mt-1 text-sm leading-6 text-secondary-500">{isGlobalSearch ? "Bank dari seluruh folder yang sesuai dengan pencarian dan filter." : "Buka bank untuk melanjutkan penyuntingan atau atur ulang lokasinya."}</p></div><span className="text-sm tabular-nums text-secondary-500">{initialTotal} bank ditemukan</span></div>
-          <MentorCatalogueTable
-            breadcrumb={folderBreadcrumb}
-            caption="Daftar bank soal"
-            clearFiltersHref={clearFiltersHref}
-            columns={bankColumns}
-            emptyState={<div className="py-2 text-left"><LibraryBig className="size-7 text-primary-300" /><h3 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Belum ada bank yang belum ditempatkan" : "Folder ini masih kosong"}</h3><p className="mt-1 max-w-[48ch] text-sm font-normal leading-6 text-secondary-600">{isGlobalSearch ? "Coba kata kunci lain atau bersihkan filter untuk melihat semua bank." : selectedFolder === ROOT_FOLDER ? "Buat bank baru, atau pindahkan bank yang sudah ada ke folder tertentu." : "Buat bank baru, atau pindahkan bank yang sudah ada ke lokasi ini."}</p><Button className="mt-5" nativeButton={selectedFolder !== ROOT_FOLDER && selectedFolder !== null} onClick={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : () => openFolderCreate(selectedFolder)} render={selectedFolder === ROOT_FOLDER || selectedFolder === null ? <Link href="/mentor/quiz/question-bank/create" /> : undefined} size="sm" type={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : "button"} variant="brand">{selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat bank soal" : "Buat subfolder"}</Button></div>}
-            filterPanel={filterPanel}
-            filters={activeFilters}
-            getRowId={(bank) => bank.id}
-            headingIcon={<LibraryBig size={18} />}
-            moreMenu={sortMenu}
-            rows={entries.map(({ bank }) => bank)}
-            search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
-            tableClassName="min-w-[980px]"
-          />
-        </section>
+      <div className="min-w-0">
+        <MentorCatalogueTable
+          breadcrumb={folderBreadcrumb}
+          caption="Daftar folder dan bank soal"
+          clearFiltersHref={clearFiltersHref}
+          columns={catalogueColumns}
+          emptyState={<div className="py-2 text-left"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p><Button className="mt-5" nativeButton={selectedFolder === ROOT_FOLDER || selectedFolder === null} onClick={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : () => openFolderCreate(selectedFolder)} render={selectedFolder === ROOT_FOLDER || selectedFolder === null ? <Link href="/mentor/quiz/question-bank/create" /> : undefined} size="sm" type={selectedFolder === ROOT_FOLDER || selectedFolder === null ? undefined : "button"} variant="brand">{selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat bank soal" : "Buat subfolder"}</Button></div>}
+          filterPanel={filterPanel}
+          filters={activeFilters}
+          getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
+          headerActions={<><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button>{selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderCreate(currentFolder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}</>}
+          headingIcon={<LibraryBig size={18} />}
+          moreMenu={sortMenu}
+          rows={catalogueRows}
+          search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
+          tableClassName="min-w-[1100px]"
+        />
         {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
       </div>
     </div>
