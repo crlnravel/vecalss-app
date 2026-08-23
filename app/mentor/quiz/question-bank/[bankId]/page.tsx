@@ -25,5 +25,5 @@ export default async function MentorQuestionBankBuilderPage({ params }: MentorQu
     listQuestionBankCategories(),
   ]);
   if (!initial) notFound();
-  return <KaptenQuestionBankBuilderPageModule bankId={bankId} initialBank={initial.bank} initialCategories={initialCategories} initialFolderTree={initialFolderTree} initialQuestions={initial.questions} mode="edit" session={session} />;
+  return <KaptenQuestionBankBuilderPageModule bankId={bankId} initialBank={initial.bank} initialCategories={initialCategories} initialFolderTree={initialFolderTree} initialQuestions={initial.questions} initialReadiness={initial.readiness} mode="edit" session={session} />;
 }

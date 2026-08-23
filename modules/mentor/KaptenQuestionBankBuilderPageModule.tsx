@@ -65,6 +65,7 @@ import {
   getQuestionBankReadinessFromDrafts,
   getQuestionReadinessFromDraft,
   type QuestionBankReadiness,
+  type QuestionReadinessMediaTarget,
   type QuestionReadinessIssue,
 } from "@/lib/question-bank/readiness";
 import { cn } from "@/lib/utils";
@@ -265,14 +266,19 @@ function isReady(question: BankQuestion) {
 }
 
 function readinessIssueKey(issue: QuestionReadinessIssue) {
-  return [issue.questionId, issue.code, issue.field, issue.choiceId ?? ""].join(":");
+  return [issue.questionId, issue.code, issue.field, issue.choiceId ?? "", issue.mediaTarget ?? ""].join(":");
 }
 
 function readinessFieldLabel(issue: QuestionReadinessIssue) {
   if (issue.field === "prompt") return "pertanyaan";
   if (issue.field === "choice") return issue.choiceId ? "teks opsi" : "jumlah opsi";
   if (issue.field === "correctChoice") return "jawaban benar";
-  if (issue.field === "media") return issue.choiceId ? "media opsi" : "media soal";
+  if (issue.field === "media") {
+    if (issue.choiceId) return "media opsi";
+    if (issue.mediaTarget === "explanation") return "media penjelasan";
+    if (issue.mediaTarget === "prompt") return "media pertanyaan";
+    return "media soal";
+  }
   return "Subtest";
 }
 
@@ -337,6 +343,8 @@ function pruneServerReadinessForDraftChange(
     if (issue.choiceId) {
       return previous.choices.find((choice) => choice.id === issue.choiceId)?.mediaAssetId === next.choices.find((choice) => choice.id === issue.choiceId)?.mediaAssetId;
     }
+    if (issue.mediaTarget === "prompt") return previous.promptMediaAssetId === next.promptMediaAssetId;
+    if (issue.mediaTarget === "explanation") return previous.explanationMediaAssetId === next.explanationMediaAssetId;
     return previous.promptMediaAssetId === next.promptMediaAssetId && previous.explanationMediaAssetId === next.explanationMediaAssetId;
   });
   if (!issues.length) return null;
@@ -378,13 +386,28 @@ function QuestionBankEditorForm({
   questionDraft: BankQuestion;
   readinessIssues: QuestionReadinessIssue[];
 }) {
-  const hasIssue = (field: QuestionReadinessIssue["field"], choiceId?: string) =>
-    readinessIssues.some((issue) => issue.field === field && issue.choiceId === choiceId);
-  const hasMediaIssue = (choiceId?: string) =>
-    readinessIssues.some((issue) => issue.field === "media" && issue.choiceId === choiceId);
+  const hasIssue = (
+    field: QuestionReadinessIssue["field"],
+    choiceId?: string,
+    mediaTarget?: QuestionReadinessMediaTarget,
+  ) => readinessIssues.some((issue) => issue.field === field
+    && issue.choiceId === choiceId
+    && (field !== "media"
+      || issue.mediaTarget === mediaTarget
+      || (mediaTarget !== "prompt" && mediaTarget !== "explanation" && issue.mediaTarget === undefined)));
+  const hasMediaIssue = (choiceId?: string, mediaTarget?: QuestionReadinessMediaTarget) =>
+    hasIssue("media", choiceId, mediaTarget);
+  const hasChoiceCountIssue = hasIssue("choice");
+  const hasCorrectChoiceIssue = hasIssue("correctChoice");
+  const hasPromptMediaIssue = hasMediaIssue(undefined, "prompt");
+  const hasExplanationMediaIssue = hasMediaIssue(undefined, "explanation");
   const readinessHint = readinessIssues.length
     ? `Perbaiki ${readinessIssues.map(readinessFieldLabel).join(", ")}.`
     : undefined;
+  const describedBy = (...ids: Array<string | undefined>) => {
+    const presentIds = ids.filter((id): id is string => Boolean(id));
+    return presentIds.length ? presentIds.join(" ") : undefined;
+  };
 
   return (
     <div className="grid min-w-0 gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm md:p-7">
@@ -392,6 +415,8 @@ function QuestionBankEditorForm({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <FieldLabel htmlFor="question-prompt">Pertanyaan</FieldLabel>
           <Button
+            aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasPromptMediaIssue ? "question-prompt-media-error" : undefined)}
+            aria-invalid={hasPromptMediaIssue}
             data-question-anchor="media"
             data-question-field="media"
             data-question-field-key="prompt"
@@ -418,28 +443,36 @@ function QuestionBankEditorForm({
           />
         ) : null}
       </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {questionDraft.choices.map((choice, index) => {
-          const choiceLabel = String.fromCharCode(65 + index);
-          const inputId = `bank-choice-${choice.id}`;
-          return <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-primary-100 px-3 py-3" key={choice.id}>
-            <div className="flex min-w-0 items-center gap-3">
-              <input aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={`bank-correct-choice-${choice.id}`} name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
-              <label className="text-xs font-semibold text-primary-800" htmlFor={`bank-correct-choice-${choice.id}`}>{choiceLabel}</label>
-              <input aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasIssue("choice", choice.id)} aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" data-question-anchor="choice" data-question-choice-id={choice.id} data-question-field="choice" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${choiceLabel}`} value={choice.text} />
-              <Button aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasMediaIssue(choice.id)} aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`} data-question-anchor="media" data-question-choice-id={choice.id} data-question-field="media" data-question-field-key={`choice:${choice.id}`} disabled={!activeQuestionId || isQuestionContentLocked} id={`question-media-choice-${choice.id}`} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
-              <Button aria-label={`Hapus opsi ${choiceLabel}`} disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked} onClick={() => onRemoveChoice(choice.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
-            </div>
-            {choice.mediaAssetId ? <QuestionMediaAttachment assetId={choice.mediaAssetId} disabled={isQuestionContentLocked} field={`choice-${choice.id}`} label={`Gambar opsi ${choiceLabel}`} onRemove={() => onRemoveChoiceMedia(choice.id)} onReplace={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} /> : null}
-          </div>;
-        })}
-      </div>
+      <fieldset aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceCountIssue ? "question-choice-count-error" : undefined)} aria-invalid={hasChoiceCountIssue} className="grid gap-3 border-0 p-0 sm:grid-cols-2">
+        <legend className="sr-only" id="question-choices-label">Pilihan jawaban</legend>
+        <fieldset aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined)} aria-invalid={hasCorrectChoiceIssue} className="contents">
+          <legend className="sr-only">Tentukan jawaban benar</legend>
+          {questionDraft.choices.map((choice, index) => {
+            const choiceLabel = String.fromCharCode(65 + index);
+            const inputId = `bank-choice-${choice.id}`;
+            return <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-primary-100 px-3 py-3" key={choice.id}>
+              <div className="flex min-w-0 items-center gap-3">
+                <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasCorrectChoiceIssue ? "question-correct-choice-error" : undefined)} aria-label={`Jawaban benar opsi ${index + 1}`} checked={choice.id === questionDraft.correctChoiceId} className="size-4 accent-primary-700" data-question-anchor="correctChoice" data-question-choice-id={choice.id} data-question-field="correctChoice" disabled={isQuestionContentLocked} id={`bank-correct-choice-${choice.id}`} name="bank-correct-choice" onChange={() => onUpdate({ ...questionDraft, correctChoiceId: choice.id })} type="radio" />
+                <label className="text-xs font-semibold text-primary-800" htmlFor={`bank-correct-choice-${choice.id}`}>{choiceLabel}</label>
+                <input aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasChoiceCountIssue ? "question-choice-count-error" : undefined)} aria-invalid={hasIssue("choice", choice.id)} aria-label={`Opsi ${index + 1}`} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-secondary-400" data-question-anchor="choice" data-question-choice-id={choice.id} data-question-field="choice" disabled={isQuestionContentLocked} id={inputId} onChange={(event) => onUpdate({ ...questionDraft, choices: questionDraft.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${choiceLabel}`} value={choice.text} />
+                <Button aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasMediaIssue(choice.id) ? "question-readiness-hint" : undefined)} aria-invalid={hasMediaIssue(choice.id)} aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${choiceLabel}`} data-question-anchor="media" data-question-choice-id={choice.id} data-question-field="media" data-question-field-key={`choice:${choice.id}`} disabled={!activeQuestionId || isQuestionContentLocked} id={`question-media-choice-${choice.id}`} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>
+                <Button aria-label={`Hapus opsi ${choiceLabel}`} disabled={questionDraft.choices.length <= 2 || isQuestionContentLocked} onClick={() => onRemoveChoice(choice.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
+              </div>
+              {choice.mediaAssetId ? <QuestionMediaAttachment assetId={choice.mediaAssetId} disabled={isQuestionContentLocked} field={`choice-${choice.id}`} label={`Gambar opsi ${choiceLabel}`} onRemove={() => onRemoveChoiceMedia(choice.id)} onReplace={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${choiceLabel}` })} /> : null}
+            </div>;
+          })}
+        </fieldset>
+      </fieldset>
       <div className="flex justify-end"><Button disabled={questionDraft.choices.length >= 5 || isQuestionContentLocked} onClick={onAddChoice} size="sm" type="button" variant="brandOutline"><Plus />Tambah opsi</Button></div>
       <div className="grid gap-5 sm:grid-cols-2">
         <Field><FieldLabel htmlFor="question-subtest">Subtest</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button aria-describedby={isQuestionContentLocked ? "question-subtest-lock" : readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasIssue("subtest")} className="w-full justify-between" data-question-anchor="subtest" data-question-field="subtest" id="question-subtest" type="button" variant="context" />}><span className="truncate">{kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name ? `${questionDraft.subjectCode} - ${kaptenSubjects.find((subject) => subject.code === questionDraft.subjectCode)?.name}` : "Pilih Subtest"}</span><ChevronDown className="size-4 text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih Subtest</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, subjectCode: value })} value={questionDraft.subjectCode}>{kaptenSubjects.map((subject) => <DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" key={subject.code} value={subject.code}>{subject.code} - {subject.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>{isQuestionContentLocked ? <p className="text-xs text-secondary-500" id="question-subtest-lock">Subtest dikunci saat Bank diterbitkan. Jadikan draf untuk mengubahnya.</p> : null}</Field>
         <Field><FieldLabel htmlFor="question-difficulty">Tingkat kesulitan</FieldLabel><DropdownMenu><DropdownMenuTrigger disabled={isQuestionContentLocked} render={<Button className="w-full justify-between" id="question-difficulty" type="button" variant="context" />}><span>{questionDraft.difficulty === "easy" ? "Mudah" : questionDraft.difficulty === "hard" ? "Sulit" : "Sedang"}</span><ChevronDown className="text-secondary-400" /></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-(--anchor-width)"><DropdownMenuLabel>Pilih tingkat kesulitan</DropdownMenuLabel><DropdownMenuGroup><DropdownMenuRadioGroup onValueChange={(value) => onUpdate({ ...questionDraft, difficulty: value as BankQuestion["difficulty"] })} value={questionDraft.difficulty}><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="easy">Mudah</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="medium">Sedang</DropdownMenuRadioItem><DropdownMenuRadioItem className="data-checked:bg-primary-50 focus:bg-primary-50 focus:text-primary-900" value="hard">Sulit</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></Field>
       </div>
-      <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button aria-describedby={readinessHint ? "question-readiness-hint" : undefined} aria-invalid={hasMediaIssue()} data-question-anchor="media" data-question-field="media" data-question-field-key="explanation" disabled={!activeQuestionId || isQuestionContentLocked} id="question-media-explanation" onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} field="explanation" label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
+      <Field><div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="question-explanation">Penjelasan <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><Button aria-describedby={describedBy(readinessHint ? "question-readiness-hint" : undefined, hasExplanationMediaIssue ? "question-explanation-media-error" : undefined)} aria-invalid={hasExplanationMediaIssue} data-question-anchor="media" data-question-field="media" data-question-field-key="explanation" disabled={!activeQuestionId || isQuestionContentLocked} id="question-media-explanation" onClick={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} size="sm" type="button" variant="ghost"><ImagePlus data-icon="inline-start" />{questionDraft.explanationMediaAssetId ? "Ganti gambar" : "Tambah gambar"}</Button></div><FieldTextarea disabled={isQuestionContentLocked} id="question-explanation" onChange={(event) => onUpdate({ ...questionDraft, explanation: event.target.value })} value={questionDraft.explanation} />{questionDraft.explanationMediaAssetId ? <QuestionMediaAttachment assetId={questionDraft.explanationMediaAssetId} disabled={isQuestionContentLocked} field="explanation" label="Gambar penjelasan" onRemove={() => onUpdate({ ...questionDraft, explanationMediaAssetId: undefined })} onReplace={() => onOpenMedia({ kind: "explanation", label: "Gambar penjelasan" })} /> : null}</Field>
+      {hasChoiceCountIssue ? <p className="sr-only" id="question-choice-count-error">Jumlah opsi harus antara 2 dan 5.</p> : null}
+      {hasCorrectChoiceIssue ? <p className="sr-only" id="question-correct-choice-error">Pilih tepat satu jawaban benar.</p> : null}
+      {hasPromptMediaIssue ? <p className="sr-only" id="question-prompt-media-error">Gambar pertanyaan belum siap.</p> : null}
+      {hasExplanationMediaIssue ? <p className="sr-only" id="question-explanation-media-error">Gambar penjelasan belum siap.</p> : null}
       {readinessHint ? <p className="sr-only" id="question-readiness-hint">{readinessHint}</p> : null}
     </div>
   );
@@ -1070,6 +1103,7 @@ function KaptenQuestionBankBuilderPageModule({
   initialBank = null,
   initialFolderTree = [],
   initialQuestions = [],
+  initialReadiness = null,
   mode,
   session,
 }: {
@@ -1078,6 +1112,7 @@ function KaptenQuestionBankBuilderPageModule({
   initialBank?: KaptenQuestionBank | null;
   initialFolderTree?: QuestionBankFolderNode[];
   initialQuestions?: BankQuestion[];
+  initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
   session: SessionContext;
 }) {
@@ -1116,7 +1151,7 @@ function KaptenQuestionBankBuilderPageModule({
     mediaPickerTarget: null,
     pendingRouteReplacement: null,
     readinessAnnouncement: "",
-    serverReadiness: null,
+    serverReadiness: mode === "edit" ? initialReadiness : null,
     previewChoiceId: null,
     questionDraft: toQuestionDraft(initialQuestion),
     questionEditorTab: "edit",
@@ -1205,11 +1240,12 @@ function KaptenQuestionBankBuilderPageModule({
     } else {
       const mediaIssues = readiness.issues.filter((item) => item.questionId === issue.questionId && item.field === "media" && !item.choiceId);
       const mediaIssueIndex = mediaIssues.findIndex((item) => readinessIssueKey(item) === readinessIssueKey(issue));
-      const mediaKey = !question.promptMediaAssetId && question.explanationMediaAssetId
-        ? "explanation"
-        : mediaIssueIndex > 0
+      const mediaKey = issue.mediaTarget
+        ?? (!question.promptMediaAssetId && question.explanationMediaAssetId
           ? "explanation"
-          : "prompt";
+          : mediaIssueIndex > 0
+            ? "explanation"
+            : "prompt");
       target = anchors.find((element) => element.dataset.questionAnchor === "media" && element.dataset.questionFieldKey === mediaKey && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
       target ??= anchors.find((element) => element.dataset.questionAnchor === "media" && (!issue.choiceId || element.dataset.questionChoiceId === issue.choiceId));
     }

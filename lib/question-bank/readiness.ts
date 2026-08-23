@@ -20,12 +20,15 @@ export type QuestionReadinessField =
   | "subtest";
 
 export type QuestionReadinessFocusTarget = QuestionReadinessField;
+export type QuestionReadinessMediaTarget = "prompt" | "explanation";
 
 export type QuestionReadinessIssue = {
   choiceId?: string;
   code: QuestionReadinessIssueCode;
   field: QuestionReadinessField;
   focusTarget: QuestionReadinessFocusTarget;
+  /** Present for asset_not_ready issues that target question-level media. */
+  mediaTarget?: QuestionReadinessMediaTarget;
   questionId: string;
 };
 
@@ -121,12 +124,14 @@ function issue(
   code: QuestionReadinessIssueCode,
   field: QuestionReadinessField,
   choiceId?: string,
+  mediaTarget?: QuestionReadinessMediaTarget,
 ): QuestionReadinessIssue {
   return {
     ...(choiceId === undefined ? {} : { choiceId }),
     code,
     field,
     focusTarget: field,
+    ...(mediaTarget === undefined ? {} : { mediaTarget }),
     questionId,
   };
 }
@@ -165,7 +170,7 @@ export function evaluateQuestionReadiness(
   }
 
   if (!isReadyAsset(question.promptAsset)) {
-    issues.push(issue(question.id, "asset_not_ready", "media"));
+    issues.push(issue(question.id, "asset_not_ready", "media", undefined, "prompt"));
   }
 
   for (const choice of question.choices) {
@@ -175,7 +180,7 @@ export function evaluateQuestionReadiness(
   }
 
   if (!isReadyAsset(question.explanationAsset)) {
-    issues.push(issue(question.id, "asset_not_ready", "media"));
+    issues.push(issue(question.id, "asset_not_ready", "media", undefined, "explanation"));
   }
 
   if (!hasText(question.subtestCode)) {

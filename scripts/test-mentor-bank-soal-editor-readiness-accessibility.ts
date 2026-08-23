@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
+import { getQuestionReadinessFromDraft } from "../lib/question-bank/readiness";
+
 const builder = fs.readFileSync(
   "modules/mentor/KaptenQuestionBankBuilderPageModule.tsx",
   "utf8",
 );
+const page = fs.readFileSync(
+  "app/mentor/quiz/question-bank/[bankId]/page.tsx",
+  "utf8",
+);
+const readiness = fs.readFileSync("lib/question-bank/readiness.ts", "utf8");
+const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8")) as {
+  scripts?: Record<string, string>;
+};
 
 assert.match(builder, /getQuestionBankReadinessFromDrafts\(builderState\.questions\)/u);
 assert.match(builder, /mergeQuestionBankReadiness\(/u);
@@ -26,12 +36,30 @@ assert.match(builder, /role="status"/u);
 assert.match(builder, /aria-live="polite"/u);
 
 assert.match(builder, /serverReadiness: QuestionBankReadiness \| null/u);
+assert.match(builder, /initialReadiness\?: QuestionBankReadiness \| null/u);
+assert.match(builder, /serverReadiness: mode === "edit" \? initialReadiness : null/u);
 assert.match(builder, /if \(result\.readiness\) setServerReadiness\(result\.readiness\)/u);
 assert.match(builder, /setServerReadiness\(result\.result\.readiness\)/u);
 assert.match(builder, /questionIssues = state\.readiness\.issues\.filter/u);
 assert.match(builder, /aria-invalid=\{hasIssue\("prompt"\)\}/u);
 assert.match(builder, /aria-invalid=\{hasIssue\("choice", choice\.id\)\}/u);
 assert.match(builder, /aria-invalid=\{hasIssue\("subtest"\)\}/u);
+assert.match(builder, /aria-invalid=\{hasChoiceCountIssue\}/u);
+assert.match(builder, /aria-invalid=\{hasCorrectChoiceIssue\}/u);
+assert.match(builder, /aria-invalid=\{hasPromptMediaIssue\}/u);
+assert.match(builder, /question-choice-count-error/u);
+assert.match(builder, /question-correct-choice-error/u);
+assert.match(builder, /question-prompt-media-error/u);
+assert.match(builder, /issue\.mediaTarget/u);
+assert.match(builder, /mediaTarget \?\?/u);
+assert.match(page, /initialReadiness=\{initial\.readiness\}/u);
+assert.match(readiness, /export type QuestionReadinessMediaTarget = "prompt" \| "explanation"/u);
+assert.match(readiness, /mediaTarget\?: QuestionReadinessMediaTarget/u);
+assert.equal(
+  packageJson.scripts?.["test:mentor-bank-soal-editor-readiness-accessibility"],
+  "tsx scripts/test-mentor-bank-soal-editor-readiness-accessibility.ts",
+  "ticket-6 contract must be runnable through package.json",
+);
 
 assert.match(builder, /Simpan dulu untuk menerbitkan/u);
 assert.match(builder, /state\.readiness\.incompleteCount > 0/u);
@@ -80,6 +108,32 @@ assert.deepEqual(
   nextIndex(originalIssues.filter((issue) => issue.key !== "subtest"), "subtest", 2, true, false),
   { index: 0, loopEnded: false },
   "fixing the last issue wraps to the first remaining issue",
+);
+
+const mediaIssues = getQuestionReadinessFromDraft({
+  choices: [
+    { id: "a", text: "A" },
+    { id: "b", text: "B" },
+  ],
+  correctChoiceId: "a",
+  explanationMediaAssetState: "pending",
+  id: "question-media-targets",
+  prompt: "Pertanyaan",
+  promptMediaAssetState: "failed",
+  subjectCode: "PU",
+}).filter((issue) => issue.code === "asset_not_ready");
+assert.deepEqual(
+  mediaIssues.map(({ choiceId, mediaTarget }) => ({ choiceId, mediaTarget })),
+  [
+    { choiceId: undefined, mediaTarget: "prompt" },
+    { choiceId: undefined, mediaTarget: "explanation" },
+  ],
+  "question-level media failures need distinct stable targets",
+);
+assert.notEqual(
+  mediaIssues.map((issue) => [issue.questionId, issue.code, issue.field, issue.choiceId ?? "", issue.mediaTarget ?? ""].join(":"))[0],
+  mediaIssues.map((issue) => [issue.questionId, issue.code, issue.field, issue.choiceId ?? "", issue.mediaTarget ?? ""].join(":"))[1],
+  "prompt and explanation media failures must not share an issue identity",
 );
 
 console.log("Mentor Bank Soal readiness/accessibility contracts passed.");

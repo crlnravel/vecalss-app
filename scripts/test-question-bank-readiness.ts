@@ -64,6 +64,7 @@ const expectedIncompleteIssues: QuestionReadinessIssue[] = [
     code: "asset_not_ready",
     field: "media",
     focusTarget: "media",
+    mediaTarget: "prompt",
     questionId: "question-incomplete",
   },
   {

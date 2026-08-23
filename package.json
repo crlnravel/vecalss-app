@@ -60,6 +60,7 @@
     "test:tryout-realtime-hardening": "tsx scripts/test-tryout-realtime-hardening.ts",
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",
     "test:mentor-bank-package-ui": "tsx scripts/test-mentor-bank-package-ui.ts",
+    "test:mentor-bank-soal-editor-readiness-accessibility": "tsx scripts/test-mentor-bank-soal-editor-readiness-accessibility.ts",
     "test:question-bank-organization-seed": "node scripts/test-question-bank-organization-seed.mjs",
     "test:package-version-labels": "tsx scripts/test-package-version-labels.ts",
     "test:tryout-pool-authoring-mock": "tsx scripts/test-tryout-pool-authoring-mock.ts",
