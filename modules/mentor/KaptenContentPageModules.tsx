@@ -11,7 +11,6 @@ import {
   Field,
   FieldInput,
   FieldLabel,
-  FieldTextarea,
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import {
@@ -383,22 +382,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           </div>
         </SettingsSection>
 
-        <SettingsSection
-          description="Catatan internal untuk fokus kerja."
-          id="catatan"
-          title="Catatan"
-        >
-          <div className="grid gap-5">
-            <Field className="md:col-span-2">
-              <FieldLabel htmlFor="kapten-note">Catatan workspace</FieldLabel>
-              <FieldTextarea
-                className="min-h-[170px]"
-                defaultValue="Fokus minggu ini: selesaikan draft PU dan review Tryout 17 sebelum dijadwalkan."
-                id="kapten-note"
-              />
-            </Field>
-          </div>
-        </SettingsSection>
       </div>
     </MentorWorkspaceShell>
   );
