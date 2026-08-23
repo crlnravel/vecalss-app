@@ -16,6 +16,7 @@ import {
 } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
+import { createTryoutInvitationNotification } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
 
 class TryoutDeliveryValidationError extends Error {}
@@ -690,6 +691,14 @@ async function inviteTryoutParticipant(
       ? existingAssignment
       : await ensureActiveAssignment(tx, restored.id, lockedSelected.id, actorId);
     await audit(tx, { action: "admission.invited", actorId, admissionId: restored.id, after: { assignmentId: assignment.id, sessionId: lockedSelected.id, status: restored.status, studentId }, reason: auditReason, deliverySessionId: lockedSelected.id, tryoutId });
+    if (existingAssignment?.status !== TryoutAssignmentStatus.active) {
+      await createTryoutInvitationNotification({
+        recipientUserId: studentId,
+        sourceEntityId: assignment.id,
+        tryoutId,
+        tx,
+      });
+    }
     return { ...restored, assignmentId: assignment.id, deliverySessionId: lockedSelected.id };
   });
 }

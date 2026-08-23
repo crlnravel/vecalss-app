@@ -41,6 +41,15 @@ type SendKelasNotificationInput = {
   title: string;
 };
 
+type CreateTryoutInvitationNotificationInput = {
+  recipientUserId: string;
+  sourceEntityId: string;
+  tryoutId: string;
+  tx: Prisma.TransactionClient;
+};
+
+const TRYOUT_INVITATION_SOURCE_ENTITY_TYPE = "tryout_invitation";
+
 class KelasNotificationError extends Error {
   code:
     | "cohort_empty"
@@ -323,6 +332,51 @@ async function markAllStudentNotificationsRead(userId: string) {
   });
 }
 
+async function createTryoutInvitationNotification({
+  recipientUserId,
+  sourceEntityId,
+  tryoutId,
+  tx,
+}: CreateTryoutInvitationNotificationInput) {
+  const existing = await tx.notification.findFirst({
+    select: { id: true },
+    where: {
+      eventType: NotificationEventType.custom,
+      recipientUserId,
+      sourceEntityId,
+      sourceEntityType: TRYOUT_INVITATION_SOURCE_ENTITY_TYPE,
+    },
+  });
+  if (existing) return existing;
+
+  const now = new Date();
+  const notification = await tx.notification.create({
+    data: {
+      body: "Aksesmu ke Tryout sudah aktif. Buka ruang tunggu untuk melihat jadwal dan bersiap.",
+      createdAt: now,
+      deepLink: `/tryout/${tryoutId}/waiting`,
+      eventType: NotificationEventType.custom,
+      id: randomUUID(),
+      priority: 1,
+      recipientUserId,
+      sourceEntityId,
+      sourceEntityType: TRYOUT_INVITATION_SOURCE_ENTITY_TYPE,
+      title: "Undangan Tryout",
+    },
+  });
+  await tx.notificationDelivery.create({
+    data: {
+      channel: NotificationChannel.in_app,
+      deliveredAt: now,
+      notificationId: notification.id,
+      queuedAt: now,
+      status: NotificationStatus.delivered,
+    },
+  });
+
+  return notification;
+}
+
 async function sendKelasNotification(input: SendKelasNotificationInput) {
   const cohortId = input.cohortId.trim();
   if (!isUuid(cohortId)) {
@@ -416,6 +470,7 @@ async function sendKelasNotification(input: SendKelasNotificationInput) {
 
 export {
   KelasNotificationError,
+  createTryoutInvitationNotification,
   getAndMarkStudentNotificationDetail,
   getStudentNotificationDetail,
   getStudentNotificationFeed,
@@ -423,4 +478,9 @@ export {
   sendKelasNotification,
   validateKelasNotificationInput,
 };
-export type { NotificationFeed, SendKelasNotificationInput, StudentNotificationDetail };
+export type {
+  CreateTryoutInvitationNotificationInput,
+  NotificationFeed,
+  SendKelasNotificationInput,
+  StudentNotificationDetail,
+};

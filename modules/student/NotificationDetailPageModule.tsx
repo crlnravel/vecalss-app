@@ -159,6 +159,15 @@ function NotificationDetailPageModule({
               Buka tautan Zoom
               <ArrowUpRight aria-hidden="true" className="size-4" />
             </Button>
+          ) : notification.href !== "/notifications" ? (
+            <Button
+              className="mt-8"
+              nativeButton={false}
+              render={<Link href={notification.href} />}
+              variant="brand"
+            >
+              Buka ruang tunggu
+            </Button>
           ) : null}
         </article>
       </section>

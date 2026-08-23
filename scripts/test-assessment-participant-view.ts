@@ -6,12 +6,14 @@ import {
   type ParticipantViewAdmissionInput,
 } from "@/lib/tryout/participant-view";
 
-const [delivery, operations, actions, participants, detail] = await Promise.all([
+const [delivery, operations, actions, participants, detail, notificationService, notificationDetail] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/tryout-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../lib/notifications/service.ts", import.meta.url), "utf8"),
+  readFile(new URL("../modules/student/NotificationDetailPageModule.tsx", import.meta.url), "utf8"),
 ]);
 
 const fixture: ParticipantViewAdmissionInput = {
@@ -116,6 +118,9 @@ assert.match(invitation, /findSelectedSession/);
 assert.match(invitation, /findDefaultSession/);
 assert.ok(invitation.indexOf("replayAssignment") < invitation.indexOf("findDefaultSession"), "invitation replay must short-circuit before default resolution");
 assert.ok(invitation.indexOf("assertTryoutOwnership") < invitation.indexOf("assertStudent"), "invitation ownership must precede participant reads");
+assert.match(invitation, /createTryoutInvitationNotification/u);
+assert.ok(invitation.indexOf("await audit(tx, { action: \"admission.invited\"") < invitation.indexOf("createTryoutInvitationNotification"), "invitation notification must follow the admission audit");
+assert.match(invitation, /existingAssignment\?\.status !== TryoutAssignmentStatus\.active/u, "replayed active invitations must not notify again");
 assert.match(delivery, /status === TryoutDeliverySessionStatus\.closed/);
 assert.match(delivery, /status === TryoutDeliverySessionStatus\.archived/);
 assert.match(delivery, /!session\.assessmentReleaseId/);
@@ -138,5 +143,16 @@ assert.match(participants, /participant\.score/);
 assert.match(detail, /Sesi saat menyetujui/);
 assert.match(detail, /Penugasan sesi/);
 assert.match(detail, /riwayat attempt tetap dipertahankan/);
+assert.match(notificationService, /async function createTryoutInvitationNotification/u);
+assert.match(notificationService, /eventType: NotificationEventType\.custom/u);
+assert.match(notificationService, /sourceEntityType: TRYOUT_INVITATION_SOURCE_ENTITY_TYPE/u);
+assert.match(notificationService, /const TRYOUT_INVITATION_SOURCE_ENTITY_TYPE = "tryout_invitation"/u);
+assert.match(notificationService, /deepLink: `\/tryout\/\$\{tryoutId\}\/waiting`/u);
+assert.match(notificationService, /title: "Undangan Tryout"/u);
+assert.match(notificationService, /Aksesmu ke Tryout sudah aktif/u);
+assert.match(notificationService, /notificationDelivery\.create/u);
+assert.ok(notificationService.indexOf("if (existing) return existing") < notificationService.indexOf("notificationDelivery.create"), "invitation notification creation must be idempotent");
+assert.match(notificationDetail, /Buka ruang tunggu/u);
+assert.match(notificationDetail, /notification\.href !== "\/notifications"/u);
 
 console.log("Assessment ParticipantView and access-transition contracts passed.");
