@@ -35,9 +35,12 @@ assert.match(workspace, /contentReady/u, "review must include package content re
 assert.match(workspace, /catReady/u, "review must include CAT readiness");
 assert.match(workspace, /duplicateSourceCount/u, "review must include duplicate source detection");
 assert.doesNotMatch(workspace, /role="listitem"/u, "section selector buttons must retain native button semantics");
-assert.match(workspace, /flex-wrap/u, "workspace tabs must wrap instead of requiring horizontal scrolling");
-assert.match(workspace, /data-active:bg-white/u, "workspace tabs must expose a visible active state");
-assert.doesNotMatch(workspace, /overflow-x-auto/u, "workspace tabs must not introduce horizontal overflow");
+assert.match(workspace, /FullWidthLineTabsList/u, "workspace tabs must use the shared full-width line list");
+assert.match(workspace, /FullWidthLineTabsTrigger/u, "workspace tabs must use the shared full-width line triggers");
+assert.match(workspace, /overflow-x-auto/u, "workspace tabs must remain navigable on narrow screens");
+assert.match(workspace, /min-w-\[68rem\] xl:min-w-0/u, "workspace tabs must preserve readable labels in the narrow-screen rail");
+assert.doesNotMatch(workspace, /data-active:bg-white/u, "workspace tabs must not use the compact pill active treatment");
+assert.doesNotMatch(workspace, /flex h-auto w-full max-w-full flex-wrap items-stretch justify-start gap-1 rounded-2xl bg-primary-50 p-1/u, "workspace tabs must not use the compact wrapped treatment");
 assert.doesNotMatch(workspace, /tabRailRef/u, "workspace tabs must not depend on a horizontal scroll rail");
 for (const redundantNavigationLabel of [
   "Lanjut ke Sections",
@@ -77,6 +80,7 @@ assert.match(createRoute, /contentElement="div"/u, "Create Tryout route should k
 assert.match(shell, /<SidebarInset\b/u, "workspace shell must render the page landmark container");
 assert.match(sidebar, /function SidebarInset[\s\S]*?<main\b/u, "sidebar inset must own the page main landmark");
 assert.match(workspace, /AssessmentReleaseNotice/u, "workspace must expose the durable release state");
+assert.doesNotMatch(workspace, /Rilis pertama dibuat saat Tryout diterbitkan dan tervalidasi server\. Sesi peserta akan memakai rilis yang sama\./u, "workspace must not repeat the top-level release notice copy");
 assert.match(workspace, /Pratinjau peserta/u, "workspace must offer a read-only participant preview");
 assert.match(workspace, /Simpan draft/u, "workspace must expose draft persistence");
 assert.doesNotMatch(workspace, /\/mentor\/packages(?:\/|\b)/u, "workspace must not route mentors through package/version authoring");
