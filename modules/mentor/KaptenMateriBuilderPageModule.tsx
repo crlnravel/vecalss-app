@@ -324,6 +324,11 @@ function MateriBuilderHeader({
           </div>
         </div>
       )}
+      {savedMateri && hasUnsavedChanges && !isPreviewOpen ? (
+        <p className="rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+          Simpan perubahan sebelum mengubah status publikasi.
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -336,31 +341,23 @@ function ReadinessItem({
   ready: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 text-sm">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "grid size-5 shrink-0 place-items-center rounded-full",
-          ready ? "bg-primary-700 text-white" : "border border-secondary-200 bg-white",
-        )}
-      >
-        {ready ? <CheckCircle2 className="size-3.5" weight="bold" /> : null}
-      </span>
+    <div className="flex items-center justify-between gap-3 text-sm">
       <span className={ready ? "text-secondary-800" : "text-secondary-500"}>{label}</span>
+      <span className={cn("shrink-0 text-xs font-semibold", ready ? "text-secondary-500" : "text-secondary-700")}>
+        {ready ? "Lengkap" : "Perlu diisi"}
+      </span>
     </div>
   );
 }
 
 function MateriBuilderReadinessRail({
   builderState,
-  hasUnsavedChanges,
   isArchived,
   materiStatus,
   readiness,
   subjects,
 }: {
   builderState: MateriBuilderState;
-  hasUnsavedChanges: boolean;
   isArchived: boolean;
   materiStatus: KaptenMateriView["status"];
   readiness: "ready" | "incomplete";
@@ -391,15 +388,14 @@ function MateriBuilderReadinessRail({
             </p>
           </div>
           <span className={cn(
-            "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold",
-            readiness === "ready" ? "bg-primary-700 text-white" : "bg-[#fff3c4] text-[#765b00]",
+            "shrink-0 rounded-full border border-secondary-200 bg-white px-2.5 py-1 text-xs font-bold text-secondary-700",
           )}>
             {readiness === "ready" ? "Siap" : "Belum siap"}
           </span>
         </div>
         <div className="mt-5 space-y-3" role="list">
           {checks.map((check) => (
-            <div key={check.label} role="listitem">
+            <div aria-label={`${check.label}: ${check.ready ? "lengkap" : "perlu diisi"}`} key={check.label} role="listitem">
               <ReadinessItem {...check} />
             </div>
           ))}
@@ -418,11 +414,6 @@ function MateriBuilderReadinessRail({
               ? "Materi ini diarsipkan dan tidak tersedia untuk siswa."
               : "Materi ini masih berupa draf."}
         </p>
-        {hasUnsavedChanges ? (
-          <p className="mt-4 rounded-2xl border border-[#ead9a5] bg-[#fff8df] px-3.5 py-3 text-sm leading-5 text-[#765b00]" role="status">
-            Simpan perubahan sebelum mengubah status publikasi.
-          </p>
-        ) : null}
         {isArchived ? (
           <p className="mt-4 text-xs leading-5 text-secondary-500">Pulihkan materi untuk mengedit isinya.</p>
         ) : null}
@@ -635,10 +626,10 @@ function MateriBuilderEditor({
           </Field>
         </div>
         {readiness === "incomplete" ? (
-          <p className="rounded-2xl border border-[#ead9a5] bg-[#fff8df] px-4 py-3 text-sm leading-6 text-[#765b00]" role="status">Lengkapi subject, judul, dan PDF. Video pendamping hanya perlu diisi jika URL dan durasinya lengkap.</p>
-        ) : (
-          <p className="rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm font-medium leading-6 text-primary-900" role="status">Materi siap disimpan. PDF menjadi bacaan utama siswa.</p>
-        )}
+          <p className="rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+            Lengkapi subject, judul, dan PDF. Video pendamping hanya perlu diisi jika URL dan durasinya lengkap.
+          </p>
+        ) : null}
       </section>
     </form>
   );
@@ -943,7 +934,6 @@ function KaptenMateriBuilderPageModule({
         {!isPreviewOpen ? (
           <MateriBuilderReadinessRail
             builderState={builderState}
-            hasUnsavedChanges={hasUnsavedChanges}
             isArchived={isArchived}
             materiStatus={materiStatus}
             readiness={readiness}
