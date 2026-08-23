@@ -105,7 +105,7 @@ function ParticipantWaitingRoomModule({
     return (
       <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
         <WaitingRoomBackLink />
-        <div className="mx-auto grid w-full max-w-3xl gap-5 rounded-[2rem] border border-primary-100 bg-white p-7 text-center sm:p-10">
+        <div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12">
           <CheckCircle aria-hidden="true" className="mx-auto text-5xl text-primary-700" />
           <h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1>
           <p className="text-secondary-600">{resultReady ? "Hasilmu siap diperiksa saat kebijakan rilis mengizinkan." : "Kamu dapat melanjutkan dari keadaan terakhir yang dikonfirmasi server."}</p>
