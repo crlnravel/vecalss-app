@@ -201,14 +201,6 @@ function KaptenTryoutPageModule({ session }: { session: SessionContext }) {
   );
 }
 
-const settingsTabs = [
-  { label: "Akun", active: true },
-  { label: "Workspace" },
-  { label: "Publikasi" },
-  { label: "Notifikasi" },
-  { label: "Keamanan" },
-];
-
 function splitName(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
 
@@ -271,23 +263,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
         <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
           Pengaturan
         </h1>
-
-        <div className="mt-6 flex w-fit max-w-full flex-wrap gap-1 rounded-full bg-primary-50 p-1">
-          {settingsTabs.map((tab) => (
-            <button
-              className={[
-                "inline-flex rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                tab.active
-                  ? "bg-white text-secondary-900 shadow-sm"
-                  : "text-secondary-500 hover:text-secondary-900",
-              ].join(" ")}
-              key={tab.label}
-              type="button"
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="mt-10">
