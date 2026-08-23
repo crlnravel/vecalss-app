@@ -30,7 +30,7 @@ export default async function MentorQuestionBankPage({
   const page = Math.max(1, Number.parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1);
   const search = typeof params.q === "string" ? params.q : "";
   const [banks, folderTree, categories] = await Promise.all([
-    listQuestionBankPage({ categoryIds: requestedCategories, folderId, page, pageSize: 25, search, status, subjectCoverage: requestedSubjects }),
+    listQuestionBankPage({ categoryIds: requestedCategories, folderId: search.trim() ? undefined : folderId, page, pageSize: 25, search, status, subjectCoverage: requestedSubjects }),
     listQuestionBankFolderTree(),
     listQuestionBankCategories(),
   ]);

@@ -13,6 +13,14 @@ assert.match(bankCatalogue, /aria-expanded=\{organizationOpen\}/u);
 assert.match(bankCatalogue, /question-bank-organization-panel/u);
 assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on the shell's single page landmark");
 assert.doesNotMatch(bankCatalogue, /<main className="min-w-0 space-y-4">/u, "Bank Soal should not nest a second main landmark");
+assert.match(bankCatalogue, /type BankViewMode = "grid" \| "list"/u, "Bank Soal should offer media-library grid/list views");
+assert.match(bankCatalogue, /const \[viewMode, setViewMode\]/u);
+assert.match(bankCatalogue, /aria-pressed=\{viewMode === "grid"\}/u);
+assert.match(bankCatalogue, /aria-pressed=\{viewMode === "list"\}/u);
+assert.match(bankCatalogue, /Folder di lokasi ini/u, "Folder navigation should be visible as media-library cards");
+assert.match(bankCatalogue, /Belum ditempatkan/u, "Unfiled should use a user-facing Indonesian label");
+assert.match(bankCatalogue, /type BankSortMode = "updated" \| "name" \| "questions"/u);
+assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
 
 assert.match(packageBuilder, /<h1[^>]*>\{saved \? `Edit \$\{draft\.title\}` : "Buat Paket Soal"\}/u, "Paket Soal builder needs a page-level heading");
 assert.match(packageBuilder, /useMemo\(\(\) => sourceEntries\.reduce/u, "source picker options should be derived from current inputs");
