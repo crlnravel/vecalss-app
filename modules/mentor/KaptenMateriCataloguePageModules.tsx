@@ -520,7 +520,6 @@ function KaptenMateriSubjectPageModule({
       }}
       data={{
         confirmation,
-        filteredCount: filteredLessons.length,
         pageCount,
         pagedLessons,
         publishEligible,
@@ -548,7 +547,6 @@ type MateriSubjectCatalogueActions = {
 
 type MateriSubjectCatalogueData = {
   confirmation: { confirm: string; description: string; title: string };
-  filteredCount: number;
   pageCount: number;
   pagedLessons: KaptenMateriView[];
   publishEligible: boolean;
@@ -586,7 +584,6 @@ function MateriSubjectCatalogueScreen({
   } = state;
   const {
     confirmation,
-    filteredCount,
     pageCount,
     pagedLessons,
     publishEligible,
@@ -857,8 +854,6 @@ function MateriSubjectCatalogueScreen({
             filterPanel={filterPanel}
             filters={activeFilters}
             getRowId={(lesson) => lesson.code}
-            headerActions={<span className="text-sm text-secondary-500">{filteredCount} lesson</span>}
-            headingIcon={<FileText size={18} />}
             key={tableVersion}
             onRowClick={undefined}
             rows={pagedLessons}
