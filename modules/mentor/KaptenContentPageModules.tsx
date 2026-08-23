@@ -11,7 +11,6 @@ import {
   Field,
   FieldInput,
   FieldLabel,
-  FieldTextarea,
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import {
@@ -329,15 +328,10 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           id="workspace"
           title="Workspace"
         >
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="kapten-default-subject">Subjek utama</FieldLabel>
               <DropdownField id="kapten-default-subject" onValueChange={() => undefined} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value="PU" />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="kapten-timezone">Zona waktu</FieldLabel>
-              <DropdownField id="kapten-timezone" onValueChange={() => undefined} options={["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"].map((value) => ({ label: value, value }))} placeholder="Pilih zona waktu" value="Asia/Jakarta" />
             </Field>
 
             <Field>
@@ -388,22 +382,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           </div>
         </SettingsSection>
 
-        <SettingsSection
-          description="Catatan internal untuk fokus kerja."
-          id="catatan"
-          title="Catatan"
-        >
-          <div className="grid gap-5">
-            <Field className="md:col-span-2">
-              <FieldLabel htmlFor="kapten-note">Catatan workspace</FieldLabel>
-              <FieldTextarea
-                className="min-h-[170px]"
-                defaultValue="Fokus minggu ini: selesaikan draft PU dan review Tryout 17 sebelum dijadwalkan."
-                id="kapten-note"
-              />
-            </Field>
-          </div>
-        </SettingsSection>
       </div>
     </MentorWorkspaceShell>
   );
