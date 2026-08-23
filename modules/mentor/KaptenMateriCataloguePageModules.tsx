@@ -9,7 +9,6 @@ import {
   Eye,
   FilePenLine,
   FileText,
-  Pencil,
   Plus,
   Trash2,
   Upload,
@@ -115,13 +114,6 @@ function statusLabel(status: KaptenMateriView["status"]) {
 
 function readinessLabel(readiness: KaptenMateriView["readiness"]) {
   return readiness === "ready" ? "PDF siap" : "PDF belum siap";
-}
-
-function videoLabel(lesson: KaptenMateriView) {
-  if (!lesson.hasOptionalVideo) return "Tanpa video";
-  return lesson.duration
-    ? `Video opsional · ${lesson.duration}`
-    : "Video opsional";
 }
 
 function sortLessons(
@@ -569,6 +561,7 @@ function MateriSubjectCatalogueScreen({
   state: MateriCatalogueState;
   subject: KaptenMateriSubjectView;
 }) {
+  const router = useRouter();
   const {
     bulkError,
     bulkIntent,
@@ -647,57 +640,16 @@ function MateriSubjectCatalogueScreen({
   const columns: DataTableColumn<KaptenMateriView>[] = [
     {
       cell: (lesson) => (
-        <div className="flex min-w-0 max-w-full items-center gap-3">
-          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
-            <FileText size={18} />
-          </span>
-          <div className="min-w-0">
-            <Link
-              className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
-              href={buildEditorHref(lesson, returnTo)}
-              title={lesson.title}
-            >
-              {lesson.title}
-            </Link>
-            <span className="mt-1 block max-w-full truncate text-xs text-secondary-500" title={lesson.primaryMetric}>
-              {lesson.primaryMetric}
-            </span>
-          </div>
-        </div>
+        <span className="block min-w-0 max-w-full truncate font-semibold text-secondary-900" title={lesson.title}>
+          {lesson.title}
+        </span>
       ),
-      headerClassName: "min-w-[18rem]",
+      headerClassName: "min-w-[20rem]",
       hideable: false,
       id: "materi",
       label: "Materi",
       sortKey: "title",
-      width: 36,
-    },
-    {
-      cell: (lesson) => (
-        <div className="min-w-0 max-w-full">
-          <span className="block max-w-full truncate text-sm text-secondary-700" title={lesson.documentName}>
-            {lesson.documentName}
-          </span>
-          <span className="mt-1 block text-xs font-semibold text-secondary-500">
-            {readinessLabel(lesson.readiness)}
-          </span>
-        </div>
-      ),
-      headerClassName: "min-w-[14rem]",
-      id: "document",
-      label: "Dokumen",
-      width: 25,
-    },
-    {
-      cell: (lesson) => (
-        <span className={lesson.hasOptionalVideo ? "font-medium text-secondary-700" : "text-secondary-500"}>
-          {videoLabel(lesson)}
-        </span>
-      ),
-      headerClassName: "min-w-[9rem]",
-      id: "video",
-      label: "Video",
-      width: 16,
+      width: 68,
     },
     {
       cell: (lesson) => <StatusPill status={lesson.status} />,
@@ -705,73 +657,57 @@ function MateriSubjectCatalogueScreen({
       id: "status",
       label: "Status",
       sortKey: "status",
-      width: 13,
+      width: 20,
     },
     {
       cell: (lesson) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            aria-label={`Preview ${lesson.title}`}
-            render={<Link href={buildEditorHref(lesson, returnTo, true)} />}
-            size="icon-sm"
-            title="Preview"
-            variant="brandOutline"
-          >
-            <Eye />
-          </Button>
-          <Button
-            aria-label={`Edit ${lesson.title}`}
-            render={<Link href={buildEditorHref(lesson, returnTo)} />}
-            size="icon-sm"
-            title="Edit materi"
-            variant="brand"
-          >
-            <Pencil />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}>
-              <Ellipsis />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuGroup>
-                {lesson.status === "draft" ? (
-                  <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => actions.onApplyLessonAction(lesson, "publish")}>
-                    <Upload />
-                    Terbitkan
-                  </DropdownMenuItem>
-                ) : null}
-                {lesson.status === "published" ? (
-                  <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "unpublish")}>
-                    <FilePenLine />
-                    Batalkan terbit
-                  </DropdownMenuItem>
-                ) : null}
-                {lesson.status !== "archived" ? (
-                  <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "archive")}>
-                    <Archive />
-                    Arsipkan
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "restore")}>
-                    <Upload />
-                    Pulihkan
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled variant="destructive">
-                  <Trash2 />
-                  Hapus
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}>
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}>
+                <Eye />
+                Preview
+              </DropdownMenuItem>
+              {lesson.status === "draft" ? (
+                <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => actions.onApplyLessonAction(lesson, "publish")}>
+                  <Upload />
+                  Terbitkan
                 </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              ) : null}
+              {lesson.status === "published" ? (
+                <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "unpublish")}>
+                  <FilePenLine />
+                  Batalkan terbit
+                </DropdownMenuItem>
+              ) : null}
+              {lesson.status !== "archived" ? (
+                <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "archive")}>
+                  <Archive />
+                  Arsipkan
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "restore")}>
+                  <Upload />
+                  Pulihkan
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled variant="destructive">
+                <Trash2 />
+                Hapus
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
       cellClassName: "text-right",
       headerClassName: "min-w-[8.5rem] text-right",
       id: "actions",
       label: "Aksi",
-      width: 10,
+      width: 12,
     },
   ];
   const emptyState = (
@@ -855,7 +791,7 @@ function MateriSubjectCatalogueScreen({
             filters={activeFilters}
             getRowId={(lesson) => lesson.code}
             key={tableVersion}
-            onRowClick={undefined}
+            onRowClick={(lesson) => router.push(buildEditorHref(lesson, returnTo))}
             rows={pagedLessons}
             search={{
               action: `/mentor/materi/subject/${subject.slug}`,
@@ -868,7 +804,7 @@ function MateriSubjectCatalogueScreen({
                 ...(sort && sortDirection === "desc" ? { direction: sortDirection } : {}),
               },
               label: "Cari materi",
-              placeholder: "Cari judul, PDF, video, atau status...",
+              placeholder: "Cari judul atau status...",
               value: query,
             }}
             selection
