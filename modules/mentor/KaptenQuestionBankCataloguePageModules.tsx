@@ -467,11 +467,11 @@ function KaptenQuestionBankPageModule({
             </div>
           </div>
           <div className={cn("flex shrink-0 items-center gap-2", compact ? "justify-end sm:justify-start" : "flex-wrap") }>
-            <Button aria-label={`Edit ${bank.title}`} className="min-h-11 min-w-11" nativeButton={false} render={<Link href={bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
-            <Button className="min-h-11" disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="sm" type="button" variant="brandOutline"><Folder />Pindahkan</Button>
-            <Button className="min-h-11" disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="sm" type="button" variant="ghost">Kategori</Button>
+            <Button aria-label={`Edit ${bank.title}`} className="min-h-[44px] min-w-[44px]" nativeButton={false} render={<Link href={bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
+            <Button className="min-h-[44px]" disabled={bank.status === "archived"} onClick={() => { setFolderParentId(bank.folderId); setFolderError(null); setBankMoveId(bank.id); }} size="sm" type="button" variant="brandOutline"><Folder />Pindahkan</Button>
+            <Button className="min-h-[44px]" disabled={bank.status === "archived"} onClick={() => openBankCategories(bank)} size="sm" type="button" variant="ghost">Kategori</Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} className="min-h-11 min-w-11" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+              <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${bank.title}`} className="min-h-[44px] min-w-[44px]" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuGroup>
                   {bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
@@ -512,8 +512,8 @@ function KaptenQuestionBankPageModule({
                 <DropdownMenuContent align="end"><DropdownMenuLabel>Urutkan koleksi</DropdownMenuLabel><DropdownMenuRadioGroup onValueChange={(value) => setSortMode(value as BankSortMode)} value={sortMode}><DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem><DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent>
               </DropdownMenu>
               <div aria-label="Tampilan koleksi" className="flex items-center rounded-xl border border-primary-100 bg-primary-50/50 p-0.5" role="group">
-                <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} className="min-h-11 min-w-11" onClick={() => setViewMode("grid")} size="icon-sm" title="Tampilan grid" type="button" variant={viewMode === "grid" ? "contextSelected" : "ghost"}><LayoutGrid /></Button>
-                <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} className="min-h-11 min-w-11" onClick={() => setViewMode("list")} size="icon-sm" title="Tampilan daftar" type="button" variant={viewMode === "list" ? "contextSelected" : "ghost"}><ListIcon /></Button>
+                <Button aria-label="Tampilan grid" aria-pressed={viewMode === "grid"} className="min-h-[44px] min-w-[44px]" onClick={() => setViewMode("grid")} size="icon-sm" title="Tampilan grid" type="button" variant={viewMode === "grid" ? "contextSelected" : "ghost"}><LayoutGrid /></Button>
+                <Button aria-label="Tampilan daftar" aria-pressed={viewMode === "list"} className="min-h-[44px] min-w-[44px]" onClick={() => setViewMode("list")} size="icon-sm" title="Tampilan daftar" type="button" variant={viewMode === "list" ? "contextSelected" : "ghost"}><ListIcon /></Button>
               </div>
               {selectedFolder !== ALL_FOLDER && !isGlobalSearch ? <Button onClick={() => openFolderCreate(selectedFolder)} size="sm" type="button" variant="brandOutline"><FolderPlus />Subfolder</Button> : null}
             </div>
