@@ -17,7 +17,7 @@ import {
   Trash2,
   Upload,
 } from "@/lib/icons";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +81,7 @@ type CategoryNode = {
 
 type FolderSelection = "root" | string | null;
 type FolderDialogState = { kind: "create" | "move" | "rename"; folderId?: string } | null;
-type CategoryDialogState = { categoryId?: string; kind: "create" | "rename" } | null;
+type CategoryEditorState = { categoryId?: string; kind: "create" | "rename" } | null;
 type ConfirmationState = { description: string; label: string; onConfirm: () => void; title: string } | null;
 type LifecycleAction = "archive" | "publish" | "restore" | "unpublish";
 type BankSortMode = "updated" | "name" | "questions";
@@ -257,7 +257,7 @@ function KaptenQuestionBankPageModule({
   const [folderName, setFolderName] = useState("");
   const [folderParentId, setFolderParentId] = useState<string | null>(null);
   const [bankMoveId, setBankMoveId] = useState<string | null>(null);
-  const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState>(null);
+  const [categoryEditor, setCategoryEditor] = useState<CategoryEditorState>(null);
   const [categoryName, setCategoryName] = useState("");
   const [categoryManagementOpen, setCategoryManagementOpen] = useState(false);
   const [bankCategoryId, setBankCategoryId] = useState<string | null>(null);
@@ -391,22 +391,48 @@ function KaptenQuestionBankPageModule({
       setBankCategoryId(null); refreshFromServer();
     } finally { setIsApplying(false); }
   }
-  async function submitCategoryDialog() {
-    if (!categoryDialog || isApplying) return;
+  function openCategoryCreate() {
+    if (isApplying) return;
+    setFolderError(null);
+    setCategoryName("");
+    setCategoryEditor({ kind: "create" });
+  }
+  function openCategoryRename(category: CategoryNode) {
+    if (isApplying) return;
+    setFolderError(null);
+    setCategoryName(category.name);
+    setCategoryEditor({ categoryId: category.id, kind: "rename" });
+  }
+  function cancelCategoryEditor() {
+    if (isApplying) return;
+    setCategoryEditor(null);
+    setCategoryName("");
+    setFolderError(null);
+  }
+  function handleCategoryEditorKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void submitCategoryEditor();
+    } else if (event.key === "Escape") {
+      cancelCategoryEditor();
+    }
+  }
+  async function submitCategoryEditor() {
+    if (!categoryEditor || isApplying) return;
     setIsApplying(true); setFolderError(null);
     try {
-      if (categoryDialog.kind === "create") {
+      if (categoryEditor.kind === "create") {
         const result = await createQuestionBankCategoryAction(categoryName);
         if (!result.ok) { setFolderError(result.message); return; }
         setCategories((current) => [...current, result.result].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })));
       } else {
-        const category = categories.find((item) => item.id === categoryDialog.categoryId);
-        const result = await renameQuestionBankCategoryAction(categoryDialog.categoryId ?? "", categoryName, { expectedUpdatedAt: category?.updatedAt });
+        const category = categories.find((item) => item.id === categoryEditor.categoryId);
+        const result = await renameQuestionBankCategoryAction(categoryEditor.categoryId ?? "", categoryName, { expectedUpdatedAt: category?.updatedAt });
         if (!result.ok) { setFolderError(result.message); return; }
         setCategories((current) => current.map((item) => item.id === result.result.id ? result.result : item));
         setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categories: entry.bank.categories.map((item) => item.id === result.result.id ? { id: item.id, name: result.result.name } : item) } })));
       }
-      setCategoryDialog(null); refreshFromServer();
+      setCategoryEditor(null); setCategoryName(""); refreshFromServer();
     } finally { setIsApplying(false); }
   }
   function removeCategory(category: CategoryNode) {
@@ -615,9 +641,48 @@ function KaptenQuestionBankPageModule({
 
     <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setBankCategoryId(null); setFolderError(null); } }} open={Boolean(bankCategoryId)}><DialogContent className="sm:max-w-sm" pending={isApplying}><DialogHeader><DialogTitle>Kelola kategori</DialogTitle><DialogDescription>{categoryBank ? `Pilih label untuk “${categoryBank.title}”. Kategori hanya mengatur penemuan, bukan isi soal.` : "Pilih kategori untuk bank ini."}</DialogDescription></DialogHeader><div className="grid gap-2">{categories.length ? categories.map((category) => <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-primary-100 px-3 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}><input checked={bankCategorySelection.includes(category.id)} className="size-4 accent-primary-700" onChange={(event) => setBankCategorySelection((current) => event.target.checked ? [...current, category.id] : current.filter((id) => id !== category.id))} type="checkbox" />{category.name}</label>) : <p className="text-sm text-secondary-500">Belum ada kategori. Buat dari menu kategori.</p>}</div>{folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}<DialogFooter><Button disabled={isApplying} onClick={() => setBankCategoryId(null)} type="button" variant="brandOutline">Batal</Button><Button disabled={isApplying} onClick={() => void saveBankCategories()} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan kategori"}</Button></DialogFooter></DialogContent></Dialog>
 
-    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setCategoryManagementOpen(false); setCategoryDialog(null); setFolderError(null); } }} open={categoryManagementOpen}><DialogContent className="sm:max-w-sm" pending={isApplying}><DialogHeader><DialogTitle>Kelola kategori bersama</DialogTitle><DialogDescription>Buat kosakata bersama agar semua tutor dapat menemukan bank dengan cepat.</DialogDescription></DialogHeader><div className="flex flex-wrap gap-2"><Button onClick={() => { setCategoryName(""); setCategoryDialog({ kind: "create" }); }} size="sm" type="button" variant="brandOutline"><Plus />Buat kategori</Button></div><div className="grid gap-2">{categories.map((category) => <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-primary-100 px-3" key={category.id}><span className="min-w-0 flex-1 truncate text-sm text-secondary-700">{category.name}</span><span className="text-xs text-secondary-400">{category.bankCount}</span><Button aria-label={`Ubah kategori ${category.name}`} onClick={() => { setCategoryName(category.name); setCategoryDialog({ categoryId: category.id, kind: "rename" }); }} size="icon-sm" type="button" variant="ghost"><Pencil /></Button><Button aria-label={`Hapus kategori ${category.name}`} onClick={() => removeCategory(category)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button></div>)}{!categories.length ? <p className="rounded-2xl bg-primary-50/50 px-3 py-4 text-sm text-secondary-500">Belum ada kategori bersama.</p> : null}</div>{folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}</DialogContent></Dialog>
-
-    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setCategoryDialog(null); setFolderError(null); } }} open={Boolean(categoryDialog)}><DialogContent className="sm:max-w-sm" pending={isApplying}><DialogHeader><DialogTitle>{categoryDialog?.kind === "create" ? "Buat kategori" : "Ubah kategori"}</DialogTitle><DialogDescription>Kategori bersifat datar dan dapat dipakai lintas bank.</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="category-name">Nama kategori</FieldLabel><FieldInput autoFocus id="category-name" maxLength={120} onChange={(event) => setCategoryName(event.target.value)} value={categoryName} /></Field>{folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}<DialogFooter><Button disabled={isApplying} onClick={() => setCategoryDialog(null)} type="button" variant="brandOutline">Batal</Button><Button disabled={isApplying || !categoryName.trim()} onClick={() => void submitCategoryDialog()} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setCategoryManagementOpen(false); setCategoryEditor(null); setCategoryName(""); setFolderError(null); } }} open={categoryManagementOpen}>
+      <DialogContent className="sm:max-w-lg" pending={isApplying}>
+        <DialogHeader><DialogTitle>Kelola kategori bersama</DialogTitle><DialogDescription>Buat kosakata bersama agar semua tutor dapat menemukan bank dengan cepat.</DialogDescription></DialogHeader>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary-500">Kategori</p>
+          <Button disabled={Boolean(categoryEditor)} onClick={openCategoryCreate} size="sm" type="button" variant="brandOutline"><Plus />Buat kategori</Button>
+        </div>
+        <div className="grid gap-2">
+          {categoryEditor?.kind === "create" ? <div className="rounded-2xl border border-primary-200 bg-primary-50/40 p-2">
+            <Field>
+              <FieldLabel className="sr-only" htmlFor="category-name">Nama kategori baru</FieldLabel>
+              <FieldInput autoFocus id="category-name" maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
+            </Field>
+            <div className="mt-2 flex flex-wrap justify-end gap-2">
+              <Button disabled={isApplying} onClick={cancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
+              <Button disabled={isApplying || !categoryName.trim()} onClick={() => void submitCategoryEditor()} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
+            </div>
+          </div> : null}
+          {categories.map((category) => categoryEditor?.kind === "rename" && categoryEditor.categoryId === category.id ? (
+            <div className="flex min-w-0 flex-col gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-2 sm:flex-row sm:items-center" key={category.id}>
+              <Field className="min-w-0 flex-1">
+                <FieldLabel className="sr-only" htmlFor={`category-name-${category.id}`}>Nama kategori</FieldLabel>
+                <FieldInput autoFocus id={`category-name-${category.id}`} maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
+              </Field>
+              <div className="flex shrink-0 items-center justify-end gap-2">
+                <Button disabled={isApplying} onClick={cancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
+                <Button disabled={isApplying || !categoryName.trim()} onClick={() => void submitCategoryEditor()} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-primary-100 px-3" key={category.id}>
+              <span className="min-w-0 flex-1 truncate text-sm text-secondary-700">{category.name}</span>
+              <span className="text-xs text-secondary-400">{category.bankCount}</span>
+              <Button aria-label={`Ubah kategori ${category.name}`} disabled={Boolean(categoryEditor) || isApplying} onClick={() => openCategoryRename(category)} size="icon-sm" type="button" variant="ghost"><Pencil /></Button>
+              <Button aria-label={`Hapus kategori ${category.name}`} disabled={Boolean(categoryEditor) || isApplying} onClick={() => removeCategory(category)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
+            </div>
+          ))}
+          {!categories.length && categoryEditor?.kind !== "create" ? <p className="rounded-2xl bg-primary-50/50 px-3 py-4 text-sm text-secondary-500">Belum ada kategori bersama.</p> : null}
+        </div>
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+      </DialogContent>
+    </Dialog>
 
     <AlertDialog onOpenChange={(open) => { if (!open && !isApplying) { setPendingLifecycle(null); setPendingConfirmation(null); setLifecycleError(null); } }} open={Boolean(pendingLifecycle || pendingConfirmation)}><AlertDialogContent pending={isApplying} size="sm" variant={pendingConfirmation ? "danger" : pendingLifecycle?.action === "archive" ? "warning" : "info"}><AlertDialogHeader><AlertDialogMedia variant={pendingConfirmation ? "danger" : pendingLifecycle?.action === "archive" ? "warning" : "info"}><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{pendingConfirmation?.title ?? lifecycleCopy[0]}</AlertDialogTitle><AlertDialogDescription>{pendingConfirmation?.description ?? lifecycleCopy[1]}</AlertDialogDescription></AlertDialogHeader>{lifecycleError || folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{lifecycleError ?? folderError}</p> : null}<AlertDialogFooter><AlertDialogCancel disabled={isApplying} onClick={() => { setPendingLifecycle(null); setPendingConfirmation(null); }} >Batal</AlertDialogCancel><AlertDialogAction disabled={isApplying} onClick={() => { if (pendingConfirmation) { pendingConfirmation.onConfirm(); } else { void applyLifecycle(); } }} variant={pendingConfirmation ? "destructive" : "brand"}>{isApplying ? "Memproses…" : pendingConfirmation?.label ?? lifecycleCopy[2]}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </MentorWorkspaceShell>;

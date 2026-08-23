@@ -31,6 +31,9 @@ assert.match(bankCatalogue, /aria-label="Buat bank soal baru"[\s\S]*size="icon-s
 assert.match(bankCatalogue, /aria-label=\{folderCreateLabel\}[\s\S]*size="icon-sm"[\s\S]*title=\{folderCreateLabel\}/u, "Folder creation toolbar action should be icon-only with an accessible label");
 assert.match(bankCatalogue, /variant="brand"><Plus \/>Buat bank soal<\/Button>/u, "Empty Bank Soal state should make bank creation the primary action");
 assert.match(bankCatalogue, /variant="brandOutline"><FolderPlus \/>\{folderCreateLabel\}<\/Button>/u, "Empty Bank Soal state should offer folder creation as the secondary action");
+assert.doesNotMatch(bankCatalogue, /open=\{Boolean\(categoryDialog\)\}/u, "Category create and rename should not open a nested dialog");
+assert.match(bankCatalogue, /categoryEditor\?\.kind === "create"[\s\S]*FieldInput[\s\S]*placeholder="Nama kategori"/u, "Creating a category should use an inline editable field");
+assert.match(bankCatalogue, /categoryEditor\?\.kind === "rename" && categoryEditor\.categoryId === category\.id[\s\S]*FieldInput/u, "Renaming a category should use an inline editable field");
 assert.match(bankCatalogue, /max-w-\[calc\(100vw-2rem\)\] whitespace-normal/u, "Empty Bank Soal copy should wrap within the viewport on narrow screens");
 assert.match(bankCatalogue, /headerClassName: "min-w-\[14rem\]"/u, "Bank name column should keep a compact minimum width");
 assert.match(bankCatalogue, /headerClassName: "min-w-\[12rem\]"/u, "Bank category column should keep a compact minimum width");
