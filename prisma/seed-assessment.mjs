@@ -8,6 +8,7 @@ import {
   canonicalAssessmentReleaseJson,
   digestAssessmentReleasePayload,
 } from "../lib/tryout/assessment-release-canonical.mjs";
+import { seedQuestionBankOrganization } from "./question-bank-organization-seed.mjs";
 
 const { Client } = pg;
 
@@ -1909,6 +1910,7 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
 async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) {
   const subtestIds = await resolveSubtests(client);
   const bankId = await upsertQuestionBank(client, tutorId);
+  await seedQuestionBankOrganization(client, { tutorId });
   const questions = await upsertQuestions(client, { bankId, subtestIds, tutorId });
   await upsertCalibrations(client, tutorId, questions);
   const versionIds = await seedReusablePackages(client, { bankId, questions, subtestIds, tutorId });
