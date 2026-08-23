@@ -4,7 +4,6 @@ const ADMIN_STUDENT_PREVIEW_PREFIX = "/admin/student-preview" as const;
 
 const ADMIN_STUDENT_PREVIEW_APPROVED_EXITS = [
   "/admin",
-  "/admin/student-banners",
   "logout",
 ] as const;
 

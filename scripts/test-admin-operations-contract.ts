@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,6 +59,9 @@ assert.match(shell, /Students/);
 assert.match(shell, /Kapten/);
 assert.doesNotMatch(shell, /Imports/);
 assert.doesNotMatch(shell, /Media/);
+for (const archivedRoute of ["app/admin/docs/page.tsx", "app/admin/student-banners/page.tsx"]) {
+  await assert.rejects(access(resolve(root, archivedRoute)), /ENOENT/u);
+}
 assert.match(studentPage, /contains: search/);
 assert.match(studentPage, /skip: \(page - 1\) \* pageSize/);
 assert.match(kaptenPage, /contains: search/);
