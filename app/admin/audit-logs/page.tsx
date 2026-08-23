@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { requireAdminSession } from "@/lib/auth/access";
 import { getAdminAuditLogPage } from "@/lib/admin/operations";
+import { parseAuditLogParams } from "@/lib/admin/operations/audit-query";
 import { AuditLogsPageModule } from "@/modules/admin/AuditLogsPageModule";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +11,6 @@ export const metadata: Metadata = {
   title: "Audit logs | Vecalss LMS",
 };
 
-function readPage(value: string | string[] | undefined) {
-  const candidate = Array.isArray(value) ? value[0] : value;
-  const page = Number.parseInt(candidate ?? "1", 10);
-  return Number.isFinite(page) && page > 0 ? page : 1;
-}
-
 export default async function AdminAuditLogsPage({
   searchParams,
 }: {
@@ -23,7 +18,20 @@ export default async function AdminAuditLogsPage({
 }) {
   const session = await requireAdminSession();
   const params = await searchParams;
-  const auditLogPage = await getAdminAuditLogPage({ page: readPage(params.page) });
+  const auditQuery = parseAuditLogParams({
+    direction: params.direction,
+    page: params.page,
+    q: params.q,
+    sort: params.sort,
+    targetType: params.targetType,
+  });
+  const auditLogPage = await getAdminAuditLogPage({
+    direction: auditQuery.direction,
+    page: auditQuery.page,
+    query: auditQuery.query,
+    sort: auditQuery.sort,
+    targetType: auditQuery.targetType,
+  });
 
-  return <AuditLogsPageModule session={session} {...auditLogPage} />;
+  return <AuditLogsPageModule {...auditQuery} session={session} {...auditLogPage} />;
 }

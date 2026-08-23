@@ -13,24 +13,11 @@ function LoadingBlock({ className }: { className: string }) {
 
 function AuditLogRowSkeleton() {
   return (
-    <>
-      <div aria-hidden="true" className="border-b border-primary-100/55 px-5 py-4 last:border-b-0 sm:hidden">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-2"><LoadingBlock className="h-4 w-44 max-w-full" /><LoadingBlock className="h-3 w-20" /></div>
-          <LoadingBlock className="h-11 w-28" />
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <div className="space-y-2"><LoadingBlock className="h-3 w-10" /><LoadingBlock className="h-4 w-24" /><LoadingBlock className="h-3 w-16" /></div>
-          <div className="space-y-2"><LoadingBlock className="h-3 w-10" /><LoadingBlock className="h-4 w-28" /><LoadingBlock className="h-3 w-24" /></div>
-        </div>
-      </div>
-      <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.4fr)_150px_minmax(180px,0.8fr)_130px] items-center border-b border-primary-100/55 px-4 py-3.5 sm:grid sm:gap-3 sm:px-5">
-        <div className="min-w-0 space-y-2"><LoadingBlock className="h-4 w-full max-w-52" /><LoadingBlock className="h-3 w-full max-w-24" /></div>
-        <div className="min-w-0 space-y-2"><LoadingBlock className="h-4 w-full max-w-20" /><LoadingBlock className="h-3 w-full max-w-16" /></div>
-        <div className="min-w-0 space-y-2"><LoadingBlock className="h-4 w-full max-w-32" /><LoadingBlock className="h-3 w-full max-w-28" /></div>
-        <div className="flex justify-end"><LoadingBlock className="h-11 w-24" /></div>
-      </div>
-    </>
+    <div aria-hidden="true" className="grid grid-cols-[45%_30%_25%] items-center border-b border-primary-100/55 px-4 py-3.5 sm:px-5">
+      <div className="min-w-0 pr-3"><LoadingBlock className="h-4 w-3/4 max-w-52" /></div>
+      <div className="min-w-0 pr-3"><LoadingBlock className="h-4 w-4/5 max-w-32" /></div>
+      <div className="min-w-0"><LoadingBlock className="h-4 w-3/4 max-w-36" /></div>
+    </div>
   );
 }
 
@@ -63,7 +50,8 @@ export default function AuditLogsLoading() {
 
               <section aria-hidden="true" className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
                 <div className="space-y-2 border-b border-primary-100 px-5 py-4 sm:px-6"><LoadingBlock className="h-5 w-36" /><LoadingBlock className="h-3 w-48" /></div>
-                <div className="flex items-center gap-2 border-b border-primary-100 px-5 py-3 sm:hidden"><LoadingBlock className="h-3 w-8" /><LoadingBlock className="h-10 w-16" /><LoadingBlock className="h-10 w-16" /><LoadingBlock className="h-10 w-14" /></div>
+                <div className="flex items-center gap-3 border-b border-primary-100 px-4 pb-3 pt-4 sm:px-5 sm:pt-5"><LoadingBlock className="h-10 min-w-0 flex-1" /><LoadingBlock className="size-9 rounded-lg" /><LoadingBlock className="size-9 rounded-lg" /></div>
+                <div className="grid grid-cols-[45%_30%_25%] items-center bg-secondary-50/80 px-4 py-2.5 sm:px-5"><LoadingBlock className="h-3 w-14" /><LoadingBlock className="h-3 w-12" /><LoadingBlock className="h-3 w-14" /></div>
                 <div><AuditLogRowSkeleton /><AuditLogRowSkeleton /><AuditLogRowSkeleton /><AuditLogRowSkeleton /><AuditLogRowSkeleton /></div>
                 <div className="flex items-center justify-between border-t border-primary-100 px-5 py-4 sm:px-6"><LoadingBlock className="h-3 w-32" /><LoadingBlock className="h-9 w-28" /></div>
               </section>

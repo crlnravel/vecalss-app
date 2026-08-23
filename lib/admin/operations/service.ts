@@ -7,6 +7,11 @@ import {
   RoleName,
   UserStatus,
 } from "@/generated/prisma/client";
+import type {
+  AuditLogSortDirection,
+  AuditLogSortKey,
+  AuditLogTargetType,
+} from "./audit-query";
 import { parseDirectoryParams } from "@/lib/admin/operations/validation";
 import { prisma } from "@/lib/prisma";
 
@@ -66,6 +71,7 @@ const AUDIT_LOG_PAGE_SIZE = 25;
 
 type AdminAuditLogEntry = {
   action: string;
+  actorId: string | null;
   actorEmail: string | null;
   actorName: string;
   id: string;
@@ -323,24 +329,57 @@ async function getAdminOperationsSnapshot(): Promise<AdminOperationsSnapshot> {
 }
 
 async function getAdminAuditLogPage({
+  direction = "desc",
   page = 1,
   pageSize = AUDIT_LOG_PAGE_SIZE,
+  query,
+  sort = "time",
+  targetType,
 }: {
+  direction?: AuditLogSortDirection;
   page?: number;
   pageSize?: number;
+  query?: string;
+  sort?: AuditLogSortKey;
+  targetType?: AuditLogTargetType | null;
 } = {}): Promise<AdminAuditLogPage> {
   const safePageSize = Math.min(Math.max(Math.trunc(pageSize) || AUDIT_LOG_PAGE_SIZE, 1), 50);
-  const total = await prisma.auditLog.count();
+  const normalizedQuery = query?.trim() ?? "";
+  const searchFilters: Prisma.AuditLogWhereInput[] = normalizedQuery
+    ? [
+        { action: { contains: normalizedQuery, mode: "insensitive" } },
+        { targetType: { contains: normalizedQuery, mode: "insensitive" } },
+        { actor: { is: { email: { contains: normalizedQuery, mode: "insensitive" } } } },
+        { actor: { is: { fullName: { contains: normalizedQuery, mode: "insensitive" } } } },
+      ]
+    : [];
+
+  if (normalizedQuery && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(normalizedQuery)) {
+    searchFilters.push({ targetId: normalizedQuery });
+  }
+
+  const where: Prisma.AuditLogWhereInput = {
+    ...(targetType ? { targetType } : {}),
+    ...(searchFilters.length ? { OR: searchFilters } : {}),
+  };
+  const orderBy: Prisma.AuditLogOrderByWithRelationInput[] = sort === "event"
+    ? [{ action: direction }, { occurredAt: "desc" }, { id: "desc" }]
+    : sort === "user"
+      ? [{ actor: { fullName: direction } }, { occurredAt: "desc" }, { id: "desc" }]
+      : [{ occurredAt: direction }, { id: "desc" }];
+
+  const total = await prisma.auditLog.count({ where });
   const pageCount = Math.max(1, Math.ceil(total / safePageSize));
   const safePage = Math.min(Math.max(Math.trunc(page) || 1, 1), pageCount);
   const entries = await prisma.auditLog.findMany({
-    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    orderBy,
     select: {
       action: true,
       actor: {
         select: {
           email: true,
           fullName: true,
+          id: true,
         },
       },
       id: true,
@@ -353,11 +392,13 @@ async function getAdminAuditLogPage({
     },
     skip: (safePage - 1) * safePageSize,
     take: safePageSize,
+    where,
   });
 
   return {
     entries: entries.map((entry) => ({
       action: entry.action,
+      actorId: entry.actor?.id ?? null,
       actorEmail: entry.actor?.email ?? null,
       actorName: entry.actor?.fullName ?? "System",
       id: entry.id,
