@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import type { AssemblyAttachmentSummary } from "@/lib/tryout/assembly-repository";
+import { packageReleaseLabel } from "@/lib/tryout/version-label";
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { DropdownField } from "@/modules/mentor/components/kapten-ui";
@@ -1170,7 +1171,7 @@ function QuizContentTab({
         </aside>
 
         <div className="order-1 xl:order-none">
-          {builderState.assemblyVersionId ? <div className="rounded-3xl border border-primary-100 bg-primary-50/45 p-5"><p className="text-sm font-semibold text-secondary-900">Assembly terpasang</p><p className="mt-2 text-sm leading-6 text-secondary-600">Soal fisik di sini berasal dari versi Ready yang tersimpan. Lepaskan assembly untuk mengubah pilihan soal secara langsung.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-secondary-500">Mode</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.mode === "random_pool" ? "Pool acak" : state.selectedAssembly?.mode === "blueprint" ? "Blueprint" : "Set tetap"}</p></div><div><p className="text-xs text-secondary-500">Versi</p><p className="mt-1 text-sm font-semibold text-secondary-900">v{state.selectedAssembly?.versionNo ?? "—"}</p></div><div><p className="text-xs text-secondary-500">Bank</p><p className="mt-1 truncate text-sm font-semibold text-secondary-900">{state.selectedAssembly?.bankNames[0] ?? "—"}</p></div></div><Button className="mt-5" onClick={actions.detachAssembly} type="button" variant="brandOutline">Lepaskan assembly</Button></div> : null}
+          {builderState.assemblyVersionId ? <div className="rounded-3xl border border-primary-100 bg-primary-50/45 p-5"><p className="text-sm font-semibold text-secondary-900">Assembly terpasang</p><p className="mt-2 text-sm leading-6 text-secondary-600">Soal fisik di sini berasal dari versi Ready yang tersimpan. Lepaskan assembly untuk mengubah pilihan soal secara langsung.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-secondary-500">Mode</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.mode === "random_pool" ? "Pool acak" : state.selectedAssembly?.mode === "blueprint" ? "Blueprint" : "Set tetap"}</p></div><div><p className="text-xs text-secondary-500">Rilis</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.versionNo ? packageReleaseLabel(state.selectedAssembly.versionNo) : "—"}</p></div><div><p className="text-xs text-secondary-500">Bank</p><p className="mt-1 truncate text-sm font-semibold text-secondary-900">{state.selectedAssembly?.bankNames[0] ?? "—"}</p></div></div><Button className="mt-5" onClick={actions.detachAssembly} type="button" variant="brandOutline">Lepaskan assembly</Button></div> : null}
           {!builderState.assemblyVersionId ? <>
           <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-secondary-900">Pilih soal</p><p className="mt-1 text-sm text-secondary-500">{data.selectedBank ? `Soal dari ${data.selectedBank.title} akan disalin ke quiz ini.` : "Pilih Question Bank yang sesuai dengan subject terlebih dahulu."}</p></div><Button onClick={() => actions.onSetAddingLocalQuestion(!state.isAddingLocalQuestion)} type="button" variant="brandOutline"><Plus />Soal lokal</Button></div>
 
@@ -1206,7 +1207,7 @@ function KuisAssemblySourcePicker({
   const options = [
     { label: "Soal langsung / lokal", value: "direct" },
     ...supportedAssemblies.map((assembly) => ({
-      label: `${assembly.packageTitle} · v${assembly.versionNo} · ${assembly.mode === "random_pool" ? "Pool" : assembly.mode === "blueprint" ? "Blueprint" : "Set"}`,
+      label: `${assembly.packageTitle} · ${packageReleaseLabel(assembly.versionNo)} · ${assembly.mode === "random_pool" ? "Pool" : assembly.mode === "blueprint" ? "Blueprint" : "Set"}`,
       value: assembly.id,
     })),
   ];

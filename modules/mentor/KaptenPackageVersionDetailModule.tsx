@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Check, ChevronLeft } from "@/lib/icons";
+import { packageReleaseLabel } from "@/lib/tryout/version-label";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +19,7 @@ function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
   return <div>
     <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${detail.packageId}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
     <header className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3"><h1 className="text-3xl font-semibold tracking-[-0.03em] text-secondary-900">{detail.packageTitle}</h1><span className="rounded-full bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-800">v{detail.versionNo}</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><h1 className="text-3xl font-semibold tracking-[-0.03em] text-secondary-900">{detail.packageTitle}</h1><span className="rounded-full bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-800">{packageReleaseLabel(detail.versionNo)}</span></div>
       <dl className="mt-6 grid gap-4 border-t border-primary-100 pt-5 text-sm sm:grid-cols-3"><div><dt className="text-secondary-500">Bank</dt><dd className="mt-1 font-semibold text-secondary-900">{detail.sourceBankName}</dd></div><div><dt className="text-secondary-500">Subtest</dt><dd className="mt-1 font-semibold text-secondary-900">{detail.subtest}</dd></div><div><dt className="text-secondary-500">Soal</dt><dd className="mt-1 font-semibold text-secondary-900">{detail.items.length}</dd></div></dl>
     </header>
     <Tabs className="mt-5 gap-5" defaultValue="questions">

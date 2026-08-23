@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, Pencil, Plus } from "@/lib/icons";
+import { packageReleaseLabel } from "@/lib/tryout/version-label";
 
 import { Button } from "@/components/ui/button";
 
@@ -23,8 +24,8 @@ function KaptenPackageVersionHubModule({ hub }: { hub: Hub }) {
       <div className="mt-4"><span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{hub.subtest}</span></div>
     </header>
     <section aria-label="Versi Paket" className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {hub.versions.map((version) => <Link aria-label={`Buka versi ${version.versionNo}`} className="group rounded-2xl border border-primary-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={`/mentor/packages/${hub.id}/versions/${version.versionNo}`} key={version.versionNo}>
-        <span className="inline-flex rounded-full bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-800">v{version.versionNo}</span>
+      {hub.versions.map((version) => <Link aria-label={`Buka ${packageReleaseLabel(version.versionNo)}`} className="group rounded-2xl border border-primary-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={`/mentor/packages/${hub.id}/versions/${version.versionNo}`} key={version.versionNo}>
+        <span className="inline-flex rounded-full bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-800">{packageReleaseLabel(version.versionNo)}</span>
         <dl className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-secondary-500">Soal</dt><dd className="mt-1 font-semibold text-secondary-900">{version.itemCount}</dd></div><div><dt className="text-secondary-500">Test</dt><dd className="mt-1 font-semibold text-secondary-900">{version.testCount}</dd></div></dl>
       </Link>)}
       <Link aria-label="Siapkan versi berikutnya" className="grid min-h-32 place-items-center rounded-2xl border border-dashed border-primary-300 bg-primary-50/35 p-4 text-center text-primary-800 transition hover:border-primary-600 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={`/mentor/packages/${hub.id}/versions/new`}><span><Plus className="mx-auto size-5" /><span className="mt-2 block text-sm font-semibold">Siapkan versi berikutnya</span></span></Link>
