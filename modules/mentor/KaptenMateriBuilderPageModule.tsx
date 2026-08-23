@@ -233,16 +233,23 @@ function MateriBuilderHeader({
   return (
     <section className={isPreviewOpen ? "flex flex-wrap items-center justify-between gap-4" : "flex flex-wrap items-start justify-between gap-4"}>
       <div className="min-w-0">
-        <Button
-          nativeButton={false}
-          render={<Link href={parentHref} />}
-          size="icon-sm"
-          aria-label="Kembali ke materi"
-          title="Kembali ke materi"
-          variant="ghost"
-        >
-          <ChevronLeft />
-        </Button>
+        {isPreviewOpen ? (
+          <Button onClick={() => onPreviewChange(false)} type="button" variant="brandOutline">
+            <ChevronLeft />
+            Kembali ke editor
+          </Button>
+        ) : (
+          <Button
+            nativeButton={false}
+            render={<Link href={parentHref} />}
+            size="icon-sm"
+            aria-label="Kembali ke materi"
+            title="Kembali ke materi"
+            variant="ghost"
+          >
+            <ChevronLeft />
+          </Button>
+        )}
         {!isPreviewOpen ? (
           <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
@@ -257,17 +264,10 @@ function MateriBuilderHeader({
         ) : (
           <div className="mt-4">
             <p className="text-sm font-semibold text-secondary-500">Pratinjau materi</p>
-            <h1 className="mt-1 text-2xl leading-tight font-semibold text-secondary-900 md:text-3xl">
-              {builderState.title.trim() || "Materi tanpa judul"}
-            </h1>
           </div>
         )}
       </div>
-      {isPreviewOpen ? (
-        <Button onClick={() => onPreviewChange(false)} type="button" variant="brandOutline">
-          Kembali ke editor
-        </Button>
-      ) : (
+      {!isPreviewOpen ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button aria-label="Preview lesson" onClick={() => onPreviewChange(true)} size="icon-sm" title="Preview" type="button" variant="brandOutline">
             <Eye />
@@ -314,7 +314,7 @@ function MateriBuilderHeader({
             </DropdownMenu>
           ) : null}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
