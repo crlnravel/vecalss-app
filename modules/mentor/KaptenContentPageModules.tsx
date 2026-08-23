@@ -329,15 +329,10 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           id="workspace"
           title="Workspace"
         >
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="kapten-default-subject">Subjek utama</FieldLabel>
               <DropdownField id="kapten-default-subject" onValueChange={() => undefined} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value="PU" />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="kapten-timezone">Zona waktu</FieldLabel>
-              <DropdownField id="kapten-timezone" onValueChange={() => undefined} options={["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"].map((value) => ({ label: value, value }))} placeholder="Pilih zona waktu" value="Asia/Jakarta" />
             </Field>
 
             <Field>

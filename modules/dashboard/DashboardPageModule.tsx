@@ -80,7 +80,7 @@ const quickAccessItems: Array<{
   { description: "Uji kesiapan UTBK", href: "/tryout", icon: Gauge, label: "Tryout" },
   { description: "Tanya dan susun strategi belajar", href: "/vera-ai", icon: Bot, label: "Vera AI" },
   { description: "Cek update dan pengingat belajar", href: "/notifications", icon: Bell, label: "Notifikasi" },
-  { description: "Atur data diri, zona waktu, dan target", href: "/settings", icon: UserRound, label: "Profil" },
+  { description: "Atur data diri dan target", href: "/settings", icon: UserRound, label: "Profil" },
   { description: "Kelola jurusan dan kampus tujuan", href: "/settings#target-belajar", icon: Target, label: "Target Belajar" },
   { description: "Selesaikan tugas belajar hari ini", href: "#daily-mission", icon: CalendarCheck, label: "Misi Harian" },
   { description: "Lihat performa dan latihanmu", href: "#progress", icon: Activity, label: "Progress Belajar" },
