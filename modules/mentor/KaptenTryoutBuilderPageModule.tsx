@@ -65,7 +65,11 @@ import {
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  FullWidthLineTabsList,
+  FullWidthLineTabsTrigger,
+} from "@/components/ui/full-width-line-tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { assemblyCompatibleWithTestType } from "@/lib/tryout/assembly-validation";
@@ -988,19 +992,16 @@ function KaptenTryoutBuilderPageModule({
           <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
         </section>
       ) : null}
-      <AssessmentReleaseNotice
-        label="Rilis konten Tryout"
-        missingDescription="Rilis pertama dibuat saat Tryout diterbitkan dan tervalidasi server. Sesi peserta akan memakai rilis yang sama."
-        release={release}
-        state={draft.status === "draft" ? "historical" : "current"}
-      />
-
       <Tabs className="mt-6 min-w-0" onValueChange={changeWorkspace} value={workspace}>
-        <TabsList aria-label="Ruang kerja Tryout" className="flex h-auto w-full max-w-full flex-wrap items-stretch justify-start gap-1 rounded-2xl bg-primary-50 p-1">
-          {workspaceItems.map((item) => (
-            <TabsTrigger className="min-h-9 flex-none rounded-full px-3 py-2 text-left data-active:bg-white data-active:text-primary-950 data-active:shadow-sm" key={item.value} value={item.value}>{item.label}</TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="max-w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <FullWidthLineTabsList aria-label="Ruang kerja Tryout" className="min-w-[68rem] xl:min-w-0">
+            {workspaceItems.map((item) => (
+              <FullWidthLineTabsTrigger key={item.value} value={item.value}>
+                {item.label}
+              </FullWidthLineTabsTrigger>
+            ))}
+          </FullWidthLineTabsList>
+        </div>
 
         <TabsContent className="mt-5" value="basics">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
