@@ -251,6 +251,13 @@ face stays calm enough for instructions, metadata, and long-form reading.
 weight and scale; never make supporting copy compete through decoration or
 compressed line length.
 
+**The Plain Page-Title Rule.** Use one short noun phrase as the page-level
+title, naming the current workspace or destination directly (for example,
+“Tryout Workspace”). Do not stack an eyebrow or overline above it and a
+subtitle or description below it by default. If guidance is necessary, place
+it in the task content instead of turning the title block into a multi-line
+introduction.
+
 ## Layout
 
 Workspace surfaces use a light canvas, a collapsible left navigation, and a
@@ -454,6 +461,11 @@ client-side server-state synchronization to manage.
 - **Header:** Sticky, translucent canvas surface with a subtle bottom border and
   backdrop blur; search and account controls stay visually secondary to the
   page task.
+- **Back control:** Use a single visually icon-only chevron-left control for
+  child pages. It must link to the immediate parent route in the page
+  hierarchy, never skip from a child to a grandparent or broad catalogue
+  destination. Give the control an accessible name such as “Kembali ke
+  {parent}” and keep the touch target at least 44px.
 - **Mobile:** Preserve the same active-state language in the sheet/drawer and
   keep labels readable when the sidebar collapses.
 
@@ -475,6 +487,10 @@ locked, or next; do not use it as a generic decorative badge.
   or the next step.
 - **Do** keep body copy calm, readable, and comfortably spaced beneath bold
   headings.
+- **Do** make page titles direct and concise: name the current destination once,
+  such as “Tryout Workspace.”
+- **Do** use a chevron-left back control that returns exactly one level to the
+  immediate parent, with an accessible parent-specific name.
 - **Do** carry the same tactile language into Kapten and admin surfaces while
   reducing decorative density for operational work.
 - **Do** choose the button family from the surface: pill for marketing and
@@ -491,6 +507,10 @@ locked, or next; do not use it as a generic decorative badge.
   decoration that competes with learning tasks.
 - **Don't** use green gradients as low-contrast text backgrounds or as noise on
   every surface.
+- **Don't** build page headers from an eyebrow, title, and subtitle/description
+  stack when the title alone communicates the destination.
+- **Don't** make Back jump from a child page to its grandparent, a broad
+  catalogue, or an arbitrary history entry.
 - **Don't** copy the Materi zig-zag road onto screens whose job is editing,
   reviewing, or managing content.
 - **Don't** use a capsule badge with a leading status dot for full-sentence
