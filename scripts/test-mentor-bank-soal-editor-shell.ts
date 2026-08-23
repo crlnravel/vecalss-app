@@ -15,7 +15,7 @@ assert.match(builder, /function QuestionBankOrganizationPanel\(/u);
 assert.match(builder, /activeTab: mode === "create" \? "details" : "questions"/u);
 assert.match(builder, /title: initialBank\?\.title \?\? ""/u);
 assert.match(builder, /Buat dan mulai menulis/u);
-assert.match(builder, /disabled=\{state\.isSaving \|\| state\.lifecycleStatus === "archived" \|\| titleMissing\}/u);
+assert.match(builder, /disabled=\{state\.isSaving \|\| state\.isMetadataLocked \|\| titleMissing\}/u);
 assert.match(builder, /Organisasi \(opsional\)/u);
 assert.match(builder, /collapsedByDefault=\{mode === "create"\}/u);
 assert.match(builder, />Bank soal<\/DropdownMenuRadioItem>/u);
