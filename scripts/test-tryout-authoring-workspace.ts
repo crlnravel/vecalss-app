@@ -39,9 +39,12 @@ assert.match(workspace, /FullWidthLineTabsList/u, "workspace tabs must use the s
 assert.match(workspace, /FullWidthLineTabsTrigger/u, "workspace tabs must use the shared full-width line triggers");
 assert.match(workspace, /overflow-x-auto/u, "workspace tabs must remain navigable on narrow screens");
 assert.match(workspace, /min-w-\[68rem\] xl:min-w-0/u, "workspace tabs must preserve readable labels in the narrow-screen rail");
+assert.match(workspace, /data-workspace-tab/u, "workspace tabs must identify each trigger for active-tab reveal");
+assert.match(workspace, /scrollIntoView/u, "workspace tabs must reveal the active trigger after selection or deep linking");
+assert.match(workspace, /canScrollRight/u, "workspace tabs must expose a visible narrow-screen scroll affordance");
+assert.match(workspace, /className="min-w-max"/u, "workspace tabs must preserve min-content width for long labels");
 assert.doesNotMatch(workspace, /data-active:bg-white/u, "workspace tabs must not use the compact pill active treatment");
 assert.doesNotMatch(workspace, /flex h-auto w-full max-w-full flex-wrap items-stretch justify-start gap-1 rounded-2xl bg-primary-50 p-1/u, "workspace tabs must not use the compact wrapped treatment");
-assert.doesNotMatch(workspace, /tabRailRef/u, "workspace tabs must not depend on a horizontal scroll rail");
 for (const redundantNavigationLabel of [
   "Lanjut ke Sections",
   "Sebelumnya",

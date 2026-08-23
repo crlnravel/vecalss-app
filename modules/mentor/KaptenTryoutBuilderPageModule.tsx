@@ -8,6 +8,8 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   CircleHelp,
   ClipboardList,
@@ -24,7 +26,7 @@ import {
   Users,
   X,
 } from "@/lib/icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -641,6 +643,8 @@ function KaptenTryoutBuilderPageModule({
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace>(() => normalizeWorkspace(initialWorkspace));
+  const tabRailRef = useRef<HTMLDivElement>(null);
+  const [tabRailEdges, setTabRailEdges] = useState({ canScrollLeft: false, canScrollRight: false });
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
   const activeSectionIndex = Math.max(0, draft.sections.findIndex((section) => section.subtest === activeSection.subtest));
@@ -876,6 +880,30 @@ function KaptenTryoutBuilderPageModule({
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
+  const updateTabRailEdges = useCallback(() => {
+    const rail = tabRailRef.current;
+    if (!rail) return;
+    const maxScrollLeft = Math.max(0, rail.scrollWidth - rail.clientWidth);
+    setTabRailEdges({
+      canScrollLeft: rail.scrollLeft > 1,
+      canScrollRight: rail.scrollLeft < maxScrollLeft - 1,
+    });
+  }, []);
+
+  useEffect(() => {
+    const rail = tabRailRef.current;
+    if (!rail) return;
+    const activeTab = rail.querySelector<HTMLElement>(`[data-workspace-tab="${workspace}"]`);
+    activeTab?.scrollIntoView({ block: "nearest", inline: "center" });
+    const frame = window.requestAnimationFrame(updateTabRailEdges);
+    return () => window.cancelAnimationFrame(frame);
+  }, [updateTabRailEdges, workspace]);
+
+  useEffect(() => {
+    window.addEventListener("resize", updateTabRailEdges);
+    return () => window.removeEventListener("resize", updateTabRailEdges);
+  }, [updateTabRailEdges]);
+
   useEffect(() => {
     if (workspace !== "questions" || activeSelectionMode !== "direct") return;
     let cancelled = false;
@@ -993,14 +1021,32 @@ function KaptenTryoutBuilderPageModule({
         </section>
       ) : null}
       <Tabs className="mt-6 min-w-0" onValueChange={changeWorkspace} value={workspace}>
-        <div className="max-w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <FullWidthLineTabsList aria-label="Ruang kerja Tryout" className="min-w-[68rem] xl:min-w-0">
-            {workspaceItems.map((item) => (
-              <FullWidthLineTabsTrigger key={item.value} value={item.value}>
-                {item.label}
-              </FullWidthLineTabsTrigger>
-            ))}
-          </FullWidthLineTabsList>
+        <div className="relative max-w-full">
+          <div
+            aria-label="Navigasi ruang kerja Tryout"
+            className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            onScroll={updateTabRailEdges}
+            ref={tabRailRef}
+            role="region"
+          >
+            <FullWidthLineTabsList aria-label="Ruang kerja Tryout" className="min-w-[68rem] xl:min-w-0">
+              {workspaceItems.map((item) => (
+                <FullWidthLineTabsTrigger className="min-w-max" data-workspace-tab={item.value} key={item.value} value={item.value}>
+                  {item.label}
+                </FullWidthLineTabsTrigger>
+              ))}
+            </FullWidthLineTabsList>
+          </div>
+          {tabRailEdges.canScrollLeft ? (
+            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-start bg-gradient-to-r from-[#f7faf8] via-[#f7faf8]/90 to-transparent xl:hidden">
+              <ChevronLeft className="size-4 text-voyage-muted-ink" />
+            </div>
+          ) : null}
+          {tabRailEdges.canScrollRight ? (
+            <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-9 items-center justify-end bg-gradient-to-l from-[#f7faf8] via-[#f7faf8]/90 to-transparent xl:hidden">
+              <ChevronRight className="size-4 text-voyage-muted-ink" />
+            </div>
+          ) : null}
         </div>
 
         <TabsContent className="mt-5" value="basics">
