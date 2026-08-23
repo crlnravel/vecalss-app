@@ -35,17 +35,15 @@ for (const status of ["draft", "queued", "processing", "completed", "partial", "
   assert.match(service, new RegExp(`EnrollmentImportStatus\\.${status}`));
 }
 assert.doesNotMatch(service, /seed|fixture|demo/i);
-for (const label of ["Add student", "Add Kapten", "Import roster", "Review exceptions"]) {
+for (const label of ["Add student", "Add Kapten"]) {
   assert.match(consoleModule, new RegExp(label.replace(" ", "\\s+")));
+}
+for (const removedSurface of ["Import roster", "Review exceptions", "Attention queue", "MobileAttentionQueue", "OperationDetailSheet"]) {
+  assert.doesNotMatch(consoleModule, new RegExp(removedSurface.replace(" ", "\\s+")));
 }
 assert.doesNotMatch(consoleModule, /<OperationControl count=\{snapshot\.counts\.importsNeedingReview\}/);
 assert.doesNotMatch(consoleModule, /<OperationControl count=\{visibleAttentionTotal\}/);
-assert.match(consoleModule, /SheetContent/);
-assert.match(consoleModule, /lastTrigger/);
-assert.match(consoleModule, /MobileAttentionQueue/);
-assert.match(consoleModule, /h-\[100dvh\]/);
-assert.match(consoleModule, /triggerRef/);
-assert.match(consoleModule, /wasOpen/);
+assert.doesNotMatch(consoleModule, /SheetContent|lastTrigger|triggerRef|wasOpen|data-attention/);
 assert.match(consoleModule, /See more/);
 assert.match(consoleModule, /href="\/admin\/audit-logs"/);
 assert.match(consoleModule, /Quick actions/);

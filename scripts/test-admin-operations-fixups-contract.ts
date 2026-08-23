@@ -221,32 +221,21 @@ for (const status of ["draft", "queued", "processing", "completed", "partial", "
 }
 assert.match(handoffService, /handoff_import_recovery_required/);
 assert.match(handoffService, /if \(existing\.source_import_row_id\)/);
-assert.match(consoleModule, /useActionState/);
-assert.match(consoleModule, /ImportAttentionAction/);
-assert.match(consoleModule, /router\.refresh\(\)/);
-assert.match(consoleModule, /\/api\/admin\/imports/);
-assert.match(consoleModule, /Acknowledge handoff/);
-assert.match(consoleModule, /Reissue handoff/);
-assert.match(consoleModule, /sourceImportRowId/);
-assert.match(consoleModule, /resolvedAttentionIds/);
-assert.match(consoleModule, /attentionQueueSummary/);
-assert.match(consoleModule, /Showing \$\{displayedCount\} of \$\{total\}/);
-assert.match(consoleModule, /min-h-11/);
-assert.match(consoleModule, /No attention items right now/);
 assert.match(consoleModule, /Quick actions/);
 assert.doesNotMatch(consoleModule, /grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4/);
-assert.match(consoleModule, /data-attention-row/);
-assert.match(consoleModule, /firstVisibleFocusTarget/);
-assert.match(consoleModule, /replaceReissuedHandoff/);
-assert.match(consoleModule, /reissuedAttentionState/);
-assert.match(consoleModule, /setSelectedItem\(\(current\)/);
-assert.match(consoleModule, /No more items in this slice/);
-assert.match(consoleModule, /data-attention-queue-announcement/);
-assert.match(consoleModule, /aria-live="polite"/);
-assert.match(consoleModule, /focus:outline-2/);
-assert.match(consoleModule, /router\.refresh\(\)/);
-assert.match(consoleModule, /onAcknowledged=\{\(\) => acknowledgeAndRefresh\(state\.handoffId/);
-assert.doesNotMatch(consoleModule, /onReissued=\{\(\) => onResolved/);
+for (const removedSurface of [
+  "Attention queue",
+  "useActionState",
+  "ImportAttentionAction",
+  "OperationDetailSheet",
+  "data-attention",
+  "Acknowledge handoff",
+  "Reissue handoff",
+  "Import roster",
+  "Review exceptions",
+]) {
+  assert.doesNotMatch(consoleModule, new RegExp(removedSurface.replace(" ", "\\s+")));
+}
 assert.match(focusRestorer, /selected row is no longer available/);
 assert.match(focusRestorer, /noticeId/);
 assert.match(focusRestorer, /findVisibleFocusTarget/);
