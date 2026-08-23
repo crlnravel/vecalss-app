@@ -14,6 +14,7 @@ import {
   safeParticipantIdentity,
   toParticipantViews,
 } from "@/lib/tryout/participant-view";
+import { projectTryoutWorkflow } from "@/lib/tryout/workflow-projection";
 
 type TryoutOperationsRecord = NonNullable<
   Awaited<ReturnType<typeof getTryoutDeliveryOperations>>
@@ -431,6 +432,18 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
       student: safeParticipantIdentity(admission.student).displayName,
     })),
     sessions,
+    // Keep lifecycle availability server-owned.  The projection carries only
+    // phase/state identifiers; immutable AssessmentRelease and Bank Soal
+    // payloads stay behind their existing server boundaries.  Draft authoring
+    // readiness is intentionally fail-closed here because this operations
+    // query does not load the editable section form; the builder can compose
+    // the same pure projection with its authoritative readiness DTO later.
+    workflow: projectTryoutWorkflow({
+      mode: operations.status === "published" ? "published" : "draft",
+      sessions,
+      status: operations.status,
+      tryoutId: operations.id,
+    }),
   };
 }
 
