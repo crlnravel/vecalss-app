@@ -471,6 +471,44 @@ platform-specific requirement is documented.
 - **Behavior:** Preserve keyboard navigation, Escape-to-close, outside-click
   dismissal, correct menu/listbox semantics, and readable selected state.
 
+### Tables / Data Grids
+
+The approved Vecalss operational table is the shared `DataTable` plus `Table`
+implementation from `components/ui/data-table.tsx` and
+`components/ui/table.tsx`. Treat these routes as the visual and interaction
+references before creating a new table shell:
+
+| Approved reference | Use it for | Signature behavior |
+| --- | --- | --- |
+| `/admin/enrollment` | Student directory | Search, multi-status/date filters, sortable columns, row selection and bulk actions, detail preview, pagination, and a clear empty state. |
+| `/admin/kapten` | Kapten directory | Search/status filtering, sortable columns, clickable rows with a detail sheet, status treatment, and pagination. |
+| `/mentor/quiz/question-bank` | Kapten Bank Soal catalogue | Folder and bank rows in one grid, breadcrumb/header actions, subject/category/status filters, sorting, row action menus, and dense-column overflow. |
+
+- **Frame:** Render the table inside the approved white `rounded-2xl`
+  surface. Use `DataTable` for the toolbar, filter chips, sortable header,
+  row states, empty state, and responsive overflow; use `Table` primitives for
+  semantic markup.
+- **Geometry:** Keep the muted `secondary-50/80` header, 44px header controls,
+  compact labels, `px-4 py-3.5` cells (`sm:px-5`), soft `primary-100`
+  separators, and a minimum width appropriate to the column set (`760px` for
+  directories; `1100px` for the Bank Soal catalogue).
+- **States:** Use `secondary-50/70` row hover, `primary-50` selected/focused
+  treatment with a visible focus cue, and readable dot-plus-text status states.
+  Keep empty and error messaging in the table content flow rather than in
+  sentence-length badges.
+- **Behavior:** Preserve accessible search, filtering, sorting, and
+  pagination. Sortable headers expose a visible direction indicator and
+  `aria-sort`; row actions stay keyboard reachable; selection and bulk actions
+  are explicit and scoped to the visible rows. Keep canonical filtering,
+  sorting, and pagination server-backed.
+- **Responsive:** Let dense grids scroll horizontally inside the table
+  container; wrap toolbar controls while keeping primary actions reachable. Do
+  not invent a competing card-per-row or mobile-only table language unless the
+  data density genuinely cannot work in this pattern.
+- **Boundary:** This is the approved pattern for admin, Kapten, and catalogue
+  operations. It does not replace cards, compact lists, or learning-journey
+  surfaces.
+
 ### TanStack interaction patterns
 
 Vecalss uses TanStack selectively as a headless behavior layer, not as a visual

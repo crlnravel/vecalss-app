@@ -19,12 +19,16 @@ assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on t
 assert.doesNotMatch(bankCatalogue, /<main className="min-w-0 space-y-4">/u, "Bank Soal should not nest a second main landmark");
 assert.match(bankCatalogue, /MentorCatalogueTable/u, "Bank Soal should use the reusable table wrapper");
 assert.match(bankCatalogue, /caption="Daftar folder dan bank soal"/u, "Bank Soal should expose one integrated table caption");
-assert.match(bankCatalogue, /headingIcon=\{<LibraryBig/u, "Bank Soal should lead the table with a recognizable icon");
+assert.doesNotMatch(bankCatalogue, /headingIcon=\{<LibraryBig/u, "Bank Soal breadcrumb should not render a leading book tile");
 assert.match(bankCatalogue, /folderBreadcrumb/u, "Bank Soal should expose the active folder breadcrumb");
 assert.match(bankCatalogue, /label: "Kategori"/u, "Bank Soal should label bank coverage as categories");
 assert.match(bankCatalogue, /row\.kind === "folder" \? <span className="text-sm text-secondary-400">—<\/span>/u, "Folder rows should show a dash for categories");
 assert.doesNotMatch(bankCatalogue, /label: "Isi"|label: "Lokasi"|id: "location"/u, "Bank Soal should keep location details in the breadcrumb instead of table columns");
 assert.doesNotMatch(bankCatalogue, /id: "folder", label: "Folder"/u, "The active folder should be represented by the breadcrumb, not an active filter chip");
+assert.match(bankCatalogue, /import \{[\s\S]*Tag[\s\S]*\} from "@\/lib\/icons"/u, "Bank Soal should use the tag icon for category actions");
+assert.match(bankCatalogue, /aria-label="Kelola kategori bersama"[\s\S]*size="icon-sm"[\s\S]*title="Kelola kategori bersama"/u, "Category toolbar action should be icon-only with an accessible label");
+assert.match(bankCatalogue, /aria-label="Buat bank soal baru"[\s\S]*size="icon-sm"[\s\S]*title="Buat bank soal baru"/u, "Bank creation toolbar action should be icon-only with an accessible label");
+assert.match(bankCatalogue, /aria-label=\{folderCreateLabel\}[\s\S]*size="icon-sm"[\s\S]*title=\{folderCreateLabel\}/u, "Folder creation toolbar action should be icon-only with an accessible label");
 assert.doesNotMatch(bankCatalogue, /viewMode|setViewMode|Tampilan grid|Tampilan daftar/u, "Bank Soal should not expose grid/list presentation toggles");
 assert.match(bankCatalogue, /const catalogueRows: QuestionBankCatalogueRow\[\]/u, "Bank Soal should integrate folders and banks into one table data set");
 assert.match(bankCatalogue, /kind: "folder"/u, "The integrated Bank Soal table should include folder rows");
@@ -35,8 +39,8 @@ assert.match(bankCatalogue, /Belum ditempatkan/u, "Unfiled should use a user-fac
 assert.match(bankCatalogue, /type BankSortMode = "updated" \| "name" \| "questions"/u);
 assert.match(bankCatalogue, /initialSort = "updated"/u, "Bank Soal should hydrate sort from the URL");
 assert.match(bankCatalogue, /search=\{\{ action: "\/mentor\/quiz\/question-bank"/u, "Bank Soal should use the table search control");
-assert.match(bankCatalogue, /aria-label=\{`Pindahkan \$\{row\.bank\.title\}`\}/u, "move actions should name their bank");
-assert.match(bankCatalogue, /aria-label=\{`Kelola kategori \$\{row\.bank\.title\}`\}/u, "category actions should name their bank");
+assert.match(bankCatalogue, /aria-label=\{`Aksi untuk \$\{row\.bank\.title\}`\}/u, "Bank rows should expose one ellipsis action menu");
+assert.doesNotMatch(bankCatalogue, /aria-label=\{`(?:Edit|Pindahkan|Kelola kategori) \$\{row\.bank\.title\}`\}/u, "Bank rows should not expose separate action buttons");
 assert.match(bankCatalogue, /navigateCatalogue\(\{ sort: value as BankSortMode, page: 1 \}\)/u, "sort changes should persist in the URL");
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /folderId: search\.trim\(\) \? undefined : folderId/u, "Committed search should span folders while preserving the folder when cleared");
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /const folderId = requestedFolder === undefined \? null/u, "The root catalogue should list only unfiled banks");

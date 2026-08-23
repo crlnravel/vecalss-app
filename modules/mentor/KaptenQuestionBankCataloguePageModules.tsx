@@ -13,6 +13,7 @@ import {
   LibraryBig,
   Pencil,
   Plus,
+  Tag,
   Trash2,
   Upload,
 } from "@/lib/icons";
@@ -488,21 +489,20 @@ function KaptenQuestionBankPageModule({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button aria-label={`Edit ${row.bank.title}`} nativeButton={false} render={<Link href={row.bank.href} />} size="icon-sm" title="Edit bank soal" variant="brand"><Pencil /></Button>
-          <Button aria-label={`Pindahkan ${row.bank.title}`} disabled={row.bank.status === "archived"} onClick={() => { setFolderParentId(row.bank.folderId); setFolderError(null); setBankMoveId(row.bank.id); }} size="icon-sm" title="Pindahkan bank" type="button" variant="ghost"><Folder /></Button>
-          <Button aria-label={`Kelola kategori ${row.bank.title}`} disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)} size="icon-sm" title="Kelola kategori" type="button" variant="ghost"><Pencil /></Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuGroup>
-                {row.bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
-                {row.bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
-                {row.bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</DropdownMenuItem>
+            <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => { setFolderParentId(row.bank.folderId); setFolderError(null); setBankMoveId(row.bank.id); }}><Folder />Pindahkan bank</DropdownMenuItem>
+            <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              {row.bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
+              {row.bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
+              {row.bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
       cellClassName: "text-right",
       headerClassName: "text-right",
@@ -581,8 +581,9 @@ function KaptenQuestionBankPageModule({
       <section className="flex flex-wrap items-start justify-between gap-4">
         <div><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1></div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="sm" title="Kelola kategori bersama" type="button" variant="context"><Pencil />Kelola kategori</Button>
-          <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button>
+          <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
+          <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="icon-sm" title="Buat bank soal baru" type="button" variant="brand"><Plus /></Button>
+          <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
         </div>
       </section>
 
@@ -596,8 +597,7 @@ function KaptenQuestionBankPageModule({
           filterPanel={filterPanel}
           filters={activeFilters}
           getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
-          headerActions={<><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button>{selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderCreate(currentFolder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}</>}
-          headingIcon={<LibraryBig size={18} />}
+          headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderCreate(currentFolder.id)}><FolderPlus />Buat subfolder</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "move")}><Folder />Pindahkan</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
           moreMenu={sortMenu}
           rows={catalogueRows}
           search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}

@@ -93,6 +93,7 @@ import {
   SquaresFour as PhosphorSquaresFour,
   Table as PhosphorTable,
   Target as PhosphorTarget,
+  Tag as PhosphorTag,
   Timer as PhosphorTimer,
   Trash as PhosphorTrash2,
   Translate as PhosphorLanguages,
@@ -230,6 +231,7 @@ export const SlidersHorizontal = PhosphorSlidersHorizontal;
 export const Sparkles = PhosphorSparkles;
 export const Target = PhosphorTarget;
 export const TableIcon = PhosphorTable;
+export const Tag = PhosphorTag;
 export const Timer = PhosphorTimer;
 export const TimerReset = PhosphorRotateCcw;
 export const Trash2 = PhosphorTrash2;
