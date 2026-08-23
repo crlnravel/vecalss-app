@@ -1152,7 +1152,6 @@ function QuizContentTab({
 
   return (
     <TabsContent className="m-0" value="content">
-      <KuisAssemblySourcePicker actions={actions} data={data} state={state} />
       <section className="mt-6 grid gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
         <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
           <div><p className="text-sm font-semibold text-secondary-900">Susunan soal</p><p className="mt-1 text-xs text-secondary-500">{builderState.questions.length} dipilih</p></div>
@@ -1191,44 +1190,6 @@ function QuizContentTab({
         </div>
       </section>
     </TabsContent>
-  );
-}
-
-function KuisAssemblySourcePicker({
-  actions,
-  data,
-  state,
-}: {
-  actions: QuizBuilderScreenActions;
-  data: QuizBuilderViewData;
-  state: QuizBuilderViewState;
-}) {
-  const supportedAssemblies = data.readyAssemblies.filter((assembly) => assembly.readiness.ready && assembly.mode !== "cat_pool" && assembly.bankIds.length === 1 && assembly.subtest === state.builderState.subjectCode);
-  const options = [
-    { label: "Soal langsung / lokal", value: "direct" },
-    ...supportedAssemblies.map((assembly) => ({
-      label: `${assembly.packageTitle} · ${packageReleaseLabel(assembly.versionNo)} · ${assembly.mode === "random_pool" ? "Pool" : assembly.mode === "blueprint" ? "Blueprint" : "Set"}`,
-      value: assembly.id,
-    })),
-  ];
-  return (
-    <section className="rounded-3xl border border-primary-100 bg-white p-5 md:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-secondary-900">Sumber soal Kuis</p>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-500">Pilih soal langsung seperti biasa, atau pasang satu versi Ready dari Set, Pool, atau Blueprint. Kuis selalu memakai satu Bank dan satu Subtest.</p>
-        </div>
-        {state.selectedAssembly ? <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">Assembly terpasang</span> : null}
-      </div>
-      <div className="mt-5 max-w-2xl">
-        <Field>
-          <FieldLabel htmlFor="kuis-assembly-source">Assembly Ready (opsional)</FieldLabel>
-          <DropdownField id="kuis-assembly-source" onValueChange={(value) => value === "direct" ? actions.detachAssembly() : actions.selectAssembly(value)} options={options} placeholder="Pilih sumber soal" value={state.builderState.assemblyVersionId ?? "direct"} />
-        </Field>
-        {state.selectedAssembly ? <p className="mt-3 text-xs leading-5 text-secondary-500">Digest versi: <span className="font-mono">{(state.selectedAssembly.definitionDigest ?? "").slice(0, 16)}…</span>. Perubahan sumber akan divalidasi ulang saat simpan dan terbitkan.</p> : null}
-        {supportedAssemblies.length === 0 ? <p className="mt-3 text-xs leading-5 text-secondary-500">Belum ada Set, Pool, atau Blueprint Ready satu-Bank yang dapat dipakai Kuis.</p> : null}
-      </div>
-    </section>
   );
 }
 
