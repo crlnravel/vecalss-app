@@ -468,7 +468,7 @@ function KaptenQuestionBankPageModule({
                 <h2 className="min-w-0 truncate font-semibold text-secondary-900">{bank.title}</h2>
                 <StatusPill status={bank.status} />
               </div>
-              <p className="mt-1 text-sm text-secondary-600">{bank.questionCount} soal · {bank.progress}% siap · {bank.difficultyMix}</p>
+              <p className="mt-1 text-sm text-secondary-600">{bank.questionCount} soal</p>
               {isGlobalSearch ? <p className="mt-2 flex items-center gap-1.5 text-xs text-secondary-500"><Folder className="size-3.5" />{bank.folderPath.map((item) => item.name).join(" / ")}</p> : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 {bank.subjectCoverage.map((subject) => <Badge key={subject} size="ui" variant="mint">{subject}</Badge>)}

@@ -7,6 +7,9 @@ const bankCatalogue = read("modules/mentor/KaptenQuestionBankCataloguePageModule
 const packageBuilder = read("modules/mentor/KaptenPackageBuilderPageModule.tsx");
 const packageVersionDetail = read("modules/mentor/KaptenPackageVersionDetailModule.tsx");
 
+assert.match(bankCatalogue, /<p className="mt-1 text-sm text-secondary-600">\{bank\.questionCount\} soal<\/p>/u, "Bank cards should show the question count as their primary metadata");
+assert.doesNotMatch(bankCatalogue, /\{bank\.questionCount\} soal · \{bank\.progress\}% siap(?: · \{bank\.difficultyMix\})?/u, "Bank cards should not append readiness metadata to the visible question count");
+
 assert.doesNotMatch(bankCatalogue, /function FolderTree|<FolderTree|organizationOpen|Tampilkan lokasi|Sembunyikan lokasi|question-bank-organization-panel/u, "Bank Soal folder navigation should live in the main catalogue, not a collapsible sidebar");
 assert.match(bankCatalogue, /Kelola kategori bersama/u, "Category management should remain reachable from the main catalogue toolbar");
 assert.match(bankCatalogue, /Buat folder/u, "Folder creation should remain reachable from the main catalogue");
