@@ -16,6 +16,53 @@ type PackageMetadataInput = { description: string; id: string; title: string };
 type TryoutMetadataInput = { description: string; id: string; title: string };
 type DirectQuestionInput = { sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string };
 type TestInput = { catItemCount?: number; directQuestions?: DirectQuestionInput[]; durationMinutes: number; instructions: string; packageVersionId?: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
+type ReusableQuestionPackageHandoff = {
+  catItemCount?: number;
+  packageId: string;
+  packageTitle: string;
+  packageVersionId: string;
+  packageVersionLabel: string;
+  packageVersionMode: ReusableQuestionPackageMode;
+  subtest: SubjectCode;
+  testType: "cbt" | "cat";
+};
+type ReusableQuestionPackageUseTarget = {
+  disabledReason?: string;
+  eligible: boolean;
+  id: string;
+  section: {
+    catItemCount?: number;
+    id: string;
+    packageVersionId?: string;
+    testType: "cbt" | "cat";
+  } | null;
+  status: "draft";
+  title: string;
+};
+type ReusableQuestionPackageUseContext = {
+  package: {
+    description: string;
+    id: string;
+    sourceBankName: string;
+    subtest: SubjectCode;
+    title: string;
+  };
+  targets: ReusableQuestionPackageUseTarget[];
+  version: {
+    catItemCount?: number;
+    id: string;
+    itemCount: number;
+    label: string;
+    mode: ReusableQuestionPackageMode;
+    subtest: SubjectCode;
+    testType: "cbt" | "cat";
+    versionNo: number;
+  };
+};
+type ReusableQuestionPackageHandoffResolution = {
+  error: string | null;
+  handoff: ReusableQuestionPackageHandoff | null;
+};
 type PackageVersionReadiness = {
   catReady: boolean;
   contentReady: boolean;
@@ -351,6 +398,207 @@ async function getReusableQuestionPackageVersionHub(id: string, actorId: string,
     versions: versions.map((version) => ({ createdAt: version.createdAt.getTime(), itemCount: version._count.items, readyAt: version.readyAt?.getTime(), testCount: version._count.tryoutSections, versionNo: version.versionNo })),
   };
 }
+
+function packageVersionTestType(mode: ReusableQuestionPackageMode): "cbt" | "cat" {
+  return mode === ReusableQuestionPackageMode.cat_pool ? "cat" : "cbt";
+}
+
+function packageHandoffFromVersion(input: {
+  id: string;
+  itemCount: number;
+  mode: ReusableQuestionPackageMode;
+  packageId: string;
+  packageTitle: string;
+  versionNo: number;
+  subtest: SubjectCode;
+}): ReusableQuestionPackageHandoff {
+  const testType = packageVersionTestType(input.mode);
+  return {
+    ...(testType === "cat" ? { catItemCount: input.itemCount } : {}),
+    packageId: input.packageId,
+    packageTitle: input.packageTitle,
+    packageVersionId: input.id,
+    packageVersionLabel: packageReleaseTitle(input.packageTitle, input.versionNo),
+    packageVersionMode: input.mode,
+    subtest: input.subtest,
+    testType,
+  };
+}
+
+function handoffTargetForVersion(input: {
+  directSourcePresent: boolean;
+  id: string;
+  packageVersionId: string | null;
+  sectionId: string;
+  testType: TryoutTestType;
+  targetTitle: string;
+  catItemCount: number | null;
+}, version: ReusableQuestionPackageUseContext["version"]): ReusableQuestionPackageUseTarget {
+  const testType = input.testType === TryoutTestType.cat ? "cat" : "cbt";
+  const section = {
+    ...(input.catItemCount === null ? {} : { catItemCount: input.catItemCount }),
+    id: input.sectionId,
+    ...(input.packageVersionId ? { packageVersionId: input.packageVersionId } : {}),
+    testType,
+  } satisfies NonNullable<ReusableQuestionPackageUseTarget["section"]>;
+  const compatible = testType === version.testType;
+  const sourceConflict = input.directSourcePresent || Boolean(input.packageVersionId && input.packageVersionId !== version.id);
+  const disabledReason = input.directSourcePresent
+    ? `Test ${version.subtest} sudah berisi soal langsung. Sumber yang sedang dipakai tidak akan diganti otomatis.`
+    : input.packageVersionId && input.packageVersionId !== version.id
+    ? `Test ${version.subtest} sudah memakai Paket Soal lain. Sumber yang sedang dipakai tidak akan diganti otomatis.`
+    : !compatible
+      ? version.testType === "cat"
+        ? "Versi ini adalah CAT Pool dan hanya kompatibel dengan Test CAT."
+        : "Versi ini kompatibel dengan Test CBT, bukan Test CAT."
+      : undefined;
+  return {
+    ...(disabledReason ? { disabledReason } : {}),
+    eligible: !sourceConflict && compatible,
+    id: input.id,
+    section,
+    status: "draft",
+    title: input.targetTitle,
+  };
+}
+
+async function getReusableQuestionPackageUseContext(
+  packageId: string,
+  actorId: string,
+  client: typeof prisma | Prisma.TransactionClient = prisma,
+): Promise<ReusableQuestionPackageUseContext | null> {
+  const record = await client.reusableQuestionPackage.findFirst({
+    where: {
+      createdByUserId: actorId,
+      id: packageId,
+      status: { not: ContentStatus.archived },
+      versions: { some: { status: ContentStatus.published } },
+    },
+    select: {
+      description: true,
+      id: true,
+      sourceBank: { select: { name: true } },
+      subtest: { select: { code: true, id: true } },
+      title: true,
+      versions: {
+        where: { status: ContentStatus.published },
+        orderBy: { versionNo: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          items: { select: { id: true } },
+          mode: true,
+          versionNo: true,
+        },
+      },
+    },
+  });
+  const latestVersion = record?.versions[0];
+  if (!record || !latestVersion) return null;
+
+  const subtest = record.subtest.code as SubjectCode;
+  const version = {
+    catItemCount: latestVersion.mode === ReusableQuestionPackageMode.cat_pool ? latestVersion.items.length : undefined,
+    id: latestVersion.id,
+    itemCount: latestVersion.items.length,
+    label: packageReleaseTitle(record.title, latestVersion.versionNo),
+    mode: latestVersion.mode,
+    subtest,
+    testType: packageVersionTestType(latestVersion.mode),
+    versionNo: latestVersion.versionNo,
+  } satisfies ReusableQuestionPackageUseContext["version"];
+  const targets = await client.tryoutPackage.findMany({
+    orderBy: { title: "asc" },
+    select: {
+      id: true,
+      title: true,
+      sections: {
+        where: { subtestId: record.subtest.id },
+        select: {
+          catItemCount: true,
+          id: true,
+          items: { where: { packageVersionId: null, sourceQuestionId: { not: null } }, select: { id: true }, take: 1 },
+          packageVersionId: true,
+          testType: true,
+        },
+        take: 1,
+      },
+    },
+    where: {
+      attempts: { none: {} },
+      createdByUserId: actorId,
+      deliverySessions: { none: { assessmentReleaseId: { not: null }, status: TryoutDeliverySessionStatus.active } },
+      status: ContentStatus.draft,
+    },
+  });
+
+  return {
+    package: {
+      description: record.description ?? "",
+      id: record.id,
+      sourceBankName: record.sourceBank.name,
+      subtest,
+      title: record.title,
+    },
+    targets: targets.map((target) => {
+      const section = target.sections[0];
+      return section
+        ? handoffTargetForVersion({
+            catItemCount: section.catItemCount,
+            directSourcePresent: section.items.length > 0,
+            id: target.id,
+            packageVersionId: section.packageVersionId,
+            sectionId: section.id,
+            targetTitle: target.title,
+            testType: section.testType,
+          }, version)
+        : {
+            eligible: true,
+            id: target.id,
+            section: null,
+            status: "draft" as const,
+            title: target.title,
+          };
+    }),
+    version,
+  };
+}
+
+async function resolveReusableQuestionPackageHandoff(input: {
+  packageId?: string;
+  packageVersionId?: string;
+  subtest?: string;
+  tryoutId?: string;
+}, actorId: string): Promise<ReusableQuestionPackageHandoffResolution> {
+  if (!input.packageId && !input.packageVersionId && !input.subtest) return { error: null, handoff: null };
+  if (!input.packageId || !input.packageVersionId || !input.subtest) {
+    return { error: "Handoff Paket Soal belum lengkap. Kembali ke halaman Paket Soal lalu pilih Gunakan di Tryout lagi.", handoff: null };
+  }
+  const context = await getReusableQuestionPackageUseContext(input.packageId, actorId);
+  if (!context) return { error: "Paket Soal tidak memiliki versi Ready yang dapat digunakan atau Anda tidak memiliki akses ke paket ini.", handoff: null };
+  if (context.version.id !== input.packageVersionId || context.package.subtest !== input.subtest) {
+    return { error: "Versi Ready Paket Soal sudah berubah. Kembali ke halaman Paket Soal lalu pilih versi Ready terbaru.", handoff: null };
+  }
+  if (input.tryoutId) {
+    const target = context.targets.find((candidate) => candidate.id === input.tryoutId);
+    if (!target?.eligible) {
+      return { error: target?.disabledReason ?? "Tryout tujuan tidak dapat menerima Paket Soal ini. Pilih Tryout draf lain atau buat Tryout baru.", handoff: null };
+    }
+  }
+  return {
+    error: null,
+    handoff: packageHandoffFromVersion({
+      id: context.version.id,
+      itemCount: context.version.itemCount,
+      mode: context.version.mode,
+      packageId: context.package.id,
+      packageTitle: context.package.title,
+      subtest: context.package.subtest,
+      versionNo: context.version.versionNo,
+    }),
+  };
+}
+
 async function getReusableQuestionPackageVersionDetail(packageId: string, versionNo: number, actorId: string) {
   const record = await prisma.reusableQuestionPackageVersion.findFirst({
     where: { packageId, versionNo, status: ContentStatus.published, package: { createdByUserId: actorId } },
@@ -699,5 +947,5 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
 }
 async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })), durationMinutes: section.durationMinutes, instructions: section.instructions, packageVersionId: section.packageVersionId, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
-export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, updateTryoutMetadata };
-export type { DirectQuestionInput, PackageConflictCode, PackageDto, PackageInput, PackageItemInput, PackageMetadataInput, PackageSaveIntent, PackageVersionReadiness, ReleasedPackageVersion, SaveReusableQuestionPackageResult, SaveTryoutInput, TestInput, TryoutMetadataInput };
+export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageUseContext, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, resolveReusableQuestionPackageHandoff, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, updateTryoutMetadata };
+export type { DirectQuestionInput, PackageConflictCode, PackageDto, PackageInput, PackageItemInput, PackageMetadataInput, PackageSaveIntent, PackageVersionReadiness, ReusableQuestionPackageHandoff, ReusableQuestionPackageHandoffResolution, ReusableQuestionPackageUseContext, ReusableQuestionPackageUseTarget, ReleasedPackageVersion, SaveReusableQuestionPackageResult, SaveTryoutInput, TestInput, TryoutMetadataInput };

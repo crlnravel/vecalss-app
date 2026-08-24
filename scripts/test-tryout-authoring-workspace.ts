@@ -3,13 +3,16 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route, createRoute, shell, sidebar, repository] = await Promise.all([
+const [workspace, route, createRoute, shell, sidebar, repository, useRoute, useModule, actions] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/components/mentor-workspace-shell.tsx`, "utf8"),
   readFile(`${root}/components/ui/sidebar.tsx`, "utf8"),
   readFile(`${root}/lib/tryout/repository.ts`, "utf8"),
+  readFile(`${root}/app/mentor/packages/[packageId]/use/page.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenPackageUsePageModule.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/tryout-actions.ts`, "utf8"),
 ]);
 
 for (const label of [
@@ -75,6 +78,24 @@ assert.match(repository, /current\.status === ContentStatus\.published[\s\S]*Bua
 assert.match(repository, /updateTryoutMetadata/u, "server metadata editing must remain a separate allowlisted path");
 assert.doesNotMatch(workspace, /\/mentor\/packages(?:\/|\b)/u, "workspace must not route mentors through package authoring");
 assert.match(workspace, /Buka Bank Soal/u, "missing sources should point back to Bank Soal, not package authoring");
-assert.match(route, /initialWorkspace = query\.workspace \?\? \(initialDraft\.status === "published" \? "delivery" : "basics"\)/u, "route must preserve new workspace query values and use the correct lifecycle default on reload");
+assert.match(route, /packageId\?: string; packageVersionId\?: string;[\s\S]*subtest\?: string/u, "Tryout edit route must accept package handoff query state");
+assert.match(createRoute, /packageId\?: string; packageVersionId\?: string; subtest\?: string/u, "Tryout create route must accept package handoff query state");
+assert.match(route, /resolveReusableQuestionPackageHandoff\([\s\S]*tryoutId/u, "existing Tryout handoff must be resolved against the owner-scoped target");
+assert.match(createRoute, /resolveReusableQuestionPackageHandoff\(/u, "new Tryout handoff must be resolved server-side");
+assert.match(workspace, /initialPackageHandoff/u, "builder must accept typed package handoff state");
+assert.match(workspace, /packageVersionId: handoff\.packageVersionId/u, "handoff must seed a package version in local form state");
+assert.match(workspace, /catItemCount/u, "handoff must carry CAT count when the Ready mode requires it");
+assert.match(repository, /async function getReusableQuestionPackageUseContext\(/u, "handoff context must have an owner-scoped repository read");
+assert.match(repository, /createdByUserId: actorId/u, "handoff package and Tryout reads must be owner scoped");
+assert.match(repository, /status: ContentStatus\.draft/u, "handoff targets must be draft Tryouts only");
+assert.match(repository, /attempts: \{ none: \{\} \}/u, "participant-attempt Tryouts must be excluded from handoff targets");
+assert.match(repository, /assessmentReleaseId: \{ not: null \}/u, "participant-accessible release-bound Tryouts must be excluded");
+assert.match(repository, /disabledReason/u, "conflicting package sources must expose a clear disabled reason");
+assert.match(repository, /resolveReusableQuestionPackageHandoff\(/u, "Tryout routes must use a server-side handoff validator");
+assert.match(useRoute, /getReusableQuestionPackageUseContext\(/u, "use route must read its context through the repository boundary");
+assert.match(useModule, /Tryout yang sudah ada/u, "chooser must expose the existing Tryout choice");
+assert.match(useModule, /Tryout baru/u, "chooser must expose the new Tryout choice");
+assert.doesNotMatch(useModule, /saveTryoutAction|saveTryout\(/u, "chooser navigation must not persist a Tryout");
+assert.match(actions, /revalidatePath\(`\/mentor\/tryout\/\$\{result\.id\}`\)/u, "save must revalidate the selected Tryout route");
 
 console.log("Tryout authoring workspace contract passed.");

@@ -74,6 +74,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import { assemblyCompatibleWithTestType } from "@/lib/tryout/assembly-validation";
 import type { AssemblyAttachmentSummary, AssemblyPreview } from "@/lib/tryout/assembly-repository";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import type { ReusableQuestionPackageHandoff } from "@/lib/tryout/repository";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
@@ -321,6 +322,35 @@ function normalize(draft: TryoutDraft): TryoutDraft {
   return {
     ...draft,
     sections: subjectCodes.map((code) => byCode.get(code) ?? fallback.find((section) => section.subtest === code)!),
+  };
+}
+
+function seedPackageHandoff(draft: TryoutDraft, handoff: ReusableQuestionPackageHandoff) {
+  const packageVersionMode = handoff.packageVersionMode as AssemblyMode;
+  const target = draft.sections.find((section) => section.subtest === handoff.subtest);
+  if (!target) return { draft, didSeed: false };
+  const nextSection: TestDraft = {
+    ...target,
+    catItemCount: handoff.testType === "cat" ? handoff.catItemCount : undefined,
+    directQuestions: [],
+    packageVersionId: handoff.packageVersionId,
+    packageVersionLabel: handoff.packageVersionLabel,
+    packageVersionMode,
+    testType: handoff.testType,
+  };
+  const didSeed = target.packageVersionId !== nextSection.packageVersionId
+    || target.packageVersionLabel !== nextSection.packageVersionLabel
+    || target.packageVersionMode !== nextSection.packageVersionMode
+    || target.testType !== nextSection.testType
+    || target.catItemCount !== nextSection.catItemCount
+    || Boolean(target.directQuestions?.length);
+  if (!didSeed) return { draft, didSeed: false };
+  return {
+    didSeed: true,
+    draft: {
+      ...draft,
+      sections: draft.sections.map((section) => section.subtest === handoff.subtest ? nextSection : section),
+    },
   };
 }
 
@@ -729,6 +759,8 @@ function KaptenTryoutBuilderPageModule({
   id,
   initialDraft,
   initialDeliveryArea,
+  initialPackageHandoff,
+  initialPackageHandoffError,
   initialParent,
   initialSessionId,
   initialWorkspace = "basics",
@@ -742,6 +774,8 @@ function KaptenTryoutBuilderPageModule({
   id?: string;
   initialDraft?: TryoutDraft | null;
   initialDeliveryArea?: string;
+  initialPackageHandoff?: ReusableQuestionPackageHandoff;
+  initialPackageHandoffError?: string;
   initialParent?: { id: string; publishedAt?: string; title: string };
   initialSessionId?: string;
   initialWorkspace?: string;
@@ -753,7 +787,7 @@ function KaptenTryoutBuilderPageModule({
   session: SessionContext;
 }) {
   void session;
-  const [draft, setDraft] = useState<TryoutDraft>(() => normalize(initialDraft ?? {
+  const [initialFormDraft] = useState<TryoutDraft>(() => normalize(initialDraft ?? {
     description: "",
     id: id ?? "baru",
     locked: false,
@@ -762,21 +796,15 @@ function KaptenTryoutBuilderPageModule({
     title: "Draft Tryout Baru",
     updatedAt: Date.now(),
   }));
-  const [savedDraft, setSavedDraft] = useState<TryoutDraft>(() => normalize(initialDraft ?? {
-    description: "",
-    id: id ?? "baru",
-    locked: false,
-    sections: defaultSections(),
-    status: "draft",
-    title: "Draft Tryout Baru",
-    updatedAt: Date.now(),
-  }));
-  const [activeCode, setActiveCode] = useState<SubjectCode>(() => draft.sections.find((section) => !section.packageVersionId && !section.directQuestions?.length)?.subtest ?? "PU");
-  const [error, setError] = useState<string | null>(null);
+  const initialSeed = initialPackageHandoff ? seedPackageHandoff(initialFormDraft, initialPackageHandoff) : { didSeed: false, draft: initialFormDraft };
+  const [draft, setDraft] = useState<TryoutDraft>(() => initialSeed.draft);
+  const [savedDraft, setSavedDraft] = useState<TryoutDraft>(() => initialFormDraft);
+  const [activeCode, setActiveCode] = useState<SubjectCode>(() => initialPackageHandoff?.subtest ?? initialSeed.draft.sections.find((section) => !section.packageVersionId && !section.directQuestions?.length)?.subtest ?? "PU");
+  const [error, setError] = useState<string | null>(() => initialPackageHandoffError ?? null);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(() => !id);
+  const [dirty, setDirty] = useState(() => !id || initialSeed.didSeed);
   const [packageSearch, setPackageSearch] = useState("");
-  const [selectionModes, setSelectionModes] = useState<SelectionModes>(() => Object.fromEntries(draft.sections.filter((section) => section.packageVersionId).map((section) => [section.subtest, selectionModeForAssembly(readyAssemblies.find((assembly) => assembly.id === section.packageVersionId)?.mode ?? "fixed_set")])) as SelectionModes);
+  const [selectionModes, setSelectionModes] = useState<SelectionModes>(() => Object.fromEntries(initialSeed.draft.sections.filter((section) => section.packageVersionId).map((section) => [section.subtest, selectionModeForAssembly(readyAssemblies.find((assembly) => assembly.id === section.packageVersionId)?.mode ?? section.packageVersionMode ?? "fixed_set")])) as SelectionModes);
   const [sourceBankSearch, setSourceBankSearch] = useState("");
   const [sourceBanks, setSourceBanks] = useState<SourceBank[]>(initialSourceBanks);
   const [sourceBankPage, setSourceBankPage] = useState(1);
@@ -804,7 +832,7 @@ function KaptenTryoutBuilderPageModule({
   const [deliveryArea, setDeliveryArea] = useState<DeliveryArea>(() => deliveryAreaFor(initialDeliveryArea ?? initialWorkspace));
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [metadataSaving, setMetadataSaving] = useState(false);
-  const [metadataDraft, setMetadataDraft] = useState(() => ({ description: draft.description, title: draft.title }));
+  const [metadataDraft, setMetadataDraft] = useState(() => ({ description: initialSeed.draft.description, title: initialSeed.draft.title }));
   const [pendingWorkspace, setPendingWorkspace] = useState<Workspace | null>(null);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [dirtyNavigationOpen, setDirtyNavigationOpen] = useState(false);
