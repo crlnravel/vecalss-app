@@ -128,7 +128,10 @@ assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /id
 const packageCatalogue = read("modules/mentor/KaptenPackageCataloguePageModule.tsx");
 assert.match(packageCatalogue, /MentorCatalogueTable/u, "Paket Soal should use the reusable table wrapper");
 assert.match(packageCatalogue, /caption="Daftar Paket Soal"/u, "Paket Soal should expose a table caption");
-assert.match(packageCatalogue, /headingIcon=\{<PackageCheck/u, "Paket Soal should lead the table with a recognizable icon");
+assert.doesNotMatch(packageCatalogue, /headingIcon=/u, "Paket Soal breadcrumb should not render a leading badge");
+assert.doesNotMatch(packageCatalogue, /<span className="grid size-9 shrink-0[^>]*><PackageCheck/u, "Paket Soal entries should not render a leading badge");
+assert.doesNotMatch(packageCatalogue, /item\.description \?/u, "Paket Soal entries should not render a subtitle");
+assert.doesNotMatch(packageCatalogue, /label: "Aksi"/u, "Paket Soal should not render an Aksi column");
 assert.match(packageCatalogue, /aria-label="Breadcrumb"/u, "Paket Soal should expose a breadcrumb");
 assert.doesNotMatch(packageCatalogue, /className="grid gap-3"|sm:grid-cols/u, "Paket Soal rows should not use a card grid");
 assert.match(packageCatalogue, /nativeButton=\{false\} render=\{<Link href="\/mentor\/packages\/create" \/>\}/u);

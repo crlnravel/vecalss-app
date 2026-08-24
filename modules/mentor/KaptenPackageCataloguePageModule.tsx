@@ -6,21 +6,7 @@ import { useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  ChevronRight,
-  Ellipsis,
-  Eye,
-  PackageCheck,
-  Pencil,
-  Plus,
-} from "@/lib/icons";
+import { ChevronRight, PackageCheck, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
@@ -83,13 +69,9 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
   const columns: DataTableColumn<PackageItem>[] = [
     {
       cell: (item) => (
-        <div className="flex min-w-0 max-w-full items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><PackageCheck size={18} /></span>
-          <div className="min-w-0">
-            <Link aria-label={`Buka Paket Soal ${item.title}`} className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={`/mentor/packages/${item.id}`} title={item.title}>{item.title}</Link>
-            {item.description ? <p className="mt-1 max-w-[34rem] truncate text-xs text-secondary-500">{item.description}</p> : null}
-            <span className="mt-1 block text-xs text-secondary-500">{item.items.length} soal</span>
-          </div>
+        <div className="min-w-0 max-w-full">
+          <Link aria-label={`Buka Paket Soal ${item.title}`} className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={`/mentor/packages/${item.id}`} title={item.title}>{item.title}</Link>
+          <span className="mt-1 block text-xs text-secondary-500">{item.items.length} soal</span>
         </div>
       ),
       headerClassName: "min-w-[14rem]",
@@ -125,25 +107,6 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
       id: "updated",
       label: "Diperbarui",
       width: 14,
-    },
-    {
-      cell: (item) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${item.title}`} size="icon-sm" type="button" variant="ghost" />}>
-            <Ellipsis />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => router.push(`/mentor/packages/${item.id}`)}><Eye />Buka detail</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push(`/mentor/packages/${item.id}/edit`)}><Pencil />Edit informasi</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-      cellClassName: "text-right",
-      headerClassName: "min-w-[5rem] text-right",
-      id: "actions",
-      label: "Aksi",
-      width: 10,
     },
   ];
 
@@ -201,12 +164,11 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
           filterPanel={filterPanel}
           filters={filters}
           getRowId={(item) => item.id}
-          headingIcon={<PackageCheck size={18} />}
           isLoading={isCataloguePending}
           loadingLabel="Memuat Paket Soal…"
           rows={items}
           search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau Subtest…", value: query }}
-          tableClassName="min-w-[880px]"
+          tableClassName="min-w-[760px]"
         />
 
         {totalItems ? (

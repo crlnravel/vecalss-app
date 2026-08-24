@@ -45,7 +45,7 @@ export default function PackageLoading() {
                     </div>
                   </div>
 
-                  <Table className="min-w-[880px] table-fixed border-separate border-spacing-y-0">
+                  <Table className="min-w-[760px] table-fixed border-separate border-spacing-y-0">
                     <caption className="sr-only">Daftar Paket Soal</caption>
                     <TableHeader>
                       <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
@@ -54,12 +54,11 @@ export default function PackageLoading() {
                         <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Subtest</TableHead>
                         <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Status</TableHead>
                         <TableHead className="h-11 min-w-[9rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Diperbarui</TableHead>
-                        <TableHead className="h-11 min-w-[5rem] rounded-r-xl px-4 py-2.5 text-right text-xs font-medium text-secondary-500 sm:px-5">Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell className="px-5 py-10 text-center" colSpan={6}>
+                        <TableCell className="px-5 py-10 text-center" colSpan={5}>
                           <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-500" role="status">
                             <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
                             Memuat Paket Soal…
