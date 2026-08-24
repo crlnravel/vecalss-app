@@ -132,6 +132,18 @@ async function main() {
       "UPDATE enrollment_import_rows SET status = 'skipped' WHERE id = $1::uuid",
       [invalidRowId],
     );
+    await assert.rejects(
+      confirmEnrollmentImport({
+        actorUserId: adminId,
+        handoffMethod: "invite_link",
+        importId,
+      }),
+      (error: unknown) => error instanceof EnrollmentImportConfirmationError && error.code === "invalid_rows_pending_skip",
+    );
+    await client.query(
+      "UPDATE enrollment_import_rows SET status = 'pending', operation = 'create' WHERE id = $1::uuid",
+      [invalidRowId],
+    );
     const firstConfirmation = await confirmEnrollmentImport({
       actorUserId: adminId,
       handoffMethod: "invite_link",

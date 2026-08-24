@@ -410,7 +410,7 @@ function QuestionBankEditorForm({
   };
 
   return (
-    <div className="grid min-w-0 gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm md:p-7">
+    <div className="grid min-w-0 gap-6 rounded-2xl border border-primary-100 bg-white p-5 shadow-sm md:p-6">
       <Field>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <FieldLabel htmlFor="question-prompt">Pertanyaan</FieldLabel>
@@ -479,7 +479,7 @@ function QuestionBankEditorForm({
 }
 
 function QuestionBankPreview({ hasSubmittedPreview, onChoiceChange, onSubmit, previewChoiceId, questionDraft }: { hasSubmittedPreview: boolean; onChoiceChange: (choiceId: string) => void; onSubmit: () => void; previewChoiceId: string | null; questionDraft: BankQuestion }) {
-  return <section className="min-w-0 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm md:p-7">
+  return <section className="min-w-0 rounded-2xl border border-primary-100 bg-white p-5 shadow-sm md:p-6">
     {questionDraft.promptMediaAssetId ? <MediaAssetPreview alt="Gambar pertanyaan" assetId={questionDraft.promptMediaAssetId} className="mb-5" /> : null}
     <p className="text-xl leading-8 font-normal text-secondary-900">{questionDraft.prompt || "Pertanyaan akan tampil di sini."}</p>
     <RadioGroup key={questionDraft.id} className="mt-6" onValueChange={onChoiceChange} value={previewChoiceId ?? undefined}>{questionDraft.choices.map((choice, index) => { const choiceLabel = String.fromCharCode(65 + index); const choiceId = `preview-choice-${questionDraft.id}-${choice.id}`; return <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-primary-100 px-4 py-4 text-sm text-secondary-700 transition-colors hover:border-primary-300 hover:bg-primary-50/60 has-[[data-checked]]:border-primary-300 has-[[data-checked]]:bg-primary-50" htmlFor={choiceId} key={choice.id}><RadioGroupItem id={choiceId} value={choice.id} /><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-800">{choiceLabel}</span><span className="flex min-w-0 flex-1 flex-col gap-3"><span>{choice.text || `Opsi ${choiceLabel}`}</span>{choice.mediaAssetId ? <MediaAssetPreview alt={`Gambar opsi ${choiceLabel}`} assetId={choice.mediaAssetId} className="max-h-44" /> : null}</span></label>; })}</RadioGroup>
@@ -637,7 +637,7 @@ function QuestionBankInventory({
         </div>
         <div
           aria-labelledby={`question-bank-filter-${filter}`}
-          className="mt-3 max-h-56 overflow-y-auto pr-1 xl:max-h-[calc(100svh-24rem)]"
+          className="mt-3 max-h-56 overflow-y-auto pr-1 xl:max-h-[calc(100svh-20rem)]"
           id="question-bank-inventory-list"
           role="tabpanel"
           tabIndex={-1}
@@ -750,7 +750,7 @@ function QuestionBankOrganizationPanel({
   const folderOptions = flattenQuestionBankFolders(folders);
 
   return (
-    <section className="rounded-3xl border border-primary-100 bg-primary-50/35 p-5 md:p-6">
+    <section className="rounded-2xl border border-primary-100 bg-primary-50/35 p-5 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <button
           aria-controls="bank-organization-fields"
@@ -982,17 +982,343 @@ function QuestionBankTabs({ actions, builderState, categories, folders, mode, st
   </Tabs>;
 }
 
-function QuestionBankBuilderScreen({ actions, builderState, categories, folders, mode, session, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; session: SessionContext; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
+function QuestionBankBuilderScreen({
+  actions,
+  bankId,
+  builderState,
+  categories,
+  folders,
+  mode,
+  session,
+  state,
+  workspaceRef,
+}: {
+  actions: QuestionBankBuilderActions;
+  bankId?: string;
+  builderState: QuestionBankBuilderFormState;
+  categories: QuestionBankCategoryOption[];
+  folders: QuestionBankFolderNode[];
+  mode: "create" | "edit";
+  session: SessionContext;
+  state: QuestionBankBuilderViewState;
+  workspaceRef: { current: HTMLDivElement | null };
+}) {
   const confirmation = state.confirmationRequest;
+  const targetBankId = bankId ?? builderState.title;
+  const detailHref = `/mentor/quiz/question-bank/${targetBankId}`;
+
+  const publishDisabledReason = state.hasUnsavedChanges
+    ? "Simpan dulu untuk menerbitkan"
+    : state.readiness.incompleteCount > 0
+      ? `${state.readiness.incompleteCount} soal belum lengkap`
+      : undefined;
+  const lifecycleDisabledReason = state.hasUnsavedChanges ? "Simpan dulu untuk mengubah status" : undefined;
+  const questionIssues = state.readiness.issues.filter(
+    (issue) => issue.questionId === state.activeQuestionId,
+  );
+
+  if (mode === "create") {
+    return (
+      <MentorWorkspaceShell
+        activeLabel="Bank Soal"
+        breadcrumbLabel="Buat Bank Soal"
+        contentElement="div"
+        mainClassName="max-w-[1500px] gap-7"
+        onNavigateAway={() => !state.hasUnsavedChanges}
+        searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..."
+        session={session}
+        showSearch={false}
+        shouldGuardNavigation={state.hasUnsavedChanges}
+      >
+        <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
+        <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
+        {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
+        <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} workspaceRef={workspaceRef} />
+        <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
+        <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      </MentorWorkspaceShell>
+    );
+  }
+
   return (
-    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel={mode === "create" ? "Buat Bank Soal" : "Edit Bank Soal"} contentElement="div" mainClassName="max-w-[1500px] gap-7" onNavigateAway={() => !state.hasUnsavedChanges} searchPlaceholder="Cari bank soal, topik, atau tingkat kesulitan..." session={session} showSearch={false} shouldGuardNavigation={state.hasUnsavedChanges}>
-      <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
+    <div className="flex h-screen flex-col overflow-hidden bg-secondary-50/40">
+      {/* Full page editor top header */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-primary-100 bg-white px-4 md:px-6 shadow-xs z-10">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button
+            aria-label="Kembali ke detail bank soal"
+            nativeButton={false}
+            render={<Link href={detailHref} />}
+            size="sm"
+            variant="ghost"
+          >
+            <ChevronLeft />
+            <span className="hidden sm:inline font-medium">Kembali ke Detail</span>
+          </Button>
+          <div className="h-5 w-px bg-primary-100" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <h1 className="text-base font-bold text-secondary-900 truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+              {builderState.title || "Bank Soal"}
+            </h1>
+            <span className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+              state.hasUnsavedChanges ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-primary-50 text-primary-800 border border-primary-100"
+            )}>
+              <span aria-hidden="true" className={cn("size-1.5 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />
+              {state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}
+            </span>
+          </div>
+          <p className="hidden xl:inline text-xs text-secondary-500" id="question-bank-readiness-summary">
+            {state.readiness.readyCount}/{state.readiness.totalCount} soal siap · {state.readiness.incompleteCount} perlu diperbaiki
+          </p>
+          {state.readiness.incompleteCount === 0 ? (
+            <span className="hidden 2xl:inline text-xs font-medium text-secondary-600">Semua soal siap diterbitkan.</span>
+          ) : (
+            <Button
+              aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
+              className="hidden lg:flex h-7 px-2 text-xs text-primary-800 underline-offset-4 hover:underline"
+              onClick={actions.focusFirstIssue}
+              type="button"
+              variant="ghost"
+            >
+              <CircleHelp data-icon="inline-start" />
+              Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span>
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            aria-label="Simpan"
+            disabled={state.isSaving || state.isMetadataLocked}
+            onClick={actions.saveDraft}
+            size="sm"
+            title="Simpan perubahan"
+            type="button"
+            variant={state.hasUnsavedChanges ? "brand" : "brandOutline"}
+          >
+            <Save />
+            {state.isSaving ? "Menyimpan…" : "Simpan"}
+          </Button>
+
+          {state.lifecycleStatus === "archived" ? (
+            <Button
+              aria-busy={state.isSaving}
+              data-question-bank-lifecycle-action="restore"
+              disabled={state.isSaving}
+              id="question-bank-lifecycle-restore"
+              onClick={() => actions.updateLifecycle("restore")}
+              size="sm"
+              type="button"
+              variant="brandOutline"
+            >
+              {state.isSaving ? "Memulihkan…" : "Pulihkan bank"}
+            </Button>
+          ) : state.lifecycleStatus === "scheduled" ? null : state.isDraftLifecycle ? (
+            <Button
+              aria-busy={state.isSaving}
+              data-question-bank-lifecycle-action="publish"
+              aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
+              disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0}
+              id="question-bank-lifecycle-publish"
+              onClick={() => actions.updateLifecycle("publish")}
+              size="sm"
+              type="button"
+              variant="brandOutline"
+            >
+              {state.isSaving ? "Menerbitkan…" : "Terbitkan"}
+            </Button>
+          ) : (
+            <Button
+              aria-busy={state.isSaving}
+              data-question-bank-lifecycle-action="unpublish"
+              aria-describedby={lifecycleDisabledReason ? "lifecycle-disabled-reason" : undefined}
+              disabled={state.isSaving || state.hasUnsavedChanges}
+              id="question-bank-lifecycle-unpublish"
+              onClick={() => actions.updateLifecycle("unpublish")}
+              size="sm"
+              type="button"
+              variant="brandOutline"
+            >
+              {state.isSaving ? "Menjadikan draf…" : "Jadikan draf"}
+            </Button>
+          )}
+
+          {state.lifecycleStatus !== "archived" && state.lifecycleStatus !== "scheduled" ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    aria-label="Aksi destruktif Bank Soal"
+                    size="icon-sm"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              >
+                <Ellipsis />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    disabled={state.isSaving || Boolean(lifecycleDisabledReason)}
+                    onClick={actions.requestArchive}
+                    variant="destructive"
+                  >
+                    <Archive />
+                    Arsipkan
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
+      </header>
+
       <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
-      {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
-      <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} workspaceRef={workspaceRef} />
-      <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
-      <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    </MentorWorkspaceShell>
+      {state.lifecycleError ? (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-2.5">
+          <p aria-live="assertive" className="text-xs text-red-800 font-semibold" role="alert">
+            {state.lifecycleError}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Main Full Page Workspace */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Left Side: Soal Inventori replaces the dashboard sidebar */}
+        <div className="hidden md:flex w-72 lg:w-80 border-r border-primary-100 bg-white flex-col shrink-0 overflow-y-auto [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">
+          <QuestionBankInventory
+            activeQuestionId={state.activeQuestionId}
+            builderState={builderState}
+            filter={state.inventoryFilter}
+            isDisabled={state.isQuestionContentLocked}
+            onAddQuestion={actions.addQuestion}
+            onFilterChange={actions.onInventoryFilterChange}
+            onOpenQuestion={actions.onOpenQuestion}
+            onRemoveQuestion={actions.onRemoveQuestion}
+            questionRowRefs={state.questionRowRefs}
+            readiness={state.readiness}
+            visibleQuestions={state.filteredQuestions}
+          />
+        </div>
+
+        {/* Right Side: Main Soal Editor Workspace with Preview */}
+        <main
+          className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8"
+          data-question-workspace="current"
+          id="question-bank-question-workspace"
+          ref={workspaceRef}
+        >
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-secondary-900" id="question-bank-question-workspace-title">
+                Edit soal
+              </h2>
+              <Button
+                aria-label="Masalah berikutnya"
+                disabled={state.readiness.issues.length === 0}
+                onClick={actions.focusNextIssue}
+                size="sm"
+                type="button"
+                variant="brandOutline"
+              >
+                Masalah berikutnya
+              </Button>
+            </div>
+
+            {questionIssues.length ? (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status">
+                Soal ini memiliki {questionIssues.length} masalah. Pilih Masalah berikutnya untuk memindai masalah secara berurutan.
+              </p>
+            ) : null}
+
+            {state.lifecycleStatus === "published" ? (
+              <Alert>
+                <AlertTitle>Bank diterbitkan</AlertTitle>
+                <AlertDescription>
+                  Prompt, opsi, kunci jawaban, media, tingkat kesulitan, dan Subtest dikunci. Pilih{" "}
+                  <span className="font-semibold">Jadikan draf</span> untuk membuat perubahan.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {state.lifecycleStatus === "archived" ? (
+              <Alert>
+                <AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle>
+                <AlertDescription className="text-secondary-900">
+                  Soal dan informasi bank dikunci saat diarsipkan. Pulihkan bank untuk membuat revisi baru.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {state.lifecycleStatus === "scheduled" ? (
+              <Alert>
+                <AlertTitle className="text-secondary-900">Bank terjadwal</AlertTitle>
+                <AlertDescription className="text-secondary-900">
+                  Bank Soal Terjadwal belum didukung untuk perubahan di editor ini. Kembali ke Bank Soal untuk melihat status publikasi.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Tabs className="gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
+              <TabsList>
+                <TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger>
+                <TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger>
+              </TabsList>
+              <TabsContent className="m-0" value="edit">
+                <QuestionBankEditorForm
+                  activeQuestionId={state.activeQuestionId}
+                  isQuestionContentLocked={state.isQuestionContentLocked}
+                  onAddChoice={actions.addChoice}
+                  onOpenMedia={actions.onOpenMedia}
+                  onRemoveChoice={actions.onRemoveChoice}
+                  onRemoveChoiceMedia={actions.onRemoveChoiceMedia}
+                  onUpdate={actions.onUpdateDraft}
+                  questionDraft={state.questionDraft}
+                  readinessIssues={questionIssues}
+                />
+              </TabsContent>
+              <TabsContent className="m-0" value="preview">
+                <QuestionBankPreview
+                  hasSubmittedPreview={state.hasSubmittedPreview}
+                  onChoiceChange={actions.onChoiceChange}
+                  onSubmit={actions.onSubmitPreview}
+                  previewChoiceId={state.previewChoiceId}
+                  questionDraft={state.questionDraft}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </main>
+      </div>
+
+      <MediaPickerDialog
+        onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }}
+        onSelect={actions.onSelectMedia}
+        open={Boolean(state.mediaPickerTarget)}
+        selectedAssetId={state.selectedMediaAssetId}
+        title={state.mediaPickerTarget?.label ?? "Pilih gambar"}
+      />
+      <AlertDialog
+        onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }}
+        open={Boolean(state.confirmationRequest)}
+      >
+        <AlertDialogContent size="sm" variant="danger">
+          <AlertDialogHeader>
+            <AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia>
+            <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">
+              {confirmation?.confirmLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
@@ -1099,6 +1425,7 @@ function useQuestionBankPersistence({
 
 function KaptenQuestionBankBuilderPageModule({
   bankId,
+  initialActiveQuestionId,
   initialCategories = [],
   initialBank = null,
   initialFolderTree = [],
@@ -1108,6 +1435,7 @@ function KaptenQuestionBankBuilderPageModule({
   session,
 }: {
   bankId?: string;
+  initialActiveQuestionId?: string;
   initialCategories?: QuestionBankCategoryOption[];
   initialBank?: KaptenQuestionBank | null;
   initialFolderTree?: QuestionBankFolderNode[];
@@ -1133,7 +1461,10 @@ function KaptenQuestionBankBuilderPageModule({
       title: initialBank?.title ?? "",
     };
   });
-  const initialQuestion = localBuilderState.questions[0]!;
+  const initialQuestion =
+    (initialActiveQuestionId
+      ? localBuilderState.questions.find((q) => q.id === initialActiveQuestionId)
+      : null) ?? localBuilderState.questions[0]!;
   const [editorState, dispatch] = useReducer(questionBankEditorReducer, {
     activeQuestionId: initialQuestion.id,
     activeTab: mode === "create" ? "details" : "questions",
@@ -1587,6 +1918,7 @@ function KaptenQuestionBankBuilderPageModule({
       updateMetadata,
       updateOrganization,
     }}
+    bankId={bankId ?? initialBank?.id}
     builderState={builderState}
     categories={initialCategories}
     folders={initialFolderTree}

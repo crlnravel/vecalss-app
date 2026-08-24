@@ -205,7 +205,7 @@ function DataTableSortHeader<T>({
   return (
     <Link
       aria-label={`Sort by ${column.label}; activate to ${nextAction}`}
-      className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-500 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
+      className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-700 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
       href={sort.href(nextSortKey, nextDirection)}
       prefetch={false}
     >
@@ -272,7 +272,7 @@ function DataTableGrid<T>({
                   : "none"
                 : undefined}
               className={cn(
-                "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-500 sm:px-5",
+                "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-700 sm:px-5",
                 index === 0 && !selection && "rounded-l-xl",
                 index === visibleColumns.length - 1 && "rounded-r-xl",
                 column.headerClassName,
@@ -289,7 +289,7 @@ function DataTableGrid<T>({
         {isLoading ? (
           <TableRow>
             <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
-              <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-500" role="status">
+              <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-700" role="status">
                 <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
                 <span>{loadingLabel ?? "Loading…"}</span>
               </div>
@@ -362,7 +362,7 @@ function DataTableGrid<T>({
         }) : (
           <TableRow className="hover:bg-transparent">
             <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
-              {emptyState ?? <span className="text-sm text-secondary-500">No results found.</span>}
+              {emptyState ?? <span className="text-sm text-secondary-700">No results found.</span>}
             </TableCell>
           </TableRow>
         )}
@@ -517,7 +517,7 @@ function DataTable<T>({
     <>
       <div className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
         {search ? (
-          <form aria-busy={tableIsLoading} action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90" method="get" onSubmit={handleSearchSubmit}>
+          <form aria-busy={tableIsLoading} action={search.action} className="relative min-w-[min(100%,18rem)] flex-1 rounded-2xl border border-primary-100 bg-primary-50/45 transition-[border-color,box-shadow,background-color] focus-within:border-primary-500 focus-within:bg-primary-50/70 focus-within:ring-3 focus-within:ring-primary-500/25" method="get" onSubmit={handleSearchSubmit}>
             {isSearchDebouncing || isSearchPending ? (
               <LoaderCircle aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin text-secondary-400" size={17} />
             ) : (
@@ -525,7 +525,7 @@ function DataTable<T>({
             )}
             <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Search table"}</label>
             <input
-              className="h-10 w-full border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-400 focus-visible:bg-primary-50/35 focus-visible:ring-0"
+              className="h-11 w-full rounded-2xl border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
               id="data-table-search"
               name="q"
               onChange={handleSearchChange}

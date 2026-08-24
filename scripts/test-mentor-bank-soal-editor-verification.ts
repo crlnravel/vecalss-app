@@ -5,7 +5,8 @@ const read = (path: string) => fs.readFileSync(path, "utf8");
 
 const builder = read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx");
 const createRoute = read("app/mentor/quiz/question-bank/create/page.tsx");
-const editRoute = read("app/mentor/quiz/question-bank/[bankId]/page.tsx");
+const detailRoute = read("app/mentor/quiz/question-bank/[bankId]/page.tsx");
+const editRoute = read("app/mentor/quiz/question-bank/[bankId]/editor/page.tsx");
 const actions = read("modules/mentor/question-bank-actions.ts");
 const repository = read("lib/question-bank/repository.ts");
 const organization = read("lib/question-bank/organization.ts");
@@ -22,6 +23,7 @@ const packageJson = JSON.parse(read("package.json")) as {
 // together: the editor owns the Bank Soal root label and never leaks the
 // catalogue's legacy "unfiled" terminology into authoring.
 assert.match(createRoute, /mode="create"/u);
+assert.match(detailRoute, /KaptenQuestionBankDetailPageModule/u);
 assert.match(editRoute, /mode="edit"/u);
 assert.match(builder, /activeTab: mode === "create" \? "details" : "questions"/u);
 assert.match(builder, /collapsedByDefault=\{mode === "create"\}/u);

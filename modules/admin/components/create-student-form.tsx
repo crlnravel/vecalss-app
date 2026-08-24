@@ -10,7 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ExamEvent } from "@/generated/prisma/client";
 import { ChevronDown, CircleHelp } from "@/lib/icons";
@@ -72,8 +72,10 @@ function StudentDropdownField({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={label}
+          aria-describedby={error ? `${id}-error` : undefined}
+          aria-invalid={Boolean(error)}
           id={id}
-          render={<Button className="min-w-0 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 py-3.5 text-left text-[15px] font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
+          render={<Button className="min-w-0 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 py-3.5 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25" variant="context" />}
         >
           <span className="truncate">{selectedLabel}</span>
           <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
@@ -89,7 +91,7 @@ function StudentDropdownField({
         </DropdownMenuContent>
       </DropdownMenu>
       <input name={name} type="hidden" value={value} />
-      {error ? <p className="text-sm text-danger-700">{error}</p> : null}
+      <FieldError error={error} id={`${id}-error`} />
     </Field>
   );
 }
@@ -174,6 +176,8 @@ function CreateStudentForm({
           <Field>
             <FieldLabel htmlFor="student-full-name">Student name</FieldLabel>
             <FieldInput
+              aria-describedby={state.fieldErrors?.fullName ? "student-full-name-error" : undefined}
+              aria-invalid={Boolean(state.fieldErrors?.fullName)}
               id="student-full-name"
               name="fullName"
               onChange={(event) => setFullName(event.currentTarget.value)}
@@ -181,14 +185,14 @@ function CreateStudentForm({
               required
               value={fullName}
             />
-            {state.fieldErrors?.fullName ? (
-              <p className="text-sm text-danger-700">{state.fieldErrors.fullName}</p>
-            ) : null}
+            <FieldError error={state.fieldErrors?.fullName} id="student-full-name-error" />
           </Field>
 
           <Field>
             <FieldLabel htmlFor="student-email">Student email</FieldLabel>
             <FieldInput
+              aria-describedby={state.fieldErrors?.email ? "student-email-error" : undefined}
+              aria-invalid={Boolean(state.fieldErrors?.email)}
               id="student-email"
               name="email"
               onChange={(event) => setEmail(event.currentTarget.value)}
@@ -197,9 +201,7 @@ function CreateStudentForm({
               type="email"
               value={email}
             />
-            {state.fieldErrors?.email ? (
-              <p className="text-sm text-danger-700">{state.fieldErrors.email}</p>
-            ) : null}
+            <FieldError error={state.fieldErrors?.email} id="student-email-error" />
           </Field>
 
           <StudentDropdownField

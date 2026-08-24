@@ -80,7 +80,7 @@ async function runUpdateStudentBannersAction(
       fieldErrors,
       fields,
       hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-      message: "Review the highlighted fields before saving or publishing the banner copy.",
+      message: "Fix the highlighted fields.",
       status: "error",
     };
   }
@@ -100,7 +100,7 @@ async function runUpdateStudentBannersAction(
       return {
         fields: { ...fields, version: result.updatedAt },
         hasUnpublishedChanges: false,
-        message: "Student banner copy published. Students will see it on their next page load.",
+        message: "Published.",
         published: true,
         status: "success",
       };
@@ -119,8 +119,8 @@ async function runUpdateStudentBannersAction(
       fields: { ...fields, version: result.draftVersion },
       hasUnpublishedChanges: result.hasUnpublishedChanges,
       message: result.hasUnpublishedChanges
-        ? "Draft saved. Students will continue seeing the published copy until you publish it."
-        : "Draft saved. It matches the currently published banner copy.",
+        ? "Draft saved. Students still see the published copy."
+        : "Draft saved.",
       published: false,
       status: "success",
     };
@@ -129,7 +129,7 @@ async function runUpdateStudentBannersAction(
       return {
         fields,
         hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-        message: "Save the current edits as a draft before publishing them.",
+        message: "Save a draft first.",
         status: "error",
       };
     }
@@ -138,7 +138,7 @@ async function runUpdateStudentBannersAction(
       return {
         fields,
         hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-        message: "These banners changed since you opened the editor. Refresh the page before saving again.",
+        message: "Content changed. Refresh and try again.",
         status: "error",
       };
     }
@@ -146,7 +146,7 @@ async function runUpdateStudentBannersAction(
     return {
       fields,
       hasUnpublishedChanges: previousState.hasUnpublishedChanges,
-      message: "The banner copy could not be saved. Refresh the page and try again.",
+      message: "Couldn’t save. Refresh and try again.",
       status: "error",
     };
   }

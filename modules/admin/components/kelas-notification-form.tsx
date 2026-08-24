@@ -4,7 +4,7 @@ import { useActionState } from "react";
 
 import { CircleHelp } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
-import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
@@ -37,7 +37,9 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
           <FieldLabel htmlFor="kelas-notification-cohort">Kelas</FieldLabel>
           <select
             aria-label="Kelas penerima"
-            className="h-12 rounded-2xl border border-secondary-900/14 bg-white px-4 text-base text-secondary-900 outline-none transition focus:border-primary-400 focus:ring-3 focus:ring-primary-700/12"
+            aria-describedby={state.fieldErrors?.cohortId ? "kelas-notification-cohort-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.cohortId)}
+            className="h-12 rounded-2xl border border-secondary-900/14 bg-white px-4 text-base text-secondary-900 outline-none transition focus:border-primary-400 focus:ring-3 focus:ring-primary-700/12 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25"
             defaultValue={state.fields?.cohortId ?? ""}
             id="kelas-notification-cohort"
             name="cohortId"
@@ -50,12 +52,14 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
               </option>
             ))}
           </select>
-          {state.fieldErrors?.cohortId ? <p className="text-sm text-danger-700">{state.fieldErrors.cohortId}</p> : null}
+          <FieldError error={state.fieldErrors?.cohortId} id="kelas-notification-cohort-error" />
         </Field>
 
         <Field>
           <FieldLabel htmlFor="kelas-notification-title">Judul</FieldLabel>
           <FieldInput
+            aria-describedby={state.fieldErrors?.title ? "kelas-notification-title-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.title)}
             defaultValue={state.fields?.title ?? "Link kelas Zoom"}
             id="kelas-notification-title"
             maxLength={180}
@@ -63,7 +67,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
             placeholder="Kelas live hari ini"
             required
           />
-          {state.fieldErrors?.title ? <p className="text-sm text-danger-700">{state.fieldErrors.title}</p> : null}
+          <FieldError error={state.fieldErrors?.title} id="kelas-notification-title-error" />
         </Field>
 
         <Field className="md:col-span-2">
@@ -77,6 +81,8 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
             </Tooltip>
           </div>
           <FieldTextarea
+            aria-describedby={state.fieldErrors?.body ? "kelas-notification-body-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.body)}
             className="min-h-32 py-3"
             defaultValue={state.fields?.body ?? ""}
             id="kelas-notification-body"
@@ -85,7 +91,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
             placeholder="Kelas dimulai pukul 19.00 WIB. Siapkan catatan dan masuk melalui tautan Zoom berikut."
             required
           />
-          {state.fieldErrors?.body ? <p className="text-sm text-danger-700">{state.fieldErrors.body}</p> : null}
+          <FieldError error={state.fieldErrors?.body} id="kelas-notification-body-error" />
         </Field>
 
       </div>

@@ -48,10 +48,18 @@ type TryoutWorkflowAttempt = {
 type TryoutWorkflowSession = {
   assessmentRelease?: { id?: string | null } | null;
   assessmentReleaseId?: string | null;
+  assessmentReleaseBound?: boolean | null;
+  attemptCount?: number | null;
   attempts?: readonly TryoutWorkflowAttempt[] | null;
   closed?: boolean | null;
+  closedAt?: string | null;
+  hasAttempts?: boolean | null;
+  hasTerminalActivity?: boolean | null;
   id: string;
   opened?: boolean | null;
+  openedAt?: string | null;
+  releaseId?: string | null;
+  releaseBound?: boolean | null;
   releasedAt?: string | null;
   status?: TryoutWorkflowSessionStatus;
 };
@@ -144,6 +152,7 @@ function normalizedStatus(value: TryoutWorkflowSessionStatus) {
 
 function assessmentReleaseId(session: TryoutWorkflowSession) {
   return asTrimmedString(session.assessmentReleaseId)
+    ?? asTrimmedString(session.releaseId)
     ?? asTrimmedString(session.assessmentRelease?.id);
 }
 
@@ -153,11 +162,6 @@ function sessionAttempts(session: TryoutWorkflowSession) {
 
 function isTerminalAttempt(attempt: TryoutWorkflowAttempt) {
   if (attempt.terminal === true || attempt.isTerminal === true) return true;
-  if (attempt.terminal === false || attempt.isTerminal === false) {
-    // An explicit false must not suppress a canonical scored state. This keeps
-    // the projection monotonic when a legacy writer only updates scoringState.
-    if (attempt.scoringState?.trim().toLowerCase() !== "scored") return false;
-  }
   const states = [attempt.attemptState, attempt.status]
     .filter((state): state is string => typeof state === "string")
     .map((state) => state.trim().toLowerCase());
@@ -172,14 +176,22 @@ function sessionHasOpened(session: TryoutWorkflowSession) {
   const status = normalizedStatus(session.status);
   return session.opened === true
     || session.closed === true
+    || session.openedAt !== null && session.openedAt !== undefined
+    || session.closedAt !== null && session.closedAt !== undefined
+    || session.releaseBound === true
+    || session.assessmentReleaseBound === true
     || Boolean(assessmentReleaseId(session))
     || sessionAttempts(session).length > 0
+    || session.hasAttempts === true
+    || Number(session.attemptCount) > 0
     || Boolean(session.releasedAt)
     || ["active", "archived", "closed", "open", "opened", "released"].includes(status);
 }
 
 function sessionHasResultActivity(session: TryoutWorkflowSession) {
   return session.closed === true
+    || session.closedAt !== null && session.closedAt !== undefined
+    || session.hasTerminalActivity === true
     || normalizedStatus(session.status) === "closed"
     || sessionAttempts(session).some(isTerminalAttempt);
 }
@@ -379,15 +391,15 @@ function normalizeTryoutSessionSelection(
 function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWorkflowProjection {
   const mode = modeFrom(input);
   const sessions = input.sessions ?? [];
-  const liveEligibleSessionIds = sessions
+  const liveEligibleSessionIds = mode === "published" ? sessions
     .filter(sessionIsRuntimeEligible)
     .map((session) => asTrimmedString(session.id))
-    .filter((id): id is string => Boolean(id));
-  const resultEligibleSessionIds = sessions
+    .filter((id): id is string => Boolean(id)) : [];
+  const resultEligibleSessionIds = mode === "published" ? sessions
     .filter(sessionHasResultActivity)
     .map((session) => asTrimmedString(session.id))
-    .filter((id): id is string => Boolean(id));
-  const operationsAvailable = sessions.some(sessionHasOpened);
+    .filter((id): id is string => Boolean(id)) : [];
+  const operationsAvailable = mode === "published" && sessions.some(sessionHasOpened);
   const resultsAvailable = resultEligibleSessionIds.length > 0;
   const requestedSessionId = requestedSessionFrom(input);
   const sessionSelection = normalizeTryoutSessionSelection(requestedSessionId, sessions, resultEligibleSessionIds);

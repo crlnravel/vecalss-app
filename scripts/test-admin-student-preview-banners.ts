@@ -68,8 +68,10 @@ for (const path of [
   assert.match(actionSource, new RegExp(`revalidatePath\\([\"']${path.replaceAll("/", "\\/")}[\"']\\)`), `missing revalidation path ${path}`);
 }
 
-assert.match(editorSource, /SyntaxHighlightedInput/u);
+assert.match(editorSource, /<Input\b/u);
+assert.doesNotMatch(editorSource, /SyntaxHighlightedInput/u);
 assert.match(editorSource, /SyntaxHighlightedTextarea/u);
+assert.match(editorSource, /setDismissedToastKey/u);
 assert.match(syntaxFieldSource, /name=\{name\}/u);
 assert.match(syntaxFieldSource, /type="hidden"/u);
 assert.match(routeSource, /updateAdminStudentPreviewBannersAction/u);

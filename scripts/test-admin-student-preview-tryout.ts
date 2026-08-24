@@ -131,6 +131,10 @@ assert.match(serviceSource, /expectedCurrentAssignmentId/u);
 assert.match(serviceSource, /canonicalReason/u);
 assert.match(serviceSource, /canonicalReason: parsed\.canonicalReason/u);
 assert.match(serviceSource, /releaseState: AssessmentResultReleaseState\.released/u);
+assert.match(serviceSource, /assessmentRelease\.findFirst/u);
+assert.match(serviceSource, /assessmentReleaseId: release\.id/u);
+assert.doesNotMatch(serviceSource, /createOrReuseAssessmentRelease/u);
+assert.doesNotMatch(serviceSource, /assessmentRelease\.create/u);
 assert.doesNotMatch(serviceSource, /(?:createTryoutAttempt|createAttempt|notification|enqueue|learnerProgress)/u);
 
 assert.match(migrationSource, /ADD VALUE IF NOT EXISTS 'superseded'/u);
@@ -141,6 +145,8 @@ assert.match(migrationSource, /admin_preview_tryout_restarts_scope_guard/u);
 assert.match(migrationSource, /preview_current_key/u);
 assert.match(migrationSource, /preview_assignment_status_must_be_active_or_superseded/u);
 assert.match(migrationSource, /assignment_session_tryout_mismatch/u);
+assert.match(migrationSource, /SELECT u\."preview_purpose"[\s\S]*FROM "users" AS u/u);
+assert.doesNotMatch(migrationSource, /SELECT "preview_purpose" INTO preview_purpose/u);
 assert.match(schemaSource, /enum TryoutAssignmentStatus[\s\S]*?superseded/u);
 assert.match(schemaSource, /model AdminPreviewTryoutRestart[\s\S]*?@@unique\(\[previewStudentId, requestId\]/u);
 

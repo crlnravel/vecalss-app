@@ -3,12 +3,13 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route, createRoute, shell, sidebar] = await Promise.all([
+const [workspace, route, createRoute, shell, sidebar, repository] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/components/mentor-workspace-shell.tsx`, "utf8"),
   readFile(`${root}/components/ui/sidebar.tsx`, "utf8"),
+  readFile(`${root}/lib/tryout/repository.ts`, "utf8"),
 ]);
 
 for (const label of [
@@ -53,7 +54,7 @@ assert.match(workspace, /const save = async \(status: "draft" \| "published" = "
 assert.match(workspace, /void save\("draft"\)/u, "ordinary save controls must explicitly persist a draft");
 assert.doesNotMatch(workspace, /void save\(\)/u, "ordinary save paths must never inherit draft.status");
 assert.match(workspace, /void save\("published"\)/u, "publish must remain a separate explicit action");
-assert.match(workspace, /keepMounted/u, "Delivery state must remain mounted across workspace tabs");
+assert.doesNotMatch(workspace, /keepMounted/u, "draft Delivery content must not remain mounted outside the published lifecycle mode");
 assert.match(workspace, /duplicateSourceCount/u, "Review must include duplicate source detection");
 assert.match(workspace, /FullWidthLineTabsList/u, "workspace tabs must use the shared full-width line list");
 assert.match(workspace, /FullWidthLineTabsTrigger/u, "workspace tabs must use the shared full-width line triggers");
@@ -70,8 +71,10 @@ assert.match(workspace, /Simpan perubahan/u, "workspace must expose draft persis
 assert.match(workspace, /dirtyNavigationOpen/u, "dirty navigation must require an explicit Save, Discard, or Stay decision");
 assert.match(workspace, /updateTryoutMetadataAction/u, "published details must use a metadata-only server action");
 assert.match(workspace, /Buat draf perubahan/u, "published structural changes must use an explicit change draft");
+assert.match(repository, /current\.status === ContentStatus\.published[\s\S]*Buat draf perubahan/u, "server save must reject structural edits to published Tryouts");
+assert.match(repository, /updateTryoutMetadata/u, "server metadata editing must remain a separate allowlisted path");
 assert.doesNotMatch(workspace, /\/mentor\/packages(?:\/|\b)/u, "workspace must not route mentors through package authoring");
 assert.match(workspace, /Buka Bank Soal/u, "missing sources should point back to Bank Soal, not package authoring");
-assert.match(route, /initialWorkspace = query\.workspace \?\? "basics"/u, "route must preserve new workspace query values on reload");
+assert.match(route, /initialWorkspace = query\.workspace \?\? \(initialDraft\.status === "published" \? "delivery" : "basics"\)/u, "route must preserve new workspace query values and use the correct lifecycle default on reload");
 
 console.log("Tryout authoring workspace contract passed.");

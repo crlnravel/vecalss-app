@@ -11,7 +11,6 @@ import {
   TryoutResultReleasePolicy,
 } from "@/generated/prisma/client";
 import { requireAdminStudentPreviewContext } from "@/lib/auth/access";
-import { assertTryoutReleaseEligibility, createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -267,17 +266,20 @@ async function restartAdminStudentPreviewTryout(input: AdminPreviewTryoutRestart
     }
 
     // Preview restarts create a participant-accessible active session too, so
-    // they must pin the same immutable release boundary as ordinary retakes.
-    await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${parsed.tryoutId}::uuid FOR UPDATE`;
-    try {
-      await assertTryoutReleaseEligibility(tx, parsed.tryoutId);
-    } catch (error) {
+    // they must pin an existing immutable release boundary. Creating or
+    // materializing an AssessmentRelease here would expose answer-key payload
+    // data to an admin-preview mutation and would add a forbidden side effect.
+    const release = await tx.assessmentRelease.findFirst({
+      orderBy: { releaseNumber: "desc" },
+      select: { id: true },
+      where: { tryoutId: parsed.tryoutId },
+    });
+    if (!release) {
       throw new AdminPreviewTryoutRestartError(
-        "tryout_not_found",
-        error instanceof Error ? error.message : "Tryout preview belum memenuhi syarat AssessmentRelease.",
+        "tryout_not_ready",
+        "Tryout preview belum memiliki AssessmentRelease yang sudah dipublikasikan.",
       );
     }
-    const release = await createOrReuseAssessmentRelease(tx, parsed.tryoutId, actorId);
 
     const admission = await tx.tryoutAdmission.findUnique({
       select: { id: true, status: true },

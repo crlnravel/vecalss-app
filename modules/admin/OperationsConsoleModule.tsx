@@ -136,6 +136,10 @@ function OperationsConsoleModule({
 
   return (
     <div className="space-y-6">
+      <header>
+        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl">Dashboard</h1>
+      </header>
+
       <section>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Quick actions</h2>

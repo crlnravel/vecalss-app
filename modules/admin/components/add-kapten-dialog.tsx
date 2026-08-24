@@ -1,18 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { Plus } from "@/lib/icons";
+import { Plus, UserPlus, Users } from "@/lib/icons";
 
 import { CreateKaptenForm } from "./create-kapten-form";
+import { ImportsIntakeModule } from "../imports/ImportsIntakeModule";
+
+type AddKaptenMode = "bulk" | "single";
+
+const modeOrder: AddKaptenMode[] = ["single", "bulk"];
 
 function AddKaptenDialog() {
+  const [mode, setMode] = useState<AddKaptenMode>("single");
   const [open, setOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const modeTabRefs = useRef<Record<AddKaptenMode, HTMLButtonElement | null>>({ bulk: null, single: null });
+  const dialogLocked = bulkBusy;
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen && dialogLocked) {
+      return;
+    }
+
+    if (!nextOpen) {
+      setMode("single");
+      setBulkBusy(false);
+    }
+    setOpen(nextOpen);
+  }
+
+  function handleModeKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (dialogLocked) return;
+
+    const currentIndex = modeOrder.indexOf(mode);
+    let nextIndex = currentIndex;
+
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % modeOrder.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + modeOrder.length) % modeOrder.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = modeOrder.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextMode = modeOrder[nextIndex];
+    setMode(nextMode);
+    modeTabRefs.current[nextMode]?.focus();
+  }
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogTrigger
         render={
           <button
@@ -28,6 +73,7 @@ function AddKaptenDialog() {
 
       <DialogContent
         className="max-h-[calc(100svh-1.5rem)] max-w-3xl gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        pending={dialogLocked}
         variant="default"
       >
         <div className="max-h-[calc(100svh-1.5rem)] overflow-y-auto">
@@ -35,8 +81,64 @@ function AddKaptenDialog() {
             <DialogTitle className="text-2xl tracking-[-0.035em] text-secondary-950">Add Kapten</DialogTitle>
           </DialogHeader>
 
+          <div className="border-b border-primary-100 bg-primary-50/55 px-5 py-4 sm:px-8 sm:py-5">
+            <div aria-label="Kapten import mode" aria-orientation="horizontal" className="grid gap-2 sm:grid-cols-2" role="tablist">
+              <button
+                aria-controls="single-kapten-import-panel"
+                aria-selected={mode === "single"}
+                className={`flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-left transition-[background-color,border-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 ${mode === "single" ? "border-primary-500 bg-white text-primary-950 shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "border-primary-100 bg-transparent text-secondary-700 hover:border-primary-300 hover:bg-white/70"}`}
+                id="single-kapten-import-tab"
+                onKeyDown={handleModeKeyDown}
+                onClick={() => setMode("single")}
+                ref={(element) => {
+                  modeTabRefs.current.single = element;
+                }}
+                role="tab"
+                tabIndex={mode === "single" ? 0 : -1}
+                type="button"
+                disabled={dialogLocked}
+              >
+                <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${mode === "single" ? "bg-primary-700 text-white" : "bg-white text-primary-700"}`}>
+                  <UserPlus aria-hidden="true" size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Single import</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Fill in one Kapten&apos;s details</span>
+                </span>
+              </button>
+              <button
+                aria-controls="bulk-kapten-import-panel"
+                aria-selected={mode === "bulk"}
+                className={`flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-left transition-[background-color,border-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 ${mode === "bulk" ? "border-primary-500 bg-white text-primary-950 shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "border-primary-100 bg-transparent text-secondary-700 hover:border-primary-300 hover:bg-white/70"}`}
+                id="bulk-kapten-import-tab"
+                onKeyDown={handleModeKeyDown}
+                onClick={() => setMode("bulk")}
+                ref={(element) => {
+                  modeTabRefs.current.bulk = element;
+                }}
+                role="tab"
+                tabIndex={mode === "bulk" ? 0 : -1}
+                type="button"
+                disabled={dialogLocked}
+              >
+                <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${mode === "bulk" ? "bg-primary-700 text-white" : "bg-white text-primary-700"}`}>
+                  <Users aria-hidden="true" size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Bulk import</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Upload multiple Kapten accounts with CSV</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
           <div className="px-5 py-6 sm:px-8 sm:py-7">
-            <CreateKaptenForm embedded />
+            <div aria-labelledby="single-kapten-import-tab" hidden={mode !== "single"} id="single-kapten-import-panel" inert={mode !== "single" || dialogLocked || undefined} role="tabpanel">
+              <CreateKaptenForm embedded />
+            </div>
+            <div aria-busy={bulkBusy || undefined} aria-labelledby="bulk-kapten-import-tab" hidden={mode !== "bulk"} id="bulk-kapten-import-panel" inert={mode !== "bulk" || bulkBusy || undefined} role="tabpanel">
+              <ImportsIntakeModule embedded initialRole="tutor" onBusyChange={setBulkBusy} showRoleSelect={false} />
+            </div>
           </div>
         </div>
       </DialogContent>

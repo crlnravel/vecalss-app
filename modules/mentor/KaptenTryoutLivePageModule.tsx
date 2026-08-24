@@ -119,6 +119,8 @@ function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: T
     };
   }, [refresh]);
 
+  const scopedLive = selectedSessionId ? view.live.filter((item) => item.session?.id === selectedSessionId) : view.live;
+  const selectedSession = selectedSessionId ? view.sessions.find((session) => session.id === selectedSessionId) : null;
   const counts = liveStates.reduce<Record<LiveState, number>>((summary, state) => {
     summary[state] = scopedLive.filter((item) => item.state === state).length;
     return summary;
@@ -132,8 +134,6 @@ function KaptenTryoutLivePageModule({ initial, selectedSessionId }: { initial: T
     submitted: 0,
   });
   const updatedLabel = formatTimestamp(lastUpdatedAt);
-  const scopedLive = selectedSessionId ? view.live.filter((item) => item.session?.id === selectedSessionId) : view.live;
-  const selectedSession = selectedSessionId ? view.sessions.find((session) => session.id === selectedSessionId) : null;
   const orderedLive = useMemo(() => [...scopedLive].sort((left, right) => {
     const priorityDelta = liveActionPriority[left.state] - liveActionPriority[right.state];
     if (priorityDelta !== 0) return priorityDelta;

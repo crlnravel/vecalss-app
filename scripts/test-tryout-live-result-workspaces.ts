@@ -7,7 +7,7 @@ import {
   sanitizeTryoutWorkspaceParticipant,
 } from "../lib/tryout/operations-projections";
 
-const [delivery, operations, workspace, live, attempts, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, operationsRoute] = await Promise.all([
+const [delivery, operations, workspace, live, attempts, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, sessionDetailRoute, sessionCreateRoute, operationsRoute] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
@@ -19,6 +19,8 @@ const [delivery, operations, workspace, live, attempts, results, participants, a
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantDetailPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/attempts/[attemptId]/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/participants/[admissionId]/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/sessions/[sessionId]/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/sessions/new/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/page.tsx", import.meta.url), "utf8"),
 ]);
 
@@ -52,6 +54,9 @@ assert.match(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { 
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", integrityEvents: 1 } }).state, "submitted");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", scoringReviewReason: "Tinjau" , scoringState: "review_required" } }).state, "submitted");
 assert.equal(deriveTryoutLiveProjection({ admissionStatus: "active", attempt: { ...baseAttempt, attemptState: "submitted", status: "submitted", runs: [{ ...baseRun, catState: "failed", catFailureReason: "CAT timeout" }] } }).state, "submitted");
+assert.match(delivery, /tryout\.status !== ContentStatus\.published/u, "Delivery mutations must reject draft Tryouts before ownership/session writes");
+assert.doesNotMatch(workspace, /keepMounted/u, "draft Delivery content must not remain mounted in the gated builder");
+assert.match(results, /window\.history\.replaceState[\s\S]*validSessionId/u, "stale Results session links must normalize to a safe session in the URL");
 
 const hidden = deriveTryoutResultProjection({
   attempt: { ...baseAttempt, attemptState: "submitted", releaseReady: true, releaseState: "hidden", score: "88.50", scoringState: "scored", status: "submitted" },
@@ -172,6 +177,8 @@ assert.doesNotMatch(attemptDetail, /<main\b/u, "attempt detail must not nest a p
 assert.doesNotMatch(participantDetail, /<main\b/u, "participant detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.match(attemptDetailRoute, /contentElement="div"/u);
 assert.match(participantDetailRoute, /contentElement="div"/u);
+assert.match(sessionDetailRoute, /operations\.status !== "published"/u, "session detail must not render for a draft Tryout");
+assert.match(sessionCreateRoute, /operations\.status !== "published"/u, "session creation must not render for a draft Tryout");
 assert.match(operationsRoute, /workspace=schedule&delivery=sessions/u, "legacy operations route must land on Delivery Sessions");
 
 console.log("Tryout Live, Attempts, and Results workspace contracts passed.");

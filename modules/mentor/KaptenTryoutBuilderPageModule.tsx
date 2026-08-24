@@ -75,6 +75,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import { assemblyCompatibleWithTestType } from "@/lib/tryout/assembly-validation";
 import type { AssemblyAttachmentSummary, AssemblyPreview } from "@/lib/tryout/assembly-repository";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
@@ -201,17 +202,6 @@ type CatPoolMockDraft = {
   deliveredCount: number;
   name: string;
 };
-type TryoutWorkflowProjection = {
-  allowedSteps?: Workspace[];
-  completedSteps?: Workspace[];
-  defaultStep?: Workspace;
-  liveEligibleSessionIds?: string[];
-  mode?: WorkflowMode;
-  operationsAvailable?: boolean;
-  recommendedNextAction?: { href: string; label: string } | null;
-  resultEligibleSessionIds?: string[];
-  selectedSessionId?: string | null;
-};
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "live" | "attempts" | "results" | "review" | "publish";
 type DeliveryArea = "policy" | "sessions" | "participants";
 type WorkspacePhase = "build" | "review_publish" | "delivery" | "operations" | "results";
@@ -337,6 +327,8 @@ function normalize(draft: TryoutDraft): TryoutDraft {
 
 function normalizeWorkspace(value?: string): Workspace {
   switch (value) {
+    case "overview":
+      return "basics";
     case "basics":
     case "sections":
     case "schedule":
@@ -346,15 +338,21 @@ function normalizeWorkspace(value?: string): Workspace {
     case "review":
     case "publish":
       return value;
+    case "configure_sections":
     case "questions":
     case "rules":
     case "authoring":
       return "sections";
+    case "readiness_publish":
+      return "review";
+    case "delivery":
+      return "schedule";
     case "policy":
     case "sessions":
     case "participants":
-    case "operations":
       return "schedule";
+    case "operations":
+      return "attempts";
     default:
       return "basics";
   }
@@ -774,7 +772,7 @@ function KaptenTryoutBuilderPageModule({
   initialWorkspace?: string;
   initialSourceBankTotal?: number;
   initialSourceBanks: SourceBank[];
-  operationsInitial?: TryoutOperationsView & { workflow?: TryoutWorkflowProjection };
+  operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
   readyAssemblies: AssemblyAttachmentSummary[];
   readyVersions: ReadyVersion[];
   session: SessionContext;
@@ -833,6 +831,7 @@ function KaptenTryoutBuilderPageModule({
   const [metadataSaving, setMetadataSaving] = useState(false);
   const [metadataDraft, setMetadataDraft] = useState(() => ({ description: draft.description, title: draft.title }));
   const [pendingWorkspace, setPendingWorkspace] = useState<Workspace | null>(null);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [dirtyNavigationOpen, setDirtyNavigationOpen] = useState(false);
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
@@ -948,7 +947,7 @@ function KaptenTryoutBuilderPageModule({
     && invalidAssemblyTypeSections.length === 0
     && invalidCatSections.length === 0;
   const fallbackOperationsAvailable = Boolean(
-    operationsInitial?.sessions.some((session) => session.status === "active" && Boolean(session.assessmentRelease))
+    operationsInitial?.sessions.some((session) => ["active", "archived", "closed", "open", "opened", "released"].includes(session.status) || Boolean(session.assessmentRelease))
       || operationsInitial?.attempts.length,
   );
   const fallbackResultEligible = Boolean(
@@ -982,12 +981,29 @@ function KaptenTryoutBuilderPageModule({
       .map((phase) => ({ ...phase, items: phase.items.filter((item) => allowedWorkspaces.includes(item.value)) }))
       .filter((phase) => phase.items.length > 0);
   }, [allowedWorkspaces, mode]);
-  const selectedSessionId = workflow?.selectedSessionId ?? initialSessionId ?? resultEligibleSessionIds[0] ?? liveEligibleSessionIds[0] ?? operationsInitial?.sessions[0]?.id ?? null;
-  const fallbackWorkspace = workflow?.defaultStep && allowedWorkspaces.includes(workflow.defaultStep)
-    ? workflow.defaultStep
+  const selectedSessionId = initialSessionId ?? workflow?.selectedSessionId ?? resultEligibleSessionIds[0] ?? liveEligibleSessionIds[0] ?? operationsInitial?.sessions[0]?.id ?? null;
+  const projectedDefaultWorkspace = workflow?.defaultStep ? normalizeWorkspace(workflow.defaultStep) : null;
+  const fallbackWorkspace = projectedDefaultWorkspace && allowedWorkspaces.includes(projectedDefaultWorkspace)
+    ? projectedDefaultWorkspace
     : allowedWorkspaces[allowedWorkspaces.length - 1] ?? (mode === "draft" ? "basics" : "schedule");
   const workspace = allowedWorkspaces.includes(requestedWorkspace) ? requestedWorkspace : fallbackWorkspace;
   const activePhase = phaseForWorkspace(workspace);
+  const routeNormalizationNotice = useMemo(() => {
+    const raw = initialWorkspace.trim().toLowerCase();
+    if (mode === "published" && ["basics", "sections", "questions", "rules", "review", "publish", "overview", "configure_sections", "readiness_publish"].includes(raw)) {
+      return "Tryout sudah terbit. Area authoring disembunyikan; buka Delivery atau buat draf perubahan untuk mengubah konten.";
+    }
+    if (mode === "draft" && ["schedule", "delivery", "live", "operations", "attempts", "results"].includes(raw)) {
+      return "Delivery, Operations, dan Results terbuka setelah Tryout diterbitkan. Anda dikembalikan ke langkah draf yang tersedia.";
+    }
+    if (requestedWorkspace !== workspace) {
+      return "Langkah tersebut belum tersedia. Selesaikan langkah sebelumnya untuk membukanya.";
+    }
+    if (["questions", "rules"].includes(raw)) {
+      return "Link lama diarahkan ke Configure Sections agar sumber dan aturan tetap berada dalam satu konteks.";
+    }
+    return null;
+  }, [initialWorkspace, mode, requestedWorkspace, workspace]);
 
   const update = (subtest: SubjectCode, change: Partial<TestDraft>) => {
     setDirty(true);
@@ -1221,13 +1237,35 @@ function KaptenTryoutBuilderPageModule({
   };
 
   useEffect(() => {
-    if (allowedWorkspaces.includes(requestedWorkspace) || requestedWorkspace === workspace) return;
     const url = new URL(window.location.href);
-    if (workspace === "basics") url.searchParams.delete("workspace");
-    else url.searchParams.set("workspace", workspace);
+    const expectedWorkspace = workspace === "basics" ? null : workspace;
+    const workspaceMatches = (url.searchParams.get("workspace") ?? null) === expectedWorkspace;
+    if (workspaceMatches && (workspace === "schedule" || !url.searchParams.has("delivery"))) return;
+    if (expectedWorkspace === null) url.searchParams.delete("workspace");
+    else url.searchParams.set("workspace", expectedWorkspace);
     if (workspace !== "schedule") url.searchParams.delete("delivery");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [allowedWorkspaces, requestedWorkspace, workspace]);
+  }, [requestedWorkspace, workspace]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const url = new URL(window.location.href);
+      const nextWorkspace = normalizeWorkspace(url.searchParams.get("workspace") ?? "basics");
+      if (dirty && mode === "draft" && nextWorkspace !== workspace) {
+        if (workspace === "basics") url.searchParams.delete("workspace");
+        else url.searchParams.set("workspace", workspace);
+        if (workspace !== "schedule") url.searchParams.delete("delivery");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+        setPendingWorkspace(nextWorkspace);
+        setPendingHref(null);
+        setDirtyNavigationOpen(true);
+        return;
+      }
+      setRequestedWorkspace(nextWorkspace);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [dirty, mode, workspace]);
 
   useEffect(() => {
     if (!dirty || mode !== "draft") return;
@@ -1299,11 +1337,19 @@ function KaptenTryoutBuilderPageModule({
     changeWorkspace(nextWorkspace);
   };
 
+  const guardExternalNavigation = (href: string, event: { preventDefault: () => void }) => {
+    if (!dirty || mode !== "draft") return;
+    event.preventDefault();
+    setPendingWorkspace(null);
+    setPendingHref(href);
+    setDirtyNavigationOpen(true);
+  };
+
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-primary-100 pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button nativeButton={false} render={<Link href="/mentor/tryout" />} size="sm" variant="ghost">
+          <Button nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="sm" variant="ghost">
             <ArrowLeft />
             Semua Tryout
           </Button>
@@ -1334,6 +1380,12 @@ function KaptenTryoutBuilderPageModule({
           {error}
         </p>
       ) : null}
+      {routeNormalizationNotice ? (
+        <p className="mt-5 flex items-start gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
+          {routeNormalizationNotice}
+        </p>
+      ) : null}
       {draft.locked ? (
         <section className="mt-5 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
           <Lock className="mt-1 size-4 shrink-0" />
@@ -1343,7 +1395,7 @@ function KaptenTryoutBuilderPageModule({
       {initialParent && mode === "draft" ? (
         <section className="mt-5 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
           <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${new Date(initialParent.publishedAt).toLocaleString("id-ID")}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
-          <Button nativeButton={false} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
+          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
         </section>
       ) : null}
       <nav aria-label="Fase lifecycle Tryout" className="mt-6 grid gap-2 sm:grid-cols-5">
@@ -1528,7 +1580,7 @@ function KaptenTryoutBuilderPageModule({
                           </div>
                           {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
                           <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
-                            {sourceBanks.length ? sourceBanks.map((bank) => <Button aria-selected={browseBankId === bank.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left" key={bank.id} onClick={() => { setBrowseBankId(bank.id); setSourceQuestionPage(1); setSourceQuestionSearch(""); setSourceQuestions([]); }} role="option" variant={browseBankId === bank.id ? "contextSelected" : "ghost"}><span className="min-w-0"><span className="block truncate font-semibold">{bank.title}</span><span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span></span>{browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}</Button>) : <div className="grid gap-3 px-3 py-5"><p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSection.subtest}.</p><Button className="w-fit" nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button></div>}
+                            {sourceBanks.length ? sourceBanks.map((bank) => <Button aria-selected={browseBankId === bank.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left" key={bank.id} onClick={() => { setBrowseBankId(bank.id); setSourceQuestionPage(1); setSourceQuestionSearch(""); setSourceQuestions([]); }} role="option" variant={browseBankId === bank.id ? "contextSelected" : "ghost"}><span className="min-w-0"><span className="block truncate font-semibold">{bank.title}</span><span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span></span>{browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}</Button>) : <div className="grid gap-3 px-3 py-5"><p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSection.subtest}.</p><Button className="w-fit" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button></div>}
                           </div>
                           {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={() => setSourceBankPage((page) => page + 1)} size="sm" variant="brandOutline">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
                         </PopoverContent>
@@ -1579,7 +1631,7 @@ function KaptenTryoutBuilderPageModule({
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-0" keepMounted value="schedule">
+        <TabsContent className="mt-0" value="schedule">
           {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
             <div className="grid gap-5">
               <nav aria-label="Subarea Delivery" className="grid gap-2 rounded-3xl border border-primary-100 bg-white p-3 sm:grid-cols-3 sm:p-4">
@@ -1757,9 +1809,9 @@ function KaptenTryoutBuilderPageModule({
         <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
           <AlertDialogHeader><AlertDialogTitle>Perubahan belum disimpan</AlertDialogTitle><AlertDialogDescription>Simpan perubahan sebelum berpindah langkah, atau buang perubahan lokal. Jika penyimpanan gagal, Anda tetap berada di langkah ini.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={saving} onClick={() => { setPendingWorkspace(null); setDirtyNavigationOpen(false); }}>Tetap di sini</AlertDialogCancel>
-            <Button disabled={saving} onClick={() => { const target = pendingWorkspace; setDraft(savedDraft); setDirty(false); setPendingWorkspace(null); setDirtyNavigationOpen(false); if (target) commitWorkspaceChange(target); }} variant="brandOutline">Buang perubahan</Button>
-            <AlertDialogAction disabled={saving || !draft.title.trim()} onClick={() => { const target = pendingWorkspace; void save("draft").then((ok) => { if (ok && target) commitWorkspaceChange(target); setPendingWorkspace(null); setDirtyNavigationOpen(false); }); }} variant="brand"><Save />Simpan dan lanjutkan</AlertDialogAction>
+            <AlertDialogCancel disabled={saving} onClick={() => { setPendingWorkspace(null); setPendingHref(null); setDirtyNavigationOpen(false); }}>Tetap di sini</AlertDialogCancel>
+            <Button disabled={saving} onClick={() => { const target = pendingWorkspace; const href = pendingHref; setDraft(savedDraft); setDirty(false); setPendingWorkspace(null); setPendingHref(null); setDirtyNavigationOpen(false); if (target) commitWorkspaceChange(target); else if (href) window.location.assign(href); }} variant="brandOutline">Buang perubahan</Button>
+            <AlertDialogAction disabled={saving || !draft.title.trim()} onClick={() => { const target = pendingWorkspace; const href = pendingHref; void save("draft").then((ok) => { if (ok && target) commitWorkspaceChange(target); else if (ok && href) window.location.assign(href); if (ok) { setPendingWorkspace(null); setPendingHref(null); setDirtyNavigationOpen(false); } }); }} variant="brand"><Save />Simpan dan lanjutkan</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

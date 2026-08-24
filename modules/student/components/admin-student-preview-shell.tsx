@@ -36,14 +36,15 @@ function AdminStudentPreviewShell({
   breadcrumbLabel,
   children,
   context,
+  isRootPage = false,
 }: {
   activeLabel: "Beranda" | "Kuis" | "Materi" | "Tryout";
   breadcrumbLabel: string;
   children: React.ReactNode;
   context: Extract<StudentSurfaceContext, { mode: "admin-preview" }>;
+  isRootPage?: boolean;
 }) {
   const rootHref = buildAdminStudentPreviewRoute(previewRootByLabel[activeLabel]);
-  const isRootPage = breadcrumbLabel === activeLabel;
   const adminExitHref = buildAdminStudentPreviewExit("/admin");
   const bannerEditorHref = buildAdminStudentPreviewBannerEditorRoute();
 
@@ -61,9 +62,13 @@ function AdminStudentPreviewShell({
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem>
-                      <BreadcrumbLink className="text-secondary-500" href={rootHref}>
-                        {activeLabel}
-                      </BreadcrumbLink>
+                      {isRootPage ? (
+                        <BreadcrumbPage>{activeLabel}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink className="text-secondary-700" href={rootHref}>
+                          {activeLabel}
+                        </BreadcrumbLink>
+                      )}
                     </BreadcrumbItem>
                     {!isRootPage ? (
                       <>
@@ -87,7 +92,7 @@ function AdminStudentPreviewShell({
           </header>
 
           <ScrollArea className="h-[calc(100svh-4rem)]">
-            <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
+            <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
               <aside
                 aria-label="Admin student preview"
                 className="flex flex-col gap-4 rounded-3xl border border-[#f0c98a] bg-[#fff8e8] px-5 py-4 shadow-[0_18px_38px_-28px_rgba(153,92,22,0.45)] md:flex-row md:items-center md:justify-between"
@@ -120,7 +125,7 @@ function AdminStudentPreviewShell({
               </aside>
 
               {children}
-            </main>
+            </div>
           </ScrollArea>
         </SidebarInset>
       </div>

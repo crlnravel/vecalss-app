@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 
 import { ConditionalSpeedInsights } from "@/components/conditional-speed-insights";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import { DebugAccountSwitcherProvider } from "@/components/debug-account-switcher-provider";
 import { isDebugAccountSwitcherEnabled } from "@/lib/config";
 
@@ -49,6 +50,7 @@ export default function RootLayout({
           <DebugAccountSwitcherProvider enabled={isDebugAccountSwitcherEnabled()}>
             {children}
           </DebugAccountSwitcherProvider>
+          <Toaster />
         </TooltipProvider>
         <ConditionalSpeedInsights />
       </body>

@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { changeStudentEnrollmentPasswordAction } from "@/modules/admin/actions";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
@@ -39,7 +39,7 @@ function StudentPasswordForm({
         <input name="userId" type="hidden" value={studentId} />
 
         {state.message ? (
-          <p aria-live="assertive" className="text-sm leading-6 text-danger-700" role="alert">
+          <p aria-live="assertive" className="text-sm leading-6 text-student-status-danger-fg" role="alert">
             {state.message}
           </p>
         ) : null}
@@ -47,6 +47,7 @@ function StudentPasswordForm({
         <Field>
           <FieldLabel htmlFor="student-new-password">New password</FieldLabel>
           <FieldInput
+            aria-describedby={state.fieldErrors?.password ? "student-new-password-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.password)}
             autoComplete="new-password"
             autoFocus
@@ -55,14 +56,13 @@ function StudentPasswordForm({
             required
             type="password"
           />
-          {state.fieldErrors?.password ? (
-            <p className="text-sm text-danger-700">{state.fieldErrors.password}</p>
-          ) : null}
+          <FieldError error={state.fieldErrors?.password} id="student-new-password-error" />
         </Field>
 
         <Field>
           <FieldLabel htmlFor="student-confirm-password">Confirm password</FieldLabel>
           <FieldInput
+            aria-describedby={state.fieldErrors?.confirmPassword ? "student-confirm-password-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.confirmPassword)}
             autoComplete="new-password"
             id="student-confirm-password"
@@ -70,9 +70,7 @@ function StudentPasswordForm({
             required
             type="password"
           />
-          {state.fieldErrors?.confirmPassword ? (
-            <p className="text-sm text-danger-700">{state.fieldErrors.confirmPassword}</p>
-          ) : null}
+          <FieldError error={state.fieldErrors?.confirmPassword} id="student-confirm-password-error" />
         </Field>
 
         <AlertDialogFooter>

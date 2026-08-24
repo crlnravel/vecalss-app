@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
+import { StudentBadge } from "@/components/ui/student-badge";
 import { resolveStudentBannerText } from "@/lib/student/banner-content";
 import {
   buildAdminStudentPreviewMateriDocumentRoute,
@@ -105,12 +106,12 @@ function AdminStudentPreviewBerandaSurface({ data }: { data: AdminPreviewBeranda
         </div>
         <CardHeader className="relative gap-7 px-7 pb-0 pt-7 md:px-10 md:pt-10 lg:pr-[32%]">
           <div>
-            <CardTitle className="max-w-3xl text-4xl leading-[1.08] font-semibold text-secondary-900 md:text-5xl">
+            <h1 className="max-w-3xl text-4xl leading-[1.08] font-semibold tracking-[-0.03em] text-secondary-900 md:text-5xl">
               {resolveStudentBannerText(data.banner.beranda.title, {
                 firstName: data.firstName,
                 target,
               })}
-            </CardTitle>
+            </h1>
             <CardDescription className="mt-5 max-w-[42ch] text-base leading-7 text-secondary-600">
               {resolveStudentBannerText(data.banner.beranda.description, {
                 firstName: data.firstName,
@@ -385,18 +386,14 @@ function formatTryoutDate(value: string) {
 
 function TryoutScheduleBadge({ status }: { status: AdminPreviewTryoutSchedule["scheduleStatus"] }) {
   const tone = status === "active"
-    ? "bg-[#d7f2df] text-[#176b4d]"
+    ? "success"
     : status === "closed"
-      ? "bg-[#fff0d2] text-[#925816]"
+      ? "attention"
       : status === "future"
-        ? "bg-[#e0efff] text-[#225b93]"
-        : "bg-white/15 text-white/75";
+        ? "info"
+        : "neutral";
 
-  return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-extrabold tracking-[0.12em] uppercase ${tone}`}>
-      {tryoutScheduleLabels[status]}
-    </span>
-  );
+  return <StudentBadge size="sm" tone={tone}>{tryoutScheduleLabels[status]}</StudentBadge>;
 }
 
 function TryoutScheduleLine({ session }: { session: AdminPreviewTryoutSchedule }) {

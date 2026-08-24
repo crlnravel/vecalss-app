@@ -1,5 +1,35 @@
 # Session Handoff
 
+## Current Tryout gated lifecycle closeout (2026-08-24)
+
+- Lifecycle refactor is implemented in `1001677` plus workflow projection
+  commits `697d360` and `9b6f37a`. Draft mode exposes only Build/Review &
+  Publish, with Overview → Configure Sections → Readiness & Publish gating;
+  published mode exposes Delivery → Operations → Results and hides authoring.
+- `lib/tryout/workflow-projection.ts` is the pure lifecycle predicate module.
+  The operations DTO carries phase/gate/session identifiers only; it does not
+  cross the immutable AssessmentRelease/Bank Soal payload boundary. Historical
+  opened/release-bound/attempt evidence keeps Operations available after close;
+  Live is selected-session runtime eligibility; Results is global from closed
+  or terminal/scored activity.
+- Header Preview/Save/Review actions were removed. The sticky draft footer owns
+  save/continue/preview/publish, with Save/Discard/Stay navigation protection.
+  Published context owns title/description-only Edit details and
+  **Buat draf perubahan** with `parent` lineage; Results uses `?session=` and
+  Live receives the normalized selected session.
+- Documentation is current in `docs/tryout-gated-workflow-refactor-plan.md`
+  and `docs/tryout-creation-guide.md`; older screenshots are labeled as
+  historical references.
+- Focused workflow/authoring/live-result/pool/direct-question contracts,
+  focused ESLint, TypeScript, and full `pnpm verify` pass. Authenticated
+  browser QA remains to be rerun after unrelated concurrent admin-preview dirty
+  files settle. Preserve those dirty files and do not reset the worktree.
+- Known convergence item: the operations DTO intentionally fails closed for
+  editable draft readiness because it does not carry the complete editable form;
+  the builder currently uses its existing local readiness checks for draft
+  unlocks. A future server edit/readiness DTO should feed the same stable issue
+  codes and field targets into the canonical projection.
+
 ## Current AS-04 invitation-picker closeout (2026-08-23)
 
 - Dedicated Kapten invitation picker is complete at `a72d5fd` plus `5c422ac`.

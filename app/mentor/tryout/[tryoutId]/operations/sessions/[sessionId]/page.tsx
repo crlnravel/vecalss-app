@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireTutorSession } from "@/lib/auth/access";
 import { getOwnedTryoutOperationsView } from "@/lib/tryout/operations-view";
@@ -24,7 +24,9 @@ export default async function TryoutSessionDetailPage({
     tryoutId,
     session.user.id,
   );
-  if (!operations?.sessions.some((item) => item.id === sessionId)) notFound();
+  if (!operations) notFound();
+  if (operations.status !== "published") redirect(`/mentor/tryout/${tryoutId}?workspace=basics`);
+  if (!operations.sessions.some((item) => item.id === sessionId)) notFound();
 
   return (
     <MentorWorkspaceShell

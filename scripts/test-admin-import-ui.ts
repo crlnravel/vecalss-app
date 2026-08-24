@@ -48,6 +48,7 @@ const [importsPage, intakeModule, detailModule, detailPage, loadingSource, intak
   readFile(resolve(root, "lib/auth/paths.ts"), "utf8"),
   readFile(resolve(root, "app/login/page.tsx"), "utf8"),
 ]);
+const kaptenDialog = await readFile(resolve(root, "modules/admin/components/add-kapten-dialog.tsx"), "utf8");
 
 assert.equal(getImportTemplateDefinition("students.v1")?.fileName, "students.v1.csv");
 assert.equal(getImportTemplateDefinition("kapten.v1")?.fileName, "kapten.v1.csv");
@@ -65,8 +66,9 @@ const counts = {
   updated: 0,
 };
 assert.equal(canConfirmImport("draft", 3, counts), false);
-assert.equal(canConfirmImport("draft", 3, { ...counts, invalid: 0, pending: 2, skipped: 1 }), true);
-assert.equal(canConfirmImport("queued", 3, { ...counts, invalid: 0, pending: 2, skipped: 1 }), false);
+assert.equal(canConfirmImport("draft", 3, { ...counts, invalid: 0, pending: 3, skipped: 0 }), true);
+assert.equal(canConfirmImport("draft", 3, { ...counts, invalid: 0, pending: 2, skipped: 1 }), false);
+assert.equal(canConfirmImport("queued", 3, { ...counts, invalid: 0, pending: 3, skipped: 0 }), false);
 assert.deepEqual(
   [0, 1, 2, 3, 4, 5].map((attempt) => getImportPollDelayMs(attempt)),
   [2_000, 4_000, 8_000, 16_000, 30_000, 30_000],
@@ -179,7 +181,11 @@ assert.match(intakeModule, /disabled=\{busy \|\| !file\}/u);
 assert.match(intakeModule, /\? "Uploading…" : "Upload"/u);
 assert.doesNotMatch(intakeModule, /Columns: \{role === "student"/u);
 assert.match(intakeModule, /sessionIssue/u);
-assert.match(detailModule, /\/rows\/skip/u);
+assert.match(kaptenDialog, /ImportsIntakeModule/u);
+assert.match(kaptenDialog, /aria-label="Kapten import mode"/u);
+assert.match(kaptenDialog, /bulk-kapten-import-panel/u);
+assert.match(kaptenDialog, /initialRole="tutor"/u);
+assert.match(kaptenDialog, /showRoleSelect=\{false\}/u);
 assert.match(detailModule, /\/confirm/u);
 assert.match(detailModule, /\/cancel/u);
 assert.match(detailModule, /\/retry/u);
@@ -213,8 +219,12 @@ assert.match(detailModule, /View full bio/u);
 assert.match(detailModule, /transferConfirmed/u);
 assert.match(detailModule, /Failed <strong/u);
 for (const terminal of ["completed", "partial", "failed", "cancelled"]) assert.match(detailModule, new RegExp(terminal, "u"));
-assert.match(detailModule, /Select invalid rows/u);
-assert.match(detailModule, /Confirmation is blocked until invalid rows are skipped/u);
+assert.doesNotMatch(detailModule, /Select invalid rows/u);
+assert.doesNotMatch(detailModule, /Skip selected/u);
+assert.match(detailModule, /Bulk import blocked/u);
+assert.match(detailModule, /No rows will be imported/u);
+assert.match(detailModule, /toast\.error/u);
+assert.match(detailModule, /components\/ui\/sonner/u);
 assert.match(detailModule, /Retry selected/u);
 assert.match(detailModule, /Retry all failed/u);
 assert.match(detailModule, /statusReadStale/u);
@@ -239,6 +249,7 @@ assert.match(handoffService, /rows: \{ some: \{ id: existing\.source_import_row_
 assert.match(service, /lastHeartbeatAt/u);
 assert.match(service, /handoffStatus/u);
 assert.match(service, /handoffAcknowledgedAt/u);
+assert.match(service, /counts\.invalid > 0 \|\| counts\.skipped > 0/u);
 assert.doesNotMatch(service.slice(service.indexOf("function buildStatusDto"), service.indexOf("type StatusTransaction")), /secretEnvelope|tokenHash/u);
 assert.match(handoffFile, /secretEnvelope: Prisma\.DbNull/u);
 assert.match(handoffRoute, /Cache-Control/u);

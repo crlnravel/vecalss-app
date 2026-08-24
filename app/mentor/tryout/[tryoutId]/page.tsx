@@ -23,6 +23,6 @@ export default async function TryoutPage({ params, searchParams }: { params: Pro
   // The workspace module owns the new eight-area vocabulary and maps the
   // transitional authoring/policy/sessions/participants query values for
   // bookmarked compatibility URLs.
-  const initialWorkspace = query.workspace ?? "basics";
+  const initialWorkspace = query.workspace ?? (initialDraft.status === "published" ? "delivery" : "basics");
   return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Edit Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule id={tryoutId} initialDeliveryArea={query.delivery} initialDraft={initialDraft} initialParent={parentDraft ? { id: parentDraft.id, publishedAt: parentDraft.assessmentRelease?.publishedAt, title: parentDraft.title } : undefined} initialSessionId={query.session} initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} operationsInitial={operationsInitial} readyAssemblies={readyAssemblies} readyVersions={readyVersions} session={session} /></MentorWorkspaceShell>;
 }

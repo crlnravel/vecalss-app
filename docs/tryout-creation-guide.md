@@ -20,6 +20,20 @@ produk.
 > tanggal yang sama. Jika screenshot lama berbeda dengan UI yang berjalan,
 > perilaku UI dan status server terbaru menjadi sumber kebenaran.
 
+> **Kontrak lifecycle yang sudah diimplementasikan:** workspace memakai
+> progressive disclosure berbasis lifecycle. Saat masih draf, hanya **Build**
+> dan **Review & Publish** yang terlihat; langkah kerja berjalan
+> **Overview → Configure Sections → Readiness & Publish** dan langkah berikutnya
+> terkunci sampai pendahulunya selesai. **Questions** dan **Rules** sekarang
+> berada dalam konteks **Configure Sections** yang sama. Setelah publish, konten
+> authoring dan review disembunyikan dan workspace menampilkan **Delivery**,
+> **Operations**, serta **Results**. Untuk mengubah konten yang sudah terbit,
+> Kapten memilih **Buat draf perubahan**; **Edit details** hanya mengubah judul
+> dan deskripsi. Lihat [rencana gated workflow dan publish
+> boundary](./tryout-gated-workflow-refactor-plan.md). Screenshot lama tetap
+> dipertahankan sebagai referensi visual dan dapat menunjukkan label/tab sebelum
+> kontrak lifecycle ini diterapkan.
+
 ## IA terbaru: lima fase kerja
 
 Workspace Kapten mengikuti urutan pekerjaan, bukan urutan tabel atau state
@@ -29,7 +43,7 @@ tidak berubah.
 
 | Fase primer | Subarea | Pertanyaan kerja Kapten |
 |---|---|---|
-| **Build** | Overview, Sections, Questions, Rules | Apa yang sedang dibuat? |
+| **Build** | Overview, Configure Sections | Apa yang sedang dibuat? |
 | **Review & Publish** | Readiness, Published versions | Apakah konten siap dan versi mana yang berlaku? |
 | **Delivery** | Policy, Sessions, Participants | Siapa yang boleh ikut, kapan, dan dengan aturan apa? |
 | **Operations** | Live, Attempts | Apa yang sedang terjadi dan apa yang perlu ditangani? |
@@ -38,18 +52,19 @@ tidak berubah.
 ### Section sebagai unit kerja
 
 Pada **Build**, tujuh Section selalu terlihat dalam rail yang sama: PU, PPU,
-PBM, PK, LBI, LBE, dan PM. Memilih Section mempertahankan konteks yang sama
-saat Kapten berpindah antara **Sections**, **Questions**, dan **Rules**. Setiap
-baris menampilkan status utama, jumlah isu, ringkasan isu pertama, dan tautan
-**Perbaiki** ke subarea yang tepat.
+PBM, PK, LBI, LBE, dan PM. Memilih Section membuka satu konteks
+**Configure Sections** yang memuat durasi, instruksi, sumber soal, CBT/CAT,
+pengacakan, dan pengaturan CAT. Kapten tidak berpindah ke tiga tab untuk
+menemukan Section yang sama. Setiap baris menampilkan status utama, jumlah isu,
+ringkasan isu pertama, dan tautan **Perbaiki** ke kontrol Configure.
 
 Pola status yang digunakan adalah:
 
-- **Ready** — sumber, durasi, aturan dasar, penjelasan, dan media tidak memiliki
-  isu yang diketahui;
-- **Belum disiapkan** — sumber belum dipilih;
-- **Perlu ditinjau** — ada isu durasi, tipe assembly, CAT, media, atau
-  readiness lain yang harus diperbaiki.
+- **Ready** — Section tidak akan menghasilkan blocker Readiness final;
+- **In progress** — konfigurasi sudah dimulai tetapi belum lengkap;
+- **Needs attention** — ada isu durasi, sumber, tipe assembly, CAT, media, atau
+  readiness lain yang harus diperbaiki;
+- **Not started** — belum ada konfigurasi bermakna.
 
 Review tetap menjadi pemeriksaan final yang authoritative. Rail hanya membuat
 masalah terlihat lebih awal dan membantu Kapten langsung kembali ke kontrolnya.
@@ -188,7 +203,7 @@ Workspace tersebut memiliki lima fase primer dan subarea berikut:
 | Fase | Subarea | Peran dalam IA | Output atau next action |
 |---|---|---|---|
 | **Build** | **Overview** | Identitas yang terlihat Kapten dan siswa | Judul dan deskripsi |
-| **Build** | **Sections**, **Questions**, **Rules** | Struktur tujuh subtest, sumber soal, durasi, instruksi, CBT/CAT, dan pengacakan | Konten siap diperiksa |
+| **Build** | **Configure Sections** | Struktur tujuh subtest, sumber soal, durasi, instruksi, CBT/CAT, pengacakan, dan CAT | Konten siap diperiksa |
 | **Review & Publish** | **Readiness**, **Published versions** | Konfirmasi kesiapan dan pembuatan versi immutable | Versi terbit yang dapat dipakai sesi |
 | **Delivery** | **Policy**, **Sessions**, **Participants** | Admission, jendela waktu, kebijakan hasil, dan assignment | Pelaksanaan siap menerima peserta |
 | **Operations** | **Live**, **Attempts** | Posisi peserta, runtime, sinyal, dan tindakan perbaikan | Masalah operasional tertangani |
@@ -200,36 +215,48 @@ yang disarankan sekarang adalah:
 
 **Build → Review & Publish → Delivery → Operations → Results**
 
-### 3.2 Progressive disclosure sebelum draf tersimpan
+### 3.2 Progressive disclosure berdasarkan lifecycle
 
-Pada halaman **Buat Tryout**, Kapten dapat menyiapkan **Basics**, **Sections**,
-**Questions**, **Rules**, **Review**, dan **Publish** secara lokal. Area
-**Delivery**, **Operations**, dan **Results** menampilkan pesan bahwa draf harus
-disimpan terlebih dahulu.
+Pada halaman **Buat Tryout**, Kapten pertama kali hanya melihat **Build →
+Overview**. Setelah Overview tersimpan, **Configure Sections** terbuka. Setelah
+semua Section lolos readiness lokal, **Readiness & Publish** terbuka. Delivery,
+Operations, dan Results tidak dirender sebagai tab alternatif pada draf.
 
-Ini adalah batas informasi yang penting:
+Setelah publish berhasil, mode workspace berganti. **Build** dan **Review &
+Publish** tidak lagi tersedia sebagai konten yang dapat dibuka. Kapten melihat
+**Delivery** terlebih dahulu; **Operations** muncul setelah ada sesi yang
+dibuka/terikat rilis atau attempt, sedangkan **Live** hanya tersedia untuk sesi
+terpilih yang aktif dan memiliki AssessmentRelease. **Results** terbuka secara
+global setelah ada sesi tertutup atau aktivitas attempt terminal/scored, termasuk
+sesi tertutup tanpa aktivitas yang menampilkan empty state eksplisit.
 
-- mengisi field dan berpindah tab belum membuat Tryout di database;
-- **Simpan perubahan** pertama kali membuat Tryout dan tujuh Section awal;
-- setelah save berhasil, halaman berpindah ke Tryout dengan ID tersendiri;
-- area operasional kemudian memuat data server yang sama, bukan salinan lokal;
-- **Review & Publish** membantu navigasi, tetapi validasi server saat publish tetap
-  menentukan berhasil atau tidaknya penerbitan.
+URL lama tidak menjadi jalan pintas. `?workspace=sections`, `questions`, atau
+`rules` dinormalisasi ke **Configure Sections**; URL authoring pada Tryout terbit
+dinormalisasi ke **Delivery**. `?session=<id>` dipertahankan untuk pemilihan
+Results dan ID yang tidak valid dinormalisasi ke sesi aman yang tersedia.
 
-### 3.3 Status yang perlu terlihat
+Untuk draf baru, perubahan lokal ditandai **Perubahan belum disimpan**. Saat
+berpindah langkah, Kapten harus memilih **Simpan dan lanjutkan**, **Buang
+perubahan**, atau **Tetap di sini**. Save yang gagal tidak memindahkan langkah
+dan tidak menghapus input lokal.
+
+### 3.3 Status dan tindakan yang perlu terlihat
 
 Header workspace selalu menunjukkan:
 
 - judul Tryout;
 - status **Draf** atau **Diterbitkan**;
-- tombol **Preview alur peserta**;
-- tombol **Simpan perubahan** jika ada perubahan yang belum tersimpan;
-- **Review & Publish** untuk draf editable;
-- **Duplikasi** jika Tryout sudah terkunci.
+- indikator mode authoring/operasional dan status lifecycle;
+- indikator **Perubahan belum disimpan** bila draf dirty;
+- roadmap **Build → Review & Publish → Delivery → Operations → Results**;
+- tombol konteks di footer/panel aktif, bukan action strip global;
+- **Edit details** dan **Buat draf perubahan** untuk Tryout terbit.
 
 Jika sudah ada peserta yang memulai Tryout, workspace menjadi **Mode baca
-saja**. Pesan tersebut harus dipahami sebagai perlindungan riwayat: buat
-salinan editable untuk perubahan yang fairness-sensitive.
+saja** untuk konten struktural. **Edit details** tetap dapat dipakai untuk judul
+dan deskripsi selama server mengizinkan; perubahan fairness-sensitive memakai
+**Buat draf perubahan**. Draf baru menampilkan parent title/tanggal publikasi
+dan tautan kembali ke versi terbit.
 
 ## 4. Objek dan batas informasi
 
@@ -304,14 +331,16 @@ tepat.
 
 ## 7. Flow B — membuat isi Tryout
 
-### 7.1 Buka workspace dan pahami tindakan global
+### 7.1 Buka workspace dan pahami lifecycle
 
-Pada halaman baru:
+Pada halaman baru, workspace dimulai di **Build → Overview**. Header hanya
+menunjukkan identitas Tryout, mode, dan status penyimpanan. **Preview alur
+peserta**, **Simpan perubahan**, dan **Review & Publish** bukan lagi tombol
+global; kemampuan tersebut muncul di footer atau panel konteks langkah aktif.
 
-- **Preview alur peserta** membuka simulasi ringkas pengalaman peserta;
-- **Simpan perubahan** membuat atau memperbarui Tryout;
-- **Review & Publish** memindahkan Kapten ke area pemeriksaan/penerbitan;
-- tab workspace mengubah konteks tampilan, bukan otomatis menyimpan.
+Roadmap di bagian atas menjaga orientasi, tetapi fase yang terkunci tidak dapat
+diklik. Kapten harus menyelesaikan langkah yang sedang aktif sebelum membuka
+langkah berikutnya.
 
 ![Halaman awal Buat Tryout](tryout-creation-guide/screenshots/01-basics.png)
 
@@ -325,38 +354,41 @@ Pada halaman baru:
 
 Status pada tahap ini masih lokal sampai **Simpan perubahan** ditekan.
 
-### 7.3 Atur tujuh Section
+### 7.3 Configure Sections: atur tujuh Section
 
 Tryout memiliki tujuh Section tetap dalam urutan. Rail Section di sisi Build
-menjaga konteks Section tetap terlihat ketika Kapten berpindah subarea:
+menjaga konteks Section tetap terlihat saat Kapten mengisi satu Section:
 
 **PU → PPU → PBM → PK → LBI → LBE → PM**
 
 Untuk setiap Section:
 
 1. pilih Section dari rail, misalnya **PBM**;
-2. pada **Sections**, atur **Durasi** dan **Instruksi peserta**;
-3. pada **Questions**, pilih sumber soal atau tambahkan soal langsung;
-4. pada **Rules**, pilih **CBT** atau **CAT**, lalu atur jumlah dan pengacakan;
-5. periksa status rail: **Ready**, **Belum disiapkan**, atau **Perlu ditinjau**;
-6. tekan **Perbaiki** pada rail bila ada isu untuk kembali ke kontrol yang
-   tepat.
+2. isi **Durasi** dan **Instruksi peserta**;
+3. pilih strategi sumber: langsung, Set Ready, Pool, Blueprint, atau CAT Pool;
+4. pilih **CBT** atau **CAT**, lalu atur jumlah, pengacakan, dan parameter CAT;
+5. periksa status rail: **Not started**, **In progress**, **Needs attention**,
+   atau **Ready**;
+6. tekan **Perbaiki** pada rail untuk kembali ke kontrol Configure yang tepat.
 
 ![Tab Sections dengan Section aktif dari rail Build](tryout-creation-guide/screenshots/02-sections.png)
 
 Urutan ini adalah urutan yang akan dilihat siswa. Rail hanya mengganti konteks
-Section yang sedang diedit; tidak membuat Section baru.
+Section yang sedang diedit; tidak membuat Section baru. **Readiness & Publish**
+baru dapat dibuka setelah seluruh Section tidak lagi memiliki blocker.
 
-### 7.4 Pilih sumber soal
+### 7.4 Pilih sumber soal dan aturan dalam Configure
 
-Pada **Questions**, Section aktif berasal dari rail Build, sehingga Kapten tidak
-perlu memilih Subject/Section ulang:
+Pada **Configure Sections**, Section aktif berasal dari rail Build, sehingga
+Kapten tidak perlu memilih Subject/Section ulang. Sumber dan aturan terlihat
+bersama agar perubahan CBT↔CAT segera memunculkan kompatibilitas:
 
 1. pilih **Tipe pemilihan soal**;
 2. pastikan sumber sesuai dengan subtest aktif;
 3. buka **Sample sumber** atau **Lihat sample sumber & kesiapan** bila perlu;
-4. kembali ke rail atau **Review & Publish** setelah semua Section memiliki
-   sumber.
+4. periksa panel **Behavior & rules** pada Section yang sama;
+5. buka **Readiness & Publish** setelah semua Section memiliki sumber dan
+   aturan yang valid.
 
 ![Tab Questions](tryout-creation-guide/screenshots/03-questions.png)
 
@@ -395,14 +427,12 @@ CAT run. Jika berpindah dari daftar soal langsung ke sumber Ready, daftar soal
 langsung pada Section itu dilepas secara lokal; simpan hanya setelah pilihan
 tersebut benar.
 
-### 7.5 Atur Rules
+### 7.5 Perbaiki blocker lintas sumber dan aturan
 
-Pada **Rules**, periksa Section aktif dari rail:
-
-1. pilih **CBT** atau **CAT**;
-2. jika CAT, isi **Jumlah soal CAT**;
-3. atur **Acak urutan soal**;
-4. kembali ke Questions jika mode sumber tidak cocok dengan tipe Test.
+Tidak ada lagi perpindahan Questions↔Rules. Jika Kapten mengganti Test type
+menjadi **CAT**, Configure langsung menandai sumber yang tidak kompatibel,
+kalibrasi 2PL yang hilang, atau jumlah kandidat yang kurang pada Section aktif.
+Perbaiki kontrol di konteks yang sama sampai status rail kembali **Ready**.
 
 ![Tab Rules](tryout-creation-guide/screenshots/05-rules.png)
 
@@ -416,7 +446,8 @@ Aturan kompatibilitas penting:
 
 ### 7.6 Gunakan Preview alur peserta
 
-Tekan **Preview alur peserta** dari header atau Review.
+Tekan **Preview alur peserta** dari footer **Configure Sections** atau
+**Readiness & Publish**.
 Preview menampilkan:
 
 - judul dan deskripsi Tryout;
@@ -436,16 +467,16 @@ Preview membaca draf saat ini. Ia tidak membuat:
 
 ## 8. Flow C — simpan, review, dan publish
 
-### 8.1 Simpan perubahan
+### 8.1 Simpan perubahan dan lanjutkan
 
-Tekan **Simpan perubahan** setelah isi cukup lengkap. Pada Tryout baru,
-tombol ini membuat draf pertama; pada Tryout tersimpan, tombol yang sama
-memperbarui draf.
+Tekan **Simpan perubahan** dari sticky footer setelah isi cukup lengkap. Pada
+Tryout baru, tombol ini membuat draf pertama; pada Tryout tersimpan, tombol
+yang sama memperbarui draf. Tombol tersebut tidak lagi berada di header.
 
-Ada dua lokasi:
-
-- tombol global di kanan atas;
-- tombol simpan pada area **Published versions**.
+Footer juga memberi CTA tujuan yang jelas: **Simpan & lanjut ke Configure
+Sections** dari Overview dan **Lanjut ke Readiness** dari Configure. Jika
+Kapten mencoba berpindah saat dirty, pilih **Simpan dan lanjutkan**, **Buang
+perubahan**, atau **Tetap di sini**.
 
 Save pertama kali:
 
@@ -453,12 +484,12 @@ Save pertama kali:
 2. membuat Tryout dan tujuh Section awal;
 3. menyimpan sumber yang dipilih;
 4. memberi Tryout ID;
-5. membuka fase Delivery, Operations, dan Results yang sebelumnya memerlukan
-   Tryout ID.
+5. membuka kembali Overview dengan Tryout ID; Delivery baru tersedia setelah
+   publish berhasil.
 
 Save berikutnya memperbarui draf tanpa membuat AssessmentRelease baru. Jika
-hasil save pertama berhasil, halaman membuka URL edit dan memilih **Review & Publish**
-agar blocker langsung terlihat.
+save gagal, Kapten tetap di langkah yang sama dengan input lokal dan indikator
+**Perubahan belum disimpan** tetap terlihat.
 
 ### 8.2 Periksa Review & Publish
 
@@ -483,8 +514,8 @@ Pemeriksaan yang saat ini perlu lulus meliputi:
 Jika ada blocker:
 
 1. tekan **Perbaiki** pada rail Section yang disebut;
-2. perbaiki Questions, Sections, atau Rules;
-3. kembali ke **Review & Publish**;
+2. perbaiki kontrol sumber atau behavior di Configure Sections;
+3. kembali ke **Readiness & Publish**;
 4. ulangi sampai tidak ada pemeriksaan gagal.
 
 ![Readiness pada Review & Publish](tryout-creation-guide/screenshots/06-review.png)
@@ -493,8 +524,7 @@ Review tidak membuat attempt dan tidak mengubah state peserta.
 
 ### 8.3 Review & Publish
 
-Pada fase **Review & Publish**, buka **Published versions** setelah Readiness
-tidak memiliki blocker:
+Pada **Readiness & Publish**, setelah Readiness tidak memiliki blocker:
 
 1. baca jumlah Section siap;
 2. pastikan Review tidak memiliki blocker;
@@ -511,7 +541,7 @@ Perbedaan tindakan:
 | **Simpan perubahan** | Menyimpan konfigurasi editable; tidak membuat rilis peserta |
 | **Terbitkan Tryout** | Membuat AssessmentRelease pertama dan snapshot konten immutable |
 | **Terbitkan pembaruan** | Membuat rilis baru bila isi berubah; sesi yang sudah terbuka tetap memakai rilis sebelumnya |
-| **Duplikasi** / **Buat salinan editable** | Membuat draf baru tanpa mengubah riwayat peserta atau rilis lama |
+| **Buat draf perubahan** | Membuat draf baru tanpa mengubah riwayat peserta atau rilis lama; parent dan tautan versi terbit ditampilkan |
 
 Sesi peserta tidak boleh dibuka sebelum ada AssessmentRelease. Setelah publish,
 buka **Delivery → Sessions** untuk membuat sesi.
@@ -826,7 +856,19 @@ menyimpulkan bahwa skor atau rilis berubah sebelum state baru terlihat.
 
 ### 13.1 Results sebagai ringkasan Kapten
 
-Tab **Results** menjawab empat pertanyaan berbeda:
+**Results** hanya muncul pada workspace Tryout terbit setelah ada sesi yang
+ditutup atau aktivitas attempt terminal/scored. Sesi tertutup tanpa aktivitas
+tetap membuka Results dan menampilkan empty state yang menjelaskan bahwa belum
+ada attempt untuk dirilis.
+
+Gunakan selector sesi yang persisten untuk memilih tabel dan tindakan release.
+Pilihan tersebut disimpan pada `?session=<sessionId>` sehingga refresh, back,
+dan shared link tetap berada pada sesi yang sama. ID sesi yang stale atau tidak
+berhak dinormalisasi ke sesi aman yang direkomendasikan, dengan pesan singkat.
+Mengganti sesi tidak menyembunyikan area Results; hanya data dan blocker sesi
+yang berubah.
+
+Results menjawab empat pertanyaan berbeda:
 
 1. berapa attempt sudah dinilai;
 2. berapa yang perlu review;
@@ -951,10 +993,10 @@ bukan nilai resmi SNBT.
 
 | State | Kapten dapat melakukan | Kapten tidak dapat melakukan |
 |---|---|---|
-| Belum disimpan | Mengisi field, berpindah area, membuka preview, membuka Review | Mengatur sesi, mengundang, memantau, atau melihat hasil server |
-| Draf | Mengubah isi, save, Review, publish | Membuka sesi tanpa AssessmentRelease |
-| Diterbitkan dan belum terkunci | Meninjau rilis, publish pembaruan bila diperbolehkan | Mengubah rilis yang sudah dipakai sesi seolah-olah rilis lama berubah |
-| Terkunci setelah peserta mulai | Membaca, memantau, melihat result, membuat duplikasi | Mengubah konten fairness-sensitive di tempat |
+| Belum disimpan | Mengisi Overview; setelah save sukses lanjut ke Configure | Membuka langkah berikutnya, Delivery, Operations, atau Results |
+| Draf | Mengubah isi pada Configure, save, Readiness, publish | Mengatur sesi, mengundang, memantau, atau melihat hasil server |
+| Diterbitkan dan belum terkunci | Mengatur Delivery; membuka Operations/Results saat gate terpenuhi; Edit details; membuat draf perubahan | Membuka Build atau Review pada identity terbit |
+| Terkunci setelah peserta mulai | Membaca, memantau, melihat Results, membuat draf perubahan | Mengubah konten fairness-sensitive di tempat |
 
 ### 15.2 Siklus akses
 
@@ -979,9 +1021,9 @@ bukan nilai resmi SNBT.
 
 | Situasi | Respons yang benar |
 |---|---|
-| Review menampilkan Section tanpa sumber | Lengkapi Questions; jangan publish sambil mengandalkan sesi |
+| Review menampilkan Section tanpa sumber | Lengkapi sumber pada Configure Sections; jangan publish sambil mengandalkan sesi |
 | CAT memiliki kandidat kurang | Perbaiki CAT Pool atau jumlah soal; tidak ada fallback diam-diam |
-| Assembly tidak cocok dengan tipe Test | Ubah Rules atau pilih sumber kompatibel |
+| Assembly tidak cocok dengan tipe Test | Ubah Behavior & rules pada Configure atau pilih sumber kompatibel |
 | Sesi belum memiliki rilis | Publish Tryout sebelum membuka sesi |
 | Siswa tidak dapat mulai | Periksa admission, assignment, waktu, status sesi, dan AssessmentRelease |
 | Live tidak segar | Periksa waktu terakhir update; tekan Refresh manual setelah auto-refresh berhenti |
@@ -999,11 +1041,12 @@ bukan nilai resmi SNBT.
 | Berpindah tab | Tidak | Mengubah konteks workspace saja |
 | Membuka **Preview alur peserta** | Tidak | Tidak membuat admission, sesi, attempt, atau hasil |
 | Melihat **Sample sumber** Ready | Tidak | Readiness dan sample bersifat ilustratif |
-| Mengisi Basics/Sections/Questions/Rules sebelum save | Belum | Perubahan masih lokal |
+| Mengisi Overview/Configure sebelum save | Belum | Perubahan masih lokal |
 | **Simpan perubahan** Tryout | Ya | Membuat atau memperbarui Tryout |
 | **Terbitkan Tryout** | Ya | Membuat AssessmentRelease immutable |
 | **Terbitkan pembaruan** | Ya | Membuat rilis baru bila isi berubah |
-| **Duplikasi** | Ya | Membuat Tryout draf baru; rilis lama tetap |
+| **Edit details** pada Tryout terbit | Ya | Hanya mengubah judul dan deskripsi; tidak mengubah rilis atau konfigurasi peserta |
+| **Buat draf perubahan** | Ya | Membuat Tryout draf baru; parent, rilis, sesi, dan riwayat lama tetap |
 | **Simpan kebijakan** | Ya | Mengubah admission dan default result release |
 | **Buat sesi** | Ya | Membuat sesi delivery draf |
 | **Buka sesi** | Ya | Mengaktifkan jendela delivery |
@@ -1029,20 +1072,21 @@ bukan nilai resmi SNBT.
 | Daftar Tryout | **/mentor/tryout** |
 | Buat Tryout | **/mentor/tryout/create** |
 | Workspace Tryout | **/mentor/tryout/{tryoutId}** |
-| Fase Build | **/mentor/tryout/{tryoutId}?workspace=basics**, **sections**, **questions**, atau **rules** |
-| Fase Review & Publish | **/mentor/tryout/{tryoutId}?workspace=review** atau **publish** |
+| Fase Build | **/mentor/tryout/{tryoutId}?workspace=basics** atau **sections** (legacy **questions/rules** dinormalisasi) |
+| Fase Review & Publish | **/mentor/tryout/{tryoutId}?workspace=review** atau **publish** (legacy **readiness_publish** dinormalisasi) |
 | Fase Delivery | **/mentor/tryout/{tryoutId}?workspace=schedule&delivery=policy**, **sessions**, atau **participants** |
 | Fase Operations | **/mentor/tryout/{tryoutId}?workspace=live** atau **attempts** |
-| Fase Results | **/mentor/tryout/{tryoutId}?workspace=results** |
+| Fase Results | **/mentor/tryout/{tryoutId}?workspace=results&session={sessionId}** |
 | Buat sesi | **/mentor/tryout/{tryoutId}/operations/sessions/new** |
 | Detail sesi | **/mentor/tryout/{tryoutId}/operations/sessions/{sessionId}** |
 | Detail peserta | **/mentor/tryout/{tryoutId}/operations/participants/{admissionId}** |
 | Detail attempt | **/mentor/tryout/{tryoutId}/operations/attempts/{attemptId}** |
 
 URL lama untuk operations, policy, sessions, dan participants tetap diterima
-sebagai bookmark dan diarahkan ke tab workspace yang sesuai. Gunakan nama area
-workspace dalam dokumentasi dan link baru agar pengguna tidak merasa berpindah
-produk.
+sebagai bookmark dan diarahkan ke tab workspace yang sesuai. Pada Tryout draf,
+URL Delivery/Operations/Results kembali ke langkah draf terdekat; pada Tryout
+terbit, URL authoring kembali ke Delivery. Gunakan nama area workspace dalam
+dokumentasi dan link baru agar pengguna tidak merasa berpindah produk.
 
 ### Siswa
 

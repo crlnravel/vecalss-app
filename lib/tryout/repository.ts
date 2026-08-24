@@ -516,7 +516,8 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
       const current = await tx.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: { attempts: { take: 1 } } });
       if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
-      if (current.attempts.length) throw new TryoutValidationError("Tryout yang sudah dimulai peserta tidak dapat diubah. Gunakan Duplicate.");
+      if (current.status === ContentStatus.published) throw new TryoutValidationError("Tryout yang sudah terbit tidak dapat diubah strukturnya. Gunakan Buat draf perubahan.");
+      if (current.attempts.length) throw new TryoutValidationError("Tryout yang sudah dimulai peserta tidak dapat diubah. Gunakan Buat draf perubahan.");
       // A release-bound active session is participant-accessible. Keep its
       // physical bridge stable for the pinned release; the author must close
       // or archive that session before replacing section/item rows.

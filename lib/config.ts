@@ -48,12 +48,18 @@ function isDebugAccountSwitcherEnabled(env: NodeJS.ProcessEnv = process.env) {
 }
 
 /**
- * The preview workspace is deliberately opt-in. Every preview page, read
- * entry point, and mutation checks this capability again at request time so
- * an old tab cannot keep using the feature after it is disabled.
+ * The preview workspace is part of the normal admin workflow once the
+ * managed fixture has been seeded. Set ADMIN_STUDENT_PREVIEW_ENABLED=false
+ * for an explicit rollout pause. Every preview page, read entry point, and
+ * mutation checks this capability again at request time so an old tab cannot
+ * keep using the feature after it is disabled.
  */
 function isAdminStudentPreviewEnabled(env: NodeJS.ProcessEnv = process.env) {
-  return env.ADMIN_STUDENT_PREVIEW_ENABLED?.trim().toLowerCase() === "true";
+  const configured = env.ADMIN_STUDENT_PREVIEW_ENABLED?.trim().toLowerCase();
+
+  return configured === undefined || configured === ""
+    ? true
+    : configured === "true";
 }
 
 export {

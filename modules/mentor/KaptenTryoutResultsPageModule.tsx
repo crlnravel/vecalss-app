@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { BarChart3, ChevronRight, CircleAlert, ExternalLink, ShieldCheck, Upload } from "@/lib/icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,14 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
   const validSessionId = useMemo(() => initial.sessions.some((session) => session.id === activeSessionId) ? activeSessionId : initial.sessions[0]?.id ?? null, [activeSessionId, initial.sessions]);
   const activeSession = initial.sessions.find((session) => session.id === validSessionId) ?? null;
   const visibleSessions = activeSession ? [activeSession] : [];
+
+  useEffect(() => {
+    if (!selectedSessionId || !validSessionId || selectedSessionId === validSessionId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("workspace", "results");
+    url.searchParams.set("session", validSessionId);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [selectedSessionId, validSessionId]);
 
   const selectSession = (sessionId: string) => {
     setActiveSessionId(sessionId);

@@ -174,9 +174,10 @@ function canConfirmImport(
     && rowCount > 0
     && counts.total === rowCount
     && counts.invalid === 0
+    && counts.skipped === 0
     && counts.failed === 0
     && counts.processing === 0
-    && counts.pending + counts.skipped === counts.total;
+    && counts.pending === counts.total;
 }
 
 function getHandoffSelectionState(

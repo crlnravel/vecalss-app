@@ -151,6 +151,14 @@
       "dependencies": ["feat-008", "feat-018"],
       "status": "complete",
       "evidence": "a72d5fd + 5c422ac; owner-scoped safe student search, selected-session/idempotent invite wiring, required audit reason, sanitized authoritative refresh through toTryoutWorkspaceView, hidden scores/session attempts protection, busy-result race guards, accessible combobox/listbox semantics, focused invitation/participant/live contracts, TypeScript separation, focused ESLint, diff-check, pnpm lint/build, authenticated ego-browser desktop/mobile QA, Impeccable detector [], and fresh independent review PASS at artifacts/reviews/as04-invitation-picker-ui-followup-review-20260823; full verify remains blocked only by concurrent admin-preview ProcessEnv fixtures"
+    },
+    {
+      "id": "feat-020",
+      "name": "Tryout Gated Lifecycle Workspace",
+      "description": "Expose draft authoring and published operations as separate gated lifecycle modes with canonical workflow projection, contextual actions, and session-aware Live/Results routing",
+      "dependencies": ["feat-019"],
+      "status": "complete",
+      "evidence": "1001677 + 697d360 + 9b6f37a; draft Overview → Configure Sections → Readiness & Publish and published Delivery → Operations → Results navigation, pure workflow projection with monotonic legacy gates, sticky contextual actions and dirty navigation guard, published metadata allowlist, draft lineage, ?session normalization, selected-session Live/Results projections, focused workflow/authoring/live-result contracts, focused ESLint, and TypeScript; authenticated browser QA and full verify remain follow-up due unrelated concurrent admin-preview edits"
     }
   ]
 }

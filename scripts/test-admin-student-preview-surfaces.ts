@@ -8,6 +8,7 @@ import {
   sanitizePreviewText,
   sanitizePreviewVideo,
 } from "@/lib/admin/student-preview-content-contract";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import {
   buildAdminStudentPreviewMateriDocumentRoute,
   buildAdminStudentPreviewMateriRoute,
@@ -19,6 +20,17 @@ const [previewReadBoundarySource, previewReadsSource] = await Promise.all([
   readFile(resolve(root, "lib/admin/preview-read-boundary.ts"), "utf8"),
   readFile(resolve(root, "lib/admin/student-preview-reads.ts"), "utf8"),
 ]);
+
+assert.equal(
+  isAdminStudentPreviewEnabled({ NODE_ENV: "test" }),
+  true,
+  "student preview should be part of the normal admin workflow by default",
+);
+assert.equal(
+  isAdminStudentPreviewEnabled({ ADMIN_STUDENT_PREVIEW_ENABLED: "false", NODE_ENV: "test" }),
+  false,
+  "an explicit false flag must still disable student preview",
+);
 
 assert.equal(
   sanitizePreviewText("<p>Bacaan aman</p><script>alert('x')</script>\r\nBaris kedua"),

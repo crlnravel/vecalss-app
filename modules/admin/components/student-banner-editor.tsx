@@ -1,20 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/sonner";
 import type { FormState } from "@/modules/auth/form-state";
-import { FormNotice } from "@/modules/auth/components/form-notice";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
-import {
-  BookOpen,
-  Gauge,
-  House,
-  ListChecks,
-  type AppIcon,
-} from "@/lib/icons";
+import { BookOpen, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";
 import {
   resolveStudentBannerText,
   type StudentBannerContent,
@@ -24,7 +19,7 @@ import {
 import { buildAdminStudentPreviewRoute } from "@/lib/student/preview-routes";
 
 import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
-import { SyntaxHighlightedInput, SyntaxHighlightedTextarea } from "./syntax-highlighted-field";
+import { SyntaxHighlightedTextarea } from "./syntax-highlighted-field";
 
 type StudentBannerAction = (
   previousState: FormState,
@@ -39,28 +34,28 @@ const bannerDefinitions: Array<{
   route: string;
 }> = [
   {
-    description: "Banner utama setelah siswa masuk.",
+    description: "Main student banner.",
     icon: House,
     key: "beranda",
     label: "Beranda",
     route: "/dashboard",
   },
   {
-    description: "Pembuka katalog bacaan dan jalur belajar.",
+    description: "Materials banner.",
     icon: BookOpen,
     key: "materi",
     label: "Materi",
     route: "/courses",
   },
   {
-    description: "Pembuka katalog latihan soal.",
+    description: "Quiz banner.",
     icon: ListChecks,
     key: "kuis",
     label: "Kuis",
     route: "/quiz",
   },
   {
-    description: "Pembuka katalog simulasi ujian.",
+    description: "Tryout banner.",
     icon: Gauge,
     key: "tryout",
     label: "Tryout",
@@ -122,9 +117,7 @@ function BannerPreviewPanel({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Preview</p>
           <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-secondary-950">Student page banners</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">
-            This preview uses the text currently in the form. Beranda placeholders use a sample student so you can check the final sentence.
-          </p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Uses the current form text.</p>
         </div>
         <Button onClick={onClose} size="sm" type="button" variant="ghost">
           Close preview
@@ -203,17 +196,18 @@ function BannerEditorCard({
           >
             Heading
           </FieldLabel>
-          <SyntaxHighlightedInput
+          <Input
             aria-describedby={titleError ? `${key}-title-error` : undefined}
             aria-invalid={Boolean(titleError)}
             aria-label="Heading"
+            className="h-[52px] border-secondary-900/14 bg-white px-5 text-base text-secondary-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] focus-visible:border-primary-700/40 focus-visible:ring-4 focus-visible:ring-primary-700/12"
             defaultValue={state.fields?.[titleField] ?? banner.title}
             id={`${key}-title`}
             maxLength={180}
             name={titleField}
             required
           />
-          {titleError ? <p className="text-sm text-danger-700" id={`${key}-title-error`}>{titleError}</p> : null}
+          <FieldError error={titleError} id={`${key}-title-error`} />
         </Field>
 
         <Field>
@@ -237,7 +231,7 @@ function BannerEditorCard({
             name={descriptionField}
             required
           />
-          {descriptionError ? <p className="text-sm text-danger-700" id={`${key}-description-error`}>{descriptionError}</p> : null}
+          <FieldError error={descriptionError} id={`${key}-description-error`} />
         </Field>
       </div>
     </section>
@@ -270,6 +264,36 @@ function StudentBannerEditor({
   const formRef = useRef<HTMLFormElement>(null);
   const draftHasChanges = state.hasUnpublishedChanges ?? hasUnpublishedChanges;
   const currentVersion = state.fields?.version ?? version ?? "";
+  const toastKey = JSON.stringify([
+    state.status,
+    currentVersion,
+    state.message ?? "",
+    state.published ?? false,
+  ]);
+
+  const resultToastMessage = state.status === "success"
+    ? state.published
+      ? "Published."
+      : "Draft saved."
+    : state.message ?? "Couldn’t save.";
+  const dismissedToastKeyRef = useRef<string | null>(null);
+  const setDismissedToastKey = (key: string) => {
+    dismissedToastKeyRef.current = key;
+  };
+
+  useEffect(() => {
+    if (state.status === "idle" || dismissedToastKeyRef.current === toastKey) {
+      return;
+    }
+
+    setDismissedToastKey(toastKey);
+
+    if (state.status === "success") {
+      toast.success(resultToastMessage);
+    } else {
+      toast.error(resultToastMessage);
+    }
+  }, [resultToastMessage, state.status, toastKey]);
 
   function handlePreview() {
     if (formRef.current) {
@@ -283,10 +307,8 @@ function StudentBannerEditor({
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">Banner editor</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit student banners</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">
-              Draft copy stays private to this admin preview until you explicitly publish it.
-            </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-secondary-950">Edit banners</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">Drafts stay private until published.</p>
           </div>
           {previewHref ? (
             <Button
@@ -312,7 +334,6 @@ function StudentBannerEditor({
         ref={formRef}
       >
         <input name="version" type="hidden" value={state.fields?.version ?? version ?? ""} readOnly />
-        {state.message ? <FormNotice tone={state.status === "success" ? "success" : "danger"}>{state.message}</FormNotice> : null}
 
         <div className="grid gap-5 xl:grid-cols-2">
           {bannerDefinitions.map((definition) => (
@@ -332,12 +353,10 @@ function StudentBannerEditor({
                 {draftHasChanges ? "Unpublished draft" : "Published"}
               </span>
               <p className="text-sm font-medium text-secondary-900">
-                {draftHasChanges ? "Students still see the previous published copy." : "The draft matches what students see."}
+                {draftHasChanges ? "Students see the published copy." : "Matches the published copy."}
               </p>
             </div>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">
-              Save a draft to keep edits private. Publish when you want the new copy to appear on student pages.
-            </p>
+            <p className="mt-1 text-sm leading-6 text-secondary-600">Save a draft or publish it now.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={handlePreview} size="lg" type="button" variant="brandOutline">

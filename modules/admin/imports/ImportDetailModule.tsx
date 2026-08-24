@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronLeft,
   CircleAlert,
   CircleX,
   Download,
@@ -20,6 +20,17 @@ import {
   X,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { StudentBadge } from "@/components/ui/student-badge";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { toast } from "@/components/ui/sonner";
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
 import {
@@ -46,6 +57,7 @@ import {
 
 type HandoffMethod = "invite_link" | "temporary_password";
 type RowStatus = "created" | "failed" | "invalid" | "pending" | "processing" | "skipped" | "updated";
+type RowStatusTone = "danger" | "info" | "neutral" | "success" | "warning";
 
 const actionErrorMessages: Record<string, string> = {
   active_claims: "A worker is still finishing this import. Wait for the claim to expire, then retry.",
@@ -61,7 +73,7 @@ const actionErrorMessages: Record<string, string> = {
   import_retry_unavailable: "The failed rows could not be queued again. Refresh and try once more.",
   invalid_import_state: "This import is not in a state that accepts that action.",
   invalid_origin: "This action expired. Refresh the page and try again.",
-  invalid_rows_pending_skip: "Skip every invalid row before confirming the import.",
+  invalid_rows_pending_skip: "This bulk import is blocked because the CSV contains invalid rows. Correct the CSV and upload a new file; no rows will be imported.",
   invalid_selection: "The selected rows are no longer available for handoff release.",
   no_failed_rows: "There are no failed rows available for retry.",
   row_selection_invalid: "Select only failed rows from this result.",
@@ -110,7 +122,7 @@ function toneClasses(tone: ReturnType<typeof statusCopy>["tone"]) {
   return ADMIN_STATUS_CLASS_NAMES.neutral;
 }
 
-function rowStatusCopy(status: RowStatus) {
+function rowStatusCopy(status: RowStatus): { icon: React.ReactNode; label: string; tone: RowStatusTone } {
   switch (status) {
     case "created": return { icon: <CheckCircle2 aria-hidden="true" size={14} />, label: "Created", tone: "success" };
     case "updated": return { icon: <Check aria-hidden="true" size={14} />, label: "Updated", tone: "success" };
@@ -118,8 +130,13 @@ function rowStatusCopy(status: RowStatus) {
     case "invalid": return { icon: <CircleAlert aria-hidden="true" size={14} />, label: "Needs review", tone: "warning" };
     case "skipped": return { icon: <SkipForward aria-hidden="true" size={14} />, label: "Skipped", tone: "neutral" };
     case "processing": return { icon: <RefreshCw aria-hidden="true" size={14} />, label: "Processing", tone: "info" };
+    case "pending": return { icon: <FileClock aria-hidden="true" size={14} />, label: "Pending", tone: "warning" };
     default: return { icon: <FileClock aria-hidden="true" size={14} />, label: "Ready", tone: "info" };
   }
+}
+
+function rowBadgeTone(tone: RowStatusTone): "danger" | "info" | "neutral" | "success" | "attention" {
+  return tone === "warning" ? "attention" : tone;
 }
 
 function rowIssueLabel(code: string | null) {
@@ -302,86 +319,63 @@ function ImportStatusBanner({ importStatus }: { importStatus: ImportStatusDto })
   );
 }
 
-function ImportRowTable({
-  importStatus,
-  onToggleInvalid,
-  selectedInvalidRows,
-}: {
-  importStatus: ImportStatusDto;
-  onToggleInvalid: (rowId: string) => void;
-  selectedInvalidRows: Set<string>;
-}) {
-  const invalidRows = importStatus.rows.filter((row) => row.status === "invalid");
-  const toggleInvalidRows = () => {
-    const clearSelection = selectedInvalidRows.size === invalidRows.length;
-    for (const row of invalidRows) {
-      if (clearSelection || !selectedInvalidRows.has(row.rowId)) {
-        onToggleInvalid(row.rowId);
-      }
-    }
-  };
-
+function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
   return (
-    <div className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+    <section aria-labelledby="import-rows-heading" className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
       <div className="flex flex-col gap-3 border-b border-primary-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Preview rows</h2>
+          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-rows-heading">Preview rows</h2>
           <p className="mt-1 text-sm leading-6 text-secondary-600">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
         </div>
-        {invalidRows.length > 0 ? (
-          <Button onClick={toggleInvalidRows} size="default" variant="attentionOutline">
-            <CircleAlert aria-hidden="true" size={15} />
-            {selectedInvalidRows.size === invalidRows.length ? "Clear invalid selection" : "Select invalid rows"}
-          </Button>
-        ) : null}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="border-b border-primary-100 text-xs font-semibold text-secondary-600">
-            <tr>
-              <th className="w-14 px-4 py-3 font-semibold"><span className="sr-only">Select</span></th>
-              <th className="px-3 py-3 font-semibold">Row</th>
-              <th className="px-3 py-3 font-semibold">Email</th>
-              <th className="px-3 py-3 font-semibold">Operation</th>
-              <th className="px-3 py-3 font-semibold">State</th>
-              <th className="px-3 py-3 font-semibold">Explanation</th>
-            </tr>
-          </thead>
-          <tbody>
-            {importStatus.rows.map((row) => {
-              const copy = rowStatusCopy(row.status as RowStatus);
-              const isInvalid = row.status === "invalid";
-              return (
-                <tr className={`border-b border-primary-100 last:border-b-0 ${isInvalid ? "bg-student-status-attention-bg/45" : ""}`} key={row.rowId}>
-                  <td className="px-4 py-3 align-top">
-                    {isInvalid ? (
-                      <label className="flex min-h-11 items-center justify-center" title={`Select row ${row.rowNumber} to skip`}>
-                        <input aria-label={`Select invalid row ${row.rowNumber} to skip`} checked={selectedInvalidRows.has(row.rowId)} className="size-4 accent-primary-700" onChange={() => onToggleInvalid(row.rowId)} type="checkbox" />
-                      </label>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-3 align-top font-semibold tabular-nums text-secondary-900">{row.rowNumber}</td>
-                  <td className="max-w-[240px] px-3 py-3 align-top">
-                    <span className="block truncate font-semibold text-secondary-900">{row.normalizedEmail || "No email"}</span>
-                    <ImportInputSummary input={row.input} />
-                  </td>
-                  <td className="px-3 py-3 align-top text-secondary-600">{row.operation === "create" ? "Create" : row.operation === "update" ? "Update profile" : "No operation"}</td>
-                  <td className="px-3 py-3 align-top">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${copy.tone === "danger" ? ADMIN_STATUS_CLASS_NAMES.danger : copy.tone === "warning" ? ADMIN_STATUS_CLASS_NAMES.warning : copy.tone === "success" ? ADMIN_STATUS_CLASS_NAMES.success : copy.tone === "info" ? ADMIN_STATUS_CLASS_NAMES.info : ADMIN_STATUS_CLASS_NAMES.neutral}`}>
-                      {copy.icon}
-                      {copy.label}
-                    </span>
-                  </td>
-                  <td className="max-w-[270px] px-3 py-3 align-top text-xs leading-5 text-secondary-600">
-                    {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} handoff · ${row.handoffStatus.replaceAll("_", " ")}` : "Ready for the next step."}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <Table className="min-w-[760px] text-left text-sm">
+        <TableCaption className="sr-only">Import preview rows and their operation status.</TableCaption>
+        <TableHeader>
+          <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
+            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Row</TableHead>
+            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Email</TableHead>
+            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Operation</TableHead>
+            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">State</TableHead>
+            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Explanation</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {importStatus.rows.length > 0 ? importStatus.rows.map((row) => {
+            const copy = rowStatusCopy(row.status as RowStatus);
+            const isInvalid = row.status === "invalid";
+            return (
+              <TableRow className={isInvalid ? "bg-student-status-attention-bg/45" : undefined} key={row.rowId}>
+                <TableCell className="px-4 py-3.5 align-top font-semibold tabular-nums text-secondary-900 sm:px-5">{row.rowNumber}</TableCell>
+                <TableCell className="max-w-[240px] px-4 py-3.5 align-top sm:px-5">
+                  <span className="block truncate font-semibold text-secondary-900">{row.normalizedEmail || "No email"}</span>
+                  <ImportInputSummary input={row.input} />
+                </TableCell>
+                <TableCell className="px-4 py-3.5 align-top text-secondary-600 sm:px-5">{row.operation === "create" ? "Create" : row.operation === "update" ? "Update profile" : "No operation"}</TableCell>
+                <TableCell className="px-4 py-3.5 align-top sm:px-5">
+                  <StudentBadge size="sm" tone={rowBadgeTone(copy.tone)}>
+                    {copy.icon}
+                    {copy.label}
+                  </StudentBadge>
+                </TableCell>
+                <TableCell className="max-w-[270px] px-4 py-3.5 align-top text-xs leading-5 text-secondary-600 sm:px-5">
+                  {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} handoff · ${row.handoffStatus.replaceAll("_", " ")}` : "Ready for the next step."}
+                </TableCell>
+              </TableRow>
+            );
+          }) : (
+            <TableRow className="hover:bg-transparent">
+              <TableCell className="px-5 py-12 text-center" colSpan={5}>
+                <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                  <span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-primary-50 text-primary-800"><FileClock size={18} /></span>
+                  <p className="font-semibold text-secondary-900">No import rows</p>
+                  <p className="text-sm leading-6 text-secondary-600">The preview contains no rows to review.</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </section>
   );
 }
 
@@ -735,7 +729,7 @@ function HandoffDeliveryPanel({
               <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
                 <input aria-label={`Select handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-primary-700" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
                 <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs text-secondary-600">Expires {formatDate(row.handoffExpiresAt)}</span></span>
-                <span className="rounded-full bg-student-status-success-bg px-2 py-1 text-xs font-semibold text-student-status-success-fg">Pending</span>
+                <StudentBadge size="sm" tone="attention">Pending</StudentBadge>
               </label>
             ))}
           </div>
@@ -914,15 +908,10 @@ type ImportDetailViewProps = {
   onCancelArmedChange: (armed: boolean) => void;
   onHandoffMethodChange: (method: HandoffMethod) => void;
   onSessionIssueChange: (kind: "expired" | "forbidden" | null) => void;
-  onToggleInvalid: (rowId: string) => void;
   pollError: boolean;
   readIsStale: boolean;
   refreshing: boolean;
-  selectedInvalidRows: Set<string>;
   sessionIssue: "expired" | "forbidden" | null;
-  skipBusy: boolean;
-  skipInvalidRows: () => Promise<void>;
-  skipMessage: string;
 };
 
 function ImportDetailView({
@@ -941,15 +930,10 @@ function ImportDetailView({
   onCancelArmedChange,
   onHandoffMethodChange,
   onSessionIssueChange,
-  onToggleInvalid,
   pollError,
   readIsStale,
   refreshing,
-  selectedInvalidRows,
   sessionIssue,
-  skipBusy,
-  skipInvalidRows,
-  skipMessage,
 }: ImportDetailViewProps) {
   const invalidRows = importStatus.rows.filter((row) => row.status === "invalid");
   const canConfirm = canConfirmImport(importStatus.status, importStatus.rowCount, importStatus.counts);
@@ -959,14 +943,14 @@ function ImportDetailView({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
-          className="w-fit"
+          aria-label="Back to enrollment"
           nativeButton={false}
           render={<Link href="/admin/enrollment" />}
-          size="default"
+          size="icon"
+          title="Back to enrollment"
           variant="ghost"
         >
-          <ArrowLeft aria-hidden="true" size={15} />
-          Back to enrollment
+          <ChevronLeft aria-hidden="true" size={18} />
         </Button>
         <div className="flex items-center gap-2">
           <Button aria-label="Refresh import status" disabled={refreshing} onClick={() => void loadStatus()} size="default" variant="brandOutline">
@@ -987,7 +971,8 @@ function ImportDetailView({
       <section aria-labelledby="import-summary-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900" id="import-summary-heading">{importStatus.sourceFilename}</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900" id="import-summary-heading">Import review</h1>
+            <p className="mt-2 text-base font-semibold text-secondary-900">{importStatus.sourceFilename}</p>
             <p className="mt-1 text-sm text-secondary-600">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
           </div>
           <p className="text-xs text-secondary-600">Preview created {formatDate(importStatus.createdAt)}</p>
@@ -997,7 +982,7 @@ function ImportDetailView({
 
       {importStatus.status === "draft" ? (
         <>
-          <ImportRowTable importStatus={importStatus} onToggleInvalid={onToggleInvalid} selectedInvalidRows={selectedInvalidRows} />
+          <ImportRowTable importStatus={importStatus} />
           <section aria-labelledby="confirm-import-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -1011,19 +996,17 @@ function ImportDetailView({
                 {importStatus.counts.invalid ? <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" /> : <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
                 <span>
                   <strong className="block font-semibold">
-                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows need review` : "Ready to confirm"}
+                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows block this batch` : "Ready to confirm"}
                   </strong>
-                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">Skip invalid rows before confirming.</span> : null}
+                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">No rows will be imported until you upload a corrected CSV.</span> : null}
                 </span>
               </div>
             </div>
 
             {invalidRows.length > 0 ? (
-              <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
-                <p className="font-semibold">Confirmation is blocked until invalid rows are skipped</p>
-                <p className="mt-1 text-xs leading-5">Select the rows you intentionally want to leave out, then use “Skip selected invalid rows.” Duplicate, role-conflict, and malformed rows are never silently accepted.</p>
-                <Button className="mt-3" disabled={!selectedInvalidRows.size || skipBusy} onClick={() => void skipInvalidRows()} type="button" variant="attention"><SkipForward aria-hidden="true" size={16} />{skipBusy ? "Skipping…" : `Skip selected (${selectedInvalidRows.size})`}</Button>
-                {skipMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5" role="status">{skipMessage}</p> : null}
+              <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="alert">
+                <p className="font-semibold">Bulk import blocked</p>
+                <p className="mt-1 text-xs leading-5">This CSV contains {importStatus.counts.invalid} invalid row{importStatus.counts.invalid === 1 ? "" : "s"}. No rows will be imported. Correct the highlighted data, upload a new CSV, and start a fresh preview.</p>
               </div>
             ) : null}
 
@@ -1063,7 +1046,7 @@ function ImportDetailView({
           </section>
           {importStatus.status === "completed" || importStatus.status === "partial" || importStatus.status === "failed" ? <HandoffDeliveryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} /> : null}
           <RetryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} />
-          <ImportRowTable importStatus={importStatus} onToggleInvalid={() => undefined} selectedInvalidRows={new Set()} />
+          <ImportRowTable importStatus={importStatus} />
         </>
       )}
     </div>
@@ -1074,10 +1057,7 @@ type ImportDetailActionSetters = {
   setConfirmBusy: (busy: boolean) => void;
   setConfirmMessage: (message: string) => void;
   setPollError: (hasError: boolean) => void;
-  setSelectedInvalidRows: (value: Set<string>) => void;
   setSessionIssue: (issue: "expired" | "forbidden" | null) => void;
-  setSkipBusy: (busy: boolean) => void;
-  setSkipMessage: (message: string) => void;
 };
 
 function useImportDetailActions({
@@ -1085,64 +1065,20 @@ function useImportDetailActions({
   handoffMethod,
   importId,
   loadStatus,
-  selectedInvalidRows,
   setters,
 }: {
   canConfirm: boolean;
   handoffMethod: HandoffMethod;
   importId: string;
   loadStatus: ImportStatusLoader;
-  selectedInvalidRows: Set<string>;
   setters: ImportDetailActionSetters;
 }) {
   const {
     setConfirmBusy,
     setConfirmMessage,
     setPollError,
-    setSelectedInvalidRows,
     setSessionIssue,
-    setSkipBusy,
-    setSkipMessage,
   } = setters;
-
-  const toggleInvalidRow = useCallback((rowId: string) => {
-    const next = new Set(selectedInvalidRows);
-    if (next.has(rowId)) next.delete(rowId);
-    else next.add(rowId);
-    setSelectedInvalidRows(next);
-  }, [selectedInvalidRows, setSelectedInvalidRows]);
-
-  const skipInvalidRows = useCallback(async () => {
-    if (!selectedInvalidRows.size) return;
-    setSkipBusy(true);
-    setSkipMessage("Marking the selected invalid rows as skipped…");
-    try {
-      const response = await fetch(`/api/admin/imports/${encodeURIComponent(importId)}/rows/skip`, {
-        body: JSON.stringify({ rowIds: [...selectedInvalidRows] }),
-        cache: "no-store",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = await readJson(response);
-      const recovery = responseSessionIssue(response, payload);
-      if (recovery) {
-        setSessionIssue(recovery);
-        setPollError(false);
-        return;
-      }
-      if (!response.ok) {
-        setSkipMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The invalid rows could not be skipped."));
-        return;
-      }
-      setSelectedInvalidRows(new Set());
-      setSkipMessage("Selected invalid rows are now skipped. Review the counts before confirming.");
-      await loadStatus();
-    } catch {
-      setSkipMessage("The skip action could not reach the server. Refresh and try again.");
-    } finally {
-      setSkipBusy(false);
-    }
-  }, [importId, loadStatus, selectedInvalidRows, setPollError, setSelectedInvalidRows, setSessionIssue, setSkipBusy, setSkipMessage]);
 
   const confirmImport = useCallback(async () => {
     if (!canConfirm) return;
@@ -1163,19 +1099,23 @@ function useImportDetailActions({
         return;
       }
       if (!response.ok) {
-        setConfirmMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The import could not be confirmed."));
+        const message = apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The import could not be confirmed.");
+        setConfirmMessage(message);
+        toast.error("Bulk import blocked", { description: message });
         return;
       }
       setConfirmMessage("Import queued. This page will poll the database status and stop on a terminal result.");
       await loadStatus();
     } catch {
-      setConfirmMessage("The confirmation could not reach the server. Refresh before trying again.");
+      const message = "The confirmation could not reach the server. Refresh before trying again.";
+      setConfirmMessage(message);
+      toast.error("Import confirmation unavailable", { description: message });
     } finally {
       setConfirmBusy(false);
     }
   }, [canConfirm, handoffMethod, importId, loadStatus, setConfirmBusy, setConfirmMessage, setPollError, setSessionIssue]);
 
-  return { confirmImport, skipInvalidRows, toggleInvalidRow };
+  return { confirmImport };
 }
 
 type ImportDetailState = {
@@ -1190,10 +1130,7 @@ type ImportDetailState = {
   lastFetchedAt: number;
   pollError: boolean;
   refreshing: boolean;
-  selectedInvalidRows: Set<string>;
   sessionIssue: "expired" | "forbidden" | null;
-  skipBusy: boolean;
-  skipMessage: string;
 };
 
 type ImportDetailAction =
@@ -1206,10 +1143,7 @@ type ImportDetailAction =
   | { type: "pollError"; value: boolean }
   | { type: "refreshFinished" }
   | { type: "refreshStarted" }
-  | { type: "selectedInvalidRows"; value: Set<string> }
   | { type: "sessionIssue"; value: "expired" | "forbidden" | null }
-  | { type: "skipBusy"; value: boolean }
-  | { type: "skipMessage"; value: string }
   | { fetchedAt: number; importStatus: ImportStatusDto; type: "statusLoaded" };
 
 function importDetailReducer(
@@ -1235,14 +1169,8 @@ function importDetailReducer(
       return { ...state, refreshing: false };
     case "refreshStarted":
       return { ...state, refreshing: true };
-    case "selectedInvalidRows":
-      return { ...state, selectedInvalidRows: action.value };
     case "sessionIssue":
       return { ...state, sessionIssue: action.value };
-    case "skipBusy":
-      return { ...state, skipBusy: action.value };
-    case "skipMessage":
-      return { ...state, skipMessage: action.value };
     case "statusLoaded":
       return {
         ...state,
@@ -1272,10 +1200,7 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     lastFetchedAt: Date.now(),
     pollError: false,
     refreshing: false,
-    selectedInvalidRows: new Set<string>(),
     sessionIssue: null,
-    skipBusy: false,
-    skipMessage: "",
   }));
   const {
     activeSince,
@@ -1289,10 +1214,7 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
     lastFetchedAt,
     pollError,
     refreshing,
-    selectedInvalidRows,
     sessionIssue,
-    skipBusy,
-    skipMessage,
   } = state;
   const [clock, setClock] = useState(() => Date.now());
   const [pageVisible, setPageVisible] = useState(true);
@@ -1466,20 +1388,16 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
   const readIsStale = isImportPollingStatus(importStatus.status) && pollError && clock - lastFetchedAt > 30_000;
 
   const canConfirm = canConfirmImport(importStatus.status, importStatus.rowCount, importStatus.counts);
-  const { confirmImport, skipInvalidRows, toggleInvalidRow } = useImportDetailActions({
+  const { confirmImport } = useImportDetailActions({
     canConfirm,
     handoffMethod,
     importId: importStatus.importId,
     loadStatus,
-    selectedInvalidRows,
     setters: {
       setConfirmBusy: (value) => dispatch({ type: "confirmBusy", value }),
       setConfirmMessage: (value) => dispatch({ type: "confirmMessage", value }),
       setPollError: (value) => dispatch({ type: "pollError", value }),
-      setSelectedInvalidRows: (value) => dispatch({ type: "selectedInvalidRows", value }),
       setSessionIssue: (value) => dispatch({ type: "sessionIssue", value }),
-      setSkipBusy: (value) => dispatch({ type: "skipBusy", value }),
-      setSkipMessage: (value) => dispatch({ type: "skipMessage", value }),
     },
   });
 
@@ -1535,15 +1453,10 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       onCancelArmedChange={(value) => dispatch({ type: "cancelArmed", value })}
       onHandoffMethodChange={(value) => dispatch({ type: "handoffMethod", value })}
       onSessionIssueChange={(value) => dispatch({ type: "sessionIssue", value })}
-      onToggleInvalid={toggleInvalidRow}
       pollError={pollError}
       readIsStale={readIsStale}
       refreshing={refreshing}
-      selectedInvalidRows={selectedInvalidRows}
       sessionIssue={sessionIssue}
-      skipBusy={skipBusy}
-      skipInvalidRows={skipInvalidRows}
-      skipMessage={skipMessage}
     />
   );
 }

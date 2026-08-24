@@ -27,14 +27,15 @@ function FormNotice({
   return (
     <div
       aria-live={tone === "danger" ? "assertive" : "polite"}
+      role={tone === "danger" ? "alert" : "status"}
       className={cn(
         "animate-in fade-in-0 slide-in-from-top-1 rounded-4xl border px-4 py-2 text-base leading-7 shadow-[0_16px_36px_-28px_rgba(11,18,45,0.18)] duration-300",
         tone === "danger" &&
-          "border-danger-200 bg-[linear-gradient(180deg,#fff6f6_0%,#fdeeee_100%)] text-danger-700",
+          "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
         tone === "neutral" &&
-          "border-primary-100 bg-[linear-gradient(180deg,#fffaf0_0%,#f6efe1_100%)] text-secondary-900",
+          "border-primary-100 bg-primary-50/60 text-secondary-900",
         tone === "success" &&
-          "border-primary-200 bg-[linear-gradient(180deg,#f7fbf8_0%,#edf6ef_100%)] text-primary-800",
+          "border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg",
       )}
     >
       <div className={cn("flex gap-3", compact ? "items-center justify-center" : "items-start")}>
@@ -45,13 +46,13 @@ function FormNotice({
             compact && "border-transparent bg-transparent text-primary-700",
             !compact &&
               tone === "danger" &&
-              `border-danger-200/80 text-danger-600 ${showLabel ? "bg-white/72" : "bg-transparent"}`,
+              `border-student-status-danger-border text-student-status-danger-fg ${showLabel ? "bg-white/72" : "bg-transparent"}`,
             !compact &&
               tone === "neutral" &&
               "border-primary-100/90 bg-white/80 text-primary-700",
             !compact &&
               tone === "success" &&
-              "border-primary-200/80 bg-white/80 text-primary-700",
+              "border-student-status-success-border bg-white/80 text-student-status-success-fg",
           )}
         >
           <Icon className="size-4" />

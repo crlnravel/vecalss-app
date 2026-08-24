@@ -88,7 +88,7 @@ const ERROR_MESSAGES: Readonly<Record<ImportPreviewErrorCode | "column_count_mis
   invalid_import_role: "The import role is invalid.",
   invalid_import_template: "The import template is invalid for this role.",
   invalid_import_state: "This import is not ready for confirmation.",
-  invalid_rows_pending_skip: "Every invalid row must be explicitly skipped before confirmation.",
+  invalid_rows_pending_skip: "This bulk import is blocked because the CSV contains invalid rows. Correct the CSV and upload a new file; no rows will be imported.",
   invalid_email: "Enter a valid email address.",
   invalid_role: "Choose a supported import role.",
   invalid_template: "Choose a supported import template.",
@@ -676,7 +676,12 @@ function buildStatusDto(record: {
   };
 
   return {
-    canConfirm: record.status === EnrollmentImportStatus.draft && counts.invalid === 0,
+    canConfirm: record.status === EnrollmentImportStatus.draft
+      && counts.invalid === 0
+      && counts.skipped === 0
+      && counts.failed === 0
+      && counts.processing === 0
+      && counts.pending === counts.total,
     contentHash: record.contentHash,
     counts,
     createdAt: record.createdAt.toISOString(),
@@ -1126,12 +1131,12 @@ async function confirmEnrollmentImport(input: ConfirmEnrollmentImportInput): Pro
       throw new EnrollmentImportConfirmationError("invalid_import_state");
     }
 
-    if (rowCounts.some((row) => row.status !== EnrollmentImportRowStatus.pending && row.status !== EnrollmentImportRowStatus.skipped)) {
-      throw new EnrollmentImportConfirmationError("invalid_import_state");
+    if (counts.invalid > 0 || counts.skipped > 0) {
+      throw new EnrollmentImportConfirmationError("invalid_rows_pending_skip");
     }
 
-    if (counts.invalid > 0) {
-      throw new EnrollmentImportConfirmationError("invalid_rows_pending_skip");
+    if (rowCounts.some((row) => row.status !== EnrollmentImportRowStatus.pending)) {
+      throw new EnrollmentImportConfirmationError("invalid_import_state");
     }
 
     if (imported.dispatch_generation !== 0 || existingDispatch) {

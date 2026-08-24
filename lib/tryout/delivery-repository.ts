@@ -259,6 +259,9 @@ async function ensureActiveAssignment(
 
 async function assertTryoutNotStarted(tx: Prisma.TransactionClient, tryoutId: string) {
   await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${tryoutId}::uuid FOR UPDATE`;
+  const tryout = await tx.tryoutPackage.findUnique({ where: { id: tryoutId }, select: { status: true } });
+  if (!tryout) throw new TryoutDeliveryValidationError("Tryout tidak ditemukan.");
+  if (tryout.status !== ContentStatus.published) throw new TryoutDeliveryValidationError("Delivery hanya tersedia setelah Tryout diterbitkan.");
   const started = await tx.tryoutAttempt.findFirst({ where: { tryoutId }, select: { id: true } });
   if (started) throw new TryoutDeliveryValidationError("Tryout yang sudah dimulai peserta tidak dapat mengubah konfigurasi delivery.");
 }

@@ -172,9 +172,10 @@ AS $$
 DECLARE
   preview_purpose TEXT;
 BEGIN
-  SELECT "preview_purpose" INTO preview_purpose
-    FROM "users"
-    WHERE "id" = NEW."preview_student_id";
+  SELECT u."preview_purpose"
+    INTO preview_purpose
+    FROM "users" AS u
+    WHERE u."id" = NEW."preview_student_id";
   IF preview_purpose IS DISTINCT FROM 'admin.student-preview' THEN
     RAISE EXCEPTION USING
       ERRCODE = 'insufficient_privilege',

@@ -59,4 +59,20 @@ function FieldTextarea({
   );
 }
 
-export { Field, FieldInput, FieldLabel, FieldTextarea };
+function FieldError({
+  error,
+  id,
+}: {
+  error?: string;
+  id: string;
+}) {
+  if (!error) return null;
+
+  return (
+    <p className="text-sm leading-5 text-student-status-danger-fg" id={id} role="alert">
+      {error}
+    </p>
+  );
+}
+
+export { Field, FieldError, FieldInput, FieldLabel, FieldTextarea };

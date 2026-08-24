@@ -1,0 +1,36 @@
+name: vecalss-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vecalss
+      POSTGRES_PASSWORD: vecalss
+      POSTGRES_DB: vecalss_dev
+    ports:
+      - "55432:5432"
+    volumes:
+      - vecalss-dev-postgres:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vecalss -d vecalss_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "56379:6379"
+    volumes:
+      - vecalss-dev-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  vecalss-dev-postgres:
+  vecalss-dev-redis:

@@ -1,5 +1,32 @@
 # Session Progress Log
 
+## Tryout lifecycle refactor closeout (2026-08-24)
+
+- [x] Implemented the draft/published progressive-disclosure contract in the
+  mentor Tryout builder. Drafts expose Overview → Configure Sections →
+  Readiness & Publish; published Tryouts expose Delivery → Operations →
+  Results, with a locked lifecycle roadmap for orientation.
+- [x] Added the pure server-backed workflow projection at
+  `lib/tryout/workflow-projection.ts` and included its phase/gate/session
+  identifiers in the serialized operations DTO without returning release or
+  Bank Soal payloads. Legacy step aliases and historical operational evidence
+  remain monotonic; Live stays selected-session/runtime-eligible.
+- [x] Removed global header Preview/Save/Review actions. Save, continue,
+  preview, and publish now live in the sticky draft footer with explicit
+  Save/Discard/Stay handling and failed-save preservation.
+- [x] Added published title/description-only **Edit details**, explicit
+  **Buat draf perubahan** lineage (`parent` query), and session-aware Results
+  selection (`?session=`) plus selected-session Live filtering.
+- [x] Updated `docs/tryout-gated-workflow-refactor-plan.md` and
+  `docs/tryout-creation-guide.md` to describe the implemented contract and
+  keep historical screenshots clearly labeled.
+- [x] Verification: `pnpm test:tryout-workflow-projection`,
+  `pnpm test:tryout-authoring-workspace`, `pnpm test:tryout-live-result-workspaces`,
+  focused assembly/direct-question contracts, focused ESLint,
+  `pnpm exec tsc --noEmit`, and full `pnpm verify` pass. Authenticated browser
+  QA remains a follow-up after unrelated concurrent dirty admin-preview work
+  settles.
+
 ## Current State
 
 **Last Updated:** 2026-08-23

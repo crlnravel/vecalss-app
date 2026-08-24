@@ -84,7 +84,7 @@ function PortalShell({
                   <Breadcrumb>
                     <BreadcrumbList>
                       <BreadcrumbItem>
-                        <BreadcrumbLink className="text-secondary-500" href={rootHref}>
+                        <BreadcrumbLink className="text-secondary-700" href={rootHref}>
                           {activeLabel}
                         </BreadcrumbLink>
                       </BreadcrumbItem>

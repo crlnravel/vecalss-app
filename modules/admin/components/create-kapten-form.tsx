@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldInput, FieldLabel } from "@/components/ui/field";
 import { fieldControlClassName } from "@/components/ui/field-constants";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { FormNotice } from "@/modules/auth/components/form-notice";
@@ -35,18 +35,22 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
         <Field>
           <FieldLabel htmlFor="kapten-full-name">Kapten name</FieldLabel>
           <FieldInput
+            aria-describedby={state.fieldErrors?.fullName ? "kapten-full-name-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.fullName)}
             defaultValue={state.fields?.fullName ?? ""}
             id="kapten-full-name"
             name="fullName"
             placeholder="Dimas Pratama"
             required
           />
-          {state.fieldErrors?.fullName ? <p className="text-sm text-danger-700">{state.fieldErrors.fullName}</p> : null}
+          <FieldError error={state.fieldErrors?.fullName} id="kapten-full-name-error" />
         </Field>
 
         <Field>
           <FieldLabel htmlFor="kapten-email">Kapten email</FieldLabel>
           <FieldInput
+            aria-describedby={state.fieldErrors?.email ? "kapten-email-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.email)}
             defaultValue={state.fields?.email ?? ""}
             id="kapten-email"
             name="email"
@@ -54,7 +58,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
             required
             type="email"
           />
-          {state.fieldErrors?.email ? <p className="text-sm text-danger-700">{state.fieldErrors.email}</p> : null}
+          <FieldError error={state.fieldErrors?.email} id="kapten-email-error" />
         </Field>
 
         <Field>
@@ -71,6 +75,8 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
           <FieldLabel htmlFor="kapten-handoff-method">Credential handoff</FieldLabel>
           <select
             aria-label="Credential handoff"
+            aria-describedby={state.fieldErrors?.handoffMethod ? "kapten-handoff-method-error" : undefined}
+            aria-invalid={Boolean(state.fieldErrors?.handoffMethod)}
             className={fieldControlClassName}
             defaultValue={state.fields?.handoffMethod ?? "temporary_password"}
             id="kapten-handoff-method"
@@ -79,7 +85,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
             <option value="temporary_password">Temporary password</option>
             <option value="invite_link">Invite link (24 hours)</option>
           </select>
-          {state.fieldErrors?.handoffMethod ? <p className="text-sm text-danger-700">{state.fieldErrors.handoffMethod}</p> : null}
+          <FieldError error={state.fieldErrors?.handoffMethod} id="kapten-handoff-method-error" />
         </Field>
 
         <Field className="md:col-span-2">
