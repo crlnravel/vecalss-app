@@ -7,6 +7,10 @@ const builder = fs.readFileSync(
   "modules/mentor/KaptenQuestionBankBuilderPageModule.tsx",
   "utf8",
 );
+const detail = fs.readFileSync(
+  "modules/mentor/KaptenQuestionBankDetailPageModule.tsx",
+  "utf8",
+);
 const page = fs.readFileSync(
   "app/mentor/quiz/question-bank/[bankId]/page.tsx",
   "utf8",
@@ -26,6 +30,11 @@ assert.match(builder, /Kesiapan terbit:/u);
 assert.match(builder, /AlertTriangle/u);
 assert.match(builder, /showToast\(/u);
 assert.doesNotMatch(builder, /Semua soal siap diterbitkan|Siap dipakai|Tersimpan/u);
+assert.match(detail, /Kesiapan terbit:/u);
+assert.match(detail, /AlertTriangle/u);
+assert.match(detail, /Perlu diperbaiki/u);
+assert.match(detail, /showToast\(/u);
+assert.doesNotMatch(detail, /Soal Siap|Semua soal siap dipublikasikan|Siap dipakai|Belum lengkap/u);
 
 assert.match(builder, /Lihat masalah/u);
 assert.match(builder, /Masalah berikutnya/u);

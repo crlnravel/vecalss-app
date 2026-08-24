@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
+  AlertTriangle,
   Check,
   ChevronLeft,
   CircleHelp,
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { showToast } from "@/components/ui/sonner";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
 import {
@@ -208,6 +210,7 @@ function KaptenQuestionBankDetailPageModule({
         updatedAt: result.result.bank.updatedAt,
       }));
       setIsEditingTitle(false);
+      showToast("Judul Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
       setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah judul bank soal.");
@@ -243,6 +246,7 @@ function KaptenQuestionBankDetailPageModule({
         updatedAt: result.result.bank.updatedAt,
       }));
       setIsEditingDescription(false);
+      showToast("Deskripsi Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
       setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah deskripsi bank soal.");
@@ -273,6 +277,7 @@ function KaptenQuestionBankDetailPageModule({
         folderId: nextFolderId,
         ...(version ? { revision: version.revision, updatedAt: version.updatedAt } : {}),
       }));
+      showToast("Folder Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
       setLifecycleError(err instanceof Error ? err.message : "Gagal memindahkan folder.");
@@ -297,6 +302,7 @@ function KaptenQuestionBankDetailPageModule({
         revision: result.result.revision,
         updatedAt: result.result.updatedAt,
       }));
+      showToast("Kategori Bank Soal diperbarui.", { variant: "success" });
       router.refresh();
     } catch (err) {
       setLifecycleError(err instanceof Error ? err.message : "Gagal memperbarui kategori.");
@@ -319,6 +325,13 @@ function KaptenQuestionBankDetailPageModule({
         revision: result.result.revision,
         status: result.result.status,
       }));
+      const lifecycleMessage = {
+        archive: "Bank Soal diarsipkan.",
+        publish: "Bank Soal diterbitkan.",
+        restore: "Bank Soal dipulihkan.",
+        unpublish: "Bank Soal dijadikan draf.",
+      }[operation];
+      showToast(lifecycleMessage, { variant: "success" });
       router.refresh();
     } catch (err) {
       setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah status bank.");
@@ -342,7 +355,7 @@ function KaptenQuestionBankDetailPageModule({
 
   const publishDisabledReason =
     readiness.incompleteCount > 0
-      ? `${readiness.incompleteCount} soal belum lengkap`
+      ? `${readiness.incompleteCount} soal perlu diperbaiki sebelum diterbitkan`
       : undefined;
 
   return (
@@ -438,6 +451,11 @@ function KaptenQuestionBankDetailPageModule({
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : null}
+          {publishDisabledReason ? (
+            <p className="sr-only" id="publish-disabled-reason">
+              {publishDisabledReason}
+            </p>
           ) : null}
         </div>
       </div>
@@ -715,13 +733,14 @@ function KaptenQuestionBankDetailPageModule({
             <div>
               <span className="text-xs font-semibold text-secondary-500">Status Kesiapan</span>
               <p className="mt-1.5 text-sm font-semibold text-secondary-900">
-                {readiness.readyCount}/{readiness.totalCount} Soal Siap
+                Kesiapan terbit: {readiness.readyCount}/{readiness.totalCount}
               </p>
-              <p className="mt-0.5 text-xs text-secondary-500">
-                {readiness.incompleteCount > 0
-                  ? `${readiness.incompleteCount} soal perlu dilengkapi`
-                  : "Semua soal siap dipublikasikan"}
-              </p>
+              {readiness.incompleteCount > 0 ? (
+                <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-amber-900">
+                  <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+                  {readiness.incompleteCount} soal perlu diperbaiki
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -740,9 +759,14 @@ function KaptenQuestionBankDetailPageModule({
               </span>
             </div>
             <p className="text-sm text-secondary-600">
-              {readiness.readyCount} dari {readiness.totalCount} soal siap digunakan ·{" "}
-              {readiness.incompleteCount} soal perlu perbaikan
+              Kesiapan terbit: {readiness.readyCount}/{readiness.totalCount}
             </p>
+            {readiness.incompleteCount > 0 ? (
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-900">
+                <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
+                {readiness.incompleteCount} soal perlu diperbaiki
+              </p>
+            ) : null}
           </div>
 
           {/* Button on top of soal summary to go to the editor */}
@@ -783,11 +807,16 @@ function KaptenQuestionBankDetailPageModule({
               const questionIssues = readiness.issues.filter(
                 (issue) => issue.questionId === question.id,
               );
-              const isReady = questionIssues.length === 0;
+              const hasIssues = questionIssues.length > 0;
 
               return (
                 <article
-                  className="rounded-xl border border-primary-100 bg-white p-4 shadow-xs transition-shadow hover:border-primary-200 hover:shadow-sm sm:p-5"
+                  className={cn(
+                    "rounded-xl border p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5",
+                    hasIssues
+                      ? "border-amber-300 bg-amber-50/60 hover:border-amber-400"
+                      : "border-primary-100 bg-white hover:border-primary-200",
+                  )}
                   key={question.id}
                 >
                   <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -814,19 +843,12 @@ function KaptenQuestionBankDetailPageModule({
                             ? "Sulit"
                             : "Sedang"}
                       </Badge>
-                      {isReady ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                          <Check className="size-3.5" />
-                          Siap dipakai
+                      {hasIssues ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-950">
+                          <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+                          Perlu diperbaiki ({questionIssues.length})
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
-                          <span className="flex size-3.5 items-center justify-center rounded-full border border-amber-600 text-xs font-bold">
-                            !
-                          </span>
-                          Belum lengkap ({questionIssues.length} masalah)
-                        </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <Button
@@ -877,7 +899,7 @@ function KaptenQuestionBankDetailPageModule({
                             className={cn(
                               "flex items-start gap-2.5 rounded-xl border p-3 text-sm transition-colors",
                               isCorrect
-                                ? "border-emerald-200 bg-emerald-50/60 text-emerald-950 font-medium"
+                                ? "border-primary-200 bg-primary-50/60 text-primary-950 font-medium"
                                 : "border-secondary-100 bg-secondary-50/40 text-secondary-700",
                             )}
                             key={choice.id}
@@ -886,7 +908,7 @@ function KaptenQuestionBankDetailPageModule({
                               className={cn(
                                 "flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold uppercase",
                                 isCorrect
-                                  ? "bg-emerald-600 text-white"
+                                  ? "bg-primary-700 text-white"
                                   : "bg-secondary-200 text-secondary-700",
                               )}
                             >
@@ -905,7 +927,7 @@ function KaptenQuestionBankDetailPageModule({
                               ) : null}
                             </div>
                             {isCorrect ? (
-                              <Check className="size-4 shrink-0 text-emerald-600" />
+                              <span className="shrink-0 text-xs font-semibold text-primary-800">Kunci</span>
                             ) : null}
                           </div>
                         );

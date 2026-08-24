@@ -4,6 +4,7 @@ import fs from "node:fs";
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
 const builder = read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx");
+const detail = read("modules/mentor/KaptenQuestionBankDetailPageModule.tsx");
 const createRoute = read("app/mentor/quiz/question-bank/create/page.tsx");
 const detailRoute = read("app/mentor/quiz/question-bank/[bankId]/page.tsx");
 const editRoute = read("app/mentor/quiz/question-bank/[bankId]/editor/page.tsx");
@@ -54,6 +55,10 @@ assert.match(builder, /Soal terakhir tidak dapat dihapus/u);
 assert.match(builder, /const id = createQuestionId\(subjectCode\)/u);
 assert.match(builder, /Perlu diperbaiki/u);
 assert.doesNotMatch(builder, /<Check\b|Siap dipakai|Belum lengkap|Tersimpan/u);
+assert.match(detail, /Kesiapan terbit:/u);
+assert.match(detail, /Perlu diperbaiki/u);
+assert.match(detail, /showToast\(/u);
+assert.doesNotMatch(detail, /Soal Siap|Semua soal siap dipublikasikan|Siap dipakai|Belum lengkap/u);
 
 // Readiness issue traversal must identify the exact field/choice/media target,
 // announce progress, and hand off to a lifecycle action when content is locked.
