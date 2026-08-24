@@ -101,6 +101,7 @@ function MentorWorkspaceShell({
   onNavigateAway,
   searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
   session,
+  showBreadcrumb = true,
   showSearch = true,
   shouldGuardNavigation = false,
 }: {
@@ -112,6 +113,7 @@ function MentorWorkspaceShell({
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
   session: SessionContext;
+  showBreadcrumb?: boolean;
   showSearch?: boolean;
   shouldGuardNavigation?: boolean;
 }) {
@@ -301,28 +303,30 @@ function MentorWorkspaceShell({
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
                 <SidebarTrigger className="shrink-0" />
 
-                <div className="hidden min-w-0 flex-1 md:block">
-                  <Breadcrumb>
-                    <BreadcrumbList>
-                      <BreadcrumbItem>
-                        <BreadcrumbLink
-                          href={rootHref}
-                          className="text-secondary-500"
-                        >
-                          {activeLabel}
-                        </BreadcrumbLink>
-                      </BreadcrumbItem>
-                      {!isRootPage ? (
-                        <>
-                          <BreadcrumbSeparator />
-                          <BreadcrumbItem>
-                            <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
-                          </BreadcrumbItem>
-                        </>
-                      ) : null}
-                    </BreadcrumbList>
-                  </Breadcrumb>
-                </div>
+                {showBreadcrumb ? (
+                  <div className="hidden min-w-0 flex-1 md:block">
+                    <Breadcrumb>
+                      <BreadcrumbList>
+                        <BreadcrumbItem>
+                          <BreadcrumbLink
+                            href={rootHref}
+                            className="text-secondary-500"
+                          >
+                            {activeLabel}
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        {!isRootPage ? (
+                          <>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                              <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                            </BreadcrumbItem>
+                          </>
+                        ) : null}
+                      </BreadcrumbList>
+                    </Breadcrumb>
+                  </div>
+                ) : null}
 
                 {showSearch ? (
                   <div className="relative ml-auto hidden w-full max-w-sm md:block">

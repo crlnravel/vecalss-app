@@ -169,10 +169,12 @@ assert.match(packageOverview, /Tryout yang sudah ada tetap menggunakan versi akt
 assert.match(packageOverview, /Gunakan di Tryout/u, "Ready package overview should expose the Tryout handoff");
 assert.match(packageOverview, /disabled[\s\S]*package-handoff-unavailable/u, "No-version package overview should disable the Tryout handoff");
 assert.match(packageOverview, /savedDraft[\s\S]*released/u, "Package overview should render one-shot feedback states");
-assert.match(packageOverview, /Kembali ke Paket Soal/u, "Ready completion should offer a return-to-overview context");
+assert.match(packageOverview, /Lihat ikhtisar Paket/u, "Ready completion should offer a clear return-to-overview context");
+assert.match(packageOverview, /Kembali ke daftar Paket Soal/u, "Package overview should keep an explicit back link to the catalogue");
 assert.match(packageOverview, /Riwayat versi/u, "Version history should remain reachable as secondary information");
 assert.match(packageOverviewRoute, /searchParams/u, "Package overview route should parse query feedback");
 assert.match(packageOverviewRoute, /released === "1"/u, "Package overview route should recognize released=1 feedback");
 assert.match(packageOverviewRoute, /saved === "draft"/u, "Package overview route should recognize saved=draft feedback");
+assert.match(packageOverviewRoute, /showBreadcrumb=\{false\}/u, "Package overview should not repeat the shell breadcrumb");
 
 console.log("Mentor Bank Soal and Paket Soal UI contracts passed.");

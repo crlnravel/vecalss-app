@@ -80,7 +80,7 @@ function PackageCompletionState({ hub }: { hub: Hub }) {
       <p className="mt-3 text-sm font-semibold text-secondary-900">{hub.activeItemCount} soal · {packagePointsLabel(hub.activeTotalPoints)} poin</p>
       <div className="mt-5 flex flex-wrap gap-3">
         <Button nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/use`} />} size="sm" variant="brand"><ChevronRight />Gunakan di Tryout</Button>
-        <Button nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}`} />} size="sm" variant="brandOutline">Kembali ke Paket Soal</Button>
+        <Button nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}`} />} size="sm" variant="brandOutline">Lihat ikhtisar Paket</Button>
       </div>
     </section>
   );
@@ -104,7 +104,7 @@ function PackageVersionHistory({ hub }: { hub: Hub }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-secondary-900" id="package-version-history-heading">Riwayat versi</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-500">Buka snapshot untuk memeriksa isi dan binding Tryout. Riwayat ini tidak mengubah versi aktif.</p>
+          <p className="mt-1 text-sm leading-6 text-secondary-500">Buka versi tersimpan untuk melihat soal dan Tryout yang menggunakannya. Membuka riwayat tidak mengubah versi aktif.</p>
         </div>
         <span className="text-xs font-semibold text-secondary-500">{hub.versions.length} versi</span>
       </div>
@@ -136,11 +136,11 @@ function PackageVersionHistory({ hub }: { hub: Hub }) {
 
 function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubFeedback; hub: Hub }) {
   const editorHref = `/mentor/packages/${hub.id}/versions/new`;
-  const editorLabel = hub.availability === "draft" ? "Siapkan untuk Tryout" : hub.hasDraftChanges ? "Lanjutkan perubahan" : "Edit soal & poin";
+  const editorLabel = hub.availability === "draft" ? "Siapkan untuk Tryout" : hub.hasDraftChanges ? "Lanjutkan perubahan" : "Edit soal dan poin";
 
   return (
     <div className="w-full min-w-0">
-      <Button aria-label="Kembali ke Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke Paket Soal" variant="ghost"><ChevronLeft /></Button>
+      <Button aria-label="Kembali ke daftar Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke daftar Paket Soal" variant="ghost"><ChevronLeft /></Button>
 
       <header className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -152,7 +152,7 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
               {hub.hasDraftChanges ? <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">Perubahan draf</span> : null}
             </div>
           </div>
-          <Button aria-label="Edit informasi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit informasi Paket" variant="brandOutline"><Pencil /></Button>
+          <Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="brandOutline"><Pencil /></Button>
         </div>
         {hub.description ? <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">{hub.description}</p> : null}
         <dl className="mt-6 grid gap-4 border-t border-primary-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
