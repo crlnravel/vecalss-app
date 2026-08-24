@@ -8,7 +8,7 @@ import pg from "pg";
 const { Client } = pg;
 const TEST_DATABASE_ENV = "PACKAGE_ATOMIC_SAVE_TEST_DATABASE_URL";
 
-function assertLocalTestDatabase(raw: string) {
+function connectionIdentity(raw: string) {
   let parsed: URL;
   try {
     parsed = new URL(raw);
@@ -17,15 +17,31 @@ function assertLocalTestDatabase(raw: string) {
   }
 
   const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/gu, "");
-  const databaseName = decodeURIComponent(parsed.pathname.replace(/^\//u, ""));
+  const host = ["localhost", "127.0.0.1", "::1"].includes(hostname) ? "local" : hostname;
+  const port = Number(parsed.port || "5432");
+  const databaseName = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+  const userName = decodeURIComponent(parsed.username);
+  return { databaseName, host, port, protocol: parsed.protocol, userName };
+}
+
+function sameConnectionIdentity(left: ReturnType<typeof connectionIdentity>, right: ReturnType<typeof connectionIdentity>) {
+  return left.host === right.host
+    && left.port === right.port
+    && left.databaseName === right.databaseName
+    && left.userName === right.userName;
+}
+
+function assertLocalTestDatabase(raw: string, runtimeRaw?: string) {
+  const identity = connectionIdentity(raw);
+  const runtimeIdentity = runtimeRaw ? connectionIdentity(runtimeRaw) : null;
   if (
-    !["postgres:", "postgresql:"].includes(parsed.protocol)
-    || !["localhost", "127.0.0.1", "::1"].includes(hostname)
-    || !/(?:package|atomic|integration|test)/iu.test(databaseName)
+    !["postgres:", "postgresql:"].includes(identity.protocol)
+    || identity.host !== "local"
+    || !/(?:package|atomic|integration|test)/iu.test(identity.databaseName)
     || process.env.NODE_ENV === "production"
-    || raw === process.env.DATABASE_URL?.trim()
+    || (runtimeIdentity && sameConnectionIdentity(identity, runtimeIdentity))
   ) {
-    throw new Error(`${TEST_DATABASE_ENV} must point to a distinct non-production local test database.`);
+    throw new Error(`${TEST_DATABASE_ENV} must point to a distinct non-production local test database (host, port, database, and user are compared with runtime DATABASE_URL).`);
   }
 }
 
@@ -64,7 +80,9 @@ async function requiredTables(client: pg.Client) {
       CASE WHEN to_regclass('public.reusable_question_package_items') IS NULL THEN 'reusable_question_package_items' END,
       CASE WHEN to_regclass('public.reusable_question_package_versions') IS NULL THEN 'reusable_question_package_versions' END,
       CASE WHEN to_regclass('public.reusable_question_package_version_items') IS NULL THEN 'reusable_question_package_version_items' END,
-      CASE WHEN to_regclass('public.reusable_question_package_version_item_options') IS NULL THEN 'reusable_question_package_version_item_options' END
+      CASE WHEN to_regclass('public.reusable_question_package_version_item_options') IS NULL THEN 'reusable_question_package_version_item_options' END,
+      CASE WHEN to_regclass('public.tryout_packages') IS NULL THEN 'tryout_packages' END,
+      CASE WHEN to_regclass('public.tryout_sections') IS NULL THEN 'tryout_sections' END
     ], NULL) AS missing`,
   );
   assert.deepEqual(result.rows[0]?.missing ?? [], [], "The test database is missing the package atomic-save migrations.");
@@ -124,7 +142,7 @@ async function packageState(client: pg.Client, packageId: string) {
   };
 }
 
-async function cleanupFixture(client: pg.Client, { actorId, bankId, createdSubtest, packageIds, questionId, revisionIds, subtestId }: { actorId: string; bankId: string; createdSubtest: boolean; packageIds: readonly string[]; questionId: string; revisionIds: readonly string[]; subtestId: string }) {
+async function cleanupFixture(client: pg.Client, { actorId, bankId, createdSubtest, packageIds, questionId, revisionIds, sectionId, subtestId, tryoutId }: { actorId: string; bankId: string; createdSubtest: boolean; packageIds: readonly string[]; questionId: string; revisionIds: readonly string[]; sectionId: string; subtestId: string; tryoutId: string }) {
   // The assessment schema deliberately protects Ready rows with immutable
   // triggers and Restrict FKs.  This fixture is isolated to a dedicated local
   // test database, so cleanup temporarily disables triggers only for its own
@@ -135,16 +153,22 @@ async function cleanupFixture(client: pg.Client, { actorId, bankId, createdSubte
     "reusable_question_package_versions",
     "reusable_question_package_items",
     "reusable_question_packages",
+    "tryout_sections",
+    "tryout_packages",
     "question_revision_options",
     "question_revisions",
     "questions",
     "question_banks",
     "users",
   ];
+  let inTransaction = false;
   try {
     await client.query("BEGIN");
+    inTransaction = true;
     await client.query("SET CONSTRAINTS ALL DEFERRED");
     for (const table of tables) await client.query(`ALTER TABLE ${table} DISABLE TRIGGER ALL`);
+    await client.query("DELETE FROM tryout_sections WHERE id = $1::uuid", [sectionId]);
+    await client.query("DELETE FROM tryout_packages WHERE id = $1::uuid", [tryoutId]);
     for (const packageId of packageIds) {
       await client.query("DELETE FROM reusable_question_package_versions WHERE package_id = $1::uuid", [packageId]);
       await client.query("DELETE FROM reusable_question_packages WHERE id = $1::uuid", [packageId]);
@@ -157,8 +181,53 @@ async function cleanupFixture(client: pg.Client, { actorId, bankId, createdSubte
     if (createdSubtest) await client.query("DELETE FROM subtests WHERE id = $1::uuid", [subtestId]);
     for (const table of tables) await client.query(`ALTER TABLE ${table} ENABLE TRIGGER ALL`);
     await client.query("COMMIT");
-  } catch {
-    await client.query("ROLLBACK").catch(() => undefined);
+    inTransaction = false;
+  } catch (error) {
+    if (inTransaction) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], "Package fixture cleanup and rollback both failed.");
+      }
+    }
+    throw error;
+  }
+}
+
+async function assertFixtureAbsent(client: pg.Client, { actorId, bankId, createdSubtest, packageIds, questionId, revisionIds, sectionId, subtestId, tryoutId }: { actorId: string; bankId: string; createdSubtest: boolean; packageIds: readonly string[]; questionId: string; revisionIds: readonly string[]; sectionId: string; subtestId: string; tryoutId: string }) {
+  const result = await client.query<Record<string, number>>(
+    `SELECT
+      (SELECT COUNT(*)::int FROM users WHERE id = $1::uuid) AS users,
+      (SELECT COUNT(*)::int FROM question_banks WHERE id = $2::uuid) AS banks,
+      (SELECT COUNT(*)::int FROM questions WHERE id = $3::uuid) AS questions,
+      (SELECT COUNT(*)::int FROM question_revisions WHERE id = ANY($4::uuid[])) AS revisions,
+      (SELECT COUNT(*)::int FROM question_revision_options WHERE question_revision_id = ANY($4::uuid[])) AS revision_options,
+      (SELECT COUNT(*)::int FROM reusable_question_packages WHERE id = ANY($5::uuid[])) AS packages,
+      (SELECT COUNT(*)::int FROM reusable_question_package_items WHERE package_id = ANY($5::uuid[])) AS package_items,
+      (SELECT COUNT(*)::int FROM reusable_question_package_versions WHERE package_id = ANY($5::uuid[])) AS versions,
+      (SELECT COUNT(*)::int FROM reusable_question_package_version_items item JOIN reusable_question_package_versions package_version ON package_version.id = item.package_version_id WHERE package_version.package_id = ANY($5::uuid[])) AS version_items,
+      (SELECT COUNT(*)::int FROM reusable_question_package_version_item_options version_option JOIN reusable_question_package_version_items item ON item.id = version_option.package_version_item_id JOIN reusable_question_package_versions package_version ON package_version.id = item.package_version_id WHERE package_version.package_id = ANY($5::uuid[])) AS version_options,
+      (SELECT COUNT(*)::int FROM tryout_sections WHERE id = $6::uuid) AS sections,
+      (SELECT COUNT(*)::int FROM tryout_packages WHERE id = $7::uuid) AS tryouts`,
+    [actorId, bankId, questionId, revisionIds, packageIds, sectionId, tryoutId],
+  );
+  assert.deepEqual(result.rows[0], {
+    users: 0,
+    banks: 0,
+    questions: 0,
+    revisions: 0,
+    revision_options: 0,
+    packages: 0,
+    package_items: 0,
+    versions: 0,
+    version_items: 0,
+    version_options: 0,
+    sections: 0,
+    tryouts: 0,
+  }, "Package atomic-save fixture rows must be absent after cleanup");
+  if (createdSubtest) {
+    const subtest = await client.query<{ count: number }>("SELECT COUNT(*)::int AS count FROM subtests WHERE id = $1::uuid", [subtestId]);
+    assert.equal(subtest.rows[0]?.count, 0, "Created package fixture Subtest must be absent after cleanup");
   }
 }
 
@@ -168,7 +237,7 @@ async function main() {
     console.log(`Package atomic-save DB integration skipped: ${TEST_DATABASE_ENV} is required; configured DATABASE_URL is never used.`);
     return;
   }
-  assertLocalTestDatabase(rawDatabaseUrl);
+  assertLocalTestDatabase(rawDatabaseUrl, process.env.DATABASE_URL?.trim());
   process.env.DATABASE_URL = rawDatabaseUrl;
 
   const client = new Client({ connectionString: rawDatabaseUrl });
@@ -178,6 +247,8 @@ async function main() {
   const questionId = randomUUID();
   const revisionOneId = randomUUID();
   const revisionTwoId = randomUUID();
+  const tryoutId = randomUUID();
+  const sectionId = randomUUID();
   const packageIds: string[] = [];
   let subtestId = "";
   let createdSubtest = false;
@@ -256,6 +327,20 @@ async function main() {
     const firstState = await packageState(client, firstReady.id);
     assert.deepEqual(firstState.versions.map((version) => [version.version_no, version.status]), [[1, "published"]]);
     assert.equal(firstState.revision, 1, "Creating a package and releasing v1 starts at revision 1");
+    const firstVersionId = firstState.versions[0]?.id;
+    assert.ok(firstVersionId, "The first Ready save must return a persisted v1 row");
+    await client.query(
+      `INSERT INTO tryout_packages (id, code, title, created_by_user_id)
+       VALUES ($1::uuid, $2, 'Package Atomic Save Tryout', $3::uuid)`,
+      [tryoutId, `PACKAGE-ATOMIC-TRYOUT-${actorId.slice(0, 8)}`, actorId],
+    );
+    await client.query(
+      `INSERT INTO tryout_sections (id, tryout_id, subtest_id, title, sequence_no, duration_seconds, question_count, package_version_id)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, 'PU · Package Atomic Save', 1, 60, 1, $4::uuid)`,
+      [sectionId, tryoutId, subtestId, firstVersionId],
+    );
+    const initialBinding = await client.query<{ package_version_id: string | null }>("SELECT package_version_id FROM tryout_sections WHERE id = $1::uuid", [sectionId]);
+    assert.equal(initialBinding.rows[0]?.package_version_id, firstVersionId, "The fixture Tryout section must bind v1");
 
     await insertReadyRevision(client, { actorId, questionId, revisionId: revisionTwoId, revisionNo: 2, stem: "Updated prompt" });
     const secondReady = await saveReusableQuestionPackage({ ...base, completionIntent: "ready", id: firstReady.id, expectedRevision: firstState.revision, items: [item(revisionTwoId)], title: "Versioned fixture v2" }, actorId);
@@ -276,6 +361,8 @@ async function main() {
     assert.deepEqual(versionRows.rows.map((row) => row.version_no), [1, 2, 3, 4], "Ready updates must preserve v1-v3 and add v4");
     assert.ok(versionRows.rows.every((row) => row.status === "published"));
     assert.notEqual(versionRows.rows[0]?.source_content_digest, versionRows.rows[1]?.source_content_digest, "Each immutable snapshot must retain its pinned source content");
+    const bindingAfterReleases = await client.query<{ package_version_id: string | null }>("SELECT package_version_id FROM tryout_sections WHERE id = $1::uuid", [sectionId]);
+    assert.equal(bindingAfterReleases.rows[0]?.package_version_id, firstVersionId, "Later package releases must not repoint an existing Tryout section from v1");
 
     const latestState = await packageState(client, firstReady.id);
     await assert.rejects(
@@ -311,11 +398,33 @@ async function main() {
 
     console.log("Package atomic-save DB behavior passed (draft, v1, v4, stale CAS, concurrent numbering, rollback, pinned source identity).");
   } finally {
-    if (triggerName) await client.query(`DROP TRIGGER IF EXISTS "${triggerName}" ON reusable_question_package_version_items`).catch(() => undefined);
-    if (functionName) await client.query(`DROP FUNCTION IF EXISTS "${functionName}"()`).catch(() => undefined);
-    if (prismaClient) await prismaClient.$disconnect().catch(() => undefined);
-    await cleanupFixture(client, { actorId, bankId, createdSubtest, packageIds, questionId, revisionIds: [revisionOneId, revisionTwoId], subtestId }).catch(() => undefined);
-    await client.end().catch(() => undefined);
+    const cleanupErrors: unknown[] = [];
+    const attemptCleanup = async (label: string, operation: () => Promise<void>) => {
+      try {
+        await operation();
+      } catch (error) {
+        cleanupErrors.push(new AggregateError([error], `Package atomic-save ${label} failed.`));
+      }
+    };
+    if (triggerName) await attemptCleanup("trigger cleanup", async () => {
+      await client.query(`DROP TRIGGER IF EXISTS "${triggerName}" ON reusable_question_package_version_items`);
+    });
+    if (functionName) await attemptCleanup("failure-function cleanup", async () => {
+      await client.query(`DROP FUNCTION IF EXISTS "${functionName}"()`);
+    });
+    if (prismaClient) await attemptCleanup("Prisma disconnect", async () => {
+      await prismaClient!.$disconnect();
+    });
+    await attemptCleanup("fixture cleanup", async () => {
+      await cleanupFixture(client, { actorId, bankId, createdSubtest, packageIds, questionId, revisionIds: [revisionOneId, revisionTwoId], sectionId, subtestId, tryoutId });
+    });
+    await attemptCleanup("fixture absence assertion", async () => {
+      await assertFixtureAbsent(client, { actorId, bankId, createdSubtest, packageIds, questionId, revisionIds: [revisionOneId, revisionTwoId], sectionId, subtestId, tryoutId });
+    });
+    await attemptCleanup("PostgreSQL connection close", async () => {
+      await client.end();
+    });
+    if (cleanupErrors.length) throw new AggregateError(cleanupErrors, "Package atomic-save fixture cleanup failed.");
   }
 }
 
