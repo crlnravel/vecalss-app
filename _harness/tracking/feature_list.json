@@ -67,18 +67,18 @@
     {
       "id": "feat-009",
       "name": "AS-05 One Tryout Authoring Workspace",
-      "description": "Provide one mentor Tryout workspace for basics, fixed sections, source readiness, CBT/CAT rules, schedule/access, results, review, and publish",
+      "description": "Provide one mentor Tryout workspace for basics, fixed sections, direct question-source readiness, schedule/access, results, review, and publish",
       "dependencies": ["feat-008"],
       "status": "complete",
       "evidence": "1ea7b3d + c22ecb2 + 17a9d53 + a1bca11 + 72b95e9 + 848fd78 + 82733ee + bdb44a4; eight-area builder, legacy workspace query compatibility, explicit draft-vs-publish save boundary with no-argument regression guard, mode-scoped lifecycle roadmap (draft: Overview/Build/Review & Publish; published: Delivery/Operations/Results), single-action draft progression with auto-save, stripped workspace title/status/mode header with icon-only chevron back control, mounted Schedule & akses state, content/media/duplicate/CAT/duration/schedule readiness checks, shell-owned main landmark with route composition contract coverage, valid section-button semantics, historical release labeling, focused workspace contract, tsc, diff-check, pnpm verify, impeccable detector [], authenticated desktop/mobile browser QA with no body overflow, and fresh final review PASS"
     },
     {
       "id": "feat-010",
-      "name": "AS-06 Direct Question Picks and Optional Set Assembly",
-      "description": "Let Tryout mentors pick Ready questions directly across Bank Soal or use an existing fixed Set inline per Section, with immutable server snapshots",
+      "name": "AS-06 Direct Question Picks",
+      "description": "Let Tryout mentors choose a Bank Soal and checklist direct questions per Section, with randomized delivery and immutable server snapshots",
       "dependencies": ["feat-009"],
       "status": "complete",
-      "evidence": "9e0fafe + 61abfbb + c8a6d05; direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, git diff --check, and Impeccable detector; no migration required; independent finish review PASS on recheck"
+      "evidence": "9e0fafe + 61abfbb + c8a6d05 + f21d058; direct-only checklist source flow, CAT/assembly authoring controls removed, randomized section payloads, direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, and git diff --check; no migration required"
     },
     {
       "id": "feat-011",

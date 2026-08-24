@@ -1,5 +1,19 @@
 # Session Progress Log
 
+## Tryout direct-only question authoring simplification (2026-08-25)
+
+- [x] Simplified `KaptenTryoutBuilderPageModule` to one visible question-source
+  path: `Pilih langsung` → choose a Bank Soal → checklist questions for the
+  active Section.
+- [x] Removed CAT mode/rules, source-mode selection, Ready assembly picker and
+  preview/mock surfaces from the authoring UI. Selected question ordering is
+  now always randomized in defaults, normalization, and save payloads.
+- [x] Updated the direct-question, simplified-authoring, and workspace contracts;
+  TypeScript, focused ESLint, `git diff --check`, and `pnpm verify` pass.
+- [x] Commit: `f21d058` (`refine: simplify tryout question source UI`). Legacy
+  package/CAT server shapes remain only for compatibility with previously
+  persisted/released data; they are not authoring controls.
+
 ## Tryout lifecycle refactor closeout (2026-08-24)
 
 - [x] Implemented the draft/published progressive-disclosure contract in the

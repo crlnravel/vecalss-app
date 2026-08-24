@@ -147,6 +147,7 @@ assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /up
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /disabled=\{isQuestionContentLocked\} id="question-prompt"/u, "Archived question fields should be visibly disabled");
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /id=\{`bank-correct-choice-\$\{choice\.id\}`\}/u, "Correct-answer radios need stable ids for their letter labels");
 const packageCatalogue = read("modules/mentor/KaptenPackageCataloguePageModule.tsx");
+const packageCatalogueLoading = read("app/mentor/packages/loading.tsx");
 assert.match(packageCatalogue, /MentorCatalogueTable/u, "Paket Soal should use the reusable table wrapper");
 assert.match(packageCatalogue, /caption="Daftar Paket Soal"/u, "Paket Soal should expose a table caption");
 assert.doesNotMatch(packageCatalogue, /headingIcon=/u, "Paket Soal breadcrumb should not render a leading badge");
@@ -162,6 +163,11 @@ assert.doesNotMatch(packageCatalogue, /label: "Versi & penggunaan"/u, "Package c
 assert.doesNotMatch(packageCatalogue, /PackageCounts|Versi aktif: \{item\.activeItemCount\}/u, "Package titles should not repeat active counts and points below the entry title");
 assert.match(packageCatalogue, /label = item\.availability === "draft" \? "Siapkan untuk Tryout" : "Lanjutkan perubahan"/u, "Contextual row CTAs should match the lifecycle state");
 assert.match(packageCatalogue, /href=\{`\/mentor\/packages\/\$\{item\.id\}\/versions\/new`\}/u, "Contextual row CTAs should resume the package editor");
+assert.match(packageCatalogue, /tableClassName="min-w-0"/u, "Paket Soal should fit the available viewport without a forced horizontal table floor");
+assert.match(packageCatalogue, /id: "status"[\s\S]*width: 16/u, "Paket Soal status should use a compact column share");
+assert.match(packageCatalogue, /headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden px-1\.5 sm:px-5 lg:min-w-\[8rem\]"/u, "Paket Soal status should keep a compact desktop minimum");
+assert.match(packageCatalogue, /packageCompactDateFormatter/u, "Paket Soal dates should use compact narrow-screen metadata");
+assert.match(packageCatalogueLoading, /Table className="min-w-0 table-fixed/u, "Paket Soal loading should match the responsive table floor");
 assert.match(packageOverview, /Versi aktif/u, "Package overview should label the immutable active version");
 assert.match(packageOverview, /activeItemCount[\s\S]*activeTotalPoints[\s\S]*usageCount/u, "Package overview should expose active counts, points, and usage");
 assert.match(packageOverview, /Perubahan draf[\s\S]*draftItemCount[\s\S]*draftTotalPoints/u, "Package overview should keep pending counts separate from active counts");

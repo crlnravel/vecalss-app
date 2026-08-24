@@ -36,6 +36,9 @@ const packageDateFormatter = new Intl.DateTimeFormat("id-ID", {
   month: "short",
   year: "numeric",
 });
+const packageCompactDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+});
 
 function packageStatusCopy(status: PackageItem["availability"]) {
   return status === "ready" ? "Siap" : "Draf";
@@ -45,7 +48,7 @@ function PackageStatusPill({ status }: { status: PackageItem["availability"] }) 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+        "inline-flex max-w-full items-center truncate rounded-full border px-2.5 py-1 text-xs font-semibold",
         status === "ready"
           ? "border-primary-200 bg-primary-50 text-primary-800"
           : "border-[#ead9a5] bg-[#fff8df] text-[#856300]",
@@ -63,13 +66,14 @@ function PackageRowAction({ item }: { item: PackageItem }) {
   return (
     <Button
       aria-label={`${label} untuk ${item.title}`}
-      className="mt-2 w-fit"
+      className="mt-2 h-10 min-h-10 min-w-10 max-w-full p-0 sm:h-auto sm:min-h-6 sm:min-w-0 sm:px-2.5 sm:py-1 sm:text-left sm:whitespace-normal"
       nativeButton={false}
       render={<Link href={`/mentor/packages/${item.id}/versions/new`} />}
       size="xs"
+      title={label}
       variant="brand"
     >
-      {label}
+      <span className="hidden sm:inline">{label}</span>
       <ChevronRight />
     </Button>
   );
@@ -90,42 +94,51 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
           <Link aria-label={`Buka Paket Soal ${item.title}`} className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={`/mentor/packages/${item.id}`} title={item.title}>{item.title}</Link>
         </div>
       ),
-      headerClassName: "min-w-[14rem]",
+      cellClassName: "min-w-0 whitespace-normal px-1.5 sm:px-5",
+      headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden rounded-l-xl px-1.5 sm:px-5 lg:min-w-[12rem]",
       hideable: false,
       id: "package",
       label: "Paket Soal",
       width: 38,
     },
     {
-      cell: (item) => <span className="block max-w-[15rem] truncate text-sm text-secondary-700" title={item.sourceBankName}>{item.sourceBankName}</span>,
-      headerClassName: "min-w-[12rem]",
+      cell: (item) => <span className="block min-w-0 max-w-full truncate text-sm text-secondary-700" title={item.sourceBankName}>{item.sourceBankName}</span>,
+      cellClassName: "min-w-0 whitespace-normal px-1.5 sm:px-5",
+      headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden px-1.5 sm:px-5 lg:min-w-[10rem]",
       id: "source",
       label: "Bank sumber",
       width: 24,
     },
     {
-      cell: (item) => <span className="inline-flex rounded-full border border-primary-100 bg-primary-50/60 px-2.5 py-1 text-xs font-semibold text-primary-800">{item.subtest}</span>,
-      headerClassName: "min-w-[7rem]",
+      cell: (item) => <span className="inline-flex max-w-full truncate rounded-full border border-primary-100 bg-primary-50/60 px-2.5 py-1 text-xs font-semibold text-primary-800" title={item.subtest}>{item.subtest}</span>,
+      cellClassName: "min-w-0 whitespace-normal px-1.5 sm:px-5",
+      headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden px-1.5 sm:px-5 lg:min-w-[6rem]",
       id: "subtest",
       label: "Subtest",
       width: 12,
     },
     {
       cell: (item) => (
-        <div className="grid justify-items-start gap-1">
+        <div className="grid min-w-0 max-w-full justify-items-start gap-1 overflow-hidden">
           <PackageStatusPill status={item.availability} />
-          {item.hasDraftChanges ? <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">Perubahan draf</span> : null}
+          {item.hasDraftChanges ? <span className="inline-flex max-w-full truncate rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900" title="Perubahan draf"><span className="sm:hidden">Draf baru</span><span className="hidden sm:inline">Perubahan draf</span></span> : null}
           <PackageRowAction item={item} />
         </div>
       ),
-      headerClassName: "min-w-[12rem]",
+      cellClassName: "min-w-0 whitespace-normal px-1.5 sm:px-5",
+      headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden px-1.5 sm:px-5 lg:min-w-[8rem]",
       id: "status",
       label: "Status",
-      width: 20,
+      width: 16,
     },
     {
-      cell: (item) => <time className="text-sm text-secondary-600" dateTime={new Date(item.updatedAt).toISOString()}>{packageDateFormatter.format(new Date(item.updatedAt))}</time>,
-      headerClassName: "min-w-[9rem]",
+      cell: (item) => {
+        const date = new Date(item.updatedAt);
+        const fullDate = packageDateFormatter.format(date);
+        return <time aria-label={fullDate} className="block min-w-0 max-w-full truncate text-sm text-secondary-600" dateTime={date.toISOString()} title={fullDate}><span className="sm:hidden">{packageCompactDateFormatter.format(date)}</span><span className="hidden sm:inline">{fullDate}</span></time>;
+      },
+      cellClassName: "min-w-0 max-w-full overflow-hidden whitespace-normal px-1.5 sm:px-5",
+      headerClassName: "min-w-0 whitespace-normal break-words overflow-hidden px-1.5 sm:px-5 lg:min-w-[7rem]",
       id: "updated",
       label: "Diperbarui",
       width: 10,
@@ -190,7 +203,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
           loadingLabel="Memuat Paket Soal…"
           rows={items}
           search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau Subtest…", value: query }}
-          tableClassName="min-w-[760px]"
+          tableClassName="min-w-0"
         />
 
         {totalItems ? (

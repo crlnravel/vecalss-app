@@ -1,5 +1,19 @@
 # Session Handoff
 
+## Current Tryout direct-only question authoring (2026-08-25)
+
+- `f21d058` simplifies the Tryout Build surface to one source path:
+  `Pilih langsung`, Bank Soal selection, and a question checklist.
+- CAT mode/rules, alternative source modes, assembly picker/preview, mock
+  panels, and direct-question reordering controls are removed from the UI.
+  New sections default to randomized delivery and the save boundary always
+  sends `shuffleItems: true`.
+- Existing persisted package/CAT fields remain typed and server-compatible for
+  legacy data, but no longer have an authoring selector or CAT rules surface.
+- Focused direct-question, simplified-authoring, workspace contract tests,
+  TypeScript, focused ESLint, and `pnpm verify` pass. Preserve unrelated dirty
+  package/admin files in the worktree.
+
 ## Current Tryout gated lifecycle closeout (2026-08-24)
 
 - Lifecycle refactor is implemented in `1001677` plus workflow projection

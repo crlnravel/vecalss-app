@@ -45,15 +45,15 @@ export default function PackageLoading() {
                     </div>
                   </div>
 
-                  <Table className="min-w-[760px] table-fixed border-separate border-spacing-y-0">
+                  <Table className="min-w-0 table-fixed border-separate border-spacing-y-0">
                     <caption className="sr-only">Daftar Paket Soal</caption>
                     <TableHeader>
                       <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-                        <TableHead className="h-11 min-w-[14rem] rounded-l-xl px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Paket Soal</TableHead>
-                        <TableHead className="h-11 min-w-[12rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Bank sumber</TableHead>
-                        <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Subtest</TableHead>
-                        <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Status</TableHead>
-                        <TableHead className="h-11 min-w-[9rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Diperbarui</TableHead>
+                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden rounded-l-xl px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[12rem]">Paket Soal</TableHead>
+                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[10rem]">Bank sumber</TableHead>
+                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[6rem]">Subtest</TableHead>
+                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[8rem]">Status</TableHead>
+                        <TableHead className="h-11 min-w-0 whitespace-normal break-words overflow-hidden px-1.5 py-2.5 text-xs font-medium text-secondary-500 sm:px-5 lg:min-w-[7rem]">Diperbarui</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
