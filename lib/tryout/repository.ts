@@ -3,6 +3,7 @@ import "server-only";
 import { ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, ReusableQuestionPackageMode, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
 import { createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
+import { distinctTryoutUsageCounts, summarizePackageLifecycle, type PackageLifecycleItem } from "@/lib/tryout/package-lifecycle";
 import { prisma } from "@/lib/prisma";
 import { packageReleaseTitle } from "@/lib/tryout/version-label";
 
@@ -34,7 +35,7 @@ const sourceInclude = {
   subtest: true,
 } satisfies Prisma.QuestionInclude;
 const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
-const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1 } } satisfies Prisma.ReusableQuestionPackageInclude;
+const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
 const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true } } } } } }, packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
@@ -158,12 +159,80 @@ async function readAndValidateDirectSources(tx: Prisma.TransactionClient, select
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   return sourceQuestionIds.map((sourceQuestionId) => sourceById.get(sourceQuestionId)!);
 }
-function toPackageDto(record: Prisma.ReusableQuestionPackageGetPayload<{ include: typeof packageInclude }>) {
-  return { description: record.description ?? "", id: record.id, items: record.items.map((item) => ({ pointValue: Number(item.pointValue), sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined })), latestReadyVersionId: record.versions[0]?.id, latestReadyVersionNo: record.versions[0]?.versionNo, revision: record.revision, sourceBankId: record.sourceBankId, sourceBankName: record.sourceBank.name, status: record.status === ContentStatus.published ? "ready" as const : "draft" as const, subtest: record.subtest.code as SubjectCode, title: record.title, updatedAt: record.updatedAt.getTime() };
+type PackageReadRecord = Prisma.ReusableQuestionPackageGetPayload<{ include: typeof packageInclude }>;
+
+function packageLifecycleItems(items: readonly PackageLifecycleItem[]) {
+  return items.map((item) => ({
+    pointValue: item.pointValue,
+    sortOrder: item.sortOrder,
+    sourceContentDigest: item.sourceContentDigest,
+    sourceQuestionId: item.sourceQuestionId,
+    sourceQuestionRevisionId: item.sourceQuestionRevisionId,
+  }));
+}
+
+function packageLifecycleForRecord(record: PackageReadRecord, usageCount = 0) {
+  const latestPublishedVersion = record.versions[0];
+  return summarizePackageLifecycle({
+    draftItems: packageLifecycleItems(record.items),
+    latestPublishedVersion: latestPublishedVersion
+      ? {
+          id: latestPublishedVersion.id,
+          items: packageLifecycleItems(latestPublishedVersion.items),
+          versionNo: latestPublishedVersion.versionNo,
+        }
+      : null,
+    usageCount,
+  });
+}
+
+function toPackageDto(record: PackageReadRecord, usageCount = 0) {
+  const lifecycle = packageLifecycleForRecord(record, usageCount);
+  return {
+    activeItemCount: lifecycle.active?.itemCount ?? 0,
+    activeTotalPoints: lifecycle.active?.totalPoints ?? 0,
+    activeVersionId: lifecycle.active?.versionId,
+    activeVersionNo: lifecycle.active?.versionNo,
+    availability: lifecycle.availability,
+    description: record.description ?? "",
+    draftItemCount: lifecycle.draft.itemCount,
+    draftTotalPoints: lifecycle.draft.totalPoints,
+    hasDraftChanges: lifecycle.hasDraftChanges,
+    id: record.id,
+    items: record.items.map((item) => ({ pointValue: Number(item.pointValue), sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined })),
+    latestReadyVersionId: lifecycle.active?.versionId,
+    latestReadyVersionNo: lifecycle.active?.versionNo,
+    lifecycle,
+    revision: record.revision,
+    sourceBankId: record.sourceBankId,
+    sourceBankName: record.sourceBank.name,
+    status: lifecycle.availability,
+    subtest: record.subtest.code as SubjectCode,
+    title: record.title,
+    tryoutUsageCount: lifecycle.usageCount,
+    updatedAt: record.updatedAt.getTime(),
+    usageCount: lifecycle.usageCount,
+  };
 }
 function toTryoutDto(record: Prisma.TryoutPackageGetPayload<{ include: typeof tryoutInclude }>) {
   const release = record.assessmentReleases[0] ?? null;
   return { assessmentRelease: release ? { digest: release.contentDigest, id: release.id, number: release.releaseNumber, payload: release.payload, publishedAt: release.publishedAt.toISOString() } : null, description: record.description ?? "", id: record.id, locked: record.attempts.length > 0, sections: record.sections.map((section) => ({ catItemCount: section.catItemCount ?? undefined, directQuestions: section.packageVersionId ? [] : section.items.filter((item) => !item.packageVersionId && item.sourceQuestionId).map((item) => ({ bankId: item.sourceQuestion?.questionBank?.id, bankTitle: item.sourceQuestion?.questionBank?.name, catReady: Boolean(item.sourceQuestionRevision?.calibrations.some((calibration) => calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && Number.isFinite(Number(calibration.difficulty)) && Number.isFinite(Number(calibration.discrimination)) && Number(calibration.discrimination) > 0 && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown)), hasExplanation: Boolean(item.explanation?.trim() || item.explanationAssetId), hasReadyMedia: [item.promptAsset, item.explanationAsset, ...item.options.map((option) => option.asset)].every((asset) => !asset || asset.state === "ready"), prompt: item.prompt, sourceContentDigest: item.sourceContentDigest ?? undefined, sourceQuestionId: item.sourceQuestionId!, sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined })), durationMinutes: Math.round(section.durationSeconds / 60), id: section.id, instructions: section.instructions ?? "", packageVersionId: section.packageVersionId ?? undefined, packageVersionLabel: section.packageVersion ? packageReleaseTitle(section.packageVersion.package.title, section.packageVersion.versionNo) : undefined, packageVersionMode: section.packageVersion?.package.mode ?? undefined, scoringConfig: section.scoringConfig as Record<string, unknown> | undefined, shuffleItems: section.shuffleItems, subtest: section.subtest.code as SubjectCode, testType: section.testType === TryoutTestType.cat ? "cat" as const : "cbt" as const })), status: record.status === ContentStatus.published ? "published" as const : "draft" as const, title: record.title, updatedAt: record.updatedAt.getTime() };
+}
+
+async function readPackageUsageCounts(packageIds: readonly string[], client: typeof prisma | Prisma.TransactionClient = prisma) {
+  if (!packageIds.length) return new Map<string, number>();
+  const bindings = await client.tryoutSection.findMany({
+    where: {
+      packageVersion: {
+        is: {
+          packageId: { in: [...packageIds] },
+          status: ContentStatus.published,
+        },
+      },
+    },
+    select: { packageVersion: { select: { packageId: true } }, tryoutId: true },
+  });
+  return distinctTryoutUsageCounts(bindings.flatMap((binding) => binding.packageVersion ? [{ packageId: binding.packageVersion.packageId, tryoutId: binding.tryoutId }] : []));
 }
 
 async function listReusableQuestionPackages(actorId: string, options: { page?: number; query?: string; status?: "draft" | "ready"; subtest?: string } = {}) {
@@ -171,7 +240,8 @@ async function listReusableQuestionPackages(actorId: string, options: { page?: n
   const pageSize = 12;
   const where: Prisma.ReusableQuestionPackageWhereInput = {
     createdByUserId: actorId,
-    ...(options.status ? { status: options.status === "ready" ? ContentStatus.published : ContentStatus.draft } : {}),
+    ...(options.status === "ready" ? { versions: { some: { status: ContentStatus.published } } } : {}),
+    ...(options.status === "draft" ? { versions: { none: { status: ContentStatus.published } } } : {}),
     ...(options.subtest ? { subtest: { code: options.subtest } } : {}),
     ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" as const } }, { description: { contains: query, mode: "insensitive" as const } }, { subtest: { code: { contains: query, mode: "insensitive" as const } } }] } : {}),
   };
@@ -179,18 +249,48 @@ async function listReusableQuestionPackages(actorId: string, options: { page?: n
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const page = Math.min(Math.max(1, options.page ?? 1), totalPages);
   const records = await prisma.reusableQuestionPackage.findMany({ where, include: packageInclude, orderBy: { updatedAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
-  return { items: records.map(toPackageDto), page, pageSize, totalItems, totalPages };
+  const usageCounts = await readPackageUsageCounts(records.map((record) => record.id));
+  return { items: records.map((record) => toPackageDto(record, usageCounts.get(record.id) ?? 0)), page, pageSize, totalItems, totalPages };
 }
-async function getReusableQuestionPackageForEdit(id: string, actorId: string) { const record = await prisma.reusableQuestionPackage.findFirst({ where: { id, createdByUserId: actorId }, include: packageInclude }); return record ? toPackageDto(record) : null; }
+async function getReusableQuestionPackageForEdit(id: string, actorId: string) {
+  const record = await prisma.reusableQuestionPackage.findFirst({ where: { id, createdByUserId: actorId }, include: packageInclude });
+  if (!record) return null;
+  const usageCounts = await readPackageUsageCounts([record.id]);
+  return toPackageDto(record, usageCounts.get(record.id) ?? 0);
+}
 async function getReusableQuestionPackageVersionHub(id: string, actorId: string) {
   const record = await prisma.reusableQuestionPackage.findFirst({
     where: { id, createdByUserId: actorId },
-    include: { sourceBank: true, subtest: true, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" }, select: { createdAt: true, readyAt: true, versionNo: true, _count: { select: { items: true, tryoutSections: true } } } } },
+    include: packageInclude,
   });
   if (!record) return null;
+  const [versions, usageCounts] = await Promise.all([
+    prisma.reusableQuestionPackageVersion.findMany({
+      where: { packageId: record.id, status: ContentStatus.published },
+      orderBy: { versionNo: "desc" },
+      select: { createdAt: true, readyAt: true, versionNo: true, _count: { select: { items: true, tryoutSections: true } } },
+    }),
+    readPackageUsageCounts([record.id]),
+  ]);
+  const lifecycle = packageLifecycleForRecord(record, usageCounts.get(record.id) ?? 0);
   return {
-    description: record.description ?? "", id: record.id, sourceBankName: record.sourceBank.name, subtest: record.subtest.code as SubjectCode, title: record.title,
-    versions: record.versions.map((version) => ({ createdAt: version.createdAt.getTime(), itemCount: version._count.items, readyAt: version.readyAt?.getTime(), testCount: version._count.tryoutSections, versionNo: version.versionNo })),
+    activeItemCount: lifecycle.active?.itemCount ?? 0,
+    activeTotalPoints: lifecycle.active?.totalPoints ?? 0,
+    activeVersionId: lifecycle.active?.versionId,
+    activeVersionNo: lifecycle.active?.versionNo,
+    availability: lifecycle.availability,
+    description: record.description ?? "",
+    draftItemCount: lifecycle.draft.itemCount,
+    draftTotalPoints: lifecycle.draft.totalPoints,
+    hasDraftChanges: lifecycle.hasDraftChanges,
+    id: record.id,
+    lifecycle,
+    sourceBankName: record.sourceBank.name,
+    subtest: record.subtest.code as SubjectCode,
+    title: record.title,
+    tryoutUsageCount: lifecycle.usageCount,
+    usageCount: lifecycle.usageCount,
+    versions: versions.map((version) => ({ createdAt: version.createdAt.getTime(), itemCount: version._count.items, readyAt: version.readyAt?.getTime(), testCount: version._count.tryoutSections, versionNo: version.versionNo })),
   };
 }
 async function getReusableQuestionPackageVersionDetail(packageId: string, versionNo: number, actorId: string) {
@@ -265,7 +365,9 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
       const source = sourceById.get(item.sourceQuestionId)!;
       return { packageId: id!, pointValue: item.pointValue, sourceContentDigest: source.currentRevision!.contentDigest, sourceQuestionId: item.sourceQuestionId, sourceQuestionRevisionId: source.currentRevision!.id, sourceRevisionProvenance: source.currentRevision!.provenance, sortOrder: index + 1 };
     }) });
-    return toPackageDto(await tx.reusableQuestionPackage.findUniqueOrThrow({ where: { id }, include: packageInclude }));
+    const saved = await tx.reusableQuestionPackage.findUniqueOrThrow({ where: { id }, include: packageInclude });
+    const usageCounts = await readPackageUsageCounts([id], tx);
+    return toPackageDto(saved, usageCounts.get(id) ?? 0);
   });
 }
 
@@ -275,7 +377,9 @@ async function saveReusableQuestionPackageMetadata(input: PackageMetadataInput, 
     await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${input.id}::uuid FOR UPDATE`;
     const current = await tx.reusableQuestionPackage.findFirst({ where: { id: input.id, createdByUserId: actorId } });
     if (!current) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
-    return toPackageDto(await tx.reusableQuestionPackage.update({ where: { id: input.id }, data: { description: input.description.trim() || null, revision: { increment: 1 }, title: input.title.trim(), updatedByUserId: actorId }, include: packageInclude }));
+    const saved = await tx.reusableQuestionPackage.update({ where: { id: input.id }, data: { description: input.description.trim() || null, revision: { increment: 1 }, title: input.title.trim(), updatedByUserId: actorId }, include: packageInclude });
+    const usageCounts = await readPackageUsageCounts([input.id], tx);
+    return toPackageDto(saved, usageCounts.get(input.id) ?? 0);
   });
 }
 
