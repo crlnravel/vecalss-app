@@ -52,8 +52,8 @@ assert.match(builder, /const nextActiveQuestion = questions\[0\]!/u);
 assert.match(builder, /disabled=\{isDisabled \|\| builderState\.questions\.length <= 1\}/u);
 assert.match(builder, /Soal terakhir tidak dapat dihapus/u);
 assert.match(builder, /const id = createQuestionId\(subjectCode\)/u);
-assert.match(builder, /Siap dipakai/u);
-assert.match(builder, /Belum lengkap/u);
+assert.match(builder, /Perlu diperbaiki/u);
+assert.doesNotMatch(builder, /<Check\b|Siap dipakai|Belum lengkap|Tersimpan/u);
 
 // Readiness issue traversal must identify the exact field/choice/media target,
 // announce progress, and hand off to a lifecycle action when content is locked.
