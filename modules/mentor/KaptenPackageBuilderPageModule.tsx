@@ -13,12 +13,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { kaptenSubjects, type BankQuestion, type KaptenQuestionBank } from "@/modules/mentor/mock-data";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
-import { readyReusableQuestionPackageVersionAction, saveReusableQuestionPackageAction } from "@/modules/mentor/tryout-actions";
+import { saveReusableQuestionPackageAction } from "@/modules/mentor/tryout-actions";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
 type SubjectCode = (typeof subjectCodes)[number];
 type PackageItem = { pointValue: number; sourceQuestionId: string; sourceQuestionRevisionId?: string };
-type PackageDraft = { description: string; id: string; items: PackageItem[]; latestReadyVersionNo?: number; sourceBankId: string; sourceBankName?: string; status: "draft" | "ready"; subtest: SubjectCode; title: string };
+type PackageSaveIntent = "draft" | "ready";
+type PackageDraft = { description: string; id: string; items: PackageItem[]; latestReadyVersionNo?: number; revision?: number; sourceBankId: string; sourceBankName?: string; status: "draft" | "ready"; subtest: SubjectCode; title: string };
 type Source = { bank: KaptenQuestionBank; questions: BankQuestion[] };
 type SourceCatalogPage = { page: number; pageSize: number; total: number };
 type SourceCategory = { id: string; name: string };
@@ -56,13 +57,16 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   const [scoreErrors, setScoreErrors] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [pendingBankId, setPendingBankId] = useState<string | null>(null);
+  const [pendingSubtest, setPendingSubtest] = useState<SubjectCode | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [confirmReady, setConfirmReady] = useState(false);
+  const navigatingAfterSaveRef = useRef(false);
   const saved = Boolean(id);
   const hasUnsavedChanges = useMemo(() => packageDraftSignature(draft) !== savedDraftSignature, [draft, savedDraftSignature]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => { if (navigatingAfterSaveRef.current) return; event.preventDefault(); };
     const handleRouteClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!target || target.getAttribute("target") === "_blank" || target.getAttribute("href")?.startsWith("#")) return;
@@ -141,7 +145,9 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   const candidates = useMemo(() => selectedSource?.questions.filter((question) => question.subjectCode === draft.subtest) ?? [], [draft.subtest, selectedSource]);
   const selectedQuestionById = useMemo(() => new Map(candidates.map((question) => [question.id, question])), [candidates]);
   const availableQuestions = useMemo(() => candidates.filter((question) => !draft.items.some((item) => item.sourceQuestionId === question.id) && question.prompt.toLowerCase().includes(questionSearch.trim().toLowerCase())), [candidates, draft.items, questionSearch]);
-  const canReady = saved && draft.items.length > 0 && draft.items.every((item) => Number.isFinite(item.pointValue) && item.pointValue > 0);
+  const draftTotalPoints = useMemo(() => draft.items.reduce((total, item) => total + (Number.isFinite(item.pointValue) ? item.pointValue : 0), 0), [draft.items]);
+  const canReady = Boolean(draft.sourceBankId) && draft.items.length > 0 && draft.items.every((item) => Number.isFinite(item.pointValue) && item.pointValue > 0);
+  const readyActionLabel = draft.latestReadyVersionNo ? "Terapkan perubahan" : "Siapkan untuk Tryout";
 
   const changeBank = useCallback((bankId: string) => {
     if (bankId === draft.sourceBankId) return;
@@ -161,7 +167,16 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   };
   const changeSubtest = (subtest: SubjectCode) => {
     if (subtest === draft.subtest) return;
+    if (draft.items.length) { setPendingSubtest(subtest); return; }
     setDraft((current) => ({ ...current, items: [], subtest }));
+    setQuestionSearch("");
+    setSourceQuestionPage(1);
+    setSourceQuestionTotal(0);
+  };
+  const confirmSubtestChange = () => {
+    if (!pendingSubtest) return;
+    setDraft((current) => ({ ...current, items: [], subtest: pendingSubtest }));
+    setPendingSubtest(null);
     setQuestionSearch("");
     setSourceQuestionPage(1);
     setSourceQuestionTotal(0);
@@ -194,32 +209,22 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
     options.push(<Button className="h-auto justify-start py-2 text-left" key={bank.id} onClick={() => changeBank(bank.id)} variant={bank.id === draft.sourceBankId ? "contextSelected" : "ghost"}><span className="min-w-0 truncate">{packageBankLabel(bank)}</span></Button>);
     return options;
   }, []), [bankCategoryFilter, bankSearch, changeBank, draft.sourceBankId, sourceEntries]);
-  const save = async () => {
+  const save = async (completionIntent: PackageSaveIntent) => {
     setError(null);
+    setConflict(false);
     if (!validate()) return;
     setSaving(true);
     try {
-      const result = await saveReusableQuestionPackageAction({ description: draft.description, id, items: draft.items, sourceBankId: draft.sourceBankId, subtest: draft.subtest, title: draft.title });
-      if (!result.ok) { setError(result.message); return; }
-      setDraft(result.result);
-      setSavedDraftSignature(packageDraftSignature(result.result));
-      if (!id) window.location.assign(`/mentor/packages/${result.result.id}/versions/new`);
+      const result = await saveReusableQuestionPackageAction({ completionIntent, description: draft.description, expectedRevision: draft.revision, id, items: draft.items, sourceBankId: draft.sourceBankId, subtest: draft.subtest, title: draft.title });
+      if (!result.ok) { setConflict(result.code === "package_conflict"); setError(result.message); return; }
+      const savedPackage = result.result.package;
+      const nextDraft: PackageDraft = { ...draft, id: savedPackage.id, latestReadyVersionNo: savedPackage.latestReadyVersionNo, revision: savedPackage.revision, status: savedPackage.status };
+      setDraft(nextDraft);
+      setSavedDraftSignature(packageDraftSignature(nextDraft));
+      navigatingAfterSaveRef.current = true;
+      window.location.assign(`/mentor/packages/${savedPackage.id}?${completionIntent === "ready" ? "released=1" : "saved=draft"}`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Paket Soal belum dapat disimpan.");
-    } finally {
-      setSaving(false);
-    }
-  };
-  const ready = async () => {
-    if (!id || !validate()) return;
-    setSaving(true); setError(null);
-    try {
-      const result = await readyReusableQuestionPackageVersionAction(id);
-      if (!result.ok) { setError(result.message); return; }
-      setConfirmReady(false);
-      window.location.assign(`/mentor/packages/${id}`);
-    } catch (readyError) {
-      setError(readyError instanceof Error ? readyError.message : "Versi Paket Soal belum dapat disiapkan.");
     } finally {
       setSaving(false);
     }
@@ -238,38 +243,48 @@ function KaptenPackageBuilderPageModule({ id, initialDraft, sourceCatalog, sourc
   return <div ref={builderRootRef}>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Button aria-label={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} nativeButton={false} render={<Link href={saved ? `/mentor/packages/${id}` : "/mentor/packages"} />} size="icon" title={saved ? "Kembali ke versi Paket" : "Kembali ke Paket Soal"} variant="ghost"><ChevronLeft /></Button>
-      <div className="flex flex-wrap gap-2">
-        <Button disabled={saving} onClick={() => void save()} size="sm" variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draf"}</Button>
-        {saved ? <Button disabled={saving || !canReady} onClick={() => setConfirmReady(true)} size="sm" variant="brand"><Upload />Rilis</Button> : null}
-      </div>
     </div>
 
     <header className="mt-3 max-w-3xl">
-      <h1 className="text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 sm:text-4xl">{saved ? `Edit ${draft.title}` : "Buat Paket Soal"}</h1>
-      <p className="mt-2 text-sm leading-6 text-secondary-500">{saved ? "Tinjau soal dan kesiapan versi sebelum dirilis ke Tryout." : "Tentukan sumber Bank Soal, lalu susun soal yang akan dibekukan sebagai versi."}</p>
+      <h1 className="text-3xl leading-tight font-semibold tracking-[-0.03em] text-secondary-900 sm:text-4xl">{saved ? `Edit pertanyaan & poin · ${draft.title}` : "Buat Paket Soal"}</h1>
+      <p className="mt-2 text-sm leading-6 text-secondary-500">Susun sumber, soal, dan poin dalam satu ruang kerja. Simpan draf kapan saja atau lanjutkan sampai siap dipakai di Tryout.</p>
     </header>
 
-    {!saved ? <section className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
-      {error ? <p className="flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</p> : null}
+    {!saved ? <section aria-labelledby="package-source-heading" className="mt-5 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
+      <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Source</p>
+      <h2 className="mt-2 text-xl font-semibold text-secondary-900" id="package-source-heading">Pilih sumber dan detail paket</h2>
+      <p className="mt-1 text-sm leading-6 text-secondary-500">Bank Soal dan Subtest menjadi identitas paket setelah pertama kali disimpan.</p>
+      {error ? <div className="mt-5"><p className="flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</p>{conflict ? <Button className="mt-3" onClick={() => window.location.reload()} size="sm" type="button" variant="brandOutline">Muat ulang data terbaru</Button> : null}</div> : null}
       <div className={`${error ? "mt-5 " : ""}grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,.65fr)]`}><Field><FieldLabel htmlFor="package-title">Judul Paket</FieldLabel><FieldInput id="package-title" onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} value={draft.title} /></Field><Field><FieldLabel htmlFor="package-description">Deskripsi singkat</FieldLabel><FieldInput id="package-description" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} value={draft.description} /></Field></div>
-    </section> : error ? <p className="mt-3 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</p> : null}
+    </section> : <div className="mt-5">{error ? <div><p className="flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</p>{conflict ? <Button className="mt-3" onClick={() => window.location.reload()} size="sm" type="button" variant="brandOutline">Muat ulang data terbaru</Button> : null}</div> : null}</div>}
+
+    {saved && draft.latestReadyVersionNo ? <section aria-label="Keamanan versi aktif" className="mt-5 flex items-start gap-3 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950 sm:px-5"><CircleAlert className="mt-0.5 size-5 shrink-0" /><p><span className="font-semibold">{packageReleaseLabel(draft.latestReadyVersionNo)} tetap aktif.</span> Tryout yang sudah ada tetap menggunakan versi aktif sampai perubahan diterapkan.</p></section> : null}
 
     <div className="mt-5 grid gap-5 xl:grid-cols-[19rem_minmax(0,1fr)]">
       <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-        <section className="rounded-3xl border border-primary-100 bg-white p-4">
-          <div className="flex items-center gap-2"><h2 className="font-semibold text-secondary-900">Informasi Bank Soal</h2><TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Bantuan informasi Bank Soal" size="icon-xs" variant="ghost" />}><CircleHelp /></TooltipTrigger><TooltipContent>Menampilkan Bank Soal dan Subtest yang digunakan untuk versi ini.</TooltipContent></Tooltip></TooltipProvider></div>
+        <section aria-labelledby="package-source-controls-heading" className="rounded-3xl border border-primary-100 bg-white p-4">
+          <div className="flex items-center gap-2"><h2 className="font-semibold text-secondary-900" id="package-source-controls-heading">Source · Informasi Bank Soal</h2><TooltipProvider><Tooltip><TooltipTrigger render={<Button aria-label="Bantuan informasi Bank Soal" size="icon-xs" variant="ghost" />}><CircleHelp /></TooltipTrigger><TooltipContent>Menampilkan Bank Soal dan Subtest yang digunakan untuk versi ini.</TooltipContent></Tooltip></TooltipProvider></div>
           {saved ? <div className="mt-4 grid gap-4 text-sm"><div><p className="text-secondary-500">Bank Soal</p><p className="mt-1 font-semibold text-secondary-900">{selectedSource?.bank.title ?? draft.sourceBankName}</p>{selectedSource?.bank.folderPath?.length || selectedSource?.bank.categories?.length ? <div className="mt-2 flex flex-wrap gap-2">{selectedSource.bank.folderPath?.length ? <span className="rounded-full bg-secondary-50 px-2.5 py-1 text-xs text-secondary-600">{selectedSource.bank.folderPath.map((item) => item.name).join(" / ")}</span> : null}{selectedSource.bank.categories?.map((category) => <span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800" key={category.id}>{category.name}</span>)}</div> : null}</div><div><p className="text-secondary-500">Subtest</p><p className="mt-1"><span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{draft.subtest} · {subjectName(draft.subtest)}</span></p></div><div><p className="text-secondary-500">Versi</p><p className="mt-1 font-semibold text-secondary-900">{draft.latestReadyVersionNo ? packageReleaseLabel(draft.latestReadyVersionNo) : "Draf"}</p></div></div> : <div className="mt-4 grid gap-4"><Field><FieldLabel htmlFor="package-source-bank-picker">Bank Soal</FieldLabel><Picker id="package-source-bank-picker" label={selectedSource?.bank.title ?? "Pilih Bank Soal"} empty="Tidak ada Bank Soal siap." openContent={<><FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl px-3 py-2 text-sm" onChange={(event) => { setBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={bankSearch} /><select aria-label="Filter kategori Bank Soal" className="min-h-10 rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" onChange={(event) => { setBankCategoryFilter(event.target.value); setSourceBankPage(1); }} value={bankCategoryFilter}><option value="">Semua kategori</option>{sourceBankCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>{sourceBankLoading ? <p className="px-2 py-1 text-xs text-secondary-500">Memuat bank soal…</p> : null}{sourceBankOptions}</>} /></Field>{Math.max(1, Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE)) > 1 ? <div className="flex items-center justify-between text-xs text-secondary-500"><span>Halaman {sourceBankPage} dari {Math.max(1, Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE))}</span><span className="flex gap-1"><Button aria-label="Bank soal sebelumnya" disabled={sourceBankPage === 1} onClick={() => setSourceBankPage((page) => Math.max(1, page - 1))} size="icon-xs" type="button" variant="ghost"><ChevronLeft /></Button><Button aria-label="Bank soal berikutnya" disabled={sourceBankPage >= Math.ceil(sourceBankTotal / SOURCE_BANK_PAGE_SIZE)} onClick={() => setSourceBankPage((page) => page + 1)} size="icon-xs" type="button" variant="ghost"><ArrowDown className="rotate-[-90deg]" /></Button></span></div> : null}<Field><FieldLabel htmlFor="package-subtest-picker">Subtest</FieldLabel><Picker id="package-subtest-picker" label={draft.sourceBankId ? `${draft.subtest} · ${subjectName(draft.subtest)}` : "Pilih Bank terlebih dahulu"} disabled={!draft.sourceBankId} empty="Tidak ada Subtest." openContent={subjectCodes.map((code) => { const count = selectedSource?.questions.filter((question) => question.subjectCode === code).length ?? 0; const hasSubject = Boolean(selectedSource?.bank.subjectCoverage?.includes(code) || count); return <Button className="justify-start" disabled={!hasSubject} key={code} onClick={() => changeSubtest(code)} variant={code === draft.subtest ? "contextSelected" : "ghost"}>{code} · {subjectName(code)}</Button>; })} /></Field></div>}
         </section>
       </aside>
 
+      <section aria-labelledby="package-questions-heading">
+        <div className="mb-4"><p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Questions</p><h2 className="mt-2 text-xl font-semibold text-secondary-900" id="package-questions-heading">Pilih, susun, dan beri poin soal</h2><p className="mt-1 text-sm leading-6 text-secondary-500">Urutan dan poin ini akan menjadi isi kerja paket saat disimpan.</p></div>
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="min-w-0 rounded-3xl border border-primary-100 bg-white p-5"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold text-secondary-900">Soal terpilih</h2><span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800">{draft.items.length}</span></div>{draft.items.length ? <ol className="mt-4 grid gap-3">{draft.items.map((item, index) => { const question = selectedQuestionById.get(item.sourceQuestionId); const invalid = scoreErrors.has(item.sourceQuestionId); return <li className="rounded-2xl border border-primary-100 p-3" key={item.sourceQuestionId}><div className="flex gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary-50 text-xs font-bold text-primary-800">{index + 1}</span><p className="min-w-0 flex-1 text-sm leading-6 text-secondary-900">{question?.prompt ?? "Soal sumber tidak tersedia untuk filter ini."}</p></div><div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-end gap-2"><Field><FieldLabel htmlFor={`points-${item.sourceQuestionId}`} className="text-xs">Poin</FieldLabel><FieldInput aria-invalid={invalid} id={`points-${item.sourceQuestionId}`} min="0.01" onChange={(event) => updateItem(item.sourceQuestionId, Number(event.target.value))} step="0.01" type="number" value={item.pointValue} /></Field><Button aria-label={`Naikkan urutan soal ${index + 1}`} disabled={!index} onClick={() => moveItem(index, -1)} size="icon-sm" variant="ghost"><ArrowUp /></Button><Button aria-label={`Turunkan urutan soal ${index + 1}`} disabled={index === draft.items.length - 1} onClick={() => moveItem(index, 1)} size="icon-sm" variant="ghost"><ArrowDown /></Button><Button aria-label={`Hapus soal ${index + 1}`} onClick={() => setDraft((current) => ({ ...current, items: current.items.filter((candidate) => candidate.sourceQuestionId !== item.sourceQuestionId) }))} size="icon-sm" variant="ghost"><X /></Button></div>{invalid ? <p className="mt-2 text-xs font-medium text-danger-600">Masukkan poin lebih dari 0.</p> : null}</li>; })}</ol> : <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center"><PackageCheck className="mx-auto size-5 text-primary-800" /><p className="mt-3 text-sm font-semibold text-secondary-900">Belum ada soal dipilih</p><p className="mx-auto mt-1 max-w-xs text-sm leading-6 text-secondary-500">Pilih soal dari daftar setelah Bank dan Subtest ditentukan.</p></div>}</section>
         <section className="min-w-0 rounded-3xl border border-primary-100 bg-white p-5"><h2 className="font-semibold text-secondary-900">Temukan soal</h2><div className="relative mt-4"><Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal" className="pl-10" disabled={!draft.sourceBankId || !candidates.length} onChange={(event) => { setQuestionSearch(event.target.value); setSourceQuestionPage(1); setSourceQuestionTotal(0); }} placeholder="Cari isi soal…" value={questionSearch} /></div>{sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal…</p> : null}{!draft.sourceBankId ? <PackageDiscoveryEmpty icon={<ListFilter />} text="Pilih Bank dan Subtest untuk melihat soal." /> : !candidates.length ? <PackageDiscoveryEmpty icon={<PackageCheck />} text={`Tidak ada soal ${draft.subtest} siap dalam Bank ini.`} /> : availableQuestions.length ? <div className="mt-4 grid gap-3">{availableQuestions.map((question) => <article className="rounded-2xl border border-primary-100 p-3" key={question.id}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 text-sm leading-6 text-secondary-900">{question.prompt}</p><Button className="mt-3" onClick={() => setDraft((current) => ({ ...current, items: [...current.items, { pointValue: 1, sourceQuestionId: question.id, sourceQuestionRevisionId: question.questionRevisionId }] }))} size="sm" variant="brandOutline"><Plus />Tambah</Button></article>)}</div> : <PackageDiscoveryEmpty icon={<Search />} text="Tidak ada soal yang cocok dengan pencarian ini." />}{draft.sourceBankId && sourceQuestionTotal > sourceQuestionLoadedCount ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestionLoadedCount} dari {sourceQuestionTotal} soal siap.</p><Button disabled={sourceQuestionLoading} onClick={() => setSourceQuestionPage((page) => page + 1)} size="sm" type="button" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat 100 soal lagi"}</Button></div> : null}</section>
       </div>
+      </section>
     </div>
 
-    <AlertDialog onOpenChange={(open) => { if (!saving) setConfirmReady(open); }} open={confirmReady}><AlertDialogContent className="rounded-5xl" pending={saving} variant="warning"><AlertDialogHeader><AlertDialogTitle>Rilis versi?</AlertDialogTitle><AlertDialogDescription>Versi ini membekukan Bank, urutan soal, dan poin yang ada sekarang. Setelah dibuat, versi dapat diikat ke Test Tryout dan tidak dapat diubah.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving} onClick={() => void ready()} variant="brand"><Upload />{saving ? "Merilis versi…" : "Rilis"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    <AlertDialog onOpenChange={(open) => { if (!open) setPendingBankId(null); }} open={Boolean(pendingBankId)}><AlertDialogContent className="rounded-5xl" variant="danger"><AlertDialogHeader><AlertDialogTitle>Ganti Bank Soal?</AlertDialogTitle><AlertDialogDescription>Soal yang sudah dipilih akan dihapus. Bank dapat diganti hanya sebelum Paket pertama kali tersimpan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={confirmBankChange} variant="destructive">Ganti dan hapus pilihan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <section aria-labelledby="package-review-heading" className="mt-5 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Review &amp; ready</p><h2 className="mt-2 text-xl font-semibold text-secondary-900" id="package-review-heading">Tinjau lalu pilih hasil akhir</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-500">Draf dapat dilanjutkan kapan saja. Saat siap, aksi berikutnya membuat versi aktif yang tidak mengubah Tryout yang sudah berjalan.</p></div><dl className="grid min-w-44 grid-cols-2 gap-x-5 gap-y-2 text-sm"><div><dt className="text-secondary-500">Soal</dt><dd className="mt-1 font-semibold text-secondary-900">{draft.items.length}</dd></div><div><dt className="text-secondary-500">Total poin</dt><dd className="mt-1 font-semibold text-secondary-900">{draftTotalPoints}</dd></div></dl></div>
+      <div className="mt-6 flex flex-wrap gap-3 border-t border-primary-100 pt-5"><Button disabled={saving} onClick={() => void save("draft")} size="sm" variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan draf"}</Button><Button disabled={saving || !canReady} onClick={() => setConfirmReady(true)} size="sm" variant="brand"><Upload />{readyActionLabel}</Button></div>
+    </section>
+
+    <AlertDialog onOpenChange={(open) => { if (!saving) setConfirmReady(open); }} open={confirmReady}><AlertDialogContent className="rounded-5xl" pending={saving} variant="warning"><AlertDialogHeader><AlertDialogTitle>{readyActionLabel}?</AlertDialogTitle><AlertDialogDescription>{draft.latestReadyVersionNo ? "Perubahan ini akan membuat versi aktif baru. Tryout yang sudah ada tetap menggunakan versi aktif sebelumnya sampai perubahan diterapkan." : "Soal dan poin ini akan menjadi versi pertama yang siap dipakai di Tryout. Setelah dibuat, versi tidak dapat diubah."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving} onClick={() => { setConfirmReady(false); void save("ready"); }} variant="brand"><Upload />{saving ? "Menyiapkan…" : readyActionLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog onOpenChange={(open) => { if (!open) setPendingBankId(null); }} open={Boolean(pendingBankId)}><AlertDialogContent className="rounded-5xl" variant="danger"><AlertDialogHeader><AlertDialogTitle>Ganti Bank Soal?</AlertDialogTitle><AlertDialogDescription>{draft.items.length} soal yang sudah dipilih akan dihapus. Bank dapat diganti hanya sebelum Paket pertama kali tersimpan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={confirmBankChange} variant="destructive">Ganti dan hapus pilihan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog onOpenChange={(open) => { if (!open) setPendingSubtest(null); }} open={Boolean(pendingSubtest)}><AlertDialogContent className="rounded-5xl" variant="danger"><AlertDialogHeader><AlertDialogTitle>Ganti Subtest?</AlertDialogTitle><AlertDialogDescription>{draft.items.length} soal yang sudah dipilih akan dihapus karena Subtest berubah. Pilih Subtest baru hanya sebelum Paket pertama kali tersimpan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={confirmSubtestChange} variant="destructive">Ganti dan hapus pilihan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </div>;
 }
 

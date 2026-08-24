@@ -7,7 +7,7 @@ import { getReusableQuestionPackageForEdit } from "@/lib/tryout/repository";
 import { KaptenPackageBuilderPageModule } from "@/modules/mentor/KaptenPackageBuilderPageModule";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 
-export const metadata: Metadata = { title: "Versi Baru Paket Soal | Vecalss LMS" };
+export const metadata: Metadata = { title: "Edit pertanyaan & poin Paket Soal Kapten | Vecalss LMS" };
 
 export default async function NewPackageVersionPage({ params }: { params: Promise<{ packageId: string }> }) {
   const [{ packageId }, session] = await Promise.all([params, requireTutorSession()]);
@@ -17,5 +17,5 @@ export default async function NewPackageVersionPage({ params }: { params: Promis
     listQuestionBankSourcePage({ page: 1, pageSize: 20, subjectCoverage: [initialDraft.subtest] }),
     listQuestionBankCategories(),
   ]);
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Versi Baru" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageBuilderPageModule id={packageId} initialDraft={initialDraft} sourceCatalog={sourcePage.items.map(({ bank }) => ({ bank, questions: [] }))} sourceCatalogPage={sourcePage} sourceCategories={sourceCategories} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Edit pertanyaan & poin" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageBuilderPageModule id={packageId} initialDraft={initialDraft} sourceCatalog={sourcePage.items.map(({ bank }) => ({ bank, questions: [] }))} sourceCatalogPage={sourcePage} sourceCategories={sourceCategories} /></MentorWorkspaceShell>;
 }

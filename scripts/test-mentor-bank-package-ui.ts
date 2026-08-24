@@ -76,7 +76,22 @@ assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /initialSelectedFol
 assert.match(read("app/mentor/quiz/question-bank/page.tsx"), /sort: requestedSort/u, "question bank sorting should be server-side");
 assert.match(read("lib/question-bank/repository.ts"), /questions: \{ _count: "desc"/u, "question-count sorting should be collection-wide");
 
-assert.match(packageBuilder, /<h1[^>]*>\{saved \? `Edit \$\{draft\.title\}` : "Buat Paket Soal"\}/u, "Paket Soal builder needs a page-level heading");
+assert.match(packageBuilder, /<h1[^>]*>\{saved \? `Edit pertanyaan & poin · \$\{draft\.title\}` : "Buat Paket Soal"\}/u, "Paket Soal builder needs a page-level heading");
+assert.match(packageBuilder, /<p[^>]*>Source<\/p>/u, "The package editor should begin with a Source section");
+assert.match(packageBuilder, /<p[^>]*>Questions<\/p>/u, "The package editor should expose a Questions section");
+assert.match(packageBuilder, /Review &amp; ready/u, "The package editor should expose a Review & ready section");
+assert.match(packageBuilder, /completionIntent, description: draft\.description/u, "Package saves should use the shared completion-intent command");
+assert.match(packageBuilder, /expectedRevision: draft\.revision/u, "Package saves should send the current optimistic revision");
+assert.match(packageBuilder, /released=1/u, "Ready completion should land on the package overview released state");
+assert.match(packageBuilder, /saved=draft/u, "Draft completion should land on the package overview saved state");
+assert.match(packageBuilder, /Siapkan untuk Tryout/u, "First release should use task-oriented copy");
+assert.match(packageBuilder, /Terapkan perubahan/u, "Existing Ready packages should use update copy");
+assert.match(packageBuilder, /Tryout yang sudah ada tetap menggunakan versi aktif sampai perubahan diterapkan/u, "Released package edits should explain active-version safety");
+assert.match(packageBuilder, /\{draft\.items\.length\} soal yang sudah dipilih akan dihapus karena Subtest berubah/u, "Subtest changes should confirm the exact selected-question count");
+assert.match(packageBuilder, /\{draft\.items\.length\} soal yang sudah dipilih akan dihapus\. Bank/u, "Bank changes should confirm the exact selected-question count");
+assert.match(packageBuilder, /code === "package_conflict"/u, "Package conflicts should preserve local edits and expose a conflict state");
+assert.match(packageBuilder, /Muat ulang data terbaru/u, "Package conflicts should expose an explicit reload path");
+assert.doesNotMatch(packageBuilder, /readyReusableQuestionPackageVersionAction/u, "The editor should use one save command for Draft and Ready");
 assert.match(packageBuilder, /useMemo\(\(\) => sourceEntries\.reduce/u, "source picker options should be derived from current inputs");
 assert.match(packageBuilder, /\[bankCategoryFilter, bankSearch, changeBank, draft\.sourceBankId, sourceEntries\]\);/u, "source picker search must react to query/filter changes");
 assert.match(packageBuilder, /id="package-source-bank-picker"/u, "Bank picker must be labelled by its field label");
@@ -102,6 +117,9 @@ for (const route of [
   assert.match(read(route), /contentElement="div"/u, `${route} should use one shell-owned page landmark`);
   assert.match(read(route), /showSearch=\{false\}/u, `${route} should avoid a duplicate inert shell search`);
 }
+const packageVersionEditorRoute = read("app/mentor/packages/[packageId]/versions/new/page.tsx");
+assert.match(packageVersionEditorRoute, /Edit pertanyaan & poin Paket Soal Kapten/u, "The question editor route should not be framed as a version-first destination");
+assert.match(packageVersionEditorRoute, /breadcrumbLabel="Edit pertanyaan & poin"/u, "The question editor breadcrumb should describe the continuous workspace");
 
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /lifecycleStatus === "archived" \? <Button/u, "Archived banks need an explicit restore action");
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /updateLifecycle\(operation: "archive" \| "publish" \| "unpublish" \| "restore"\)/u);
