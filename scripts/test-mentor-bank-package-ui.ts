@@ -158,9 +158,8 @@ assert.doesNotMatch(packageCatalogue, /className="grid gap-3"|sm:grid-cols/u, "P
 assert.match(packageCatalogue, /nativeButton=\{false\} render=\{<Link href="\/mentor\/packages\/create" \/>\}/u);
 assert.match(packageCatalogue, /PackageStatusPill status=\{item\.availability\}/u, "Paket Soal rows should show availability from the lifecycle projection");
 assert.match(packageCatalogue, /item\.hasDraftChanges[\s\S]*Perubahan draf/u, "Paket Soal rows should layer pending draft attention separately from availability");
-assert.match(packageCatalogue, /v\{item\.activeVersionNo\}/u, "Ready package rows should show their active version as quiet metadata");
-assert.match(packageCatalogue, /Digunakan di \{item\.usageCount\} Tryout/u, "Package rows should show distinct Tryout usage");
-assert.match(packageCatalogue, /item\.activeItemCount[\s\S]*item\.draftItemCount/u, "Ready-with-draft rows should distinguish active and draft counts");
+assert.doesNotMatch(packageCatalogue, /label: "Versi & penggunaan"/u, "Package catalogue should not repeat version and usage metadata in a dedicated column");
+assert.doesNotMatch(packageCatalogue, /PackageCounts|Versi aktif: \{item\.activeItemCount\}/u, "Package titles should not repeat active counts and points below the entry title");
 assert.match(packageCatalogue, /label = item\.availability === "draft" \? "Siapkan untuk Tryout" : "Lanjutkan perubahan"/u, "Contextual row CTAs should match the lifecycle state");
 assert.match(packageCatalogue, /href=\{`\/mentor\/packages\/\$\{item\.id\}\/versions\/new`\}/u, "Contextual row CTAs should resume the package editor");
 assert.match(packageOverview, /Versi aktif/u, "Package overview should label the immutable active version");

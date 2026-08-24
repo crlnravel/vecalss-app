@@ -12,23 +12,13 @@ import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalog
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 
 type PackageItem = {
-  activeItemCount: number;
-  activeTotalPoints: number;
-  activeVersionNo?: number;
   availability: "draft" | "ready";
-  description: string;
-  draftItemCount: number;
-  draftTotalPoints: number;
   hasDraftChanges: boolean;
   id: string;
-  items: Array<{ sourceQuestionId: string }>;
-  latestReadyVersionNo?: number;
   sourceBankName: string;
-  status: "draft" | "ready";
   subtest: string;
   title: string;
   updatedAt: number;
-  usageCount: number;
 };
 
 function catalogueHref(query: string, page: number, status: string, subtest: string) {
@@ -47,19 +37,11 @@ const packageDateFormatter = new Intl.DateTimeFormat("id-ID", {
   year: "numeric",
 });
 
-const packagePointsFormatter = new Intl.NumberFormat("id-ID", {
-  maximumFractionDigits: 2,
-});
-
-function packageStatusCopy(status: PackageItem["status"]) {
+function packageStatusCopy(status: PackageItem["availability"]) {
   return status === "ready" ? "Siap" : "Draf";
 }
 
-function packagePointsLabel(points: number) {
-  return packagePointsFormatter.format(points);
-}
-
-function PackageStatusPill({ status }: { status: PackageItem["status"] }) {
+function PackageStatusPill({ status }: { status: PackageItem["availability"] }) {
   return (
     <span
       className={cn(
@@ -72,21 +54,6 @@ function PackageStatusPill({ status }: { status: PackageItem["status"] }) {
       {packageStatusCopy(status)}
     </span>
   );
-}
-
-function PackageCounts({ item }: { item: PackageItem }) {
-  if (item.availability === "ready") {
-    return item.hasDraftChanges ? (
-      <div className="grid gap-1 text-xs leading-5 text-secondary-600">
-        <span><span className="font-semibold text-secondary-700">Versi aktif:</span> {item.activeItemCount} soal · {packagePointsLabel(item.activeTotalPoints)} poin</span>
-        <span><span className="font-semibold text-amber-900">Perubahan draf:</span> {item.draftItemCount} soal · {packagePointsLabel(item.draftTotalPoints)} poin</span>
-      </div>
-    ) : (
-      <span className="mt-1 block text-xs text-secondary-500">Versi aktif: {item.activeItemCount} soal · {packagePointsLabel(item.activeTotalPoints)} poin</span>
-    );
-  }
-
-  return <span className="mt-1 block text-xs text-secondary-500">Draf: {item.draftItemCount} soal · {packagePointsLabel(item.draftTotalPoints)} poin</span>;
 }
 
 function PackageRowAction({ item }: { item: PackageItem }) {
@@ -121,7 +88,6 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
       cell: (item) => (
         <div className="min-w-0 max-w-full">
           <Link aria-label={`Buka Paket Soal ${item.title}`} className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={`/mentor/packages/${item.id}`} title={item.title}>{item.title}</Link>
-          <PackageCounts item={item} />
         </div>
       ),
       headerClassName: "min-w-[14rem]",
@@ -158,18 +124,6 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
       width: 20,
     },
     {
-      cell: (item) => (
-        <div className="grid gap-1 text-xs leading-5 text-secondary-500">
-          {item.activeVersionNo ? <span>v{item.activeVersionNo}</span> : <span>Belum ada versi aktif</span>}
-          <span>Digunakan di {item.usageCount} Tryout</span>
-        </div>
-      ),
-      headerClassName: "min-w-[11rem]",
-      id: "usage",
-      label: "Versi & penggunaan",
-      width: 16,
-    },
-    {
       cell: (item) => <time className="text-sm text-secondary-600" dateTime={new Date(item.updatedAt).toISOString()}>{packageDateFormatter.format(new Date(item.updatedAt))}</time>,
       headerClassName: "min-w-[9rem]",
       id: "updated",
@@ -180,7 +134,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
 
   const filters: DataTableFilter[] = [
     ...(subtest ? [{ id: "subtest", label: "Subtest", value: subtest, href: catalogueHref(query, 1, status, "") }] : []),
-    ...(status ? [{ id: "status", label: "Status", value: packageStatusCopy(status as PackageItem["status"]), href: catalogueHref(query, 1, "", subtest) }] : []),
+    ...(status ? [{ id: "status", label: "Status", value: packageStatusCopy(status as PackageItem["availability"]), href: catalogueHref(query, 1, "", subtest) }] : []),
   ];
   const filterPanel = (
     <div className="space-y-3 p-1">
