@@ -36,6 +36,7 @@ const sourceInclude = {
 } satisfies Prisma.QuestionInclude;
 const versionInclude = { package: { include: { subtest: true } }, items: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true }, orderBy: { sortOrder: "asc" as const } } } satisfies Prisma.ReusableQuestionPackageVersionInclude;
 const packageInclude = { sourceBank: true, subtest: true, items: { include: { sourceQuestion: { include: sourceInclude } }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
+const packageLifecycleInclude = { sourceBank: { select: { id: true, name: true } }, subtest: { select: { code: true, id: true, name: true } }, items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } }, versions: { where: { status: ContentStatus.published }, orderBy: { versionNo: "desc" as const }, take: 1, include: { items: { select: { pointValue: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevisionId: true }, orderBy: { sortOrder: "asc" as const } } } } } satisfies Prisma.ReusableQuestionPackageInclude;
 const tryoutInclude = { assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 }, sections: { include: { items: { orderBy: { sortOrder: "asc" as const }, select: { explanation: true, explanationAsset: { select: { state: true } }, explanationAssetId: true, options: { select: { asset: { select: { state: true } } } }, packageVersionId: true, prompt: true, promptAsset: { select: { state: true } }, promptAssetId: true, sortOrder: true, sourceContentDigest: true, sourceQuestionId: true, sourceQuestionRevision: { select: { calibrations: { where: { approvalState: "approved", modelVersion: CANONICAL_2PL_MODEL_VERSION }, select: { contentDigest: true, difficulty: true, discrimination: true, questionId: true, sourceRevisionProvenance: true } }, id: true } }, sourceQuestionRevisionId: true, sourceQuestion: { select: { questionBank: { select: { id: true, name: true } } } } } }, packageVersion: { include: { package: { include: { subtest: true } } } }, subtest: true }, orderBy: { sequenceNo: "asc" as const } }, attempts: { select: { id: true }, take: 1 } } satisfies Prisma.TryoutPackageInclude;
 
 function codeFromTitle(title: string, prefix: string) { return `${prefix}-${title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "draft"}-${Date.now()}`.slice(0, 100); }
@@ -160,6 +161,13 @@ async function readAndValidateDirectSources(tx: Prisma.TransactionClient, select
   return sourceQuestionIds.map((sourceQuestionId) => sourceById.get(sourceQuestionId)!);
 }
 type PackageReadRecord = Prisma.ReusableQuestionPackageGetPayload<{ include: typeof packageInclude }>;
+type PackageLifecycleReadRecord = {
+  id: string;
+  items: readonly PackageLifecycleItem[];
+  sourceBank: { name: string };
+  subtest: { code: string };
+  versions: ReadonlyArray<{ id: string; items: readonly PackageLifecycleItem[]; versionNo: number }>;
+};
 
 function packageLifecycleItems(items: readonly PackageLifecycleItem[]) {
   return items.map((item) => ({
@@ -171,7 +179,7 @@ function packageLifecycleItems(items: readonly PackageLifecycleItem[]) {
   }));
 }
 
-function packageLifecycleForRecord(record: PackageReadRecord, usageCount = 0) {
+function packageLifecycleForRecord(record: PackageLifecycleReadRecord, usageCount = 0) {
   const latestPublishedVersion = record.versions[0];
   return summarizePackageLifecycle({
     draftItems: packageLifecycleItems(record.items),
@@ -235,7 +243,7 @@ async function readPackageUsageCounts(packageIds: readonly string[], client: typ
   return distinctTryoutUsageCounts(bindings.flatMap((binding) => binding.packageVersion ? [{ packageId: binding.packageVersion.packageId, tryoutId: binding.tryoutId }] : []));
 }
 
-async function listReusableQuestionPackages(actorId: string, options: { page?: number; query?: string; status?: "draft" | "ready"; subtest?: string } = {}) {
+async function listReusableQuestionPackages(actorId: string, options: { page?: number; query?: string; status?: "draft" | "ready"; subtest?: string } = {}, client: typeof prisma | Prisma.TransactionClient = prisma) {
   const query = options.query?.trim() ?? "";
   const pageSize = 12;
   const where: Prisma.ReusableQuestionPackageWhereInput = {
@@ -245,11 +253,11 @@ async function listReusableQuestionPackages(actorId: string, options: { page?: n
     ...(options.subtest ? { subtest: { code: options.subtest } } : {}),
     ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" as const } }, { description: { contains: query, mode: "insensitive" as const } }, { subtest: { code: { contains: query, mode: "insensitive" as const } } }] } : {}),
   };
-  const totalItems = await prisma.reusableQuestionPackage.count({ where });
+  const totalItems = await client.reusableQuestionPackage.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const page = Math.min(Math.max(1, options.page ?? 1), totalPages);
-  const records = await prisma.reusableQuestionPackage.findMany({ where, include: packageInclude, orderBy: { updatedAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
-  const usageCounts = await readPackageUsageCounts(records.map((record) => record.id));
+  const records = await client.reusableQuestionPackage.findMany({ where, include: packageInclude, orderBy: { updatedAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
+  const usageCounts = await readPackageUsageCounts(records.map((record) => record.id), client);
   return { items: records.map((record) => toPackageDto(record, usageCounts.get(record.id) ?? 0)), page, pageSize, totalItems, totalPages };
 }
 async function getReusableQuestionPackageForEdit(id: string, actorId: string) {
@@ -258,19 +266,19 @@ async function getReusableQuestionPackageForEdit(id: string, actorId: string) {
   const usageCounts = await readPackageUsageCounts([record.id]);
   return toPackageDto(record, usageCounts.get(record.id) ?? 0);
 }
-async function getReusableQuestionPackageVersionHub(id: string, actorId: string) {
-  const record = await prisma.reusableQuestionPackage.findFirst({
+async function getReusableQuestionPackageVersionHub(id: string, actorId: string, client: typeof prisma | Prisma.TransactionClient = prisma) {
+  const record = await client.reusableQuestionPackage.findFirst({
     where: { id, createdByUserId: actorId },
-    include: packageInclude,
+    include: packageLifecycleInclude,
   });
   if (!record) return null;
   const [versions, usageCounts] = await Promise.all([
-    prisma.reusableQuestionPackageVersion.findMany({
+    client.reusableQuestionPackageVersion.findMany({
       where: { packageId: record.id, status: ContentStatus.published },
       orderBy: { versionNo: "desc" },
       select: { createdAt: true, readyAt: true, versionNo: true, _count: { select: { items: true, tryoutSections: true } } },
     }),
-    readPackageUsageCounts([record.id]),
+    readPackageUsageCounts([record.id], client),
   ]);
   const lifecycle = packageLifecycleForRecord(record, usageCounts.get(record.id) ?? 0);
   return {
