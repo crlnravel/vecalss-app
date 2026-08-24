@@ -13,7 +13,6 @@ import {
   ClipboardList,
   Copy,
   Eye,
-  FileText,
   ListChecks,
   Lock,
   Plus,
@@ -398,17 +397,11 @@ type SectionReadiness = {
 
 function SectionRail({
   activeCode,
-  disabled,
-  onFix,
   onSelect,
-  readiness,
   sections,
 }: {
   activeCode: SubjectCode;
-  disabled: boolean;
-  onFix: (subtest: SubjectCode, target: Workspace) => void;
   onSelect: (subtest: SubjectCode) => void;
-  readiness: Record<SubjectCode, SectionReadiness>;
   sections: TestDraft[];
 }) {
   return (
@@ -418,36 +411,18 @@ function SectionRail({
         <p className="mt-1 text-xs leading-5 text-secondary-600">Pilih satu Section. Durasi, sumber, dan aturan mengikuti pilihan yang sama.</p>
       </div>
       <div className="grid gap-2" role="list" aria-label="Tujuh Section Tryout">
-        {sections.map((section, index) => {
-          const state = readiness[section.subtest];
+        {sections.map((section) => {
           const active = section.subtest === activeCode;
           return (
-            <div className={`grid gap-2 rounded-2xl border p-3 transition-colors ${active ? "border-primary-500 bg-white ring-2 ring-primary-100" : "border-primary-100 bg-white/70"}`} key={section.subtest} role="listitem">
+            <div key={section.subtest} role="listitem">
               <Button
                 aria-current={active ? "page" : undefined}
-                className="h-auto min-h-0 justify-start rounded-xl px-2 py-1.5 text-left"
+                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-700 text-white hover:bg-primary-800" : "text-secondary-800 hover:bg-primary-50"}`}
                 onClick={() => onSelect(section.subtest)}
                 variant="ghost"
               >
-                <span className="grid min-w-0 flex-1 gap-0.5">
-                  <span className="flex items-center justify-between gap-2 text-sm font-semibold text-secondary-900">
-                    <span className="truncate">{index + 1}. {section.subtest}</span>
-                    <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${state.status === "ready" ? "bg-primary-600" : state.status === "attention" ? "bg-[#c58b11]" : state.status === "in_progress" ? "bg-primary-300" : "bg-secondary-300"}`} />
-                  </span>
-                  <span className="truncate text-xs font-normal text-secondary-500">{subjectName(section.subtest)}</span>
-                </span>
+                <span>{section.subtest}</span>
               </Button>
-              <div className="flex items-center justify-between gap-2 border-t border-primary-100 pt-2">
-                <span className={`min-w-0 truncate text-xs font-medium ${state.status === "ready" ? "text-primary-700" : state.status === "attention" ? "text-[#8a5e00]" : state.status === "in_progress" ? "text-primary-700" : "text-secondary-500"}`}>
-                  {state.status === "ready" ? "Ready" : state.status === "setup" ? "Belum dimulai" : state.status === "in_progress" ? "Sedang disiapkan" : `${state.issueCount} perlu ditinjau`}
-                </span>
-                {state.status !== "ready" ? (
-                  <Button className="h-7 shrink-0 rounded-lg px-2 text-xs" disabled={disabled} onClick={() => onFix(section.subtest, state.target)} size="sm" variant="brandOutline">
-                    Perbaiki
-                  </Button>
-                ) : null}
-              </div>
-              {state.status !== "ready" ? <p className="line-clamp-2 text-xs leading-5 text-secondary-600">{state.detail}</p> : null}
             </div>
           );
         })}
@@ -904,6 +879,9 @@ function KaptenTryoutBuilderPageModule({
       target,
     } satisfies SectionReadiness];
   })) as Record<SubjectCode, SectionReadiness>;
+  // Keep the canonical readiness projection available to the authoring contract;
+  // the Build rail intentionally renders only the section codes.
+  void sectionReadiness;
   const scheduleSessions = operationsInitial?.sessions ?? [];
   const scheduleConflicts = scheduleSessions.some((session) => new Date(session.availableUntil) <= new Date(session.availableFrom)) || scheduleSessions.filter((session) => session.isDefaultOpenRegistration).length > 1;
   const explanationsAndMediaReady = draft.sections.every((section, index) => section.packageVersionId ? assemblyContentReady(index) : directQuestionsReady(section.directQuestions ?? []));
@@ -1450,23 +1428,14 @@ function KaptenTryoutBuilderPageModule({
           {activePhase === "build" ? (
             <SectionRail
               activeCode={activeCode}
-              disabled={draft.locked}
-              onFix={(subtest, target) => { changeActiveCode(subtest); goTo(target); }}
               onSelect={changeActiveCode}
-              readiness={sectionReadiness}
               sections={draft.sections}
             />
           ) : null}
 
         <TabsContent className="mt-0 lg:col-start-2" value="basics">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
-            <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800"><FileText /></div>
-              <div>
-              <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
-              <p className="mt-1 text-sm leading-6 text-secondary-600">Nama dan deskripsi ini menjadi konteks yang dilihat Kapten dan peserta.</p>
-              </div>
-            </div>
+            <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
             <div className="grid gap-5">
               <Field>
                 <FieldLabel htmlFor="tryout-title">Judul Tryout</FieldLabel>
