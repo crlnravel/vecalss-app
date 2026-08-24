@@ -7,6 +7,7 @@ const bankCatalogue = read("modules/mentor/KaptenQuestionBankCataloguePageModule
 const bankCatalogueLoading = read("app/mentor/quiz/question-bank/loading.tsx");
 const dataTable = read("components/ui/data-table.tsx");
 const packageBuilder = read("modules/mentor/KaptenPackageBuilderPageModule.tsx");
+const packageActions = read("modules/mentor/tryout-actions.ts");
 const packageVersionDetail = read("modules/mentor/KaptenPackageVersionDetailModule.tsx");
 
 assert.match(bankCatalogue, /\{row\.bank\.questionCount\} soal/u, "Bank rows should show the question count as their primary metadata");
@@ -93,13 +94,31 @@ assert.match(packageBuilder, /code === "package_conflict"/u, "Package conflicts 
 assert.match(packageBuilder, /Muat ulang data terbaru/u, "Package conflicts should expose an explicit reload path");
 assert.doesNotMatch(packageBuilder, /readyReusableQuestionPackageVersionAction/u, "The editor should use one save command for Draft and Ready");
 assert.match(packageBuilder, /useMemo\(\(\) => sourceEntries\.reduce/u, "source picker options should be derived from current inputs");
-assert.match(packageBuilder, /\[bankCategoryFilter, bankSearch, changeBank, draft\.sourceBankId, sourceEntries\]\);/u, "source picker search must react to query/filter changes");
+assert.match(packageBuilder, /\[bankCategoryFilter, bankSearch, changeBank, draft\.sourceBankId, saving, sourceEntries\]\);/u, "source picker search must react to query/filter/save changes");
 assert.match(packageBuilder, /id="package-source-bank-picker"/u, "Bank picker must be labelled by its field label");
 assert.match(packageBuilder, /role="group"/u, "Picker popovers should not claim listbox semantics for mixed controls");
 assert.doesNotMatch(packageBuilder, /aria-haspopup="listbox"/u, "Picker popovers contain inputs and filters, not only listbox options");
 assert.match(packageBuilder, /nativeButton=\{false\} render=\{<Link href=\{saved \?/u, "Package builder back affordance should render as a link");
 assert.match(packageBuilder, /Perubahan belum disimpan\. Tinggalkan halaman ini\?/u, "Paket Soal edits should warn before route changes");
 assert.match(packageBuilder, /beforeunload/u, "Paket Soal edits should guard full-page unloads");
+assert.match(packageBuilder, /savingRef\.current/u, "Package saves should guard against overlapping requests and stale mutation handlers");
+assert.match(packageBuilder, /items: savedPackage\.items\.map/u, "Package saves should apply authoritative returned items");
+assert.match(packageBuilder, /revision: savedPackage\.revision/u, "Package saves should apply the authoritative returned revision");
+assert.match(packageBuilder, /disabled=\{saving\} id="package-title"/u, "Package title edits should lock during save");
+assert.match(packageBuilder, /disabled=\{saving\} id="package-description"/u, "Package description edits should lock during save");
+assert.match(packageBuilder, /<Picker disabled=\{saving\} id="package-source-bank-picker"/u, "Source Bank changes should lock during save");
+assert.match(packageBuilder, /aria-invalid=\{invalid\} disabled=\{saving\} id=\{`points-/u, "Point edits should lock during save while retaining aria-invalid");
+assert.match(packageBuilder, /disabled=\{saving \|\| !index\}/u, "Question reorder controls should lock during save");
+assert.match(packageBuilder, /disabled=\{saving\} onClick=\{\(\) => \{ if \(!saving\) setDraft/u, "Question removal should lock during save");
+assert.match(packageBuilder, /disabled=\{saving\} onClick=\{\(\) => \{ if \(saving\) return; setDraft/u, "Question additions should lock during save");
+assert.match(packageBuilder, /id="package-review-validation" role="region"/u, "Review should expose a keyboard-readable validation region");
+assert.match(packageBuilder, /Ready dinonaktifkan sampai semua hal berikut diperbaiki/u, "Review should explain why Ready is disabled");
+assert.match(packageBuilder, /Pilih Bank Soal sumber/u, "Review should explain the missing source state");
+assert.match(packageBuilder, /Tambahkan minimal satu soal dari Subtest terpilih/u, "Review should explain the empty selection state");
+assert.match(packageBuilder, /soal tidak tersedia dari sumber yang sedang dipilih/u, "Review should explain unavailable source questions");
+assert.match(packageBuilder, /harus memiliki poin lebih dari 0/u, "Review should explain invalid point values");
+assert.match(packageBuilder, /toFixed\(2\)/u, "Review point totals should use normalized decimal formatting");
+assert.match(packageActions, /revalidatePath\(`\/mentor\/packages\/\$\{id\}\/versions\/new`\)/u, "Package saves should revalidate the question editor route");
 
 assert.match(packageVersionDetail, /TabsContent className="m-0" value="questions"/u);
 assert.match(packageVersionDetail, /TabsContent className="m-0" value="tests"/u);
