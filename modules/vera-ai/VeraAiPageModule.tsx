@@ -108,7 +108,7 @@ type Usage = {
   redisAvailable: boolean;
 };
 
-type RequestAttempt = { kind: "chat" | "studio"; text: string; toolId: StudioToolId | null; requestId: string | null };
+type RequestAttempt = { kind: "chat" | "studio"; text: string; toolId: StudioToolId | null; requestId: string | null; clientRequestId: string };
 
 class VeraRequestError extends Error {
   constructor(readonly code: string, readonly details: Record<string, unknown>) {
@@ -266,7 +266,7 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
     const clientRequestId = crypto.randomUUID();
     const controller = new AbortController();
     abortRef.current = controller;
-    const attempt: RequestAttempt = { kind, text, toolId, requestId: null };
+    const attempt: RequestAttempt = { kind, text, toolId, requestId: null, clientRequestId };
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -278,7 +278,7 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
       const response = await fetch(`/api/vera-ai/conversations/${activeConversation.id}/requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientRequestId, kind, toolId, text, sourceIds: (context?.sources ?? []).map((source) => source.sourceId), options: {}, retryOfRequestId }),
+        body: JSON.stringify({ clientRequestId, kind, toolId, text, sources: (context?.sources ?? []).map(({ sourceType, sourceId }) => ({ sourceType, sourceId })), options: {}, retryOfRequestId }),
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -306,10 +306,13 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
             if (event === "message.committed" || event === "artifact.ready") setNotice(event === "artifact.ready" ? "Hasil Studio sudah tersimpan." : "Jawaban sudah tersimpan.");
             if (event === "progress.updated" && typeof data.progress === "number") setProgress(data.progress);
             if (event === "request.completed") terminalSeen = true;
-            if (event === "request.failed" || event === "request.recovery_pending") {
-              terminalSeen = event === "request.failed";
+            if (event === "request.failed") {
+              terminalSeen = true;
               setError(data.code ?? "request_failed");
-              setLastFailed(attempt);
+              setLastFailed(attempt.requestId ? attempt : null);
+            }
+            if (event === "request.recovery_pending") {
+              setNotice("Permintaan masih dipulihkan. Vera sedang memeriksa hasil tersimpan.");
             }
           }
         }
@@ -323,15 +326,23 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
         }
       }
       if (!terminalSeen) {
-        const status = await requestJson<{ state: string; errorCode: string | null }>(`/api/vera-ai/conversations/${activeConversation.id}/requests?clientRequestId=${encodeURIComponent(clientRequestId)}`);
-        if (!["succeeded", "fallback"].includes(status.state)) {
-          setError(status.errorCode ?? "request_recovery_pending");
-          setLastFailed(attempt);
+        let status: { requestId?: string; state: string; errorCode: string | null } | null = null;
+        for (let poll = 0; poll < 5; poll += 1) {
+          status = await requestJson<{ requestId?: string; state: string; errorCode: string | null }>(`/api/vera-ai/conversations/${activeConversation.id}/requests?clientRequestId=${encodeURIComponent(clientRequestId)}`);
+          attempt.requestId = status.requestId ?? attempt.requestId;
+          if (["succeeded", "fallback", "failed"].includes(status.state)) break;
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+        }
+        if (status?.state === "failed") {
+          setError(status.errorCode ?? "request_failed");
+          setLastFailed(attempt.requestId ? attempt : null);
+        } else if (!status || !["succeeded", "fallback"].includes(status.state)) {
+          setNotice("Permintaan masih dipulihkan. Coba periksa statusnya beberapa saat lagi.");
+          setLastFailed(null);
         }
       }
       setDraft("");
       await Promise.all([loadConversation(activeConversation.id), requestJson<Usage>("/api/vera-ai/usage").then(setUsage)]);
-      if (toolId) setWorkspaceTab("studio");
     } catch (caught) {
       const code = controller.signal.aborted ? "request_cancelled" : caught instanceof Error ? caught.message : "vera_unavailable";
       setError(code);
@@ -352,7 +363,6 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   async function openArtifact(id: string) {
     try {
       setArtifact(await requestJson<ArtifactDetail>(`/api/vera-ai/artifacts/${id}`));
-      setWorkspaceTab("studio");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "vera_unavailable"); }
   }
 
@@ -414,6 +424,10 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
           <StudentAccountMenu extraItem="notifications" session={session} />
         </div>
       </header>
+      <div className="flex items-center gap-3 border-b border-primary-100 bg-white px-3 py-2 sm:hidden" role="status">
+        <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-secondary-800">Unit Vera hari ini · {usagePercent}%</p><p className="truncate text-xs text-secondary-600">{usageState}</p></div>
+        <Progress aria-label={`Penggunaan Vera ${usagePercent}%`} className="h-2 w-24" value={usagePercent} />
+      </div>
 
       <main className="mx-auto grid w-full max-w-[1680px] flex-1 gap-3 overflow-hidden p-3 md:grid-cols-[260px_minmax(0,1fr)] md:p-4 xl:grid-cols-[280px_minmax(0,1.25fr)_minmax(330px,.75fr)]">
         <aside className="hidden min-h-0 overflow-hidden rounded-[1.5rem] border border-primary-100 bg-white shadow-sm md:flex md:flex-col">
@@ -444,7 +458,7 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
             <TabsList className="mx-3 mt-3 grid grid-cols-3 xl:hidden"><TabsTrigger value="chat">Chat</TabsTrigger><TabsTrigger value="context">Konteks</TabsTrigger><TabsTrigger value="studio">Studio</TabsTrigger></TabsList>
             <TabsContent className="flex min-h-0 flex-1 flex-col" value="chat">
               <ScrollArea className="min-h-0 flex-1 px-4 py-5">
-                {activeConversation ? messages.length || provisionalText !== null ? <div className="mx-auto flex max-w-3xl flex-col gap-4">{messages.map((message) => <div className={cn("max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-6", message.role === "user" ? "ml-auto rounded-br-lg bg-primary-700 text-white" : "rounded-bl-lg border border-primary-100 bg-primary-50 text-secondary-900")} key={message.id}>{message.text ?? <span className="text-secondary-500">Konten tidak tersedia.</span>}</div>)}{provisionalText !== null ? <div aria-live="polite" className="max-w-[88%] rounded-3xl rounded-bl-lg border border-dashed border-primary-200 bg-primary-50 px-4 py-3 text-sm leading-6 text-secondary-700">{provisionalText || "Vera sedang menyusun jawaban…"}</div> : null}</div> : <EmptyCopy title="Mulai dari pertanyaanmu" body="Vera hanya memakai sumber yang kamu pilih dan hasilnya tetap tersimpan di sesi ini." /> : <EmptyCopy title="Belum ada sesi aktif" body="Buat percakapan baru untuk mulai belajar bersama Vera." />}
+                {activeConversation ? messages.length || provisionalText !== null ? <div className="mx-auto flex max-w-3xl flex-col gap-4">{messages.map((message) => <div className={cn("max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-6", message.role === "user" ? "ml-auto rounded-br-lg bg-primary-700 text-white" : "rounded-bl-lg border border-primary-100 bg-primary-50 text-secondary-900")} key={message.id}>{message.text ?? <span className="text-secondary-500">Konten tidak tersedia.</span>}</div>)}{provisionalText !== null ? <div aria-hidden="true" className="max-w-[88%] rounded-3xl rounded-bl-lg border border-dashed border-primary-200 bg-primary-50 px-4 py-3 text-sm leading-6 text-secondary-700">{provisionalText || "Vera sedang menyusun jawaban…"}</div> : null}</div> : <EmptyCopy title="Mulai dari pertanyaanmu" body="Vera hanya memakai sumber yang kamu pilih dan hasilnya tetap tersimpan di sesi ini." /> : <EmptyCopy title="Belum ada sesi aktif" body="Buat percakapan baru untuk mulai belajar bersama Vera." />}
               </ScrollArea>
               <div className="border-t border-primary-100 p-3 md:p-4">
                 <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-[1.35rem] border border-primary-200 bg-white p-2 shadow-sm focus-within:ring-3 focus-within:ring-primary-200/50">

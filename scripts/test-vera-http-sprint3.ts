@@ -6,6 +6,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry } from "@/lib/vera-ai/envelope";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
+import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
+import { validateStudioOutput, type NormalizedStudioPayload, type VeraStudioToolId } from "@/lib/vera-ai/studio-contracts";
+import type { VeraStudioIdentityAuthority } from "@/lib/vera-ai/studio-authority";
 
 const connectionString = process.env.VERA_DISPOSABLE_DATABASE_URL;
 const redisUrl = process.env.VERA_DISPOSABLE_REDIS_URL;
@@ -45,10 +48,32 @@ const moduleId = randomUUID();
 const subtestId = randomUUID();
 const rootKey = Buffer.alloc(32, 13);
 const fixtureEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => rootKey));
+async function createHttpArtifact(toolId: VeraStudioToolId, normalized: NormalizedStudioPayload) {
+  const id = randomUUID();
+  const scoped = fixtureEnvelope.forClient(db);
+  const [titleCiphertext, contentMarkdownCiphertext, payloadCiphertext] = await Promise.all([
+    scoped.encryptAsync(normalized.title, `vera-artifact-title:${id}`),
+    scoped.encryptAsync(normalized.markdown, `vera-artifact-markdown:${id}`),
+    scoped.encryptAsync(canonicalJson(normalized), `vera-artifact-payload:${id}`),
+  ]);
+  await db.aiArtifact.create({ data: { id, artifactKey: `vera.http.${toolId}.${id}`, revision: 1, studentId, conversationId, artifactType: toolId, provenanceKind: "typed_entity", titleCiphertext, contentMarkdownCiphertext, payloadCiphertext, artifactSchemaVersion: "1", sourceEntityType: "HttpFixture", sourceEntityId: randomUUID(), sourceEntityRevision: 0, sourceEntityDigest: normalized.digest, contentDigest: normalized.digest, renderVersion: "vera-render-v1", retentionPolicyVersion: "vera-retention-v1", lifecycle: { create: { lifecycleRevision: 0 } } } });
+  return id;
+}
 const drillSessionId = randomUUID();
 const drillItemId = randomUUID();
 const drillQuestionId = randomUUID();
 const drillRevisionId = randomUUID();
+const standaloneQuizId = randomUUID();
+const standaloneItemId = randomUUID();
+const standaloneParticipationId = randomUUID();
+const standaloneAttemptId = randomUUID();
+const tryoutId = randomUUID();
+const tryoutReleaseId = randomUUID();
+const tryoutSessionId = randomUUID();
+const tryoutAdmissionId = randomUUID();
+const tryoutAttemptId = randomUUID();
+const universityId = randomUUID();
+const majorId = randomUUID();
 const drillRevisionOptions = [{ label: "A", content: "4", isCorrect: true, sortOrder: 1 }, { label: "B", content: "5", isCorrect: false, sortOrder: 2 }];
 const drillRevisionDigest = questionRevisionContentDigest({ difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", options: drillRevisionOptions, prompt: "Berapa 2 + 2?", questionType: "single_choice" });
 const policy = await db.aiPolicyBundle.findFirst({ where: { bundleVersion: "vera-policy-bundle-v1-2026-08-24" } });
@@ -67,11 +92,37 @@ try {
   await db.subtest.create({ data: { id: subtestId, code: `VHTTP-${subtestId.slice(0, 8)}`, name: "Vera HTTP" } });
   await db.topic.create({ data: { id: topicId, subtestId, code: `vhttp-topic-${topicId.slice(0, 8)}`, name: "Rasio" } });
   await db.module.create({ data: { id: moduleId, topicId, code: `vhttp-module-${moduleId}`, title: "Rasio dasar", summary: "Materi rasio yang telah dirilis untuk siswa.", sequenceNo: 1, status: "published", publishedAt: now } });
+  await db.university.create({ data: { id: universityId, name: "Universitas Fixture HTTP", shortName: "UFH" } });
+  await db.major.create({ data: { id: majorId, universityId, name: "Teknik Fixture HTTP" } });
   await db.$transaction(async (tx) => {
     await tx.question.create({ data: { id: drillQuestionId, code: `vhttp-q-${drillQuestionId}`, subtestId, topicId, stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", status: "published", currentRevisionId: drillRevisionId, createdByUserId: studentId, updatedByUserId: studentId } });
     await tx.questionRevision.create({ data: { id: drillRevisionId, questionId: drillQuestionId, revisionNo: 1, status: "draft", provenance: "authored", stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", contentDigest: drillRevisionDigest, createdByUserId: studentId, updatedByUserId: studentId, options: { createMany: { data: drillRevisionOptions } } } });
     await tx.questionRevision.update({ where: { id: drillRevisionId }, data: { status: "ready", readyAt: now } });
   });
+  await db.standaloneQuiz.create({ data: { id: standaloneQuizId, slug: `vhttp-quiz-${standaloneQuizId}`, title: "Latihan HTTP", description: "Latihan milik siswa yang telah dirilis.", subtestId, status: "published", reviewTiming: "immediate", correctAnswerVisibility: "show", createdByUserId: studentId } });
+  await db.standaloneQuizItem.create({ data: { id: standaloneItemId, quizId: standaloneQuizId, sortOrder: 1, prompt: "Berapa 2 + 2?", explanation: "Empat", difficulty: "easy", subtestId, sourceQuestionId: drillQuestionId, sourceQuestionRevisionId: drillRevisionId, sourceContentDigest: drillRevisionDigest, sourceRevisionProvenance: "authored" } });
+  const standalonePolicy = { reviewTiming: "immediate", correctAnswerVisibility: "show", formBehavior: "same", scorePolicy: "latest", attemptsAllowed: 1, retryDelaySeconds: null };
+  await db.standaloneQuizParticipation.create({ data: { id: standaloneParticipationId, quizId: standaloneQuizId, studentId, policySnapshot: standalonePolicy } });
+  await db.standaloneQuizAttempt.create({ data: { id: standaloneAttemptId, participationId: standaloneParticipationId, attemptNo: 1, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", releaseAt: now, score: 100, policySnapshot: standalonePolicy, formItemOrder: [standaloneItemId], formSnapshot: { version: 1, items: [{ id: standaloneItemId, prompt: "Berapa 2 + 2?", explanation: "Dua ditambah dua adalah empat.", options: [{ choiceKey: "A", content: "4", isCorrect: true }, { choiceKey: "B", content: "5", isCorrect: false }] }] } } });
+
+  const tryoutReleaseDigest = hash(`tryout-release:${tryoutId}`);
+  await db.tryoutPackage.create({ data: { id: tryoutId, code: `VHTTP-TO-${tryoutId.slice(0, 8)}`, title: "Tryout HTTP", status: "published", publishedAt: now, createdByUserId: studentId } });
+  await db.assessmentRelease.create({ data: { id: tryoutReleaseId, tryoutId, releaseNumber: 1, contentDigest: tryoutReleaseDigest, payload: { version: 1, sections: [] }, publishedAt: now, createdByUserId: studentId } });
+  await db.tryoutDeliverySession.create({ data: { id: tryoutSessionId, tryoutId, name: "Sesi HTTP", availableFrom: new Date(now.getTime() - 60_000), availableUntil: new Date(now.getTime() + 3_600_000), status: "active", createdByUserId: studentId, updatedByUserId: studentId, assessmentReleaseId: tryoutReleaseId } });
+  await db.tryoutAdmission.create({ data: { id: tryoutAdmissionId, tryoutId, studentId, status: "active", decidedAt: now, decidedByUserId: studentId } });
+  await db.tryoutAttempt.create({ data: { id: tryoutAttemptId, tryoutId, deliverySessionId: tryoutSessionId, admissionId: tryoutAdmissionId, studentId, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", assessmentReleaseId: tryoutReleaseId, assessmentReleaseNumber: 1, assessmentReleaseDigest: tryoutReleaseDigest, serverStartedAt: new Date(now.getTime() - 120_000), serverDeadlineAt: new Date(now.getTime() - 60_000), submittedAt: new Date(now.getTime() - 70_000), releaseAt: now, score: 640, releasePolicySnapshot: { policy: "immediate" }, contentSnapshot: { version: 1 } } });
+  const emptyAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [], moduleIds: [], questions: [], universityIds: [], majorIds: [] };
+  const emptyAuthority: VeraStudioIdentityAuthority = { ...emptyAuthoritySeed, digest: sha256Hex(canonicalJson(emptyAuthoritySeed)) };
+  const unauthorizedExistingOutputs = [
+    ["analysis", { title: "Tidak sah", summaryMarkdown: "Tidak sah", topics: [{ topicId, moduleId, rank: 1, weaknessScore: 50, confidence: 0.5, evidenceCitationKeys: ["src_fixture"], limitations: "Tidak sah", nextStep: "Tidak sah" }] }],
+    ["route", { title: "Tidak sah", goal: "Tidak sah", activities: [{ ordinal: 1, action: "Tidak sah", estimatedMinutes: 10, topicIds: [topicId], moduleIds: [moduleId], sourceIds: [], citationKeys: [] }], saveProjection: { sourceActivityOrdinal: 1, targetKind: "topic", targetId: topicId, priority: 50, rationale: "Tidak sah" } }],
+    ["review", { title: "Tidak sah", questionId: drillQuestionId, questionRevisionId: drillRevisionId, misconception: "Tidak sah", explanationSteps: ["Tidak sah"], citationKeys: ["src_fixture"] }],
+    ["ptn", { title: "Tidak sah", universityId, majorId, scoreEvidence: 650, assumptions: ["Tidak sah"], actions: ["Tidak sah"], disclaimer: "Bukan prediksi kelulusan.", citationKeys: [] }],
+    ["drill", { title: "Tidak sah", topicId, items: [{ ordinal: 1, questionId: drillQuestionId, questionRevisionId: drillRevisionId, topicId, difficulty: "easy", explanationPlan: "Tidak sah" }] }],
+  ] as const;
+  for (const [toolId, structured] of unauthorizedExistingOutputs) {
+    assert.throws(() => validateStudioOutput({ toolId, structured, allowedCitationKeys: ["src_fixture"], identityAuthority: emptyAuthority }), /not authorized/);
+  }
   const [drillPrompt, drillOptions, drillScoring] = await Promise.all([
     fixtureEnvelope.encryptAsync("Berapa 2 + 2?", `adaptive-item-prompt:${drillItemId}`),
     fixtureEnvelope.encryptAsync(JSON.stringify([{ key: "A", content: "4" }, { key: "B", content: "5" }]), `adaptive-item-options:${drillItemId}`),
@@ -163,14 +214,25 @@ try {
   assert.ok(!/(?:correctOptionKey|questionRevisionDigest|assessmentReleaseDigest)/u.test(resultWire));
   assert.ok(!resultWire.includes('"explanation":'));
 
-  const oversizedKey = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/requests`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId: "x".repeat(121), kind: "chat", text: "Batas kunci.", sourceIds: [moduleId], options: {} }) });
+  const oversizedKey = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/requests`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId: "x".repeat(121), kind: "chat", text: "Batas kunci.", sources: [{ sourceType: "material", sourceId: moduleId }], options: {} }) });
   assert.equal(oversizedKey.status, 400);
-  const requestBody = { clientRequestId: randomUUID(), kind: "studio", toolId: "route", text: "Buat rute belajar.", sourceIds: [moduleId], options: {} };
+  const requestBody = { clientRequestId: randomUUID(), kind: "studio", toolId: "route", text: "Buat rute belajar.", sources: [{ sourceType: "material", sourceId: moduleId }], options: {} };
   const generated = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/requests`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify(requestBody) });
   const wire = await generated.text();
   assert.equal(generated.status, 200, wire);
   assert.ok(wire.includes("event: artifact.ready"));
   assert.ok(!wire.includes("event: message.delta"));
+  for (const practiceSourceId of [standaloneAttemptId, tryoutAttemptId]) {
+    const practiceKey = randomUUID();
+    const practiceResponse = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/requests`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId: practiceKey, kind: "chat", text: "Jelaskan hasil latihan ini.", sources: [{ sourceType: "practice", sourceId: practiceSourceId }], options: {} }) });
+    const practiceWire = await practiceResponse.text();
+    assert.equal(practiceResponse.status, 200, practiceWire);
+    assert.ok(practiceWire.includes("event: request.completed"));
+    const practiceRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: practiceKey }, include: { sources: true } });
+    assert.equal(practiceRequest.sources.length, 1);
+    assert.equal(practiceRequest.sources[0]?.sourceType, "practice");
+    assert.equal(practiceRequest.sources[0]?.sourceId, practiceSourceId);
+  }
   const artifactList = await (await fetch(`${base}/api/vera-ai/conversations/${conversationId}/artifacts`, { headers: { cookie: studentCookie } })).json() as { artifacts: Array<{ id: string }> };
   assert.equal(artifactList.artifacts.length, 1);
   const artifactId = artifactList.artifacts[0]!.id;
@@ -191,11 +253,48 @@ try {
   assert.equal(duplicateMaterialization.status, 409);
   assert.equal((await duplicateMaterialization.json() as { error: string }).error, "already_materialized");
 
+  const applyOverHttp = async (artifactRevisionId: string, registryKey: string, targetId: string, expectedTargetRevision: number, clientRequestId = randomUUID(), cookie = studentCookie) => fetch(`${base}/api/vera-ai/artifacts/${artifactRevisionId}/apply`, { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId, registryKey, targetId, expectedTargetRevision }) });
+  const recommendation = await db.learningRecommendation.findUniqueOrThrow({ where: { sourceArtifactRevisionId: artifactId } });
+  const recommendationApplyKey = randomUUID();
+  assert.equal((await applyOverHttp(artifactId, "learning_recommendation.v1", recommendation.id, recommendation.revision, recommendationApplyKey)).status, 201);
+  assert.equal((await applyOverHttp(artifactId, "learning_recommendation.v1", recommendation.id, recommendation.revision, recommendationApplyKey)).status, 200);
+  assert.equal((await applyOverHttp(artifactId, "learning_recommendation.v1", recommendation.id, 0)).status, 409);
+
+  const commandQuestionId = randomUUID();
+  const commandRevisionId = randomUUID();
+  const commandAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [topicId], moduleIds: [], questions: [{ questionId: commandQuestionId, questionRevisionId: commandRevisionId, topicId }], universityIds: [], majorIds: [] };
+  const commandAuthority: VeraStudioIdentityAuthority = { ...commandAuthoritySeed, digest: sha256Hex(canonicalJson(commandAuthoritySeed)) };
+  const drillPayload = validateStudioOutput({ toolId: "drill", structured: { title: "Drill HTTP terapan", topicId, items: [{ ordinal: 1, questionId: commandQuestionId, questionRevisionId: commandRevisionId, topicId, difficulty: "easy", explanationPlan: "Tinjau setelah submit." }] }, allowedCitationKeys: [], identityAuthority: commandAuthority });
+  const drillArtifactId = await createHttpArtifact("drill", drillPayload);
+  const adaptiveTarget = await db.adaptivePracticeSession.create({ data: { studentId, topicId, sourceConversationId: conversationId, status: "in_progress" } });
+  const adaptiveApplyKey = randomUUID();
+  assert.equal((await applyOverHttp(drillArtifactId, "adaptive_practice_session.v1", adaptiveTarget.id, 0, adaptiveApplyKey)).status, 201);
+  assert.equal((await applyOverHttp(drillArtifactId, "adaptive_practice_session.v1", adaptiveTarget.id, 0, adaptiveApplyKey)).status, 200);
+  assert.equal((await applyOverHttp(drillArtifactId, "adaptive_practice_session.v1", adaptiveTarget.id, 0)).status, 409);
+
+  const ptnPayload = validateStudioOutput({ toolId: "ptn", structured: { title: "Strategi HTTP terapan", universityId: null, majorId: null, scoreEvidence: 650, assumptions: ["Nilai rilis digunakan."], actions: ["Perkuat subtes utama."], disclaimer: "Strategi belajar, bukan prediksi kelulusan.", citationKeys: [] }, allowedCitationKeys: [], identityAuthority: commandAuthority });
+  const ptnArtifactId = await createHttpArtifact("ptn", ptnPayload);
+  const ptnTarget = await db.ptnStrategySession.create({ data: { studentId, conversationId, disclaimerShown: true } });
+  const ptnApplyKey = randomUUID();
+  assert.equal((await applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id, 0, ptnApplyKey)).status, 201);
+  assert.equal((await applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id, 0, ptnApplyKey)).status, 200);
+  assert.equal((await applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id, 0)).status, 409);
+
+  for (const [privacyArtifactId, registryKey, targetId] of [[artifactId, "learning_recommendation.v1", recommendation.id], [drillArtifactId, "adaptive_practice_session.v1", adaptiveTarget.id], [ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id]] as const) {
+    const crossStudent = await applyOverHttp(privacyArtifactId, registryKey, targetId, 0, randomUUID(), otherCookie);
+    const missingArtifact = await applyOverHttp(randomUUID(), registryKey, targetId, 0, randomUUID(), otherCookie);
+    assert.equal(crossStudent.status, missingArtifact.status);
+    assert.deepEqual(await crossStudent.json(), await missingArtifact.json());
+  }
+
   console.log("PASS vera-http-sprint3: authenticated conversation/detail/messages/context/source/usage handlers");
   console.log("PASS vera-http-sprint3: conversation create replay and cross-student no-existence behavior");
   console.log("PASS vera-http-sprint3: real Studio POST progress-only stream and artifact history/detail privacy");
   console.log("PASS vera-http-sprint3: recommendation materialization handler create/replay/terminal duplicate semantics");
   console.log("PASS vera-http-sprint3: adaptive session/item read, answer replay, duplicate guard, submit and release-gated result handlers");
+  console.log("PASS vera-http-sprint3: typed HTTP source authority preserves released standalone and tryout practice identities");
+  console.log("PASS vera-http-sprint3: all three Apply handlers cover populated replay/conflict and indistinguishable cross-student privacy");
+  console.log("PASS vera-http-sprint3: existing-but-unadmitted Analysis/Route/Review/PTN/Drill identities are rejected");
 } finally {
   if (server) await stop(server).catch(() => undefined);
   const conversations = await db.aiConversation.findMany({ where: { studentId }, select: { id: true } });
@@ -209,7 +308,21 @@ try {
   await db.authSession.deleteMany({ where: { userId: { in: [studentId, otherStudentId] } } });
   await db.adaptivePracticeAnswer.deleteMany({ where: { adaptiveSessionId: drillSessionId } });
   await db.adaptivePracticeItem.deleteMany({ where: { adaptiveSessionId: drillSessionId } });
-  await db.adaptivePracticeSession.deleteMany({ where: { id: drillSessionId } });
+  await db.adaptivePracticeSession.deleteMany({ where: { studentId } });
+  await db.ptnStrategySession.deleteMany({ where: { studentId } });
+  await db.standaloneQuizAttempt.deleteMany({ where: { id: standaloneAttemptId } });
+  await db.standaloneQuizParticipation.deleteMany({ where: { id: standaloneParticipationId } });
+  await db.standaloneQuizItem.deleteMany({ where: { id: standaloneItemId } });
+  await db.standaloneQuiz.deleteMany({ where: { id: standaloneQuizId } });
+  await db.tryoutAttempt.deleteMany({ where: { id: tryoutAttemptId } });
+  await db.tryoutDeliverySession.deleteMany({ where: { id: tryoutSessionId } });
+  await db.tryoutAdmission.deleteMany({ where: { id: tryoutAdmissionId } });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('ALTER TABLE assessment_releases DISABLE TRIGGER USER');
+    await tx.assessmentRelease.deleteMany({ where: { id: tryoutReleaseId } });
+    await tx.$executeRawUnsafe('ALTER TABLE assessment_releases ENABLE TRIGGER USER');
+  });
+  await db.tryoutPackage.deleteMany({ where: { id: tryoutId } });
   await db.aiArtifactApply.deleteMany({ where: { appliedByStudentId: studentId } });
   await db.learningRecommendation.deleteMany({ where: { studentId } });
   await db.aiArtifactLifecycle.deleteMany({ where: { artifact: { studentId } } });
@@ -222,10 +335,12 @@ try {
   await db.aiConversation.deleteMany({ where: { studentId } });
   await db.aiAdmissionEvent.deleteMany({ where: { studentId } });
   await db.aiUsageDaily.deleteMany({ where: { studentId } });
-  await db.aiIdempotencyKey.deleteMany({ where: { studentId } });
+  await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: [studentId, otherStudentId] } } });
   if (envelopeObjectMarkers.length) await db.aiEnvelopeKey.deleteMany({ where: { OR: envelopeObjectMarkers.map((id) => ({ objectId: { contains: id } })) } });
   await db.billingAccount.deleteMany({ where: { studentId } });
   await db.studentProfile.deleteMany({ where: { userId: studentId } });
+  await db.major.deleteMany({ where: { id: majorId } });
+  await db.university.deleteMany({ where: { id: universityId } });
   await db.module.deleteMany({ where: { id: moduleId } });
   await db.$transaction(async (tx) => {
     await tx.$executeRawUnsafe('ALTER TABLE question_revision_options DISABLE TRIGGER USER');

@@ -207,7 +207,7 @@ try {
   const studentCookie = `${SESSION_COOKIE_NAME}=${studentToken}`;
   const otherStudentCookie = `${SESSION_COOKIE_NAME}=${otherStudentToken}`;
   await waitForServer(routeServer, `${routeBase}/api/vera-ai/usage`);
-  const routeRequestBody = { clientRequestId: randomUUID(), kind: "chat", text: "Actual HTTP route fixture.", sourceIds: [], options: {} };
+  const routeRequestBody = { clientRequestId: randomUUID(), kind: "chat", text: "Actual HTTP route fixture.", sources: [], options: {} };
 
   const unauthenticatedPost = await fetch(requestRoute, { body: JSON.stringify(routeRequestBody), headers: { "content-type": "application/json" }, method: "POST" });
   assert.equal(unauthenticatedPost.status, 401, "POST route did not require auth");

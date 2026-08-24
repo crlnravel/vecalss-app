@@ -743,7 +743,7 @@ export class VeraAdmissionService {
       kind: input.kind ?? "chat",
       toolId: input.toolId ?? null,
       text: input.text,
-      sourceIds: (input.selection ?? []).map((selection) => selection.sourceId),
+      sources: (input.selection ?? []).map(({ sourceType, sourceId }) => ({ sourceType, sourceId })),
       options: input.options ?? {},
       retryOfRequestId: input.retryOfRequestId ?? null,
     };

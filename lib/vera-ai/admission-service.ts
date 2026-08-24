@@ -23,7 +23,7 @@ import { prisma as defaultPrisma } from "@/lib/prisma";
 import { VeraAdmissionError } from "./admission";
 import { encryptPreparedContextPackAsync, type PreparedContextPack } from "./context-pack";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
-import { VERA_FINGERPRINT_KEY_VERSION } from "./contracts";
+import { VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
 import { resolveVeraQuotaLimit, snapshotVeraPolicy, type BillingPlan, type VeraPolicyBundle, type VeraPolicySnapshot } from "./policy";
 import { quotaDateAndDayEnd } from "./quota";
 import type { NormalizedVeraResult } from "./output-validator";
@@ -138,6 +138,29 @@ export class VeraPrismaAdmissionService {
     const now = rows[0]?.now;
     if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw new VeraAdmissionError({ code: "db_clock_unavailable", status: 503 });
     return now;
+  }
+
+  async assertRetryTargetEligible(input: {
+    requestId: string;
+    studentId: string;
+    conversationId: string;
+    featureKey: string;
+    text: string;
+  }): Promise<void> {
+    const target = await this.db.aiRequest.findFirst({
+      where: { id: input.requestId, studentId: input.studentId, conversationId: input.conversationId },
+      select: {
+        status: true,
+        featureKey: true,
+        userMessageId: true,
+        userMessage: { select: { contentDigest: true, contentState: true } },
+      },
+    });
+    if (!target || target.status !== AiRequestLifecycleState.failed || target.featureKey !== input.featureKey
+      || !target.userMessageId || target.userMessage?.contentState !== AiContentLifecycleState.encrypted
+      || target.userMessage.contentDigest !== sha256Hex(input.text)) {
+      throw new VeraAdmissionError({ code: "retry_target_unavailable", status: 409 });
+    }
   }
 
   async resolveActivePolicyBundle(tx: Prisma.TransactionClient, now: Date): Promise<VeraPolicyBundle> {
@@ -407,6 +430,7 @@ export class VeraPrismaAdmissionService {
           where: { id: input.retryOfRequestId, studentId: input.studentId, conversationId: input.conversationId },
           select: {
             userMessageId: true,
+            status: true,
             featureKey: true,
             requestType: true,
             behaviorVersion: true,
@@ -414,10 +438,13 @@ export class VeraPrismaAdmissionService {
             outputSchemaId: true,
             outputSchemaHash: true,
             contextPackVersion: true,
+            userMessage: { select: { contentDigest: true, contentState: true } },
           },
         })
         : null;
       if (retryTarget && (
+        retryTarget.status !== AiRequestLifecycleState.failed
+        ||
         retryTarget.featureKey !== input.featureKey
         || retryTarget.requestType !== featureTuple.requestType
         || retryTarget.behaviorVersion !== featureTuple.behaviorVersion
@@ -425,6 +452,8 @@ export class VeraPrismaAdmissionService {
         || retryTarget.outputSchemaId !== featureTuple.outputSchemaId
         || retryTarget.outputSchemaHash !== featureTuple.outputSchemaHash
         || retryTarget.contextPackVersion !== input.pack.contextPackVersion
+        || retryTarget.userMessage?.contentState !== AiContentLifecycleState.encrypted
+        || retryTarget.userMessage.contentDigest !== sha256Hex(input.text)
       )) throw new VeraAdmissionError({ code: "retry_target_unavailable", status: 409 });
       const userMessageId = retryTarget?.userMessageId ?? null;
       if (input.retryOfRequestId && !userMessageId) throw new VeraAdmissionError({ code: "retry_target_unavailable", status: 409 });
@@ -771,7 +800,6 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     normalizedResult: NormalizedVeraResult;
     now?: Date;
-    persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<{ requestId: string; assistantMessageId: string | null; usageAccountingState: AiUsageAccountingState }> {
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
@@ -798,6 +826,7 @@ export class VeraPrismaAdmissionService {
       await tx.$queryRaw`SELECT id FROM ai_request_result_stages WHERE id = ${stage.id}::uuid FOR UPDATE`;
       if (stage.resultDigest !== input.normalizedResult.digest) throw new VeraAdmissionError({ code: "stage_conflict", status: 409 });
       if (request.settlementDeadlineAt && now > request.settlementDeadlineAt) throw new VeraAdmissionError({ code: "stage_after_deadline", status: 409 });
+      if (!this.envelope) throw new VeraAdmissionError({ code: "durable_callback_missing", status: 503 });
 
       return this.finalizeLockedRequest({
         tx,
@@ -806,8 +835,94 @@ export class VeraPrismaAdmissionService {
         stage,
         normalizedResult: input.normalizedResult,
         now,
-        persistDurableResult: input.persistDurableResult,
+        persistDurableResult: createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }),
       });
+    });
+  }
+
+  /**
+   * Terminalize a provider response that completed upstream but failed the
+   * server-owned output contract. The provider's observed usage is settled
+   * immediately; no result stage, assistant message, typed entity, or artifact
+   * is created, so malformed output can never become recovery-pending work.
+   */
+  async failAcceptedProviderResult(input: {
+    requestId: string;
+    errorCode: string;
+    usage: NormalizedVeraResult["usage"];
+    now?: Date;
+  }): Promise<void> {
+    const now = input.now ?? await this.databaseNow();
+    await this.db.$transaction(async (tx) => {
+      const initial = await tx.aiRequest.findUnique({
+        where: { id: input.requestId },
+        select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
+      });
+      if (!initial) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
+      const dailyCandidates = await tx.aiUsageDaily.findMany({
+        where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 },
+        orderBy: { usageDate: "desc" },
+      });
+      const daily = dailyCandidates.find((candidate) =>
+        quotaDateAndDayEnd(initial.createdAt, candidate.quotaTimezone).usageDate
+        === candidate.usageDate.toISOString().slice(0, 10));
+      if (!daily) throw new VeraAdmissionError({ code: "quota_ledger_missing", status: 503 });
+      await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
+      const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
+      if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (request.status === AiRequestLifecycleState.succeeded
+        || request.status === AiRequestLifecycleState.fallback
+        || request.status === AiRequestLifecycleState.failed) return;
+
+      const reserved = request.quotaUnitsReserved;
+      const actual = input.usage.quotaUnitsConsumed ?? reserved;
+      const remainingReserved = daily.reservedQuotaUnits - reserved;
+      if (remainingReserved < 0) throw new VeraAdmissionError({ code: "quota_ledger_conflict", status: 409 });
+      const used = daily.usedQuotaUnits + actual;
+      const debt = Math.max(0, used + remainingReserved - daily.quotaLimitUnitsSnapshot);
+      const overrun = Math.max(0, actual - reserved);
+      const dayEnd = quotaDateAndDayEnd(request.createdAt, daily.quotaTimezone).dayEnd;
+      const accounting = input.usage.quotaUnitsConsumed === null
+        ? AiUsageAccountingState.unknown
+        : overrun > 0 || debt > 0 ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.known;
+      const tokenState = input.usage.tokenUsageState === "known"
+        ? AiTokenUsageState.known
+        : input.usage.tokenUsageState === "not_applicable" ? AiTokenUsageState.not_applicable : AiTokenUsageState.unknown;
+
+      await tx.aiUsageDaily.update({
+        where: { id: daily.id },
+        data: {
+          reservedQuotaUnits: remainingReserved,
+          usedQuotaUnits: used,
+          quotaDebtUnits: debt,
+          quotaOverrunLockUntil: overrun > 0 || debt > 0 ? dayEnd : daily.quotaOverrunLockUntil,
+          finalizedRequestCount: { increment: 1 },
+        },
+      });
+      const failed = await tx.aiRequest.updateMany({
+        where: { id: request.id, version: request.version, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
+        data: {
+          status: AiRequestLifecycleState.failed,
+          errorCode: input.errorCode,
+          inputTokens: input.usage.inputTokens,
+          outputTokens: input.usage.outputTokens,
+          quotaUnitsConsumed: actual,
+          quotaOverrunUnits: overrun,
+          tokenUsageState: tokenState,
+          usageAccountingState: accounting,
+          completedAt: now,
+          finalizedAt: now,
+          version: { increment: 1 },
+        },
+      });
+      if (failed.count !== 1) throw new VeraAdmissionError({ code: "request_cas_conflict", status: 409 });
+      const terminalKey = await tx.aiIdempotencyKey.updateMany({
+        where: { id: request.idempotencyKeyId, version: request.idempotencyKey.version, state: AiIdempotencyState.accepted, resultId: request.id },
+        data: { terminalAt: now, lastSeenAt: now, version: { increment: 1 } },
+      });
+      if (terminalKey.count !== 1) throw new VeraAdmissionError({ code: "idempotency_cas_conflict", status: 409 });
     });
   }
 
@@ -817,7 +932,6 @@ export class VeraPrismaAdmissionService {
     missingStage?: boolean;
     forceUnknown?: boolean;
     errorCode?: string;
-    persistDurableResult?: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<void> {
     const now = input.now ?? await this.databaseNow();
     await this.db.$transaction(async (tx) => {
@@ -859,8 +973,7 @@ export class VeraPrismaAdmissionService {
         // durably persisted, and only then consume stage/accounting CAS; an
         // accounting-only success would lose the learner-visible result.
         const normalizedResult = await this.decodeStagedResult(stage);
-        const callback = input.persistDurableResult
-          ?? (this.envelope ? createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }) : null);
+        const callback = this.envelope ? createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }) : null;
         if (callback) {
           await tx.$executeRawUnsafe("SAVEPOINT vera_durable_recovery");
           try {

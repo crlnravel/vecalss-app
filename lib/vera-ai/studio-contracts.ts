@@ -106,7 +106,7 @@ function list<T>(value: unknown, label: string, min: number, max: number, parser
 
 function citationList(value: unknown, allowed: Set<string>, label: string, min = 0): string[] {
   const citations = list(value, label, min, 12, (item) => {
-    if (typeof item !== "string" || !/^src_[A-Za-z0-9_-]{1,64}$/.test(item) || !allowed.has(item)) fail(`${label} contains an unauthorized citation.`);
+    if (typeof item !== "string" || !/^(?:src|materi|kuis|tryout)_[A-Za-z0-9_-]{1,72}$/.test(item) || !allowed.has(item)) fail(`${label} contains an unauthorized citation.`);
     return item;
   });
   if (new Set(citations).size !== citations.length) fail(`${label} contains duplicate citations.`);

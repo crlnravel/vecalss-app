@@ -41,7 +41,7 @@ export async function POST(
       clientRequestId: body.clientRequestId,
       kind: body.kind,
       text: body.text,
-      selection: body.sourceIds.map((sourceId) => ({ sourceType: "material" as const, sourceId })),
+      selection: body.sources,
       options: body.options,
       toolId: body.toolId,
       retryOfRequestId: body.retryOfRequestId,

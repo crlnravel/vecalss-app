@@ -16,7 +16,6 @@ import {
 } from "./admission-service";
 import { VeraContractError } from "./contracts";
 import { prepareContextPack, type VeraContextResolver } from "./context-pack";
-import { createVeraDurableResultCallback } from "./durable-results";
 import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry, environmentEnvelopeRootKeyProvider, type AiEncryptedPayload } from "./envelope";
 import { IdempotencyService, InMemoryIdempotencyStore } from "./idempotency";
 import {
@@ -26,7 +25,7 @@ import {
   type VeraLeaseStore,
   VeraRedisUnavailableError,
 } from "./redis-lease";
-import { validateVeraResult, type NormalizedVeraResult } from "./output-validator";
+import { VeraOutputValidationError, validateVeraResult, type NormalizedVeraResult } from "./output-validator";
 import { ProviderSafetyError, type PreparedProviderTask, type VeraProviderAdapter } from "./provider";
 import { getVeraFeatureContract, validateStudioOutput } from "./studio-contracts";
 import { prepareStudioAuthority, type VeraStudioIdentityAuthority } from "./studio-authority";
@@ -64,7 +63,7 @@ function payloadForFingerprint(input: VeraAdmissionInput): Record<string, unknow
     kind: input.kind ?? "chat",
     toolId: input.toolId ?? null,
     text: input.text,
-    sourceIds: (input.selection ?? []).map((selection) => selection.sourceId),
+    sources: (input.selection ?? []).map(({ sourceType, sourceId }) => ({ sourceType, sourceId })),
     options: input.options ?? {},
     retryOfRequestId: input.retryOfRequestId ?? null,
   };
@@ -191,6 +190,15 @@ export class VeraPrismaChatOrchestrator {
   private async prepareAdmission(input: VeraAdmissionInput): Promise<TransportAdmission> {
     const now = await this.admission.databaseNow();
     const feature = getVeraFeatureContract(input.kind ?? "chat", input.toolId);
+    if (input.retryOfRequestId) {
+      await this.admission.assertRetryTargetEligible({
+        requestId: input.retryOfRequestId,
+        studentId: input.studentId,
+        conversationId: input.conversationId,
+        featureKey: feature.featureKey,
+        text: input.text,
+      });
+    }
     const fingerprint = this.idempotency.fingerprint("ai_request", payloadForFingerprint(input));
     const existing = await this.admission.lookupIdempotencyKey(input.studentId, input.clientRequestId);
     if (existing) {
@@ -454,25 +462,38 @@ export class VeraPrismaChatOrchestrator {
       write("request.failed", { requestId: admission.requestId, code: "cancelled", provisional: false });
       return;
     }
-    const studioPayload = admission.feature.toolId
-      ? validateStudioOutput({
-        toolId: admission.feature.toolId,
-        structured: providerResult.structured,
+    let studioPayload;
+    let normalized: NormalizedVeraResult;
+    try {
+      studioPayload = admission.feature.toolId
+        ? validateStudioOutput({
+          toolId: admission.feature.toolId,
+          structured: providerResult.structured,
+          allowedCitationKeys: admission.allowedCitationKeys,
+          identityAuthority: admission.identityAuthority!,
+        })
+        : null;
+      if (studioPayload) {
+        write("progress.updated", { requestId: admission.requestId, stage: "validating", progress: 70, provisional: true });
+      }
+      normalized = validateVeraResult({
+        text: studioPayload ? null : providerResult.text,
+        structured: studioPayload ?? providerResult.structured,
+        kind: providerResult.kind === "text" || providerResult.kind === "structured" ? "success" : providerResult.kind === "fallback" ? "fallback" : "discarded",
+        finishReason: providerResult.finishReason,
+        usage: providerResult.usage,
         allowedCitationKeys: admission.allowedCitationKeys,
-        identityAuthority: admission.identityAuthority!,
-      })
-      : null;
-    if (studioPayload) {
-      write("progress.updated", { requestId: admission.requestId, stage: "validating", progress: 70, provisional: true });
+      });
+    } catch (error) {
+      const code = error instanceof VeraOutputValidationError ? error.code : "malformed_output";
+      await this.admission.failAcceptedProviderResult({
+        requestId: admission.requestId,
+        errorCode: code,
+        usage: providerResult.usage,
+      });
+      write("request.failed", { requestId: admission.requestId, code, provisional: false });
+      return;
     }
-    const normalized = validateVeraResult({
-      text: studioPayload ? null : providerResult.text,
-      structured: studioPayload ?? providerResult.structured,
-      kind: providerResult.kind === "text" || providerResult.kind === "structured" ? "success" : providerResult.kind === "fallback" ? "fallback" : "discarded",
-      finishReason: providerResult.finishReason,
-      usage: providerResult.usage,
-      allowedCitationKeys: admission.allowedCitationKeys,
-    });
     const encrypted = await this.envelope.encryptAsync(JSON.stringify(normalized), `ai-result:${admission.requestId}`);
     const finalizeNow = await this.admission.databaseNow();
     await this.admission.stageResult({
@@ -490,7 +511,6 @@ export class VeraPrismaChatOrchestrator {
       requestId: admission.requestId,
       normalizedResult: normalized,
       now: finalizeNow,
-      persistDurableResult: createVeraDurableResultCallback({ requestId: admission.requestId, envelope: this.envelope }),
     });
     if (studioPayload) {
       const artifact = await this.db.aiArtifact.findUnique({

@@ -24,6 +24,14 @@ const quizId = randomUUID();
 const itemId = randomUUID();
 const participationId = randomUUID();
 const attemptId = randomUUID();
+const tryoutId = randomUUID();
+const releaseId = randomUUID();
+const deliverySessionId = randomUUID();
+const admissionId = randomUUID();
+const tryoutSectionId = randomUUID();
+const tryoutItemId = randomUUID();
+const tryoutAttemptId = randomUUID();
+const tryoutRunId = randomUUID();
 const revisionOptions = [{ label: "A", content: "4", isCorrect: true, sortOrder: 1 }, { label: "B", content: "5", isCorrect: false, sortOrder: 2 }];
 const digest = questionRevisionContentDigest({ difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", options: revisionOptions, prompt: "Berapa 2 + 2?", questionType: "single_choice" });
 
@@ -60,13 +68,44 @@ try {
   const revalidated = await db.$transaction((tx) => lockAndRevalidateDrillCandidates(tx, studentId, authority));
   assert.equal(revalidated.get(revisionId)?.correctOptionKey, "A");
 
+  const releaseDigest = `release-${digest}`;
+  const now = new Date();
+  await db.tryoutPackage.create({ data: { id: tryoutId, code: `VD-TO-${tryoutId.slice(0, 8)}`, title: "Tryout aljabar", status: "published", publishedAt: now, createdByUserId: studentId } });
+  await db.assessmentRelease.create({ data: { id: releaseId, tryoutId, releaseNumber: 1, contentDigest: releaseDigest, payload: { version: 1 }, publishedAt: now, createdByUserId: studentId } });
+  await db.tryoutDeliverySession.create({ data: { id: deliverySessionId, tryoutId, name: "Sesi drill", availableFrom: new Date(now.getTime() - 60_000), availableUntil: new Date(now.getTime() + 60_000), status: "active", assessmentReleaseId: releaseId, createdByUserId: studentId, updatedByUserId: studentId } });
+  await db.tryoutAdmission.create({ data: { id: admissionId, tryoutId, studentId, status: "active", decidedAt: now, decidedByUserId: studentId } });
+  await db.tryoutSection.create({ data: { id: tryoutSectionId, tryoutId, subtestId, title: "Aljabar", sequenceNo: 1, durationSeconds: 600, questionCount: 1 } });
+  await db.tryoutItem.create({ data: { id: tryoutItemId, tryoutId, tryoutSectionId, sourceQuestionId: questionId, sourceQuestionRevisionId: revisionId, sourceContentDigest: digest, sourceRevisionProvenance: "authored", sortOrder: 1, prompt: "Mutable prompt", explanation: "Mutable explanation", difficulty: "easy", subtestId, packageCode: "VD-FIXED" } });
+  await db.tryoutAttempt.create({ data: { id: tryoutAttemptId, tryoutId, deliverySessionId, admissionId, studentId, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", assessmentReleaseId: releaseId, assessmentReleaseNumber: 1, assessmentReleaseDigest: releaseDigest, serverStartedAt: new Date(now.getTime() - 120_000), serverDeadlineAt: new Date(now.getTime() - 60_000), submittedAt: new Date(now.getTime() - 70_000), releaseAt: now, score: 700, releasePolicySnapshot: { policy: "immediate" }, contentSnapshot: { version: 1 } } });
+  await db.tryoutAttemptTestRun.create({ data: { id: tryoutRunId, attemptId: tryoutAttemptId, tryoutSectionId, sequenceNo: 1, status: "sealed", scoringState: "scored", assessmentReleaseId: releaseId, assessmentReleaseNumber: 1, assessmentReleaseDigest: releaseDigest, contentSnapshot: { items: [{ id: tryoutItemId, prompt: "Frozen tryout prompt", explanation: "Frozen tryout explanation", sourceQuestionId: questionId, sourceQuestionRevisionId: revisionId, sourceContentDigest: digest, difficulty: "easy", options: [{ choiceKey: "A", content: "4", isCorrect: true }, { choiceKey: "B", content: "5", isCorrect: false }] }] }, calculationReleaseable: true } });
+  const tryoutAuthority = await prepareFrozenDrillAuthority(db, studentId, [tryoutAttemptId]);
+  assert.equal(tryoutAuthority.candidates.length, 1);
+  assert.equal(tryoutAuthority.candidates[0]?.sourceKind, "tryout");
+  assert.equal(tryoutAuthority.candidates[0]?.prompt, "Frozen tryout prompt");
+  assert.ok(!/(?:isCorrect|correctOptionKey)/u.test(JSON.stringify(tryoutAuthority)));
+  const tryoutRevalidated = await db.$transaction((tx) => lockAndRevalidateDrillCandidates(tx, studentId, tryoutAuthority));
+  assert.equal(tryoutRevalidated.get(revisionId)?.correctOptionKey, "A");
+
   await db.questionRevision.update({ where: { id: revisionId }, data: { status: "retired", retiredAt: new Date() } });
   const drifted = await db.$transaction((tx) => lockAndRevalidateDrillCandidates(tx, studentId, authority));
   assert.equal(drifted.size, 0);
 
   console.log("PASS vera-drill-prisma-sprint3: owned released form snapshot is the only provider candidate authority");
   console.log("PASS vera-drill-prisma-sprint3: answer key stays server-only and retirement drift fails finalization revalidation");
+  console.log("PASS vera-drill-prisma-sprint3: released Tryout attempt/test-run snapshot is independently frozen and revalidated");
 } finally {
+  await db.tryoutAttemptTestRun.deleteMany({ where: { id: tryoutRunId } });
+  await db.tryoutAttempt.deleteMany({ where: { id: tryoutAttemptId } });
+  await db.tryoutItem.deleteMany({ where: { id: tryoutItemId } });
+  await db.tryoutSection.deleteMany({ where: { id: tryoutSectionId } });
+  await db.tryoutDeliverySession.deleteMany({ where: { id: deliverySessionId } });
+  await db.tryoutAdmission.deleteMany({ where: { id: admissionId } });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('ALTER TABLE assessment_releases DISABLE TRIGGER USER');
+    await tx.assessmentRelease.deleteMany({ where: { id: releaseId } });
+    await tx.$executeRawUnsafe('ALTER TABLE assessment_releases ENABLE TRIGGER USER');
+  });
+  await db.tryoutPackage.deleteMany({ where: { id: tryoutId } });
   await db.standaloneQuizAttempt.deleteMany({ where: { id: attemptId } });
   await db.standaloneQuizParticipation.deleteMany({ where: { id: participationId } });
   await db.standaloneQuizItem.deleteMany({ where: { id: itemId } });

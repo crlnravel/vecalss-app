@@ -52,6 +52,9 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     }
   }],
   ["schema failures reject unknown fields, unauthorized citations, URLs and route ambiguity", () => {
+    const materialCitation = `materi_${ids.source}`;
+    const materialSummary = { ...(outputs.summary as object), citationKeys: [materialCitation] };
+    assert.equal(validateStudioOutput({ toolId: "summary", structured: materialSummary, allowedCitationKeys: [materialCitation], identityAuthority }).citationKeys[0], materialCitation);
     assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), hidden: true }, allowedCitationKeys: ["src_a"], identityAuthority }));
     assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), citationKeys: ["src_other"] }, allowedCitationKeys: ["src_a"], identityAuthority }));
     assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), focus: "http://unsafe.test" }, allowedCitationKeys: ["src_a"], identityAuthority }));
@@ -64,7 +67,9 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     assert.match(source, /admission\.feature\.toolId\s*\?\s*undefined/);
     assert.match(source, /finalizeAcceptedRequest[\s\S]*artifact\.ready/);
     assert.ok(source.indexOf("finalizeAcceptedRequest") < source.indexOf('write("artifact.ready"'));
-    assert.match(source, /createVeraDurableResultCallback/);
+    const admissionSource = readFileSync(join(process.cwd(), "lib/vera-ai/admission-service.ts"), "utf8");
+    assert.match(admissionSource, /createVeraDurableResultCallback/);
+    assert.ok(!/settleOverdueRequest\(input:[\s\S]{0,400}persistDurableResult/.test(admissionSource));
   }],
   ["artifact cardinality, encrypted typed fields and immutable drill snapshots are DB enforced", () => {
     const schema = readFileSync(join(process.cwd(), "prisma/schema.prisma"), "utf8");
@@ -84,6 +89,7 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     assert.ok(!ui.includes('from "./data"'));
     assert.ok(!/initialSessions|initialMessages|veraContextSources|DAILY_TOKEN_USAGE|DAILY_TOKEN_LIMIT/.test(ui));
     for (const route of ["/api/vera-ai/conversations", "/api/vera-ai/sources", "/api/vera-ai/usage", "/requests", "/artifacts"]) assert.ok(ui.includes(route), route);
+    assert.match(ui, /sources: \(context\?\.sources/);
     assert.ok(!/Ekspor|Unduh|Hapus|Unggah/i.test(ui));
   }],
   ["closed recovery registry, bounded keys and learner recovery controls are explicit", () => {
