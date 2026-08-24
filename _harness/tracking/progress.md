@@ -207,6 +207,11 @@
     drafts show only Build/Review & Publish and published Tryouts show only
     Delivery/Operations/Results; the focused contract, lint, browser QA, and
     commit-hook `pnpm verify` pass.
+  - Follow-up `82733ee` separates Overview into its own phase before Build,
+    removes the single-item Build tab strip, and reduces draft progression to
+    one auto-saving `Selanjutnya` action without the arrow icon; focused
+    contract, TypeScript, lint, detector, browser QA, and commit-hook
+    `pnpm verify` pass.
 
 - [x] AS-04 ParticipantView and atomic access transitions (`ae64528`)
   - Added a server-only ParticipantView combining admission, current/audit

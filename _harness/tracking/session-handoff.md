@@ -10,6 +10,11 @@
   roadmap while retaining in-mode readiness locks. Authenticated ego-browser
   QA confirmed draft `Build`/`Review & Publish` and published
   `Delivery`/`Operations`/`Results` at desktop and 390px mobile widths.
+- Follow-up `82733ee` makes draft navigation `Overview` → `Build` → `Review &
+  Publish`, removes inner tabs from the single-area Build phase, and keeps only
+  the auto-saving `Selanjutnya` footer action without a right-arrow icon.
+  Authenticated ego-browser QA confirmed one footer button, zero inner tab
+  lists, and no mobile horizontal overflow.
 - `lib/tryout/workflow-projection.ts` is the pure lifecycle predicate module.
   The operations DTO carries phase/gate/session identifiers only; it does not
   cross the immutable AssessmentRelease/Bank Soal payload boundary. Historical
