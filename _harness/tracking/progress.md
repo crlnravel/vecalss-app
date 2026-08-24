@@ -212,6 +212,10 @@
     one auto-saving `Selanjutnya` action without the arrow icon; focused
     contract, TypeScript, lint, detector, browser QA, and commit-hook
     `pnpm verify` pass.
+  - Follow-up `bdb44a4` removes the workspace title, description, status badges,
+    and authoring-mode copy, leaving an accessible icon-only chevron-back
+    control; focused contract, TypeScript, lint, browser QA, and commit-hook
+    `pnpm verify` pass.
 
 - [x] AS-04 ParticipantView and atomic access transitions (`ae64528`)
   - Added a server-only ParticipantView combining admission, current/audit

@@ -15,6 +15,11 @@
   the auto-saving `Selanjutnya` footer action without a right-arrow icon.
   Authenticated ego-browser QA confirmed one footer button, zero inner tab
   lists, and no mobile horizontal overflow.
+- Follow-up `bdb44a4` removes the workspace title, description, status badges,
+  and authoring-mode copy, leaving only an accessible icon-only chevron-back
+  control above the lifecycle roadmap. Authenticated desktop/mobile ego-browser
+  QA confirmed the old header copy is absent and the back control has no visible
+  text or horizontal overflow.
 - `lib/tryout/workflow-projection.ts` is the pure lifecycle predicate module.
   The operations DTO carries phase/gate/session identifiers only; it does not
   cross the immutable AssessmentRelease/Bank Soal payload boundary. Historical
