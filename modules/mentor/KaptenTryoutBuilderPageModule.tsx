@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import {
-  ArrowLeft,
   ArrowDown,
   ArrowUp,
   Check,
   ChevronDown,
+  ChevronLeft,
   CircleAlert,
   CircleHelp,
   ClipboardList,
@@ -1369,32 +1369,11 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 border-b border-primary-100 pb-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="sm" variant="ghost">
-            <ArrowLeft />
-            Semua Tryout
-          </Button>
-          <div className="flex flex-wrap items-center gap-2" aria-label="Status workspace">
-            <span className="text-xs text-secondary-500">{mode === "draft" ? "Mode authoring" : "Mode operasional"}</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Tryout workspace</p>
-            <h1 className="mt-1 line-clamp-2 break-words text-2xl font-semibold tracking-[-0.02em] text-secondary-900 sm:text-3xl">{draft.title || "Tryout tanpa judul"}</h1>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-secondary-600">{mode === "draft" ? "Bangun isi Tryout, periksa kesiapan, lalu terbitkan versi immutable." : "Kelola akses, sesi, monitoring, dan hasil dari versi terbit ini."}</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Badge className="rounded-full px-3 py-1.5" size="ui" variant={dirty ? "accent" : "mint"}>
-              {dirty ? "Ada perubahan belum disimpan" : draft.status === "published" ? "Versi tersimpan" : "Draf tersimpan"}
-            </Badge>
-            <Badge className="rounded-full px-3 py-1.5" size="ui" variant={draft.status === "published" ? "mint" : "accent"}>
-              {draft.status === "published" ? "Diterbitkan" : "Draf"}
-            </Badge>
-          </div>
-        </div>
-      </header>
+      <div className="border-b border-primary-100 pb-4">
+        <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </Button>
+      </div>
 
       {error ? (
         <p className="mt-5 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">

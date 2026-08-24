@@ -50,6 +50,8 @@ assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a 
 assert.match(workspace, /sectionReadiness/u, "Section rail must expose per-section readiness");
 assert.match(workspace, /contentReviewChecks/u, "Review must separate content readiness");
 assert.match(workspace, /deliveryReviewChecks/u, "Review must separate delivery readiness");
+assert.match(workspace, /aria-label="Kembali ke semua Tryout"[\s\S]*size="icon"[\s\S]*<ChevronLeft/u, "Tryout workspace back navigation must be an icon-only chevron control");
+assert.doesNotMatch(workspace, /TRYOUT WORKSPACE|Mode authoring|Mode operasional|Semua Tryout/u, "workspace header copy and mode label must stay out of the builder surface");
 assert.match(workspace, /Preview alur peserta/u, "Build must offer a participant-flow preview");
 assert.match(workspace, /Sample sumber/u, "source preview must be named explicitly");
 assert.match(workspace, /Lihat sample sumber &amp; kesiapan/u, "source preview copy must distinguish readiness from participant preview");
