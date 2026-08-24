@@ -17,6 +17,7 @@ assert.match(saveBody, /await tx\.\$queryRaw`SELECT id FROM reusable_question_pa
 assert.match(saveBody, /completionIntent === "draft"/u);
 assert.match(saveBody, /completionIntent === "ready"/u);
 assert.match(saveBody, /commitPackageReadyVersion\(tx, id, actorId/u);
+assert.match(saveBody, /assertPackageItemRevisions\(input\.items, sources, completionIntent === "ready"\)/u, "Ready must require submitted source revision identities");
 assert.match(saveBody, /return packageSaveResult\(toPackageDto\(saved/u);
 assert.match(saveBody, /expectedRevision !== undefined/u);
 
@@ -38,4 +39,4 @@ assert.match(actions, /revalidatePath\("\/mentor\/tryout"\)/u);
 assert.match(actions, /error instanceof PackageConflictError/u);
 assert.match(actions, /code: error\.code/u);
 
-console.log("Atomic package save/release transaction contracts passed (draft, first release, update release, stale revision, numbering, rollback).");
+console.log("Atomic package save/release shape contracts passed; run test:package-atomic-save-db for transactional behavior.");

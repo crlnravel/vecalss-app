@@ -168,11 +168,12 @@ async function readAndValidatePackageSources(tx: Prisma.TransactionClient, sourc
   return sources;
 }
 
-function assertPackageItemRevisions(items: readonly PackageItemInput[] | readonly { sourceQuestionId: string; sourceQuestionRevisionId: string | null }[], sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[]) {
+function assertPackageItemRevisions(items: readonly PackageItemInput[] | readonly { sourceQuestionId: string; sourceQuestionRevisionId: string | null }[], sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], requirePinnedRevision = false) {
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   for (const item of items) {
     const source = sourceById.get(item.sourceQuestionId);
     if ("pointValue" in item) {
+      if (requirePinnedRevision && !item.sourceQuestionRevisionId) throw new TryoutValidationError("Paket siap terbit harus menunjuk QuestionRevision aktif yang dipilih.");
       if (item.sourceQuestionRevisionId && item.sourceQuestionRevisionId !== source?.currentRevision?.id) throw new TryoutValidationError("Sumber Paket harus menunjuk QuestionRevision aktif yang sama.");
       continue;
     }
@@ -484,7 +485,7 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
     if (current?.sourceBankId && current.sourceBankId !== input.sourceBankId) throw new TryoutValidationError("Bank sumber Paket tidak dapat diubah.");
 
     const sources = await readAndValidatePackageSources(tx, input.items.map((item) => item.sourceQuestionId), input.subtest, input.sourceBankId);
-    assertPackageItemRevisions(input.items, sources);
+    assertPackageItemRevisions(input.items, sources, completionIntent === "ready");
     if (!id) {
       const created = await tx.reusableQuestionPackage.create({ data: { code: codeFromTitle(input.title, "paket"), createdByUserId: actorId, description: input.description.trim() || null, sourceBankId: input.sourceBankId, subtestId: subtest.id, title: input.title.trim(), updatedByUserId: actorId } });
       id = created.id;

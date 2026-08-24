@@ -66,6 +66,7 @@
     "test:question-bank-organization-seed": "node scripts/test-question-bank-organization-seed.mjs",
     "test:package-lifecycle": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-package-lifecycle.ts",
     "test:package-atomic-save": "node scripts/test-package-atomic-save.mjs",
+    "test:package-atomic-save-db": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-package-atomic-save-db.ts",
     "test:package-version-labels": "tsx scripts/test-package-version-labels.ts",
     "test:tryout-pool-authoring-mock": "tsx scripts/test-tryout-pool-authoring-mock.ts",
     "test:random-assembly-schema": "tsx scripts/test-random-assembly-schema.ts",
