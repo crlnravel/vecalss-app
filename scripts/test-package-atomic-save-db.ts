@@ -19,8 +19,8 @@ function connectionIdentity(raw: string) {
   const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/gu, "");
   const host = ["localhost", "127.0.0.1", "::1"].includes(hostname) ? "local" : hostname;
   const port = Number(parsed.port || "5432");
-  const databaseName = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
   const userName = decodeURIComponent(parsed.username);
+  const databaseName = decodeURIComponent(parsed.pathname.replace(/^\/+/, "")) || userName;
   return { databaseName, host, port, protocol: parsed.protocol, userName };
 }
 
