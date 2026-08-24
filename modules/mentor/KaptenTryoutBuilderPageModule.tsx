@@ -261,6 +261,11 @@ const lifecyclePhaseOrder: Array<{ label: string; value: WorkspacePhase; summary
   { label: "Results", summary: "Scoring & rilis", value: "results" },
 ];
 
+function lifecyclePhasesForMode(mode: WorkflowMode) {
+  const phaseValues = new Set((mode === "draft" ? draftWorkspacePhases : publishedWorkspacePhases).map((phase) => phase.value));
+  return lifecyclePhaseOrder.filter((phase) => phaseValues.has(phase.value));
+}
+
 const deliveryAreas: Array<{ description: string; label: string; value: DeliveryArea }> = [
   { description: "Siapa yang boleh masuk dan kapan hasil dibuka.", label: "Policy", value: "policy" },
   { description: "Jendela waktu dan rilis konten peserta.", label: "Sessions", value: "sessions" },
@@ -994,6 +999,7 @@ function KaptenTryoutBuilderPageModule({
     : allowedWorkspaces[allowedWorkspaces.length - 1] ?? (mode === "draft" ? "basics" : "schedule");
   const workspace = allowedWorkspaces.includes(requestedWorkspace) ? requestedWorkspace : fallbackWorkspace;
   const activePhase = phaseForWorkspace(workspace);
+  const lifecyclePhases = useMemo(() => lifecyclePhasesForMode(mode), [mode]);
   const routeNormalizationNotice = useMemo(() => {
     const raw = initialWorkspace.trim().toLowerCase();
     if (mode === "published" && ["basics", "sections", "questions", "rules", "review", "publish", "overview", "configure_sections", "readiness_publish"].includes(raw)) {
@@ -1404,8 +1410,8 @@ function KaptenTryoutBuilderPageModule({
           <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
         </section>
       ) : null}
-      <nav aria-label="Fase lifecycle Tryout" className="mt-6 grid gap-2 sm:grid-cols-5">
-        {lifecyclePhaseOrder.map((phase) => {
+      <nav aria-label="Fase lifecycle Tryout" className={`mt-6 grid gap-2 ${mode === "draft" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+        {lifecyclePhases.map((phase) => {
           const active = activePhase === phase.value;
           const available = visiblePhaseDefinitions.some((definition) => definition.value === phase.value);
           const phaseIndex = lifecyclePhaseOrder.findIndex((candidate) => candidate.value === phase.value);
