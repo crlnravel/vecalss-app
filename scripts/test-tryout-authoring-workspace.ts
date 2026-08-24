@@ -91,10 +91,15 @@ assert.match(repository, /status: ContentStatus\.draft/u, "handoff targets must 
 assert.match(repository, /attempts: \{ none: \{\} \}/u, "participant-attempt Tryouts must be excluded from handoff targets");
 assert.match(repository, /assessmentReleaseId: \{ not: null \}/u, "participant-accessible release-bound Tryouts must be excluded");
 assert.match(repository, /disabledReason/u, "conflicting package sources must expose a clear disabled reason");
+assert.match(repository, /rule: \{ select: \{ requestedCount: true \} \}/u, "CAT handoff context must read the immutable Ready delivery rule");
+assert.match(repository, /catItemCount: latestVersion\.mode === ReusableQuestionPackageMode\.cat_pool \? latestVersion\.rule\?\.requestedCount/u, "CAT handoff must seed the Ready rule requested count");
+assert.doesNotMatch(repository, /catItemCount: latestVersion\.mode === ReusableQuestionPackageMode\.cat_pool \? latestVersion\.items\.length/u, "CAT handoff must not use the candidate pool size as delivered count");
 assert.match(repository, /resolveReusableQuestionPackageHandoff\(/u, "Tryout routes must use a server-side handoff validator");
 assert.match(useRoute, /getReusableQuestionPackageUseContext\(/u, "use route must read its context through the repository boundary");
 assert.match(useModule, /Tryout yang sudah ada/u, "chooser must expose the existing Tryout choice");
 assert.match(useModule, /Tryout baru/u, "chooser must expose the new Tryout choice");
+assert.match(useModule, /context\.targets\.length/u, "chooser must render every target when all drafts are unavailable");
+assert.doesNotMatch(useModule, /eligibleTargets/u, "chooser visibility must not hide disabled targets when no eligible target exists");
 assert.doesNotMatch(useModule, /saveTryoutAction|saveTryout\(/u, "chooser navigation must not persist a Tryout");
 assert.match(actions, /revalidatePath\(`\/mentor\/tryout\/\$\{result\.id\}`\)/u, "save must revalidate the selected Tryout route");
 

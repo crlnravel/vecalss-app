@@ -404,6 +404,7 @@ function packageVersionTestType(mode: ReusableQuestionPackageMode): "cbt" | "cat
 }
 
 function packageHandoffFromVersion(input: {
+  catItemCount?: number;
   id: string;
   itemCount: number;
   mode: ReusableQuestionPackageMode;
@@ -414,7 +415,7 @@ function packageHandoffFromVersion(input: {
 }): ReusableQuestionPackageHandoff {
   const testType = packageVersionTestType(input.mode);
   return {
-    ...(testType === "cat" ? { catItemCount: input.itemCount } : {}),
+    ...(testType === "cat" && input.catItemCount !== undefined ? { catItemCount: input.catItemCount } : {}),
     packageId: input.packageId,
     packageTitle: input.packageTitle,
     packageVersionId: input.id,
@@ -488,6 +489,7 @@ async function getReusableQuestionPackageUseContext(
           id: true,
           items: { select: { id: true } },
           mode: true,
+          rule: { select: { requestedCount: true } },
           versionNo: true,
         },
       },
@@ -498,7 +500,7 @@ async function getReusableQuestionPackageUseContext(
 
   const subtest = record.subtest.code as SubjectCode;
   const version = {
-    catItemCount: latestVersion.mode === ReusableQuestionPackageMode.cat_pool ? latestVersion.items.length : undefined,
+    catItemCount: latestVersion.mode === ReusableQuestionPackageMode.cat_pool ? latestVersion.rule?.requestedCount : undefined,
     id: latestVersion.id,
     itemCount: latestVersion.items.length,
     label: packageReleaseTitle(record.title, latestVersion.versionNo),
@@ -591,6 +593,7 @@ async function resolveReusableQuestionPackageHandoff(input: {
       id: context.version.id,
       itemCount: context.version.itemCount,
       mode: context.version.mode,
+      catItemCount: context.version.catItemCount,
       packageId: context.package.id,
       packageTitle: context.package.title,
       subtest: context.package.subtest,

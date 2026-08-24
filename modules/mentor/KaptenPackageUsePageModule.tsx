@@ -15,7 +15,6 @@ function handoffQuery(context: ReusableQuestionPackageUseContext, tryoutId?: str
 }
 
 function KaptenPackageUsePageModule({ context }: { context: ReusableQuestionPackageUseContext }) {
-  const eligibleTargets = context.targets.filter((target) => target.eligible);
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
       <Button aria-label="Kembali ke Paket Soal" nativeButton={false} render={<Link href={`/mentor/packages/${context.package.id}`} />} size="icon" title="Kembali ke Paket Soal" variant="ghost">
@@ -53,7 +52,7 @@ function KaptenPackageUsePageModule({ context }: { context: ReusableQuestionPack
             <h2 className="text-xl font-semibold text-secondary-900" id="existing-tryout-title">Tryout yang sudah ada</h2>
             <p className="mt-1 text-sm leading-6 text-secondary-600">Pilih draf Tryout milik Anda untuk melanjutkan pengaturan Test.</p>
           </div>
-          {eligibleTargets.length ? (
+          {context.targets.length ? (
             <div className="grid gap-2" role="list" aria-label="Tryout draf yang dapat digunakan">
               {context.targets.map((target) => target.eligible ? (
                 <Link className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 text-sm transition hover:border-primary-300 hover:bg-primary-50/35 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={handoffQuery(context, target.id)} key={target.id} role="listitem">
