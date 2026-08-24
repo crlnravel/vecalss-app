@@ -4,6 +4,7 @@ import { AiConversationType } from "@/generated/prisma/client";
 
 import { canonicalJson, sha256Hex } from "./contracts";
 import { VeraOutputValidationError } from "./output-validator";
+import type { VeraStudioIdentityAuthority } from "./studio-authority";
 
 export const VERA_STUDIO_TOOL_IDS = ["analysis", "route", "review", "ptn", "summary", "drill"] as const;
 export type VeraStudioToolId = (typeof VERA_STUDIO_TOOL_IDS)[number];
@@ -161,9 +162,14 @@ export function validateStudioOutput(input: {
   toolId: VeraStudioToolId;
   structured: unknown;
   allowedCitationKeys: Iterable<string>;
+  identityAuthority: VeraStudioIdentityAuthority;
 }): NormalizedStudioPayload {
   const allowed = new Set(input.allowedCitationKeys);
   const contract = VERA_STUDIO_FEATURES[input.toolId];
+  const finalize = (payload: NormalizedStudioPayload) => {
+    assertStudioPayloadAuthority(payload, input.identityAuthority);
+    return payload;
+  };
   switch (input.toolId) {
     case "analysis": {
       const root = record(input.structured, ["title", "summaryMarkdown", "topics"], "analysis");
@@ -187,7 +193,7 @@ export function validateStudioOutput(input: {
       if (new Set(topics.map((topic) => topic.topicId)).size !== topics.length) fail("Analysis topics must be unique.");
       const citationKeys = [...new Set(topics.flatMap((topic) => topic.evidenceCitationKeys))].sort();
       const payload = { title, summaryMarkdown, topics };
-      return withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown: summaryMarkdown, citationKeys, payload, saveProjection: null });
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown: summaryMarkdown, citationKeys, payload, saveProjection: null }));
     }
     case "route": {
       const root = record(input.structured, ["title", "goal", "activities", "saveProjection"], "route");
@@ -232,7 +238,7 @@ export function validateStudioOutput(input: {
       const citationKeys = [...new Set(activities.flatMap((activity) => activity.citationKeys))].sort();
       const markdown = [goal, ...activities.map((activity) => `${activity.ordinal}. ${activity.action} (${activity.estimatedMinutes} menit)`)].join("\n\n");
       const payload = { title, goal, activities, saveProjection };
-      return withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys, payload, saveProjection });
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys, payload, saveProjection }));
     }
     case "review": {
       const root = record(input.structured, ["title", "questionId", "questionRevisionId", "misconception", "explanationSteps", "citationKeys"], "review");
@@ -246,7 +252,7 @@ export function validateStudioOutput(input: {
         citationKeys: citationList(root.citationKeys, allowed, "review.citationKeys", 1),
       };
       const markdown = [payload.misconception, ...payload.explanationSteps.map((step, index) => `${index + 1}. ${step}`)].join("\n\n");
-      return withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null });
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null }));
     }
     case "ptn": {
       const root = record(input.structured, ["title", "universityId", "majorId", "scoreEvidence", "assumptions", "actions", "disclaimer", "citationKeys"], "ptn");
@@ -262,7 +268,7 @@ export function validateStudioOutput(input: {
         citationKeys: citationList(root.citationKeys, allowed, "ptn.citationKeys"),
       };
       const markdown = [...payload.actions.map((action, index) => `${index + 1}. ${action}`), payload.disclaimer].join("\n\n");
-      return withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null });
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null }));
     }
     case "summary": {
       const root = record(input.structured, ["title", "focus", "decisions", "nextActions", "limitations", "citationKeys"], "summary");
@@ -276,7 +282,7 @@ export function validateStudioOutput(input: {
         citationKeys: citationList(root.citationKeys, allowed, "summary.citationKeys"),
       };
       const markdown = [payload.focus, ...payload.decisions.map((value) => `- ${value}`), ...payload.nextActions.map((value) => `- ${value}`), payload.limitations].join("\n\n");
-      return withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null });
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: payload.citationKeys, payload, saveProjection: null }));
     }
     case "drill": {
       const root = record(input.structured, ["title", "topicId", "items"], "drill");
@@ -300,7 +306,61 @@ export function validateStudioOutput(input: {
       if (items.some((item) => item.topicId !== topicId)) fail("Drill items must use the session topic.");
       const payload = { title, topicId, items };
       const markdown = `Drill siap dengan ${items.length} soal yang telah dirilis.`;
-      return withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: [], payload, saveProjection: null });
+      return finalize(withDigest({ toolId: input.toolId, schemaId: contract.schemaId, schemaHash: contract.schemaHash, title, markdown, citationKeys: [], payload, saveProjection: null }));
     }
+  }
+}
+
+export function assertStudioPayloadAuthority(
+  normalized: NormalizedStudioPayload,
+  authority: VeraStudioIdentityAuthority,
+): void {
+  const payload = normalized.payload;
+  const allowedTopics = new Set(authority.topicIds);
+  const allowedModules = new Set(authority.moduleIds);
+  const allowedSources = new Set(authority.sourceIds);
+  const allowedUniversities = new Set(authority.universityIds);
+  const allowedMajors = new Set(authority.majorIds);
+  const allowedQuestions = new Set(authority.questions.map((question) => `${question.questionId}:${question.questionRevisionId}`));
+  const requireAllowed = (value: unknown, allowed: Set<string>, label: string) => {
+    if (typeof value !== "string" || !allowed.has(value)) fail(`${label} is not authorized for this request.`);
+  };
+  const requireQuestion = (questionId: unknown, questionRevisionId: unknown, label: string) => {
+    if (typeof questionId !== "string" || typeof questionRevisionId !== "string"
+      || !allowedQuestions.has(`${questionId}:${questionRevisionId}`)) fail(`${label} is not authorized for this request.`);
+  };
+
+  switch (normalized.toolId) {
+    case "analysis":
+      for (const entry of payload.topics as Array<Record<string, unknown>>) {
+        requireAllowed(entry.topicId, allowedTopics, "analysis.topicId");
+        if (entry.moduleId !== null) requireAllowed(entry.moduleId, allowedModules, "analysis.moduleId");
+      }
+      break;
+    case "route":
+      for (const activity of payload.activities as Array<Record<string, unknown>>) {
+        for (const topicId of activity.topicIds as unknown[]) requireAllowed(topicId, allowedTopics, "route.topicId");
+        for (const moduleId of activity.moduleIds as unknown[]) requireAllowed(moduleId, allowedModules, "route.moduleId");
+        for (const sourceId of activity.sourceIds as unknown[]) requireAllowed(sourceId, allowedSources, "route.sourceId");
+      }
+      if (normalized.saveProjection?.topicId) requireAllowed(normalized.saveProjection.topicId, allowedTopics, "route.saveProjection.topicId");
+      if (normalized.saveProjection?.moduleId) requireAllowed(normalized.saveProjection.moduleId, allowedModules, "route.saveProjection.moduleId");
+      break;
+    case "review":
+      requireQuestion(payload.questionId, payload.questionRevisionId, "review.questionRevisionId");
+      break;
+    case "ptn":
+      if (payload.universityId !== null) requireAllowed(payload.universityId, allowedUniversities, "ptn.universityId");
+      if (payload.majorId !== null) requireAllowed(payload.majorId, allowedMajors, "ptn.majorId");
+      break;
+    case "drill":
+      requireAllowed(payload.topicId, allowedTopics, "drill.topicId");
+      for (const item of payload.items as Array<Record<string, unknown>>) {
+        requireQuestion(item.questionId, item.questionRevisionId, "drill.questionRevisionId");
+        requireAllowed(item.topicId, allowedTopics, "drill.topicId");
+      }
+      break;
+    case "summary":
+      break;
   }
 }

@@ -31,7 +31,7 @@ export class VeraHttpError extends Error {
 }
 
 export function isSafeClientRequestId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= 160 && !/[\u0000-\u001f\u007f]/u.test(value);
+  return typeof value === "string" && value.length > 0 && value.length <= 120 && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
 export function isSafeText(value: unknown): value is string {
@@ -77,6 +77,6 @@ export function parseVeraRequestBody(value: unknown): {
   const retryOfRequestId = candidate.retryOfRequestId === undefined || candidate.retryOfRequestId === null
     ? null
     : typeof candidate.retryOfRequestId === "string" && isUuid(candidate.retryOfRequestId) ? candidate.retryOfRequestId : null;
-  if (candidate.retryOfRequestId !== undefined && retryOfRequestId === null) throw new VeraHttpError("invalid_request", 400);
+  if (candidate.retryOfRequestId !== undefined && candidate.retryOfRequestId !== null && retryOfRequestId === null) throw new VeraHttpError("invalid_request", 400);
   return { clientRequestId: candidate.clientRequestId, kind, text: candidate.text, sourceIds, options, toolId, retryOfRequestId };
 }

@@ -75,17 +75,26 @@ try {
   ] });
   await db.aiConversation.create({ data: { id: conversationId, studentId, conversationType: "vera_chat", title: "Sprint 3 durable" } });
 
+  const contextResolver = { resolve: async (selection: { sourceId: string }) => ({
+    sourceType: "material" as const,
+    sourceId: selection.sourceId,
+    title: "Rasio dasar",
+    citationLabel: "Rasio dasar",
+    citationKey: "src_ratio",
+    content: "Materi rasio yang telah dirilis.",
+  }) };
   const orchestrator = new VeraPrismaChatOrchestrator({
     db,
     admission,
-    contextResolver: { resolve: async () => { throw new Error("no source should resolve"); } },
+    contextResolver,
     provider: new RouteStudioProvider(topicId, moduleId),
     envelope,
     leaseStore: new InMemoryVeraLeaseStore(),
     hmacSecret: "sprint3-fixture-hmac",
   });
   const clientRequestId = randomUUID();
-  const response = await orchestrator.sse({ studentId, conversationId, clientRequestId, kind: "studio", toolId: "route", text: "Buat rute belajar.", selection: [] });
+  const selection = [{ sourceType: "material" as const, sourceId: moduleId }];
+  const response = await orchestrator.sse({ studentId, conversationId, clientRequestId, kind: "studio", toolId: "route", text: "Buat rute belajar.", selection });
   assert.ok(response.headers.get("content-type")?.startsWith("text/event-stream"));
   const wire = await response.text();
   assert.ok(wire.includes("event: progress.updated"));
@@ -107,6 +116,61 @@ try {
   assert.equal(request?.artifacts.length, 1);
   assert.equal(request?.artifacts[0]?.lifecycle?.lifecycleRevision, 0);
   assert.equal(await db.aiArtifact.count({ where: { requestId: request!.id } }), 1);
+
+  const recoveryAdmission = new VeraPrismaAdmissionService(db, envelope);
+  const normalFinalize = recoveryAdmission.finalizeAcceptedRequest.bind(recoveryAdmission);
+  let injectDrift = true;
+  recoveryAdmission.finalizeAcceptedRequest = async (input) => {
+    if (injectDrift) {
+      injectDrift = false;
+      await db.module.update({ where: { id: moduleId }, data: { status: "draft" } });
+    }
+    return normalFinalize(input);
+  };
+  const recoveryKey = randomUUID();
+  const recoveryOrchestrator = new VeraPrismaChatOrchestrator({
+    db,
+    admission: recoveryAdmission,
+    contextResolver,
+    provider: new RouteStudioProvider(topicId, moduleId),
+    envelope,
+    leaseStore: new InMemoryVeraLeaseStore(),
+    hmacSecret: "sprint3-recovery-hmac",
+  });
+  const recoveryResponse = await recoveryOrchestrator.sse({ studentId, conversationId, clientRequestId: recoveryKey, kind: "studio", toolId: "route", text: "Uji pemulihan.", selection });
+  assert.ok((await recoveryResponse.text()).includes("request.recovery_pending"));
+  const recoveryRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: recoveryKey }, include: { resultStage: true } });
+  assert.equal(recoveryRequest.status, "pending");
+  assert.equal(recoveryRequest.resultStage?.state, "available");
+  const overdueNow = new Date(Date.now() + 120_000);
+  await db.aiRequest.update({ where: { id: recoveryRequest.id }, data: { settlementDeadlineAt: new Date(overdueNow.getTime() - 1_000) } });
+  const recoveryRacers = await Promise.allSettled([
+    recoveryAdmission.settleOverdueRequest({ requestId: recoveryRequest.id, now: overdueNow }),
+    new VeraPrismaAdmissionService(db, envelope).settleOverdueRequest({ requestId: recoveryRequest.id, now: overdueNow }),
+  ]);
+  assert.ok(recoveryRacers.some((result) => result.status === "fulfilled"));
+  const terminalRecovery = await db.aiRequest.findUniqueOrThrow({ where: { id: recoveryRequest.id }, include: { resultStage: true } });
+  assert.equal(terminalRecovery.status, "failed");
+  assert.equal(terminalRecovery.errorCode, "durable_recovery_failed");
+  assert.equal(terminalRecovery.usageAccountingState, "unknown");
+  assert.equal(terminalRecovery.resultStage?.state, "consumed");
+  assert.equal(await db.aiArtifact.count({ where: { requestId: recoveryRequest.id } }), 0);
+  await db.module.update({ where: { id: moduleId }, data: { status: "published" } });
+
+  const unauthorizedKey = randomUUID();
+  const unauthorizedOrchestrator = new VeraPrismaChatOrchestrator({
+    db,
+    admission,
+    contextResolver,
+    provider: new RouteStudioProvider(topicId, secondModuleId),
+    envelope,
+    leaseStore: new InMemoryVeraLeaseStore(),
+    hmacSecret: "sprint3-fixture-hmac",
+  });
+  const unauthorizedResponse = await unauthorizedOrchestrator.sse({ studentId, conversationId, clientRequestId: unauthorizedKey, kind: "studio", toolId: "route", text: "Gunakan modul lain.", selection });
+  const unauthorizedWire = await unauthorizedResponse.text();
+  assert.ok(unauthorizedWire.includes("request.recovery_pending") || unauthorizedWire.includes("request.failed"));
+  assert.equal(await db.aiArtifact.count({ where: { request: { clientRequestId: unauthorizedKey } } }), 0);
 
   const learner = new VeraLearnerService(db, envelope, "cursor-secret", "fingerprint-secret");
   const list = await learner.listConversations({ studentId, limit: 20, cursor: null });
@@ -140,7 +204,7 @@ try {
   const applyKey = randomUUID();
   const applied = await commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId: applyKey, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: recommendation!.revision });
   assert.ok("result" in applied && !applied.replayed);
-  assert.equal("result" in applied ? applied.result.target.revision : null, 1);
+  assert.equal("result" in applied ? applied.result?.target.revision : null, 1);
   const appliedReplay = await commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId: applyKey, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: recommendation!.revision });
   assert.ok("result" in appliedReplay && appliedReplay.replayed);
   await assert.rejects(
@@ -162,10 +226,24 @@ try {
   const restartedLearner = new VeraLearnerService(db, restartedEnvelope, "cursor-secret", "fingerprint-secret");
   assert.equal((await restartedLearner.getArtifact(studentId, history.artifacts[0]!.id)).title, detail.title);
 
+  await db.aiArtifactLifecycle.update({ where: { artifactRevisionId: detail.id }, data: { state: "expired", lifecycleRevision: { increment: 1 } } });
+  assert.equal((await restartedLearner.getArtifact(studentId, detail.id)).lifecycle.state, "expired");
+  await db.aiArtifactLifecycle.update({ where: { artifactRevisionId: detail.id }, data: { state: "purging", lifecycleRevision: { increment: 1 } } });
+  const purging = await restartedLearner.getArtifact(studentId, detail.id);
+  assert.equal(purging.lifecycle.state, "purging");
+  assert.equal(purging.markdown, null);
+  await db.aiArtifactLifecycle.update({ where: { artifactRevisionId: detail.id }, data: { state: "purged", lifecycleRevision: { increment: 1 } } });
+  const purged = await restartedLearner.getArtifact(studentId, detail.id);
+  assert.equal(purged.lifecycle.state, "purged");
+  assert.equal(purged.contextState, "unavailable");
+  assert.ok((await restartedLearner.listArtifacts({ studentId, conversationId, limit: 20, cursor: null })).artifacts.some((item) => item.id === detail.id));
+
   console.log("PASS vera-prisma-sprint3: Studio route tuple, progress-only SSE and post-commit artifact.ready");
   console.log("PASS vera-prisma-sprint3: one encrypted artifact/lifecycle per request and restart decryptability");
   console.log("PASS vera-prisma-sprint3: authoritative conversation/artifact reads and cross-student privacy");
   console.log("PASS vera-prisma-sprint3: signed source cursor, learner payload privacy, materialization and Apply replay");
+  console.log("PASS vera-prisma-sprint3: unauthorized existing identities fail before staging and lifecycle tombstones remain readable");
+  console.log("PASS vera-prisma-sprint3: callback drift rolls back, preserves stage before deadline, then terminalizes once under overdue race");
 } finally {
   const requestIds = (await db.aiRequest.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
   const artifactIds = (await db.aiArtifact.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);

@@ -862,6 +862,7 @@ export class VeraPrismaAdmissionService {
         const callback = input.persistDurableResult
           ?? (this.envelope ? createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }) : null);
         if (callback) {
+          await tx.$executeRawUnsafe("SAVEPOINT vera_durable_recovery");
           try {
             await this.finalizeLockedRequest({
               tx,
@@ -872,10 +873,17 @@ export class VeraPrismaAdmissionService {
               now,
               persistDurableResult: callback,
             });
+            await tx.$executeRawUnsafe("RELEASE SAVEPOINT vera_durable_recovery");
             return;
           } catch (error) {
-            if (!(error instanceof VeraDurableResultError)
-              || !["durable_callback_missing", "durable_callback_mismatch"].includes(error.code)) throw error;
+            await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT vera_durable_recovery");
+            await tx.$executeRawUnsafe("RELEASE SAVEPOINT vera_durable_recovery");
+            if (!request.settlementDeadlineAt || request.settlementDeadlineAt > now) {
+              throw new VeraAdmissionError({
+                code: error instanceof VeraDurableResultError ? error.code : "durable_recovery_unavailable",
+                status: 503,
+              });
+            }
           }
         }
       }
@@ -890,7 +898,7 @@ export class VeraPrismaAdmissionService {
       const overrunLockUntil = overrun > 0 || debt > 0 ? localDayEnd : daily.quotaOverrunLockUntil;
       const accounting = AiUsageAccountingState.unknown;
       const requestState = AiRequestLifecycleState.failed;
-      const errorCode = input.errorCode ?? (input.missingStage ? "missing_stage_unknown" : "settlement_deadline_expired");
+      const errorCode = input.errorCode ?? (input.missingStage ? "missing_stage_unknown" : stage ? "durable_recovery_failed" : "settlement_deadline_expired");
 
       await tx.aiUsageDaily.update({
         where: { id: daily.id },

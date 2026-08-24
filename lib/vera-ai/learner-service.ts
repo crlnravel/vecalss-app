@@ -52,6 +52,16 @@ function normalizeTitle(value: string | null | undefined): string | null {
   return normalized;
 }
 
+function boundedPreview(value: string | null, maxBytes = 320): string | null {
+  if (value === null) return null;
+  const normalized = value.normalize("NFC").replace(/\s+/gu, " ").trim();
+  const bytes = Buffer.from(normalized, "utf8");
+  if (bytes.byteLength <= maxBytes) return normalized;
+  let end = maxBytes;
+  while (end > 0 && (bytes[end] & 0xc0) === 0x80) end -= 1;
+  return `${bytes.subarray(0, end).toString("utf8").trimEnd()}…`;
+}
+
 function limitValue(value: string | null, fallback: number): number {
   if (value === null || value === "") return fallback;
   const parsed = Number(value);
@@ -147,7 +157,7 @@ export class VeraLearnerService {
       updatedAt: row.updatedAt.toISOString(),
       messagePreview: latest ? {
         role: latest.role as "user" | "assistant",
-        text: await this.decryptText(latest.contentEnvelope),
+        text: boundedPreview(await this.decryptText(latest.contentEnvelope)),
         createdAt: latest.createdAt.toISOString(),
       } : null,
     };
@@ -390,7 +400,7 @@ export class VeraLearnerService {
       where: {
         studentId: input.studentId,
         conversationId: input.conversationId,
-        lifecycle: { is: { state: { in: ["visible", "expired"] }, deletionState: "active" } },
+        lifecycle: { isNot: null },
         ...(cursor ? { OR: [{ createdAt: { lt: new Date(cursor.createdAt) } }, { createdAt: new Date(cursor.createdAt), id: { lt: cursor.id } }] } : {}),
       },
       include: { lifecycle: true, request: { select: { status: true, contextPack: { select: { provenanceState: true, purgeState: true } } } } },
@@ -402,7 +412,7 @@ export class VeraLearnerService {
       id: artifact.id,
       artifactType: artifact.artifactType,
       revision: artifact.revision,
-      title: artifact.lifecycle?.state === "purged" ? null : await this.decryptText(artifact.titleCiphertext),
+      title: artifact.lifecycle?.state === "visible" || artifact.lifecycle?.state === "expired" ? await this.decryptText(artifact.titleCiphertext) : null,
       createdAt: artifact.createdAt.toISOString(),
       lifecycleState: artifact.lifecycle?.state ?? "purged",
       lifecycleRevision: artifact.lifecycle?.lifecycleRevision ?? 0,
@@ -421,7 +431,7 @@ export class VeraLearnerService {
       where: {
         id: artifactRevisionId,
         studentId,
-        lifecycle: { is: { state: { in: ["visible", "expired"] }, deletionState: "active" } },
+        lifecycle: { isNot: null },
       },
       include: {
         lifecycle: true,
@@ -429,16 +439,38 @@ export class VeraLearnerService {
       },
     });
     if (!artifact || !artifact.lifecycle) throw new VeraLearnerServiceError("target_unavailable", 404);
-    const contentAvailable = artifact.lifecycle.state !== "purged";
+    const contentAvailable = (artifact.lifecycle.state === "visible" || artifact.lifecycle.state === "expired")
+      && artifact.lifecycle.deletionState === "active";
     const payloadText = contentAvailable ? await this.decryptText(artifact.payloadCiphertext) : null;
     let payload: unknown = null;
     if (payloadText) {
       try { payload = JSON.parse(payloadText); } catch { payload = null; }
     }
-    const contextAvailable = artifact.request?.contextPack?.provenanceState === "reconstructable"
+    const contextAvailable = contentAvailable && artifact.request?.contextPack?.provenanceState === "reconstructable"
       && artifact.request.contextPack.purgeState === "available";
     const normalized = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : null;
     const saveProjection = normalized?.saveProjection && typeof normalized.saveProjection === "object" ? normalized.saveProjection : null;
+    const targetCandidates = artifact.lifecycle.state === "visible"
+      ? artifact.artifactType === "route"
+        ? (await this.db.learningRecommendation.findMany({
+          where: { studentId, lifecycleState: "active", deletionState: "active", id: { not: artifact.sourceEntityId ?? undefined } },
+          orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 20,
+          select: { id: true, revision: true, lifecycleState: true, deletionState: true },
+        })).map((target) => ({ registryKey: "learning_recommendation.v1", ...target, label: `Rekomendasi ${target.id.slice(0, 8)}` }))
+        : artifact.artifactType === "drill"
+          ? (await this.db.adaptivePracticeSession.findMany({
+            where: { studentId, lifecycleState: "active", deletionState: "active", id: { not: artifact.sourceEntityId ?? undefined } },
+            orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 20,
+            select: { id: true, revision: true, lifecycleState: true, deletionState: true },
+          })).map((target) => ({ registryKey: "adaptive_practice_session.v1", ...target, label: `Drill ${target.id.slice(0, 8)}` }))
+          : artifact.artifactType === "ptn"
+            ? (await this.db.ptnStrategySession.findMany({
+              where: { studentId, lifecycleState: "active", deletionState: "active", id: { not: artifact.sourceEntityId ?? undefined } },
+              orderBy: [{ updatedAt: "desc" }, { id: "desc" }], take: 20,
+              select: { id: true, revision: true, lifecycleState: true, deletionState: true },
+            })).map((target) => ({ registryKey: "ptn_strategy_session.v1", ...target, label: `Strategi PTN ${target.id.slice(0, 8)}` }))
+            : []
+      : [];
     const applyCapabilities = artifact.lifecycle.state === "visible" ? {
       materializeLearningRecommendation: artifact.artifactType === "route" && Boolean(saveProjection),
       registryKeys: artifact.artifactType === "route" && Boolean(saveProjection)
@@ -446,7 +478,8 @@ export class VeraLearnerService {
         : artifact.artifactType === "drill"
           ? ["adaptive_practice_session.v1"]
           : artifact.artifactType === "ptn" ? ["ptn_strategy_session.v1"] : [],
-    } : { materializeLearningRecommendation: false, registryKeys: [] };
+      targets: targetCandidates,
+    } : { materializeLearningRecommendation: false, registryKeys: [], targets: [] };
     return {
       id: artifact.id,
       artifactType: artifact.artifactType,
@@ -455,7 +488,7 @@ export class VeraLearnerService {
       markdown: contentAvailable ? await this.decryptText(artifact.contentMarkdownCiphertext) : null,
       payload: contentAvailable && normalized ? learnerPayload(normalized.payload) : null,
       createdAt: artifact.createdAt.toISOString(),
-      lifecycle: { state: artifact.lifecycle.state, revision: artifact.lifecycle.lifecycleRevision },
+      lifecycle: { state: artifact.lifecycle.state, revision: artifact.lifecycle.lifecycleRevision, deletionState: artifact.lifecycle.deletionState },
       resultState: contentAvailable ? artifact.request?.status ?? "unavailable" : "unavailable",
       contextState: contextAvailable ? "available" : "unavailable",
       citations: contextAvailable ? artifact.request?.sources.filter((source) => source.snapshotState === "available").map((source) => ({ key: source.citationKey, label: source.citationLabel ?? source.titleSnapshot })) ?? [] : [],

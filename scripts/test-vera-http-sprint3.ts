@@ -66,7 +66,7 @@ try {
   await db.billingAccount.create({ data: { studentId, planCode: "pro", status: "trial" } });
   await db.subtest.create({ data: { id: subtestId, code: `VHTTP-${subtestId.slice(0, 8)}`, name: "Vera HTTP" } });
   await db.topic.create({ data: { id: topicId, subtestId, code: `vhttp-topic-${topicId.slice(0, 8)}`, name: "Rasio" } });
-  await db.module.create({ data: { id: moduleId, topicId, code: `vhttp-module-${moduleId}`, title: "Rasio dasar", sequenceNo: 1, status: "published", publishedAt: now } });
+  await db.module.create({ data: { id: moduleId, topicId, code: `vhttp-module-${moduleId}`, title: "Rasio dasar", summary: "Materi rasio yang telah dirilis untuk siswa.", sequenceNo: 1, status: "published", publishedAt: now } });
   await db.$transaction(async (tx) => {
     await tx.question.create({ data: { id: drillQuestionId, code: `vhttp-q-${drillQuestionId}`, subtestId, topicId, stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", status: "published", currentRevisionId: drillRevisionId, createdByUserId: studentId, updatedByUserId: studentId } });
     await tx.questionRevision.create({ data: { id: drillRevisionId, questionId: drillQuestionId, revisionNo: 1, status: "draft", provenance: "authored", stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", contentDigest: drillRevisionDigest, createdByUserId: studentId, updatedByUserId: studentId, options: { createMany: { data: drillRevisionOptions } } } });
@@ -132,6 +132,12 @@ try {
     const response = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/${path}`, { headers: { cookie: studentCookie } });
     assert.equal(response.status, 200, path);
   }
+  const contextUpdated = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/context`, {
+    method: "PUT",
+    headers: { cookie: studentCookie, "content-type": "application/json" },
+    body: JSON.stringify({ expectedContextVersion: 0, sources: [{ sourceType: "material", sourceId: moduleId }] }),
+  });
+  assert.equal(contextUpdated.status, 200);
   assert.equal((await fetch(`${base}/api/vera-ai/sources?limit=50`, { headers: { cookie: studentCookie } })).status, 200);
   assert.equal((await fetch(`${base}/api/vera-ai/usage`, { headers: { cookie: studentCookie } })).status, 200);
 
@@ -157,10 +163,12 @@ try {
   assert.ok(!/(?:correctOptionKey|questionRevisionDigest|assessmentReleaseDigest)/u.test(resultWire));
   assert.ok(!resultWire.includes('"explanation":'));
 
-  const requestBody = { clientRequestId: randomUUID(), kind: "studio", toolId: "route", text: "Buat rute belajar.", sourceIds: [], options: {} };
+  const oversizedKey = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/requests`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId: "x".repeat(121), kind: "chat", text: "Batas kunci.", sourceIds: [moduleId], options: {} }) });
+  assert.equal(oversizedKey.status, 400);
+  const requestBody = { clientRequestId: randomUUID(), kind: "studio", toolId: "route", text: "Buat rute belajar.", sourceIds: [moduleId], options: {} };
   const generated = await fetch(`${base}/api/vera-ai/conversations/${conversationId}/requests`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify(requestBody) });
-  assert.equal(generated.status, 200);
   const wire = await generated.text();
+  assert.equal(generated.status, 200, wire);
   assert.ok(wire.includes("event: artifact.ready"));
   assert.ok(!wire.includes("event: message.delta"));
   const artifactList = await (await fetch(`${base}/api/vera-ai/conversations/${conversationId}/artifacts`, { headers: { cookie: studentCookie } })).json() as { artifacts: Array<{ id: string }> };

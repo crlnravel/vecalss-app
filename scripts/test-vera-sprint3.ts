@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { strict as assert } from "node:assert";
 
 import { VERA_APPLY_REGISTRY_KEYS } from "@/lib/vera-ai/artifact-commands";
+import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
+import { VERA_DURABLE_CALLBACK_REGISTRY } from "@/lib/vera-ai/durable-results";
 import { VERA_STUDIO_FEATURES, validateStudioOutput, type VeraStudioToolId } from "@/lib/vera-ai/studio-contracts";
+import type { VeraStudioIdentityAuthority } from "@/lib/vera-ai/studio-authority";
 
 const ids = {
   topic: "00000000-0000-4000-8000-000000000001",
@@ -25,23 +28,36 @@ const outputs: Record<VeraStudioToolId, unknown> = {
   drill: { title: "Drill", topicId: ids.topic, items: [{ ordinal: 1, questionId: ids.question, questionRevisionId: ids.revision, topicId: ids.topic, difficulty: "medium", explanationPlan: "Tinjau setelah submit." }] },
 };
 
+const authoritySeed = {
+  version: "vera-studio-authority-v1" as const,
+  studentId: "00000000-0000-4000-8000-000000000008",
+  sourceIds: [ids.source],
+  topicIds: [ids.topic],
+  moduleIds: [ids.module],
+  questions: [{ questionId: ids.question, questionRevisionId: ids.revision, topicId: ids.topic }],
+  universityIds: [ids.university],
+  majorIds: [ids.major],
+};
+const identityAuthority: VeraStudioIdentityAuthority = { ...authoritySeed, digest: sha256Hex(canonicalJson(authoritySeed)) };
+
 const checks: Array<[string, () => void | Promise<void>]> = [
   ["six typed schemas normalize deterministically with exact persisted identities", () => {
     assert.deepEqual(Object.keys(VERA_STUDIO_FEATURES), ["analysis", "route", "review", "ptn", "summary", "drill"]);
     for (const toolId of Object.keys(outputs) as VeraStudioToolId[]) {
-      const first = validateStudioOutput({ toolId, structured: outputs[toolId], allowedCitationKeys: ["src_a"] });
-      const second = validateStudioOutput({ toolId, structured: outputs[toolId], allowedCitationKeys: ["src_a"] });
+      const first = validateStudioOutput({ toolId, structured: outputs[toolId], allowedCitationKeys: ["src_a"], identityAuthority });
+      const second = validateStudioOutput({ toolId, structured: outputs[toolId], allowedCitationKeys: ["src_a"], identityAuthority });
       assert.equal(first.digest, second.digest);
       assert.equal(first.schemaId, `vera.${toolId}.schema.v1`);
       assert.equal(first.schemaHash, VERA_STUDIO_FEATURES[toolId].schemaHash);
     }
   }],
   ["schema failures reject unknown fields, unauthorized citations, URLs and route ambiguity", () => {
-    assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), hidden: true }, allowedCitationKeys: ["src_a"] }));
-    assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), citationKeys: ["src_other"] }, allowedCitationKeys: ["src_a"] }));
-    assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), focus: "http://unsafe.test" }, allowedCitationKeys: ["src_a"] }));
+    assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), hidden: true }, allowedCitationKeys: ["src_a"], identityAuthority }));
+    assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), citationKeys: ["src_other"] }, allowedCitationKeys: ["src_a"], identityAuthority }));
+    assert.throws(() => validateStudioOutput({ toolId: "summary", structured: { ...(outputs.summary as object), focus: "http://unsafe.test" }, allowedCitationKeys: ["src_a"], identityAuthority }));
     const route = outputs.route as Record<string, unknown>;
-    assert.throws(() => validateStudioOutput({ toolId: "route", structured: { ...route, saveProjection: { sourceActivityOrdinal: 2, targetKind: "module", targetId: ids.module, priority: 50, rationale: "Arbitrary." } }, allowedCitationKeys: ["src_a"] }));
+    assert.throws(() => validateStudioOutput({ toolId: "route", structured: { ...route, saveProjection: { sourceActivityOrdinal: 2, targetKind: "module", targetId: ids.module, priority: 50, rationale: "Arbitrary." } }, allowedCitationKeys: ["src_a"], identityAuthority }));
+    assert.throws(() => validateStudioOutput({ toolId: "review", structured: { ...(outputs.review as object), questionRevisionId: "00000000-0000-4000-8000-000000000099" }, allowedCitationKeys: ["src_a"], identityAuthority }), /not authorized/);
   }],
   ["Studio stream is progress-only and artifact readiness follows durable finalization", () => {
     const source = readFileSync(join(process.cwd(), "lib/vera-ai/prisma-chat-orchestrator.ts"), "utf8");
@@ -69,6 +85,14 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     assert.ok(!/initialSessions|initialMessages|veraContextSources|DAILY_TOKEN_USAGE|DAILY_TOKEN_LIMIT/.test(ui));
     for (const route of ["/api/vera-ai/conversations", "/api/vera-ai/sources", "/api/vera-ai/usage", "/requests", "/artifacts"]) assert.ok(ui.includes(route), route);
     assert.ok(!/Ekspor|Unduh|Hapus|Unggah/i.test(ui));
+  }],
+  ["closed recovery registry, bounded keys and learner recovery controls are explicit", () => {
+    assert.equal(VERA_DURABLE_CALLBACK_REGISTRY.size, 7);
+    assert.deepEqual([...VERA_DURABLE_CALLBACK_REGISTRY.values()].map((entry) => entry.toolId), [null, "analysis", "route", "review", "ptn", "summary", "drill"]);
+    const ui = readFileSync(join(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"), "utf8");
+    for (const marker of ["message.delta", "message.generated", "message.committed", "artifact.ready", "AbortController", "Coba lagi", "applyToExisting", "aria-live=\"polite\""]) assert.ok(ui.includes(marker), marker);
+    const http = readFileSync(join(process.cwd(), "lib/vera-ai/http.ts"), "utf8");
+    assert.match(http, /value\.length <= 120/);
   }],
 ];
 

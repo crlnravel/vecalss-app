@@ -16,7 +16,6 @@ import {
 } from "./admission-service";
 import { VeraContractError } from "./contracts";
 import { prepareContextPack, type VeraContextResolver } from "./context-pack";
-import { prepareFrozenDrillAuthority } from "./drill-candidates";
 import { createVeraDurableResultCallback } from "./durable-results";
 import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry, environmentEnvelopeRootKeyProvider, type AiEncryptedPayload } from "./envelope";
 import { IdempotencyService, InMemoryIdempotencyStore } from "./idempotency";
@@ -30,6 +29,7 @@ import {
 import { validateVeraResult, type NormalizedVeraResult } from "./output-validator";
 import { ProviderSafetyError, type PreparedProviderTask, type VeraProviderAdapter } from "./provider";
 import { getVeraFeatureContract, validateStudioOutput } from "./studio-contracts";
+import { prepareStudioAuthority, type VeraStudioIdentityAuthority } from "./studio-authority";
 import type { VeraSseEvent, VeraSseEventName } from "./chat-orchestrator";
 
 type PrismaChatDb = typeof defaultPrisma;
@@ -53,6 +53,7 @@ type PreparedAdmission = {
   lease: VeraLease;
   now: Date;
   feature: ReturnType<typeof getVeraFeatureContract>;
+  identityAuthority: VeraStudioIdentityAuthority | null;
 };
 
 type TransportAdmission = PreparedAdmission | { kind: "json"; status: VeraRequestStatusDto };
@@ -93,6 +94,7 @@ function errorCode(error: unknown): string {
   if (error instanceof ProviderSafetyError) return "provider_prepare_unavailable";
   if (error instanceof VeraRedisUnavailableError) return "redis_unavailable";
   if (error instanceof Error && error.message === "drill_candidate_unavailable") return "drill_candidate_unavailable";
+  if (error instanceof Error && error.message.startsWith("studio_authority_")) return "context_release_unavailable";
   return "admission_unavailable";
 }
 
@@ -278,9 +280,10 @@ export class VeraPrismaChatOrchestrator {
       // context or invoke provider.prepare.
       let preparedProviderTask: PreparedProviderTask;
       let pack;
+      let studioAuthority: Awaited<ReturnType<typeof prepareStudioAuthority>> | null = null;
       try {
-        const drillAuthority = feature.toolId === "drill"
-          ? await prepareFrozenDrillAuthority(this.db, input.studentId, (input.selection ?? []).filter((source) => source.sourceType === "practice").map((source) => source.sourceId))
+        studioAuthority = feature.toolId
+          ? await prepareStudioAuthority(this.db, { studentId: input.studentId, selection: input.selection ?? [] })
           : null;
         pack = await prepareContextPack({
           studentId: input.studentId,
@@ -290,7 +293,7 @@ export class VeraPrismaChatOrchestrator {
           promptTemplateHash: `${feature.featureKey}-prompt-v1`,
           toolSchemaHash: feature.schemaHash,
           systemPolicyHash: policy.policy.validationDigest,
-          taskAuthority: drillAuthority ? { drill: drillAuthority } : undefined,
+          taskAuthority: studioAuthority ? { studio: studioAuthority.identity, drill: studioAuthority.drill } : undefined,
         }, this.contextResolver);
         preparedProviderTask = await this.provider.prepare({
           featureKey: feature.featureKey,
@@ -348,6 +351,7 @@ export class VeraPrismaChatOrchestrator {
           lease: activeLease,
           now,
           feature,
+          identityAuthority: studioAuthority?.identity ?? null,
         };
       } catch (error) {
         if (error instanceof VeraAdmissionError && ["idempotency_conflict", "idempotency_key_expired"].includes(error.code)) throw error;
@@ -383,13 +387,13 @@ export class VeraPrismaChatOrchestrator {
       const next: VeraSseEvent = { id: ++sequence, event, data };
       controllerRef.enqueue(encodeEvent(next));
     };
-    const settleCancelled = async (code = "cancelled") => {
+    const settleCancelled = async (code = "cancelled", forceUnknown = false) => {
       if (cancelSettled) return;
       cancelSettled = true;
-      await this.admission.settleOverdueRequest({ requestId: admission.requestId, now: admission.now, forceUnknown: true, errorCode: code }).catch(() => undefined);
+      await this.admission.settleOverdueRequest({ requestId: admission.requestId, now: admission.now, forceUnknown, errorCode: code }).catch(() => undefined);
     };
     const onAbort = () => {
-      void settleCancelled();
+      void settleCancelled("cancelled", true);
     };
     input.signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -414,7 +418,7 @@ export class VeraPrismaChatOrchestrator {
       },
       cancel: async () => {
         streamCancelled = true;
-        await settleCancelled();
+        await settleCancelled("cancelled", true);
       },
     });
   }
@@ -423,10 +427,10 @@ export class VeraPrismaChatOrchestrator {
     admission: PreparedAdmission,
     input: VeraAdmissionInput & { signal?: AbortSignal },
     write: (event: VeraSseEventName, data: Record<string, unknown>) => void,
-    settleCancelled: (code?: string) => Promise<void>,
+    settleCancelled: (code?: string, forceUnknown?: boolean) => Promise<void>,
   ): Promise<void> {
     if (input.signal?.aborted) {
-      await settleCancelled();
+      await settleCancelled("cancelled", true);
       write("request.failed", { requestId: admission.requestId, code: "cancelled", provisional: false });
       return;
     }
@@ -446,7 +450,7 @@ export class VeraPrismaChatOrchestrator {
       return;
     }
     if (input.signal?.aborted) {
-      await settleCancelled();
+      await settleCancelled("cancelled", true);
       write("request.failed", { requestId: admission.requestId, code: "cancelled", provisional: false });
       return;
     }
@@ -455,6 +459,7 @@ export class VeraPrismaChatOrchestrator {
         toolId: admission.feature.toolId,
         structured: providerResult.structured,
         allowedCitationKeys: admission.allowedCitationKeys,
+        identityAuthority: admission.identityAuthority!,
       })
       : null;
     if (studioPayload) {
@@ -565,7 +570,6 @@ export async function readPrismaVeraRequestStatus(
     await options.admission.settleOverdueRequest({
       requestId: request.id,
       now,
-      forceUnknown: true,
       errorCode: "settlement_deadline_expired",
     });
     return readPrismaVeraRequestStatus(db, input, options);

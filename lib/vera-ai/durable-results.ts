@@ -10,17 +10,23 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 
-import { canonicalJson } from "./contracts";
+import { canonicalJson, type VeraContextSelection } from "./contracts";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
 import { lockAndRevalidateDrillCandidates, type FrozenDrillAuthority } from "./drill-candidates";
 import type { NormalizedVeraResult } from "./output-validator";
 import {
   VERA_STUDIO_FEATURES,
   assertNormalizedStudioPayload,
-  isVeraStudioToolId,
+  assertStudioPayloadAuthority,
+  getVeraFeatureContract,
   type NormalizedStudioPayload,
   type VeraStudioToolId,
 } from "./studio-contracts";
+import {
+  assertStudioIdentityAuthority,
+  lockAndRevalidateStudioAuthority,
+  type VeraStudioIdentityAuthority,
+} from "./studio-authority";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -55,6 +61,7 @@ type LockedRequestTuple = {
   outputSchemaVersion: string;
   outputSchemaId: string | null;
   outputSchemaHash: string | null;
+  contextPackVersion: string;
   retentionPolicyVersion: string | null;
   version: number;
 };
@@ -96,10 +103,54 @@ function assertFeatureTuple(request: LockedRequestTuple, payload: NormalizedStud
     || request.outputSchemaVersion !== contract.outputSchemaVersion
     || request.outputSchemaId !== contract.schemaId
     || request.outputSchemaHash !== contract.schemaHash
+    || request.contextPackVersion !== contract.contextPackVersion
     || payload.schemaId !== contract.schemaId
     || payload.schemaHash !== contract.schemaHash) {
     throw new VeraDurableResultError("durable_callback_mismatch");
   }
+}
+
+type DurableCallbackEntry = {
+  toolId: VeraStudioToolId | null;
+  requestType: string;
+  featureKey: string;
+  behaviorVersion: string;
+  outputSchemaVersion: string;
+  outputSchemaId: string;
+  outputSchemaHash: string;
+  contextPackVersion: string;
+};
+
+function registryKey(tuple: Omit<DurableCallbackEntry, "toolId">): string {
+  return canonicalJson(tuple);
+}
+
+const chatContract = getVeraFeatureContract("chat", null);
+const callbackEntries: DurableCallbackEntry[] = [
+  { toolId: null, requestType: chatContract.requestType, featureKey: chatContract.featureKey, behaviorVersion: chatContract.behaviorVersion, outputSchemaVersion: chatContract.outputSchemaVersion, outputSchemaId: chatContract.schemaId, outputSchemaHash: chatContract.schemaHash, contextPackVersion: chatContract.contextPackVersion },
+  ...(["analysis", "route", "review", "ptn", "summary", "drill"] as const).map((toolId) => {
+    const contract = VERA_STUDIO_FEATURES[toolId];
+    return { toolId, requestType: contract.requestType, featureKey: contract.featureKey, behaviorVersion: contract.behaviorVersion, outputSchemaVersion: contract.outputSchemaVersion, outputSchemaId: contract.schemaId, outputSchemaHash: contract.schemaHash, contextPackVersion: contract.contextPackVersion };
+  }),
+];
+
+/** Closed callback registry: exactly chat plus the six approved Studio tools. */
+export const VERA_DURABLE_CALLBACK_REGISTRY = new Map(callbackEntries.map(({ toolId, ...tuple }) => [registryKey(tuple), { toolId, ...tuple }] as const));
+
+function callbackForRequest(request: LockedRequestTuple): DurableCallbackEntry {
+  if (!request.outputSchemaId || !request.outputSchemaHash) throw new VeraDurableResultError("durable_callback_missing");
+  const key = registryKey({
+    requestType: request.requestType,
+    featureKey: request.featureKey,
+    behaviorVersion: request.behaviorVersion,
+    outputSchemaVersion: request.outputSchemaVersion,
+    outputSchemaId: request.outputSchemaId,
+    outputSchemaHash: request.outputSchemaHash,
+    contextPackVersion: request.contextPackVersion,
+  });
+  const entry = VERA_DURABLE_CALLBACK_REGISTRY.get(key);
+  if (!entry) throw new VeraDurableResultError("durable_callback_missing");
+  return entry;
 }
 
 async function createArtifact(input: {
@@ -351,33 +402,60 @@ export function createVeraDurableResultCallback(input: {
         outputSchemaVersion: true,
         outputSchemaId: true,
         outputSchemaHash: true,
+        contextPackVersion: true,
         retentionPolicyVersion: true,
         version: true,
         contextPack: { select: { normalizedTaskCiphertext: true } },
       },
     });
     if (!request) throw new VeraDurableResultError("request_not_found");
-    if (request.featureKey === "vera.chat") return {};
-    const toolId = request.featureKey.startsWith("vera.") ? request.featureKey.slice(5) : "";
-    if (!isVeraStudioToolId(toolId)) throw new VeraDurableResultError("durable_callback_missing");
+    const entry = callbackForRequest(request);
+    if (entry.toolId === null) return { assistantMessageId: randomUUID() };
     const payload = assertNormalizedStudioPayload(result.structured);
-    if (payload.toolId !== toolId) throw new VeraDurableResultError("durable_callback_mismatch");
+    if (payload.toolId !== entry.toolId) throw new VeraDurableResultError("durable_callback_mismatch");
     assertFeatureTuple(request, payload);
+    let task: {
+      blocks?: Array<{ sourceType?: unknown; sourceId?: unknown }>;
+      authority?: { studio?: VeraStudioIdentityAuthority; drill?: FrozenDrillAuthority | null };
+    };
+    try {
+      task = JSON.parse(await input.envelope.forClient(tx).decryptTextAsync(
+        request.contextPack?.normalizedTaskCiphertext as unknown as AiEncryptedPayload,
+      )) as typeof task;
+    } catch {
+      throw new VeraDurableResultError("durable_callback_mismatch");
+    }
+    let identity: VeraStudioIdentityAuthority;
+    try {
+      identity = assertStudioIdentityAuthority(task.authority?.studio, request.studentId);
+    } catch {
+      throw new VeraDurableResultError("durable_callback_mismatch");
+    }
+    const selection: VeraContextSelection[] = (task.blocks ?? []).flatMap((block) =>
+      (block.sourceType === "material" || block.sourceType === "practice") && typeof block.sourceId === "string"
+        ? [{ sourceType: block.sourceType, sourceId: block.sourceId }]
+        : []);
+    try {
+      await lockAndRevalidateStudioAuthority(tx, {
+        studentId: request.studentId,
+        selection,
+        frozen: identity,
+        drill: task.authority?.drill ?? null,
+      });
+      assertStudioPayloadAuthority(payload, identity);
+    } catch {
+      throw new VeraDurableResultError("typed_target_unavailable");
+    }
     let drillAuthority: FrozenDrillAuthority | null = null;
-    if (toolId === "drill") {
-      try {
-        const task = JSON.parse(await input.envelope.forClient(tx).decryptTextAsync(request.contextPack?.normalizedTaskCiphertext as unknown as AiEncryptedPayload)) as { authority?: { drill?: FrozenDrillAuthority } };
-        drillAuthority = task.authority?.drill ?? null;
-      } catch {
-        drillAuthority = null;
-      }
+    if (entry.toolId === "drill") {
+      drillAuthority = task.authority?.drill ?? null;
       if (!drillAuthority) throw new VeraDurableResultError("drill_candidate_unavailable");
     }
-    const source = toolId === "analysis"
+    const source = entry.toolId === "analysis"
       ? await persistAnalysis({ tx, envelope: input.envelope, request, result, payload })
-      : toolId === "ptn"
+      : entry.toolId === "ptn"
         ? await persistPtn({ tx, envelope: input.envelope, request, payload })
-        : toolId === "drill"
+        : entry.toolId === "drill"
           ? await persistDrill({ tx, envelope: input.envelope, request, payload, authority: drillAuthority! })
           : {
             sourceEntityType: "AiRequest",

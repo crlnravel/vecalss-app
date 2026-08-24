@@ -203,7 +203,7 @@ function assertRequestInput(input: VeraAdmissionInput): void {
   if (!input.studentId || !input.conversationId || !input.clientRequestId) {
     throw new VeraAdmissionError({ code: "invalid_request", status: 400 });
   }
-  if (input.clientRequestId.length > 160 || input.clientRequestId.includes("\u0000")) {
+  if (input.clientRequestId.length > 120 || input.clientRequestId.includes("\u0000")) {
     throw new VeraAdmissionError({ code: "invalid_request", status: 400 });
   }
   if (typeof input.text !== "string" || input.text.length < 1 || Buffer.byteLength(input.text, "utf8") > 40_000) {

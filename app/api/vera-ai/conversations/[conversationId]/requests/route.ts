@@ -63,7 +63,7 @@ export async function GET(
   const { conversationId } = await context.params;
   if (!isUuid(conversationId)) return errorResponse("conversation_not_found", 404);
   const clientRequestId = new URL(request.url).searchParams.get("clientRequestId");
-  if (!clientRequestId || clientRequestId.length > 160) return errorResponse("invalid_request", 400);
+  if (!clientRequestId || clientRequestId.length > 120) return errorResponse("invalid_request", 400);
   try {
     const status = await readVeraRequestStatus({
       studentId: session.user.id,
