@@ -51,7 +51,7 @@ const mockRepositoryClient = {
       assert.deepEqual(input.where?.status, ContentStatus.draft, "published Tryouts must not be handoff targets");
       assert.deepEqual(input.where?.attempts, { none: {} }, "Tryouts with attempts must not be handoff targets");
       assert.deepEqual(input.where?.deliverySessions, { none: { assessmentReleaseId: { not: null }, status: TryoutDeliverySessionStatus.active } }, "participant-accessible Tryouts must not be handoff targets");
-      if (activePackageId === "package-cat") return [{ id: "tryout-cat", title: "Draf CAT", sections: [{ catItemCount: null, id: "section-cat", items: [], packageVersionId: null, testType: TryoutTestType.cat }] }];
+      if (activePackageId === "package-cat") return [{ id: "tryout-cat", title: "Draf CAT", sections: [{ catItemCount: null, id: "section-cat", items: [], packageVersionId: null, testType: TryoutTestType.cbt }] }];
       return [
         { id: "tryout-unbound", title: "Draf tanpa sumber", sections: [{ catItemCount: null, id: "section-unbound", items: [], packageVersionId: null, testType: TryoutTestType.cbt }] },
         { id: "tryout-same", title: "Draf versi sama", sections: [{ catItemCount: null, id: "section-same", items: [], packageVersionId: "version-latest", testType: TryoutTestType.cbt }] },
@@ -82,7 +82,7 @@ assert.ok(catContext, "an owned CAT package with a published version should prod
 assert.equal(catContext.version.itemCount, 5, "CAT context should retain the larger candidate-pool size");
 assert.equal(catContext.version.catItemCount, 3, "CAT context must use the Ready rule requested count");
 assert.equal(catContext.version.testType, "cat");
-assert.equal(catContext.targets[0]?.eligible, true, "an unbound CAT Section should remain eligible");
+assert.equal(catContext.targets[0]?.eligible, true, "an unbound CAT Section should remain eligible even when its current default is CBT");
 assert.equal(packageQueries.length, 2, "CAT handoff should use the same owner-scoped package read");
 assert.equal(targetQueries.length, 2, "CAT handoff should use the same owner-scoped target read");
 

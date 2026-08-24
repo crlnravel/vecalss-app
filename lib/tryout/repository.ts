@@ -442,7 +442,11 @@ function handoffTargetForVersion(input: {
     ...(input.packageVersionId ? { packageVersionId: input.packageVersionId } : {}),
     testType,
   } satisfies NonNullable<ReusableQuestionPackageUseTarget["section"]>;
-  const compatible = testType === version.testType;
+  // An empty matching Section has no source to protect, so the builder may
+  // switch its CBT/CAT mode as part of the handoff seed.  Once a source is
+  // already bound, retain the strict mode compatibility check.
+  const sourceBound = input.directSourcePresent || Boolean(input.packageVersionId);
+  const compatible = !sourceBound || testType === version.testType;
   const sourceConflict = input.directSourcePresent || Boolean(input.packageVersionId && input.packageVersionId !== version.id);
   const disabledReason = input.directSourcePresent
     ? `Test ${version.subtest} sudah berisi soal langsung. Sumber yang sedang dipakai tidak akan diganti otomatis.`
