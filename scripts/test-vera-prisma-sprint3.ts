@@ -11,7 +11,9 @@ import { VeraLearnerService } from "@/lib/vera-ai/learner-service";
 import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "@/lib/vera-ai/prisma-chat-orchestrator";
 import { MockProviderAdapter, type PreparedProviderTask, type ProviderResult } from "@/lib/vera-ai/provider";
 import { InMemoryVeraLeaseStore } from "@/lib/vera-ai/redis-lease";
-import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
+import { canonicalJson, sha256Hex, type VeraContextSelection } from "@/lib/vera-ai/contracts";
+import type { ResolvedContextBlock, VeraContextResolver } from "@/lib/vera-ai/context-pack";
+import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import { validateStudioOutput, type NormalizedStudioPayload, type VeraStudioToolId } from "@/lib/vera-ai/studio-contracts";
 import type { VeraStudioIdentityAuthority } from "@/lib/vera-ai/studio-authority";
 
@@ -44,23 +46,37 @@ class RouteStudioProvider extends MockProviderAdapter {
   }
 }
 
-class AnalysisStudioProvider extends MockProviderAdapter {
+class TupleStudioProvider extends MockProviderAdapter {
   runCount = 0;
-  constructor(private readonly topicId: string, private readonly moduleId: string) { super(); }
+  constructor(
+    private readonly toolId: VeraStudioToolId,
+    private readonly topicId: string,
+    private readonly moduleId: string,
+    private readonly questionId: string,
+    private readonly questionRevisionId: string,
+  ) { super(); }
   override async run(prepared: PreparedProviderTask): Promise<ProviderResult> {
     this.runCount += 1;
-    if (prepared.preparedTask.featureKey !== "vera.analysis") return super.run(prepared);
+    if (prepared.preparedTask.featureKey !== `vera.${this.toolId}`) return super.run(prepared);
+    const commonUsage = { inputTokens: 12, outputTokens: 30, quotaUnitsConsumed: 42, tokenUsageState: "known" as const };
+    const structured = this.toolId === "analysis"
+      ? { title: "Analisis pemulihan", summaryMarkdown: "Bukti rasio perlu diperkuat. [^src_ratio]", topics: [{ topicId: this.topicId, moduleId: this.moduleId, rank: 1, weaknessScore: 68, confidence: 0.75, evidenceCitationKeys: ["src_ratio"], limitations: "Bukti terbatas.", nextStep: "Ulangi materi rasio." }] }
+      : this.toolId === "route"
+        ? { title: "Rute pemulihan", goal: "Menguatkan rasio secara bertahap.", activities: [{ ordinal: 1, action: "Pelajari kembali konsep rasio.", estimatedMinutes: 20, topicIds: [this.topicId], moduleIds: [this.moduleId], sourceIds: [], citationKeys: [] }], saveProjection: { sourceActivityOrdinal: 1, targetKind: "topic" as const, targetId: this.topicId, priority: 80, rationale: "Prioritas dipilih dari bukti belajar yang tersedia." } }
+        : this.toolId === "review"
+          ? { title: "Ulasan pemulihan", questionId: this.questionId, questionRevisionId: this.questionRevisionId, misconception: "Rasio perlu dibaca dengan teliti.", explanationSteps: ["Tentukan data.", "Bandingkan hasil."], citationKeys: ["src_ratio"] }
+          : this.toolId === "summary"
+            ? { title: "Ringkasan pemulihan", focus: "Fokus rasio dan latihan rilis.", decisions: ["Ulangi rasio."], nextActions: ["Kerjakan drill rilis."], limitations: "Bukti berasal dari sumber yang dirilis.", citationKeys: ["src_ratio"] }
+            : this.toolId === "ptn"
+              ? { title: "Strategi pemulihan", universityId: null, majorId: null, scoreEvidence: 640, assumptions: ["Skor rilis digunakan."], actions: ["Perkuat subtes utama."], disclaimer: "Strategi belajar, bukan prediksi kelulusan.", citationKeys: [] }
+              : { title: "Drill pemulihan", topicId: this.topicId, items: [{ ordinal: 1, questionId: this.questionId, questionRevisionId: this.questionRevisionId, topicId: this.topicId, difficulty: "easy" as const, explanationPlan: "Tinjau setelah submit." }] };
     return {
       kind: "structured",
       text: null,
-      structured: {
-        title: "Analisis pemulihan",
-        summaryMarkdown: "Bukti rasio perlu diperkuat. [^src_ratio]",
-        topics: [{ topicId: this.topicId, moduleId: this.moduleId, rank: 1, weaknessScore: 68, confidence: 0.75, evidenceCitationKeys: ["src_ratio"], limitations: "Bukti terbatas.", nextStep: "Ulangi materi rasio." }],
-      },
-      usage: { inputTokens: 12, outputTokens: 24, quotaUnitsConsumed: 36, tokenUsageState: "known" },
+      structured,
+      usage: commonUsage,
       finishReason: "stop",
-      attempts: [{ attemptNo: 1, state: "completed", providerRequestRef: "mock-analysis", observedUpstreamProviderSlug: "mock-decart", errorCode: null, usage: { inputTokens: 12, outputTokens: 24, quotaUnitsConsumed: 36, tokenUsageState: "known" } }],
+      attempts: [{ attemptNo: 1, state: "completed", providerRequestRef: `mock-${this.toolId}`, observedUpstreamProviderSlug: "mock-decart", errorCode: null, usage: commonUsage }],
     };
   }
 }
@@ -81,6 +97,14 @@ const topicId = randomUUID();
 const moduleId = randomUUID();
 const secondModuleId = randomUUID();
 const subtestId = randomUUID();
+const drillQuestionId = randomUUID();
+const drillRevisionId = randomUUID();
+const drillQuizId = randomUUID();
+const drillQuizItemId = randomUUID();
+const drillParticipationId = randomUUID();
+const standaloneAttemptId = randomUUID();
+const drillRevisionOptions = [{ label: "A", content: "4", isCorrect: true, sortOrder: 1 }, { label: "B", content: "5", isCorrect: false, sortOrder: 2 }];
+const drillRevisionDigest = questionRevisionContentDigest({ difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", options: drillRevisionOptions, prompt: "Berapa 2 + 2?", questionType: "single_choice" });
 const now = new Date();
 const policy = await db.aiPolicyBundle.findFirst({ where: { bundleVersion: "vera-policy-bundle-v1-2026-08-24" } });
 if (!policy) throw new Error("Disposable policy seed is missing.");
@@ -99,16 +123,31 @@ try {
     { id: moduleId, topicId, code: `vera-s3-${moduleId}`, title: "Rasio dasar", sequenceNo: 1, status: "published", publishedAt: now },
     { id: secondModuleId, topicId, code: `vera-s3-${secondModuleId}`, title: "Rasio lanjut", sequenceNo: 2, status: "published", publishedAt: new Date(now.getTime() - 1_000) },
   ] });
+  await db.$transaction(async (tx) => {
+    await tx.question.create({ data: { id: drillQuestionId, code: `vera-s3-question-${drillQuestionId}`, subtestId, topicId, stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", status: "published", currentRevisionId: drillRevisionId, createdByUserId: studentId, updatedByUserId: studentId } });
+    await tx.questionRevision.create({ data: { id: drillRevisionId, questionId: drillQuestionId, revisionNo: 1, status: "draft", provenance: "authored", stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", contentDigest: drillRevisionDigest, createdByUserId: studentId, updatedByUserId: studentId, options: { createMany: { data: drillRevisionOptions } } } });
+    await tx.questionRevision.update({ where: { id: drillRevisionId }, data: { status: "ready", readyAt: now } });
+  });
+  await db.standaloneQuiz.create({ data: { id: drillQuizId, slug: `vera-s3-quiz-${drillQuizId}`, title: "Latihan Sprint 3", description: "Latihan rilis untuk callback evidence.", subtestId, status: "published", reviewTiming: "immediate", correctAnswerVisibility: "show", createdByUserId: studentId } });
+  await db.standaloneQuizItem.create({ data: { id: drillQuizItemId, quizId: drillQuizId, sortOrder: 1, prompt: "Berapa 2 + 2?", explanation: "Empat", difficulty: "easy", subtestId, sourceQuestionId: drillQuestionId, sourceQuestionRevisionId: drillRevisionId, sourceContentDigest: drillRevisionDigest, sourceRevisionProvenance: "authored" } });
+  const drillPolicySnapshot = { reviewTiming: "immediate", correctAnswerVisibility: "show", formBehavior: "same", scorePolicy: "latest", attemptsAllowed: 1, retryDelaySeconds: null };
+  await db.standaloneQuizParticipation.create({ data: { id: drillParticipationId, quizId: drillQuizId, studentId, policySnapshot: drillPolicySnapshot } });
+  await db.standaloneQuizAttempt.create({ data: { id: standaloneAttemptId, participationId: drillParticipationId, attemptNo: 1, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", releaseAt: now, score: 100, policySnapshot: drillPolicySnapshot, formItemOrder: [drillQuizItemId], formSnapshot: { version: 1, items: [{ id: drillQuizItemId, prompt: "Berapa 2 + 2?", explanation: "Dua ditambah dua adalah empat.", options: [{ choiceKey: "A", content: "4", isCorrect: true }, { choiceKey: "B", content: "5", isCorrect: false }] }] } } });
   await db.aiConversation.create({ data: { id: conversationId, studentId, conversationType: "vera_chat", title: "Sprint 3 durable" } });
 
-  const contextResolver = { resolve: async (selection: { sourceId: string }) => ({
-    sourceType: "material" as const,
-    sourceId: selection.sourceId,
-    title: "Rasio dasar",
-    citationLabel: "Rasio dasar",
-    citationKey: "src_ratio",
-    content: "Materi rasio yang telah dirilis.",
-  }) };
+  const contextResolver: VeraContextResolver = {
+    resolve: async (selection: VeraContextSelection): Promise<ResolvedContextBlock> => {
+      if (selection.sourceType === "document") throw new Error("document source is disabled in the fixture");
+      return {
+        sourceType: selection.sourceType,
+        sourceId: selection.sourceId,
+        title: "Rasio dasar",
+        citationLabel: "Rasio dasar",
+        citationKey: "src_ratio",
+        content: "Materi rasio yang telah dirilis.",
+      };
+    },
+  };
   const orchestrator = new VeraPrismaChatOrchestrator({
     db,
     admission,
@@ -144,12 +183,20 @@ try {
   assert.equal(await db.aiArtifact.count({ where: { requestId: request!.id } }), 1);
 
   await db.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION vera_fixture_crash_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'vera fixture durable insert crash'; END $$`);
-  const durableInsertTables = ["weakness_analyses", "weakness_analysis_topics", "ai_artifacts", "ai_artifact_lifecycles"] as const;
-  for (const table of durableInsertTables) {
-    const trigger = `vera_fixture_crash_${table}`;
-    await db.$executeRawUnsafe(`CREATE TRIGGER ${trigger} BEFORE INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION vera_fixture_crash_insert()`);
+  const crashEntries = [
+    { toolId: "analysis" as const, table: "weakness_analyses" as const },
+    { toolId: "analysis" as const, table: "weakness_analysis_topics" as const },
+    { toolId: "route" as const, table: "ai_artifacts" as const },
+    { toolId: "review" as const, table: "ai_artifacts" as const },
+    { toolId: "summary" as const, table: "ai_artifacts" as const },
+    { toolId: "ptn" as const, table: "ptn_strategy_sessions" as const },
+    { toolId: "drill" as const, table: "adaptive_practice_sessions" as const },
+  ] as const;
+  for (const entry of crashEntries) {
+    const trigger = `vera_fixture_crash_${entry.toolId}_${entry.table}`;
+    await db.$executeRawUnsafe(`CREATE TRIGGER ${trigger} BEFORE INSERT ON ${entry.table} FOR EACH ROW EXECUTE FUNCTION vera_fixture_crash_insert()`);
     const crashKey = randomUUID();
-    const crashProvider = new AnalysisStudioProvider(topicId, moduleId);
+    const crashProvider = new TupleStudioProvider(entry.toolId, topicId, moduleId, drillQuestionId, drillRevisionId);
     const crashOrchestrator = new VeraPrismaChatOrchestrator({
       db,
       admission: new VeraPrismaAdmissionService(db, envelope),
@@ -157,13 +204,16 @@ try {
       provider: crashProvider,
       envelope,
       leaseStore: new InMemoryVeraLeaseStore(),
-      hmacSecret: `sprint3-crash-${table}`,
+      hmacSecret: `sprint3-crash-${entry.toolId}-${entry.table}`,
     });
     try {
-      const crashResponse = await crashOrchestrator.sse({ studentId, conversationId, clientRequestId: crashKey, kind: "studio", toolId: "analysis", text: `Uji crash ${table}.`, selection });
+      const crashSelection = entry.toolId === "review" || entry.toolId === "drill"
+        ? [...selection, { sourceType: "practice" as const, sourceId: standaloneAttemptId }]
+        : selection;
+      const crashResponse = await crashOrchestrator.sse({ studentId, conversationId, clientRequestId: crashKey, kind: "studio", toolId: entry.toolId, text: `Uji crash ${entry.toolId}/${entry.table}.`, selection: crashSelection });
       assert.ok((await crashResponse.text()).includes("request.recovery_pending"));
     } finally {
-      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${trigger} ON ${table}`);
+      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${trigger} ON ${entry.table}`);
     }
     const crashRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: crashKey }, include: { resultStage: true } });
     assert.equal(crashProvider.runCount, 1);
@@ -181,12 +231,12 @@ try {
     const recovered = await db.aiRequest.findUniqueOrThrow({ where: { id: crashRequest.id }, include: { resultStage: true } });
     assert.equal(recovered.status, "succeeded");
     assert.equal(recovered.resultStage?.state, "consumed");
-    assert.equal(await db.weaknessAnalysis.count({ where: { requestId: crashRequest.id } }), 1);
+    if (entry.toolId === "analysis") assert.equal(await db.weaknessAnalysis.count({ where: { requestId: crashRequest.id } }), 1);
+    if (entry.toolId === "ptn") assert.equal(await db.ptnStrategySession.count({ where: { requestId: crashRequest.id } }), 1);
+    if (entry.toolId === "drill") assert.equal(await db.adaptivePracticeSession.count({ where: { requestId: crashRequest.id } }), 1);
     assert.equal(await db.aiArtifact.count({ where: { requestId: crashRequest.id } }), 1);
     assert.equal(await db.aiArtifactLifecycle.count({ where: { artifact: { requestId: crashRequest.id } } }), 1);
   }
-  await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_insert()`);
-
   const recoveryAdmission = new VeraPrismaAdmissionService(db, envelope);
   const normalFinalize = recoveryAdmission.finalizeAcceptedRequest.bind(recoveryAdmission);
   let injectDrift = true;
@@ -260,8 +310,8 @@ try {
   const list = await learner.listConversations({ studentId, limit: 20, cursor: null });
   assert.equal(list.defaultConversationId, conversationId);
   const history = await learner.listArtifacts({ studentId, conversationId, limit: 20, cursor: null });
-  assert.ok(history.artifacts.length >= durableInsertTables.length + 1);
-  const routeArtifact = history.artifacts.find((artifact) => artifact.artifactType === "route");
+  assert.ok(history.artifacts.length >= crashEntries.length + 1);
+  const routeArtifact = history.artifacts.find((artifact) => artifact.id === request!.artifacts[0]!.id);
   assert.ok(routeArtifact);
   const detail = await learner.getArtifact(studentId, routeArtifact.id);
   assert.equal(detail.artifactType, "route");
@@ -290,6 +340,28 @@ try {
     await db.aiArtifact.create({ data: { id, artifactKey: `vera.fixture.${toolId}.${id}`, revision: 1, studentId, conversationId, artifactType: toolId, provenanceKind: "typed_entity", titleCiphertext, contentMarkdownCiphertext, payloadCiphertext, artifactSchemaVersion: "1", sourceEntityType: "Fixture", sourceEntityId: randomUUID(), sourceEntityRevision: 0, sourceEntityDigest: normalized.digest, contentDigest: normalized.digest, renderVersion: "vera-render-v1", retentionPolicyVersion: "vera-retention-v1", lifecycle: { create: { lifecycleRevision: 0 } } } });
     return id;
   };
+  const routeCommandAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [moduleId], topicIds: [topicId], moduleIds: [moduleId], questions: [], universityIds: [], majorIds: [] };
+  const routeCommandAuthority: VeraStudioIdentityAuthority = { ...routeCommandAuthoritySeed, digest: sha256Hex(canonicalJson(routeCommandAuthoritySeed)) };
+  const recommendationCrashPayload = validateStudioOutput({ toolId: "route", structured: { title: "Rute materialisasi crash", goal: "Menguji recovery materialisasi.", activities: [{ ordinal: 1, action: "Pulihkan proyeksi.", estimatedMinutes: 15, topicIds: [topicId], moduleIds: [moduleId], sourceIds: [], citationKeys: [] }], saveProjection: { sourceActivityOrdinal: 1, targetKind: "topic", targetId: topicId, priority: 70, rationale: "Proyeksi untuk crash recovery." } }, allowedCitationKeys: [], identityAuthority: routeCommandAuthority });
+  const recommendationCrashArtifactId = await createCommandArtifact("route", recommendationCrashPayload);
+  const recommendationCrashKey = randomUUID();
+  const recommendationCommand = new VeraArtifactCommandService(db, envelope, "sprint3-recommendation-crash-hmac");
+  const recommendationCrashTrigger = "vera_fixture_crash_learning_recommendations";
+  await db.$executeRawUnsafe(`CREATE TRIGGER ${recommendationCrashTrigger} BEFORE INSERT ON learning_recommendations FOR EACH ROW EXECUTE FUNCTION vera_fixture_crash_insert()`);
+  try {
+    await assert.rejects(
+      () => recommendationCommand.materializeLearningRecommendation({ studentId, artifactRevisionId: recommendationCrashArtifactId, clientRequestId: recommendationCrashKey, expectedArtifactRevision: 1, materializationSchemaVersion: "1" }),
+      /vera fixture durable insert crash|materialization_failed|P2002/,
+    );
+  } finally {
+    await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${recommendationCrashTrigger} ON learning_recommendations`);
+  }
+  const recommendationRecovered = await recommendationCommand.materializeLearningRecommendation({ studentId, artifactRevisionId: recommendationCrashArtifactId, clientRequestId: recommendationCrashKey, expectedArtifactRevision: 1, materializationSchemaVersion: "1" });
+  assert.ok("result" in recommendationRecovered && !recommendationRecovered.replayed);
+  const recommendationRecoveredReplay = await recommendationCommand.materializeLearningRecommendation({ studentId, artifactRevisionId: recommendationCrashArtifactId, clientRequestId: recommendationCrashKey, expectedArtifactRevision: 1, materializationSchemaVersion: "1" });
+  assert.ok("result" in recommendationRecoveredReplay && recommendationRecoveredReplay.replayed);
+  assert.equal(await db.learningRecommendation.count({ where: { sourceArtifactRevisionId: recommendationCrashArtifactId } }), 1);
+  await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_insert()`);
   const materializeKey = randomUUID();
   const materialized = await commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: materializeKey, expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" });
   assert.ok("result" in materialized);
@@ -385,12 +457,21 @@ try {
   console.log("PASS vera-prisma-sprint3: signed source cursor, learner payload privacy, materialization and Apply replay");
   console.log("PASS vera-prisma-sprint3: unauthorized existing identities fail before staging and lifecycle tombstones remain readable");
   console.log("PASS vera-prisma-sprint3: callback drift rolls back, preserves stage before deadline, then terminalizes once under overdue race");
-  console.log("PASS vera-prisma-sprint3: typed callback crash-at-each-insert rolls back, then process-loss recovery persists exactly once");
+  console.log("PASS vera-prisma-sprint3: all seven persisted callback tuples (analysis, route, review, summary, PTN, drill, recommendation/materialization) roll back under crash triggers, then process-loss recovery persists exactly once");
   console.log("PASS vera-prisma-sprint3: recovery retry waits for terminal failure, preserves exact user-message digest and rejects edited text before provider");
   console.log("PASS vera-prisma-sprint3: all three Apply projections cover populated replay/conflict and two-client adaptive CAS race");
 } finally {
-  for (const table of ["weakness_analyses", "weakness_analysis_topics", "ai_artifacts", "ai_artifact_lifecycles"]) {
-    await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS vera_fixture_crash_${table} ON ${table}`);
+  for (const [trigger, table] of [
+    ["vera_fixture_crash_analysis_weakness_analyses", "weakness_analyses"],
+    ["vera_fixture_crash_analysis_weakness_analysis_topics", "weakness_analysis_topics"],
+    ["vera_fixture_crash_route_ai_artifacts", "ai_artifacts"],
+    ["vera_fixture_crash_review_ai_artifacts", "ai_artifacts"],
+    ["vera_fixture_crash_summary_ai_artifacts", "ai_artifacts"],
+    ["vera_fixture_crash_ptn_ptn_strategy_sessions", "ptn_strategy_sessions"],
+    ["vera_fixture_crash_drill_adaptive_practice_sessions", "adaptive_practice_sessions"],
+    ["vera_fixture_crash_learning_recommendations", "learning_recommendations"],
+  ]) {
+    await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${trigger} ON ${table}`);
   }
   await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_insert()`);
   const requestIds = (await db.aiRequest.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
@@ -420,6 +501,25 @@ try {
   if (envelopeObjectMarkers.length) await db.aiEnvelopeKey.deleteMany({ where: { OR: envelopeObjectMarkers.map((id) => ({ objectId: { contains: id } })) } });
   await db.billingAccount.deleteMany({ where: { studentId } });
   await db.studentProfile.deleteMany({ where: { userId: studentId } });
+  await db.standaloneQuizAttempt.deleteMany({ where: { id: standaloneAttemptId } });
+  await db.standaloneQuizParticipation.deleteMany({ where: { id: drillParticipationId } });
+  await db.standaloneQuizItem.deleteMany({ where: { id: drillQuizItemId } });
+  await db.standaloneQuiz.deleteMany({ where: { id: drillQuizId } });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('ALTER TABLE question_revision_options DISABLE TRIGGER USER');
+    await tx.$executeRawUnsafe('ALTER TABLE question_revisions DISABLE TRIGGER USER');
+    await tx.$executeRawUnsafe('ALTER TABLE questions DISABLE TRIGGER USER');
+    await tx.$executeRawUnsafe('ALTER TABLE questions DROP CONSTRAINT questions_current_revision_id_fkey');
+    await tx.$executeRawUnsafe('ALTER TABLE questions DROP CONSTRAINT questions_current_revision_identity_fkey');
+    await tx.questionRevisionOption.deleteMany({ where: { questionRevisionId: drillRevisionId } });
+    await tx.questionRevision.deleteMany({ where: { id: drillRevisionId } });
+    await tx.question.deleteMany({ where: { id: drillQuestionId } });
+    await tx.$executeRawUnsafe('ALTER TABLE questions ADD CONSTRAINT questions_current_revision_id_fkey FOREIGN KEY (current_revision_id) REFERENCES question_revisions(id) ON UPDATE CASCADE ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED');
+    await tx.$executeRawUnsafe('ALTER TABLE questions ADD CONSTRAINT questions_current_revision_identity_fkey FOREIGN KEY (id, current_revision_id) REFERENCES question_revisions(question_id, id) ON UPDATE CASCADE ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED');
+    await tx.$executeRawUnsafe('ALTER TABLE questions ENABLE TRIGGER USER');
+    await tx.$executeRawUnsafe('ALTER TABLE question_revisions ENABLE TRIGGER USER');
+    await tx.$executeRawUnsafe('ALTER TABLE question_revision_options ENABLE TRIGGER USER');
+  });
   await db.user.deleteMany({ where: { id: { in: [studentId, otherStudentId] } } });
   await db.module.deleteMany({ where: { id: { in: [moduleId, secondModuleId] } } });
   await db.topic.deleteMany({ where: { id: topicId } });

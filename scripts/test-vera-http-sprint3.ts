@@ -262,7 +262,7 @@ try {
 
   const commandQuestionId = randomUUID();
   const commandRevisionId = randomUUID();
-  const commandAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [topicId], moduleIds: [], questions: [{ questionId: commandQuestionId, questionRevisionId: commandRevisionId, topicId }], universityIds: [], majorIds: [] };
+  const commandAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [topicId], moduleIds: [moduleId], questions: [{ questionId: commandQuestionId, questionRevisionId: commandRevisionId, topicId }], universityIds: [], majorIds: [] };
   const commandAuthority: VeraStudioIdentityAuthority = { ...commandAuthoritySeed, digest: sha256Hex(canonicalJson(commandAuthoritySeed)) };
   const drillPayload = validateStudioOutput({ toolId: "drill", structured: { title: "Drill HTTP terapan", topicId, items: [{ ordinal: 1, questionId: commandQuestionId, questionRevisionId: commandRevisionId, topicId, difficulty: "easy", explanationPlan: "Tinjau setelah submit." }] }, allowedCitationKeys: [], identityAuthority: commandAuthority });
   const drillArtifactId = await createHttpArtifact("drill", drillPayload);
@@ -280,6 +280,26 @@ try {
   assert.equal((await applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id, 0, ptnApplyKey)).status, 200);
   assert.equal((await applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id, 0)).status, 409);
 
+  const raceRoutePayload = validateStudioOutput({ toolId: "route", structured: { title: "Rute HTTP race", goal: "Menguji materialisasi atomik.", activities: [{ ordinal: 1, action: "Jalankan satu proyeksi.", estimatedMinutes: 15, topicIds: [topicId], moduleIds: [moduleId], sourceIds: [], citationKeys: [] }], saveProjection: { sourceActivityOrdinal: 1, targetKind: "topic", targetId: topicId, priority: 60, rationale: "Satu target kanonik untuk race." } }, allowedCitationKeys: [], identityAuthority: commandAuthority });
+  const raceRouteArtifactId = await createHttpArtifact("route", raceRoutePayload);
+  const materializationRace = await Promise.all([
+    fetch(`${base}/api/vera-ai/artifacts/${raceRouteArtifactId}/materialize/learning-recommendation`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId: randomUUID(), expectedArtifactRevision: 1, materializationSchemaVersion: "1" }) }),
+    fetch(`${base}/api/vera-ai/artifacts/${raceRouteArtifactId}/materialize/learning-recommendation`, { method: "POST", headers: { cookie: studentCookie, "content-type": "application/json" }, body: JSON.stringify({ clientRequestId: randomUUID(), expectedArtifactRevision: 1, materializationSchemaVersion: "1" }) }),
+  ]);
+  assert.deepEqual(materializationRace.map((response) => response.status).sort((a, b) => a - b), [201, 409]);
+  const adaptiveRaceTarget = await db.adaptivePracticeSession.create({ data: { studentId, topicId, sourceConversationId: conversationId, status: "in_progress" } });
+  const adaptiveRace = await Promise.all([
+    applyOverHttp(drillArtifactId, "adaptive_practice_session.v1", adaptiveRaceTarget.id, 0),
+    applyOverHttp(drillArtifactId, "adaptive_practice_session.v1", adaptiveRaceTarget.id, 0),
+  ]);
+  assert.deepEqual(adaptiveRace.map((response) => response.status).sort((a, b) => a - b), [201, 409]);
+  const ptnRaceTarget = await db.ptnStrategySession.create({ data: { studentId, conversationId, disclaimerShown: true } });
+  const ptnRace = await Promise.all([
+    applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnRaceTarget.id, 0),
+    applyOverHttp(ptnArtifactId, "ptn_strategy_session.v1", ptnRaceTarget.id, 0),
+  ]);
+  assert.deepEqual(ptnRace.map((response) => response.status).sort((a, b) => a - b), [201, 409]);
+
   for (const [privacyArtifactId, registryKey, targetId] of [[artifactId, "learning_recommendation.v1", recommendation.id], [drillArtifactId, "adaptive_practice_session.v1", adaptiveTarget.id], [ptnArtifactId, "ptn_strategy_session.v1", ptnTarget.id]] as const) {
     const crossStudent = await applyOverHttp(privacyArtifactId, registryKey, targetId, 0, randomUUID(), otherCookie);
     const missingArtifact = await applyOverHttp(randomUUID(), registryKey, targetId, 0, randomUUID(), otherCookie);
@@ -293,7 +313,7 @@ try {
   console.log("PASS vera-http-sprint3: recommendation materialization handler create/replay/terminal duplicate semantics");
   console.log("PASS vera-http-sprint3: adaptive session/item read, answer replay, duplicate guard, submit and release-gated result handlers");
   console.log("PASS vera-http-sprint3: typed HTTP source authority preserves released standalone and tryout practice identities");
-  console.log("PASS vera-http-sprint3: all three Apply handlers cover populated replay/conflict and indistinguishable cross-student privacy");
+  console.log("PASS vera-http-sprint3: all three Apply handlers cover populated replay/conflict, concurrent route materialization/Adaptive/PTN CAS races, and indistinguishable cross-student privacy");
   console.log("PASS vera-http-sprint3: existing-but-unadmitted Analysis/Route/Review/PTN/Drill identities are rejected");
 } finally {
   if (server) await stop(server).catch(() => undefined);
