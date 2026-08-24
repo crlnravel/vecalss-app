@@ -41,6 +41,9 @@ assert.match(workspace, /const publishedWorkspacePhases/u, "published navigation
 assert.match(workspace, /const lifecyclePhaseOrder/u, "the lifecycle roadmap must preserve orientation while future phases are locked");
 assert.match(workspace, /function lifecyclePhasesForMode\(mode: WorkflowMode\)/u, "the lifecycle roadmap must be scoped to the current mode");
 assert.match(workspace, /lifecyclePhases\.map\(\(phase\)/u, "the roadmap must render only mode-relevant phases");
+assert.match(workspace, /type WorkspacePhase = "overview"[\s\S]*"build"/u, "draft navigation must model Overview separately from Build");
+assert.match(workspace, /label: "Overview",\s*value: "overview"[\s\S]*label: "Build",\s*value: "build"/u, "Overview must appear before Build in the lifecycle roadmap");
+assert.match(workspace, /items: \[\{ label: "Configure Sections", value: "sections" \}\]/u, "Build must contain Configure Sections as its only subarea");
 assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
 assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a persistent rail");
@@ -55,10 +58,14 @@ assert.match(workspace, /deliveryAreaFor/u, "legacy Delivery query values must l
 assert.match(workspace, /value === "operations"\) return "sessions"/u, "legacy operations query must land on Sessions");
 
 assert.match(workspace, /saveTryoutAction/u, "draft and publish must use the canonical Tryout save action");
-assert.match(workspace, /const save = async \(status: "draft" \| "published" = "draft"\): Promise<boolean>/u, "ordinary save must default to draft and report server success");
+assert.match(workspace, /const save = async \(status: "draft" \| "published" = "draft", redirectWorkspace: Workspace[\s\S]*\): Promise<boolean>/u, "ordinary save must default to draft and report server success");
 assert.match(workspace, /void save\("draft"\)/u, "ordinary save controls must explicitly persist a draft");
 assert.doesNotMatch(workspace, /void save\(\)/u, "ordinary save paths must never inherit draft.status");
 assert.match(workspace, /void save\("published"\)/u, "publish must remain a separate explicit action");
+assert.match(workspace, /Selanjutnya/u, "draft steps must expose a single next action");
+assert.doesNotMatch(workspace, /Simpan &amp; lanjut ke Configure Sections/u, "the draft next action must use the shorter label");
+assert.doesNotMatch(workspace, /<ArrowRight\b/u, "the draft next action must not show a right-arrow icon");
+assert.match(workspace, /items\.length > 1/u, "single-item phases must not render an inner tab strip");
 assert.doesNotMatch(workspace, /keepMounted/u, "draft Delivery content must not remain mounted outside the published lifecycle mode");
 assert.match(workspace, /duplicateSourceCount/u, "Review must include duplicate source detection");
 assert.match(workspace, /FullWidthLineTabsList/u, "workspace tabs must use the shared full-width line list");

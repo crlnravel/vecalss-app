@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowDown,
-  ArrowRight,
   ArrowUp,
   Check,
   ChevronDown,
@@ -204,7 +203,7 @@ type CatPoolMockDraft = {
 };
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "live" | "attempts" | "results" | "review" | "publish";
 type DeliveryArea = "policy" | "sessions" | "participants";
-type WorkspacePhase = "build" | "review_publish" | "delivery" | "operations" | "results";
+type WorkspacePhase = "overview" | "build" | "review_publish" | "delivery" | "operations" | "results";
 type WorkflowMode = "draft" | "published";
 
 type WorkspacePhaseDefinition = {
@@ -215,12 +214,14 @@ type WorkspacePhaseDefinition = {
 
 const draftWorkspacePhases: WorkspacePhaseDefinition[] = [
   {
+    label: "Overview",
+    value: "overview",
+    items: [{ label: "Overview", value: "basics" }],
+  },
+  {
     label: "Build",
     value: "build",
-    items: [
-      { label: "Overview", value: "basics" },
-      { label: "Configure Sections", value: "sections" },
-    ],
+    items: [{ label: "Configure Sections", value: "sections" }],
   },
   {
     label: "Review & Publish",
@@ -254,6 +255,7 @@ const publishedWorkspacePhases: WorkspacePhaseDefinition[] = [
 ];
 
 const lifecyclePhaseOrder: Array<{ label: string; value: WorkspacePhase; summary: string }> = [
+  { label: "Overview", summary: "Identitas Tryout", value: "overview" },
   { label: "Build", summary: "Susun konten", value: "build" },
   { label: "Review & Publish", summary: "Siapkan versi", value: "review_publish" },
   { label: "Delivery", summary: "Akses & sesi", value: "delivery" },
@@ -273,7 +275,8 @@ const deliveryAreas: Array<{ description: string; label: string; value: Delivery
 ];
 
 function phaseForWorkspace(value: Workspace): WorkspacePhase {
-  if (["basics", "sections", "questions", "rules"].includes(value)) return "build";
+  if (value === "basics") return "overview";
+  if (["sections", "questions", "rules"].includes(value)) return "build";
   if (["review", "publish"].includes(value)) return "review_publish";
   if (value === "schedule") return "delivery";
   if (["live", "attempts"].includes(value)) return "operations";
@@ -297,8 +300,10 @@ function phaseStartWorkspace(phase: WorkspacePhase, mode: WorkflowMode = "draft"
 
 function phaseDescription(phase: WorkspacePhase) {
   switch (phase) {
+    case "overview":
+      return "Lengkapi identitas Tryout sebelum menyusun Section dan aturan pengerjaan.";
     case "build":
-      return "Susun identitas, tujuh Section, sumber soal, dan aturan pengerjaan.";
+      return "Susun tujuh Section, sumber soal, dan aturan pengerjaan.";
     case "review_publish":
       return "Pastikan isi siap, lalu buat versi terbit yang dipakai sesi.";
     case "delivery":
@@ -1000,6 +1005,7 @@ function KaptenTryoutBuilderPageModule({
   const workspace = allowedWorkspaces.includes(requestedWorkspace) ? requestedWorkspace : fallbackWorkspace;
   const activePhase = phaseForWorkspace(workspace);
   const lifecyclePhases = useMemo(() => lifecyclePhasesForMode(mode), [mode]);
+  const activePhaseDefinition = visiblePhaseDefinitions.find((phase) => phase.value === activePhase);
   const routeNormalizationNotice = useMemo(() => {
     const raw = initialWorkspace.trim().toLowerCase();
     if (mode === "published" && ["basics", "sections", "questions", "rules", "review", "publish", "overview", "configure_sections", "readiness_publish"].includes(raw)) {
@@ -1131,7 +1137,7 @@ function KaptenTryoutBuilderPageModule({
     setError(null);
   };
 
-  const save = async (status: "draft" | "published" = "draft"): Promise<boolean> => {
+  const save = async (status: "draft" | "published" = "draft", redirectWorkspace: Workspace = status === "published" ? "schedule" : "basics"): Promise<boolean> => {
     setSaving(true);
     setError(null);
     try {
@@ -1160,7 +1166,11 @@ function KaptenTryoutBuilderPageModule({
       setDraft(nextDraft);
       setSavedDraft(nextDraft);
       setDirty(false);
-      if (!id) window.location.assign(`/mentor/tryout/${result.result.id}?workspace=${status === "published" ? "schedule" : "basics"}`);
+      if (!id) {
+        const nextUrl = new URL(`/mentor/tryout/${result.result.id}`, window.location.origin);
+        if (redirectWorkspace !== "basics") nextUrl.searchParams.set("workspace", redirectWorkspace);
+        window.location.assign(`${nextUrl.pathname}${nextUrl.search}`);
+      }
       return true;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Tryout belum dapat disimpan. Coba lagi.");
@@ -1410,7 +1420,7 @@ function KaptenTryoutBuilderPageModule({
           <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
         </section>
       ) : null}
-      <nav aria-label="Fase lifecycle Tryout" className={`mt-6 grid gap-2 ${mode === "draft" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+      <nav aria-label="Fase lifecycle Tryout" className="mt-6 grid gap-2 sm:grid-cols-3">
         {lifecyclePhases.map((phase) => {
           const active = activePhase === phase.value;
           const available = visiblePhaseDefinitions.some((definition) => definition.value === phase.value);
@@ -1440,15 +1450,15 @@ function KaptenTryoutBuilderPageModule({
         <div className="grid gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-3 sm:px-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-semibold text-secondary-900">{visiblePhaseDefinitions.find((phase) => phase.value === activePhase)?.label ?? lifecyclePhaseOrder.find((phase) => phase.value === activePhase)?.label}</p>
+              <p className="text-sm font-semibold text-secondary-900">{activePhaseDefinition?.label ?? lifecyclePhaseOrder.find((phase) => phase.value === activePhase)?.label}</p>
               <p className="text-xs leading-5 text-secondary-600">{phaseDescription(activePhase)}</p>
             </div>
             {dirty && mode === "draft" ? <span className="text-xs font-semibold text-[#8a5e00]">Perubahan belum disimpan. Simpan sebelum berpindah langkah.</span> : null}
           </div>
-          {visiblePhaseDefinitions.find((phase) => phase.value === activePhase)?.items.length ? (
+          {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
             <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <FullWidthLineTabsList aria-label={`Subarea ${visiblePhaseDefinitions.find((phase) => phase.value === activePhase)?.label ?? "Tryout"}`} className="min-w-max xl:min-w-0">
-                {visiblePhaseDefinitions.find((phase) => phase.value === activePhase)?.items.map((item) => (
+              <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
+                {activePhaseDefinition.items.map((item) => (
                   <FullWidthLineTabsTrigger className="min-w-max" key={item.value} value={item.value}>
                     {item.label}
                   </FullWidthLineTabsTrigger>
@@ -1743,10 +1753,9 @@ function KaptenTryoutBuilderPageModule({
             {workspace === "sections" && !configureReady ? <span className="ml-2 text-[#8a5e00]">Lengkapi semua Section untuk membuka Readiness.</span> : null}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            {workspace === "sections" || workspace === "review" ? <Button disabled={saving} onClick={() => setPreviewOpen(true)} variant="brandOutline"><Eye />Preview alur peserta</Button> : null}
-            {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button> : <Button disabled={saving} onClick={() => void save("draft")} variant="brandOutline"><Save />{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>}
-            {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft").then((ok) => { if (ok) commitWorkspaceChange("sections"); }); }} variant="brand"><ArrowRight />Simpan &amp; lanjut ke Configure Sections</Button> : null}
-            {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft").then((ok) => { if (ok) commitWorkspaceChange("review"); }); }} variant="brand"><ArrowRight />Lanjut ke Readiness</Button> : null}
+            {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button> : null}
+            {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+            {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
             {!draft.locked && (workspace === "review" || workspace === "publish") ? <Button disabled={saving || !readyToPublish} onClick={() => setPublishOpen(true)} variant="brand"><Upload />Terbitkan Tryout</Button> : null}
           </div>
         </footer>
