@@ -9,6 +9,8 @@ const dataTable = read("components/ui/data-table.tsx");
 const packageBuilder = read("modules/mentor/KaptenPackageBuilderPageModule.tsx");
 const packageActions = read("modules/mentor/tryout-actions.ts");
 const packageVersionDetail = read("modules/mentor/KaptenPackageVersionDetailModule.tsx");
+const packageOverview = read("modules/mentor/KaptenPackageVersionHubModule.tsx");
+const packageOverviewRoute = read("app/mentor/packages/[packageId]/page.tsx");
 
 assert.match(bankCatalogue, /\{row\.bank\.questionCount\} soal/u, "Bank rows should show the question count as their primary metadata");
 assert.doesNotMatch(bankCatalogue, /\{bank\.questionCount\} soal · \{bank\.progress\}% siap(?: · \{bank\.difficultyMix\})?/u, "Bank rows should not append readiness metadata to the visible question count");
@@ -154,5 +156,24 @@ assert.doesNotMatch(packageCatalogue, /label: "Aksi"/u, "Paket Soal should not r
 assert.match(packageCatalogue, /aria-label="Breadcrumb"/u, "Paket Soal should expose a breadcrumb");
 assert.doesNotMatch(packageCatalogue, /className="grid gap-3"|sm:grid-cols/u, "Paket Soal rows should not use a card grid");
 assert.match(packageCatalogue, /nativeButton=\{false\} render=\{<Link href="\/mentor\/packages\/create" \/>\}/u);
+assert.match(packageCatalogue, /PackageStatusPill status=\{item\.availability\}/u, "Paket Soal rows should show availability from the lifecycle projection");
+assert.match(packageCatalogue, /item\.hasDraftChanges[\s\S]*Perubahan draf/u, "Paket Soal rows should layer pending draft attention separately from availability");
+assert.match(packageCatalogue, /v\{item\.activeVersionNo\}/u, "Ready package rows should show their active version as quiet metadata");
+assert.match(packageCatalogue, /Digunakan di \{item\.usageCount\} Tryout/u, "Package rows should show distinct Tryout usage");
+assert.match(packageCatalogue, /item\.activeItemCount[\s\S]*item\.draftItemCount/u, "Ready-with-draft rows should distinguish active and draft counts");
+assert.match(packageCatalogue, /label = item\.availability === "draft" \? "Siapkan untuk Tryout" : "Lanjutkan perubahan"/u, "Contextual row CTAs should match the lifecycle state");
+assert.match(packageCatalogue, /href=\{`\/mentor\/packages\/\$\{item\.id\}\/versions\/new`\}/u, "Contextual row CTAs should resume the package editor");
+assert.match(packageOverview, /Versi aktif/u, "Package overview should label the immutable active version");
+assert.match(packageOverview, /activeItemCount[\s\S]*activeTotalPoints[\s\S]*usageCount/u, "Package overview should expose active counts, points, and usage");
+assert.match(packageOverview, /Perubahan draf[\s\S]*draftItemCount[\s\S]*draftTotalPoints/u, "Package overview should keep pending counts separate from active counts");
+assert.match(packageOverview, /Tryout yang sudah ada tetap menggunakan versi aktif sampai perubahan diterapkan/u, "Pending changes should preserve the active-version safety context");
+assert.match(packageOverview, /Gunakan di Tryout/u, "Ready package overview should expose the Tryout handoff");
+assert.match(packageOverview, /disabled[\s\S]*package-handoff-unavailable/u, "No-version package overview should disable the Tryout handoff");
+assert.match(packageOverview, /savedDraft[\s\S]*released/u, "Package overview should render one-shot feedback states");
+assert.match(packageOverview, /Kembali ke Paket Soal/u, "Ready completion should offer a return-to-overview context");
+assert.match(packageOverview, /Riwayat versi/u, "Version history should remain reachable as secondary information");
+assert.match(packageOverviewRoute, /searchParams/u, "Package overview route should parse query feedback");
+assert.match(packageOverviewRoute, /released === "1"/u, "Package overview route should recognize released=1 feedback");
+assert.match(packageOverviewRoute, /saved === "draft"/u, "Package overview route should recognize saved=draft feedback");
 
 console.log("Mentor Bank Soal and Paket Soal UI contracts passed.");

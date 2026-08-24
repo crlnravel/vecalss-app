@@ -203,6 +203,10 @@
   - Kept the route content as a `div` beneath the shell-owned `main` landmark
     on both create and edit routes and locked that boundary in the focused
     structural contract.
+  - Follow-up `848fd78` scopes the lifecycle roadmap to the current mode so
+    drafts show only Build/Review & Publish and published Tryouts show only
+    Delivery/Operations/Results; the focused contract, lint, browser QA, and
+    commit-hook `pnpm verify` pass.
 
 - [x] AS-04 ParticipantView and atomic access transitions (`ae64528`)
   - Added a server-only ParticipantView combining admission, current/audit

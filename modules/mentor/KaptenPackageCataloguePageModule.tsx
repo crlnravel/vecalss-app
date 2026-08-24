@@ -12,7 +12,14 @@ import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalog
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 
 type PackageItem = {
+  activeItemCount: number;
+  activeTotalPoints: number;
+  activeVersionNo?: number;
+  availability: "draft" | "ready";
   description: string;
+  draftItemCount: number;
+  draftTotalPoints: number;
+  hasDraftChanges: boolean;
   id: string;
   items: Array<{ sourceQuestionId: string }>;
   latestReadyVersionNo?: number;
@@ -21,6 +28,7 @@ type PackageItem = {
   subtest: string;
   title: string;
   updatedAt: number;
+  usageCount: number;
 };
 
 function catalogueHref(query: string, page: number, status: string, subtest: string) {
@@ -39,8 +47,16 @@ const packageDateFormatter = new Intl.DateTimeFormat("id-ID", {
   year: "numeric",
 });
 
+const packagePointsFormatter = new Intl.NumberFormat("id-ID", {
+  maximumFractionDigits: 2,
+});
+
 function packageStatusCopy(status: PackageItem["status"]) {
   return status === "ready" ? "Siap" : "Draf";
+}
+
+function packagePointsLabel(points: number) {
+  return packagePointsFormatter.format(points);
 }
 
 function PackageStatusPill({ status }: { status: PackageItem["status"] }) {
@@ -58,6 +74,40 @@ function PackageStatusPill({ status }: { status: PackageItem["status"] }) {
   );
 }
 
+function PackageCounts({ item }: { item: PackageItem }) {
+  if (item.availability === "ready") {
+    return item.hasDraftChanges ? (
+      <div className="grid gap-1 text-xs leading-5 text-secondary-600">
+        <span><span className="font-semibold text-secondary-700">Versi aktif:</span> {item.activeItemCount} soal · {packagePointsLabel(item.activeTotalPoints)} poin</span>
+        <span><span className="font-semibold text-amber-900">Perubahan draf:</span> {item.draftItemCount} soal · {packagePointsLabel(item.draftTotalPoints)} poin</span>
+      </div>
+    ) : (
+      <span className="mt-1 block text-xs text-secondary-500">Versi aktif: {item.activeItemCount} soal · {packagePointsLabel(item.activeTotalPoints)} poin</span>
+    );
+  }
+
+  return <span className="mt-1 block text-xs text-secondary-500">Draf: {item.draftItemCount} soal · {packagePointsLabel(item.draftTotalPoints)} poin</span>;
+}
+
+function PackageRowAction({ item }: { item: PackageItem }) {
+  if (item.availability !== "draft" && !item.hasDraftChanges) return null;
+
+  const label = item.availability === "draft" ? "Siapkan untuk Tryout" : "Lanjutkan perubahan";
+  return (
+    <Button
+      aria-label={`${label} untuk ${item.title}`}
+      className="mt-2 w-fit"
+      nativeButton={false}
+      render={<Link href={`/mentor/packages/${item.id}/versions/new`} />}
+      size="xs"
+      variant="brand"
+    >
+      {label}
+      <ChevronRight />
+    </Button>
+  );
+}
+
 function KaptenPackageCataloguePageModule({ items, page, query, status, subtest, totalItems, totalPages }: { items: PackageItem[]; page: number; query: string; status: string; subtest: string; totalItems: number; totalPages: number }) {
   const router = useRouter();
   const [isCataloguePending, startCatalogueTransition] = useTransition();
@@ -71,7 +121,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
       cell: (item) => (
         <div className="min-w-0 max-w-full">
           <Link aria-label={`Buka Paket Soal ${item.title}`} className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={`/mentor/packages/${item.id}`} title={item.title}>{item.title}</Link>
-          <span className="mt-1 block text-xs text-secondary-500">{item.items.length} soal</span>
+          <PackageCounts item={item} />
         </div>
       ),
       headerClassName: "min-w-[14rem]",
@@ -95,18 +145,36 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
       width: 12,
     },
     {
-      cell: (item) => <PackageStatusPill status={item.status} />,
-      headerClassName: "min-w-[7rem]",
+      cell: (item) => (
+        <div className="grid justify-items-start gap-1">
+          <PackageStatusPill status={item.availability} />
+          {item.hasDraftChanges ? <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">Perubahan draf</span> : null}
+          <PackageRowAction item={item} />
+        </div>
+      ),
+      headerClassName: "min-w-[12rem]",
       id: "status",
       label: "Status",
-      width: 12,
+      width: 20,
+    },
+    {
+      cell: (item) => (
+        <div className="grid gap-1 text-xs leading-5 text-secondary-500">
+          {item.activeVersionNo ? <span>v{item.activeVersionNo}</span> : <span>Belum ada versi aktif</span>}
+          <span>Digunakan di {item.usageCount} Tryout</span>
+        </div>
+      ),
+      headerClassName: "min-w-[11rem]",
+      id: "usage",
+      label: "Versi & penggunaan",
+      width: 16,
     },
     {
       cell: (item) => <time className="text-sm text-secondary-600" dateTime={new Date(item.updatedAt).toISOString()}>{packageDateFormatter.format(new Date(item.updatedAt))}</time>,
       headerClassName: "min-w-[9rem]",
       id: "updated",
       label: "Diperbarui",
-      width: 14,
+      width: 10,
     },
   ];
 

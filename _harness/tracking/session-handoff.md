@@ -6,6 +6,10 @@
   commits `697d360` and `9b6f37a`. Draft mode exposes only Build/Review &
   Publish, with Overview → Configure Sections → Readiness & Publish gating;
   published mode exposes Delivery → Operations → Results and hides authoring.
+- Follow-up `848fd78` removes the out-of-mode lifecycle cards from the visible
+  roadmap while retaining in-mode readiness locks. Authenticated ego-browser
+  QA confirmed draft `Build`/`Review & Publish` and published
+  `Delivery`/`Operations`/`Results` at desktop and 390px mobile widths.
 - `lib/tryout/workflow-projection.ts` is the pure lifecycle predicate module.
   The operations DTO carries phase/gate/session identifiers only; it does not
   cross the immutable AssessmentRelease/Bank Soal payload boundary. Historical
