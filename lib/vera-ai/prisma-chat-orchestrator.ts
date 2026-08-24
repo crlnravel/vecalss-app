@@ -16,6 +16,8 @@ import {
 } from "./admission-service";
 import { VeraContractError } from "./contracts";
 import { prepareContextPack, type VeraContextResolver } from "./context-pack";
+import { prepareFrozenDrillAuthority } from "./drill-candidates";
+import { createVeraDurableResultCallback } from "./durable-results";
 import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry, environmentEnvelopeRootKeyProvider, type AiEncryptedPayload } from "./envelope";
 import { IdempotencyService, InMemoryIdempotencyStore } from "./idempotency";
 import {
@@ -27,6 +29,7 @@ import {
 } from "./redis-lease";
 import { validateVeraResult, type NormalizedVeraResult } from "./output-validator";
 import { ProviderSafetyError, type PreparedProviderTask, type VeraProviderAdapter } from "./provider";
+import { getVeraFeatureContract, validateStudioOutput } from "./studio-contracts";
 import type { VeraSseEvent, VeraSseEventName } from "./chat-orchestrator";
 
 type PrismaChatDb = typeof defaultPrisma;
@@ -49,6 +52,7 @@ type PreparedAdmission = {
   allowedCitationKeys: string[];
   lease: VeraLease;
   now: Date;
+  feature: ReturnType<typeof getVeraFeatureContract>;
 };
 
 type TransportAdmission = PreparedAdmission | { kind: "json"; status: VeraRequestStatusDto };
@@ -88,6 +92,7 @@ function errorCode(error: unknown): string {
   if (error instanceof VeraAdmissionError || error instanceof VeraContractError) return error.code;
   if (error instanceof ProviderSafetyError) return "provider_prepare_unavailable";
   if (error instanceof VeraRedisUnavailableError) return "redis_unavailable";
+  if (error instanceof Error && error.message === "drill_candidate_unavailable") return "drill_candidate_unavailable";
   return "admission_unavailable";
 }
 
@@ -183,6 +188,7 @@ export class VeraPrismaChatOrchestrator {
 
   private async prepareAdmission(input: VeraAdmissionInput): Promise<TransportAdmission> {
     const now = await this.admission.databaseNow();
+    const feature = getVeraFeatureContract(input.kind ?? "chat", input.toolId);
     const fingerprint = this.idempotency.fingerprint("ai_request", payloadForFingerprint(input));
     const existing = await this.admission.lookupIdempotencyKey(input.studentId, input.clientRequestId);
     if (existing) {
@@ -201,13 +207,13 @@ export class VeraPrismaChatOrchestrator {
     const policy = await this.admission.snapshotForStudentAt({
       studentId: input.studentId,
       now,
-      featureKey: "vera.chat",
+      featureKey: feature.featureKey,
     });
     if (now < policy.policy.effectiveAt) throw new VeraAdmissionError({ code: "vera_not_active", status: 422 });
 
     const leaseInput = {
       studentId: input.studentId,
-      featureKey: "vera.chat",
+      featureKey: feature.featureKey,
       maxConcurrent: 2,
       burstLimit: 10,
       burstWindowMs: 60_000,
@@ -224,7 +230,7 @@ export class VeraPrismaChatOrchestrator {
         studentId: input.studentId,
         clientRequestId: input.clientRequestId,
         requestFingerprint: fingerprint,
-        featureKey: "vera.chat",
+        featureKey: feature.featureKey,
         policy,
         now,
         code: "redis_unavailable",
@@ -238,7 +244,7 @@ export class VeraPrismaChatOrchestrator {
         studentId: input.studentId,
         clientRequestId: input.clientRequestId,
         requestFingerprint: fingerprint,
-        featureKey: "vera.chat",
+        featureKey: feature.featureKey,
         policy,
         now,
         code: reason,
@@ -256,7 +262,7 @@ export class VeraPrismaChatOrchestrator {
         studentId: input.studentId,
         clientRequestId: input.clientRequestId,
         requestFingerprint: fingerprint,
-        featureKey: "vera.chat",
+        featureKey: feature.featureKey,
         policy,
         now,
         code: "redis_unavailable",
@@ -273,17 +279,22 @@ export class VeraPrismaChatOrchestrator {
       let preparedProviderTask: PreparedProviderTask;
       let pack;
       try {
+        const drillAuthority = feature.toolId === "drill"
+          ? await prepareFrozenDrillAuthority(this.db, input.studentId, (input.selection ?? []).filter((source) => source.sourceType === "practice").map((source) => source.sourceId))
+          : null;
         pack = await prepareContextPack({
+          studentId: input.studentId,
           selection: input.selection ?? [],
           userText: input.text,
           policyVersion: policy.bundleVersion,
-          promptTemplateHash: "vera-chat-prompt-v1",
-          toolSchemaHash: "vera-chat-tools-v1",
+          promptTemplateHash: `${feature.featureKey}-prompt-v1`,
+          toolSchemaHash: feature.schemaHash,
           systemPolicyHash: policy.policy.validationDigest,
+          taskAuthority: drillAuthority ? { drill: drillAuthority } : undefined,
         }, this.contextResolver);
         preparedProviderTask = await this.provider.prepare({
-          featureKey: "vera.chat",
-          behaviorVersion: "1",
+          featureKey: feature.featureKey,
+          behaviorVersion: feature.behaviorVersion,
           taskBytes: pack.canonicalTaskBytes,
           contextTaskDigest: pack.contextTaskDigest,
           hardOutputQuotaUnits: policy.hardOutputQuotaUnits,
@@ -297,7 +308,7 @@ export class VeraPrismaChatOrchestrator {
           studentId: input.studentId,
           clientRequestId: input.clientRequestId,
           requestFingerprint: fingerprint,
-          featureKey: "vera.chat",
+          featureKey: feature.featureKey,
           policy,
           now,
           code,
@@ -311,7 +322,12 @@ export class VeraPrismaChatOrchestrator {
           conversationId: input.conversationId,
           clientRequestId: input.clientRequestId,
           requestFingerprint: fingerprint,
-          featureKey: "vera.chat",
+          featureKey: feature.featureKey,
+          requestType: feature.requestType,
+          behaviorVersion: feature.behaviorVersion,
+          outputSchemaVersion: feature.outputSchemaVersion,
+          outputSchemaId: feature.schemaId,
+          outputSchemaHash: feature.schemaHash,
           text: input.text,
           retryOfRequestId: input.retryOfRequestId,
           pack,
@@ -331,6 +347,7 @@ export class VeraPrismaChatOrchestrator {
           allowedCitationKeys: pack.blocks.map((block) => block.citationKey),
           lease: activeLease,
           now,
+          feature,
         };
       } catch (error) {
         if (error instanceof VeraAdmissionError && ["idempotency_conflict", "idempotency_key_expired"].includes(error.code)) throw error;
@@ -344,7 +361,7 @@ export class VeraPrismaChatOrchestrator {
           studentId: input.studentId,
           clientRequestId: input.clientRequestId,
           requestFingerprint: fingerprint,
-          featureKey: "vera.chat",
+          featureKey: feature.featureKey,
           policy,
           now,
           code,
@@ -380,6 +397,9 @@ export class VeraPrismaChatOrchestrator {
       start: (controller) => {
         controllerRef = controller;
         write("request.started", { requestId: admission.requestId, clientRequestId: input.clientRequestId, provisional: true });
+        if (admission.feature.toolId) {
+          write("progress.updated", { requestId: admission.requestId, stage: "preparing", progress: 20, provisional: true });
+        }
         void this.executeAccepted(admission, input, write, settleCancelled)
           .catch(async (error) => {
             if (streamCancelled) return;
@@ -412,9 +432,14 @@ export class VeraPrismaChatOrchestrator {
     }
     let providerResult;
     try {
-      providerResult = await this.provider.run(admission.preparedProviderTask, (delta) => {
-        write("message.delta", { requestId: admission.requestId, text: delta.text, provisional: true });
-      });
+      providerResult = await this.provider.run(
+        admission.preparedProviderTask,
+        admission.feature.toolId
+          ? undefined
+          : (delta) => {
+            write("message.delta", { requestId: admission.requestId, text: delta.text, provisional: true });
+          },
+      );
     } catch (error) {
       await settleCancelled(errorCode(error));
       write("request.recovery_pending", { requestId: admission.requestId, code: errorCode(error), provisional: false });
@@ -425,9 +450,19 @@ export class VeraPrismaChatOrchestrator {
       write("request.failed", { requestId: admission.requestId, code: "cancelled", provisional: false });
       return;
     }
+    const studioPayload = admission.feature.toolId
+      ? validateStudioOutput({
+        toolId: admission.feature.toolId,
+        structured: providerResult.structured,
+        allowedCitationKeys: admission.allowedCitationKeys,
+      })
+      : null;
+    if (studioPayload) {
+      write("progress.updated", { requestId: admission.requestId, stage: "validating", progress: 70, provisional: true });
+    }
     const normalized = validateVeraResult({
-      text: providerResult.text,
-      structured: providerResult.structured,
+      text: studioPayload ? null : providerResult.text,
+      structured: studioPayload ?? providerResult.structured,
       kind: providerResult.kind === "text" || providerResult.kind === "structured" ? "success" : providerResult.kind === "fallback" ? "fallback" : "discarded",
       finishReason: providerResult.finishReason,
       usage: providerResult.usage,
@@ -435,15 +470,40 @@ export class VeraPrismaChatOrchestrator {
     });
     const encrypted = await this.envelope.encryptAsync(JSON.stringify(normalized), `ai-result:${admission.requestId}`);
     const finalizeNow = await this.admission.databaseNow();
-    await this.admission.stageResult({ requestId: admission.requestId, result: normalized, encryptedResult: encrypted, now: finalizeNow });
+    await this.admission.stageResult({
+      requestId: admission.requestId,
+      result: normalized,
+      encryptedResult: encrypted,
+      outputSchemaId: admission.feature.schemaId,
+      outputSchemaHash: admission.feature.schemaHash,
+      now: finalizeNow,
+    });
+    if (studioPayload) {
+      write("progress.updated", { requestId: admission.requestId, stage: "committing", progress: 90, provisional: true });
+    }
     const finalized = await this.admission.finalizeAcceptedRequest({
       requestId: admission.requestId,
       normalizedResult: normalized,
       now: finalizeNow,
-      persistDurableResult: async () => ({}),
+      persistDurableResult: createVeraDurableResultCallback({ requestId: admission.requestId, envelope: this.envelope }),
     });
-    write("message.generated", { requestId: admission.requestId, text: normalized.text, citationKeys: normalized.citationKeys, provisional: true });
-    write("message.committed", { requestId: admission.requestId, assistantMessageId: finalized.assistantMessageId, provisional: false });
+    if (studioPayload) {
+      const artifact = await this.db.aiArtifact.findUnique({
+        where: { requestId: admission.requestId },
+        select: { id: true, artifactType: true, revision: true },
+      });
+      if (!artifact) throw new VeraAdmissionError({ code: "artifact_commit_unavailable", status: 503 });
+      write("artifact.ready", {
+        requestId: admission.requestId,
+        artifactRevisionId: artifact.id,
+        artifactType: artifact.artifactType,
+        revision: artifact.revision,
+        provisional: false,
+      });
+    } else {
+      write("message.generated", { requestId: admission.requestId, text: normalized.text, citationKeys: normalized.citationKeys, provisional: true });
+      write("message.committed", { requestId: admission.requestId, assistantMessageId: finalized.assistantMessageId, provisional: false });
+    }
     const status = await readPrismaVeraRequestStatus(this.db, {
       studentId: input.studentId,
       conversationId: input.conversationId,
@@ -476,7 +536,7 @@ export async function readPrismaVeraRequestStatus(
     });
     if (!key) return null;
     const request = key.resultId
-      ? await tx.aiRequest.findFirst({ where: { id: key.resultId, studentId: input.studentId, conversationId: input.conversationId }, include: { resultStage: true } })
+      ? await tx.aiRequest.findFirst({ where: { id: key.resultId, studentId: input.studentId, conversationId: input.conversationId }, include: { resultStage: true, artifacts: { select: { id: true, artifactType: true, revision: true }, take: 1 } } })
       : null;
     if (!request) return null;
     return { now, key, request };
@@ -492,6 +552,7 @@ export async function readPrismaVeraRequestStatus(
       resultState: "expired",
       errorCode: "idempotency_key_expired",
       result: null,
+      artifact: null,
       usage: { quotaUnitsReserved: 0, quotaUnitsConsumed: 0, tokenUsageState: "not_applicable", usageAccountingState: "unknown" },
       sequence: 4,
     };
@@ -521,6 +582,7 @@ export async function readPrismaVeraRequestStatus(
     resultState,
     errorCode: request.errorCode,
     result,
+    artifact: request.artifacts[0] ?? null,
     usage: {
       quotaUnitsReserved: request.quotaUnitsReserved,
       quotaUnitsConsumed: request.quotaUnitsConsumed,

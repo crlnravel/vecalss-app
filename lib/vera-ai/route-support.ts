@@ -10,10 +10,41 @@ import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "./prism
 import { createDefaultProviderAdapter, MockProviderAdapter } from "./provider";
 import { InMemoryVeraLeaseStore } from "./redis-lease";
 import type { VeraRequestStatusDto } from "./admission";
+import { VeraLearnerService } from "./learner-service";
+import { VeraArtifactCommandService } from "./artifact-commands";
+import { VeraDrillService } from "./drill-service";
 
 let cachedOrchestrator: VeraPrismaChatOrchestrator | null = null;
 const routeEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(prisma, environmentEnvelopeRootKeyProvider()));
 const routeAdmission = new VeraPrismaAdmissionService(prisma, routeEnvelope);
+let cachedLearnerService: VeraLearnerService | null = null;
+let cachedArtifactCommandService: VeraArtifactCommandService | null = null;
+let cachedDrillService: VeraDrillService | null = null;
+
+export function getVeraDrillService(): VeraDrillService {
+  if (cachedDrillService) return cachedDrillService;
+  const secret = process.env.VERA_CURSOR_HMAC_SECRET ?? process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
+  if (!secret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
+  cachedDrillService = new VeraDrillService(prisma, routeEnvelope, secret);
+  return cachedDrillService;
+}
+
+export function getVeraArtifactCommandService(): VeraArtifactCommandService {
+  if (cachedArtifactCommandService) return cachedArtifactCommandService;
+  const fingerprintSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
+  if (!fingerprintSecret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
+  cachedArtifactCommandService = new VeraArtifactCommandService(prisma, routeEnvelope, fingerprintSecret);
+  return cachedArtifactCommandService;
+}
+
+export function getVeraLearnerService(): VeraLearnerService {
+  if (cachedLearnerService) return cachedLearnerService;
+  const cursorSecret = process.env.VERA_CURSOR_HMAC_SECRET ?? process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
+  const fingerprintSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
+  if (!cursorSecret?.trim() || !fingerprintSecret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
+  cachedLearnerService = VeraLearnerService.withDefaults({ db: prisma, envelope: routeEnvelope, cursorSecret, fingerprintSecret });
+  return cachedLearnerService;
+}
 
 export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
   if (cachedOrchestrator) return cachedOrchestrator;

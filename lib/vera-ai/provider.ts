@@ -400,6 +400,19 @@ export class MockProviderAdapter implements VeraProviderAdapter {
     const usage: ProviderUsage = this.fault === "partial_usage"
       ? { inputTokens: null, outputTokens: 4, quotaUnitsConsumed: 200, tokenUsageState: "unknown" }
       : { inputTokens: 12, outputTokens: 16, quotaUnitsConsumed: 40, tokenUsageState: "known" };
+    const fixtureJson = process.env.VERA_MOCK_STUDIO_FIXTURE_JSON;
+    if (fixtureJson && prepared.preparedTask.featureKey !== "vera.chat") {
+      try {
+        const fixtures = JSON.parse(fixtureJson) as Record<string, unknown>;
+        const structured = fixtures[prepared.preparedTask.featureKey];
+        if (structured) {
+          const attempts = this.fault === "pre_send_retry" ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }] : [{ ...attempt(1, "completed"), usage }];
+          return { kind: "structured", text: null, structured, usage, finishReason: "stop", attempts };
+        }
+      } catch {
+        return { kind: "discarded", text: null, structured: null, usage, finishReason: "malformed_mock_fixture", attempts: [{ ...attempt(1, "completed", "malformed_mock_fixture"), usage }] };
+      }
+    }
     const text = "Mock Vera response.";
     emit?.({ text, provisional: true });
     const attempts = this.fault === "pre_send_retry" ? [attempt(1, "failed", "pre_send_transport"), { ...attempt(2, "completed"), usage }] : [{ ...attempt(1, "completed"), usage }];

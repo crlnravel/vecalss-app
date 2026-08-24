@@ -24,11 +24,61 @@ function unavailable(reason: string): never {
  */
 export function createPrismaVeraContextResolver(db: VeraContextDb = defaultPrisma): VeraContextResolver {
   return {
-    async resolve(selection): Promise<ResolvedContextBlock> {
-      if (selection.sourceType !== "material") unavailable("unsupported_source_type");
+    async resolve(selection, authority): Promise<ResolvedContextBlock> {
       const nowRows = await db.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
       const now = nowRows[0]?.now;
       if (!(now instanceof Date) || Number.isNaN(now.getTime())) unavailable("db_clock_unavailable");
+
+      if (selection.sourceType === "practice") {
+        if (!authority?.studentId) unavailable("student_authority_missing");
+        const attempt = await db.standaloneQuizAttempt.findFirst({
+          where: {
+            id: selection.sourceId,
+            status: "scored",
+            scoringState: "scored",
+            releaseState: "released",
+            participation: { studentId: authority.studentId },
+          },
+          include: { participation: { include: { quiz: { select: { title: true, description: true } } } } },
+        });
+        if (attempt) {
+          const quiz = attempt.participation.quiz;
+          return {
+            sourceType: "practice",
+            sourceId: attempt.id,
+            title: quiz.title,
+            citationLabel: `Latihan: ${quiz.title}`,
+            citationKey: `src_${attempt.id.replaceAll("-", "")}`,
+            content: [quiz.description, attempt.score === null ? null : `Skor yang dirilis: ${attempt.score}`].filter(Boolean).join("\n\n"),
+            contentDigest: undefined,
+            sourceVersionId: attempt.id,
+          };
+        }
+        const tryout = await db.tryoutAttempt.findFirst({
+          where: {
+            id: selection.sourceId,
+            studentId: authority.studentId,
+            status: "scored",
+            scoringState: "scored",
+            releaseState: "released",
+            assessmentReleaseId: { not: null },
+            assessmentReleaseDigest: { not: null },
+          },
+          select: { id: true, score: true, assessmentReleaseDigest: true, tryout: { select: { title: true } } },
+        });
+        if (!tryout || !tryout.assessmentReleaseDigest) unavailable("practice_not_released");
+        return {
+          sourceType: "practice",
+          sourceId: tryout.id,
+          title: tryout.tryout.title,
+          citationLabel: `Tryout: ${tryout.tryout.title}`,
+          citationKey: `src_${tryout.id.replaceAll("-", "")}`,
+          content: tryout.score === null ? "Hasil Tryout telah dirilis." : `Skor Tryout yang dirilis: ${tryout.score}`,
+          contentDigest: tryout.assessmentReleaseDigest,
+          sourceVersionId: tryout.assessmentReleaseDigest,
+        };
+      }
+      if (selection.sourceType !== "material") unavailable("unsupported_source_type");
 
       const publishedModule = await db.module.findFirst({
         where: {

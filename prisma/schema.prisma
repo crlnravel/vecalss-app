@@ -894,7 +894,7 @@ model User {
   /// Non-null only for managed system subjects such as the admin student
   /// preview fixture. The value is unique so a purpose can never be claimed
   /// by more than one account.
-  previewPurpose      String?    @unique @map("preview_purpose") @db.VarChar(80)
+  previewPurpose     String?    @unique @map("preview_purpose") @db.VarChar(80)
   avatarUrl          String?    @map("avatar_url") @db.Text
   phone              String?    @db.VarChar(40)
   status             UserStatus @default(active)
@@ -919,15 +919,15 @@ model User {
   moduleProgressions                     ModuleProgress[]
   createdQuestionBanks                   QuestionBank[]                   @relation("QuestionBankCreatedBy")
   updatedQuestionBanks                   QuestionBank[]                   @relation("QuestionBankUpdatedBy")
-  createdQuestionBankFolders              QuestionBankFolder[]             @relation("QuestionBankFolderCreatedBy")
-  updatedQuestionBankFolders              QuestionBankFolder[]             @relation("QuestionBankFolderUpdatedBy")
-  createdQuestionBankCategories           QuestionBankCategory[]            @relation("QuestionBankCategoryCreatedBy")
-  updatedQuestionBankCategories           QuestionBankCategory[]            @relation("QuestionBankCategoryUpdatedBy")
-  assignedQuestionBankCategories          QuestionBankCategoryAssignment[]  @relation("QuestionBankCategoryAssignedBy")
+  createdQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderCreatedBy")
+  updatedQuestionBankFolders             QuestionBankFolder[]             @relation("QuestionBankFolderUpdatedBy")
+  createdQuestionBankCategories          QuestionBankCategory[]           @relation("QuestionBankCategoryCreatedBy")
+  updatedQuestionBankCategories          QuestionBankCategory[]           @relation("QuestionBankCategoryUpdatedBy")
+  assignedQuestionBankCategories         QuestionBankCategoryAssignment[] @relation("QuestionBankCategoryAssignedBy")
   createdQuestions                       Question[]                       @relation("QuestionCreatedBy")
   updatedQuestions                       Question[]                       @relation("QuestionUpdatedBy")
-  authoredQuestionRevisions                QuestionRevision[]                @relation("QuestionRevisionCreatedBy")
-  modifiedQuestionRevisions               QuestionRevision[]                @relation("QuestionRevisionUpdatedBy")
+  authoredQuestionRevisions              QuestionRevision[]               @relation("QuestionRevisionCreatedBy")
+  modifiedQuestionRevisions              QuestionRevision[]               @relation("QuestionRevisionUpdatedBy")
   authoredStandaloneQuizzes              StandaloneQuiz[]                 @relation("StandaloneQuizAuthor")
   standaloneQuizParticipations           StandaloneQuizParticipation[]
   quizAttempts                           QuizAttempt[]
@@ -943,8 +943,8 @@ model User {
   tryoutDeliverySessionsUpdated          TryoutDeliverySession[]          @relation("TryoutDeliverySessionUpdatedBy")
   tryoutDeliverySessionsReleased         TryoutDeliverySession[]          @relation("TryoutDeliverySessionReleasedBy")
   tryoutDeliveryAudits                   TryoutDeliveryAudit[]
-  adminPreviewTryoutRestartsForStudent  AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartStudent")
-  adminPreviewTryoutRestartsByActor     AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartActor")
+  adminPreviewTryoutRestartsForStudent   AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartStudent")
+  adminPreviewTryoutRestartsByActor      AdminPreviewTryoutRestart[]      @relation("AdminPreviewTryoutRestartActor")
   recordedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationRecordedBy")
   approvedTwoPlCalibrations              TwoPlQuestionCalibration[]       @relation("TwoPlCalibrationApprovedBy")
   catResolutionAudits                    TryoutCatResolutionAudit[]
@@ -967,7 +967,7 @@ model User {
   aiArtifacts                            AiArtifact[]
   aiArtifactApplies                      AiArtifactApply[]
   aiPolicyBundlesCreated                 AiPolicyBundle[]                 @relation("AiPolicyCreatedBy")
-  aiPolicyBundlesApproved               AiPolicyBundle[]                 @relation("AiPolicyApprovedBy")
+  aiPolicyBundlesApproved                AiPolicyBundle[]                 @relation("AiPolicyApprovedBy")
   aiPolicyAuditEvents                    AiPolicyAuditEvent[]
   aiAdminReportAudits                    AiAdminReportAudit[]
   aiCapabilityGrants                     AiCapabilityGrant[]
@@ -987,9 +987,9 @@ model User {
   notificationsReceived                  Notification[]
   billingAccounts                        BillingAccount[]                 @relation("StudentBilling")
   extendedBillingAccounts                BillingAccount[]                 @relation("BillingExtendedBy")
-  updatedSystemConfigs                   SystemConfig[]                 @relation("SystemConfigUpdatedBy")
-  draftUpdatedSystemConfigs              SystemConfig[]                 @relation("SystemConfigDraftUpdatedBy")
-  publishedSystemConfigs                 SystemConfig[]                 @relation("SystemConfigPublishedBy")
+  updatedSystemConfigs                   SystemConfig[]                   @relation("SystemConfigUpdatedBy")
+  draftUpdatedSystemConfigs              SystemConfig[]                   @relation("SystemConfigDraftUpdatedBy")
+  publishedSystemConfigs                 SystemConfig[]                   @relation("SystemConfigPublishedBy")
   auditLogs                              AuditLog[]
   enrollmentHandoffs                     EnrollmentHandoff[]              @relation("EnrollmentHandoffUser")
   createdEnrollmentHandoffs              EnrollmentHandoff[]              @relation("EnrollmentHandoffCreatedBy")
@@ -1154,10 +1154,10 @@ model EnrollmentImportRow {
   processedAt          DateTime?                 @map("processed_at") @db.Timestamptz
   updatedAt            DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  import        EnrollmentImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
-  matchedUser   User?              @relation("EnrollmentImportRowMatchedUser", fields: [matchedUserId], references: [id], onDelete: SetNull)
-  resultUser    User?              @relation("EnrollmentImportRowResultUser", fields: [resultUserId], references: [id], onDelete: SetNull)
-  handoff       EnrollmentHandoff? @relation("EnrollmentImportRowHandoff", fields: [handoffId], references: [id], onDelete: SetNull)
+  import         EnrollmentImport    @relation(fields: [importId], references: [id], onDelete: Cascade)
+  matchedUser    User?               @relation("EnrollmentImportRowMatchedUser", fields: [matchedUserId], references: [id], onDelete: SetNull)
+  resultUser     User?               @relation("EnrollmentImportRowResultUser", fields: [resultUserId], references: [id], onDelete: SetNull)
+  handoff        EnrollmentHandoff?  @relation("EnrollmentImportRowHandoff", fields: [handoffId], references: [id], onDelete: SetNull)
   sourceHandoffs EnrollmentHandoff[] @relation("EnrollmentHandoffSourceRow")
 
   @@unique([importId, rowNumber])
@@ -1356,7 +1356,7 @@ model Subtest {
   tryoutItems                         TryoutItem[]
   tryoutSections                      TryoutSection[]
   reusableQuestionPackages            ReusableQuestionPackage[]
-  reusableQuestionPackageVersions     ReusableQuestionPackageVersion[] @relation("ReusablePackageVersionSubtest")
+  reusableQuestionPackageVersions     ReusableQuestionPackageVersion[]     @relation("ReusablePackageVersionSubtest")
   reusableQuestionPackageVersionItems ReusableQuestionPackageVersionItem[]
   tryoutScoreBreakdowns               TryoutScoreBreakdown[]
   subtestPerformances                 StudentSubtestPerformance[]
@@ -1506,15 +1506,15 @@ model QuestionBank {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  createdBy                User                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy                User                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  folder                   QuestionBankFolder?        @relation(fields: [folderId], references: [id], onDelete: Restrict)
-  categories               QuestionBankCategoryAssignment[]
-  questions                Question[]
-  sourceQuizzes            StandaloneQuiz[]
-  adaptivePracticeSessions AdaptivePracticeSession[]
-  reusableQuestionPackages ReusableQuestionPackage[] @relation("ReusablePackageSourceBank")
-  reusableQuestionPackageVersions ReusableQuestionPackageVersion[] @relation("ReusablePackageVersionSourceBank")
+  createdBy                                User                                      @relation("QuestionBankCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                                User                                      @relation("QuestionBankUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  folder                                   QuestionBankFolder?                       @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  categories                               QuestionBankCategoryAssignment[]
+  questions                                Question[]
+  sourceQuizzes                            StandaloneQuiz[]
+  adaptivePracticeSessions                 AdaptivePracticeSession[]
+  reusableQuestionPackages                 ReusableQuestionPackage[]                 @relation("ReusablePackageSourceBank")
+  reusableQuestionPackageVersions          ReusableQuestionPackageVersion[]          @relation("ReusablePackageVersionSourceBank")
   reusableQuestionPackageVersionBankScopes ReusableQuestionPackageVersionBankScope[]
 
   @@index([folderId])
@@ -1549,8 +1549,8 @@ model Question {
   explanationAsset            Asset?                               @relation("QuestionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
   createdBy                   User                                 @relation("QuestionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   updatedBy                   User                                 @relation("QuestionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  currentRevision             QuestionRevision                      @relation("QuestionCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
-  revisions                   QuestionRevision[]                    @relation("QuestionRevisions")
+  currentRevision             QuestionRevision                     @relation("QuestionCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
+  revisions                   QuestionRevision[]                   @relation("QuestionRevisions")
   options                     QuestionOption[]
   quizItems                   QuizItem[]
   standaloneQuizItems         StandaloneQuizItem[]                 @relation("StandaloneQuizItemSourceQuestion")
@@ -1589,18 +1589,18 @@ model QuestionRevision {
   readyAt            DateTime?                  @map("ready_at") @db.Timestamptz
   retiredAt          DateTime?                  @map("retired_at") @db.Timestamptz
 
-  question                  Question                                  @relation("QuestionRevisions", fields: [questionId], references: [id], onDelete: Restrict)
-  currentForQuestion        Question?                                 @relation("QuestionCurrentRevision")
-  promptAsset               Asset?                                    @relation("QuestionRevisionPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset          Asset?                                    @relation("QuestionRevisionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  createdBy                 User                                      @relation("QuestionRevisionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy                 User                                      @relation("QuestionRevisionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  options                   QuestionRevisionOption[]
-  standaloneQuizItems       StandaloneQuizItem[]                       @relation("StandaloneQuizItemSourceQuestionRevision")
-  reusablePackageItems      ReusableQuestionPackageItem[]              @relation("ReusablePackageItemSourceQuestionRevision")
-  reusablePackageVersionItems ReusableQuestionPackageVersionItem[]     @relation("ReusablePackageVersionItemSourceQuestionRevision")
-  tryoutItems               TryoutItem[]                               @relation("TryoutItemSourceQuestionRevision")
-  calibrations              TwoPlQuestionCalibration[]
+  question                    Question                             @relation("QuestionRevisions", fields: [questionId], references: [id], onDelete: Restrict)
+  currentForQuestion          Question?                            @relation("QuestionCurrentRevision")
+  promptAsset                 Asset?                               @relation("QuestionRevisionPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset            Asset?                               @relation("QuestionRevisionExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  createdBy                   User                                 @relation("QuestionRevisionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                   User                                 @relation("QuestionRevisionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  options                     QuestionRevisionOption[]
+  standaloneQuizItems         StandaloneQuizItem[]                 @relation("StandaloneQuizItemSourceQuestionRevision")
+  reusablePackageItems        ReusableQuestionPackageItem[]        @relation("ReusablePackageItemSourceQuestionRevision")
+  reusablePackageVersionItems ReusableQuestionPackageVersionItem[] @relation("ReusablePackageVersionItemSourceQuestionRevision")
+  tryoutItems                 TryoutItem[]                         @relation("TryoutItemSourceQuestionRevision")
+  calibrations                TwoPlQuestionCalibration[]
 
   @@unique([questionId, revisionNo])
   @@index([questionId, status])
@@ -1609,19 +1609,19 @@ model QuestionRevision {
 }
 
 model QuestionRevisionOption {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  questionRevisionId String           @map("question_revision_id") @db.Uuid
-  label              String           @db.VarChar(8)
-  content            String           @db.Text
-  isCorrect          Boolean          @default(false) @map("is_correct")
-  sortOrder          Int              @default(0) @map("sort_order")
-  assetId            String?          @map("asset_id") @db.Uuid
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionRevisionId String  @map("question_revision_id") @db.Uuid
+  label              String  @db.VarChar(8)
+  content            String  @db.Text
+  isCorrect          Boolean @default(false) @map("is_correct")
+  sortOrder          Int     @default(0) @map("sort_order")
+  assetId            String? @map("asset_id") @db.Uuid
 
-  questionRevision QuestionRevision @relation(fields: [questionRevisionId], references: [id], onDelete: Cascade)
-  asset            Asset?           @relation("QuestionRevisionOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
-  standaloneQuizItemOptions             StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionSourceRevisionOption")
-  reusablePackageVersionItemOptions     ReusableQuestionPackageVersionItemOption[] @relation("ReusablePackageVersionItemOptionSourceRevisionOption")
-  tryoutItemOptions                     TryoutItemOption[]                         @relation("TryoutItemOptionSourceRevisionOption")
+  questionRevision                  QuestionRevision                           @relation(fields: [questionRevisionId], references: [id], onDelete: Cascade)
+  asset                             Asset?                                     @relation("QuestionRevisionOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  standaloneQuizItemOptions         StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionSourceRevisionOption")
+  reusablePackageVersionItemOptions ReusableQuestionPackageVersionItemOption[] @relation("ReusablePackageVersionItemOptionSourceRevisionOption")
+  tryoutItemOptions                 TryoutItemOption[]                         @relation("TryoutItemOptionSourceRevisionOption")
 
   @@unique([questionRevisionId, label])
   @@unique([questionRevisionId, sortOrder])
@@ -1629,25 +1629,25 @@ model QuestionRevisionOption {
 }
 
 model TwoPlQuestionCalibration {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  questionId         String   @map("question_id") @db.Uuid
-  questionRevisionId String   @map("question_revision_id") @db.Uuid
-  contentDigest      String   @map("content_digest") @db.VarChar(128)
-  modelVersion       String   @map("model_version") @db.VarChar(120)
-  discrimination     Decimal  @db.Decimal(10, 6)
-  difficulty         Decimal  @db.Decimal(10, 6)
-  approvalState      String   @default("approved") @map("approval_state") @db.VarChar(24)
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId               String                     @map("question_id") @db.Uuid
+  questionRevisionId       String                     @map("question_revision_id") @db.Uuid
+  contentDigest            String                     @map("content_digest") @db.VarChar(128)
+  modelVersion             String                     @map("model_version") @db.VarChar(120)
+  discrimination           Decimal                    @db.Decimal(10, 6)
+  difficulty               Decimal                    @db.Decimal(10, 6)
+  approvalState            String                     @default("approved") @map("approval_state") @db.VarChar(24)
   sourceRevisionProvenance QuestionRevisionProvenance @default(authored) @map("source_revision_provenance")
-  recordedByUserId   String   @map("recorded_by_user_id") @db.Uuid
-  approvedByUserId   String   @map("approved_by_user_id") @db.Uuid
-  approvedAt         DateTime @default(now()) @map("approved_at") @db.Timestamptz
-  auditReason        String   @map("audit_reason") @db.Text
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  recordedByUserId         String                     @map("recorded_by_user_id") @db.Uuid
+  approvedByUserId         String                     @map("approved_by_user_id") @db.Uuid
+  approvedAt               DateTime                   @default(now()) @map("approved_at") @db.Timestamptz
+  auditReason              String                     @map("audit_reason") @db.Text
+  createdAt                DateTime                   @default(now()) @map("created_at") @db.Timestamptz
 
   question         Question         @relation(fields: [questionId], references: [id], onDelete: Restrict)
   questionRevision QuestionRevision @relation(fields: [questionRevisionId], references: [id], onDelete: Restrict)
-  recordedBy       User              @relation("TwoPlCalibrationRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
-  approvedBy       User              @relation("TwoPlCalibrationApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  recordedBy       User             @relation("TwoPlCalibrationRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  approvedBy       User             @relation("TwoPlCalibrationApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([questionRevisionId, modelVersion])
   @@index([questionId, modelVersion])
@@ -1685,12 +1685,12 @@ model QuestionBankFolder {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  parent    QuestionBankFolder?  @relation("QuestionBankFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
-  children  QuestionBankFolder[] @relation("QuestionBankFolderTree")
-  banks     QuestionBank[]
+  parent                                     QuestionBankFolder?                         @relation("QuestionBankFolderTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children                                   QuestionBankFolder[]                        @relation("QuestionBankFolderTree")
+  banks                                      QuestionBank[]
   reusableQuestionPackageVersionFolderScopes ReusableQuestionPackageVersionFolderScope[]
-  createdBy User                 @relation("QuestionBankFolderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy User                 @relation("QuestionBankFolderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  createdBy                                  User                                        @relation("QuestionBankFolderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                                  User                                        @relation("QuestionBankFolderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
 
   @@index([parentId, name])
   @@map("question_bank_folders")
@@ -1704,9 +1704,9 @@ model QuestionBankCategory {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  createdBy User                         @relation("QuestionBankCategoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy User                         @relation("QuestionBankCategoryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  banks     QuestionBankCategoryAssignment[]
+  createdBy                                    User                                          @relation("QuestionBankCategoryCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                                    User                                          @relation("QuestionBankCategoryUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  banks                                        QuestionBankCategoryAssignment[]
   reusableQuestionPackageVersionCategoryScopes ReusableQuestionPackageVersionCategoryScope[]
 
   @@index([name])
@@ -1751,37 +1751,37 @@ model ModuleQuiz {
 // Standalone quizzes authored by tutors. These are intentionally independent
 // from ModuleQuiz, which remains the one-to-one assessment for a learning module.
 model StandaloneQuiz {
-  id                        String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug                      String                                  @unique @db.VarChar(240)
-  title                     String                                  @db.VarChar(220)
-  description               String?                                 @db.Text
-  subtestId                 String                                  @map("subtest_id") @db.Uuid
-  sourceBankId              String?                                 @map("source_bank_id") @db.Uuid
-  status                    ContentStatus                           @default(draft)
-  opensAt                   DateTime?                               @map("opens_at") @db.Timestamptz
-  closesAt                  DateTime?                               @map("closes_at") @db.Timestamptz
-  attemptsAllowed           Int?                                    @default(1) @map("attempts_allowed")
-  scorePolicy               StandaloneQuizScorePolicy               @default(latest) @map("score_policy")
-  retryDelaySeconds         Int?                                    @map("retry_delay_seconds")
-  formBehavior              StandaloneQuizFormBehavior              @default(same) @map("form_behavior")
-  reviewTiming              StandaloneQuizReviewTiming               @default(immediate) @map("review_timing")
-  correctAnswerVisibility   StandaloneQuizCorrectAnswerVisibility    @default(show) @map("correct_answer_visibility")
-  assemblyMode              ReusableQuestionPackageMode?             @map("assembly_mode")
-  assemblyPackageVersionId  String?                                  @map("assembly_package_version_id") @db.Uuid
-  assemblyDefinitionDigest  String?                                  @map("assembly_definition_digest") @db.VarChar(128)
-  assemblySeed              String?                                  @map("assembly_seed") @db.VarChar(128)
-  revision                  Int                                     @default(1)
-  idempotencyKey            String?                                 @unique @map("idempotency_key") @db.VarChar(120)
-  createdByUserId           String                                  @map("created_by_user_id") @db.Uuid
-  createdAt                 DateTime                                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                 DateTime                                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                       String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                     String                                @unique @db.VarChar(240)
+  title                    String                                @db.VarChar(220)
+  description              String?                               @db.Text
+  subtestId                String                                @map("subtest_id") @db.Uuid
+  sourceBankId             String?                               @map("source_bank_id") @db.Uuid
+  status                   ContentStatus                         @default(draft)
+  opensAt                  DateTime?                             @map("opens_at") @db.Timestamptz
+  closesAt                 DateTime?                             @map("closes_at") @db.Timestamptz
+  attemptsAllowed          Int?                                  @default(1) @map("attempts_allowed")
+  scorePolicy              StandaloneQuizScorePolicy             @default(latest) @map("score_policy")
+  retryDelaySeconds        Int?                                  @map("retry_delay_seconds")
+  formBehavior             StandaloneQuizFormBehavior            @default(same) @map("form_behavior")
+  reviewTiming             StandaloneQuizReviewTiming            @default(immediate) @map("review_timing")
+  correctAnswerVisibility  StandaloneQuizCorrectAnswerVisibility @default(show) @map("correct_answer_visibility")
+  assemblyMode             ReusableQuestionPackageMode?          @map("assembly_mode")
+  assemblyPackageVersionId String?                               @map("assembly_package_version_id") @db.Uuid
+  assemblyDefinitionDigest String?                               @map("assembly_definition_digest") @db.VarChar(128)
+  assemblySeed             String?                               @map("assembly_seed") @db.VarChar(128)
+  revision                 Int                                   @default(1)
+  idempotencyKey           String?                               @unique @map("idempotency_key") @db.VarChar(120)
+  createdByUserId          String                                @map("created_by_user_id") @db.Uuid
+  createdAt                DateTime                              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  createdBy  User                    @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  subtest    Subtest                 @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  sourceBank QuestionBank?           @relation(fields: [sourceBankId], references: [id], onDelete: Restrict)
+  createdBy              User                            @relation("StandaloneQuizAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  subtest                Subtest                         @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  sourceBank             QuestionBank?                   @relation(fields: [sourceBankId], references: [id], onDelete: Restrict)
   assemblyPackageVersion ReusableQuestionPackageVersion? @relation("StandaloneQuizAssemblyVersion", fields: [assemblyPackageVersionId], references: [id], onDelete: Restrict)
-  items      StandaloneQuizItem[]
-  participations StandaloneQuizParticipation[]
+  items                  StandaloneQuizItem[]
+  participations         StandaloneQuizParticipation[]
 
   @@index([status, opensAt, closesAt])
   @@index([subtestId, status])
@@ -1790,30 +1790,30 @@ model StandaloneQuiz {
 }
 
 model StandaloneQuizItem {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizId             String          @map("quiz_id") @db.Uuid
-  sortOrder          Int             @map("sort_order")
-  prompt             String          @db.Text
-  explanation        String?         @db.Text
-  difficulty         DifficultyLevel @default(medium)
-  subtestId          String          @map("subtest_id") @db.Uuid
-  sourceQuestionId   String?         @map("source_question_id") @db.Uuid
-  sourceQuestionRevisionId String?   @map("source_question_revision_id") @db.Uuid
-  sourceContentDigest String?        @map("source_content_digest") @db.VarChar(128)
+  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId                   String                      @map("quiz_id") @db.Uuid
+  sortOrder                Int                         @map("sort_order")
+  prompt                   String                      @db.Text
+  explanation              String?                     @db.Text
+  difficulty               DifficultyLevel             @default(medium)
+  subtestId                String                      @map("subtest_id") @db.Uuid
+  sourceQuestionId         String?                     @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest      String?                     @map("source_content_digest") @db.VarChar(128)
   sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
-  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
-  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
-  idempotencyKey     String?         @map("idempotency_key") @db.VarChar(120)
-  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  promptAssetId            String?                     @map("prompt_asset_id") @db.Uuid
+  explanationAssetId       String?                     @map("explanation_asset_id") @db.Uuid
+  idempotencyKey           String?                     @map("idempotency_key") @db.VarChar(120)
+  createdAt                DateTime                    @default(now()) @map("created_at") @db.Timestamptz
 
-  quiz             StandaloneQuiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  subtest          Subtest                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  sourceQuestion   Question?                  @relation("StandaloneQuizItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevision QuestionRevision?   @relation("StandaloneQuizItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
-  promptAsset      Asset?                     @relation("StandaloneQuizItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset Asset?                     @relation("StandaloneQuizItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  options          StandaloneQuizItemOption[]
-  answers          StandaloneQuizAnswer[]
+  quiz                   StandaloneQuiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  subtest                Subtest                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  sourceQuestion         Question?                  @relation("StandaloneQuizItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?          @relation("StandaloneQuizItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
+  promptAsset            Asset?                     @relation("StandaloneQuizItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset       Asset?                     @relation("StandaloneQuizItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  options                StandaloneQuizItemOption[]
+  answers                StandaloneQuizAnswer[]
 
   @@unique([quizId, sortOrder])
   @@unique([quizId, idempotencyKey])
@@ -1821,20 +1821,20 @@ model StandaloneQuizItem {
 }
 
 model StandaloneQuizItemOption {
-  id                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quizItemId             String             @map("quiz_item_id") @db.Uuid
-  choiceKey              String             @map("choice_key") @db.VarChar(64)
-  content                String             @db.Text
-  isCorrect              Boolean            @default(false) @map("is_correct")
-  sortOrder              Int                @map("sort_order")
-  sourceQuestionOptionId String?            @map("source_question_option_id") @db.Uuid
-  sourceQuestionRevisionOptionId String?    @map("source_question_revision_option_id") @db.Uuid
-  assetId                String?            @map("asset_id") @db.Uuid
-  quizItem               StandaloneQuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
-  sourceQuestionOption   QuestionOption?    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevisionOption QuestionRevisionOption? @relation("StandaloneQuizItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict)
-  asset                  Asset?             @relation("StandaloneQuizItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
-  selectedInAnswers      StandaloneQuizAnswer[]
+  id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizItemId                     String                  @map("quiz_item_id") @db.Uuid
+  choiceKey                      String                  @map("choice_key") @db.VarChar(64)
+  content                        String                  @db.Text
+  isCorrect                      Boolean                 @default(false) @map("is_correct")
+  sortOrder                      Int                     @map("sort_order")
+  sourceQuestionOptionId         String?                 @map("source_question_option_id") @db.Uuid
+  sourceQuestionRevisionOptionId String?                 @map("source_question_revision_option_id") @db.Uuid
+  assetId                        String?                 @map("asset_id") @db.Uuid
+  quizItem                       StandaloneQuizItem      @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
+  sourceQuestionOption           QuestionOption?         @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevisionOption   QuestionRevisionOption? @relation("StandaloneQuizItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict)
+  asset                          Asset?                  @relation("StandaloneQuizItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  selectedInAnswers              StandaloneQuizAnswer[]
 
   @@unique([quizItemId, choiceKey])
   @@unique([quizItemId, sortOrder])
@@ -1859,30 +1859,30 @@ model StandaloneQuizParticipation {
 }
 
 model StandaloneQuizAttempt {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  participationId String       @map("participation_id") @db.Uuid
-  attemptNo      Int           @map("attempt_no")
-  status         AttemptStatus @default(in_progress)
-  attemptState   AssessmentAttemptState @default(in_progress) @map("attempt_state")
-  scoringState   AssessmentScoringState @default(pending) @map("scoring_state")
-  releaseState   AssessmentResultReleaseState @default(hidden) @map("release_state")
-  startRequestId String?       @map("start_request_id") @db.Uuid
-  policySnapshot Json          @map("policy_snapshot") @db.JsonB
-  formItemOrder  Json          @map("form_item_order") @db.JsonB
-  formSnapshot   Json?         @map("form_snapshot") @db.JsonB
-  correctCount   Int?          @map("correct_count")
-  wrongCount     Int?          @map("wrong_count")
-  unansweredCount Int?         @map("unanswered_count")
-  maxPoints      Decimal?      @map("max_points") @db.Decimal(8, 2)
-  earnedPoints   Decimal?      @map("earned_points") @db.Decimal(8, 2)
-  score          Int?
-  scoringVersion String?       @map("scoring_version") @db.VarChar(120)
-  scoringProvenance AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
-  scoringReviewReason String?  @map("scoring_review_reason") @db.Text
-  releaseAt      DateTime?     @map("release_at") @db.Timestamptz
-  submittedAt    DateTime?     @map("submitted_at") @db.Timestamptz
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  participationId     String                       @map("participation_id") @db.Uuid
+  attemptNo           Int                          @map("attempt_no")
+  status              AttemptStatus                @default(in_progress)
+  attemptState        AssessmentAttemptState       @default(in_progress) @map("attempt_state")
+  scoringState        AssessmentScoringState       @default(pending) @map("scoring_state")
+  releaseState        AssessmentResultReleaseState @default(hidden) @map("release_state")
+  startRequestId      String?                      @map("start_request_id") @db.Uuid
+  policySnapshot      Json                         @map("policy_snapshot") @db.JsonB
+  formItemOrder       Json                         @map("form_item_order") @db.JsonB
+  formSnapshot        Json?                        @map("form_snapshot") @db.JsonB
+  correctCount        Int?                         @map("correct_count")
+  wrongCount          Int?                         @map("wrong_count")
+  unansweredCount     Int?                         @map("unanswered_count")
+  maxPoints           Decimal?                     @map("max_points") @db.Decimal(8, 2)
+  earnedPoints        Decimal?                     @map("earned_points") @db.Decimal(8, 2)
+  score               Int?
+  scoringVersion      String?                      @map("scoring_version") @db.VarChar(120)
+  scoringProvenance   AssessmentScoringProvenance  @default(runtime) @map("scoring_provenance")
+  scoringReviewReason String?                      @map("scoring_review_reason") @db.Text
+  releaseAt           DateTime?                    @map("release_at") @db.Timestamptz
+  submittedAt         DateTime?                    @map("submitted_at") @db.Timestamptz
+  createdAt           DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   participation StandaloneQuizParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
   answers       StandaloneQuizAnswer[]
@@ -1894,15 +1894,15 @@ model StandaloneQuizAttempt {
 }
 
 model StandaloneQuizAnswer {
-  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  attemptId        String                @map("attempt_id") @db.Uuid
-  quizItemId       String                @map("quiz_item_id") @db.Uuid
-  selectedOptionId String                @map("selected_option_id") @db.Uuid
-  isCorrect        Boolean?              @map("is_correct")
-  pointsAwarded    Decimal?              @map("points_awarded") @db.Decimal(8, 2)
-  scoringVersion   String?               @map("scoring_version") @db.VarChar(120)
-  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String   @map("attempt_id") @db.Uuid
+  quizItemId       String   @map("quiz_item_id") @db.Uuid
+  selectedOptionId String   @map("selected_option_id") @db.Uuid
+  isCorrect        Boolean? @map("is_correct")
+  pointsAwarded    Decimal? @map("points_awarded") @db.Decimal(8, 2)
+  scoringVersion   String?  @map("scoring_version") @db.VarChar(120)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   attempt        StandaloneQuizAttempt    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   quizItem       StandaloneQuizItem       @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
@@ -1975,27 +1975,27 @@ model QuizAttemptAnswer {
 // ─────────────────────────────────────────────
 
 model ReusableQuestionPackage {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code            String        @unique @db.VarChar(100)
-  title           String        @db.VarChar(220)
-  description     String?       @db.Text
-  sourceBankId    String        @map("source_bank_id") @db.Uuid
-  subtestId       String        @map("subtest_id") @db.Uuid
+  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String                      @unique @db.VarChar(100)
+  title           String                      @db.VarChar(220)
+  description     String?                     @db.Text
+  sourceBankId    String                      @map("source_bank_id") @db.Uuid
+  subtestId       String                      @map("subtest_id") @db.Uuid
   mode            ReusableQuestionPackageMode @default(fixed_set)
-  status          ContentStatus @default(draft)
-  revision        Int           @default(1)
-  createdByUserId String        @map("created_by_user_id") @db.Uuid
-  updatedByUserId String        @map("updated_by_user_id") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  status          ContentStatus               @default(draft)
+  revision        Int                         @default(1)
+  createdByUserId String                      @map("created_by_user_id") @db.Uuid
+  updatedByUserId String                      @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  subtest   Subtest                          @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  sourceBank QuestionBank                    @relation("ReusablePackageSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
-  createdBy User                             @relation("ReusableQuestionPackageCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy User                             @relation("ReusableQuestionPackageUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  items     ReusableQuestionPackageItem[]
-  versions  ReusableQuestionPackageVersion[]
-  assessmentReleasesByAssembly AssessmentRelease[] @relation("AssessmentReleaseAssemblyPackage")
+  subtest                      Subtest                          @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  sourceBank                   QuestionBank                     @relation("ReusablePackageSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
+  createdBy                    User                             @relation("ReusableQuestionPackageCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                    User                             @relation("ReusableQuestionPackageUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  items                        ReusableQuestionPackageItem[]
+  versions                     ReusableQuestionPackageVersion[]
+  assessmentReleasesByAssembly AssessmentRelease[]              @relation("AssessmentReleaseAssemblyPackage")
 
   @@index([subtestId, status])
   @@index([mode, status])
@@ -2003,19 +2003,19 @@ model ReusableQuestionPackage {
 }
 
 model ReusableQuestionPackageItem {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  packageId        String   @map("package_id") @db.Uuid
-  sourceQuestionId String   @map("source_question_id") @db.Uuid
-  sourceQuestionRevisionId String? @map("source_question_revision_id") @db.Uuid
-  sourceContentDigest String? @map("source_content_digest") @db.VarChar(128)
+  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageId                String                      @map("package_id") @db.Uuid
+  sourceQuestionId         String                      @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest      String?                     @map("source_content_digest") @db.VarChar(128)
   sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
-  sortOrder        Int      @map("sort_order")
-  pointValue       Decimal  @map("point_value") @db.Decimal(6, 2)
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  sortOrder                Int                         @map("sort_order")
+  pointValue               Decimal                     @map("point_value") @db.Decimal(6, 2)
+  createdAt                DateTime                    @default(now()) @map("created_at") @db.Timestamptz
 
-  package        ReusableQuestionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  sourceQuestion Question                @relation("ReusablePackageItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevision QuestionRevision? @relation("ReusablePackageItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
+  package                ReusableQuestionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  sourceQuestion         Question                @relation("ReusablePackageItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?       @relation("ReusablePackageItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
 
   @@unique([packageId, sourceQuestionId])
   @@unique([packageId, sortOrder])
@@ -2023,32 +2023,32 @@ model ReusableQuestionPackageItem {
 }
 
 model ReusableQuestionPackageVersion {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  packageId       String        @map("package_id") @db.Uuid
-  sourceBankId    String        @map("source_bank_id") @db.Uuid
-  subtestId       String?       @map("subtest_id") @db.Uuid
-  versionNo       Int           @map("version_no")
-  mode            ReusableQuestionPackageMode @default(fixed_set)
-  definitionDigest String?       @map("definition_digest") @db.VarChar(128)
-  provenance      ReusableQuestionPackageVersionProvenance @default(authored)
-  status          ContentStatus @default(draft)
-  readyAt         DateTime?     @map("ready_at") @db.Timestamptz
-  createdByUserId String        @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  id               String                                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageId        String                                   @map("package_id") @db.Uuid
+  sourceBankId     String                                   @map("source_bank_id") @db.Uuid
+  subtestId        String?                                  @map("subtest_id") @db.Uuid
+  versionNo        Int                                      @map("version_no")
+  mode             ReusableQuestionPackageMode              @default(fixed_set)
+  definitionDigest String?                                  @map("definition_digest") @db.VarChar(128)
+  provenance       ReusableQuestionPackageVersionProvenance @default(authored)
+  status           ContentStatus                            @default(draft)
+  readyAt          DateTime?                                @map("ready_at") @db.Timestamptz
+  createdByUserId  String                                   @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime                                 @default(now()) @map("created_at") @db.Timestamptz
 
-  package        ReusableQuestionPackage              @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  sourceBank     QuestionBank                         @relation("ReusablePackageVersionSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
-  subtest        Subtest?                             @relation("ReusablePackageVersionSubtest", fields: [subtestId], references: [id], onDelete: Restrict)
-  createdBy      User                                 @relation("ReusableQuestionPackageVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  items          ReusableQuestionPackageVersionItem[]
-  bankScopes     ReusableQuestionPackageVersionBankScope[]
-  folderScopes   ReusableQuestionPackageVersionFolderScope[]
-  categoryScopes ReusableQuestionPackageVersionCategoryScope[]
-  rule           ReusableQuestionPackageVersionRule?
-  tryoutSections TryoutSection[]
-  tryoutItems    TryoutItem[]
-  assessmentReleasesByAssembly AssessmentRelease[] @relation("AssessmentReleaseAssemblyPackageVersion")
-  standaloneQuizzes StandaloneQuiz[] @relation("StandaloneQuizAssemblyVersion")
+  package                      ReusableQuestionPackage                       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  sourceBank                   QuestionBank                                  @relation("ReusablePackageVersionSourceBank", fields: [sourceBankId], references: [id], onDelete: Restrict)
+  subtest                      Subtest?                                      @relation("ReusablePackageVersionSubtest", fields: [subtestId], references: [id], onDelete: Restrict)
+  createdBy                    User                                          @relation("ReusableQuestionPackageVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items                        ReusableQuestionPackageVersionItem[]
+  bankScopes                   ReusableQuestionPackageVersionBankScope[]
+  folderScopes                 ReusableQuestionPackageVersionFolderScope[]
+  categoryScopes               ReusableQuestionPackageVersionCategoryScope[]
+  rule                         ReusableQuestionPackageVersionRule?
+  tryoutSections               TryoutSection[]
+  tryoutItems                  TryoutItem[]
+  assessmentReleasesByAssembly AssessmentRelease[]                           @relation("AssessmentReleaseAssemblyPackageVersion")
+  standaloneQuizzes            StandaloneQuiz[]                              @relation("StandaloneQuizAssemblyVersion")
 
   @@unique([packageId, versionNo])
   @@index([packageId, status])
@@ -2064,7 +2064,7 @@ model ReusableQuestionPackageVersionBankScope {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
-  questionBank   QuestionBank                    @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
+  questionBank   QuestionBank                   @relation(fields: [questionBankId], references: [id], onDelete: Restrict)
 
   @@id([packageVersionId, questionBankId])
   @@index([questionBankId, packageVersionId])
@@ -2077,7 +2077,7 @@ model ReusableQuestionPackageVersionFolderScope {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
-  folder        QuestionBankFolder              @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  folder         QuestionBankFolder             @relation(fields: [folderId], references: [id], onDelete: Restrict)
 
   @@id([packageVersionId, folderId])
   @@index([folderId, packageVersionId])
@@ -2090,7 +2090,7 @@ model ReusableQuestionPackageVersionCategoryScope {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   packageVersion ReusableQuestionPackageVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
-  category      QuestionBankCategory            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category       QuestionBankCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   @@id([packageVersionId, categoryId])
   @@index([categoryId, packageVersionId])
@@ -2116,28 +2116,28 @@ model ReusableQuestionPackageVersionRule {
 }
 
 model ReusableQuestionPackageVersionItem {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  packageVersionId   String          @map("package_version_id") @db.Uuid
-  sourceQuestionId   String          @map("source_question_id") @db.Uuid
-  sourceQuestionRevisionId String?   @map("source_question_revision_id") @db.Uuid
-  sourceContentDigest String?       @map("source_content_digest") @db.VarChar(128)
+  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageVersionId         String                      @map("package_version_id") @db.Uuid
+  sourceQuestionId         String                      @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest      String?                     @map("source_content_digest") @db.VarChar(128)
   sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
-  sortOrder          Int             @map("sort_order")
-  pointValue         Decimal         @map("point_value") @db.Decimal(6, 2)
-  prompt             String          @db.Text
-  explanation        String?         @db.Text
-  difficulty         DifficultyLevel @default(medium)
-  subtestId          String          @map("subtest_id") @db.Uuid
-  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
-  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
+  sortOrder                Int                         @map("sort_order")
+  pointValue               Decimal                     @map("point_value") @db.Decimal(6, 2)
+  prompt                   String                      @db.Text
+  explanation              String?                     @db.Text
+  difficulty               DifficultyLevel             @default(medium)
+  subtestId                String                      @map("subtest_id") @db.Uuid
+  promptAssetId            String?                     @map("prompt_asset_id") @db.Uuid
+  explanationAssetId       String?                     @map("explanation_asset_id") @db.Uuid
 
-  packageVersion   ReusableQuestionPackageVersion             @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
-  sourceQuestion   Question                                   @relation("ReusablePackageVersionItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevision QuestionRevision?                    @relation("ReusablePackageVersionItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
-  subtest          Subtest                                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  promptAsset      Asset?                                     @relation("ReusablePackageVersionItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset Asset?                                     @relation("ReusablePackageVersionItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  options          ReusableQuestionPackageVersionItemOption[]
+  packageVersion         ReusableQuestionPackageVersion             @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  sourceQuestion         Question                                   @relation("ReusablePackageVersionItemSourceQuestion", fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?                          @relation("ReusablePackageVersionItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
+  subtest                Subtest                                    @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  promptAsset            Asset?                                     @relation("ReusablePackageVersionItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset       Asset?                                     @relation("ReusablePackageVersionItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  options                ReusableQuestionPackageVersionItemOption[]
 
   @@unique([packageVersionId, sourceQuestionId], map: "reusable_package_version_item_source_key")
   @@unique([packageVersionId, sortOrder], map: "reusable_package_version_item_order_key")
@@ -2145,20 +2145,20 @@ model ReusableQuestionPackageVersionItem {
 }
 
 model ReusableQuestionPackageVersionItemOption {
-  id                     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  packageVersionItemId   String  @map("package_version_item_id") @db.Uuid
-  choiceKey              String  @map("choice_key") @db.VarChar(64)
-  content                String  @db.Text
-  isCorrect              Boolean @default(false) @map("is_correct")
-  sortOrder              Int     @map("sort_order")
-  sourceQuestionOptionId String? @map("source_question_option_id") @db.Uuid
+  id                             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  packageVersionItemId           String  @map("package_version_item_id") @db.Uuid
+  choiceKey                      String  @map("choice_key") @db.VarChar(64)
+  content                        String  @db.Text
+  isCorrect                      Boolean @default(false) @map("is_correct")
+  sortOrder                      Int     @map("sort_order")
+  sourceQuestionOptionId         String? @map("source_question_option_id") @db.Uuid
   sourceQuestionRevisionOptionId String? @map("source_question_revision_option_id") @db.Uuid
-  assetId                String? @map("asset_id") @db.Uuid
+  assetId                        String? @map("asset_id") @db.Uuid
 
-  item                 ReusableQuestionPackageVersionItem @relation(fields: [packageVersionItemId], references: [id], onDelete: Cascade)
-  sourceQuestionOption QuestionOption?                    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevisionOption QuestionRevisionOption?   @relation("ReusablePackageVersionItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict, map: "rqpvio_source_revision_option_fkey")
-  asset                Asset?                             @relation("ReusablePackageVersionItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  item                         ReusableQuestionPackageVersionItem @relation(fields: [packageVersionItemId], references: [id], onDelete: Cascade)
+  sourceQuestionOption         QuestionOption?                    @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevisionOption QuestionRevisionOption?            @relation("ReusablePackageVersionItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict, map: "rqpvio_source_revision_option_fkey")
+  asset                        Asset?                             @relation("ReusablePackageVersionItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
 
   @@unique([packageVersionItemId, choiceKey], map: "reusable_package_version_option_key")
   @@unique([packageVersionItemId, sortOrder], map: "reusable_package_version_option_order_key")
@@ -2166,31 +2166,31 @@ model ReusableQuestionPackageVersionItemOption {
 }
 
 model TryoutPackage {
-  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  examEventId     String?             @map("exam_event_id") @db.Uuid
-  code            String              @unique @db.VarChar(80)
-  title           String              @db.VarChar(220)
-  description     String?             @db.Text
-  assessmentType  TryoutPackageType   @default(tryout) @map("assessment_type")
-  status          ContentStatus       @default(draft)
-  publishedAt     DateTime?           @map("published_at") @db.Timestamptz
-  revision        Int                 @default(1)
-  idempotencyKey  String?             @unique @map("idempotency_key") @db.VarChar(120)
-  admissionMode   TryoutAdmissionMode @default(open) @map("admission_mode")
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  examEventId                String?                   @map("exam_event_id") @db.Uuid
+  code                       String                    @unique @db.VarChar(80)
+  title                      String                    @db.VarChar(220)
+  description                String?                   @db.Text
+  assessmentType             TryoutPackageType         @default(tryout) @map("assessment_type")
+  status                     ContentStatus             @default(draft)
+  publishedAt                DateTime?                 @map("published_at") @db.Timestamptz
+  revision                   Int                       @default(1)
+  idempotencyKey             String?                   @unique @map("idempotency_key") @db.VarChar(120)
+  admissionMode              TryoutAdmissionMode       @default(open) @map("admission_mode")
   defaultResultReleasePolicy TryoutResultReleasePolicy @default(automatic_at_end) @map("default_result_release_policy")
-  createdByUserId String              @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdByUserId            String                    @map("created_by_user_id") @db.Uuid
+  createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  examEvent            ExamEvent?              @relation(fields: [examEventId], references: [id])
-  createdBy            User                    @relation("TryoutCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  sections             TryoutSection[]
-  items                TryoutItem[]
-  attempts             TryoutAttempt[]
-  assessmentReleases   AssessmentRelease[]
-  deliverySessions     TryoutDeliverySession[]
-  admissions           TryoutAdmission[]
-  tryoutDeliveryAudits TryoutDeliveryAudit[]
+  examEvent                  ExamEvent?                  @relation(fields: [examEventId], references: [id])
+  createdBy                  User                        @relation("TryoutCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  sections                   TryoutSection[]
+  items                      TryoutItem[]
+  attempts                   TryoutAttempt[]
+  assessmentReleases         AssessmentRelease[]
+  deliverySessions           TryoutDeliverySession[]
+  admissions                 TryoutAdmission[]
+  tryoutDeliveryAudits       TryoutDeliveryAudit[]
   adminPreviewTryoutRestarts AdminPreviewTryoutRestart[]
 
   @@map("tryout_packages")
@@ -2201,34 +2201,34 @@ model TryoutPackage {
 /// existing package-version/TryoutItem snapshot bridge; physical snapshot
 /// deduplication remains intentionally out of scope.
 model AssessmentRelease {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId        String   @map("tryout_id") @db.Uuid
-  releaseNumber   Int      @map("release_number")
-  contentDigest   String   @map("content_digest") @db.VarChar(128)
-  payload         Json     @db.JsonB
-  assemblyMode    ReusableQuestionPackageMode? @map("assembly_mode")
-  assemblyPackageId String? @map("assembly_package_id") @db.Uuid
-  assemblyPackageVersionId String? @map("assembly_package_version_id") @db.Uuid
-  resolverVersion String? @map("resolver_version") @db.VarChar(120)
-  assemblySeed    String? @map("assembly_seed") @db.VarChar(128)
-  assemblyRequestedCount Int? @map("assembly_requested_count")
-  assemblyCandidateCount Int? @map("assembly_candidate_count")
-  assemblyQuotas Json? @map("assembly_quotas") @db.JsonB
-  assemblyScopeSummary Json? @map("assembly_scope_summary") @db.JsonB
-  assemblyResolvedSourceIds Json? @map("assembly_resolved_source_ids") @db.JsonB
-  assemblyResolvedRevisionDigests Json? @map("assembly_resolved_revision_digests") @db.JsonB
-  assemblyCatCalibration Json? @map("assembly_cat_calibration") @db.JsonB
-  publishedAt     DateTime @map("published_at") @db.Timestamptz
-  createdByUserId String   @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id                              String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId                        String                       @map("tryout_id") @db.Uuid
+  releaseNumber                   Int                          @map("release_number")
+  contentDigest                   String                       @map("content_digest") @db.VarChar(128)
+  payload                         Json                         @db.JsonB
+  assemblyMode                    ReusableQuestionPackageMode? @map("assembly_mode")
+  assemblyPackageId               String?                      @map("assembly_package_id") @db.Uuid
+  assemblyPackageVersionId        String?                      @map("assembly_package_version_id") @db.Uuid
+  resolverVersion                 String?                      @map("resolver_version") @db.VarChar(120)
+  assemblySeed                    String?                      @map("assembly_seed") @db.VarChar(128)
+  assemblyRequestedCount          Int?                         @map("assembly_requested_count")
+  assemblyCandidateCount          Int?                         @map("assembly_candidate_count")
+  assemblyQuotas                  Json?                        @map("assembly_quotas") @db.JsonB
+  assemblyScopeSummary            Json?                        @map("assembly_scope_summary") @db.JsonB
+  assemblyResolvedSourceIds       Json?                        @map("assembly_resolved_source_ids") @db.JsonB
+  assemblyResolvedRevisionDigests Json?                        @map("assembly_resolved_revision_digests") @db.JsonB
+  assemblyCatCalibration          Json?                        @map("assembly_cat_calibration") @db.JsonB
+  publishedAt                     DateTime                     @map("published_at") @db.Timestamptz
+  createdByUserId                 String                       @map("created_by_user_id") @db.Uuid
+  createdAt                       DateTime                     @default(now()) @map("created_at") @db.Timestamptz
 
-  tryout          TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
-  assemblyPackage ReusableQuestionPackage?   @relation("AssessmentReleaseAssemblyPackage", fields: [assemblyPackageId], references: [id], onDelete: Restrict)
+  tryout                 TryoutPackage                   @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  assemblyPackage        ReusableQuestionPackage?        @relation("AssessmentReleaseAssemblyPackage", fields: [assemblyPackageId], references: [id], onDelete: Restrict)
   assemblyPackageVersion ReusableQuestionPackageVersion? @relation("AssessmentReleaseAssemblyPackageVersion", fields: [assemblyPackageVersionId], references: [id], onDelete: Restrict)
-  createdBy       User                       @relation("AssessmentReleaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  deliverySessions TryoutDeliverySession[]
-  attempts        TryoutAttempt[]
-  testRuns        TryoutAttemptTestRun[]
+  createdBy              User                            @relation("AssessmentReleaseCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  deliverySessions       TryoutDeliverySession[]
+  attempts               TryoutAttempt[]
+  testRuns               TryoutAttemptTestRun[]
 
   @@unique([tryoutId, releaseNumber])
   @@unique([tryoutId, contentDigest])
@@ -2239,35 +2239,35 @@ model AssessmentRelease {
 }
 
 model TryoutDeliverySession {
-  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId                  String                      @map("tryout_id") @db.Uuid
-  name                      String                      @db.VarChar(180)
-  availableFrom             DateTime                    @map("available_from") @db.Timestamptz
-  availableUntil            DateTime                    @map("available_until") @db.Timestamptz
-  resultReleasePolicy       TryoutResultReleasePolicy   @default(inherit) @map("result_release_policy")
-  scheduledReleaseAt        DateTime?                   @map("scheduled_release_at") @db.Timestamptz
-  rankingRule               TryoutRankingRule           @default(none) @map("ranking_rule")
-  isDefaultOpenRegistration Boolean                     @default(false) @map("is_default_open_registration")
-  fullscreenPrompt          Boolean                     @default(false) @map("fullscreen_prompt")
-  status                    TryoutDeliverySessionStatus @default(draft)
-  createdByUserId           String                      @map("created_by_user_id") @db.Uuid
-  updatedByUserId           String                      @map("updated_by_user_id") @db.Uuid
-  createdAt                 DateTime                    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                 DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  releasedAt                DateTime?                   @map("released_at") @db.Timestamptz
-  releasedByUserId          String?                     @map("released_by_user_id") @db.Uuid
-  releaseState               AssessmentResultReleaseState @default(hidden) @map("release_state")
-  releaseReason              String?                     @map("release_reason") @db.Text
-  assessmentReleaseId        String?                     @map("assessment_release_id") @db.Uuid
+  id                        String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId                  String                       @map("tryout_id") @db.Uuid
+  name                      String                       @db.VarChar(180)
+  availableFrom             DateTime                     @map("available_from") @db.Timestamptz
+  availableUntil            DateTime                     @map("available_until") @db.Timestamptz
+  resultReleasePolicy       TryoutResultReleasePolicy    @default(inherit) @map("result_release_policy")
+  scheduledReleaseAt        DateTime?                    @map("scheduled_release_at") @db.Timestamptz
+  rankingRule               TryoutRankingRule            @default(none) @map("ranking_rule")
+  isDefaultOpenRegistration Boolean                      @default(false) @map("is_default_open_registration")
+  fullscreenPrompt          Boolean                      @default(false) @map("fullscreen_prompt")
+  status                    TryoutDeliverySessionStatus  @default(draft)
+  createdByUserId           String                       @map("created_by_user_id") @db.Uuid
+  updatedByUserId           String                       @map("updated_by_user_id") @db.Uuid
+  createdAt                 DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  releasedAt                DateTime?                    @map("released_at") @db.Timestamptz
+  releasedByUserId          String?                      @map("released_by_user_id") @db.Uuid
+  releaseState              AssessmentResultReleaseState @default(hidden) @map("release_state")
+  releaseReason             String?                      @map("release_reason") @db.Text
+  assessmentReleaseId       String?                      @map("assessment_release_id") @db.Uuid
 
-  tryout      TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
-  assessmentRelease AssessmentRelease?   @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
-  createdBy   User                       @relation("TryoutDeliverySessionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  updatedBy   User                       @relation("TryoutDeliverySessionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
-  releasedBy  User?                      @relation("TryoutDeliverySessionReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
-  assignments TryoutDeliveryAssignment[]
-  audits      TryoutDeliveryAudit[]
-  attempts    TryoutAttempt[]
+  tryout                     TryoutPackage               @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  assessmentRelease          AssessmentRelease?          @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
+  createdBy                  User                        @relation("TryoutDeliverySessionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy                  User                        @relation("TryoutDeliverySessionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  releasedBy                 User?                       @relation("TryoutDeliverySessionReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
+  assignments                TryoutDeliveryAssignment[]
+  audits                     TryoutDeliveryAudit[]
+  attempts                   TryoutAttempt[]
   adminPreviewRestartSources AdminPreviewTryoutRestart[] @relation("AdminPreviewTryoutRestartSourceSession")
   adminPreviewRestartResults AdminPreviewTryoutRestart[] @relation("AdminPreviewTryoutRestartResultSession")
 
@@ -2309,9 +2309,9 @@ model TryoutDeliveryAssignment {
   revokedAt         DateTime?              @map("revoked_at") @db.Timestamptz
   revokeReason      String?                @map("revoke_reason") @db.Text
 
-  admission       TryoutAdmission       @relation(fields: [admissionId], references: [id], onDelete: Restrict)
-  deliverySession TryoutDeliverySession @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
-  assignedBy      User                  @relation("TryoutAssignmentCreatedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+  admission            TryoutAdmission             @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  deliverySession      TryoutDeliverySession       @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  assignedBy           User                        @relation("TryoutAssignmentCreatedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict)
   adminPreviewRestarts AdminPreviewTryoutRestart[] @relation("AdminPreviewTryoutRestartAssignment")
 
   /// Non-null only for the current active assignment of the fixed admin
@@ -2336,9 +2336,9 @@ model TryoutDeliveryAudit {
   after             Json?    @db.JsonB
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  tryout          TryoutPackage          @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
-  deliverySession TryoutDeliverySession? @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
-  actor           User                   @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  tryout              TryoutPackage              @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  deliverySession     TryoutDeliverySession?     @relation(fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  actor               User                       @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
   adminPreviewRestart AdminPreviewTryoutRestart?
 
   @@index([tryoutId, createdAt])
@@ -2364,13 +2364,13 @@ model AdminPreviewTryoutRestart {
   auditId                 String   @unique @map("audit_id") @db.Uuid
   createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  previewStudent  User                   @relation("AdminPreviewTryoutRestartStudent", fields: [previewStudentId], references: [id], onDelete: Restrict)
-  actor           User                   @relation("AdminPreviewTryoutRestartActor", fields: [actorUserId], references: [id], onDelete: Restrict)
-  tryout          TryoutPackage          @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
-  sourceSession   TryoutDeliverySession  @relation("AdminPreviewTryoutRestartSourceSession", fields: [sourceDeliverySessionId], references: [id], onDelete: Restrict)
-  deliverySession TryoutDeliverySession  @relation("AdminPreviewTryoutRestartResultSession", fields: [deliverySessionId], references: [id], onDelete: Restrict)
+  previewStudent  User                     @relation("AdminPreviewTryoutRestartStudent", fields: [previewStudentId], references: [id], onDelete: Restrict)
+  actor           User                     @relation("AdminPreviewTryoutRestartActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  tryout          TryoutPackage            @relation(fields: [tryoutId], references: [id], onDelete: Restrict)
+  sourceSession   TryoutDeliverySession    @relation("AdminPreviewTryoutRestartSourceSession", fields: [sourceDeliverySessionId], references: [id], onDelete: Restrict)
+  deliverySession TryoutDeliverySession    @relation("AdminPreviewTryoutRestartResultSession", fields: [deliverySessionId], references: [id], onDelete: Restrict)
   assignment      TryoutDeliveryAssignment @relation("AdminPreviewTryoutRestartAssignment", fields: [assignmentId], references: [id], onDelete: Restrict)
-  audit           TryoutDeliveryAudit     @relation(fields: [auditId], references: [id], onDelete: Restrict)
+  audit           TryoutDeliveryAudit      @relation(fields: [auditId], references: [id], onDelete: Restrict)
 
   @@unique([previewStudentId, requestId], map: "admin_preview_tryout_restart_scope_key")
   @@index([tryoutId, createdAt])
@@ -2406,35 +2406,35 @@ model TryoutSection {
 }
 
 model TryoutItem {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId           String          @map("tryout_id") @db.Uuid
-  tryoutSectionId    String          @map("tryout_section_id") @db.Uuid
-  sourceQuestionId   String?         @map("source_question_id") @db.Uuid
-  sourceQuestionRevisionId String?   @map("source_question_revision_id") @db.Uuid
-  sourceContentDigest String?        @map("source_content_digest") @db.VarChar(128)
+  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId                 String                      @map("tryout_id") @db.Uuid
+  tryoutSectionId          String                      @map("tryout_section_id") @db.Uuid
+  sourceQuestionId         String?                     @map("source_question_id") @db.Uuid
+  sourceQuestionRevisionId String?                     @map("source_question_revision_id") @db.Uuid
+  sourceContentDigest      String?                     @map("source_content_digest") @db.VarChar(128)
   sourceRevisionProvenance QuestionRevisionProvenance? @map("source_revision_provenance")
-  sortOrder          Int             @map("sort_order")
-  points             Decimal         @default(1) @db.Decimal(6, 2)
-  prompt             String          @db.Text
-  explanation        String?         @db.Text
-  difficulty         DifficultyLevel @default(medium)
-  subtestId          String          @map("subtest_id") @db.Uuid
-  packageCode        String          @map("package_code") @db.VarChar(80)
-  promptAssetId      String?         @map("prompt_asset_id") @db.Uuid
-  explanationAssetId String?         @map("explanation_asset_id") @db.Uuid
-  idempotencyKey     String?         @map("idempotency_key") @db.VarChar(120)
-  packageVersionId   String?         @map("package_version_id") @db.Uuid
+  sortOrder                Int                         @map("sort_order")
+  points                   Decimal                     @default(1) @db.Decimal(6, 2)
+  prompt                   String                      @db.Text
+  explanation              String?                     @db.Text
+  difficulty               DifficultyLevel             @default(medium)
+  subtestId                String                      @map("subtest_id") @db.Uuid
+  packageCode              String                      @map("package_code") @db.VarChar(80)
+  promptAssetId            String?                     @map("prompt_asset_id") @db.Uuid
+  explanationAssetId       String?                     @map("explanation_asset_id") @db.Uuid
+  idempotencyKey           String?                     @map("idempotency_key") @db.VarChar(120)
+  packageVersionId         String?                     @map("package_version_id") @db.Uuid
 
-  tryoutSection    TryoutSection                   @relation(fields: [tryoutSectionId], references: [id])
-  tryout           TryoutPackage                   @relation(fields: [tryoutId], references: [id])
-  sourceQuestion   Question?                       @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevision QuestionRevision?         @relation("TryoutItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
-  subtest          Subtest                         @relation(fields: [subtestId], references: [id], onDelete: Restrict)
-  promptAsset      Asset?                          @relation("TryoutItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
-  explanationAsset Asset?                          @relation("TryoutItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
-  options          TryoutItemOption[]
-  answers          TryoutAnswer[]
-  packageVersion   ReusableQuestionPackageVersion? @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
+  tryoutSection          TryoutSection                   @relation(fields: [tryoutSectionId], references: [id])
+  tryout                 TryoutPackage                   @relation(fields: [tryoutId], references: [id])
+  sourceQuestion         Question?                       @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevision QuestionRevision?               @relation("TryoutItemSourceQuestionRevision", fields: [sourceQuestionRevisionId], references: [id], onDelete: Restrict)
+  subtest                Subtest                         @relation(fields: [subtestId], references: [id], onDelete: Restrict)
+  promptAsset            Asset?                          @relation("TryoutItemPromptAsset", fields: [promptAssetId], references: [id], onDelete: Restrict)
+  explanationAsset       Asset?                          @relation("TryoutItemExplanationAsset", fields: [explanationAssetId], references: [id], onDelete: Restrict)
+  options                TryoutItemOption[]
+  answers                TryoutAnswer[]
+  packageVersion         ReusableQuestionPackageVersion? @relation(fields: [packageVersionId], references: [id], onDelete: Restrict)
 
   @@unique([tryoutSectionId, sortOrder])
   @@unique([tryoutId, sourceQuestionId])
@@ -2444,20 +2444,20 @@ model TryoutItem {
 }
 
 model TryoutItemOption {
-  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutItemId           String          @map("tryout_item_id") @db.Uuid
-  choiceKey              String          @map("choice_key") @db.VarChar(64)
-  content                String          @db.Text
-  isCorrect              Boolean         @default(false) @map("is_correct")
-  sortOrder              Int             @map("sort_order")
-  sourceQuestionOptionId String?         @map("source_question_option_id") @db.Uuid
-  sourceQuestionRevisionOptionId String? @map("source_question_revision_option_id") @db.Uuid
-  assetId                String?         @map("asset_id") @db.Uuid
-  item                   TryoutItem      @relation(fields: [tryoutItemId], references: [id], onDelete: Cascade)
-  sourceQuestionOption   QuestionOption? @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
-  sourceQuestionRevisionOption QuestionRevisionOption? @relation("TryoutItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict)
-  asset                  Asset?          @relation("TryoutItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
-  answers                TryoutAnswer[]
+  id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutItemId                   String                  @map("tryout_item_id") @db.Uuid
+  choiceKey                      String                  @map("choice_key") @db.VarChar(64)
+  content                        String                  @db.Text
+  isCorrect                      Boolean                 @default(false) @map("is_correct")
+  sortOrder                      Int                     @map("sort_order")
+  sourceQuestionOptionId         String?                 @map("source_question_option_id") @db.Uuid
+  sourceQuestionRevisionOptionId String?                 @map("source_question_revision_option_id") @db.Uuid
+  assetId                        String?                 @map("asset_id") @db.Uuid
+  item                           TryoutItem              @relation(fields: [tryoutItemId], references: [id], onDelete: Cascade)
+  sourceQuestionOption           QuestionOption?         @relation(fields: [sourceQuestionOptionId], references: [id], onDelete: Restrict)
+  sourceQuestionRevisionOption   QuestionRevisionOption? @relation("TryoutItemOptionSourceRevisionOption", fields: [sourceQuestionRevisionOptionId], references: [id], onDelete: Restrict)
+  asset                          Asset?                  @relation("TryoutItemOptionAsset", fields: [assetId], references: [id], onDelete: Restrict)
+  answers                        TryoutAnswer[]
 
   @@unique([tryoutItemId, choiceKey])
   @@unique([tryoutItemId, sortOrder])
@@ -2466,42 +2466,42 @@ model TryoutItemOption {
 }
 
 model TryoutAttempt {
-  id                     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tryoutId               String        @map("tryout_id") @db.Uuid
-  deliverySessionId      String        @map("delivery_session_id") @db.Uuid
-  admissionId            String        @map("admission_id") @db.Uuid
-  studentId              String        @map("student_id") @db.Uuid
-  status                 AttemptStatus @default(in_progress)
-  attemptState           AssessmentAttemptState @default(in_progress) @map("attempt_state")
-  scoringState           AssessmentScoringState @default(pending) @map("scoring_state")
-  releaseState           AssessmentResultReleaseState @default(hidden) @map("release_state")
-  assessmentReleaseId    String?       @map("assessment_release_id") @db.Uuid
-  assessmentReleaseNumber Int?         @map("assessment_release_number")
-  assessmentReleaseDigest String?      @map("assessment_release_digest") @db.VarChar(128)
-  serverStartedAt        DateTime      @map("server_started_at") @db.Timestamptz
-  serverDeadlineAt       DateTime      @map("server_deadline_at") @db.Timestamptz
-  submittedAt            DateTime?     @map("submitted_at") @db.Timestamptz
-  autoSubmittedAt        DateTime?     @map("auto_submitted_at") @db.Timestamptz
-  correctCount            Int?          @map("correct_count")
-  wrongCount              Int?          @map("wrong_count")
-  unansweredCount        Int?          @map("unanswered_count")
-  rawScore                Decimal?      @map("raw_score") @db.Decimal(10, 4)
-  scaledScore             Decimal?      @map("scaled_score") @db.Decimal(7, 2)
-  normalizedScore         Decimal?      @map("normalized_score") @db.Decimal(7, 2)
-  score                  Decimal?      @db.Decimal(7, 2)
-  scoringVersion          String?       @map("scoring_version") @db.VarChar(120)
-  scoringProvenance       AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
-  scoringReviewReason     String?       @map("scoring_review_reason") @db.Text
-  releaseAt               DateTime?     @map("release_at") @db.Timestamptz
-  percentileNational     Decimal?      @map("percentile_national") @db.Decimal(5, 2)
-  percentileCohort       Decimal?      @map("percentile_cohort") @db.Decimal(5, 2)
-  disconnectStartedAt    DateTime?     @map("disconnect_started_at") @db.Timestamptz
-  totalDisconnectSeconds Int           @default(0) @map("total_disconnect_seconds")
-  reconciledAt           DateTime?     @map("reconciled_at") @db.Timestamptz
-  releasePolicySnapshot  Json          @map("release_policy_snapshot") @db.JsonB
-  contentSnapshot        Json          @map("content_snapshot") @db.JsonB
-  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                      String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tryoutId                String                       @map("tryout_id") @db.Uuid
+  deliverySessionId       String                       @map("delivery_session_id") @db.Uuid
+  admissionId             String                       @map("admission_id") @db.Uuid
+  studentId               String                       @map("student_id") @db.Uuid
+  status                  AttemptStatus                @default(in_progress)
+  attemptState            AssessmentAttemptState       @default(in_progress) @map("attempt_state")
+  scoringState            AssessmentScoringState       @default(pending) @map("scoring_state")
+  releaseState            AssessmentResultReleaseState @default(hidden) @map("release_state")
+  assessmentReleaseId     String?                      @map("assessment_release_id") @db.Uuid
+  assessmentReleaseNumber Int?                         @map("assessment_release_number")
+  assessmentReleaseDigest String?                      @map("assessment_release_digest") @db.VarChar(128)
+  serverStartedAt         DateTime                     @map("server_started_at") @db.Timestamptz
+  serverDeadlineAt        DateTime                     @map("server_deadline_at") @db.Timestamptz
+  submittedAt             DateTime?                    @map("submitted_at") @db.Timestamptz
+  autoSubmittedAt         DateTime?                    @map("auto_submitted_at") @db.Timestamptz
+  correctCount            Int?                         @map("correct_count")
+  wrongCount              Int?                         @map("wrong_count")
+  unansweredCount         Int?                         @map("unanswered_count")
+  rawScore                Decimal?                     @map("raw_score") @db.Decimal(10, 4)
+  scaledScore             Decimal?                     @map("scaled_score") @db.Decimal(7, 2)
+  normalizedScore         Decimal?                     @map("normalized_score") @db.Decimal(7, 2)
+  score                   Decimal?                     @db.Decimal(7, 2)
+  scoringVersion          String?                      @map("scoring_version") @db.VarChar(120)
+  scoringProvenance       AssessmentScoringProvenance  @default(runtime) @map("scoring_provenance")
+  scoringReviewReason     String?                      @map("scoring_review_reason") @db.Text
+  releaseAt               DateTime?                    @map("release_at") @db.Timestamptz
+  percentileNational      Decimal?                     @map("percentile_national") @db.Decimal(5, 2)
+  percentileCohort        Decimal?                     @map("percentile_cohort") @db.Decimal(5, 2)
+  disconnectStartedAt     DateTime?                    @map("disconnect_started_at") @db.Timestamptz
+  totalDisconnectSeconds  Int                          @default(0) @map("total_disconnect_seconds")
+  reconciledAt            DateTime?                    @map("reconciled_at") @db.Timestamptz
+  releasePolicySnapshot   Json                         @map("release_policy_snapshot") @db.JsonB
+  contentSnapshot         Json                         @map("content_snapshot") @db.JsonB
+  createdAt               DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   tryout              TryoutPackage               @relation(fields: [tryoutId], references: [id])
   assessmentRelease   AssessmentRelease?          @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
@@ -2524,45 +2524,45 @@ model TryoutAttempt {
 }
 
 model TryoutAttemptTestRun {
-  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  attemptId          String                     @map("attempt_id") @db.Uuid
-  tryoutSectionId    String                     @map("tryout_section_id") @db.Uuid
-  sequenceNo         Int                        @map("sequence_no")
-  status             TryoutAttemptTestRunStatus @default(pending)
-  scoringState       AssessmentScoringState      @default(pending) @map("scoring_state")
-  assessmentReleaseId String?                     @map("assessment_release_id") @db.Uuid
-  assessmentReleaseNumber Int?                    @map("assessment_release_number")
-  assessmentReleaseDigest String?                 @map("assessment_release_digest") @db.VarChar(128)
-  serverStartedAt    DateTime?                  @map("server_started_at") @db.Timestamptz
-  serverDeadlineAt   DateTime?                  @map("server_deadline_at") @db.Timestamptz
-  sealedAt           DateTime?                  @map("sealed_at") @db.Timestamptz
-  contentSnapshot    Json                       @map("content_snapshot") @db.JsonB
-  calculationInput   Json?                      @map("calculation_input") @db.JsonB
-  calculationResult  Json?                      @map("calculation_result") @db.JsonB
-  calculationVersion String?                    @map("calculation_version") @db.VarChar(120)
-  scoringVersion     String?                    @map("scoring_version") @db.VarChar(120)
-  scoringProvenance  AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
-  scoringReviewReason String?                   @map("scoring_review_reason") @db.Text
-  correctCount       Int?                       @map("correct_count")
-  wrongCount         Int?                       @map("wrong_count")
-  unansweredCount    Int?                       @map("unanswered_count")
-  rawScore           Decimal?                   @map("raw_score") @db.Decimal(10, 4)
-  maxScore           Decimal?                   @map("max_score") @db.Decimal(10, 4)
-  scaledScore        Decimal?                   @map("scaled_score") @db.Decimal(7, 2)
-  normalizedScore    Decimal?                   @map("normalized_score") @db.Decimal(7, 2)
-  catState           TryoutCatRunState           @default(not_applicable) @map("cat_state")
-  catSnapshot        Json?                       @map("cat_snapshot") @db.JsonB
-  catFailureReason   String?                     @map("cat_failure_reason") @db.Text
-  calculationReleaseable Boolean                 @default(false) @map("calculation_releaseable")
-  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt          DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                      String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId               String                      @map("attempt_id") @db.Uuid
+  tryoutSectionId         String                      @map("tryout_section_id") @db.Uuid
+  sequenceNo              Int                         @map("sequence_no")
+  status                  TryoutAttemptTestRunStatus  @default(pending)
+  scoringState            AssessmentScoringState      @default(pending) @map("scoring_state")
+  assessmentReleaseId     String?                     @map("assessment_release_id") @db.Uuid
+  assessmentReleaseNumber Int?                        @map("assessment_release_number")
+  assessmentReleaseDigest String?                     @map("assessment_release_digest") @db.VarChar(128)
+  serverStartedAt         DateTime?                   @map("server_started_at") @db.Timestamptz
+  serverDeadlineAt        DateTime?                   @map("server_deadline_at") @db.Timestamptz
+  sealedAt                DateTime?                   @map("sealed_at") @db.Timestamptz
+  contentSnapshot         Json                        @map("content_snapshot") @db.JsonB
+  calculationInput        Json?                       @map("calculation_input") @db.JsonB
+  calculationResult       Json?                       @map("calculation_result") @db.JsonB
+  calculationVersion      String?                     @map("calculation_version") @db.VarChar(120)
+  scoringVersion          String?                     @map("scoring_version") @db.VarChar(120)
+  scoringProvenance       AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
+  scoringReviewReason     String?                     @map("scoring_review_reason") @db.Text
+  correctCount            Int?                        @map("correct_count")
+  wrongCount              Int?                        @map("wrong_count")
+  unansweredCount         Int?                        @map("unanswered_count")
+  rawScore                Decimal?                    @map("raw_score") @db.Decimal(10, 4)
+  maxScore                Decimal?                    @map("max_score") @db.Decimal(10, 4)
+  scaledScore             Decimal?                    @map("scaled_score") @db.Decimal(7, 2)
+  normalizedScore         Decimal?                    @map("normalized_score") @db.Decimal(7, 2)
+  catState                TryoutCatRunState           @default(not_applicable) @map("cat_state")
+  catSnapshot             Json?                       @map("cat_snapshot") @db.JsonB
+  catFailureReason        String?                     @map("cat_failure_reason") @db.Text
+  calculationReleaseable  Boolean                     @default(false) @map("calculation_releaseable")
+  createdAt               DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  attempt TryoutAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
-  assessmentRelease AssessmentRelease? @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
-  section TryoutSection  @relation(fields: [tryoutSectionId], references: [id], onDelete: Restrict)
-  answers TryoutAnswer[]
+  attempt             TryoutAttempt              @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  assessmentRelease   AssessmentRelease?         @relation(fields: [assessmentReleaseId], references: [id], onDelete: Restrict)
+  section             TryoutSection              @relation(fields: [tryoutSectionId], references: [id], onDelete: Restrict)
+  answers             TryoutAnswer[]
   catResolutionAudits TryoutCatResolutionAudit[]
-  integrityEvents TryoutIntegrityEvent[]
+  integrityEvents     TryoutIntegrityEvent[]
 
   @@unique([attemptId, tryoutSectionId])
   @@unique([attemptId, sequenceNo])
@@ -2571,11 +2571,11 @@ model TryoutAttemptTestRun {
 }
 
 model TryoutIntegrityEvent {
-  id          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  runId       String                    @map("run_id") @db.Uuid
-  eventType   TryoutIntegrityEventType  @map("event_type")
-  serverSequence Int                    @map("server_sequence")
-  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId          String                   @map("run_id") @db.Uuid
+  eventType      TryoutIntegrityEventType @map("event_type")
+  serverSequence Int                      @map("server_sequence")
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz
 
   run TryoutAttemptTestRun @relation(fields: [runId], references: [id], onDelete: Restrict)
 
@@ -2625,17 +2625,17 @@ model TryoutAnswer {
 }
 
 model TryoutScoreBreakdown {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  attemptId       String   @map("attempt_id") @db.Uuid
-  subtestId       String   @map("subtest_id") @db.Uuid
-  topicId         String?  @map("topic_id") @db.Uuid
-  correctCount    Int      @default(0) @map("correct_count")
-  wrongCount      Int      @default(0) @map("wrong_count")
-  unansweredCount Int      @default(0) @map("unanswered_count")
-  rawScore        Decimal? @map("raw_score") @db.Decimal(7, 2)
-  scaledScore     Decimal? @map("scaled_score") @db.Decimal(7, 2)
-  normalizedScore Decimal? @map("normalized_score") @db.Decimal(7, 2)
-  scoringVersion  String?  @map("scoring_version") @db.VarChar(120)
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId         String                      @map("attempt_id") @db.Uuid
+  subtestId         String                      @map("subtest_id") @db.Uuid
+  topicId           String?                     @map("topic_id") @db.Uuid
+  correctCount      Int                         @default(0) @map("correct_count")
+  wrongCount        Int                         @default(0) @map("wrong_count")
+  unansweredCount   Int                         @default(0) @map("unanswered_count")
+  rawScore          Decimal?                    @map("raw_score") @db.Decimal(7, 2)
+  scaledScore       Decimal?                    @map("scaled_score") @db.Decimal(7, 2)
+  normalizedScore   Decimal?                    @map("normalized_score") @db.Decimal(7, 2)
+  scoringVersion    String?                     @map("scoring_version") @db.VarChar(120)
   scoringProvenance AssessmentScoringProvenance @default(runtime) @map("scoring_provenance")
 
   attempt TryoutAttempt @relation(fields: [attemptId], references: [id])
@@ -2691,25 +2691,34 @@ model StudentSubtestPerformance {
 }
 
 model LearningRecommendation {
-  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId   String               @map("student_id") @db.Uuid
-  topicId     String?              @map("topic_id") @db.Uuid
-  moduleId    String?              @map("module_id") @db.Uuid
-  source      String               @db.VarChar(80)
-  reason      String?              @db.Text
-  priority    Int                  @default(0)
-  status      RecommendationStatus @default(active)
-  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
-  clickedAt   DateTime?            @map("clicked_at") @db.Timestamptz
-  completedAt DateTime?            @map("completed_at") @db.Timestamptz
-  expiresAt   DateTime?            @map("expires_at") @db.Timestamptz
-  revision    Int                  @default(0)
-  lifecycleState AiTargetLifecycleState @default(active) @map("lifecycle_state")
-  deletionState      AiDeletionState       @default(active) @map("deletion_state")
-  deletionOperationId String?              @map("deletion_operation_id") @db.Uuid
-  claimedRevision     Int?                 @map("claimed_revision")
-  deletedAt   DateTime?            @map("deleted_at") @db.Timestamptz
-  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                    String                 @map("student_id") @db.Uuid
+  topicId                      String?                @map("topic_id") @db.Uuid
+  moduleId                     String?                @map("module_id") @db.Uuid
+  source                       String                 @db.VarChar(80)
+  reason                       String?                @db.Text
+  rationaleEnvelope            Json?                  @map("rationale_envelope") @db.JsonB
+  rationaleDigest              String?                @map("rationale_digest") @db.VarChar(128)
+  veraSchemaId                 String?                @map("vera_schema_id") @db.VarChar(120)
+  veraSchemaHash               String?                @map("vera_schema_hash") @db.VarChar(128)
+  sourceArtifactRevisionId     String?                @unique @map("source_artifact_revision_id") @db.Uuid
+  sourceArtifactDigest         String?                @map("source_artifact_digest") @db.VarChar(128)
+  appliedArtifactRevisionId    String?                @map("applied_artifact_revision_id") @db.Uuid
+  appliedArtifactDigest        String?                @map("applied_artifact_digest") @db.VarChar(128)
+  materializationSchemaVersion String?                @map("materialization_schema_version") @db.VarChar(40)
+  priority                     Int                    @default(0)
+  status                       RecommendationStatus   @default(active)
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  clickedAt                    DateTime?              @map("clicked_at") @db.Timestamptz
+  completedAt                  DateTime?              @map("completed_at") @db.Timestamptz
+  expiresAt                    DateTime?              @map("expires_at") @db.Timestamptz
+  revision                     Int                    @default(0)
+  lifecycleState               AiTargetLifecycleState @default(active) @map("lifecycle_state")
+  deletionState                AiDeletionState        @default(active) @map("deletion_state")
+  deletionOperationId          String?                @map("deletion_operation_id") @db.Uuid
+  claimedRevision              Int?                   @map("claimed_revision")
+  deletedAt                    DateTime?              @map("deleted_at") @db.Timestamptz
+  updatedAt                    DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   student User    @relation(fields: [studentId], references: [id])
   topic   Topic?  @relation(fields: [topicId], references: [id])
@@ -2861,20 +2870,20 @@ model StudentBadge {
 // ─────────────────────────────────────────────
 
 model AiConversation {
-  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId         String             @map("student_id") @db.Uuid
-  conversationType  AiConversationType @map("conversation_type")
-  contextEntityType String?            @map("context_entity_type") @db.VarChar(80)
-  contextEntityId   String?            @map("context_entity_id") @db.Uuid
-  title             String?            @db.VarChar(220)
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  expiresAt         DateTime?          @map("expires_at") @db.Timestamptz
-  version           Int                @default(0)
-  contextVersion    Int                @default(0) @map("context_version")
-  deletionState     AiDeletionState    @default(active) @map("deletion_state")
-  deletionOperationId String?          @map("deletion_operation_id") @db.Uuid
-  claimedVersion    Int?               @map("claimed_version")
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId           String             @map("student_id") @db.Uuid
+  conversationType    AiConversationType @map("conversation_type")
+  contextEntityType   String?            @map("context_entity_type") @db.VarChar(80)
+  contextEntityId     String?            @map("context_entity_id") @db.Uuid
+  title               String?            @db.VarChar(220)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  expiresAt           DateTime?          @map("expires_at") @db.Timestamptz
+  version             Int                @default(0)
+  contextVersion      Int                @default(0) @map("context_version")
+  deletionState       AiDeletionState    @default(active) @map("deletion_state")
+  deletionOperationId String?            @map("deletion_operation_id") @db.Uuid
+  claimedVersion      Int?               @map("claimed_version")
 
   student             User                      @relation(fields: [studentId], references: [id])
   messages            AiMessage[]
@@ -2892,22 +2901,22 @@ model AiConversation {
 }
 
 model AiMessage {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId  String        @map("conversation_id") @db.Uuid
+  id              String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String                  @map("conversation_id") @db.Uuid
   role            AiMessageRole
   /// Legacy plaintext compatibility column. New Vera paths must use the
   /// encrypted envelope and leave this field null after the cutover marker.
-  contentMarkdown String?       @map("content_markdown") @db.Text
-  tokenCount      Int           @default(0) @map("token_count")
-  metadata        Json?         @db.JsonB
-  contentEnvelope Json?         @map("content_envelope") @db.JsonB
-  contentDigest   String?       @map("content_digest") @db.VarChar(128)
+  contentMarkdown String?                 @map("content_markdown") @db.Text
+  tokenCount      Int                     @default(0) @map("token_count")
+  metadata        Json?                   @db.JsonB
+  contentEnvelope Json?                   @map("content_envelope") @db.JsonB
+  contentDigest   String?                 @map("content_digest") @db.VarChar(128)
   contentState    AiContentLifecycleState @default(encrypted) @map("content_state")
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
 
-  conversation AiConversation @relation(fields: [conversationId], references: [id])
-  userRequests AiRequest[] @relation("AiRequestUserMessage")
-  assistantRequest AiRequest? @relation("AiRequestAssistantMessage")
+  conversation     AiConversation @relation(fields: [conversationId], references: [id])
+  userRequests     AiRequest[]    @relation("AiRequestUserMessage")
+  assistantRequest AiRequest?     @relation("AiRequestAssistantMessage")
 
   @@index([conversationId])
   @@index([createdAt])
@@ -2915,73 +2924,77 @@ model AiMessage {
 }
 
 model AiRequest {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId      String             @map("student_id") @db.Uuid
-  conversationId String?            @map("conversation_id") @db.Uuid
-  requestType    AiConversationType @map("request_type")
-  promptTemplate String?            @map("prompt_template") @db.VarChar(120)
-  model          String?            @db.VarChar(120)
-  inputTokens    Int?               @map("input_tokens")
-  outputTokens   Int?               @map("output_tokens")
-  status         AiRequestLifecycleState @default(pending)
-  latencyMs      Int?               @map("latency_ms")
-  errorCode      String?            @map("error_code") @db.VarChar(80)
-  idempotencyKeyId String           @unique @map("idempotency_key_id") @db.Uuid
-  clientRequestId String           @map("client_request_id") @db.VarChar(160)
-  requestFingerprint String        @map("request_fingerprint") @db.VarChar(128)
-  fingerprintKeyVersion String     @map("fingerprint_key_version") @db.VarChar(40)
+  /// Structural compatibility marker: idempotencyKeyId String remains the
+  /// required request replay identity even when Prisma aligns model columns.
+  id                           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                    String                  @map("student_id") @db.Uuid
+  conversationId               String?                 @map("conversation_id") @db.Uuid
+  requestType                  AiConversationType      @map("request_type")
+  promptTemplate               String?                 @map("prompt_template") @db.VarChar(120)
+  model                        String?                 @db.VarChar(120)
+  inputTokens                  Int?                    @map("input_tokens")
+  outputTokens                 Int?                    @map("output_tokens")
+  status                       AiRequestLifecycleState @default(pending)
+  latencyMs                    Int?                    @map("latency_ms")
+  errorCode                    String?                 @map("error_code") @db.VarChar(80)
+  idempotencyKeyId             String                  @unique @map("idempotency_key_id") @db.Uuid
+  clientRequestId              String                  @map("client_request_id") @db.VarChar(160)
+  requestFingerprint           String                  @map("request_fingerprint") @db.VarChar(128)
+  fingerprintKeyVersion        String                  @map("fingerprint_key_version") @db.VarChar(40)
   /// Retry identity is validated by the server contract: same student,
   /// conversation, feature, and durable user message; edited Send uses null.
-  retryOfRequestId String?         @map("retry_of_request_id") @db.Uuid
-  featureKey      String           @map("feature_key") @db.VarChar(80)
-  behaviorVersion String           @default("1") @map("behavior_version") @db.VarChar(40)
-  outputSchemaVersion String       @default("1") @map("output_schema_version") @db.VarChar(40)
-  contextPackVersion String        @default("1") @map("context_pack_version") @db.VarChar(40)
-  gateway         String?          @db.VarChar(80)
-  upstreamProvider String?         @map("upstream_provider") @db.VarChar(80)
-  upstreamProviderSlug String?     @map("upstream_provider_slug") @db.VarChar(160)
-  observedUpstreamProviderSlug String? @map("observed_upstream_provider_slug") @db.VarChar(160)
-  routingPolicyVersion String?     @map("routing_policy_version") @db.VarChar(80)
-  providerEndpointDigest String?   @map("provider_endpoint_digest") @db.VarChar(128)
-  providerTaskDigest String?       @map("provider_task_digest") @db.VarChar(128)
-  quotaPolicyVersion String?       @map("quota_policy_version") @db.VarChar(80)
-  policyBundleVersion String?      @map("policy_bundle_version") @db.VarChar(120)
-  retentionPolicyVersion String?   @map("retention_policy_version") @db.VarChar(80)
-  settlementDeadlineAt DateTime?   @map("settlement_deadline_at") @db.Timestamptz
-  stageRetentionExpiresAt DateTime? @map("stage_retention_expires_at") @db.Timestamptz
-  hardOutputQuotaUnits Int?        @map("hard_output_quota_units")
-  maxProviderAttempts Int          @default(2) @map("max_provider_attempts")
-  quotaUnitsReserved Int           @default(0) @map("quota_units_reserved")
-  quotaUnitsConsumed Int           @default(0) @map("quota_units_consumed")
-  quotaOverrunUnits Int            @default(0) @map("quota_overrun_units")
-  tokenUsageState AiTokenUsageState @default(unknown) @map("token_usage_state")
-  usageAccountingState AiUsageAccountingState @default(unknown) @map("usage_accounting_state")
-  startedAt       DateTime?         @map("started_at") @db.Timestamptz
-  firstTokenAt    DateTime?         @map("first_token_at") @db.Timestamptz
-  completedAt     DateTime?         @map("completed_at") @db.Timestamptz
-  timeToFirstTokenMs Int?           @map("time_to_first_token_ms")
-  fallbackReason  String?           @map("fallback_reason") @db.VarChar(120)
-  providerRequestRef String?        @map("provider_request_ref") @db.VarChar(160)
-  userMessageId   String?           @map("user_message_id") @db.Uuid
-  assistantMessageId String?        @unique @map("assistant_message_id") @db.Uuid
-  finalizedAt     DateTime?         @map("finalized_at") @db.Timestamptz
-  version         Int               @default(0)
-  idempotencyEvidenceState String   @default("active") @map("idempotency_evidence_state") @db.VarChar(30)
-  legacyUsageState AiLegacyUsageState @default(not_applicable) @map("legacy_usage_state")
-  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  retryOfRequestId             String?                 @map("retry_of_request_id") @db.Uuid
+  featureKey                   String                  @map("feature_key") @db.VarChar(80)
+  behaviorVersion              String                  @default("1") @map("behavior_version") @db.VarChar(40)
+  outputSchemaVersion          String                  @default("1") @map("output_schema_version") @db.VarChar(40)
+  outputSchemaId               String?                 @map("output_schema_id") @db.VarChar(120)
+  outputSchemaHash             String?                 @map("output_schema_hash") @db.VarChar(128)
+  contextPackVersion           String                  @default("1") @map("context_pack_version") @db.VarChar(40)
+  gateway                      String?                 @db.VarChar(80)
+  upstreamProvider             String?                 @map("upstream_provider") @db.VarChar(80)
+  upstreamProviderSlug         String?                 @map("upstream_provider_slug") @db.VarChar(160)
+  observedUpstreamProviderSlug String?                 @map("observed_upstream_provider_slug") @db.VarChar(160)
+  routingPolicyVersion         String?                 @map("routing_policy_version") @db.VarChar(80)
+  providerEndpointDigest       String?                 @map("provider_endpoint_digest") @db.VarChar(128)
+  providerTaskDigest           String?                 @map("provider_task_digest") @db.VarChar(128)
+  quotaPolicyVersion           String?                 @map("quota_policy_version") @db.VarChar(80)
+  policyBundleVersion          String?                 @map("policy_bundle_version") @db.VarChar(120)
+  retentionPolicyVersion       String?                 @map("retention_policy_version") @db.VarChar(80)
+  settlementDeadlineAt         DateTime?               @map("settlement_deadline_at") @db.Timestamptz
+  stageRetentionExpiresAt      DateTime?               @map("stage_retention_expires_at") @db.Timestamptz
+  hardOutputQuotaUnits         Int?                    @map("hard_output_quota_units")
+  maxProviderAttempts          Int                     @default(2) @map("max_provider_attempts")
+  quotaUnitsReserved           Int                     @default(0) @map("quota_units_reserved")
+  quotaUnitsConsumed           Int                     @default(0) @map("quota_units_consumed")
+  quotaOverrunUnits            Int                     @default(0) @map("quota_overrun_units")
+  tokenUsageState              AiTokenUsageState       @default(unknown) @map("token_usage_state")
+  usageAccountingState         AiUsageAccountingState  @default(unknown) @map("usage_accounting_state")
+  startedAt                    DateTime?               @map("started_at") @db.Timestamptz
+  firstTokenAt                 DateTime?               @map("first_token_at") @db.Timestamptz
+  completedAt                  DateTime?               @map("completed_at") @db.Timestamptz
+  timeToFirstTokenMs           Int?                    @map("time_to_first_token_ms")
+  fallbackReason               String?                 @map("fallback_reason") @db.VarChar(120)
+  providerRequestRef           String?                 @map("provider_request_ref") @db.VarChar(160)
+  userMessageId                String?                 @map("user_message_id") @db.Uuid
+  assistantMessageId           String?                 @unique @map("assistant_message_id") @db.Uuid
+  finalizedAt                  DateTime?               @map("finalized_at") @db.Timestamptz
+  version                      Int                     @default(0)
+  idempotencyEvidenceState     String                  @default("active") @map("idempotency_evidence_state") @db.VarChar(30)
+  legacyUsageState             AiLegacyUsageState      @default(not_applicable) @map("legacy_usage_state")
+  createdAt                    DateTime                @default(now()) @map("created_at") @db.Timestamptz
 
-  student      User            @relation(fields: [studentId], references: [id])
-  conversation AiConversation? @relation(fields: [conversationId], references: [id])
-  idempotencyKey AiIdempotencyKey @relation(fields: [idempotencyKeyId], references: [id])
-  retryOfRequest AiRequest? @relation("AiRequestRetry", fields: [retryOfRequestId], references: [id])
-  retryRequests AiRequest[] @relation("AiRequestRetry")
-  userMessage AiMessage? @relation("AiRequestUserMessage", fields: [userMessageId], references: [id])
-  assistantMessage AiMessage? @relation("AiRequestAssistantMessage", fields: [assistantMessageId], references: [id])
-  attempts AiRequestAttempt[]
-  resultStage AiRequestResultStage?
-  contextPack AiContextPack?
-  sources AiRequestSource[] @relation("AiRequestSources")
-  artifacts AiArtifact[]
+  student          User                  @relation(fields: [studentId], references: [id])
+  conversation     AiConversation?       @relation(fields: [conversationId], references: [id])
+  idempotencyKey   AiIdempotencyKey      @relation(fields: [idempotencyKeyId], references: [id])
+  retryOfRequest   AiRequest?            @relation("AiRequestRetry", fields: [retryOfRequestId], references: [id])
+  retryRequests    AiRequest[]           @relation("AiRequestRetry")
+  userMessage      AiMessage?            @relation("AiRequestUserMessage", fields: [userMessageId], references: [id])
+  assistantMessage AiMessage?            @relation("AiRequestAssistantMessage", fields: [assistantMessageId], references: [id])
+  attempts         AiRequestAttempt[]
+  resultStage      AiRequestResultStage?
+  contextPack      AiContextPack?
+  sources          AiRequestSource[]     @relation("AiRequestSources")
+  artifacts        AiArtifact[]
 
   @@index([studentId])
   @@index([conversationId])
@@ -2995,26 +3008,26 @@ model AiRequest {
 }
 
 model AiUsageDaily {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId        String   @map("student_id") @db.Uuid
-  usageDate        DateTime @map("usage_date") @db.Date
-  promptTokens     Int?     @map("prompt_tokens")
-  completionTokens Int?     @map("completion_tokens")
-  requestCount     Int      @default(0) @map("request_count")
-  limitTokens      Int?     @map("limit_tokens")
-  ledgerVersion    AiUsageLedgerVersion @default(vera_quota_v1) @map("ledger_version")
-  policyBundleVersion String? @map("policy_bundle_version") @db.VarChar(120)
-  quotaLimitUnitsSnapshot Int @default(0) @map("quota_limit_units_snapshot")
-  usedQuotaUnits   Int      @default(0) @map("used_quota_units")
-  reservedQuotaUnits Int    @default(0) @map("reserved_quota_units")
-  quotaDebtUnits   Int      @default(0) @map("quota_debt_units")
-  quotaOverrunLockUntil DateTime? @map("quota_overrun_lock_until") @db.Timestamptz
-  quotaTimezone    String   @default("Asia/Jakarta") @map("quota_timezone") @db.VarChar(64)
-  quotaTimezonePolicyVersion String? @map("quota_timezone_policy_version") @db.VarChar(40)
-  acceptedRequestCount Int @default(0) @map("accepted_request_count")
-  finalizedRequestCount Int @default(0) @map("finalized_request_count")
-  legacyUsageState AiLegacyUsageState @default(not_applicable) @map("legacy_usage_state")
-  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  id                         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                  String               @map("student_id") @db.Uuid
+  usageDate                  DateTime             @map("usage_date") @db.Date
+  promptTokens               Int?                 @map("prompt_tokens")
+  completionTokens           Int?                 @map("completion_tokens")
+  requestCount               Int                  @default(0) @map("request_count")
+  limitTokens                Int?                 @map("limit_tokens")
+  ledgerVersion              AiUsageLedgerVersion @default(vera_quota_v1) @map("ledger_version")
+  policyBundleVersion        String?              @map("policy_bundle_version") @db.VarChar(120)
+  quotaLimitUnitsSnapshot    Int                  @default(0) @map("quota_limit_units_snapshot")
+  usedQuotaUnits             Int                  @default(0) @map("used_quota_units")
+  reservedQuotaUnits         Int                  @default(0) @map("reserved_quota_units")
+  quotaDebtUnits             Int                  @default(0) @map("quota_debt_units")
+  quotaOverrunLockUntil      DateTime?            @map("quota_overrun_lock_until") @db.Timestamptz
+  quotaTimezone              String               @default("Asia/Jakarta") @map("quota_timezone") @db.VarChar(64)
+  quotaTimezonePolicyVersion String?              @map("quota_timezone_policy_version") @db.VarChar(40)
+  acceptedRequestCount       Int                  @default(0) @map("accepted_request_count")
+  finalizedRequestCount      Int                  @default(0) @map("finalized_request_count")
+  legacyUsageState           AiLegacyUsageState   @default(not_applicable) @map("legacy_usage_state")
+  updatedAt                  DateTime             @default(now()) @map("updated_at") @db.Timestamptz
 
   student User @relation(fields: [studentId], references: [id])
 
@@ -3028,6 +3041,11 @@ model WeaknessAnalysis {
   conversationId   String?         @map("conversation_id") @db.Uuid
   status           AiRequestStatus @default(pending)
   summaryMarkdown  String?         @map("summary_markdown") @db.Text
+  requestId        String?         @unique @map("request_id") @db.Uuid
+  resultEnvelope   Json?           @map("result_envelope") @db.JsonB
+  resultDigest     String?         @map("result_digest") @db.VarChar(128)
+  veraSchemaId     String?         @map("vera_schema_id") @db.VarChar(120)
+  veraSchemaHash   String?         @map("vera_schema_hash") @db.VarChar(128)
   tryoutSessionIds Json?           @map("tryout_session_ids") @db.JsonB
   fallbackUsed     Boolean         @default(false) @map("fallback_used")
   generatedAt      DateTime        @default(now()) @map("generated_at") @db.Timestamptz
@@ -3048,6 +3066,7 @@ model WeaknessAnalysisTopic {
   moduleId           String?  @map("module_id") @db.Uuid
   rank               Int
   weaknessScore      Decimal? @map("weakness_score") @db.Decimal(6, 2)
+  confidence         Decimal? @db.Decimal(6, 5)
   recommendationText String?  @map("recommendation_text") @db.Text
 
   weaknessAnalysis WeaknessAnalysis @relation(fields: [weaknessAnalysisId], references: [id])
@@ -3060,24 +3079,35 @@ model WeaknessAnalysisTopic {
 }
 
 model AdaptivePracticeSession {
-  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId               String          @map("student_id") @db.Uuid
-  topicId                 String          @map("topic_id") @db.Uuid
-  sourceConversationId    String?         @map("source_conversation_id") @db.Uuid
-  difficulty              DifficultyLevel @default(adaptive)
-  status                  AttemptStatus   @default(in_progress)
-  fallbackQuestionBankId  String?         @map("fallback_question_bank_id") @db.Uuid
-  aiGenerationDiscardedAt DateTime?       @map("ai_generation_discarded_at") @db.Timestamptz
-  startedAt               DateTime        @default(now()) @map("started_at") @db.Timestamptz
-  submittedAt             DateTime?       @map("submitted_at") @db.Timestamptz
-  score                   Decimal?        @db.Decimal(6, 2)
-  revision                Int             @default(0)
-  lifecycleState          AiTargetLifecycleState @default(active) @map("lifecycle_state")
-  deletionState           AiDeletionState @default(active) @map("deletion_state")
-  deletionOperationId     String?         @map("deletion_operation_id") @db.Uuid
-  claimedRevision         Int?            @map("claimed_revision")
-  deletedAt               DateTime?       @map("deleted_at") @db.Timestamptz
-  updatedAt               DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                 String                 @map("student_id") @db.Uuid
+  topicId                   String                 @map("topic_id") @db.Uuid
+  sourceConversationId      String?                @map("source_conversation_id") @db.Uuid
+  difficulty                DifficultyLevel        @default(adaptive)
+  status                    AttemptStatus          @default(in_progress)
+  fallbackQuestionBankId    String?                @map("fallback_question_bank_id") @db.Uuid
+  aiGenerationDiscardedAt   DateTime?              @map("ai_generation_discarded_at") @db.Timestamptz
+  requestId                 String?                @unique @map("request_id") @db.Uuid
+  resultEnvelope            Json?                  @map("result_envelope") @db.JsonB
+  resultDigest              String?                @map("result_digest") @db.VarChar(128)
+  veraSchemaId              String?                @map("vera_schema_id") @db.VarChar(120)
+  veraSchemaHash            String?                @map("vera_schema_hash") @db.VarChar(128)
+  appliedArtifactRevisionId String?                @map("applied_artifact_revision_id") @db.Uuid
+  appliedArtifactDigest     String?                @map("applied_artifact_digest") @db.VarChar(128)
+  appliedPlanEnvelope       Json?                  @map("applied_plan_envelope") @db.JsonB
+  appliedPlanDigest         String?                @map("applied_plan_digest") @db.VarChar(128)
+  submissionClientId        String?                @map("submission_client_id") @db.VarChar(120)
+  submissionFingerprint     String?                @map("submission_fingerprint") @db.VarChar(128)
+  startedAt                 DateTime               @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt               DateTime?              @map("submitted_at") @db.Timestamptz
+  score                     Decimal?               @db.Decimal(6, 2)
+  revision                  Int                    @default(0)
+  lifecycleState            AiTargetLifecycleState @default(active) @map("lifecycle_state")
+  deletionState             AiDeletionState        @default(active) @map("deletion_state")
+  deletionOperationId       String?                @map("deletion_operation_id") @db.Uuid
+  claimedRevision           Int?                   @map("claimed_revision")
+  deletedAt                 DateTime?              @map("deleted_at") @db.Timestamptz
+  updatedAt                 DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   student              User                     @relation(fields: [studentId], references: [id])
   topic                Topic                    @relation(fields: [topicId], references: [id])
@@ -3093,38 +3123,54 @@ model AdaptivePracticeSession {
 }
 
 model AdaptivePracticeAnswer {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  adaptiveSessionId String   @map("adaptive_session_id") @db.Uuid
-  questionId        String?  @map("question_id") @db.Uuid
-  adaptivePracticeItemId String? @map("adaptive_practice_item_id") @db.Uuid
-  generatedItemRef  String?  @map("generated_item_ref") @db.VarChar(80)
-  answerText        String?  @map("answer_text") @db.Text
-  isCorrect         Boolean? @map("is_correct")
-  answeredAt        DateTime @default(now()) @map("answered_at") @db.Timestamptz
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adaptiveSessionId      String   @map("adaptive_session_id") @db.Uuid
+  questionId             String?  @map("question_id") @db.Uuid
+  adaptivePracticeItemId String?  @map("adaptive_practice_item_id") @db.Uuid
+  generatedItemRef       String?  @map("generated_item_ref") @db.VarChar(80)
+  answerText             String?  @map("answer_text") @db.Text
+  clientAnswerId         String?  @map("client_answer_id") @db.VarChar(120)
+  answerFingerprint      String?  @map("answer_fingerprint") @db.VarChar(128)
+  selectedOptionKey      String?  @map("selected_option_key") @db.VarChar(16)
+  itemRevisionDigest     String?  @map("item_revision_digest") @db.VarChar(128)
+  version                Int      @default(0)
+  isCorrect              Boolean? @map("is_correct")
+  answeredAt             DateTime @default(now()) @map("answered_at") @db.Timestamptz
 
-  adaptiveSession AdaptivePracticeSession @relation(fields: [adaptiveSessionId], references: [id])
-  question        Question?               @relation(fields: [questionId], references: [id])
-  adaptivePracticeItem AdaptivePracticeItem? @relation(fields: [adaptivePracticeItemId], references: [id])
+  adaptiveSession      AdaptivePracticeSession @relation(fields: [adaptiveSessionId], references: [id])
+  question             Question?               @relation(fields: [questionId], references: [id])
+  adaptivePracticeItem AdaptivePracticeItem?   @relation(fields: [adaptivePracticeItemId], references: [id])
 
+  @@unique([adaptiveSessionId, clientAnswerId])
+  @@unique([adaptivePracticeItemId])
   @@map("adaptive_practice_answers")
 }
 
 model PtnStrategySession {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId          String   @map("student_id") @db.Uuid
-  universityId       String?  @map("university_id") @db.Uuid
-  majorId            String?  @map("major_id") @db.Uuid
-  conversationId     String?  @map("conversation_id") @db.Uuid
-  tryoutAverageScore Decimal? @map("tryout_average_score") @db.Decimal(7, 2)
-  disclaimerShown    Boolean  @default(false) @map("disclaimer_shown")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
-  revision           Int      @default(0)
-  lifecycleState     AiTargetLifecycleState @default(active) @map("lifecycle_state")
-  deletionState      AiDeletionState @default(active) @map("deletion_state")
-  deletionOperationId String?   @map("deletion_operation_id") @db.Uuid
-  claimedRevision    Int?      @map("claimed_revision")
-  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                 String                 @map("student_id") @db.Uuid
+  universityId              String?                @map("university_id") @db.Uuid
+  majorId                   String?                @map("major_id") @db.Uuid
+  conversationId            String?                @map("conversation_id") @db.Uuid
+  tryoutAverageScore        Decimal?               @map("tryout_average_score") @db.Decimal(7, 2)
+  disclaimerShown           Boolean                @default(false) @map("disclaimer_shown")
+  requestId                 String?                @unique @map("request_id") @db.Uuid
+  resultEnvelope            Json?                  @map("result_envelope") @db.JsonB
+  resultDigest              String?                @map("result_digest") @db.VarChar(128)
+  veraSchemaId              String?                @map("vera_schema_id") @db.VarChar(120)
+  veraSchemaHash            String?                @map("vera_schema_hash") @db.VarChar(128)
+  appliedArtifactRevisionId String?                @map("applied_artifact_revision_id") @db.Uuid
+  appliedArtifactDigest     String?                @map("applied_artifact_digest") @db.VarChar(128)
+  appliedStrategyEnvelope   Json?                  @map("applied_strategy_envelope") @db.JsonB
+  appliedStrategyDigest     String?                @map("applied_strategy_digest") @db.VarChar(128)
+  createdAt                 DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  revision                  Int                    @default(0)
+  lifecycleState            AiTargetLifecycleState @default(active) @map("lifecycle_state")
+  deletionState             AiDeletionState        @default(active) @map("deletion_state")
+  deletionOperationId       String?                @map("deletion_operation_id") @db.Uuid
+  claimedRevision           Int?                   @map("claimed_revision")
+  deletedAt                 DateTime?              @map("deleted_at") @db.Timestamptz
+  updatedAt                 DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   student      User            @relation(fields: [studentId], references: [id])
   university   University?     @relation(fields: [universityId], references: [id])
@@ -3139,28 +3185,28 @@ model PtnStrategySession {
 // ─────────────────────────────────────────────
 
 model AiPolicyBundle {
-  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bundleVersion        String        @unique @map("bundle_version") @db.VarChar(120)
-  configSchemaVersion  String        @map("config_schema_version") @db.VarChar(40)
-  state                AiPolicyState @default(draft)
-  effectiveAt          DateTime      @map("effective_at") @db.Timestamptz
-  supersedesBundleId   String?       @map("supersedes_bundle_id") @db.Uuid
-  quotaConfig          Json          @map("quota_config") @db.JsonB
-  settlementConfig     Json          @map("settlement_config") @db.JsonB
-  reportConfig         Json          @map("report_config") @db.JsonB
-  retentionConfig      Json          @map("retention_config") @db.JsonB
-  validationDigest     String        @map("validation_digest") @db.VarChar(128)
-  changeReason         String?       @map("change_reason") @db.VarChar(500)
-  createdByUserId      String?       @map("created_by_user_id") @db.Uuid
-  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  approvedByUserId     String?       @map("approved_by_user_id") @db.Uuid
-  approvedAt           DateTime?     @map("approved_at") @db.Timestamptz
-  activatedAt          DateTime?     @map("activated_at") @db.Timestamptz
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bundleVersion       String        @unique @map("bundle_version") @db.VarChar(120)
+  configSchemaVersion String        @map("config_schema_version") @db.VarChar(40)
+  state               AiPolicyState @default(draft)
+  effectiveAt         DateTime      @map("effective_at") @db.Timestamptz
+  supersedesBundleId  String?       @map("supersedes_bundle_id") @db.Uuid
+  quotaConfig         Json          @map("quota_config") @db.JsonB
+  settlementConfig    Json          @map("settlement_config") @db.JsonB
+  reportConfig        Json          @map("report_config") @db.JsonB
+  retentionConfig     Json          @map("retention_config") @db.JsonB
+  validationDigest    String        @map("validation_digest") @db.VarChar(128)
+  changeReason        String?       @map("change_reason") @db.VarChar(500)
+  createdByUserId     String?       @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  approvedByUserId    String?       @map("approved_by_user_id") @db.Uuid
+  approvedAt          DateTime?     @map("approved_at") @db.Timestamptz
+  activatedAt         DateTime?     @map("activated_at") @db.Timestamptz
 
-  supersedesBundle AiPolicyBundle?  @relation("AiPolicySupersession", fields: [supersedesBundleId], references: [id])
-  successors       AiPolicyBundle[] @relation("AiPolicySupersession")
-  createdBy        User?            @relation("AiPolicyCreatedBy", fields: [createdByUserId], references: [id])
-  approvedBy       User?            @relation("AiPolicyApprovedBy", fields: [approvedByUserId], references: [id])
+  supersedesBundle AiPolicyBundle?      @relation("AiPolicySupersession", fields: [supersedesBundleId], references: [id])
+  successors       AiPolicyBundle[]     @relation("AiPolicySupersession")
+  createdBy        User?                @relation("AiPolicyCreatedBy", fields: [createdByUserId], references: [id])
+  approvedBy       User?                @relation("AiPolicyApprovedBy", fields: [approvedByUserId], references: [id])
   auditEvents      AiPolicyAuditEvent[]
 
   @@index([state, effectiveAt])
@@ -3168,13 +3214,13 @@ model AiPolicyBundle {
 }
 
 model AiPolicyAuditEvent {
-  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bundleId    String            @map("bundle_id") @db.Uuid
-  action      AiPolicyAuditAction
-  actorId     String            @map("actor_id") @db.Uuid
-  occurredAt  DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
-  diffDigest  String?           @map("diff_digest") @db.VarChar(128)
-  reason      String?           @db.VarChar(500)
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bundleId   String              @map("bundle_id") @db.Uuid
+  action     AiPolicyAuditAction
+  actorId    String              @map("actor_id") @db.Uuid
+  occurredAt DateTime            @default(now()) @map("occurred_at") @db.Timestamptz
+  diffDigest String?             @map("diff_digest") @db.VarChar(128)
+  reason     String?             @db.VarChar(500)
 
   bundle AiPolicyBundle @relation(fields: [bundleId], references: [id])
   actor  User           @relation(fields: [actorId], references: [id])
@@ -3184,12 +3230,12 @@ model AiPolicyAuditEvent {
 }
 
 model AiCapabilityGrant {
-  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  capability  AiCapabilityName
-  userId      String?           @map("user_id") @db.Uuid
-  role        RoleName?
-  isActive    Boolean           @default(false) @map("is_active")
-  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  capability AiCapabilityName
+  userId     String?          @map("user_id") @db.Uuid
+  role       RoleName?
+  isActive   Boolean          @default(false) @map("is_active")
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
   user User? @relation(fields: [userId], references: [id])
 
@@ -3199,18 +3245,18 @@ model AiCapabilityGrant {
 }
 
 model AiContentMigrationAudit {
-  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sourceTable       String                @map("source_table") @db.VarChar(120)
-  sourceField       String                @map("source_field") @db.VarChar(120)
-  sourceObjectId    String?               @map("source_object_id") @db.Uuid
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceTable       String                  @map("source_table") @db.VarChar(120)
+  sourceField       String                  @map("source_field") @db.VarChar(120)
+  sourceObjectId    String?                 @map("source_object_id") @db.Uuid
   contentClass      AiMigrationContentClass @map("content_class")
-  sourceDigest      String?               @map("source_digest") @db.VarChar(128)
-  envelopeReference String?               @map("envelope_reference") @db.VarChar(240)
-  migrationVersion  String                @map("migration_version") @db.VarChar(80)
+  sourceDigest      String?                 @map("source_digest") @db.VarChar(128)
+  envelopeReference String?                 @map("envelope_reference") @db.VarChar(240)
+  migrationVersion  String                  @map("migration_version") @db.VarChar(80)
   state             AiMigrationState
-  details           Json?                 @db.JsonB
-  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  details           Json?                   @db.JsonB
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([sourceTable, sourceField, sourceObjectId, migrationVersion])
   @@index([state, contentClass])
@@ -3237,32 +3283,32 @@ model AiEnvelopeKey {
 }
 
 model AiIdempotencyKey {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId             String                  @map("student_id") @db.Uuid
-  operation             AiIdempotencyOperation
-  clientRequestId       String                  @map("client_request_id") @db.VarChar(160)
-  requestFingerprint    String                  @map("request_fingerprint") @db.VarChar(128)
-  fingerprintKeyVersion String                  @map("fingerprint_key_version") @db.VarChar(40)
-  policyBundleVersion   String?                 @map("policy_bundle_version") @db.VarChar(120)
-  retentionPolicyVersion String?                @map("retention_policy_version") @db.VarChar(80)
-  state                 AiIdempotencyState      @default(rejected)
-  rejectionClass        AiRejectionClass?     @map("rejection_class")
-  rejectionCode         String?                 @map("rejection_code") @db.VarChar(80)
-  tombstoneCode         AiIdempotencyTombstoneCode? @map("tombstone_code")
-  resultKind            AiIdempotencyResultKind @default(none) @map("result_kind")
-  resultId              String?                 @map("result_id") @db.Uuid
-  firstSeenAt           DateTime                @default(now()) @map("first_seen_at") @db.Timestamptz
-  lastSeenAt            DateTime                @default(now()) @map("last_seen_at") @db.Timestamptz
-  acceptedAt            DateTime?               @map("accepted_at") @db.Timestamptz
-  terminalAt            DateTime?               @map("terminal_at") @db.Timestamptz
-  settlementDeadlineAt  DateTime?               @map("settlement_deadline_at") @db.Timestamptz
-  expiresAt             DateTime                @map("expires_at") @db.Timestamptz
-  version               Int                     @default(0)
+  id                     String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId              String                      @map("student_id") @db.Uuid
+  operation              AiIdempotencyOperation
+  clientRequestId        String                      @map("client_request_id") @db.VarChar(160)
+  requestFingerprint     String                      @map("request_fingerprint") @db.VarChar(128)
+  fingerprintKeyVersion  String                      @map("fingerprint_key_version") @db.VarChar(40)
+  policyBundleVersion    String?                     @map("policy_bundle_version") @db.VarChar(120)
+  retentionPolicyVersion String?                     @map("retention_policy_version") @db.VarChar(80)
+  state                  AiIdempotencyState          @default(rejected)
+  rejectionClass         AiRejectionClass?           @map("rejection_class")
+  rejectionCode          String?                     @map("rejection_code") @db.VarChar(80)
+  tombstoneCode          AiIdempotencyTombstoneCode? @map("tombstone_code")
+  resultKind             AiIdempotencyResultKind     @default(none) @map("result_kind")
+  resultId               String?                     @map("result_id") @db.Uuid
+  firstSeenAt            DateTime                    @default(now()) @map("first_seen_at") @db.Timestamptz
+  lastSeenAt             DateTime                    @default(now()) @map("last_seen_at") @db.Timestamptz
+  acceptedAt             DateTime?                   @map("accepted_at") @db.Timestamptz
+  terminalAt             DateTime?                   @map("terminal_at") @db.Timestamptz
+  settlementDeadlineAt   DateTime?                   @map("settlement_deadline_at") @db.Timestamptz
+  expiresAt              DateTime                    @map("expires_at") @db.Timestamptz
+  version                Int                         @default(0)
 
-  student User @relation(fields: [studentId], references: [id])
-  request AiRequest?
-  admissionEvents AiAdmissionEvent[]
-  artifactApply AiArtifactApply?
+  student            User                  @relation(fields: [studentId], references: [id])
+  request            AiRequest?
+  admissionEvents    AiAdmissionEvent[]
+  artifactApply      AiArtifactApply?
   lifecycleOperation AiLifecycleOperation?
 
   @@unique([studentId, operation, clientRequestId])
@@ -3271,31 +3317,31 @@ model AiIdempotencyKey {
 }
 
 model AiLifecycleOperation {
-  id                           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId                    String                    @map("student_id") @db.Uuid
-  idempotencyKeyId             String                    @unique @map("idempotency_key_id") @db.Uuid
-  operation                    AiIdempotencyOperation
-  resultKind                   AiIdempotencyResultKind   @map("result_kind")
-  state                        AiLifecycleOperationState @default(pending)
-  targetEntityType             String?                   @map("target_entity_type") @db.VarChar(100)
-  targetEntityId               String?                   @map("target_entity_id") @db.Uuid
-  expectedConversationVersion  Int?                      @map("expected_conversation_version")
-  claimedConversationVersion   Int?                      @map("claimed_conversation_version")
-  expectedLifecycleRevision    Int?                      @map("expected_lifecycle_revision")
-  claimedLifecycleRevision     Int?                      @map("claimed_lifecycle_revision")
-  deleteMode                   String?                   @map("delete_mode") @db.VarChar(40)
-  exportFormat                 String?                   @map("export_format") @db.VarChar(40)
-  exportScope                  String?                   @map("export_scope") @db.VarChar(80)
-  exportConversationId         String?                   @map("export_conversation_id") @db.Uuid
-  requestedPolicyVersion       String?                   @map("requested_policy_version") @db.VarChar(120)
-  exportVersion                String?                   @map("export_version") @db.VarChar(40)
-  exportAsOf                   DateTime?                 @map("export_as_of") @db.Timestamptz
-  exportExpiresAt              DateTime?                 @map("export_expires_at") @db.Timestamptz
-  statusCode                   String?                   @map("status_code") @db.VarChar(80)
-  resultState                  String?                   @map("result_state") @db.VarChar(40)
-  createdAt                    DateTime                  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                    DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  expiresAt                    DateTime?                 @map("expires_at") @db.Timestamptz
+  id                          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                   String                    @map("student_id") @db.Uuid
+  idempotencyKeyId            String                    @unique @map("idempotency_key_id") @db.Uuid
+  operation                   AiIdempotencyOperation
+  resultKind                  AiIdempotencyResultKind   @map("result_kind")
+  state                       AiLifecycleOperationState @default(pending)
+  targetEntityType            String?                   @map("target_entity_type") @db.VarChar(100)
+  targetEntityId              String?                   @map("target_entity_id") @db.Uuid
+  expectedConversationVersion Int?                      @map("expected_conversation_version")
+  claimedConversationVersion  Int?                      @map("claimed_conversation_version")
+  expectedLifecycleRevision   Int?                      @map("expected_lifecycle_revision")
+  claimedLifecycleRevision    Int?                      @map("claimed_lifecycle_revision")
+  deleteMode                  String?                   @map("delete_mode") @db.VarChar(40)
+  exportFormat                String?                   @map("export_format") @db.VarChar(40)
+  exportScope                 String?                   @map("export_scope") @db.VarChar(80)
+  exportConversationId        String?                   @map("export_conversation_id") @db.Uuid
+  requestedPolicyVersion      String?                   @map("requested_policy_version") @db.VarChar(120)
+  exportVersion               String?                   @map("export_version") @db.VarChar(40)
+  exportAsOf                  DateTime?                 @map("export_as_of") @db.Timestamptz
+  exportExpiresAt             DateTime?                 @map("export_expires_at") @db.Timestamptz
+  statusCode                  String?                   @map("status_code") @db.VarChar(80)
+  resultState                 String?                   @map("result_state") @db.VarChar(40)
+  createdAt                   DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                   DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  expiresAt                   DateTime?                 @map("expires_at") @db.Timestamptz
 
   student        User             @relation(fields: [studentId], references: [id])
   idempotencyKey AiIdempotencyKey @relation(fields: [idempotencyKeyId], references: [id])
@@ -3325,66 +3371,66 @@ model AiConversationSource {
 }
 
 model AiContextPack {
-  id                               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requestId                        String                  @unique @map("request_id") @db.Uuid
-  packSchemaVersion                String                  @map("pack_schema_version") @db.VarChar(40)
-  contextPackVersion               String                  @map("context_pack_version") @db.VarChar(40)
-  orderedBlockManifestJson         Json                    @map("ordered_block_manifest_json") @db.JsonB
-  normalizedTaskCiphertext         Json?                   @map("normalized_task_ciphertext") @db.JsonB
-  canonicalEncoding                String                  @default("utf-8-json") @map("canonical_encoding") @db.VarChar(40)
-  canonicalBytesCiphertext         Json?                   @map("canonical_bytes_ciphertext") @db.JsonB
-  byteCount                        Int                     @map("byte_count")
-  packDigest                       String                  @map("pack_digest") @db.VarChar(128)
-  truncationJson                   Json?                   @map("truncation_json") @db.JsonB
-  redactionPolicyVersion           String                  @map("redaction_policy_version") @db.VarChar(40)
-  conversationMessageManifestCiphertext Json?              @map("conversation_message_manifest_ciphertext") @db.JsonB
-  systemPolicyHash                 String                  @map("system_policy_hash") @db.VarChar(128)
-  promptTemplateHash               String                  @map("prompt_template_hash") @db.VarChar(128)
-  toolSchemaHash                   String                  @map("tool_schema_hash") @db.VarChar(128)
-  providerTaskDigest               String?                 @map("provider_task_digest") @db.VarChar(128)
-  provenanceState                  AiContextProvenanceState @default(reconstructable) @map("provenance_state")
-  purgeState                       AiPurgeState            @default(available) @map("purge_state")
-  retentionClass                   String                  @map("retention_class") @db.VarChar(80)
-  retentionPolicyVersion           String                  @map("retention_policy_version") @db.VarChar(80)
-  purgeAt                          DateTime                @map("purge_at") @db.Timestamptz
-  purgeStartedAt                   DateTime?               @map("purge_started_at") @db.Timestamptz
-  purgedAt                         DateTime?               @map("purged_at") @db.Timestamptz
-  purgeReason                      String?                 @map("purge_reason") @db.VarChar(160)
-  createdAt                        DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  id                                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId                             String                   @unique @map("request_id") @db.Uuid
+  packSchemaVersion                     String                   @map("pack_schema_version") @db.VarChar(40)
+  contextPackVersion                    String                   @map("context_pack_version") @db.VarChar(40)
+  orderedBlockManifestJson              Json                     @map("ordered_block_manifest_json") @db.JsonB
+  normalizedTaskCiphertext              Json?                    @map("normalized_task_ciphertext") @db.JsonB
+  canonicalEncoding                     String                   @default("utf-8-json") @map("canonical_encoding") @db.VarChar(40)
+  canonicalBytesCiphertext              Json?                    @map("canonical_bytes_ciphertext") @db.JsonB
+  byteCount                             Int                      @map("byte_count")
+  packDigest                            String                   @map("pack_digest") @db.VarChar(128)
+  truncationJson                        Json?                    @map("truncation_json") @db.JsonB
+  redactionPolicyVersion                String                   @map("redaction_policy_version") @db.VarChar(40)
+  conversationMessageManifestCiphertext Json?                    @map("conversation_message_manifest_ciphertext") @db.JsonB
+  systemPolicyHash                      String                   @map("system_policy_hash") @db.VarChar(128)
+  promptTemplateHash                    String                   @map("prompt_template_hash") @db.VarChar(128)
+  toolSchemaHash                        String                   @map("tool_schema_hash") @db.VarChar(128)
+  providerTaskDigest                    String?                  @map("provider_task_digest") @db.VarChar(128)
+  provenanceState                       AiContextProvenanceState @default(reconstructable) @map("provenance_state")
+  purgeState                            AiPurgeState             @default(available) @map("purge_state")
+  retentionClass                        String                   @map("retention_class") @db.VarChar(80)
+  retentionPolicyVersion                String                   @map("retention_policy_version") @db.VarChar(80)
+  purgeAt                               DateTime                 @map("purge_at") @db.Timestamptz
+  purgeStartedAt                        DateTime?                @map("purge_started_at") @db.Timestamptz
+  purgedAt                              DateTime?                @map("purged_at") @db.Timestamptz
+  purgeReason                           String?                  @map("purge_reason") @db.VarChar(160)
+  createdAt                             DateTime                 @default(now()) @map("created_at") @db.Timestamptz
 
-  request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request AiRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
   sources AiRequestSource[]
 
   @@map("ai_context_packs")
 }
 
 model AiRequestSource {
-  id                        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  contextPackId             String                  @map("context_pack_id") @db.Uuid
-  requestId                 String                  @map("request_id") @db.Uuid
+  id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contextPackId             String                 @map("context_pack_id") @db.Uuid
+  requestId                 String                 @map("request_id") @db.Uuid
   ordinal                   Int
-  sourceType                AiContextSourceType     @map("source_type")
-  sourceId                  String                  @map("source_id") @db.Uuid
-  citationKey               String                  @map("citation_key") @db.VarChar(80)
-  sourceVersionId           String?                 @map("source_version_id") @db.Uuid
-  titleSnapshot             String?                 @map("title_snapshot") @db.VarChar(220)
-  citationLabel             String?                 @map("citation_label") @db.VarChar(220)
-  contentDigest             String                  @map("content_digest") @db.VarChar(128)
-  boundedSnapshotCiphertext Json?                   @map("bounded_snapshot_ciphertext") @db.JsonB
-  snapshotEncoding          String                  @default("utf-8-json") @map("snapshot_encoding") @db.VarChar(40)
-  snapshotBytes             Int                     @default(0) @map("snapshot_bytes")
-  truncationJson            Json?                   @map("truncation_json") @db.JsonB
-  redactionPolicyVersion    String                  @map("redaction_policy_version") @db.VarChar(40)
-  retentionPolicyVersion    String                  @map("retention_policy_version") @db.VarChar(80)
-  purgeAt                   DateTime                @map("purge_at") @db.Timestamptz
+  sourceType                AiContextSourceType    @map("source_type")
+  sourceId                  String                 @map("source_id") @db.Uuid
+  citationKey               String                 @map("citation_key") @db.VarChar(80)
+  sourceVersionId           String?                @map("source_version_id") @db.Uuid
+  titleSnapshot             String?                @map("title_snapshot") @db.VarChar(220)
+  citationLabel             String?                @map("citation_label") @db.VarChar(220)
+  contentDigest             String                 @map("content_digest") @db.VarChar(128)
+  boundedSnapshotCiphertext Json?                  @map("bounded_snapshot_ciphertext") @db.JsonB
+  snapshotEncoding          String                 @default("utf-8-json") @map("snapshot_encoding") @db.VarChar(40)
+  snapshotBytes             Int                    @default(0) @map("snapshot_bytes")
+  truncationJson            Json?                  @map("truncation_json") @db.JsonB
+  redactionPolicyVersion    String                 @map("redaction_policy_version") @db.VarChar(40)
+  retentionPolicyVersion    String                 @map("retention_policy_version") @db.VarChar(80)
+  purgeAt                   DateTime               @map("purge_at") @db.Timestamptz
   snapshotState             AiContextSnapshotState @default(available) @map("snapshot_state")
-  purgeStartedAt            DateTime?               @map("purge_started_at") @db.Timestamptz
-  purgedAt                  DateTime?               @map("purged_at") @db.Timestamptz
-  purgeReason               String?                 @map("purge_reason") @db.VarChar(160)
-  createdAt                 DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  purgeStartedAt            DateTime?              @map("purge_started_at") @db.Timestamptz
+  purgedAt                  DateTime?              @map("purged_at") @db.Timestamptz
+  purgeReason               String?                @map("purge_reason") @db.VarChar(160)
+  createdAt                 DateTime               @default(now()) @map("created_at") @db.Timestamptz
 
   contextPack AiContextPack @relation(fields: [contextPackId], references: [id], onDelete: Cascade)
-  request AiRequest @relation("AiRequestSources", fields: [requestId], references: [id], onDelete: Cascade)
+  request     AiRequest     @relation("AiRequestSources", fields: [requestId], references: [id], onDelete: Cascade)
 
   @@unique([requestId, ordinal])
   @@unique([requestId, sourceType, sourceId])
@@ -3393,27 +3439,27 @@ model AiRequestSource {
 }
 
 model AiRequestAttempt {
-  id                         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requestId                  String          @map("request_id") @db.Uuid
-  attemptNo                 Int             @map("attempt_no")
-  gateway                   String          @db.VarChar(80)
-  upstreamProvider           String          @map("upstream_provider") @db.VarChar(80)
-  upstreamProviderSlug       String?        @map("upstream_provider_slug") @db.VarChar(160)
-  model                     String          @db.VarChar(120)
-  providerIdempotencyKey     String?        @map("provider_idempotency_key") @db.VarChar(160)
-  observedUpstreamProviderSlug String?      @map("observed_upstream_provider_slug") @db.VarChar(160)
-  state                     AiAttemptState @default(prepared)
-  resultKind                AiAttemptResultKind @default(none) @map("result_kind")
-  providerRequestRef        String?        @map("provider_request_ref") @db.VarChar(160)
-  inputTokens               Int?           @map("input_tokens")
-  outputTokens              Int?           @map("output_tokens")
-  quotaUnitsConsumed        Int?           @map("quota_units_consumed")
-  tokenUsageState           AiTokenUsageState @default(unknown) @map("token_usage_state")
-  errorCode                 String?        @map("error_code") @db.VarChar(100)
-  releaseManifestDigest     String?        @map("release_manifest_digest") @db.VarChar(128)
-  privacyEvidenceDigest     String?        @map("privacy_evidence_digest") @db.VarChar(128)
-  startedAt                 DateTime       @default(now()) @map("started_at") @db.Timestamptz
-  completedAt               DateTime?      @map("completed_at") @db.Timestamptz
+  id                           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId                    String              @map("request_id") @db.Uuid
+  attemptNo                    Int                 @map("attempt_no")
+  gateway                      String              @db.VarChar(80)
+  upstreamProvider             String              @map("upstream_provider") @db.VarChar(80)
+  upstreamProviderSlug         String?             @map("upstream_provider_slug") @db.VarChar(160)
+  model                        String              @db.VarChar(120)
+  providerIdempotencyKey       String?             @map("provider_idempotency_key") @db.VarChar(160)
+  observedUpstreamProviderSlug String?             @map("observed_upstream_provider_slug") @db.VarChar(160)
+  state                        AiAttemptState      @default(prepared)
+  resultKind                   AiAttemptResultKind @default(none) @map("result_kind")
+  providerRequestRef           String?             @map("provider_request_ref") @db.VarChar(160)
+  inputTokens                  Int?                @map("input_tokens")
+  outputTokens                 Int?                @map("output_tokens")
+  quotaUnitsConsumed           Int?                @map("quota_units_consumed")
+  tokenUsageState              AiTokenUsageState   @default(unknown) @map("token_usage_state")
+  errorCode                    String?             @map("error_code") @db.VarChar(100)
+  releaseManifestDigest        String?             @map("release_manifest_digest") @db.VarChar(128)
+  privacyEvidenceDigest        String?             @map("privacy_evidence_digest") @db.VarChar(128)
+  startedAt                    DateTime            @default(now()) @map("started_at") @db.Timestamptz
+  completedAt                  DateTime?           @map("completed_at") @db.Timestamptz
 
   request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
@@ -3422,27 +3468,29 @@ model AiRequestAttempt {
 }
 
 model AiRequestResultStage {
-  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requestId                String             @unique @map("request_id") @db.Uuid
-  state                    AiResultStageState @default(available)
-  resultKind               AiResultKind       @default(none) @map("result_kind")
-  normalizedResultCiphertext Json?            @map("normalized_result_ciphertext") @db.JsonB
-  resultDigest             String?            @map("result_digest") @db.VarChar(128)
-  inputTokens              Int?               @map("input_tokens")
-  outputTokens             Int?               @map("output_tokens")
-  quotaUnitsConsumed       Int?               @map("quota_units_consumed")
-  tokenUsageState          AiTokenUsageState  @default(unknown) @map("token_usage_state")
-  settlementKind           AiSettlementKind  @default(conservative_reservation) @map("settlement_kind")
-  providerRequestRef       String?            @map("provider_request_ref") @db.VarChar(160)
-  gateway                  String?            @db.VarChar(80)
-  upstreamProvider         String?            @map("upstream_provider") @db.VarChar(80)
-  upstreamProviderSlug     String?            @map("upstream_provider_slug") @db.VarChar(160)
-  model                    String?            @db.VarChar(120)
-  stagedAt                 DateTime           @default(now()) @map("staged_at") @db.Timestamptz
-  consumedAt              DateTime?          @map("consumed_at") @db.Timestamptz
-  expiresAt               DateTime           @map("expires_at") @db.Timestamptz
-  retentionPolicyVersion   String             @map("retention_policy_version") @db.VarChar(80)
-  version                 Int                @default(0)
+  id                         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId                  String             @unique @map("request_id") @db.Uuid
+  state                      AiResultStageState @default(available)
+  resultKind                 AiResultKind       @default(none) @map("result_kind")
+  normalizedResultCiphertext Json?              @map("normalized_result_ciphertext") @db.JsonB
+  resultDigest               String?            @map("result_digest") @db.VarChar(128)
+  outputSchemaId             String?            @map("output_schema_id") @db.VarChar(120)
+  outputSchemaHash           String?            @map("output_schema_hash") @db.VarChar(128)
+  inputTokens                Int?               @map("input_tokens")
+  outputTokens               Int?               @map("output_tokens")
+  quotaUnitsConsumed         Int?               @map("quota_units_consumed")
+  tokenUsageState            AiTokenUsageState  @default(unknown) @map("token_usage_state")
+  settlementKind             AiSettlementKind   @default(conservative_reservation) @map("settlement_kind")
+  providerRequestRef         String?            @map("provider_request_ref") @db.VarChar(160)
+  gateway                    String?            @db.VarChar(80)
+  upstreamProvider           String?            @map("upstream_provider") @db.VarChar(80)
+  upstreamProviderSlug       String?            @map("upstream_provider_slug") @db.VarChar(160)
+  model                      String?            @db.VarChar(120)
+  stagedAt                   DateTime           @default(now()) @map("staged_at") @db.Timestamptz
+  consumedAt                 DateTime?          @map("consumed_at") @db.Timestamptz
+  expiresAt                  DateTime           @map("expires_at") @db.Timestamptz
+  retentionPolicyVersion     String             @map("retention_policy_version") @db.VarChar(80)
+  version                    Int                @default(0)
 
   request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
@@ -3451,24 +3499,24 @@ model AiRequestResultStage {
 }
 
 model AiAdmissionEvent {
-  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId                String?            @map("student_id") @db.Uuid
-  occurredAt               DateTime           @default(now()) @map("occurred_at") @db.Timestamptz
-  localQuotaDate           DateTime           @map("local_quota_date") @db.Date
-  quotaTimezone            String             @map("quota_timezone") @db.VarChar(64)
-  quotaTimezonePolicyVersion String?          @map("quota_timezone_policy_version") @db.VarChar(40)
-  policyBundleVersion      String?            @map("policy_bundle_version") @db.VarChar(120)
-  quotaOffsetMinutes       Int?               @map("quota_offset_minutes")
-  featureKey               String?            @map("feature_key") @db.VarChar(80)
-  behaviorVersion          String?            @map("behavior_version") @db.VarChar(40)
-  gateway                  String?            @db.VarChar(80)
-  upstreamProvider         String?            @map("upstream_provider") @db.VarChar(80)
-  upstreamProviderSlug     String?            @map("upstream_provider_slug") @db.VarChar(160)
-  model                    String?            @db.VarChar(120)
-  reason                  AiAdmissionReason
-  idempotencyKeyId         String?            @map("idempotency_key_id") @db.Uuid
+  id                         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId                  String?           @map("student_id") @db.Uuid
+  occurredAt                 DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+  localQuotaDate             DateTime          @map("local_quota_date") @db.Date
+  quotaTimezone              String            @map("quota_timezone") @db.VarChar(64)
+  quotaTimezonePolicyVersion String?           @map("quota_timezone_policy_version") @db.VarChar(40)
+  policyBundleVersion        String?           @map("policy_bundle_version") @db.VarChar(120)
+  quotaOffsetMinutes         Int?              @map("quota_offset_minutes")
+  featureKey                 String?           @map("feature_key") @db.VarChar(80)
+  behaviorVersion            String?           @map("behavior_version") @db.VarChar(40)
+  gateway                    String?           @db.VarChar(80)
+  upstreamProvider           String?           @map("upstream_provider") @db.VarChar(80)
+  upstreamProviderSlug       String?           @map("upstream_provider_slug") @db.VarChar(160)
+  model                      String?           @db.VarChar(120)
+  reason                     AiAdmissionReason
+  idempotencyKeyId           String?           @map("idempotency_key_id") @db.Uuid
 
-  student        User?            @relation(fields: [studentId], references: [id])
+  student        User?             @relation(fields: [studentId], references: [id])
   idempotencyKey AiIdempotencyKey? @relation(fields: [idempotencyKeyId], references: [id])
 
   @@index([occurredAt, featureKey, reason])
@@ -3478,31 +3526,31 @@ model AiAdmissionEvent {
 }
 
 model AiArtifact {
-  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  artifactKey         String                  @map("artifact_key") @db.VarChar(120)
-  revision            Int
-  requestId           String?                 @map("request_id") @db.Uuid
-  studentId           String                  @map("student_id") @db.Uuid
-  conversationId      String?                 @map("conversation_id") @db.Uuid
-  artifactType        AiArtifactType         @map("artifact_type")
-  provenanceKind      AiArtifactProvenanceKind @map("provenance_kind")
-  titleCiphertext     Json?                   @map("title_ciphertext") @db.JsonB
-  contentMarkdownCiphertext Json?             @map("content_markdown_ciphertext") @db.JsonB
-  payloadCiphertext   Json?                   @map("payload_ciphertext") @db.JsonB
-  artifactSchemaVersion String                @map("artifact_schema_version") @db.VarChar(40)
-  sourceEntityType    String?                 @map("source_entity_type") @db.VarChar(100)
-  sourceEntityId      String?                 @map("source_entity_id") @db.Uuid
-  sourceEntityRevision Int?                  @map("source_entity_revision")
-  sourceEntityDigest  String?                 @map("source_entity_digest") @db.VarChar(128)
-  contentDigest       String                  @map("content_digest") @db.VarChar(128)
-  renderVersion       String                  @map("render_version") @db.VarChar(40)
-  retentionPolicyVersion String               @map("retention_policy_version") @db.VarChar(80)
-  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  expiresAt           DateTime?               @map("expires_at") @db.Timestamptz
+  id                        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artifactKey               String                   @map("artifact_key") @db.VarChar(120)
+  revision                  Int
+  requestId                 String?                  @unique @map("request_id") @db.Uuid
+  studentId                 String                   @map("student_id") @db.Uuid
+  conversationId            String?                  @map("conversation_id") @db.Uuid
+  artifactType              AiArtifactType           @map("artifact_type")
+  provenanceKind            AiArtifactProvenanceKind @map("provenance_kind")
+  titleCiphertext           Json?                    @map("title_ciphertext") @db.JsonB
+  contentMarkdownCiphertext Json?                    @map("content_markdown_ciphertext") @db.JsonB
+  payloadCiphertext         Json?                    @map("payload_ciphertext") @db.JsonB
+  artifactSchemaVersion     String                   @map("artifact_schema_version") @db.VarChar(40)
+  sourceEntityType          String?                  @map("source_entity_type") @db.VarChar(100)
+  sourceEntityId            String?                  @map("source_entity_id") @db.Uuid
+  sourceEntityRevision      Int?                     @map("source_entity_revision")
+  sourceEntityDigest        String?                  @map("source_entity_digest") @db.VarChar(128)
+  contentDigest             String                   @map("content_digest") @db.VarChar(128)
+  renderVersion             String                   @map("render_version") @db.VarChar(40)
+  retentionPolicyVersion    String                   @map("retention_policy_version") @db.VarChar(80)
+  createdAt                 DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt                 DateTime?                @map("expires_at") @db.Timestamptz
 
-  request      AiRequest?      @relation(fields: [requestId], references: [id])
-  student      User            @relation(fields: [studentId], references: [id])
-  conversation AiConversation? @relation(fields: [conversationId], references: [id])
+  request      AiRequest?           @relation(fields: [requestId], references: [id])
+  student      User                 @relation(fields: [studentId], references: [id])
+  conversation AiConversation?      @relation(fields: [conversationId], references: [id])
   lifecycle    AiArtifactLifecycle?
   applies      AiArtifactApply[]
 
@@ -3512,19 +3560,19 @@ model AiArtifact {
 }
 
 model AiArtifactLifecycle {
-  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  artifactRevisionId String                   @unique @map("artifact_revision_id") @db.Uuid
-  state              AiArtifactLifecycleState @default(visible)
-  lifecycleRevision  Int                      @default(0) @map("lifecycle_revision")
-  deletionState      AiDeletionState          @default(active) @map("deletion_state")
-  deletionOperationId String?                @map("deletion_operation_id") @db.Uuid
-  claimedExpectedRevision Int?                @map("claimed_expected_revision")
-  reason             String?                  @db.VarChar(160)
-  deletionClaimToken String?                 @map("deletion_claim_token") @db.VarChar(160)
-  claimExpiresAt     DateTime?                @map("claim_expires_at") @db.Timestamptz
-  changedAt          DateTime                 @default(now()) @map("changed_at") @db.Timestamptz
-  changedBy          String?                  @map("changed_by") @db.Uuid
-  purgeDigest        String?                  @map("purge_digest") @db.VarChar(128)
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artifactRevisionId      String                   @unique @map("artifact_revision_id") @db.Uuid
+  state                   AiArtifactLifecycleState @default(visible)
+  lifecycleRevision       Int                      @default(0) @map("lifecycle_revision")
+  deletionState           AiDeletionState          @default(active) @map("deletion_state")
+  deletionOperationId     String?                  @map("deletion_operation_id") @db.Uuid
+  claimedExpectedRevision Int?                     @map("claimed_expected_revision")
+  reason                  String?                  @db.VarChar(160)
+  deletionClaimToken      String?                  @map("deletion_claim_token") @db.VarChar(160)
+  claimExpiresAt          DateTime?                @map("claim_expires_at") @db.Timestamptz
+  changedAt               DateTime                 @default(now()) @map("changed_at") @db.Timestamptz
+  changedBy               String?                  @map("changed_by") @db.Uuid
+  purgeDigest             String?                  @map("purge_digest") @db.VarChar(128)
 
   artifact AiArtifact @relation(fields: [artifactRevisionId], references: [id], onDelete: Cascade)
   actor    User?      @relation(fields: [changedBy], references: [id])
@@ -3533,19 +3581,20 @@ model AiArtifactLifecycle {
 }
 
 model AiArtifactApply {
-  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  idempotencyKeyId      String             @unique @map("idempotency_key_id") @db.Uuid
-  artifactRevisionId    String             @map("artifact_revision_id") @db.Uuid
-  targetEntityType      String             @map("target_entity_type") @db.VarChar(100)
-  targetEntityId        String             @map("target_entity_id") @db.Uuid
-  expectedTargetRevision Int              @map("expected_target_revision")
-  targetEntityRevision  Int               @map("target_entity_revision")
-  targetEntityDigest    String?           @map("target_entity_digest") @db.VarChar(128)
-  applyState            AiArtifactApplyState @default(applied) @map("apply_state")
-  appliedByStudentId    String             @map("applied_by_student_id") @db.Uuid
-  appliedAt             DateTime           @default(now()) @map("applied_at") @db.Timestamptz
-  purgedAt              DateTime?          @map("purged_at") @db.Timestamptz
-  purgeReason           String?            @map("purge_reason") @db.VarChar(160)
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKeyId       String               @unique @map("idempotency_key_id") @db.Uuid
+  artifactRevisionId     String               @map("artifact_revision_id") @db.Uuid
+  registryKey            String               @map("registry_key") @db.VarChar(100)
+  targetEntityType       String               @map("target_entity_type") @db.VarChar(100)
+  targetEntityId         String               @map("target_entity_id") @db.Uuid
+  expectedTargetRevision Int                  @map("expected_target_revision")
+  targetEntityRevision   Int                  @map("target_entity_revision")
+  targetEntityDigest     String?              @map("target_entity_digest") @db.VarChar(128)
+  applyState             AiArtifactApplyState @default(applied) @map("apply_state")
+  appliedByStudentId     String               @map("applied_by_student_id") @db.Uuid
+  appliedAt              DateTime             @default(now()) @map("applied_at") @db.Timestamptz
+  purgedAt               DateTime?            @map("purged_at") @db.Timestamptz
+  purgeReason            String?              @map("purge_reason") @db.VarChar(160)
 
   idempotencyKey AiIdempotencyKey @relation(fields: [idempotencyKeyId], references: [id])
   artifact       AiArtifact       @relation(fields: [artifactRevisionId], references: [id])
@@ -3556,18 +3605,26 @@ model AiArtifactApply {
 }
 
 model AdaptivePracticeItem {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  adaptiveSessionId     String   @map("adaptive_session_id") @db.Uuid
-  ordinal               Int
-  questionId            String   @map("question_id") @db.Uuid
-  questionRevisionId    String   @map("question_revision_id") @db.Uuid
-  questionRevisionDigest String  @map("question_revision_digest") @db.VarChar(128)
-  promptSnapshotCiphertext Json  @map("prompt_snapshot_ciphertext") @db.JsonB
-  optionSnapshotCiphertext Json? @map("option_snapshot_ciphertext") @db.JsonB
-  scoringSnapshotCiphertext Json @map("scoring_snapshot_ciphertext") @db.JsonB
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adaptiveSessionId         String   @map("adaptive_session_id") @db.Uuid
+  ordinal                   Int
+  questionId                String   @map("question_id") @db.Uuid
+  questionRevisionId        String   @map("question_revision_id") @db.Uuid
+  questionRevisionDigest    String   @map("question_revision_digest") @db.VarChar(128)
+  promptSnapshotCiphertext  Json     @map("prompt_snapshot_ciphertext") @db.JsonB
+  optionSnapshotCiphertext  Json?    @map("option_snapshot_ciphertext") @db.JsonB
+  scoringSnapshotCiphertext Json     @map("scoring_snapshot_ciphertext") @db.JsonB
+  candidateContractVersion  String   @default("vera-drill-v1") @map("candidate_contract_version") @db.VarChar(40)
+  candidateSourceKind       String?  @map("candidate_source_kind") @db.VarChar(40)
+  sourceAttemptId           String?  @map("source_attempt_id") @db.Uuid
+  sourceAssessmentItemId    String?  @map("source_assessment_item_id") @db.Uuid
+  assessmentReleaseDigest   String?  @map("assessment_release_digest") @db.VarChar(128)
+  renderReleaseState        String?  @map("render_release_state") @db.VarChar(24)
+  answerReleaseState        String?  @map("answer_release_state") @db.VarChar(24)
+  explanationReleaseState   String?  @map("explanation_release_state") @db.VarChar(24)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  session AdaptivePracticeSession @relation(fields: [adaptiveSessionId], references: [id], onDelete: Cascade)
+  session AdaptivePracticeSession  @relation(fields: [adaptiveSessionId], references: [id], onDelete: Cascade)
   answers AdaptivePracticeAnswer[]
 
   @@unique([adaptiveSessionId, ordinal])
@@ -3575,18 +3632,18 @@ model AdaptivePracticeItem {
 }
 
 model AiReportBudgetWindow {
-  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  principalKey      String             @map("principal_key") @db.VarChar(160)
-  policyBundleVersion String            @map("policy_bundle_version") @db.VarChar(120)
-  state             AiReportBudgetState @default(active)
-  windowStartedAt   DateTime           @map("window_started_at") @db.Timestamptz
-  windowExpiresAt   DateTime           @map("window_expires_at") @db.Timestamptz
-  consumedUnits     Int                @default(0) @map("consumed_units")
-  consumedRequests Int                @default(0) @map("consumed_requests")
-  unitLimit         Int                @map("unit_limit")
-  requestLimit      Int                @map("request_limit")
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  principalKey        String              @map("principal_key") @db.VarChar(160)
+  policyBundleVersion String              @map("policy_bundle_version") @db.VarChar(120)
+  state               AiReportBudgetState @default(active)
+  windowStartedAt     DateTime            @map("window_started_at") @db.Timestamptz
+  windowExpiresAt     DateTime            @map("window_expires_at") @db.Timestamptz
+  consumedUnits       Int                 @default(0) @map("consumed_units")
+  consumedRequests    Int                 @default(0) @map("consumed_requests")
+  unitLimit           Int                 @map("unit_limit")
+  requestLimit        Int                 @map("request_limit")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@unique([principalKey, windowStartedAt])
   @@index([state, windowExpiresAt])
@@ -3594,14 +3651,14 @@ model AiReportBudgetWindow {
 }
 
 model AiAdminReportAudit {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorId           String   @map("actor_id") @db.Uuid
-  queryFingerprint  String   @map("query_fingerprint") @db.VarChar(128)
-  displayTimezone   String   @map("display_timezone") @db.VarChar(64)
-  rangeStart        DateTime @map("range_start") @db.Date
-  rangeEnd          DateTime @map("range_end") @db.Date
-  suppressionApplied Boolean @default(false) @map("suppression_applied")
-  occurredAt        DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId            String   @map("actor_id") @db.Uuid
+  queryFingerprint   String   @map("query_fingerprint") @db.VarChar(128)
+  displayTimezone    String   @map("display_timezone") @db.VarChar(64)
+  rangeStart         DateTime @map("range_start") @db.Date
+  rangeEnd           DateTime @map("range_end") @db.Date
+  suppressionApplied Boolean  @default(false) @map("suppression_applied")
+  occurredAt         DateTime @default(now()) @map("occurred_at") @db.Timestamptz
 
   actor User @relation(fields: [actorId], references: [id])
 
@@ -3638,9 +3695,9 @@ model Asset {
   questionPromptAssets                        Question[]                                 @relation("QuestionPromptAsset")
   questionExplanationAssets                   Question[]                                 @relation("QuestionExplanationAsset")
   questionOptionAssets                        QuestionOption[]                           @relation("QuestionOptionAsset")
-  questionRevisionPromptAssets                QuestionRevision[]                          @relation("QuestionRevisionPromptAsset")
-  questionRevisionExplanationAssets           QuestionRevision[]                          @relation("QuestionRevisionExplanationAsset")
-  questionRevisionOptionAssets                QuestionRevisionOption[]                    @relation("QuestionRevisionOptionAsset")
+  questionRevisionPromptAssets                QuestionRevision[]                         @relation("QuestionRevisionPromptAsset")
+  questionRevisionExplanationAssets           QuestionRevision[]                         @relation("QuestionRevisionExplanationAsset")
+  questionRevisionOptionAssets                QuestionRevisionOption[]                   @relation("QuestionRevisionOptionAsset")
   standaloneQuizItemPromptAssets              StandaloneQuizItem[]                       @relation("StandaloneQuizItemPromptAsset")
   standaloneQuizItemExplanationAssets         StandaloneQuizItem[]                       @relation("StandaloneQuizItemExplanationAsset")
   standaloneQuizItemOptionAssets              StandaloneQuizItemOption[]                 @relation("StandaloneQuizItemOptionAsset")
@@ -3650,7 +3707,7 @@ model Asset {
   reusablePackageVersionItemPromptAssets      ReusableQuestionPackageVersionItem[]       @relation("ReusablePackageVersionItemPromptAsset")
   reusablePackageVersionItemExplanationAssets ReusableQuestionPackageVersionItem[]       @relation("ReusablePackageVersionItemExplanationAsset")
   reusablePackageVersionItemOptionAssets      ReusableQuestionPackageVersionItemOption[] @relation("ReusablePackageVersionItemOptionAsset")
-  moduleAssets                                ModuleAsset[]                               @relation("ModuleAssetManagedAsset")
+  moduleAssets                                ModuleAsset[]                              @relation("ModuleAssetManagedAsset")
 
   @@index([checksum])
   @@index([libraryScope, folderId, state])
@@ -3906,20 +3963,20 @@ model BillingAccount {
 }
 
 model SystemConfig {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  configKey             String   @unique @map("config_key") @db.VarChar(120)
-  configValue           Json     @map("config_value") @db.JsonB
-  updatedByUserId       String?  @map("updated_by_user_id") @db.Uuid
-  updatedAt             DateTime @default(now()) @map("updated_at") @db.Timestamptz
-  draftValue            Json?    @map("draft_value") @db.JsonB
-  draftUpdatedByUserId  String?  @map("draft_updated_by_user_id") @db.Uuid
-  draftUpdatedAt        DateTime? @map("draft_updated_at") @db.Timestamptz
-  publishedByUserId     String?  @map("published_by_user_id") @db.Uuid
-  publishedAt           DateTime? @map("published_at") @db.Timestamptz
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  configKey            String    @unique @map("config_key") @db.VarChar(120)
+  configValue          Json      @map("config_value") @db.JsonB
+  updatedByUserId      String?   @map("updated_by_user_id") @db.Uuid
+  updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  draftValue           Json?     @map("draft_value") @db.JsonB
+  draftUpdatedByUserId String?   @map("draft_updated_by_user_id") @db.Uuid
+  draftUpdatedAt       DateTime? @map("draft_updated_at") @db.Timestamptz
+  publishedByUserId    String?   @map("published_by_user_id") @db.Uuid
+  publishedAt          DateTime? @map("published_at") @db.Timestamptz
 
-  updatedBy       User? @relation("SystemConfigUpdatedBy", fields: [updatedByUserId], references: [id])
-  draftUpdatedBy  User? @relation("SystemConfigDraftUpdatedBy", fields: [draftUpdatedByUserId], references: [id])
-  publishedBy     User? @relation("SystemConfigPublishedBy", fields: [publishedByUserId], references: [id])
+  updatedBy      User? @relation("SystemConfigUpdatedBy", fields: [updatedByUserId], references: [id])
+  draftUpdatedBy User? @relation("SystemConfigDraftUpdatedBy", fields: [draftUpdatedByUserId], references: [id])
+  publishedBy    User? @relation("SystemConfigPublishedBy", fields: [publishedByUserId], references: [id])
 
   @@map("system_configs")
 }

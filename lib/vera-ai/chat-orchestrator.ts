@@ -11,6 +11,8 @@ import { inertVeraDelta } from "./output-validator";
 
 export type VeraSseEventName =
   | "request.started"
+  | "progress.updated"
+  | "artifact.ready"
   | "message.delta"
   | "message.generated"
   | "message.committed"

@@ -25,7 +25,7 @@ export type ResolvedContextBlock = {
 };
 
 export interface VeraContextResolver {
-  resolve(selection: VeraContextSelection): Promise<ResolvedContextBlock>;
+  resolve(selection: VeraContextSelection, authority?: { studentId: string }): Promise<ResolvedContextBlock>;
 }
 
 export type PreparedContextBlock = {
@@ -58,6 +58,7 @@ export type PreparedContextPack = {
 };
 
 export type ContextPackInput = {
+  studentId?: string;
   selection: VeraContextSelection[];
   userText: string;
   priorMessages?: Array<{ role: "user" | "assistant"; text: string }>;
@@ -65,6 +66,7 @@ export type ContextPackInput = {
   promptTemplateHash: string;
   toolSchemaHash: string;
   systemPolicyHash: string;
+  taskAuthority?: Record<string, unknown>;
   maxBlockBytes?: number;
   maxTaskBytes?: number;
 };
@@ -121,7 +123,8 @@ export async function prepareContextPack(
 
   const serverOrder = [...selection].sort((left, right) =>
     `${left.sourceType}:${left.sourceId}`.localeCompare(`${right.sourceType}:${right.sourceId}`));
-  const resolved = await Promise.all(serverOrder.map((source) => resolver.resolve(source)));
+  const authority = input.studentId ? { studentId: input.studentId } : undefined;
+  const resolved = await Promise.all(serverOrder.map((source) => resolver.resolve(source, authority)));
   const maxBlockBytes = input.maxBlockBytes ?? DEFAULT_BLOCK_BYTES;
   const maxTaskBytes = input.maxTaskBytes ?? DEFAULT_TASK_BYTES;
   if (!Number.isInteger(maxBlockBytes) || maxBlockBytes < 1
@@ -164,6 +167,7 @@ export async function prepareContextPack(
     userText: normalizeText(input.userText),
     messageManifest,
     blocks: blocks.map(({ content, ...manifest }) => ({ ...manifest, content })),
+    ...(input.taskAuthority ? { authority: input.taskAuthority } : {}),
   };
   const initialBytes = Buffer.from(canonicalJson(task), "utf8");
   if (initialBytes.byteLength > maxTaskBytes) {

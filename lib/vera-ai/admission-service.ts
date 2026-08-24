@@ -28,6 +28,11 @@ import { resolveVeraQuotaLimit, snapshotVeraPolicy, type BillingPlan, type VeraP
 import { quotaDateAndDayEnd } from "./quota";
 import type { NormalizedVeraResult } from "./output-validator";
 import type { PreparedProviderTask } from "./provider";
+import {
+  VeraDurableResultError,
+  createVeraDurableResultCallback,
+  type VeraDurableCallbackResult,
+} from "./durable-results";
 
 type DbClient = typeof defaultPrisma;
 
@@ -45,6 +50,11 @@ export type PersistPreparedAdmissionInput = {
   clientRequestId: string;
   requestFingerprint: string;
   featureKey: string;
+  requestType?: AiConversationType;
+  behaviorVersion?: string;
+  outputSchemaVersion?: string;
+  outputSchemaId?: string;
+  outputSchemaHash?: string;
   text: string;
   retryOfRequestId?: string | null;
   pack: PreparedContextPack;
@@ -270,6 +280,13 @@ export class VeraPrismaAdmissionService {
   }
 
   async admitPreparedRequest(input: PersistPreparedAdmissionInput): Promise<PersistedAdmission> {
+    const featureTuple = {
+      requestType: input.requestType ?? AiConversationType.vera_chat,
+      behaviorVersion: input.behaviorVersion ?? "1",
+      outputSchemaVersion: input.outputSchemaVersion ?? "1",
+      outputSchemaId: input.outputSchemaId ?? "vera.chat.freeform.v1",
+      outputSchemaHash: input.outputSchemaHash ?? input.pack.toolSchemaHash,
+    };
     try {
       return await this.db.$transaction(async (tx) => {
       const existing = await tx.aiIdempotencyKey.findUnique({
@@ -385,9 +402,31 @@ export class VeraPrismaAdmissionService {
 
       const conversation = await tx.aiConversation.findFirst({ where: { id: input.conversationId, studentId: input.studentId, deletionState: "active" }, select: { id: true } });
       if (!conversation) throw new VeraAdmissionError({ code: "target_unavailable", status: 404 });
-      const userMessageId = input.retryOfRequestId
-        ? (await tx.aiRequest.findFirst({ where: { id: input.retryOfRequestId, studentId: input.studentId, conversationId: input.conversationId }, select: { userMessageId: true } }))?.userMessageId
+      const retryTarget = input.retryOfRequestId
+        ? await tx.aiRequest.findFirst({
+          where: { id: input.retryOfRequestId, studentId: input.studentId, conversationId: input.conversationId },
+          select: {
+            userMessageId: true,
+            featureKey: true,
+            requestType: true,
+            behaviorVersion: true,
+            outputSchemaVersion: true,
+            outputSchemaId: true,
+            outputSchemaHash: true,
+            contextPackVersion: true,
+          },
+        })
         : null;
+      if (retryTarget && (
+        retryTarget.featureKey !== input.featureKey
+        || retryTarget.requestType !== featureTuple.requestType
+        || retryTarget.behaviorVersion !== featureTuple.behaviorVersion
+        || retryTarget.outputSchemaVersion !== featureTuple.outputSchemaVersion
+        || retryTarget.outputSchemaId !== featureTuple.outputSchemaId
+        || retryTarget.outputSchemaHash !== featureTuple.outputSchemaHash
+        || retryTarget.contextPackVersion !== input.pack.contextPackVersion
+      )) throw new VeraAdmissionError({ code: "retry_target_unavailable", status: 409 });
+      const userMessageId = retryTarget?.userMessageId ?? null;
       if (input.retryOfRequestId && !userMessageId) throw new VeraAdmissionError({ code: "retry_target_unavailable", status: 409 });
       const durableUserMessageId = userMessageId ?? randomUUID();
       if (!userMessageId) {
@@ -424,15 +463,17 @@ export class VeraPrismaAdmissionService {
           id: requestId,
           studentId: input.studentId,
           conversationId: input.conversationId,
-          requestType: AiConversationType.vera_chat,
+          requestType: featureTuple.requestType,
           status: AiRequestLifecycleState.pending,
           idempotencyKeyId: idempotencyKey.id,
           clientRequestId: input.clientRequestId,
           requestFingerprint: input.requestFingerprint,
           fingerprintKeyVersion: VERA_FINGERPRINT_KEY_VERSION,
           featureKey: input.featureKey,
-          behaviorVersion: "1",
-          outputSchemaVersion: "1",
+          behaviorVersion: featureTuple.behaviorVersion,
+          outputSchemaVersion: featureTuple.outputSchemaVersion,
+          outputSchemaId: featureTuple.outputSchemaId,
+          outputSchemaHash: featureTuple.outputSchemaHash,
           contextPackVersion: input.pack.contextPackVersion,
           gateway: input.preparedProviderTask.gateway,
           upstreamProvider: input.preparedProviderTask.upstreamProvider,
@@ -547,6 +588,8 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     result: NormalizedVeraResult;
     encryptedResult: AiEncryptedPayload;
+    outputSchemaId?: string;
+    outputSchemaHash?: string;
     now?: Date;
   }): Promise<{ id: string; replayed: boolean }> {
     const now = input.now ?? await this.databaseNow();
@@ -558,6 +601,8 @@ export class VeraPrismaAdmissionService {
           idempotencyKeyId: true,
           stageRetentionExpiresAt: true,
           retentionPolicyVersion: true,
+          outputSchemaId: true,
+          outputSchemaHash: true,
         },
       });
       if (!initial) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
@@ -572,6 +617,8 @@ export class VeraPrismaAdmissionService {
           settlementDeadlineAt: true,
           stageRetentionExpiresAt: true,
           retentionPolicyVersion: true,
+          outputSchemaId: true,
+          outputSchemaHash: true,
         },
       });
       if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
@@ -591,6 +638,8 @@ export class VeraPrismaAdmissionService {
           resultKind: input.result.kind === "success" ? AiResultKind.success : input.result.kind === "fallback" ? AiResultKind.fallback : AiResultKind.discarded,
           normalizedResultCiphertext: json(input.encryptedResult),
           resultDigest: input.result.digest,
+          outputSchemaId: input.outputSchemaId ?? request.outputSchemaId,
+          outputSchemaHash: input.outputSchemaHash ?? request.outputSchemaHash,
           inputTokens: input.result.usage.inputTokens,
           outputTokens: input.result.usage.outputTokens,
           quotaUnitsConsumed: input.result.usage.quotaUnitsConsumed,
@@ -661,7 +710,7 @@ export class VeraPrismaAdmissionService {
     };
     normalizedResult: NormalizedVeraResult;
     now: Date;
-    persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<{ assistantMessageId?: string | null }>;
+    persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<{ requestId: string; assistantMessageId: string | null; usageAccountingState: AiUsageAccountingState }> {
     const { tx, request, daily, stage, normalizedResult, now } = input;
     const durable = await input.persistDurableResult(tx, normalizedResult);
@@ -722,7 +771,7 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     normalizedResult: NormalizedVeraResult;
     now?: Date;
-    persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<{ assistantMessageId?: string | null }>;
+    persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<{ requestId: string; assistantMessageId: string | null; usageAccountingState: AiUsageAccountingState }> {
     const now = input.now ?? await this.databaseNow();
     return this.db.$transaction(async (tx) => {
@@ -768,7 +817,7 @@ export class VeraPrismaAdmissionService {
     missingStage?: boolean;
     forceUnknown?: boolean;
     errorCode?: string;
-    persistDurableResult?: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<{ assistantMessageId?: string | null }>;
+    persistDurableResult?: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<void> {
     const now = input.now ?? await this.databaseNow();
     await this.db.$transaction(async (tx) => {
@@ -797,9 +846,10 @@ export class VeraPrismaAdmissionService {
       if (request.settlementDeadlineAt && request.settlementDeadlineAt > now && !input.missingStage && !input.forceUnknown) return;
 
       const stageCandidate = await tx.aiRequestResultStage.findUnique({ where: { requestId: request.id } });
-      const stageIsEligible = stageCandidate?.state === AiResultStageState.available
+      const stageIsEligible = !input.forceUnknown
+        && stageCandidate?.state === AiResultStageState.available
         && stageCandidate.expiresAt > now;
-      if (stageCandidate && stageIsEligible) {
+      if (stageCandidate) {
         await tx.$queryRaw`SELECT id FROM ai_request_result_stages WHERE id = ${stageCandidate.id}::uuid FOR UPDATE`;
       }
       const stage = stageIsEligible ? stageCandidate : null;
@@ -809,16 +859,25 @@ export class VeraPrismaAdmissionService {
         // durably persisted, and only then consume stage/accounting CAS; an
         // accounting-only success would lose the learner-visible result.
         const normalizedResult = await this.decodeStagedResult(stage);
-        await this.finalizeLockedRequest({
-          tx,
-          request,
-          daily,
-          stage,
-          normalizedResult,
-          now,
-          persistDurableResult: input.persistDurableResult ?? (async () => ({})),
-        });
-        return;
+        const callback = input.persistDurableResult
+          ?? (this.envelope ? createVeraDurableResultCallback({ requestId: request.id, envelope: this.envelope }) : null);
+        if (callback) {
+          try {
+            await this.finalizeLockedRequest({
+              tx,
+              request,
+              daily,
+              stage,
+              normalizedResult,
+              now,
+              persistDurableResult: callback,
+            });
+            return;
+          } catch (error) {
+            if (!(error instanceof VeraDurableResultError)
+              || !["durable_callback_missing", "durable_callback_mismatch"].includes(error.code)) throw error;
+          }
+        }
       }
       const reserved = request.quotaUnitsReserved;
       const actual = reserved;
@@ -858,6 +917,13 @@ export class VeraPrismaAdmissionService {
         },
       });
       if (finalized.count !== 1) throw new VeraAdmissionError({ code: "request_cas_conflict", status: 409 });
+      if (stageCandidate?.state === AiResultStageState.available) {
+        const discarded = await tx.aiRequestResultStage.updateMany({
+          where: { id: stageCandidate.id, version: stageCandidate.version, state: AiResultStageState.available },
+          data: { state: AiResultStageState.consumed, resultKind: AiResultKind.discarded, consumedAt: now, version: { increment: 1 } },
+        });
+        if (discarded.count !== 1) throw new VeraAdmissionError({ code: "stage_cas_conflict", status: 409 });
+      }
       const terminalKey = await tx.aiIdempotencyKey.updateMany({
         where: { id: request.idempotencyKeyId, version: request.idempotencyKey.version, state: AiIdempotencyState.accepted, resultId: request.id },
         data: { terminalAt: now, lastSeenAt: now, version: { increment: 1 } },

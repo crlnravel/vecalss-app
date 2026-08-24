@@ -54,7 +54,7 @@ export type VeraAdmissionInput = {
   studentId: string;
   conversationId: string;
   clientRequestId: string;
-  kind?: "chat";
+  kind?: "chat" | "studio";
   text: string;
   selection?: VeraContextSelection[];
   options?: Record<string, unknown>;
@@ -137,6 +137,7 @@ export type VeraRequestStatusDto = {
   resultState: "pending" | "staged" | "committed" | "unavailable" | "rejected" | "expired";
   errorCode: string | null;
   result: { text: string | null; citationKeys: string[] } | null;
+  artifact?: { id: string; artifactType: string; revision: number } | null;
   usage: {
     quotaUnitsReserved: number;
     quotaUnitsConsumed: number;
@@ -422,6 +423,7 @@ export class VeraAdmissionService {
 
     try {
       const pack = await prepareContextPack({
+        studentId: input.studentId,
         selection: input.selection ?? [],
         userText: input.text,
         policyVersion: snapshot.bundleVersion,
