@@ -12,7 +12,11 @@ const [builder, repository, sourceRepository, createRoute, editRoute, catalogue]
 const assessmentRelease = await readFile(new URL("../lib/tryout/assessment-release.ts", import.meta.url), "utf8");
 
 assert.match(builder, /Pilih langsung/u, "Tryout Questions must expose direct selection");
-assert.match(builder, /Set Ready/u, "Tryout Questions must expose optional saved Set selection");
+assert.doesNotMatch(builder, /Set Ready|Pool Soal|Blueprint|CAT Pool/u, "Tryout Questions must expose only direct selection");
+assert.doesNotMatch(builder, /Behavior &amp; rules|question-selection-mode|DropdownMenuRadioGroup|<Switch/u, "authoring must not expose CAT or source-mode controls");
+assert.match(builder, /<Checkbox/u, "direct selection must use a checklist");
+assert.match(builder, /toggleDirectQuestion/u, "checking a source question must add or remove it from the active Section");
+assert.match(builder, /shuffleItems: true/u, "new and saved sections must randomize question order");
 assert.match(builder, /listQuestionBankSourcePageAction/u, "direct selection must browse source Banks through the server action");
 assert.match(builder, /listQuestionBankSourceQuestionsAction/u, "direct selection must load Ready questions through the server action");
 assert.match(builder, /directQuestions/u, "the draft must carry direct question selections");
