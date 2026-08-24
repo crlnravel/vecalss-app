@@ -1,3 +1,10 @@
+model = "gpt-5.6-luna"
+model_reasoning_effort = "max"
+
+[agents]
+default_subagent_model = "gpt-5.6-luna"
+default_subagent_reasoning_effort = "max"
+
 [mcp_servers.shadcn]
 command = "npx"
 args = ["shadcn@latest", "mcp"]

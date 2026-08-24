@@ -728,6 +728,104 @@ function QuestionBankInventory({
   );
 }
 
+function QuestionBankMobileInventory({
+  activeQuestionId,
+  builderState,
+  isDisabled,
+  onAddQuestion,
+  onOpenQuestion,
+  readiness,
+}: {
+  activeQuestionId: string | null;
+  builderState: { questions: BankQuestion[] };
+  isDisabled: boolean;
+  onAddQuestion: () => void;
+  onOpenQuestion: (questionId: string) => void;
+  readiness: QuestionBankReadiness;
+}) {
+  const activeIndex = builderState.questions.findIndex(
+    (question) => question.id === activeQuestionId,
+  );
+  const activeQuestion = builderState.questions[activeIndex] ?? builderState.questions[0];
+  const incompleteCount = readiness.incompleteCount;
+
+  return (
+    <div className="border-b border-primary-100 bg-white px-3 py-3 shadow-xs md:hidden">
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Pilih soal yang sedang diedit"
+            render={
+              <Button
+                className="min-w-0 flex-1 justify-between text-left"
+                disabled={builderState.questions.length === 0}
+                type="button"
+                variant="context"
+              />
+            }
+          >
+            <span className="min-w-0 truncate">
+              {activeQuestion
+                ? `${activeIndex + 1}. ${activeQuestion.prompt || "Soal tanpa pertanyaan"}`
+                : "Belum ada soal"}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-secondary-400" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="max-h-[60vh] w-[calc(100vw-4.5rem)] max-w-sm overflow-y-auto"
+          >
+            <DropdownMenuLabel>Pilih soal</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              onValueChange={onOpenQuestion}
+              value={activeQuestionId ?? undefined}
+            >
+              {builderState.questions.map((question, index) => {
+                const issueCount = readiness.issues.filter(
+                  (issue) => issue.questionId === question.id,
+                ).length;
+                return (
+                  <DropdownMenuRadioItem key={question.id} value={question.id}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="w-5 shrink-0 text-xs font-semibold text-secondary-500">
+                        {index + 1}.
+                      </span>
+                      <span className="min-w-0 truncate">
+                        {question.prompt || "Soal tanpa pertanyaan"}
+                      </span>
+                      {issueCount > 0 ? (
+                        <span className="shrink-0 text-xs font-semibold text-amber-700">
+                          {issueCount} masalah
+                        </span>
+                      ) : null}
+                    </span>
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          aria-label="Tambah soal"
+          disabled={isDisabled}
+          onClick={onAddQuestion}
+          size="icon-sm"
+          type="button"
+          variant="brandOutline"
+        >
+          <Plus />
+        </Button>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-secondary-500">
+        <span>{builderState.questions.length} soal di bank</span>
+        <span className={incompleteCount > 0 ? "font-semibold text-amber-700" : undefined}>
+          {incompleteCount > 0 ? `${incompleteCount} perlu diperbaiki` : "Semua siap"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function QuestionBankOrganizationPanel({
   builderState,
   categories,
@@ -1043,8 +1141,8 @@ function QuestionBankBuilderScreen({
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-secondary-50/40">
       {/* Full page editor top header */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-primary-100 bg-white px-4 md:px-6 shadow-xs z-10">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-white px-3 py-2 shadow-xs md:h-14 md:flex-nowrap md:px-6 md:py-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           <Button
             aria-label="Kembali ke detail bank soal"
             nativeButton={false}
@@ -1056,8 +1154,8 @@ function QuestionBankBuilderScreen({
             <span className="hidden sm:inline font-medium">Kembali ke Detail</span>
           </Button>
           <div className="h-5 w-px bg-primary-100" />
-          <div className="flex items-center gap-2.5 min-w-0">
-            <h1 className="text-base font-bold text-secondary-900 truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">
               {builderState.title || "Bank Soal"}
             </h1>
             <span className={cn(
@@ -1087,7 +1185,7 @@ function QuestionBankBuilderScreen({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto">
           <Button
             aria-label="Simpan"
             disabled={state.isSaving || state.isMetadataLocked}
@@ -1183,6 +1281,15 @@ function QuestionBankBuilderScreen({
           </p>
         </div>
       ) : null}
+
+      <QuestionBankMobileInventory
+        activeQuestionId={state.activeQuestionId}
+        builderState={builderState}
+        isDisabled={state.isQuestionContentLocked}
+        onAddQuestion={actions.addQuestion}
+        onOpenQuestion={actions.onOpenQuestion}
+        readiness={state.readiness}
+      />
 
       {/* Main Full Page Workspace */}
       <div className="flex flex-1 min-h-0 overflow-hidden">

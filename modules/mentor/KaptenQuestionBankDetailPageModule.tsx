@@ -605,7 +605,7 @@ function KaptenQuestionBankDetailPageModule({
           </div>
 
           {/* Taxonomy & Organization with Editable Pickers */}
-          <div className="grid gap-5 rounded-xl border border-primary-100 bg-primary-50/30 p-4 sm:p-5 sm:grid-cols-3">
+          <div className="grid gap-5 rounded-xl border border-primary-100 bg-primary-50/30 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
             {/* Folder Selection */}
             <div>
               <span className="text-xs font-semibold text-secondary-500">Folder</span>
@@ -729,7 +729,7 @@ function KaptenQuestionBankDetailPageModule({
 
       {/* Soal-soal Section in the Bottom with Prominent Editor Button */}
       <section className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary-100 bg-white p-4 shadow-xs sm:p-5">
+        <div className="flex flex-col items-start gap-4 rounded-xl border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
@@ -748,7 +748,7 @@ function KaptenQuestionBankDetailPageModule({
           {/* Button on top of soal summary to go to the editor */}
           <Button
             aria-label="Buka Editor Soal"
-            className="shadow-sm"
+            className="w-full shadow-sm sm:w-auto"
             nativeButton={false}
             render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
             size="default"
@@ -790,7 +790,7 @@ function KaptenQuestionBankDetailPageModule({
                   className="rounded-xl border border-primary-100 bg-white p-4 shadow-xs transition-shadow hover:border-primary-200 hover:shadow-sm sm:p-5"
                   key={question.id}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-primary-100/70 pb-4">
+                  <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">
                         {index + 1}
@@ -821,7 +821,7 @@ function KaptenQuestionBankDetailPageModule({
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
-                          <span className="flex size-3.5 items-center justify-center rounded-full border border-amber-600 text-[10px] font-bold">
+                          <span className="flex size-3.5 items-center justify-center rounded-full border border-amber-600 text-xs font-bold">
                             !
                           </span>
                           Belum lengkap ({questionIssues.length} masalah)
@@ -838,6 +838,7 @@ function KaptenQuestionBankDetailPageModule({
                         />
                       }
                       size="sm"
+                      className="self-start"
                       variant="brandOutline"
                     >
                       <Pencil data-icon="inline-start" />

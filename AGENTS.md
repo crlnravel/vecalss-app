@@ -52,6 +52,13 @@ Once harness is set up:
 2. Classify the task
 3. Load only the minimum relevant documents from `_harness/`
 
+### Model and subagent policy
+
+- The project default for the main agent and every delegated subagent is exact `gpt-5.6-luna` with reasoning effort `max`.
+- Do not silently use `gpt-5.6-sol`, `gpt-5.6`, Terra, or any other non-Luna model. The unsuffixed `gpt-5.6` alias is not an acceptable substitute because it routes to Sol.
+- If a runtime, orchestration tool, or user request selects any model other than exact `gpt-5.6-luna`, stop before starting or continuing that agent and request explicit permission from the user for that model in the current task.
+- If the selected model cannot be verified, treat it as non-Luna and request permission. See `_harness/rules.md` for the durable delegation rule.
+
 ### Routing
 
 - Project overview → `_harness/readme.md`

@@ -10,6 +10,15 @@ description: Constraints, boundaries, and evolution rules
 
 **Default: high autonomy.** Agents should execute without asking unless a confirmation gate applies.
 
+## Model and delegation policy
+
+The default model for this project and all delegated workers is exact `gpt-5.6-luna` with reasoning effort `max`.
+
+- Every subagent/delegated worker must be started with `gpt-5.6-luna` and `max` reasoning when the runtime exposes those controls.
+- Any model other than exact `gpt-5.6-luna` requires explicit user permission before the agent is started or continued. This includes `gpt-5.6-sol`, the unsuffixed `gpt-5.6` alias, Terra, older models, and unverified model names.
+- Never infer permission from a prior task, a default supplied by the runtime, or a model that appears capable enough. Ask in the current task and name the requested model.
+- If the runtime cannot guarantee or report the selected model, fail closed: do not delegate until the user approves proceeding without verification.
+
 ### Branch-aware confirmation gates
 
 - **Feature branches:** Full autonomy. Breaking changes are acceptable.
