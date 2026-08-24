@@ -10,6 +10,20 @@ description: Constraints, boundaries, and evolution rules
 
 **Default: high autonomy.** Agents should execute without asking unless a confirmation gate applies.
 
+## Multi-agent ownership
+
+Parallel work is supported only when each active agent has a clearly separated
+feature, ticket, or file boundary. The orchestrator's active roles and ownership
+messages are authoritative; do not invent overlapping ownership or silently
+take over another agent's files.
+
+- Before editing a file that may be in another agent's scope, check ownership
+  and message the owner.
+- In a shared worktree, preserve unrelated dirty changes and do not rewrite,
+  revert, or stage them without the owner's direction.
+- Keep each commit limited to the logical unit owned by that agent; report any
+  unavoidable overlap in the handoff.
+
 ## Model and delegation policy
 
 The default model for this project and all delegated workers is exact `gpt-5.6-luna` with reasoning effort `max`.
@@ -96,8 +110,16 @@ The default model for this project and all delegated workers is exact `gpt-5.6-l
 
 ### Tooling
 
-- Use **pnpm 10** exclusively — never npm or yarn
+- Use the pinned **pnpm 10** toolchain (`pnpm@10.33.0`) exclusively — never npm or yarn
 - Prefer the repository's package scripts over ad hoc commands
+- `pnpm dev` regenerates design tokens and starts Next on port `5023`.
+- `pnpm verify` is the normal completion gate (lint plus production build),
+  and the repository pre-commit hook runs it automatically.
+- There is no catch-all `pnpm test`; run the named `test:*` or `db:test-*`
+  script that covers the changed domain. Import-worker changes also require
+  `pnpm admin:imports-worker:check`.
+- `pnpm test:scalability` is Docker-backed and should be reserved for shared
+  Redis or multi-instance rate-limit changes.
 - This is strict TypeScript; consult installed Next.js 16 docs rather than assuming older Next patterns
 - Use the `@/` import alias
 

@@ -18,6 +18,14 @@ Run this at the beginning of every new session or agent handoff.
 6. If the build fails, fix it before starting new work — the codebase must be green at session start.
 7. Pick ONE unfinished feature or continue the active task. Do not work on multiple features simultaneously.
 
+### Shared-worktree coordination
+
+Before editing a file that may belong to another active agent, check the
+orchestrator's ownership messages and notify that owner. Preserve unrelated
+dirty changes; never use a reset, checkout, or broad revert to make the worktree
+convenient. If overlap is unavoidable, keep the change scoped and record the
+overlap in the handoff.
+
 ## Codebase exploration
 
 Use **codegraph** before diving into unfamiliar code. It maps module relationships, call chains, and dependencies faster than manual file reading.
@@ -118,6 +126,10 @@ Run the relevant named test script for the area changed:
 pnpm test:<area-name>
 ```
 
+There is no repository-wide `pnpm test` command. Choose the narrowest named
+script that exercises the changed contract; database-backed checks require the
+appropriate local database and environment variables.
+
 For import-worker changes, also run:
 
 ```bash
@@ -172,8 +184,13 @@ Run this at the end of every task or before handing off to another session/agent
 
 ### 3. Update memory
 
-- **Project memory** — Write any durable decisions, conventions, or lessons learned to `_harness/memory/project.md`. Only store development-emergent knowledge that cannot be reliably inferred from code or documentation.
-- **Agent local memory** — Update `_harness/memory/agents/<agent>.local.md` with current working state, then prune completed or obsolete notes.
+- **Project memory** — Write only settled architecture and workflow decisions
+  (plus development-emergent lessons that future agents must treat as project
+  truth) to `_harness/memory/project.md`. Do not duplicate product specs,
+  design docs, or commands already discoverable from the repository.
+- **Agent local memory** — Use `_harness/memory/agents/<agent>.local.md` for
+  active task context, assumptions, blockers, and next steps. Update it at
+  handoff, then prune it after the task completes or when notes become stale.
 - **GC** — Follow `_harness/gc/POLICY.md` for cleanup rules.
 
 ### 4. Commit tracking updates
