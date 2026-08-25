@@ -6,7 +6,7 @@ import {
   assertAssemblyAttachmentCompatibility,
 } from "../lib/tryout/assembly-validation";
 
-const [schema, migration, identityMigration, repository, assemblyRepository, actions, builder, editPage, createPage, seedAssessment] = await Promise.all([
+const [schema, migration, identityMigration, repository, assemblyRepository, actions, builder, detailPage, editorPage, resultsPage, detailModule, editorModule, resultsModule, createPage, seedAssessment] = await Promise.all([
   readFile(new URL("../prisma/schema.prisma", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260823100000_add_standalone_quiz_assembly_binding/migration.sql", import.meta.url), "utf8"),
   readFile(new URL("../prisma/migrations/20260823110000_pin_kuis_assembly_version_identity/migration.sql", import.meta.url), "utf8"),
@@ -15,6 +15,11 @@ const [schema, migration, identityMigration, repository, assemblyRepository, act
   readFile(new URL("../modules/mentor/quiz-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenQuizBuilderPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/quiz/[quizId]/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/quiz/[quizId]/editor/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/mentor/quiz/[quizId]/results/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenQuizDetailPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenQuizEditorPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenQuizResultsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/quiz/create/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../prisma/seed-assessment.mjs", import.meta.url), "utf8"),
 ]);
@@ -73,7 +78,7 @@ assert.match(identityMigration, /version_source_bank_id IS DISTINCT FROM scope_b
 
 assert.match(repository, /resolveReadyAssemblyForKuis/u);
 assert.match(repository, /expectedDefinitionDigest/u);
-assert.match(repository, /current\?\.assemblyPackageVersionId/u);
+assert.match(repository, /assemblyPackageVersionId/u);
 assert.match(repository, /sourceRevisionProvenance !== expected.sourceRevisionProvenance/u);
 assert.match(assemblyRepository, /recomputedDefinitionDigest/u);
 assert.match(assemblyRepository, /version\.package\.mode !== version\.mode/u);
@@ -81,8 +86,6 @@ assert.match(repository, /Soal langsung dan assembly tidak dapat dipakai bersama
 assert.doesNotMatch(repository, /if \(input\.status === "published" && input\.assemblyVersionId !== undefined\) validateForPublication\(input/u);
 assert.match(repository, /materializedAssembly\?: boolean/u);
 assert.match(repository, /!options\.materializedAssembly/u);
-assert.match(repository, /materializedAssembly: Boolean\(assembly\)/u);
-assert.match(repository, /materializedAssembly: Boolean\(record\.assemblyPackageVersionId\)/u);
 assert.match(assemblyRepository, /if \(definition\.mode === "fixed_set"\)[\s\S]*?version\.items\.map\(kuisItemFromVersionItem\)/u);
 assert.doesNotMatch(assemblyRepository, /if \(definition\.mode === "fixed_set" \|\| definition\.mode === "random_pool"\) \{\s*const candidates = version\.items\.map\(candidateFromVersionItem\);\s*await assertCandidates/u);
 assert.match(repository, /revalidateStoredBankItems/u);
@@ -90,41 +93,24 @@ assert.match(repository, /attachStandaloneQuizAssembly/u);
 assert.match(repository, /detachStandaloneQuizAssembly/u);
 assert.match(repository, /assemblyVersionId: record.assemblyPackageVersionId \?\? undefined/u);
 
-assert.match(actions, /listReadyKuisAssembliesAction/u);
-assert.match(actions, /attachStandaloneQuizAssemblyAction/u);
-assert.match(actions, /detachStandaloneQuizAssemblyAction/u);
-assert.match(builder, /assemblyVersionId/u);
-assert.doesNotMatch(builder, /KuisAssemblySourcePicker/u, "Kuis authoring must not render the temporary assembly source picker");
-assert.doesNotMatch(builder, /kuis-assembly-source/u, "Kuis authoring must not expose the hidden assembly dropdown");
-assert.doesNotMatch(builder, /Assembly Ready \(opsional\)/u, "Kuis authoring must not expose the temporary assembly explanation");
-assert.match(builder, /Pilih soal/u, "direct Bank Soal controls must remain available");
-assert.match(builder, /Soal lokal/u, "direct/local question creation must remain available");
-assert.match(builder, /actions\.addBankQuestion/u, "direct Bank Soal question insertion must remain available");
-assert.match(builder, /actions\.onSetAddingLocalQuestion/u, "local question controls must remain available");
-assert.match(builder, /Assembly terpasang[\s\S]*?Lepaskan assembly/u, "persisted assembly bindings must retain a visible detach path");
-assert.match(builder, /detachStandaloneQuizAssemblyAction/u);
-assert.match(builder, /onPersistAssemblyDetach/u);
-assert.match(builder, /setSavedQuiz\(result\.quiz\)/u);
-assert.match(builder, /preserveDirtyState/u);
-assert.match(builder, /markChanged: persisted !== "clean"/u);
-assert.match(builder, /contentElement="div"/u);
-assert.match(builder, /selectedAssembly && !selectedAssembly\.readiness\.ready/u, "existing assembly readiness validation must remain server/UI guarded");
-assert.match(builder, /mode === "create" \? "Buat Kuis" : "Edit Kuis"/u, "quiz detail must use the concise editor title");
-assert.match(builder, /<FullWidthLineTabsList/u, "quiz editor must use the full-width workspace tab variant");
-assert.doesNotMatch(builder, /<div className="max-w-full overflow-x-auto pb-1">[\s\S]*?<TabsList/u, "workspace tabs must not use the compact horizontal scroller");
-assert.match(builder, /aria-label="Terbitkan Kuis"/u, "draft publish must remain a top-level action");
-assert.match(builder, /aria-label="Batalkan publikasi Kuis"/u, "published quizzes must retain a top-level unpublish action");
-assert.doesNotMatch(builder, /<DropdownMenuContent[\s\S]*?Terbitkan/u, "publish must remain outside the overflow menu");
-assert.doesNotMatch(builder, /<DropdownMenuContent[\s\S]*?Batalkan publikasi/u, "unpublish must remain outside the overflow menu");
-assert.doesNotMatch(builder, /<DropdownMenuSeparator\s*\/>/u, "the overflow menu must not separate delete with a divider");
-assert.match(builder, /<DropdownMenuTrigger render=\{<Button aria-label="Aksi Kuis"/u, "archive/delete must use the icon-only overflow action");
-assert.match(builder, /<DropdownMenuContent[\s\S]*?onClick=\{\(\) => actions\.onLifecycle\("archive"\)\}[\s\S]*?Arsipkan/u, "archive must remain in the overflow menu");
-assert.match(builder, /<DropdownMenuItem disabled variant="destructive"><Trash2 \/>Hapus<\/DropdownMenuItem>/u, "delete must remain the disabled destructive overflow action");
-assert.equal((builder.match(/aria-label="Kembali mengedit"/gu) ?? []).length, 1, "preview must expose one labeled back control");
-assert.match(builder, /state\.isPreviewOpen \? <Button aria-label="Kembali mengedit" onClick=\{actions\.onClosePreview\}[\s\S]*?<ChevronLeft \/>/u, "preview back must use the page-level chevron");
-assert.doesNotMatch(builder, /<Button[^>]*onClick=\{actions\.onClosePreview\}[^>]*>Kembali mengedit<\/Button>/u, "preview must not duplicate the back action inside the card");
-assert.match(editPage, /readyAssemblies=\{readyAssemblies\}/u);
-assert.match(createPage, /readyAssemblies=\{readyAssemblies\}/u);
+assert.doesNotMatch(actions, /assembly|readyAssembl/u, "Kuis mutations must not expose Bank Soal or Ready assembly actions");
+assert.doesNotMatch(builder, /Bank Soal|assembly|Ready/u, "legacy Kuis builder compatibility export must not expose source assembly UI");
+assert.match(detailPage, /parseTab/u);
+assert.match(detailPage, /getMentorStandaloneQuizResults/u);
+assert.match(editorPage, /KaptenQuizEditorPageModule/u);
+assert.match(resultsPage, /redirect\(.*tab=hasil/u);
+assert.match(detailModule, /Preview Soal/u);
+assert.match(detailModule, /Hasil/u);
+assert.match(detailModule, /Pengaturan/u);
+assert.match(detailModule, /FullWidthLineTabsList/u);
+assert.match(detailModule, /KaptenQuizResultsContent/u);
+assert.match(detailModule, /\/editor/u);
+assert.match(editorModule, /QuestionInventory/u);
+assert.match(editorModule, /MediaPickerDialog/u);
+assert.match(editorModule, /beforeunload/u);
+assert.match(editorModule, /pendingDeleteId/u);
+assert.match(resultsModule, /KaptenQuizResultsContent/u);
+assert.match(createPage, /KaptenQuizEditorPageModule/u);
 assert.match(assemblyRepository, /expectedDefinitionDigest: version\.definitionDigest/u);
 assert.match(assemblyRepository, /Definition assembly tidak lagi cocok dengan versi Ready/u);
 assert.match(assemblyRepository, /if \(!report\.readiness\.ready\) throwIssue/u);

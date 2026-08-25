@@ -29,7 +29,7 @@ function KaptenQuizSubmissionPageModule({ submission }: { submission: Submission
   const isSubmitted = submission.status !== "in_progress";
 
   return <div>
-    <Button aria-label="Kembali ke hasil quiz" render={<Link href={`/mentor/quiz/${submission.quiz.id}/results`} />} size="icon" title="Kembali ke hasil quiz" variant="ghost"><ChevronLeft /></Button>
+    <Button aria-label="Kembali ke hasil Kuis" render={<Link href={`/mentor/quiz/${submission.quiz.id}?tab=hasil`} />} size="icon" title="Kembali ke hasil Kuis" variant="ghost"><ChevronLeft /></Button>
     <header className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3"><h1 className="text-3xl font-semibold tracking-[-0.03em] text-secondary-900">{submission.student.name}</h1><Badge className={cn("rounded-full px-3 py-1.5 text-xs", isSubmitted ? "bg-primary-50 text-primary-800" : "bg-accent-200 text-secondary-900")} size="ui" variant={isSubmitted ? "mint" : "accent"}>{isSubmitted ? "Terkirim" : "Sedang dikerjakan"}</Badge></div>
       <dl className="mt-6 grid gap-4 border-t border-primary-100 pt-5 text-sm sm:grid-cols-3"><div><dt className="text-secondary-500">Quiz</dt><dd className="mt-1 font-semibold text-secondary-900">{submission.quiz.title}</dd></div><div><dt className="text-secondary-500">Mulai</dt><dd className="mt-1 font-semibold text-secondary-900"><time dateTime={submission.createdAt}>{dateTime.format(new Date(submission.createdAt))}</time></dd></div><div><dt className="text-secondary-500">Skor</dt><dd className="mt-1 font-semibold tabular-nums text-secondary-900">{isSubmitted ? submission.score ?? 0 : "Belum dihitung"}</dd></div></dl>
