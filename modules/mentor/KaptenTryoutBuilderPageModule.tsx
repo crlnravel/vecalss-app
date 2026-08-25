@@ -188,13 +188,13 @@ const publishedWorkspacePhases: WorkspacePhaseDefinition[] = [
   },
 ];
 
-const lifecyclePhaseOrder: Array<{ label: string; value: WorkspacePhase; summary: string }> = [
-  { label: "Overview", summary: "Identitas Tryout", value: "overview" },
-  { label: "Build", summary: "Susun konten", value: "build" },
-  { label: "Review & Publish", summary: "Siapkan versi", value: "review_publish" },
-  { label: "Delivery", summary: "Akses & sesi", value: "delivery" },
-  { label: "Operations", summary: "Pantau & tangani", value: "operations" },
-  { label: "Results", summary: "Scoring & rilis", value: "results" },
+const lifecyclePhaseOrder: Array<{ label: string; value: WorkspacePhase }> = [
+  { label: "Overview", value: "overview" },
+  { label: "Build", value: "build" },
+  { label: "Review & Publish", value: "review_publish" },
+  { label: "Delivery", value: "delivery" },
+  { label: "Operations", value: "operations" },
+  { label: "Results", value: "results" },
 ];
 
 function lifecyclePhasesForMode(mode: WorkflowMode) {
@@ -880,31 +880,28 @@ function KaptenTryoutBuilderPageModule({
           <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
         </section>
       ) : null}
-      <nav aria-label="Fase lifecycle Tryout" className="mt-6 grid gap-2 sm:grid-cols-3">
-        {lifecyclePhases.map((phase) => {
-          const active = activePhase === phase.value;
-          const available = visiblePhaseDefinitions.some((definition) => definition.value === phase.value);
-          const phaseIndex = lifecyclePhaseOrder.findIndex((candidate) => candidate.value === phase.value);
-          const activeIndex = lifecyclePhaseOrder.findIndex((candidate) => candidate.value === activePhase);
-          const completed = available && activeIndex > phaseIndex;
-          return (
-            <Button
-              aria-current={active ? "step" : undefined}
-              aria-label={available ? phase.label : `${phase.label} terkunci`}
-              className={`h-auto min-h-14 justify-start rounded-2xl border px-3 py-2.5 text-left ${active ? "border-primary-500 bg-primary-700 text-white hover:bg-primary-800" : available ? "border-primary-100 bg-white text-secondary-700 hover:bg-primary-50" : "border-primary-100 bg-secondary-50/70 text-secondary-400"}`}
-              disabled={!available}
-              key={phase.value}
-              onClick={() => goTo(phaseStartWorkspace(phase.value, mode))}
-              variant="ghost"
-            >
-              <span className="grid gap-0.5">
-                <span className="flex items-center gap-1.5 font-semibold">{completed ? <Check aria-hidden="true" className="size-4" /> : null}{phase.label}{!available ? <Lock aria-hidden="true" className="size-3.5" /> : null}</span>
-                <span className={`text-xs font-normal leading-4 ${active ? "text-white/80" : available ? "text-secondary-500" : "text-secondary-400"}`}>{available ? phase.summary : mode === "draft" ? "Selesaikan langkah sebelumnya" : "Belum tersedia"}</span>
-              </span>
-            </Button>
-          );
-        })}
-      </nav>
+      <Tabs
+        className="mt-6 min-w-0"
+        onValueChange={(value) => goTo(phaseStartWorkspace(value as WorkspacePhase, mode))}
+        value={activePhase}
+      >
+        <FullWidthLineTabsList aria-label="Fase lifecycle Tryout">
+          {lifecyclePhases.map((phase) => {
+            const available = visiblePhaseDefinitions.some((definition) => definition.value === phase.value);
+            return (
+              <FullWidthLineTabsTrigger
+                aria-label={available ? phase.label : `${phase.label} terkunci`}
+                disabled={!available}
+                key={phase.value}
+                value={phase.value}
+              >
+                {phase.label}
+                {!available ? <Lock aria-hidden="true" className="size-3.5" /> : null}
+              </FullWidthLineTabsTrigger>
+            );
+          })}
+        </FullWidthLineTabsList>
+      </Tabs>
 
       <Tabs className="mt-4 min-w-0" onValueChange={changeWorkspace} value={workspace}>
         {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
@@ -1110,11 +1107,11 @@ function KaptenTryoutBuilderPageModule({
       </Tabs>
 
       {mode === "draft" && workspace !== "review" ? (
-        <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-end gap-3 bg-white/95 px-1 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/85" aria-label="Tindakan langkah Tryout">
+        <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4" aria-label="Tindakan langkah Tryout">
           <div className="flex flex-wrap justify-end gap-2">
             {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button> : null}
-            {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-            {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+            {!draft.locked && workspace === "basics" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+            {!draft.locked && workspace === "sections" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
           </div>
         </footer>
       ) : mode === "published" ? (
