@@ -14,11 +14,17 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Field,
   FieldInput,
   FieldLabel,
 } from "@/components/ui/field";
-import { fieldControlClassName } from "@/components/ui/field-constants";
 import { MATERI_DOCUMENT_MIME_TYPE } from "@/lib/materi/contract";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -148,12 +154,7 @@ function MateriBuilderHeader({
   const { isArchived, isPreviewOpen, isSaving } = headerState;
 
   return (
-    <section
-      className={cn(
-        "rounded-[28px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] md:p-7",
-        isPreviewOpen ? "flex flex-wrap items-center justify-between gap-4" : "space-y-5",
-      )}
-    >
+    <section className={cn("flex flex-wrap items-start justify-between gap-6", isPreviewOpen && "items-center")}>
       {isPreviewOpen ? (
         <div className="flex min-w-0 items-center gap-4">
           <Button onClick={() => onPreviewChange(false)} type="button" variant="brandOutline">
@@ -225,6 +226,8 @@ function MateriBuilderEditor({
   selectedSubjectName: string;
   subjects: KaptenMateriSubjectView[];
 }) {
+  const selectedSubjectOption = subjects.find((subject) => subject.slug === builderState.subjectSlug);
+
   return isPreviewOpen ? (
     <section aria-live="polite" className="max-w-4xl rounded-[28px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:p-7">
       <MateriLessonPresentation
@@ -261,21 +264,30 @@ function MateriBuilderEditor({
         <div className="grid gap-5 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
           <Field>
             <FieldLabel htmlFor="materi-subject">Subject</FieldLabel>
-            <div className="relative">
-              <select
-                aria-label="Subject"
+            <DropdownMenu>
+              <DropdownMenuTrigger
                 aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined}
                 aria-invalid={Boolean(errors.subjectSlug)}
-                className={`${fieldControlClassName} appearance-none pr-12`}
-                id="materi-subject"
+                aria-label="Subject"
                 disabled={isArchived}
-                onChange={(event) => onFieldChange("subjectSlug", event.target.value)}
-                value={builderState.subjectSlug}
+                id="materi-subject"
+                render={<Button className={cn("h-12 w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 text-left text-sm font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40", errors.subjectSlug && "border-student-status-danger-border")} variant="context" />}
               >
-                {subjects.map((subject) => <option key={subject.slug} value={subject.slug}>{subject.code} · {subject.name}</option>)}
-              </select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-4 -translate-y-1/2 text-secondary-400" />
-            </div>
+                <span className="truncate">
+                  {selectedSubjectOption ? `${selectedSubjectOption.code} · ${selectedSubjectOption.name}` : "Pilih subject"}
+                </span>
+                <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-secondary-500" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-(--anchor-width)">
+                <DropdownMenuRadioGroup onValueChange={(value) => onFieldChange("subjectSlug", value)} value={builderState.subjectSlug}>
+                  {subjects.map((subject) => (
+                    <DropdownMenuRadioItem closeOnClick key={subject.slug} value={subject.slug}>
+                      {subject.code} · {subject.name}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <FieldError error={errors.subjectSlug} id="materi-subject-error" />
           </Field>
           <Field>
