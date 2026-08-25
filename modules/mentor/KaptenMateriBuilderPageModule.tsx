@@ -427,9 +427,7 @@ function MateriBuilderEditor({
   errors,
   isArchived,
   isPreviewOpen,
-  onDocumentSourceChange,
   onFieldChange,
-  onHostedDocumentChange,
   onOpenPicker,
   onSave,
   readiness,
@@ -441,9 +439,7 @@ function MateriBuilderEditor({
   errors: MateriBuilderErrors;
   isArchived: boolean;
   isPreviewOpen: boolean;
-  onDocumentSourceChange: (source: MateriDocumentSource) => void;
   onFieldChange: (field: keyof MateriBuilderState, value: string) => void;
-  onHostedDocumentChange: (value: string) => void;
   onOpenPicker: () => void;
   onSave: () => void;
   readiness: "ready" | "incomplete";
@@ -523,72 +519,27 @@ function MateriBuilderEditor({
       <section className="space-y-5 rounded-[24px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:p-6">
         <div>
           <h2 className="text-xl font-bold tracking-[-0.025em] text-secondary-900">Bacaan PDF</h2>
-          <p className="mt-1 max-w-[62ch] text-sm leading-6 text-secondary-500">Satu PDF wajib dipilih dari Media Kapten atau diberikan sebagai URL hosted.</p>
         </div>
 
-        <div aria-label="Sumber PDF" className="grid gap-2 sm:grid-cols-2" role="radiogroup">
-          {["managed", "hosted"].map((source) => {
-            const typedSource = source as MateriDocumentSource;
-            const isSelected = builderState.documentSource === typedSource;
-            return (
-              <button
-                aria-checked={isSelected}
-                className={cn(
-                  "flex min-h-14 items-center justify-between rounded-2xl border px-4 text-left text-sm font-bold transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-                  isSelected
-                    ? "border-primary-500 bg-primary-50 text-primary-900 shadow-[0_12px_24px_-20px_rgba(1,76,56,0.55)]"
-                    : "border-primary-100 bg-white text-secondary-700 hover:border-primary-300 hover:bg-primary-50/40",
-                )}
-                key={typedSource}
-                disabled={isArchived}
-                onClick={() => onDocumentSourceChange(typedSource)}
-                role="radio"
-                type="button"
-              >
-                <span>{typedSource === "managed" ? "Media Kapten" : "URL hosted"}</span>
-                <span aria-hidden="true" className={cn("size-2.5 rounded-full", isSelected ? "bg-primary-700" : "bg-secondary-200")} />
-              </button>
-            );
-          })}
-        </div>
-
-        {builderState.documentSource === "managed" ? (
-          <div className="space-y-4 rounded-2xl border border-primary-100 bg-primary-50/45 p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-primary-800 ring-1 ring-primary-100">
-                  <FileText className="size-5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-secondary-900">{selectedDocumentName}</p>
-                  <p className="mt-1 text-xs leading-5 text-secondary-500">
-                    {builderState.documentAssetId ? "PDF managed dipilih dari Media Kapten." : "Belum ada PDF managed yang dipilih."}
-                  </p>
-                </div>
+        <div className="space-y-4 rounded-2xl border border-primary-100 bg-primary-50/45 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-primary-800 ring-1 ring-primary-100">
+                <FileText className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-secondary-900">{selectedDocumentName}</p>
+                <p className="mt-1 text-xs leading-5 text-secondary-500">
+                  {builderState.documentAssetId ? "PDF dipilih dari Media Kapten." : "Belum ada PDF yang dipilih."}
+                </p>
               </div>
-              <Button disabled={isArchived} onClick={onOpenPicker} size="sm" type="button" variant="brandOutline">
-                {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
-              </Button>
             </div>
-            <FieldError error={errors.documentAssetId || errors.documentMimeType} id="materi-document-error" />
+            <Button disabled={isArchived} onClick={onOpenPicker} size="sm" type="button" variant="brandOutline">
+              {builderState.documentAssetId ? "Ganti PDF" : "Pilih PDF"}
+            </Button>
           </div>
-        ) : (
-          <Field>
-            <FieldLabel htmlFor="materi-document-url">URL PDF hosted</FieldLabel>
-            <FieldInput
-              aria-describedby={errors.documentUrl ? "materi-document-url-error" : undefined}
-              aria-invalid={Boolean(errors.documentUrl)}
-              disabled={isArchived}
-              id="materi-document-url"
-              onChange={(event) => onHostedDocumentChange(event.target.value)}
-              placeholder="https://contoh.com/materi.pdf"
-              type="url"
-              value={builderState.documentUrl}
-            />
-            <p className="text-xs leading-5 text-secondary-500">Gunakan URL HTTP(S) yang mengarah ke PDF. URL tanpa akhiran .pdf perlu metadata PDF dari sumbernya.</p>
-            <FieldError error={errors.documentUrl || errors.documentMimeType} id="materi-document-url-error" />
-          </Field>
-        )}
+          <FieldError error={errors.documentAssetId || errors.documentMimeType} id="materi-document-error" />
+        </div>
       </section>
 
       <section className="space-y-5 rounded-[24px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:p-6">
@@ -730,24 +681,6 @@ function KaptenMateriBuilderPageModule({
   function updateField(field: keyof MateriBuilderState, value: string) {
     setBuilderState((current) => ({ ...current, [field]: value }));
     markChanged({ ...errors, [field]: undefined });
-  }
-
-  function switchDocumentSource(source: MateriDocumentSource) {
-    if (builderState.documentSource === source) return;
-    setBuilderState((current) => ({
-      ...current,
-      documentAssetId: source === "managed" ? current.documentAssetId : "",
-      documentMimeType: "",
-      documentName: "",
-      documentSource: source,
-      documentUrl: source === "hosted" ? current.documentUrl : "",
-    }));
-    markChanged({
-      ...errors,
-      documentAssetId: undefined,
-      documentMimeType: undefined,
-      documentUrl: undefined,
-    });
   }
 
   function selectManagedDocument(asset: MediaAssetDto) {
@@ -913,17 +846,7 @@ function KaptenMateriBuilderPageModule({
           errors={errors}
           isArchived={isArchived}
           isPreviewOpen={isPreviewOpen}
-          onDocumentSourceChange={switchDocumentSource}
           onFieldChange={updateField}
-          onHostedDocumentChange={(value) => {
-            setBuilderState((current) => ({
-              ...current,
-              documentMimeType: value === current.documentUrl ? current.documentMimeType : "",
-              documentName: value === current.documentUrl ? current.documentName : "",
-              documentUrl: value,
-            }));
-            markChanged({ ...errors, documentUrl: undefined });
-          }}
           onOpenPicker={() => updateEditor({ isPickerOpen: true })}
           onSave={() => void saveLesson()}
           readiness={readiness}
