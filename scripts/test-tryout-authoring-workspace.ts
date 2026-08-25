@@ -39,6 +39,7 @@ for (const label of [
 
 assert.match(workspace, /const draftWorkspacePhases/u, "draft navigation must be grouped into lifecycle phases");
 assert.match(workspace, /const publishedWorkspacePhases/u, "published navigation must be grouped into lifecycle phases");
+assert.match(workspace, /const publishedWorkspacePhases[\s\S]*label: "Overview",\s*value: "overview"[\s\S]*label: "Delivery"/u, "published navigation must expose Overview before Delivery");
 assert.match(workspace, /const lifecyclePhaseOrder/u, "the lifecycle roadmap must preserve orientation while future phases are locked");
 assert.match(workspace, /function lifecyclePhasesForMode\(mode: WorkflowMode\)/u, "the lifecycle roadmap must be scoped to the current mode");
 assert.match(workspace, /lifecyclePhases\.map\(\(phase\)/u, "the roadmap must render only mode-relevant phases");
@@ -117,6 +118,12 @@ assert.match(workspace, /Simpan perubahan/u, "workspace must expose draft persis
 assert.match(workspace, /dirtyNavigationOpen/u, "dirty navigation must require an explicit Save, Discard, or Stay decision");
 assert.match(workspace, /updateTryoutMetadataAction/u, "published details must use a metadata-only server action");
 assert.match(workspace, /Buat draf perubahan/u, "published structural changes must use an explicit change draft");
+assert.match(workspace, /const allowed: Workspace\[\] = \["basics", "schedule"\]/u, "published workspaces must allow Overview alongside Delivery");
+assert.match(workspace, /mode === "published" \? \([\s\S]*variant="brandOutline"[\s\S]*Buat draf perubahan/u, "published duplicate action must move to the top as an outline control");
+assert.match(workspace, /updateTryoutMetadataAction\(\{ description: draft\.description, id, title: draft\.title \}\)/u, "published Overview must save the inline title and description");
+assert.match(workspace, /disabled=\{mode === "draft" && draft\.locked\}/u, "published Overview metadata must remain editable when structure is locked");
+assert.match(workspace, /mode === "published"[\s\S]*Simpan perubahan/u, "published Overview must expose a metadata save action");
+assert.doesNotMatch(workspace, /Versi terbit tidak dapat diubah strukturnya|Tindakan versi terbit|metadataOpen|metadataDraft|Edit details Tryout|Simpan detail|<Dialog\b|<Pencil\b/u, "published pages must remove the structural-lock widget and metadata modal");
 assert.match(repository, /current\.status === ContentStatus\.published[\s\S]*Buat draf perubahan/u, "server save must reject structural edits to published Tryouts");
 assert.match(repository, /updateTryoutMetadata/u, "server metadata editing must remain a separate allowlisted path");
 assert.doesNotMatch(workspace, /\/mentor\/packages(?:\/|\b)/u, "workspace must not route mentors through package authoring");

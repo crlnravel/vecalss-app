@@ -10,7 +10,6 @@ import {
   CircleHelp,
   Copy,
   Lock,
-  Pencil,
   Save,
   Search,
 } from "@/lib/icons";
@@ -29,13 +28,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -167,6 +159,11 @@ const draftWorkspacePhases: WorkspacePhaseDefinition[] = [
 ];
 
 const publishedWorkspacePhases: WorkspacePhaseDefinition[] = [
+  {
+    label: "Overview",
+    value: "overview",
+    items: [{ label: "Overview", value: "basics" }],
+  },
   {
     label: "Delivery",
     value: "delivery",
@@ -452,14 +449,12 @@ function KaptenTryoutBuilderPageModule({
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [requestedWorkspace, setRequestedWorkspace] = useState<Workspace>(() => {
     const requested = normalizeWorkspace(initialWorkspace);
-    if (initialDraft?.status === "published" && ["basics", "sections", "review", "publish"].includes(requested)) return "schedule";
+    if (initialDraft?.status === "published" && ["sections", "review", "publish"].includes(requested)) return "schedule";
     if (initialDraft?.status !== "published" && ["schedule", "live", "attempts", "results"].includes(requested)) return "basics";
     return requested;
   });
   const [deliveryArea, setDeliveryArea] = useState<DeliveryArea>(() => deliveryAreaFor(initialDeliveryArea ?? initialWorkspace));
-  const [metadataOpen, setMetadataOpen] = useState(false);
   const [metadataSaving, setMetadataSaving] = useState(false);
-  const [metadataDraft, setMetadataDraft] = useState(() => ({ description: initialSeed.draft.description, title: initialSeed.draft.title }));
   const [pendingWorkspace, setPendingWorkspace] = useState<Workspace | null>(null);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [dirtyNavigationOpen, setDirtyNavigationOpen] = useState(false);
@@ -532,7 +527,7 @@ function KaptenTryoutBuilderPageModule({
       if (configureReady) allowed.push("review");
       return allowed;
     }
-    const allowed: Workspace[] = ["schedule"];
+    const allowed: Workspace[] = ["basics", "schedule"];
     if (liveEligibleSessionIds.length) allowed.push("live");
     if (operationsAvailable) allowed.push("attempts");
     if (resultEligible) allowed.push("results");
@@ -722,7 +717,7 @@ function KaptenTryoutBuilderPageModule({
     setMetadataSaving(true);
     setError(null);
     try {
-      const result = await updateTryoutMetadataAction({ ...metadataDraft, id });
+      const result = await updateTryoutMetadataAction({ description: draft.description, id, title: draft.title });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -730,8 +725,7 @@ function KaptenTryoutBuilderPageModule({
       const nextDraft = normalize(result.result);
       setDraft(nextDraft);
       setSavedDraft(nextDraft);
-      setMetadataDraft({ description: nextDraft.description, title: nextDraft.title });
-      setMetadataOpen(false);
+      setDirty(false);
     } catch (metadataError) {
       setError(metadataError instanceof Error ? metadataError.message : "Detail Tryout belum dapat disimpan.");
     } finally {
@@ -850,11 +844,18 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="flex items-center gap-3 pb-4">
-        <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
-          <ChevronLeft aria-hidden="true" className="size-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight text-secondary-900">{id ? "Edit Tryout" : "Buat Tryout"}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+        <div className="flex items-center gap-3">
+          <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
+            <ChevronLeft aria-hidden="true" className="size-5" />
+          </Button>
+          <h1 className="text-2xl font-semibold tracking-tight text-secondary-900">{id ? "Edit Tryout" : "Buat Tryout"}</h1>
+        </div>
+        {mode === "published" ? (
+          <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brandOutline">
+            <Copy />Buat draf perubahan
+          </Button>
+        ) : null}
       </div>
 
       {error ? (
@@ -935,13 +936,20 @@ function KaptenTryoutBuilderPageModule({
             <div className="grid gap-5">
               <Field>
                 <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-                <FieldInput disabled={draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
+                <FieldInput disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
-                <FieldTextarea className="min-h-32 px-4 py-3 text-sm leading-6" disabled={draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
+                <FieldTextarea className="min-h-32 px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
               </Field>
             </div>
+            {mode === "published" ? (
+              <div className="flex justify-end border-t border-primary-100 pt-4">
+                <Button disabled={metadataSaving || !draft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">
+                  {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
+                </Button>
+              </div>
+            ) : null}
           </section>
         </TabsContent>
 
@@ -1115,26 +1123,7 @@ function KaptenTryoutBuilderPageModule({
             {!draft.locked && workspace === "sections" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
           </div>
         </footer>
-      ) : mode === "published" ? (
-        <section className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3.5" aria-label="Tindakan versi terbit">
-          <div className="min-w-0"><p className="font-semibold text-secondary-900">Versi terbit tidak dapat diubah strukturnya</p><p className="mt-1 text-sm leading-6 text-secondary-600">Edit detail hanya mengubah judul dan deskripsi. Perubahan Section atau sumber dibuat sebagai draf perubahan.</p></div>
-          <div className="flex flex-wrap gap-2"><Button disabled={metadataSaving} onClick={() => { setMetadataDraft({ description: draft.description, title: draft.title }); setMetadataOpen(true); }} variant="brandOutline"><Pencil />Edit details</Button><Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button></div>
-        </section>
       ) : null}
-
-      <Dialog onOpenChange={(open) => { if (!metadataSaving) setMetadataOpen(open); }} open={metadataOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Edit details Tryout</DialogTitle>
-            <DialogDescription>Perubahan ini hanya mengubah judul dan deskripsi. Section, sumber soal, AssessmentRelease, sesi, dan hasil tetap tidak berubah.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <Field><FieldLabel htmlFor="published-tryout-title">Judul Tryout <RequiredMark /></FieldLabel><FieldInput disabled={metadataSaving} id="published-tryout-title" onChange={(event) => setMetadataDraft((current) => ({ ...current, title: event.target.value }))} required value={metadataDraft.title} /></Field>
-            <Field><FieldLabel htmlFor="published-tryout-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-28 px-4 py-3 text-sm leading-6" disabled={metadataSaving} id="published-tryout-description" onChange={(event) => setMetadataDraft((current) => ({ ...current, description: event.target.value }))} value={metadataDraft.description} /></Field>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-4"><Button disabled={metadataSaving} onClick={() => setMetadataOpen(false)} variant="brandOutline">Batal</Button><Button disabled={metadataSaving || !metadataDraft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">{metadataSaving ? "Menyimpan…" : "Simpan detail"}</Button></div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog onOpenChange={(open) => { if (!saving) setPublishOpen(open); }} open={publishOpen}>
         <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
