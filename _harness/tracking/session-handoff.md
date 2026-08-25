@@ -23,6 +23,14 @@
 - Browser semantic QA confirms zero inner tab roles, no readiness/version copy,
   seven Section durations, one publish button, and no footer buttons on the
   configured draft Review & Publish route. Full `pnpm verify` passed.
+- `9befe2a` removes the phase intro card, inline `Perubahan belum disimpan`
+  banner, and the dividers below the back control/above draft actions. Build
+  now renders title-only `Informasi dasar` directly above `Pilih langsung`,
+  with duration and participant instructions stacked vertically; the repeated
+  question-source lead-in is gone. Review no longer renders an empty draft
+  footer. Focused workspace/direct-question contracts, TypeScript, full
+  `pnpm verify`, and authenticated desktop browser QA pass. Preserve the
+  SectionRail and Identitas Tryout header regions.
 
 ## Current Tryout gated lifecycle closeout (2026-08-24)
 

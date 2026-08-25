@@ -24,6 +24,13 @@
 - [x] Focused authoring contracts, TypeScript, focused ESLint, `git diff --check`,
   full `pnpm verify`, and authenticated browser semantic QA pass for the
   summary-only Review & Publish state.
+- [x] Simplified the remaining builder chrome in `9befe2a`: removed the phase
+  intro card, inline unsaved-status banner, and action dividers; kept only the
+  icon-only back control and relevant lifecycle navigation. Build now places a
+  title-only `Informasi dasar` block above the direct question-source picker,
+  stacks duration/instructions vertically, and removes the redundant source
+  lead-in. Review has no empty draft footer. Focused contracts, TypeScript,
+  full `pnpm verify`, and authenticated desktop browser QA pass.
 
 ## Tryout lifecycle refactor closeout (2026-08-24)
 
