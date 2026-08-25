@@ -10,6 +10,8 @@
   sends `shuffleItems: true`.
 - Existing persisted package/CAT fields remain typed and server-compatible for
   legacy data, but no longer have an authoring selector or CAT rules surface.
+- Configure Sections now has one footer button, `Selanjutnya`, which saves and
+  advances without an icon; the unused participant-preview dialog is removed.
 - Focused direct-question, simplified-authoring, workspace contract tests,
   TypeScript, focused ESLint, and `pnpm verify` pass. Preserve unrelated dirty
   package/admin files in the worktree.
@@ -41,7 +43,8 @@
   Live is selected-session runtime eligibility; Results is global from closed
   or terminal/scored activity.
 - Header Preview/Save/Review actions were removed. The sticky draft footer owns
-  save/continue/preview/publish, with Save/Discard/Stay navigation protection.
+  save/continue/publish, with Save/Discard/Stay navigation protection; the
+  Configure Sections footer exposes only the primary `Selanjutnya` action.
   Published context owns title/description-only Edit details and
   **Buat draf perubahan** with `parent` lineage; Results uses `?session=` and
   Live receives the normalized selected session.

@@ -78,7 +78,7 @@
       "description": "Let Tryout mentors choose a Bank Soal and checklist direct questions per Section, with randomized delivery and immutable server snapshots",
       "dependencies": ["feat-009"],
       "status": "complete",
-      "evidence": "9e0fafe + 61abfbb + c8a6d05 + f21d058; direct-only checklist source flow, CAT/assembly authoring controls removed, randomized section payloads, direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, and git diff --check; no migration required"
+      "evidence": "9e0fafe + 61abfbb + c8a6d05 + f21d058 + f5bad7b; direct-only checklist source flow, CAT/assembly authoring controls removed, randomized section payloads, single-action Configure Sections footer without preview/icon actions, direct-question-pick contract, AS-05 workspace contract, package/release invariants, direct physical-item AssessmentRelease eligibility, required revision-ID and source-digest validation, TypeScript, focused ESLint, pnpm verify, browser semantic check, and git diff --check; no migration required"
     },
     {
       "id": "feat-011",

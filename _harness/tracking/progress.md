@@ -13,6 +13,9 @@
 - [x] Commit: `f21d058` (`refine: simplify tryout question source UI`). Legacy
   package/CAT server shapes remain only for compatibility with previously
   persisted/released data; they are not authoring controls.
+- [x] Removed the leftover participant-preview dialog and tightened the
+  Configure Sections footer to one primary `Selanjutnya` action with no icon;
+  the workspace contract and browser semantic check pass (`f5bad7b`).
 
 ## Tryout lifecycle refactor closeout (2026-08-24)
 
@@ -25,9 +28,10 @@
   identifiers in the serialized operations DTO without returning release or
   Bank Soal payloads. Legacy step aliases and historical operational evidence
   remain monotonic; Live stays selected-session/runtime-eligible.
-- [x] Removed global header Preview/Save/Review actions. Save, continue,
-  preview, and publish now live in the sticky draft footer with explicit
-  Save/Discard/Stay handling and failed-save preservation.
+- [x] Removed global header Preview/Save/Review actions. Save, continue, and
+  publish now live in the sticky draft footer with explicit Save/Discard/Stay
+  handling and failed-save preservation; Configure Sections keeps only the
+  primary `Selanjutnya` action.
 - [x] Added published title/description-only **Edit details**, explicit
   **Buat draf perubahan** lineage (`parent` query), and session-aware Results
   selection (`?session=`) plus selected-session Live filtering.
