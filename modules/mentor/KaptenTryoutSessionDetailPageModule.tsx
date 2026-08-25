@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, LockOpen, Upload } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -16,40 +15,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
-import {
-  policyLabels,
-  rankingLabels,
-  type Policy,
-} from "@/modules/mentor/KaptenTryoutOperationsData";
-import {
-  AssessmentReleaseNotice,
-  OperationalPageHeader,
-  OperationNotice,
-} from "@/modules/mentor/KaptenTryoutOperationalShared";
-import {
-  openTryoutDeliverySessionAction,
-  releaseTryoutSessionResultsAction,
-} from "@/modules/mentor/tryout-actions";
+import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
+import { OperationalPageHeader, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { openTryoutDeliverySessionAction } from "@/modules/mentor/tryout-actions";
 
-type Confirmation = "open" | "release" | null;
+type Confirmation = "open" | null;
+
+const attemptStateLabels: Record<string, string> = {
+  abandoned: "Ditinggalkan",
+  auto_submitted: "Terkirim otomatis",
+  expired: "Kedaluwarsa",
+  in_progress: "Berlangsung",
+  not_started: "Belum mulai",
+  scored: "Dinilai",
+  submitted: "Terkirim",
+  void: "Dibatalkan",
+};
 
 const sessionDateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
   dateStyle: "medium",
@@ -59,16 +51,13 @@ const sessionDateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
 
 function KaptenTryoutSessionDetailPageModule({
   initial,
-  initialTab = "attempts",
   sessionId,
 }: {
   initial: TryoutOperationsView;
-  initialTab?: "attempts" | "details";
   sessionId: string;
 }) {
   const router = useRouter();
   const delivery = initial.sessions.find((session) => session.id === sessionId)!;
-  const [auditReason, setAuditReason] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -77,24 +66,19 @@ function KaptenTryoutSessionDetailPageModule({
     : delivery.releasePolicy) as Policy;
 
   const handleConfirm = async () => {
-    if (!confirmation || !auditReason.trim()) return;
+    if (!confirmation) return;
     setBusy(true);
     try {
-      const result =
-        confirmation === "open"
-          ? await openTryoutDeliverySessionAction(delivery.id, auditReason)
-          : await releaseTryoutSessionResultsAction(delivery.id, auditReason);
+      const result = await openTryoutDeliverySessionAction(
+        delivery.id,
+        "Membuka sesi Tryout",
+      );
       setConfirmation(null);
       if (!result.ok) {
         setNotice(result.message ?? "Tindakan tidak dapat diproses.");
         return;
       }
-      setAuditReason("");
-      setNotice(
-        confirmation === "open"
-          ? "Sesi berhasil dibuka."
-          : "Hasil sesi berhasil dirilis.",
-      );
+      setNotice("Sesi berhasil dibuka.");
       router.refresh();
     } catch (actionError) {
       setNotice(actionError instanceof Error ? actionError.message : "Tindakan tidak dapat diproses.");
@@ -110,142 +94,112 @@ function KaptenTryoutSessionDetailPageModule({
         description={initial.title}
         divider={false}
         title={delivery.name}
-        trailing={<StatusBadge status={delivery.status} />}
+        trailing={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatusBadge status={delivery.status} />
+            {delivery.status === "draft" ? (
+              <Button
+                disabled={busy}
+                onClick={() => setConfirmation("open")}
+                variant="brand"
+              >
+                Buka sesi
+              </Button>
+            ) : null}
+          </div>
+        }
       />
       <OperationNotice message={notice} />
-      <AssessmentReleaseNotice
-        label="Konten sesi"
-        release={delivery.assessmentRelease}
-      />
 
-      <Tabs className="mt-5" defaultValue={initialTab}>
-        <TabsList aria-label="Informasi sesi">
-          <TabsTrigger value="attempts">Attempt peserta</TabsTrigger>
-          <TabsTrigger value="details">Detail &amp; tindakan</TabsTrigger>
-        </TabsList>
-
-        <TabsContent className="mt-5" value="attempts">
-          <section aria-labelledby="session-attempts-title">
-            <div className="flex items-center justify-between gap-3">
-              <h2 id="session-attempts-title" className="text-xl font-semibold">
-                Attempt peserta
-              </h2>
-              <span className="text-sm text-secondary-600">
-                {delivery.attempts.length} attempt
-              </span>
-            </div>
-            {delivery.attempts.length ? (
-              <div className="mt-3 grid gap-3">
-                {delivery.attempts.map((attempt) => (
-                  <Link
-                    className="group focus-visible:outline-none"
-                    href={`/mentor/tryout/${initial.id}/operations/attempts/${attempt.id}`}
-                    key={attempt.id}
-                  >
-                    <Card className="shadow-none ring-primary-100 transition-colors group-hover:bg-secondary-50 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
-                      <CardHeader>
-                        <CardTitle className="font-semibold">{attempt.student}</CardTitle>
-                        <CardDescription>
-                          {attempt.runs.filter((run) => run.status === "sealed").length}/7 Test selesai
-                        </CardDescription>
-                        <CardAction className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-secondary-700">
-                            {attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}
-                          </span>
-                          <ChevronRight aria-hidden="true" className="text-secondary-400" />
-                        </CardAction>
-                      </CardHeader>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <Empty className="mt-3 border border-dashed border-primary-100 bg-white">
-                <EmptyHeader>
-                  <EmptyTitle>Belum ada attempt</EmptyTitle>
-                  <EmptyDescription>
-                    Attempt muncul setelah peserta memulai sesi ini.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            )}
-          </section>
-        </TabsContent>
-
-        <TabsContent className="mt-5" value="details">
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)]">
-            <Card className="shadow-none ring-primary-100" id="session-actions">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 text-sm">
-                <div>
-                  <p className="text-secondary-500">Jadwal</p>
-                  <p className="mt-1 font-medium text-secondary-900">
-                    {sessionDateTimeFormatter.format(new Date(delivery.availableFrom))} — {sessionDateTimeFormatter.format(new Date(delivery.availableUntil))}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-secondary-500">Rilis hasil</p>
-                  <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
-                  {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? <p className="mt-1 text-secondary-600">{sessionDateTimeFormatter.format(new Date(delivery.scheduledReleaseAt))}</p> : null}
-                </div>
-                <div>
-                  <p className="text-secondary-500">Peringkat</p>
-                  <p className="mt-1 font-medium text-secondary-900">
-                    {rankingLabels[delivery.rankingRule as keyof typeof rankingLabels] ?? "Peringkat belum diatur"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-none ring-primary-100">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Tindakan sesi</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <Field>
-                  <FieldLabel htmlFor="session-action-reason">Alasan perubahan</FieldLabel>
-                  <FieldInput
-                    id="session-action-reason"
-                    onChange={(event) => setAuditReason(event.target.value)}
-                    placeholder="Jelaskan alasan tindakan"
-                    value={auditReason}
-                  />
-                </Field>
-                <div className="grid gap-2">
-                  {delivery.status === "draft" ? (
-                    <Button
-                      disabled={!auditReason.trim()}
-                      onClick={() => setConfirmation("open")}
-                      variant="brand"
-                    >
-                      <LockOpen data-icon="inline-start" />
-                      Buka sesi
-                    </Button>
-                  ) : null}
-                  {effectivePolicy === "manual" && !delivery.releasedAt ? (
-                    <Button
-                      disabled={!auditReason.trim() || !delivery.assessmentRelease}
-                      onClick={() => setConfirmation("release")}
-                      variant="brandOutline"
-                    >
-                      <Upload data-icon="inline-start" />
-                      Rilis hasil
-                    </Button>
-                  ) : null}
-                  {delivery.status !== "draft" &&
-                  (effectivePolicy !== "manual" || delivery.releasedAt) ? (
-                    <p className="text-sm text-secondary-600">
-                      Tidak ada tindakan sesi yang tersedia saat ini.
-                    </p>
-                  ) : null}
-                </div>
-              </CardContent>
-            </Card>
+      <Card className="mt-5 shadow-none ring-primary-100">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <p className="text-secondary-500">Jadwal</p>
+            <p className="mt-1 font-medium text-secondary-900">
+              {sessionDateTimeFormatter.format(new Date(delivery.availableFrom))} — {sessionDateTimeFormatter.format(new Date(delivery.availableUntil))}
+            </p>
           </div>
-        </TabsContent>
-      </Tabs>
+          <div>
+            <p className="text-secondary-500">Jadwal rilis hasil</p>
+            <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
+            {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? (
+              <p className="mt-1 text-secondary-600">
+                {sessionDateTimeFormatter.format(new Date(delivery.scheduledReleaseAt))}
+              </p>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <section aria-labelledby="session-attempts-title" className="mt-8">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="session-attempts-title" className="text-xl font-semibold">
+            Attempt peserta
+          </h2>
+          <span className="text-sm text-secondary-600">
+            {delivery.attempts.length} attempt
+          </span>
+        </div>
+        <div className="mt-4 overflow-hidden rounded-2xl border border-primary-100 bg-white">
+          <Table className="min-w-[760px]">
+            <caption className="sr-only">Attempt peserta untuk {delivery.name}</caption>
+            <TableHeader className="bg-secondary-50/80">
+              <TableRow className="border-primary-100 hover:bg-secondary-50/80">
+                <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Peserta</TableHead>
+                <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Test selesai</TableHead>
+                <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Skor</TableHead>
+                <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Status</TableHead>
+                <TableHead className="h-11 w-24 px-4 py-2.5 text-right text-xs font-semibold text-secondary-700 sm:px-5">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {delivery.attempts.length ? delivery.attempts.map((attempt) => {
+                const completedRuns = attempt.runs.filter((run) => run.status === "sealed").length;
+                const statusLabel = attemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
+                const statusTone = ["scored", "submitted", "auto_submitted"].includes(attempt.attemptState)
+                  ? "bg-primary-700"
+                  : "bg-voyage-warm-sun";
+                return (
+                  <TableRow className="border-primary-100 hover:bg-secondary-50/70" key={attempt.id}>
+                    <TableCell className="px-4 py-3.5 sm:px-5">
+                      <span className="font-medium text-secondary-900">{attempt.student}</span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-secondary-700 sm:px-5">{completedRuns}/7</TableCell>
+                    <TableCell className="px-4 py-3.5 font-medium text-secondary-900 sm:px-5">
+                      {attempt.score !== null ? `Indeks ${Number(attempt.score).toFixed(2)}` : "Belum dihitung"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 sm:px-5">
+                      <span className="inline-flex items-center gap-2 text-sm text-secondary-700">
+                        <span aria-hidden="true" className={`size-2 rounded-full ${statusTone}`} />
+                        {statusLabel}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-right sm:px-5">
+                      <Button
+                        nativeButton={false}
+                        render={<Link href={`/mentor/tryout/${initial.id}/operations/attempts/${attempt.id}`} />}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        Lihat
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              }) : (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={5}>
+                    Belum ada attempt. Attempt muncul setelah peserta memulai sesi ini.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
 
       <AlertDialog
         onOpenChange={(open) => {
@@ -255,13 +209,9 @@ function KaptenTryoutSessionDetailPageModule({
       >
         <AlertDialogContent variant="info">
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmation === "open" ? "Buka sesi?" : "Rilis hasil?"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Buka sesi?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmation === "open"
-                ? "Peserta yang ditugaskan dapat mengakses sesi sesuai jadwal."
-                : "Paket hasil lengkap akan tersedia bagi peserta sesi ini."}
+              Peserta yang ditugaskan dapat mengakses sesi sesuai jadwal.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -274,7 +224,7 @@ function KaptenTryoutSessionDetailPageModule({
               }}
               variant="brand"
             >
-              {busy ? "Memproses…" : "Konfirmasi"}
+              {busy ? "Memproses…" : "Buka sesi"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

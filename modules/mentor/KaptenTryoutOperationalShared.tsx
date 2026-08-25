@@ -156,7 +156,7 @@ function OptionSet<T extends string>({
   label: string;
   labelTooltip?: string;
   onValueChange: (value: T) => void;
-  options: Array<{ description?: string; label: string; tooltip?: string; value: T }>;
+  options: Array<{ description?: string; disabled?: boolean; label: string; tooltip?: string; value: T }>;
   required?: boolean;
   value: T;
 }) {
@@ -172,12 +172,15 @@ function OptionSet<T extends string>({
           const id = `${label}-${option.value}`.replaceAll(" ", "-");
           return (
             <Field
-              className="flex-row items-start rounded-2xl border border-secondary-900/14 bg-white p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50"
+              className={cn(
+                "flex-row items-start rounded-2xl border border-secondary-900/14 bg-white p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50",
+                option.disabled && "cursor-not-allowed opacity-55",
+              )}
               key={option.value}
             >
-              <RadioGroupItem id={id} value={option.value} />
+              <RadioGroupItem disabled={option.disabled} id={id} value={option.value} />
               <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
-                <FieldLabel className="min-w-0 flex-1 cursor-pointer text-sm font-medium leading-5" htmlFor={id}>
+                <FieldLabel className={cn("min-w-0 flex-1 cursor-pointer text-sm font-medium leading-5", option.disabled && "cursor-not-allowed")} htmlFor={id}>
                   {option.label}
                   {option.description ? (
                     <span className="mt-1 block text-xs font-normal leading-5 text-secondary-600">
