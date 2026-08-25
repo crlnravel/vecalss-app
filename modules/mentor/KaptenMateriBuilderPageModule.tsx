@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   Eye,
@@ -13,6 +12,7 @@ import { useEffect, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import {
   Field,
   FieldInput,
@@ -49,7 +49,6 @@ type MateriEditorState = {
   hasUnsavedChanges: boolean;
   isPreviewOpen: boolean;
   isPickerOpen: boolean;
-  lastSavedAt: string | null;
   saveError: string | null;
   pendingRouteReplacement: string | null;
   isSaving: boolean;
@@ -61,12 +60,7 @@ function materiEditorReducer(state: MateriEditorState, action: MateriEditorActio
   return action.type === "patch" ? { ...state, ...action.patch } : state;
 }
 
-const lifecycleLabels = {
-  archived: "Diarsipkan",
-  draft: "Draf",
-  published: "Diterbitkan",
-  scheduled: "Terjadwal",
-} as const;
+const unsavedMateriToastId = "kapten-materi-unsaved";
 
 function getSubject(subjects: KaptenMateriSubjectView[], slug: string) {
   return subjects.find((subject) => subject.slug === slug);
@@ -113,14 +107,6 @@ function FieldError({ error, id }: { error?: string; id: string }) {
   ) : null;
 }
 
-function LifecycleLabel({ status }: { status: KaptenMateriView["status"] }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-bold text-primary-900">
-      {lifecycleLabels[status]}
-    </span>
-  );
-}
-
 function mapActionErrors(
   fieldErrors: Partial<Record<string, string>> | undefined,
   source: MateriDocumentSource,
@@ -150,18 +136,16 @@ function MateriBuilderHeader({
 }: {
   builderState: MateriBuilderState;
   headerState: {
-    hasUnsavedChanges: boolean;
     isArchived: boolean;
     isPreviewOpen: boolean;
     isSaving: boolean;
-    materiStatus: KaptenMateriView["status"];
   };
   mode: "create" | "edit";
   onPreviewChange: (open: boolean) => void;
   onSave: () => void;
   parentHref: string;
 }) {
-  const { hasUnsavedChanges, isArchived, isPreviewOpen, isSaving, materiStatus } = headerState;
+  const { isArchived, isPreviewOpen, isSaving } = headerState;
 
   return (
     <section
@@ -200,13 +184,6 @@ function MateriBuilderHeader({
             <h1 className="mt-4 max-w-4xl break-words text-2xl leading-tight font-bold tracking-[-0.03em] text-secondary-900 md:text-3xl">
               {mode === "create" ? "Buat Materi" : builderState.title || "Edit Materi"}
             </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className={cn("inline-flex items-center gap-2 text-sm font-medium", hasUnsavedChanges ? "text-secondary-600" : "text-primary-800")}>
-                <span aria-hidden="true" className={cn("size-2 rounded-full", hasUnsavedChanges ? "bg-secondary-400" : "bg-primary-700")} />
-                {hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}
-              </span>
-              <LifecycleLabel status={materiStatus} />
-            </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <Button aria-label="Preview materi" onClick={() => onPreviewChange(true)} size="icon" title="Preview materi" type="button" variant="brandOutline">
@@ -429,7 +406,6 @@ function KaptenMateriBuilderPageModule({
     isPickerOpen: false,
     isPreviewOpen: initialPreview,
     isSaving: false,
-    lastSavedAt: null,
     pendingRouteReplacement: null,
     saveError: null,
     savedMateri: initialMateri,
@@ -440,7 +416,6 @@ function KaptenMateriBuilderPageModule({
     isPickerOpen,
     isPreviewOpen,
     isSaving,
-    lastSavedAt,
     pendingRouteReplacement,
     saveError,
     savedMateri,
@@ -459,11 +434,25 @@ function KaptenMateriBuilderPageModule({
 
   useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
 
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      toast.warning("Perubahan belum disimpan.", {
+        duration: Infinity,
+        id: unsavedMateriToastId,
+      });
+    } else {
+      toast.dismiss(unsavedMateriToastId);
+    }
+
+    return () => {
+      toast.dismiss(unsavedMateriToastId);
+    };
+  }, [hasUnsavedChanges]);
+
   function markChanged(nextErrors?: MateriBuilderErrors) {
     updateEditor({
       errors: nextErrors ?? errors,
       hasUnsavedChanges: true,
-      lastSavedAt: null,
       saveError: null,
     });
   }
@@ -532,10 +521,10 @@ function KaptenMateriBuilderPageModule({
       updateEditor({
         errors: {},
         hasUnsavedChanges: false,
-        lastSavedAt: result.message,
         saveError: null,
         savedMateri: result.lesson,
       });
+      toast.success(result.message);
       if (!materiId && !initialMateri) {
         updateEditor({ pendingRouteReplacement: returnTo
           ? `${result.lesson.href}?${new URLSearchParams({ returnTo })}`
@@ -553,7 +542,7 @@ function KaptenMateriBuilderPageModule({
     <MentorWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel={mode === "create" ? "Buat Materi" : "Edit Materi"}
-      mainClassName="max-w-6xl gap-6"
+      mainClassName="!max-w-none gap-6"
       onNavigateAway={() => !hasUnsavedChanges}
       searchPlaceholder="Cari materi..."
       session={session}
@@ -561,19 +550,13 @@ function KaptenMateriBuilderPageModule({
     >
       <MateriBuilderHeader
         builderState={builderState}
-        headerState={{ hasUnsavedChanges, isArchived, isPreviewOpen, isSaving, materiStatus }}
+        headerState={{ isArchived, isPreviewOpen, isSaving }}
         mode={mode}
         onPreviewChange={(open) => updateEditor({ isPreviewOpen: open })}
         onSave={() => void saveLesson()}
         parentHref={parentHref}
       />
 
-      {!isPreviewOpen && lastSavedAt ? (
-        <p className="flex items-center gap-2 text-sm font-medium text-primary-800" role="status">
-          <CheckCircle2 className="size-4" />
-          {lastSavedAt}
-        </p>
-      ) : null}
       {!isPreviewOpen && saveError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">
           {saveError}
