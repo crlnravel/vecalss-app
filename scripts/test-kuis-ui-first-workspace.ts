@@ -43,6 +43,7 @@ assert.match(editor, /shouldGuardNavigation=\{hasUnsavedChanges\}/u, "editor mus
 assert.match(editor, /data-quiz-editor-shell="full-page"/u, "quiz editing must use a full-page shell");
 assert.match(editor, /min-h-14 shrink-0 flex-wrap items-center/u, "full-page editor must expose the Bank Soal-style top header");
 assert.match(editor, /QuizEditorStatusPill/u, "full-page editor must expose lifecycle metadata");
+assert.match(editor, /<Field className="border-t border-primary-100\/70 pt-4"><FieldLabel htmlFor="quiz-editor-description">/u, "editor metadata description must stay inside Field.Root");
 assert.match(editor, /Tampilan penulis · belum dikirim/u, "editor preview must be a neutral author preview");
 assert.match(editor, /Perubahan Kuis tersimpan/u, "editor must provide save feedback");
 assert.match(createRoute, /mode="create"/u, "create flow must use the standalone editor");
