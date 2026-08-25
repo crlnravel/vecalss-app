@@ -819,13 +819,13 @@ function KaptenTryoutBuilderPageModule({
   };
 
   return (
-    <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
-        <div className="flex items-center gap-3">
+    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
             <ChevronLeft aria-hidden="true" className="size-5" />
           </Button>
-          <h1 className="text-2xl font-semibold tracking-tight text-secondary-900">{mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}</h1>
+          <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-secondary-900">{mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}</h1>
         </div>
         {mode === "published" ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -840,31 +840,31 @@ function KaptenTryoutBuilderPageModule({
       </div>
 
       {error ? (
-        <p className="mt-5 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
+        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
           <CircleAlert className="mt-1 size-4 shrink-0" />
           {error}
         </p>
       ) : null}
       {routeNormalizationNotice ? (
-        <p className="mt-5 flex items-start gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
           <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
           {routeNormalizationNotice}
         </p>
       ) : null}
       {draft.locked ? (
-        <section className="mt-5 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
           <Lock className="mt-1 size-4 shrink-0" />
           <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
         </section>
       ) : null}
       {initialParent && mode === "draft" ? (
-        <section className="mt-5 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
+        <section className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
           <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${new Date(initialParent.publishedAt).toLocaleString("id-ID")}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
           <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
         </section>
       ) : null}
       <Tabs
-        className="mt-6 min-w-0"
+        className="mt-5 min-w-0"
         onValueChange={(value) => goTo(phaseStartWorkspace(value as WorkspacePhase, mode))}
         value={activePhase}
       >
@@ -898,7 +898,7 @@ function KaptenTryoutBuilderPageModule({
         </FullWidthLineTabsList>
       </Tabs>
 
-      <Tabs className="mt-4 min-w-0" onValueChange={changeWorkspace} value={workspace}>
+      <Tabs className="mt-5 min-w-0" onValueChange={changeWorkspace} value={workspace}>
         {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
           <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
@@ -911,7 +911,7 @@ function KaptenTryoutBuilderPageModule({
           </div>
         ) : null}
 
-        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-5 w-full"}>
+        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-6 w-full"}>
           {activePhase === "build" ? (
             <SectionRail
               activeCode={activeCode}
@@ -921,7 +921,7 @@ function KaptenTryoutBuilderPageModule({
             />
           ) : null}
 
-        <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-3"}>
+        <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-5"}>
 
         <TabsContent className="mt-0 w-full" value="basics">
           <section className="grid w-full gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
@@ -1101,7 +1101,7 @@ function KaptenTryoutBuilderPageModule({
       </Tabs>
 
       {mode === "draft" && workspace !== "review" ? (
-        <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4" aria-label="Tindakan langkah Tryout">
+        <footer className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4" aria-label="Tindakan langkah Tryout">
           <div className="flex flex-wrap justify-end gap-2">
             {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Duplikat draf baru</Button> : null}
             {!draft.locked && workspace === "basics" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
