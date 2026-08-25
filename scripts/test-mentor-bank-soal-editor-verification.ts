@@ -70,6 +70,9 @@ assert.match(detail, /variant="brandOutline"/u);
 assert.match(detail, /aria-label="Arsipkan bank soal"/u);
 assert.match(detail, /variant="dangerOutline"/u);
 assert.doesNotMatch(detail, /<Ellipsis\b|aria-label="Aksi Bank Soal"/u);
+assert.match(detail, /className="space-y-5 border-t border-primary-100\/70 pt-4"/u);
+assert.doesNotMatch(detail, /grid gap-5 rounded-xl border border-primary-100 bg-primary-50\/30/u);
+assert.match(detail, /Deskripsi[\s\S]*Folder[\s\S]*Kategori/u);
 assert.match(detail, /showToast\(/u);
 assert.doesNotMatch(detail, /Soal Siap|Semua soal siap dipublikasikan|Siap dipakai|Belum lengkap/u);
 

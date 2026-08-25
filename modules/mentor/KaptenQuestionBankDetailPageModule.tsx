@@ -473,81 +473,80 @@ function KaptenQuestionBankDetailPageModule({
             )}
           </div>
 
-          {/* Description Section with Pencil */}
-          <div className="border-t border-primary-100/70 pt-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-secondary-500">
-                Deskripsi
-              </span>
-              {!isEditingDescription && !isMetadataLocked ? (
-                <Button
-                  aria-label="Ubah deskripsi bank"
-                  className="size-7 text-secondary-400 hover:text-secondary-900"
-                  onClick={() => {
-                    setDescriptionInput(bank.description ?? "");
-                    setIsEditingDescription(true);
-                  }}
-                  size="icon-sm"
-                  title="Ubah deskripsi"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Pencil className="size-3.5" />
-                </Button>
-              ) : null}
-            </div>
-
-            {isEditingDescription ? (
-              <div className="mt-2 max-w-3xl space-y-2">
-                <FieldTextarea
-                  autoFocus
-                  className="min-h-[90px] text-sm"
-                  disabled={isSavingDescription}
-                  onChange={(e) => setDescriptionInput(e.target.value)}
-                  placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
-                  value={descriptionInput}
-                />
-                <div className="flex gap-2">
+          {/* Description, folder, and category metadata */}
+          <div className="space-y-5 border-t border-primary-100/70 pt-4">
+            <div>
+              <div className="flex items-center justify-start gap-1.5">
+                <span className="text-xs font-semibold text-secondary-500">
+                  Deskripsi
+                </span>
+                {!isEditingDescription && !isMetadataLocked ? (
                   <Button
-                    disabled={isSavingDescription}
-                    onClick={handleSaveDescription}
-                    size="sm"
-                    type="button"
-                    variant="brand"
-                  >
-                    <Check />
-                    Simpan
-                  </Button>
-                  <Button
-                    disabled={isSavingDescription}
+                    aria-label="Ubah deskripsi bank"
+                    className="size-7 text-secondary-400 hover:text-secondary-900"
                     onClick={() => {
-                      setIsEditingDescription(false);
                       setDescriptionInput(bank.description ?? "");
+                      setIsEditingDescription(true);
                     }}
-                    size="sm"
+                    size="icon-sm"
+                    title="Ubah deskripsi"
                     type="button"
                     variant="ghost"
                   >
-                    <X />
-                    Batal
+                    <Pencil className="size-3.5" />
                   </Button>
-                </div>
+                ) : null}
               </div>
-            ) : (
-              <p className="mt-1 text-sm leading-6 text-secondary-700">
-                {bank.description ? (
-                  bank.description
-                ) : (
-                  <span className="italic text-secondary-400">
-                    Belum ada deskripsi untuk bank soal ini. Klik ikon pensil untuk menambahkan.
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
 
-          {/* Taxonomy & Organization with Editable Pickers */}
-          <div className="grid gap-5 rounded-xl border border-primary-100 bg-primary-50/30 p-4 sm:grid-cols-2 sm:p-5">
+              {isEditingDescription ? (
+                <div className="mt-2 max-w-3xl space-y-2">
+                  <FieldTextarea
+                    autoFocus
+                    className="min-h-[90px] text-sm"
+                    disabled={isSavingDescription}
+                    onChange={(e) => setDescriptionInput(e.target.value)}
+                    placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
+                    value={descriptionInput}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      disabled={isSavingDescription}
+                      onClick={handleSaveDescription}
+                      size="sm"
+                      type="button"
+                      variant="brand"
+                    >
+                      <Check />
+                      Simpan
+                    </Button>
+                    <Button
+                      disabled={isSavingDescription}
+                      onClick={() => {
+                        setIsEditingDescription(false);
+                        setDescriptionInput(bank.description ?? "");
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <X />
+                      Batal
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-1 text-sm leading-6 text-secondary-700">
+                  {bank.description ? (
+                    bank.description
+                  ) : (
+                    <span className="italic text-secondary-400">
+                      Belum ada deskripsi untuk bank soal ini. Klik ikon pensil untuk menambahkan.
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+
             {/* Folder Selection */}
             <div>
               <span className="text-xs font-semibold text-secondary-500">Folder</span>
@@ -561,20 +560,8 @@ function KaptenQuestionBankDetailPageModule({
 
             {/* Category Selection */}
             <div>
-              <span className="text-xs font-semibold text-secondary-500">Kategori</span>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {assignedCategories.length > 0 ? (
-                  assignedCategories.map((cat) => (
-                    <span
-                      className="inline-flex items-center rounded-full border border-primary-200 bg-white px-2.5 py-0.5 text-xs font-medium text-primary-800"
-                      key={cat.id}
-                    >
-                      {cat.name}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-secondary-400">Tanpa kategori</span>
-                )}
+              <div className="flex items-center justify-start gap-1.5">
+                <span className="text-xs font-semibold text-secondary-500">Kategori</span>
                 {!isMetadataLocked ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger
@@ -615,8 +602,21 @@ function KaptenQuestionBankDetailPageModule({
                   </DropdownMenu>
                 ) : null}
               </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {assignedCategories.length > 0 ? (
+                  assignedCategories.map((cat) => (
+                    <span
+                      className="inline-flex items-center rounded-full border border-primary-200 bg-white px-2.5 py-0.5 text-xs font-medium text-primary-800"
+                      key={cat.id}
+                    >
+                      {cat.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-secondary-400">Tanpa kategori</span>
+                )}
+              </div>
             </div>
-
           </div>
         </div>
       </section>
