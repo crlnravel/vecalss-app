@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  AlertCircle,
   ChevronDown,
   ChevronLeft,
   Eye,
@@ -65,8 +66,6 @@ type MateriEditorAction = { type: "patch"; patch: Partial<MateriEditorState> };
 function materiEditorReducer(state: MateriEditorState, action: MateriEditorAction): MateriEditorState {
   return action.type === "patch" ? { ...state, ...action.patch } : state;
 }
-
-const unsavedMateriToastId = "kapten-materi-unsaved";
 
 function getSubject(subjects: KaptenMateriSubjectView[], slug: string) {
   return subjects.find((subject) => subject.slug === slug);
@@ -198,6 +197,54 @@ function MateriBuilderHeader({
         </div>
       )}
     </section>
+  );
+}
+
+function MateriUnsavedChangesBar({
+  isArchived,
+  isSaving,
+  onReset,
+  onSave,
+}: {
+  isArchived: boolean;
+  isSaving: boolean;
+  onReset: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div
+      aria-live="polite"
+      className="animate-in fade-in-0 slide-in-from-bottom-3 fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-xl flex-col gap-3 rounded-3xl border border-primary-200 bg-white/95 p-3 pl-4 shadow-[0_18px_48px_-24px_rgba(1,76,56,0.45)] duration-300 ease-out backdrop-blur-md motion-reduce:animate-none sm:right-0 sm:left-(--sidebar-offset) sm:w-[min(calc(100vw-3rem),36rem)] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+      role="status"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center text-[#176b4d]">
+          <AlertCircle className="size-5" strokeWidth={2.2} />
+        </span>
+        <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
+      </div>
+      <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
+        <Button
+          className="w-32 justify-center text-student-status-danger-fg hover:bg-student-status-danger-bg hover:text-student-status-danger-solid-bg"
+          onClick={onReset}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Batal
+        </Button>
+        <Button
+          className="w-32 justify-center"
+          disabled={isArchived || isSaving}
+          onClick={onSave}
+          size="sm"
+          type="button"
+          variant="brand"
+        >
+          {isSaving ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -446,21 +493,6 @@ function KaptenMateriBuilderPageModule({
 
   useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
 
-  useEffect(() => {
-    if (hasUnsavedChanges) {
-      toast.warning("Perubahan belum disimpan.", {
-        duration: Infinity,
-        id: unsavedMateriToastId,
-      });
-    } else {
-      toast.dismiss(unsavedMateriToastId);
-    }
-
-    return () => {
-      toast.dismiss(unsavedMateriToastId);
-    };
-  }, [hasUnsavedChanges]);
-
   function markChanged(nextErrors?: MateriBuilderErrors) {
     updateEditor({
       errors: nextErrors ?? errors,
@@ -497,6 +529,11 @@ function KaptenMateriBuilderPageModule({
       documentMimeType: undefined,
       documentUrl: undefined,
     });
+  }
+
+  function resetChanges() {
+    setBuilderState(getInitialState(savedMateri, initialSubjectSlug, subjects));
+    updateEditor({ errors: {}, hasUnsavedChanges: false, saveError: null });
   }
 
   async function saveLesson() {
@@ -598,6 +635,15 @@ function KaptenMateriBuilderPageModule({
         selectedAssetId={builderState.documentAssetId || null}
         title="Pilih PDF Materi"
       />
+
+      {hasUnsavedChanges ? (
+        <MateriUnsavedChangesBar
+          isArchived={isArchived}
+          isSaving={isSaving}
+          onReset={resetChanges}
+          onSave={() => void saveLesson()}
+        />
+      ) : null}
 
     </MentorWorkspaceShell>
   );
