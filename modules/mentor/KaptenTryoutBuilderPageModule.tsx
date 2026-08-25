@@ -849,10 +849,11 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="pb-4">
+      <div className="flex items-center gap-3 pb-4">
         <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
           <ChevronLeft aria-hidden="true" className="size-5" />
         </Button>
+        <h1 className="text-2xl font-semibold tracking-tight text-secondary-900">{id ? "Edit Tryout" : "Buat Tryout"}</h1>
       </div>
 
       {error ? (

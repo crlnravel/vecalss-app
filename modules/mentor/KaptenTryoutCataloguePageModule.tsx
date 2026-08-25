@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, CircleHelp, ClipboardList, Lock, Plus } from "@/lib/icons";
+import { ChevronRight, ClipboardList, Lock, Plus } from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { CatalogueFilter, CatalogueSearchInput, PageIntro, PaginationControls, StatusPill } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -14,7 +13,7 @@ type TryoutItem = {
   description: string;
   id: string;
   locked: boolean;
-  sections: Array<{ directQuestions?: Array<{ sourceQuestionId: string }>; packageVersionId?: string }>;
+  sections: Array<{ directQuestions?: Array<{ sourceQuestionId: string }> }>;
   status: "draft" | "published";
   title: string;
 };
@@ -22,15 +21,12 @@ type TryoutItem = {
 function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialItems: TryoutItem[]; session: SessionContext }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [readinessFilter, setReadinessFilter] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 8;
   const filteredItems = initialItems.filter((item) => {
-    const boundCount = item.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
     const needle = query.trim().toLocaleLowerCase();
     return (!needle || [item.title, item.description, item.status, item.locked ? "terkunci" : ""].some((value) => value.toLocaleLowerCase().includes(needle)))
-      && (!statusFilter || item.status === statusFilter)
-      && (!readinessFilter || (readinessFilter === "complete" ? boundCount === 7 : boundCount < 7));
+      && (!statusFilter || item.status === statusFilter);
   });
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const visiblePage = Math.min(page, pageCount);
@@ -40,21 +36,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
     <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Tryout" searchPlaceholder="Cari Tryout..." session={session}>
       <div className="space-y-3">
       <PageIntro
-        action={
-          <>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger render={<Button aria-label="Tentang Tryout" size="icon-sm" title="Tentang Tryout" variant="ghost" />}>
-                  <CircleHelp />
-                </TooltipTrigger>
-                <TooltipContent>Tryout terdiri dari tujuh Test dan menggunakan versi Paket Soal yang sudah siap.</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button aria-label="Buat Tryout" nativeButton={false} render={<Link href="/mentor/tryout/create" />} size="icon-sm" title="Buat Tryout" variant="brand">
-              <Plus />
-            </Button>
-          </>
-        }
+        action={<Button aria-label="Buat Tryout" nativeButton={false} render={<Link href="/mentor/tryout/create" />} size="icon-sm" title="Buat Tryout" variant="brand"><Plus /></Button>}
         title="Tryout"
       />
 
@@ -74,16 +56,6 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
               { label: "Diterbitkan", value: "published" },
             ]}
             value={statusFilter}
-          />
-          <CatalogueFilter
-            label="Filter kesiapan Paket"
-            onValueChange={(value) => { setReadinessFilter(value); setPage(1); }}
-            options={[
-              { label: "Semua kesiapan", value: "" },
-              { label: "7/7 Paket terikat", value: "complete" },
-              { label: "Paket belum lengkap", value: "incomplete" },
-            ]}
-            value={readinessFilter}
           />
         </div>
       </div>
