@@ -924,16 +924,16 @@ function KaptenTryoutBuilderPageModule({
         <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-5"}>
 
         <TabsContent className="mt-0 w-full" value="basics">
-          <section className="grid w-full gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
+          <section className="grid w-full gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
             <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
             <div className="grid gap-5">
               <Field>
                 <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-                <FieldInput disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
+                <FieldInput className="h-12 border-primary-200 bg-white text-base font-semibold text-secondary-900" disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
-                <FieldTextarea className="min-h-32 px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
+                <FieldTextarea className="min-h-32 border-primary-200 bg-white px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
               </Field>
             </div>
             {mode === "published" ? (
@@ -948,7 +948,7 @@ function KaptenTryoutBuilderPageModule({
 
         <TabsContent className="mt-0 lg:col-start-2" value="sections">
           <div className="grid gap-5">
-            <section aria-labelledby="tryout-basic-info-title" className="grid gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
+            <section aria-labelledby="tryout-basic-info-title" className="grid gap-5 rounded-3xl border border-primary-200 bg-primary-50/35 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
               <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
               <div className="grid gap-5">
                 <Field>
@@ -968,14 +968,14 @@ function KaptenTryoutBuilderPageModule({
         </TabsContent>
 
         <TabsContent className="mt-0 lg:col-start-2" value="sections">
-          <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
+          <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
             <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
-              <h2 className="text-xl font-semibold text-secondary-900">Pilih bank soal</h2>
+              <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
             </div>
 
             <div className="grid gap-5">
-              <div className="grid gap-5">
-                <div className="grid min-w-0 gap-4">
+              <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)] lg:items-start">
+                <div className="grid min-w-0 gap-4 rounded-2xl border border-primary-200 bg-white/80 p-4">
                   <Field>
                     <FieldLabel>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
                     <Popover>
@@ -997,14 +997,14 @@ function KaptenTryoutBuilderPageModule({
                     </Popover>
                   </Field>
                 </div>
-                <div className="min-w-0 rounded-2xl border border-primary-100 bg-white p-4">
-                  <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => { setSourceQuestionSearch(event.target.value); setSourceQuestionPage(1); }} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
+                <div className="min-w-0 rounded-3xl border border-primary-200 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+                  <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-11 rounded-xl border-primary-200 bg-primary-50/35 py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => { setSourceQuestionSearch(event.target.value); setSourceQuestionPage(1); }} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
                   {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
                   {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
                     const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
                     const selectedInOtherSection = !selected && selectedSourceQuestionIds.includes(question.id);
                     const checkboxId = `source-question-${question.id}`;
-                    return <article className={`rounded-2xl border p-3 ${selected ? "border-primary-300 bg-primary-50/35" : "border-primary-100"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => toggleDirectQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
+                    return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-400 bg-primary-50/70 shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-secondary-100 bg-secondary-50/30 hover:border-primary-200 hover:bg-primary-50/40"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => toggleDirectQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
                   })}</div> : <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center text-sm leading-6 text-secondary-500">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</div>}
                   {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={() => setSourceQuestionPage((page) => page + 1)} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
                 </div>
@@ -1023,7 +1023,7 @@ function KaptenTryoutBuilderPageModule({
                   {deliveryAreas.map((area) => {
                     const active = deliveryArea === area.value;
                     return (
-                      <Button aria-current={active ? "page" : undefined} className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-200 bg-primary-50 text-primary-900 hover:bg-primary-100" : "border-transparent text-secondary-800 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} role="tab" variant="ghost">
+                      <Button aria-current={active ? "page" : undefined} className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-900 bg-primary-900 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" : "border-transparent text-secondary-800 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} role="tab" variant={active ? "brand" : "ghost"}>
                         {area.label}
                       </Button>
                     );
@@ -1066,8 +1066,8 @@ function KaptenTryoutBuilderPageModule({
         </TabsContent>
 
         <TabsContent className="mt-0" value="review">
-          <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
-            <h2 className="text-xl font-semibold text-secondary-900">Review &amp; Publish</h2>
+          <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+            <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Review &amp; Publish</h2>
             <dl className="grid gap-5">
               <div className="grid gap-1">
                 <dt className="text-sm font-semibold text-secondary-600">Judul</dt>
@@ -1082,12 +1082,12 @@ function KaptenTryoutBuilderPageModule({
               <h3 className="font-semibold text-secondary-900" id="tryout-sections-summary-title">Sections</h3>
               <div className="grid gap-2">
                 {draft.sections.map((section, index) => (
-                  <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary-100 px-4 py-3" key={section.subtest}>
+                  <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary-200 bg-white/80 px-4 py-3 transition-colors hover:border-primary-300 hover:bg-white" key={section.subtest}>
                     <div>
                       <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
                       <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
                     </div>
-                    <span className="shrink-0 text-sm font-semibold text-primary-800">{section.durationMinutes} menit</span>
+                    <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1.5 text-sm font-bold text-primary-800">{section.durationMinutes} menit</span>
                   </div>
                 ))}
               </div>
@@ -1104,8 +1104,8 @@ function KaptenTryoutBuilderPageModule({
         <footer className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4" aria-label="Tindakan langkah Tryout">
           <div className="flex flex-wrap justify-end gap-2">
             {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Duplikat draf baru</Button> : null}
-            {!draft.locked && workspace === "basics" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-            {!draft.locked && workspace === "sections" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+            {!draft.locked && workspace === "basics" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+            {!draft.locked && workspace === "sections" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
           </div>
         </footer>
       ) : null}
