@@ -142,7 +142,8 @@ const packageVersionEditorRoute = read("app/mentor/packages/[packageId]/versions
 assert.match(packageVersionEditorRoute, /Edit pertanyaan & poin Paket Soal Kapten/u, "The question editor route should not be framed as a version-first destination");
 assert.match(packageVersionEditorRoute, /breadcrumbLabel="Edit pertanyaan & poin"/u, "The question editor breadcrumb should describe the continuous workspace");
 
-assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /lifecycleStatus === "archived" \? <Button/u, "Archived banks need an explicit restore action");
+assert.doesNotMatch(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /lifecycleStatus === "archived" \? <Button/u, "The editor should not render a restore action for non-draft banks");
+assert.match(read("app/mentor/quiz/question-bank/[bankId]/editor/page.tsx"), /initial\.bank\.status !== "draft"/u, "Non-draft banks should not render the editor route");
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /updateLifecycle\(operation: "archive" \| "publish" \| "unpublish" \| "restore"\)/u);
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /disabled=\{isQuestionContentLocked\} id="question-prompt"/u, "Archived question fields should be visibly disabled");
 assert.match(read("modules/mentor/KaptenQuestionBankBuilderPageModule.tsx"), /id=\{`bank-correct-choice-\$\{choice\.id\}`\}/u, "Correct-answer radios need stable ids for their letter labels");

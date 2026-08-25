@@ -8,7 +8,6 @@ import {
   Check,
   ChevronLeft,
   CircleHelp,
-  Ellipsis,
   FilePenLine,
   Folder,
   LibraryBig,
@@ -37,14 +36,13 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
 import {
@@ -339,9 +337,9 @@ function KaptenQuestionBankDetailPageModule({
               variant="brandOutline"
             >
               <FilePenLine />
-              {isSavingLifecycle ? "Menjadikan draf…" : "Jadikan draf"}
+              {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
             </Button>
-          ) : (
+          ) : bank.status === "draft" ? (
             <Button
               aria-busy={isSavingLifecycle}
               aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
@@ -352,37 +350,31 @@ function KaptenQuestionBankDetailPageModule({
               variant="brand"
             >
               <Upload />
-              {isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}
+              {isSavingLifecycle ? "Mempublikasikan…" : "Publish"}
             </Button>
-          )}
+          ) : null}
 
           {bank.status !== "archived" && bank.status !== "scheduled" ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    aria-label="Aksi Bank Soal"
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <Ellipsis />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    disabled={isSavingLifecycle}
-                    onClick={requestArchive}
-                    variant="destructive"
-                  >
-                    <Archive />
-                    Arsipkan bank
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      aria-busy={isSavingLifecycle}
+                      aria-label="Arsipkan bank soal"
+                      disabled={isSavingLifecycle}
+                      onClick={requestArchive}
+                      size="icon-sm"
+                      type="button"
+                      variant="dangerOutline"
+                    />
+                  }
+                >
+                  <Archive />
+                </TooltipTrigger>
+                <TooltipContent>Arsipkan bank soal</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : null}
           {publishDisabledReason ? (
             <p className="sr-only" id="publish-disabled-reason">
@@ -642,17 +634,19 @@ function KaptenQuestionBankDetailPageModule({
               </span>
             </div>
           </div>
-          <Button
-            aria-label="Buka Editor Soal"
-            className="w-full shadow-sm sm:w-auto"
-            nativeButton={false}
-            render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
-            size="default"
-            variant="brand"
-          >
-            <Pencil data-icon="inline-start" />
-            Buka Editor Soal
-          </Button>
+          {bank.status === "draft" ? (
+            <Button
+              aria-label="Buka Editor Soal"
+              className="w-full shadow-sm sm:w-auto"
+              nativeButton={false}
+              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+              size="default"
+              variant="brand"
+            >
+              <Pencil data-icon="inline-start" />
+              Buka Editor Soal
+            </Button>
+          ) : null}
         </div>
 
         {/* Questions Cards List */}
@@ -663,15 +657,17 @@ function KaptenQuestionBankDetailPageModule({
             <p className="mt-1 text-sm text-secondary-600">
               Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan pembahasan.
             </p>
-            <Button
-              className="mt-6"
-              nativeButton={false}
-              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
-              variant="brand"
-            >
-              <Plus />
-              Tulis Soal Pertama
-            </Button>
+            {bank.status === "draft" ? (
+              <Button
+                className="mt-6"
+                nativeButton={false}
+                render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+                variant="brand"
+              >
+                <Plus />
+                Tulis Soal Pertama
+              </Button>
+            ) : null}
           </div>
         ) : (
           <div className="grid gap-4">
@@ -749,8 +745,9 @@ function KaptenQuestionBankDetailPageModule({
 
                     {/* Choices Grid */}
                     <div className="grid gap-2.5 sm:grid-cols-2">
-                      {question.choices.map((choice) => {
+                      {question.choices.map((choice, choiceIndex) => {
                         const isCorrect = choice.id === question.correctChoiceId;
+                        const choiceLabel = String.fromCharCode(65 + choiceIndex);
                         return (
                           <div
                             className={cn(
@@ -769,7 +766,7 @@ function KaptenQuestionBankDetailPageModule({
                                   : "bg-secondary-200 text-secondary-700",
                               )}
                             >
-                              {choice.id}
+                              {choiceLabel}
                             </span>
                             <div className="min-w-0 flex-1">
                               <p className="leading-5">{choice.text || <span className="italic text-secondary-400">Opsi kosong</span>}</p>

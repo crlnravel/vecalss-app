@@ -36,14 +36,15 @@ assert.match(builder, /<FieldLabel htmlFor="bank-categories">Kategori<\/FieldLab
 assert.doesNotMatch(builder, /\bUnfiled\b|\bunfiled\b/u);
 assert.doesNotMatch(builder, /\bHalaman\b|inventoryPageCount|paginatedQuestions|visibleInventoryPage/u);
 
-// Inventory contracts: full-order numbering, stable identity, bounded
-// filtering, active-row retention, and keyboard-roving semantics.
-assert.match(builder, /type InventoryFilter = "all" \| "incomplete"/u);
+// Inventory contracts: full-order numbering, stable identity, a single-column
+// question list, and keyboard-roving semantics.
+assert.doesNotMatch(builder, /type InventoryFilter|Filter inventori soal|question-bank-filter-/u);
 assert.match(builder, /visibleQuestions\.map\(\(question\)/u);
 assert.match(builder, /builderState\.questions\.findIndex\(\(item\) => item\.id === question\.id\) \+ 1/u);
 assert.match(builder, /key=\{question\.id\}/u);
-assert.match(builder, /retainedReadyQuestion/u);
-assert.match(builder, /Soal aktif tetap ditampilkan/u);
+assert.match(builder, /const visibleQuestions = builderState\.questions/u);
+assert.match(builder, /className="flex flex-col gap-1\.5"/u);
+assert.doesNotMatch(builder, /soal ditampilkan|Navigasi soal" className="[^"]*border-t/u);
 assert.match(builder, /questionRowRefs\.current\[questionId\]/u);
 assert.match(builder, /handleQuestionKeyDown/u);
 assert.match(builder, /aria-current=\{isActive \? "true" : undefined\}/u);
@@ -54,17 +55,28 @@ assert.match(builder, /disabled=\{isDisabled \|\| builderState\.questions\.lengt
 assert.match(builder, /Soal terakhir tidak dapat dihapus/u);
 assert.match(builder, /const id = createQuestionId\(subjectCode\)/u);
 assert.match(builder, /Perlu diperbaiki/u);
+assert.doesNotMatch(builder, /Masalah berikutnya|Bank diterbitkan/u);
 assert.doesNotMatch(builder, /<Check\b|Siap dipakai|Belum lengkap|Tersimpan/u);
 assert.doesNotMatch(builder, /Kesiapan terbit:/u);
 assert.doesNotMatch(detail, /Status Kesiapan|Kesiapan terbit:|Edit Soal|Pindahkan folder/u);
 assert.match(detail, /Perlu diperbaiki/u);
+assert.match(detail, /question\.choices\.map\(\(choice, choiceIndex\) =>/u);
+assert.match(detail, /const choiceLabel = String\.fromCharCode\(65 \+ choiceIndex\)/u);
+assert.match(detail, /\{choiceLabel\}/u);
+assert.doesNotMatch(detail, /\{choice\.id\}\s*<\/span>/u);
+assert.match(detail, /bank\.status === "published"[\s\S]*Buat draf/u);
+assert.match(detail, /bank\.status === "draft"[\s\S]*Publish/u);
+assert.match(detail, /variant="brandOutline"/u);
+assert.match(detail, /aria-label="Arsipkan bank soal"/u);
+assert.match(detail, /variant="dangerOutline"/u);
+assert.doesNotMatch(detail, /<Ellipsis\b|aria-label="Aksi Bank Soal"/u);
 assert.match(detail, /showToast\(/u);
 assert.doesNotMatch(detail, /Soal Siap|Semua soal siap dipublikasikan|Siap dipakai|Belum lengkap/u);
 
 // Readiness issue traversal must identify the exact field/choice/media target,
-// announce progress, and hand off to a lifecycle action when content is locked.
+// announce progress, and focus the exact editable field.
 assert.match(builder, /Lihat masalah/u);
-assert.match(builder, /Masalah berikutnya/u);
+assert.doesNotMatch(builder, /Masalah berikutnya/u);
 assert.match(builder, /pendingIssueFocusRef/u);
 assert.match(builder, /focusIssueTarget\(/u);
 assert.match(builder, /issue\.field === "choice"/u);
@@ -74,7 +86,6 @@ assert.match(builder, /data-question-choice-id=/u);
 assert.match(builder, /scrollIntoView/u);
 assert.match(builder, /target\.focus\(\{ preventScroll: true \}\)/u);
 assert.match(builder, /Masalah \$\{issueIndex \+ 1\} dari \$\{totalIssues\}/u);
-assert.match(builder, /Ini masalah terakhir dari/u);
 assert.match(builder, /focusResult === "handoff"/u);
 assert.match(builder, /role="status"/u);
 assert.match(builder, /aria-live="polite"/u);
@@ -95,12 +106,8 @@ assert.doesNotMatch(saveCall, /previewChoiceId|hasSubmittedPreview/u);
 assert.match(builder, /const isMetadataLocked = lifecycleStatus === "archived" \|\| lifecycleStatus === "scheduled"/u);
 assert.match(builder, /const isQuestionContentLocked = lifecycleStatus !== "draft"/u);
 assert.match(builder, /data-question-bank-lifecycle-action="publish"/u);
-assert.match(builder, /data-question-bank-lifecycle-action="unpublish"/u);
-assert.match(builder, /data-question-bank-lifecycle-action="restore"/u);
-assert.match(builder, /Bank diterbitkan/u);
-assert.match(builder, /Bank diarsipkan/u);
-assert.match(builder, /Bank terjadwal/u);
-assert.match(builder, /Bank Soal Terjadwal belum didukung untuk perubahan di editor ini/u);
+assert.match(editRoute, /initial\.bank\.status !== "draft"/u);
+assert.doesNotMatch(builder, /Bank diterbitkan|Bank diarsipkan|Bank terjadwal|Bank Soal Terjadwal belum didukung untuk perubahan di editor ini/u);
 assert.match(builder, /beforeunload/u);
 assert.match(builder, /shouldGuardNavigation=\{state\.hasUnsavedChanges\}/u);
 assert.match(shell, /Keluar dari editor\?/u);

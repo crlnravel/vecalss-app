@@ -30,7 +30,7 @@ export default async function MentorQuestionBankEditorPage({
     getQuestionBankForEdit(bankId),
     listQuestionBankCategories(),
   ]);
-  if (!initial) notFound();
+  if (!initial || initial.bank.status !== "draft") notFound();
 
   return (
     <KaptenQuestionBankBuilderPageModule

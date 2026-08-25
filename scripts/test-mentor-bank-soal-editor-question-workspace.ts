@@ -5,6 +5,10 @@ const builder = fs.readFileSync(
   "modules/mentor/KaptenQuestionBankBuilderPageModule.tsx",
   "utf8",
 );
+const editRoute = fs.readFileSync(
+  "app/mentor/quiz/question-bank/[bankId]/editor/page.tsx",
+  "utf8",
+);
 
 const workspace = builder.match(
   /function QuestionBankQuestionWorkspace\([\s\S]*?\n\}\n\nfunction QuestionBankTabs/u,
@@ -108,10 +112,15 @@ assert.match(editorForm, /onRemoveChoiceMedia\(choice\.id\)/u);
 assert.match(builder, /const isMetadataLocked = lifecycleStatus === "archived" \|\| lifecycleStatus === "scheduled"/u);
 assert.match(builder, /const isQuestionContentLocked = lifecycleStatus !== "draft"/u);
 assert.match(builder, /state\.isMetadataLocked/u);
-assert.match(builder, /state\.lifecycleStatus === "published" \? <Alert/u);
-assert.match(builder, /state\.lifecycleStatus === "scheduled" \? <Alert/u);
-assert.match(builder, /state\.lifecycleStatus === "scheduled" \? null/u);
-assert.match(builder, /Bank Soal Terjadwal belum didukung untuk perubahan di editor ini/u);
+assert.doesNotMatch(
+  builder,
+  /Bank diterbitkan|Bank diarsipkan|Bank terjadwal|Bank Soal Terjadwal belum didukung untuk perubahan di editor ini/u,
+  "non-editable banks do not render a locked-editor banner",
+);
+assert.doesNotMatch(builder, /Masalah berikutnya|soal ditampilkan/u);
+assert.match(builder, /const visibleQuestions = builderState\.questions/u);
+assert.match(builder, /className="flex flex-col gap-1\.5"/u);
+assert.match(editRoute, /initial\.bank\.status !== "draft"/u);
 assert.match(builder, /disabled=\{isQuestionContentLocked\}[\s\S]*?id="question-prompt"/u);
 assert.match(builder, /disabled=\{state\.isMetadataLocked\} id="bank-title"/u);
 
