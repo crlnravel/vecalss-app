@@ -2,39 +2,17 @@
 
 import Link from "next/link";
 import {
-  Archive,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
-  Ellipsis,
   Eye,
   FileText,
-  LoaderCircle,
   Save,
-  Trash2,
-  Upload,
 } from "@/lib/icons";
 import { useEffect, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Field,
   FieldInput,
@@ -50,13 +28,7 @@ import {
 } from "@/modules/media/media-library";
 import type { MediaAssetDto } from "@/lib/media/types";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import {
-  archiveMateriLessonAction,
-  publishMateriLessonAction,
-  returnMateriLessonToDraftAction,
-  saveMateriLessonAction,
-  unpublishMateriLessonAction,
-} from "@/modules/mentor/materi-actions";
+import { saveMateriLessonAction } from "@/modules/mentor/materi-actions";
 import type {
   KaptenMateriSubjectView,
   KaptenMateriView,
@@ -71,8 +43,6 @@ import {
 } from "@/modules/mentor/materi-builder-validation";
 import { MateriLessonPresentation } from "@/modules/courses/MateriLessonPresentation";
 
-type LifecycleIntent = "archive" | "publish" | "unpublish" | "returnToDraft";
-
 type MateriEditorState = {
   savedMateri: KaptenMateriView | null;
   errors: MateriBuilderErrors;
@@ -83,8 +53,6 @@ type MateriEditorState = {
   saveError: string | null;
   pendingRouteReplacement: string | null;
   isSaving: boolean;
-  lifecycleIntent: LifecycleIntent | null;
-  lifecycleError: string | null;
 };
 
 type MateriEditorAction = { type: "patch"; patch: Partial<MateriEditorState> };
@@ -153,35 +121,6 @@ function LifecycleLabel({ status }: { status: KaptenMateriView["status"] }) {
   );
 }
 
-function lifecycleCopy(intent: LifecycleIntent) {
-  if (intent === "publish") {
-    return {
-      confirm: "Terbitkan",
-      description: "Materi akan tersedia untuk siswa.",
-      title: "Terbitkan materi?",
-    };
-  }
-  if (intent === "unpublish") {
-    return {
-      confirm: "Batalkan terbit",
-      description: "Materi akan kembali menjadi draf dan tidak lagi terlihat oleh siswa.",
-      title: "Batalkan penerbitan?",
-    };
-  }
-  if (intent === "archive") {
-    return {
-      confirm: "Arsipkan",
-      description: "Materi tidak lagi tersedia untuk siswa sampai dipulihkan.",
-      title: "Arsipkan materi?",
-    };
-  }
-  return {
-    confirm: "Kembalikan ke draf",
-    description: "Materi akan kembali menjadi draf.",
-    title: "Kembalikan materi ke draf?",
-  };
-}
-
 function mapActionErrors(
   fieldErrors: Partial<Record<string, string>> | undefined,
   source: MateriDocumentSource,
@@ -205,12 +144,9 @@ function MateriBuilderHeader({
   builderState,
   headerState,
   mode,
-  onLifecycle,
   onPreviewChange,
   onSave,
   parentHref,
-  saveLabel,
-  savedMateri,
 }: {
   builderState: MateriBuilderState;
   headerState: {
@@ -221,12 +157,9 @@ function MateriBuilderHeader({
     materiStatus: KaptenMateriView["status"];
   };
   mode: "create" | "edit";
-  onLifecycle: (intent: LifecycleIntent) => void;
   onPreviewChange: (open: boolean) => void;
   onSave: () => void;
   parentHref: string;
-  saveLabel: string;
-  savedMateri: KaptenMateriView | null;
 }) {
   const { hasUnsavedChanges, isArchived, isPreviewOpen, isSaving, materiStatus } = headerState;
 
@@ -254,15 +187,15 @@ function MateriBuilderHeader({
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
             <Button
-              className="-ml-3 min-h-[44px]"
+              aria-label="Kembali ke materi"
+              className="-ml-3"
               nativeButton={false}
               render={<Link href={parentHref} />}
-              size="sm"
-              aria-label="Kembali ke materi"
+              size="icon"
+              title="Kembali ke materi"
               variant="ghost"
             >
               <ChevronLeft />
-              Kembali ke materi
             </Button>
             <h1 className="mt-4 max-w-4xl break-words text-2xl leading-tight font-bold tracking-[-0.03em] text-secondary-900 md:text-3xl">
               {mode === "create" ? "Buat Materi" : builderState.title || "Edit Materi"}
@@ -276,149 +209,17 @@ function MateriBuilderHeader({
             </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <Button aria-label="Preview lesson" className="min-h-[44px]" onClick={() => onPreviewChange(true)} size="sm" type="button" variant="brandOutline">
+            <Button aria-label="Preview materi" onClick={() => onPreviewChange(true)} size="icon" title="Preview materi" type="button" variant="brandOutline">
               <Eye />
-              Preview
             </Button>
             <Button className="min-h-[44px] min-w-36" disabled={isSaving || isArchived} onClick={onSave} type="button" variant="brand">
               <Save />
-              {isSaving ? "Menyimpan..." : saveLabel}
+              {isSaving ? "Menyimpan..." : "Simpan"}
             </Button>
-            {savedMateri ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button aria-label="Aksi materi" disabled={isSaving || hasUnsavedChanges} size="icon-sm" type="button" variant="ghost" />}>
-                  <Ellipsis />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuGroup>
-                    {materiStatus === "draft" ? (
-                      <DropdownMenuItem disabled={savedMateri.readiness !== "ready" || isSaving || hasUnsavedChanges} onClick={() => onLifecycle("publish")}>
-                        <Upload />
-                        Terbitkan
-                      </DropdownMenuItem>
-                    ) : null}
-                    {materiStatus === "published" ? (
-                      <DropdownMenuItem disabled={isSaving || hasUnsavedChanges} onClick={() => onLifecycle("unpublish")}>
-                        Batalkan terbit
-                      </DropdownMenuItem>
-                    ) : null}
-                    {materiStatus !== "archived" ? (
-                      <DropdownMenuItem disabled={isSaving || hasUnsavedChanges} onClick={() => onLifecycle("archive")}>
-                        <Archive />
-                        Arsipkan
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem disabled={isSaving} onClick={() => onLifecycle("returnToDraft")}>
-                        Pulihkan
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem disabled variant="destructive">
-                      <Trash2 />
-                      Hapus
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
           </div>
         </div>
       )}
-      {savedMateri && hasUnsavedChanges && !isPreviewOpen ? (
-        <p className="rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
-          Simpan perubahan sebelum mengubah status publikasi.
-        </p>
-      ) : null}
     </section>
-  );
-}
-
-function ReadinessItem({
-  label,
-  ready,
-}: {
-  label: string;
-  ready: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className={ready ? "text-secondary-800" : "text-secondary-500"}>{label}</span>
-      <span className={cn("shrink-0 text-xs font-semibold", ready ? "text-secondary-500" : "text-secondary-700")}>
-        {ready ? "Lengkap" : "Perlu diisi"}
-      </span>
-    </div>
-  );
-}
-
-function MateriBuilderReadinessRail({
-  builderState,
-  isArchived,
-  materiStatus,
-  readiness,
-  subjects,
-}: {
-  builderState: MateriBuilderState;
-  isArchived: boolean;
-  materiStatus: KaptenMateriView["status"];
-  readiness: "ready" | "incomplete";
-  subjects: KaptenMateriSubjectView[];
-}) {
-  const validationErrors = validateMateriBuilderState(builderState, subjects);
-  const hasManagedDocument = builderState.documentSource === "managed";
-  const documentReady = hasManagedDocument
-    ? Boolean(builderState.documentAssetId.trim()) && !validationErrors.documentAssetId && !validationErrors.documentMimeType
-    : Boolean(builderState.documentUrl.trim()) && !validationErrors.documentUrl && !validationErrors.documentMimeType;
-  const videoReady = (!builderState.videoUrl.trim() && !builderState.videoDuration.trim())
-    || (Boolean(builderState.videoUrl.trim()) && Boolean(builderState.videoDuration.trim()) && !validationErrors.videoUrl && !validationErrors.videoDuration);
-  const checks = [
-    { label: "Subject dipilih", ready: Boolean(builderState.subjectSlug) && !validationErrors.subjectSlug },
-    { label: "Judul materi", ready: Boolean(builderState.title.trim()) && !validationErrors.title },
-    { label: "PDF bacaan", ready: documentReady },
-    { label: "Video opsional", ready: videoReady },
-  ];
-
-  return (
-    <aside aria-label="Ringkasan materi" className="space-y-4 xl:sticky xl:top-5 xl:self-start">
-      <section className="rounded-[24px] border border-primary-100 bg-primary-50/60 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold tracking-[-0.02em] text-secondary-900">Kesiapan materi</h2>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">
-              {readiness === "ready" ? "Semua kebutuhan utama sudah lengkap." : "Lengkapi item yang masih tertinggal."}
-            </p>
-          </div>
-          <span className={cn(
-            "shrink-0 rounded-full border border-secondary-200 bg-white px-2.5 py-1 text-xs font-bold text-secondary-700",
-          )}>
-            {readiness === "ready" ? "Siap" : "Belum siap"}
-          </span>
-        </div>
-        <div className="mt-5 space-y-3" role="list">
-          {checks.map((check) => (
-            <div aria-label={`${check.label}: ${check.ready ? "lengkap" : "perlu diisi"}`} key={check.label} role="listitem">
-              <ReadinessItem {...check} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-[24px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold tracking-[-0.02em] text-secondary-900">Status publikasi</h2>
-          <LifecycleLabel status={materiStatus} />
-        </div>
-        <p className="mt-3 text-sm leading-6 text-secondary-600">
-          {materiStatus === "published"
-            ? "Materi ini sedang tersedia untuk siswa."
-            : materiStatus === "archived"
-              ? "Materi ini diarsipkan dan tidak tersedia untuk siswa."
-              : "Materi ini masih berupa draf."}
-        </p>
-        {isArchived ? (
-          <p className="mt-4 text-xs leading-5 text-secondary-500">Pulihkan materi untuk mengedit isinya.</p>
-        ) : null}
-      </section>
-    </aside>
   );
 }
 
@@ -479,7 +280,6 @@ function MateriBuilderEditor({
       <section className="space-y-5 rounded-[24px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:p-6">
         <div>
           <h2 className="text-xl font-bold tracking-[-0.025em] text-secondary-900">Materi</h2>
-          <p className="mt-1 max-w-[62ch] text-sm leading-6 text-secondary-500">Pilih subject dan beri judul untuk bacaan ini.</p>
         </div>
         <div className="grid gap-5 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
           <Field>
@@ -545,7 +345,6 @@ function MateriBuilderEditor({
       <section className="space-y-5 rounded-[24px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:p-6">
         <div>
           <h2 className="text-xl font-bold tracking-[-0.025em] text-secondary-900">Video pendamping (opsional)</h2>
-          <p className="mt-1 max-w-[62ch] text-sm leading-6 text-secondary-500">Isi URL dan durasi bersama-sama, atau biarkan keduanya kosong untuk materi PDF saja.</p>
         </div>
         <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_180px]">
           <Field>
@@ -601,10 +400,6 @@ function useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement,
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 }
 
-function MateriLifecycleDialog({ confirmation, isSaving, lifecycleError, onClose, onConfirm, open }: { confirmation: ReturnType<typeof lifecycleCopy> | null; isSaving: boolean; lifecycleError: string | null; onClose: () => void; onConfirm: () => void; open: boolean }) {
-  return <Dialog onOpenChange={(nextOpen) => { if (!nextOpen && !isSaving) onClose(); }} open={open}><DialogContent pending={isSaving} showCloseButton={!isSaving} variant="info"><DialogHeader><DialogTitle>{confirmation?.title}</DialogTitle><DialogDescription>{confirmation?.description}</DialogDescription></DialogHeader>{lifecycleError ? <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">{lifecycleError}</div> : null}<DialogFooter><DialogClose disabled={isSaving} render={<Button type="button" variant="brandOutline" />}>Batal</DialogClose><Button disabled={isSaving} onClick={onConfirm} type="button" variant="brand">{isSaving ? <><LoaderCircle className="animate-spin" />Memproses...</> : confirmation?.confirm}</Button></DialogFooter></DialogContent></Dialog>;
-}
-
 function KaptenMateriBuilderPageModule({
   initialMateri = null,
   initialPreview = false,
@@ -635,8 +430,6 @@ function KaptenMateriBuilderPageModule({
     isPreviewOpen: initialPreview,
     isSaving: false,
     lastSavedAt: null,
-    lifecycleError: null,
-    lifecycleIntent: null,
     pendingRouteReplacement: null,
     saveError: null,
     savedMateri: initialMateri,
@@ -648,8 +441,6 @@ function KaptenMateriBuilderPageModule({
     isPreviewOpen,
     isSaving,
     lastSavedAt,
-    lifecycleError,
-    lifecycleIntent,
     pendingRouteReplacement,
     saveError,
     savedMateri,
@@ -661,7 +452,6 @@ function KaptenMateriBuilderPageModule({
     ?? (initialMateri ? `/mentor/materi/subject/${initialMateri.subjectSlug}` : "/mentor/materi");
   const materiStatus = savedMateri?.status ?? "draft";
   const isArchived = materiStatus === "archived";
-  const saveLabel = materiStatus === "draft" ? "Simpan draf" : "Simpan perubahan";
   const readiness = Object.keys(validateMateriBuilderState(builderState, subjects)).length === 0
     ? "ready"
     : "incomplete";
@@ -759,51 +549,6 @@ function KaptenMateriBuilderPageModule({
     }
   }
 
-  async function confirmLifecycle() {
-    if (!savedMateri || !lifecycleIntent || isSaving) return;
-    if (hasUnsavedChanges) {
-      updateEditor({ lifecycleError: "Simpan perubahan materi terlebih dahulu sebelum mengubah status publikasi." });
-      return;
-    }
-    updateEditor({ isSaving: true, lifecycleError: null });
-    try {
-      const result = lifecycleIntent === "publish"
-        ? await publishMateriLessonAction(savedMateri.code)
-        : lifecycleIntent === "unpublish"
-          ? await unpublishMateriLessonAction(savedMateri.code)
-          : lifecycleIntent === "archive"
-            ? await archiveMateriLessonAction(savedMateri.code)
-            : await returnMateriLessonToDraftAction(savedMateri.code);
-      if (!result.ok) {
-        updateEditor({ lifecycleError: result.message });
-        return;
-      }
-      updateEditor({
-        lastSavedAt: result.message,
-        lifecycleError: null,
-        lifecycleIntent: null,
-        saveError: null,
-        savedMateri: result.lesson,
-      });
-      router.refresh();
-    } catch (error) {
-      updateEditor({ lifecycleError: error instanceof Error ? error.message : "Status publikasi tidak dapat diubah. Coba lagi." });
-    } finally {
-      updateEditor({ isSaving: false });
-    }
-  }
-
-  function openLifecycle(intent: LifecycleIntent) {
-    updateEditor({ lifecycleError: null });
-    if (hasUnsavedChanges) {
-      updateEditor({ lifecycleError: "Simpan perubahan materi terlebih dahulu sebelum mengubah status publikasi.", lifecycleIntent: null });
-      return;
-    }
-    updateEditor({ lifecycleIntent: intent });
-  }
-
-  const confirmation = lifecycleIntent ? lifecycleCopy(lifecycleIntent) : null;
-
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
@@ -818,12 +563,9 @@ function KaptenMateriBuilderPageModule({
         builderState={builderState}
         headerState={{ hasUnsavedChanges, isArchived, isPreviewOpen, isSaving, materiStatus }}
         mode={mode}
-        onLifecycle={openLifecycle}
         onPreviewChange={(open) => updateEditor({ isPreviewOpen: open })}
         onSave={() => void saveLesson()}
         parentHref={parentHref}
-        saveLabel={saveLabel}
-        savedMateri={savedMateri}
       />
 
       {!isPreviewOpen && lastSavedAt ? (
@@ -837,10 +579,7 @@ function KaptenMateriBuilderPageModule({
           {saveError}
         </div>
       ) : null}
-      <div className={cn(
-        "grid items-start gap-6",
-        isPreviewOpen ? "max-w-4xl" : "xl:grid-cols-[minmax(0,1fr)_280px]",
-      )}>
+      <div className={cn(isPreviewOpen && "max-w-4xl")}>
         <MateriBuilderEditor
           builderState={builderState}
           errors={errors}
@@ -854,15 +593,6 @@ function KaptenMateriBuilderPageModule({
           selectedSubjectName={selectedSubject?.name ?? "Materi"}
           subjects={subjects}
         />
-        {!isPreviewOpen ? (
-          <MateriBuilderReadinessRail
-            builderState={builderState}
-            isArchived={isArchived}
-            materiStatus={materiStatus}
-            readiness={readiness}
-            subjects={subjects}
-          />
-        ) : null}
       </div>
 
       <MediaPickerDialog
@@ -874,7 +604,6 @@ function KaptenMateriBuilderPageModule({
         title="Pilih PDF Materi"
       />
 
-      <MateriLifecycleDialog confirmation={confirmation} isSaving={isSaving} lifecycleError={lifecycleError} onClose={() => updateEditor({ lifecycleError: null, lifecycleIntent: null })} onConfirm={() => void confirmLifecycle()} open={Boolean(lifecycleIntent)} />
     </MentorWorkspaceShell>
   );
 }
