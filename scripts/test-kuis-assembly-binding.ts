@@ -117,8 +117,9 @@ assert.match(builder, /aria-label="Batalkan publikasi Kuis"/u, "published quizze
 assert.doesNotMatch(builder, /<DropdownMenuContent[\s\S]*?Terbitkan/u, "publish must remain outside the overflow menu");
 assert.doesNotMatch(builder, /<DropdownMenuContent[\s\S]*?Batalkan publikasi/u, "unpublish must remain outside the overflow menu");
 assert.doesNotMatch(builder, /<DropdownMenuSeparator\s*\/>/u, "the overflow menu must not separate delete with a divider");
-assert.match(builder, /aria-label=\{state\.quizStatus === "archived" \? "Pulihkan Kuis" : "Arsipkan Kuis"\}[\s\S]*?actions\.onLifecycle\(state\.quizStatus === "archived" \? "restore" : "archive"\)/u, "archive/restore must remain a direct top-level action");
-assert.match(builder, /aria-label="Hapus Kuis" disabled size="icon"/u, "delete must remain a disabled top-level icon action");
+assert.match(builder, /<DropdownMenuTrigger render=\{<Button aria-label="Aksi Kuis"/u, "archive/delete must use the icon-only overflow action");
+assert.match(builder, /<DropdownMenuContent[\s\S]*?onClick=\{\(\) => actions\.onLifecycle\("archive"\)\}[\s\S]*?Arsipkan/u, "archive must remain in the overflow menu");
+assert.match(builder, /<DropdownMenuItem disabled variant="destructive"><Trash2 \/>Hapus<\/DropdownMenuItem>/u, "delete must remain the disabled destructive overflow action");
 assert.equal((builder.match(/aria-label="Kembali mengedit"/gu) ?? []).length, 1, "preview must expose one labeled back control");
 assert.match(builder, /state\.isPreviewOpen \? <Button aria-label="Kembali mengedit" onClick=\{actions\.onClosePreview\}[\s\S]*?<ChevronLeft \/>/u, "preview back must use the page-level chevron");
 assert.doesNotMatch(builder, /<Button[^>]*onClick=\{actions\.onClosePreview\}[^>]*>Kembali mengedit<\/Button>/u, "preview must not duplicate the back action inside the card");

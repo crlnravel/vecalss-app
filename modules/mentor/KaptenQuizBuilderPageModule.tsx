@@ -9,6 +9,7 @@ import {
   ArrowUp,
   ChevronRight,
   CircleHelp,
+  Ellipsis,
   Eye,
   FilePenLine,
   GripVertical,
@@ -35,6 +36,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FullWidthLineTabsList, FullWidthLineTabsTrigger } from "@/components/ui/full-width-line-tabs";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -975,15 +983,17 @@ function QuizBuilderHeader({
               <TooltipContent>{state.isSaving ? "Membatalkan…" : lifecycleLabel}</TooltipContent>
             </Tooltip>
           ) : null}
-          <Tooltip>
-            <TooltipTrigger render={<Button aria-label={state.quizStatus === "archived" ? "Pulihkan Kuis" : "Arsipkan Kuis"} disabled={state.isSaving} onClick={() => actions.onLifecycle(state.quizStatus === "archived" ? "restore" : "archive")} size="icon" type="button" variant="ghost" />}>
-              {state.quizStatus === "archived" ? <RotateCcw /> : <Archive />}
-            </TooltipTrigger>
-            <TooltipContent>{state.quizStatus === "archived" ? "Pulihkan" : "Arsipkan"}</TooltipContent>
-          </Tooltip>
-          <Button aria-label="Hapus Kuis" disabled size="icon" title="Hapus Kuis belum tersedia" type="button" variant="ghost">
-            <Trash2 />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button aria-label="Aksi Kuis" size="icon" title="Aksi Kuis" type="button" variant="ghost" />}>
+              <Ellipsis />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuGroup>
+                {state.quizStatus !== "archived" ? <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("restore")}><RotateCcw />Pulihkan</DropdownMenuItem>}
+                <DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </TooltipProvider>
     </section>
