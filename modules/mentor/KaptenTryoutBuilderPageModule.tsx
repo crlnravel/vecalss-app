@@ -472,7 +472,6 @@ function KaptenTryoutBuilderPageModule({
   const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [requestedWorkspace, setRequestedWorkspace] = useState<Workspace>(() => {
     const requested = normalizeWorkspace(initialWorkspace);
     if (initialDraft?.status === "published" && ["basics", "sections", "review", "publish"].includes(requested)) return "schedule";
@@ -1247,19 +1246,6 @@ function KaptenTryoutBuilderPageModule({
             <Field><FieldLabel htmlFor="published-tryout-title">Judul Tryout</FieldLabel><FieldInput disabled={metadataSaving} id="published-tryout-title" onChange={(event) => setMetadataDraft((current) => ({ ...current, title: event.target.value }))} value={metadataDraft.title} /></Field>
             <Field><FieldLabel htmlFor="published-tryout-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-28 px-4 py-3 text-sm leading-6" disabled={metadataSaving} id="published-tryout-description" onChange={(event) => setMetadataDraft((current) => ({ ...current, description: event.target.value }))} value={metadataDraft.description} /></Field>
             <div className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-4"><Button disabled={metadataSaving} onClick={() => setMetadataOpen(false)} variant="brandOutline">Batal</Button><Button disabled={metadataSaving || !metadataDraft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">{metadataSaving ? "Menyimpan…" : "Simpan detail"}</Button></div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog onOpenChange={setPreviewOpen} open={previewOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-          <DialogTitle>Preview alur peserta</DialogTitle>
-          <DialogDescription>Preview ini hanya membaca draft saat ini. Tidak ada attempt, admission, atau sesi yang dibuat.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-5">
-            <div className="rounded-2xl bg-primary-50 p-5"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Tryout</p><h3 className="mt-1 text-2xl font-semibold text-secondary-900">{draft.title || "Tryout tanpa judul"}</h3>{draft.description ? <p className="mt-2 text-sm leading-6 text-secondary-700">{draft.description}</p> : <p className="mt-2 text-sm text-secondary-500">Belum ada deskripsi.</p>}</div>
-            <div className="grid gap-2"><h4 className="font-semibold text-secondary-900">Urutan Test</h4>{draft.sections.map((section, index) => <div className="flex items-center justify-between gap-3 rounded-xl border border-primary-100 px-3 py-2.5 text-sm" key={section.subtest}><span className="font-medium text-secondary-900">{index + 1}. {section.subtest} · {subjectName(section.subtest)}</span><span className="text-secondary-600">{section.durationMinutes} menit · {section.packageVersionId ? "Sumber tersimpan" : section.directQuestions?.length ? `${section.directQuestions.length} soal · acak` : "Belum siap"}</span></div>)}</div>
           </div>
         </DialogContent>
       </Dialog>

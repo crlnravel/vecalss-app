@@ -52,7 +52,7 @@ assert.match(workspace, /contentReviewChecks/u, "Review must separate content re
 assert.match(workspace, /deliveryReviewChecks/u, "Review must separate delivery readiness");
 assert.match(workspace, /aria-label="Kembali ke semua Tryout"[\s\S]*size="icon"[\s\S]*<ChevronLeft/u, "Tryout workspace back navigation must be an icon-only chevron control");
 assert.doesNotMatch(workspace, /TRYOUT WORKSPACE|Mode authoring|Mode operasional|Semua Tryout/u, "workspace header copy and mode label must stay out of the builder surface");
-assert.match(workspace, /Preview alur peserta/u, "Build must offer a participant-flow preview");
+assert.doesNotMatch(workspace, /previewOpen|setPreviewOpen|Preview alur peserta/u, "Configure Sections must keep the footer focused on the primary next action");
 assert.match(workspace, /Pilih langsung/u, "Build must expose one direct question-source path");
 assert.match(workspace, /<Checkbox/u, "direct question selection must use a checklist");
 assert.doesNotMatch(workspace, /Behavior &amp; rules|Pool Soal|Blueprint|CAT Pool|Set Ready/u, "Build must not expose CAT or alternative source modes");
