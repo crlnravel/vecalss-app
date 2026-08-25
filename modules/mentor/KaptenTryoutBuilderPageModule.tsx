@@ -1052,7 +1052,7 @@ function KaptenTryoutBuilderPageModule({
                   </section>
                 ) : null}
                 {deliveryArea === "sessions" ? (
-                  <section aria-labelledby="schedule-sessions-title">
+                  <section aria-label="Sessions">
                     <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
                   </section>
                 ) : null}
