@@ -16,14 +16,13 @@ const [workspace, route, createRoute, shell, sidebar, repository, useRoute, useM
 ]);
 
 for (const label of [
-  "Build",
+  "Soal",
   "Review & Publish",
   "Delivery",
   "Operations",
   "Results",
   "Overview",
   "Configure Sections",
-  "Ringkasan Tryout",
   "Sections",
   "Policy",
   "Sessions",
@@ -41,14 +40,17 @@ assert.match(workspace, /const publishedWorkspacePhases/u, "published navigation
 assert.match(workspace, /const lifecyclePhaseOrder/u, "the lifecycle roadmap must preserve orientation while future phases are locked");
 assert.match(workspace, /function lifecyclePhasesForMode\(mode: WorkflowMode\)/u, "the lifecycle roadmap must be scoped to the current mode");
 assert.match(workspace, /lifecyclePhases\.map\(\(phase\)/u, "the roadmap must render only mode-relevant phases");
-assert.match(workspace, /type WorkspacePhase = "overview"[\s\S]*"build"/u, "draft navigation must model Overview separately from Build");
-assert.match(workspace, /label: "Overview",\s*value: "overview"[\s\S]*label: "Build",\s*value: "build"/u, "Overview must appear before Build in the lifecycle roadmap");
-assert.match(workspace, /items: \[\{ label: "Configure Sections", value: "sections" \}\]/u, "Build must contain Configure Sections as its only subarea");
+assert.match(workspace, /type WorkspacePhase = "overview"[\s\S]*"build"/u, "draft navigation must model Overview separately from Soal");
+assert.match(workspace, /label: "Overview",\s*value: "overview"[\s\S]*label: "Soal",\s*value: "build"/u, "Overview must appear before Soal in the lifecycle roadmap");
+assert.match(workspace, /items: \[\{ label: "Configure Sections", value: "sections" \}\]/u, "Soal must contain Configure Sections as its only subarea");
 assert.match(workspace, /items: \[\{ label: "Review & Publish", value: "review" \}\]/u, "Review & Publish must be a single summary workspace without inner tabs");
 assert.doesNotMatch(workspace, /Readiness server|Content readiness|Delivery readiness|Published versions|contentReviewChecks|deliveryReviewChecks|readyToPublish|TabsContent className="mt-0" value="publish"/u, "Review & Publish must not expose readiness or version sub-tabs");
-assert.match(workspace, /id="tryout-summary-title"[\s\S]*draft\.title[\s\S]*draft\.description/u, "Review & Publish must summarize the Tryout title and description");
+assert.match(workspace, /<dt className="text-sm font-semibold text-secondary-600">Judul[\s\S]*draft\.title[\s\S]*<dt className="text-sm font-semibold text-secondary-600">Deskripsi[\s\S]*draft\.description/u, "Review & Publish must show the Tryout title and description in one column");
 assert.match(workspace, /draft\.sections\.map[\s\S]*durationMinutes/u, "Review & Publish must summarize every Section duration");
-assert.match(workspace, /setPublishOpen\(true\)[\s\S]*Terbitkan Tryout/u, "Review & Publish must expose one primary publish action");
+assert.doesNotMatch(workspace, /Ringkasan Tryout|Tinjau ringkasan Tryout/u, "Review & Publish must stay flat and concise");
+assert.match(workspace, /setPublishOpen\(true\)[\s\S]*Terbitkan/u, "Review & Publish must expose one primary publish action");
+assert.match(workspace, /Setelah tryout di-publish dan terdapat siswa mengerjakan/u, "publish confirmation must use plain-language locking guidance");
+assert.match(workspace, /AlertDialogContent className="!max-w-xl rounded-5xl gap-5"[\s\S]*AlertDialogFooter className="!justify-stretch grid w-full gap-2"/u, "unsaved-change confirmation must keep its actions inside a responsive modal layout");
 assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
 assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a persistent rail");
@@ -58,14 +60,18 @@ assert.doesNotMatch(workspace, /TRYOUT WORKSPACE|Mode authoring|Mode operasional
 assert.doesNotMatch(workspace, /function phaseDescription|Perubahan belum disimpan\. Simpan sebelum berpindah langkah/u, "phase intro copy and inline dirty status must stay out of the builder chrome");
 assert.doesNotMatch(workspace, /border-b border-primary-100 pb-4/u, "back navigation must not render a divider below the control");
 assert.doesNotMatch(workspace, /<footer className="[^"]*border-t border-primary-100/u, "draft actions must not render a divider above the next action");
-assert.match(workspace, /id="tryout-basic-info-title">Informasi dasar/u, "Build must label the basic information block");
-assert.match(workspace, /Informasi dasar[\s\S]*duration-[\s\S]*instruction-/u, "Build must stack duration and instructions in the basic information block");
-assert.doesNotMatch(workspace, /Tujuh Section wajib|Pilih subject untuk mengatur durasi, instruksi, dan soal yang akan digunakan/u, "Build must remove the redundant section overview header");
+assert.match(workspace, /id="tryout-basic-info-title">Informasi dasar/u, "Soal must label the basic information block");
+assert.match(workspace, /Informasi dasar[\s\S]*duration-[\s\S]*instruction-/u, "Soal must stack duration and instructions in the basic information block");
+assert.doesNotMatch(workspace, /Tujuh Section wajib|Pilih subject untuk mengatur durasi, instruksi, dan soal yang akan digunakan/u, "Soal must remove the redundant section overview header");
 assert.doesNotMatch(workspace, /Question source[\s\S]*Pilih Bank Soal, lalu centang soal yang ingin dimasukkan/u, "question-source lead-in must not repeat the Bank Soal instruction");
 assert.doesNotMatch(workspace, /previewOpen|setPreviewOpen|Preview alur peserta/u, "Configure Sections must keep the footer focused on the primary next action");
-assert.match(workspace, /Pilih langsung/u, "Build must expose one direct question-source path");
+assert.match(workspace, /Pilih bank soal/u, "Soal must expose one direct question-source path");
+assert.doesNotMatch(workspace, /Pilih langsung|Soal terpilih|Pilih satu Bank Soal, lalu checklist soal yang ingin ditambahkan/u, "question-source setup should stay focused on the bank and checklist");
+assert.doesNotMatch(workspace, /Pilih satu Section\. Durasi, sumber, dan aturan mengikuti pilihan yang sama\./u, "Section rail should not repeat configuration guidance");
+assert.match(workspace, /bg-voyage-warm-sun/u, "incomplete Sections should use the warm yellow status dot");
+assert.match(workspace, /RequiredMark/u, "mandatory Tryout fields should expose required markers");
 assert.match(workspace, /<Checkbox/u, "direct question selection must use a checklist");
-assert.doesNotMatch(workspace, /Behavior &amp; rules|Pool Soal|Blueprint|CAT Pool|Set Ready/u, "Build must not expose CAT or alternative source modes");
+assert.doesNotMatch(workspace, /Behavior &amp; rules|Pool Soal|Blueprint|CAT Pool|Set Ready/u, "Soal must not expose CAT or alternative source modes");
 assert.match(workspace, /normalizeWorkspace/u, "legacy workspace query values must be normalized in one boundary");
 assert.match(workspace, /deliveryAreaFor/u, "legacy Delivery query values must land in a stable subarea");
 assert.match(workspace, /value === "operations"\) return "sessions"/u, "legacy operations query must land on Sessions");
