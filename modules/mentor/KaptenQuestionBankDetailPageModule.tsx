@@ -397,7 +397,6 @@ function KaptenQuestionBankDetailPageModule({
           {/* Bank Title & Status */}
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <StatusPill status={bank.status} />
               {subjectCoverage.map((code) => (
                 <Badge key={code} size="ui" variant="mint">
                   {code}
@@ -471,6 +470,10 @@ function KaptenQuestionBankDetailPageModule({
                 ) : null}
               </div>
             )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <StatusPill status={bank.status} />
+            </div>
           </div>
 
           {/* Description, folder, and category metadata */}
@@ -780,9 +783,6 @@ function KaptenQuestionBankDetailPageModule({
                                 </div>
                               ) : null}
                             </div>
-                            {isCorrect ? (
-                              <span className="shrink-0 text-xs font-semibold text-primary-800">Kunci</span>
-                            ) : null}
                           </div>
                         );
                       })}
@@ -790,7 +790,7 @@ function KaptenQuestionBankDetailPageModule({
 
                     {/* Explanation if present */}
                     {question.explanation || question.explanationMediaAssetId ? (
-                      <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-xs leading-5 text-secondary-700">
+                      <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-sm leading-6 text-secondary-700">
                         <span className="font-bold text-primary-900">Pembahasan: </span>
                         {question.explanation}
                         {question.explanationMediaAssetId ? (
