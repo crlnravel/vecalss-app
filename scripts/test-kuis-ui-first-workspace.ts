@@ -72,6 +72,9 @@ assert.match(quizCatalogue, /group grid gap-4 rounded-3xl border border-primary-
 assert.match(quizCatalogue, /aria-label=\{`Buka \$\{quiz\.title\}`\}/u, "quiz rows must provide a direct open action");
 assert.match(quizCatalogue, /<ChevronRight aria-hidden/u, "quiz rows must use the Tryout-style trailing chevron");
 assert.doesNotMatch(quizCatalogue, /<Archive|>Arsipkan<|>Pulihkan</u, "subject catalogue must not expose archive lifecycle actions");
+assert.doesNotMatch(quizCatalogue, /Lihat hasil siswa|aria-label="Edit quiz"|Aksi untuk \$\{quiz\.title\}|<Ellipsis/u, "quiz rows must not expose row-level action controls");
+assert.doesNotMatch(quizCatalogue, /<span>\{quiz\.primaryMetric\}<\/span>|quizDateFormatter/u, "quiz rows must not repeat metadata below the title");
+assert.doesNotMatch(quizCatalogue, /ListChecks className="size-4 shrink-0 text-primary-800"/u, "quiz rows must not show a redundant type icon");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");
