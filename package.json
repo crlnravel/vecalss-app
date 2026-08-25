@@ -62,6 +62,7 @@
     "test:tryout-authoring-workspace": "tsx scripts/test-tryout-authoring-workspace.ts",
     "test:tryout-package-handoff": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-tryout-package-handoff.ts",
     "test:mentor-bank-package-ui": "tsx scripts/test-mentor-bank-package-ui.ts",
+    "test:mentor-bank-soal-catalogue-context-menu": "tsx scripts/test-mentor-bank-soal-catalogue-context-menu.ts",
     "test:mentor-bank-soal-editor-readiness-accessibility": "tsx scripts/test-mentor-bank-soal-editor-readiness-accessibility.ts",
     "test:mentor-bank-soal-editor-verification": "tsx scripts/test-mentor-bank-soal-editor-verification.ts",
     "test:question-bank-organization-seed": "node scripts/test-question-bank-organization-seed.mjs",

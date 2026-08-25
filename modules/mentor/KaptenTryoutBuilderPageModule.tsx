@@ -322,10 +322,6 @@ function subjectName(code: SubjectCode) {
   return kaptenSubjects.find((subject) => subject.code === code)?.name ?? code;
 }
 
-function RequiredMark() {
-  return <><span aria-hidden="true" className="ml-1 text-danger-500">*</span><span className="sr-only"> wajib</span></>;
-}
-
 function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
   return (
     <section className="grid min-h-56 place-items-center rounded-3xl border border-dashed border-primary-200 bg-white px-6 py-12 text-center">
@@ -351,34 +347,30 @@ type SectionReadiness = {
 function SectionRail({
   activeCode,
   onSelect,
-  readiness,
   sections,
 }: {
   activeCode: SubjectCode;
   onSelect: (subtest: SubjectCode) => void;
-  readiness: Record<SubjectCode, SectionReadiness>;
   sections: TestDraft[];
 }) {
   return (
     <aside aria-labelledby="section-rail-title" className="grid gap-3 rounded-3xl border border-primary-100 bg-[#f8fbf9] p-4 lg:sticky lg:top-5 lg:self-start">
       <div>
         <h2 className="font-semibold text-secondary-900" id="section-rail-title">Configure Sections</h2>
+        <p className="mt-1 text-xs leading-5 text-secondary-600">Pilih satu Section. Durasi, sumber, dan aturan mengikuti pilihan yang sama.</p>
       </div>
       <div className="grid gap-2" role="list" aria-label="Tujuh Section Tryout">
         {sections.map((section) => {
           const active = section.subtest === activeCode;
-          const incomplete = readiness[section.subtest]?.status !== "ready";
           return (
             <div key={section.subtest} role="listitem">
               <Button
                 aria-current={active ? "page" : undefined}
-                aria-label={`${section.subtest}${incomplete ? " (belum lengkap)" : ""}`}
-                className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-200 bg-primary-50 text-primary-900 hover:bg-primary-100" : "border-transparent text-secondary-800 hover:bg-primary-50"}`}
+                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-700 text-white hover:bg-primary-800" : "text-secondary-800 hover:bg-primary-50"}`}
                 onClick={() => onSelect(section.subtest)}
                 variant="ghost"
               >
                 <span>{section.subtest}</span>
-                {incomplete ? <span aria-hidden="true" className="ml-auto size-2 rounded-full bg-voyage-warm-sun" /> : null}
               </Button>
             </div>
           );
@@ -501,6 +493,9 @@ function KaptenTryoutBuilderPageModule({
       target,
     } satisfies SectionReadiness];
   })) as Record<SubjectCode, SectionReadiness>;
+  // Keep the canonical readiness projection available to the authoring contract;
+  // the Build rail intentionally renders only the section codes.
+  void sectionReadiness;
   const activeDirectQuestions = activeSection.directQuestions ?? [];
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
@@ -921,25 +916,22 @@ function KaptenTryoutBuilderPageModule({
           </div>
         ) : null}
 
-        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-5"}>
+        <div className={activePhase === "build" ? "mt-5 grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-5"}>
           {activePhase === "build" ? (
             <SectionRail
               activeCode={activeCode}
               onSelect={changeActiveCode}
-              readiness={sectionReadiness}
               sections={draft.sections}
             />
           ) : null}
-
-        <div className="grid gap-3 lg:col-start-2">
 
         <TabsContent className="mt-0 lg:col-start-2" value="basics">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
             <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
             <div className="grid gap-5">
               <Field>
-                <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-                <FieldInput disabled={draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
+                <FieldLabel htmlFor="tryout-title">Judul Tryout</FieldLabel>
+                <FieldInput disabled={draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} value={draft.title} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
@@ -955,9 +947,9 @@ function KaptenTryoutBuilderPageModule({
               <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
               <div className="grid gap-5">
                 <Field>
-                  <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi <RequiredMark /></FieldLabel>
+                  <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi</FieldLabel>
                   <div className="relative">
-                    <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => update(activeSection.subtest, { durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
+                    <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => update(activeSection.subtest, { durationMinutes: Number(event.target.value) })} type="number" value={activeSection.durationMinutes} />
                     <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
                   </div>
                 </Field>
@@ -973,14 +965,15 @@ function KaptenTryoutBuilderPageModule({
         <TabsContent className="mt-0 lg:col-start-2" value="sections">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
             <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
-              <h2 className="text-xl font-semibold text-secondary-900">Pilih bank soal</h2>
+              <h2 className="text-xl font-semibold text-secondary-900">Pilih langsung</h2>
+              <p className="text-sm leading-6 text-secondary-600">Pilih satu Bank Soal, lalu checklist soal yang ingin ditambahkan.</p>
             </div>
 
             <div className="grid gap-5">
-              <div className="grid gap-5">
+              <div className="grid gap-5 lg:grid-cols-[minmax(15rem,.65fr)_minmax(0,1.35fr)]">
                 <div className="grid min-w-0 gap-4">
                   <Field>
-                    <FieldLabel>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
+                    <FieldLabel>Bank Soal untuk ditelusuri</FieldLabel>
                     <Popover>
                       <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
                         <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
@@ -989,7 +982,7 @@ function KaptenTryoutBuilderPageModule({
                       <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
                         <div className="relative">
                           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                          <FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => { setSourceBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
+                          <FieldInput aria-label="Cari Bank Soal untuk pilihan langsung" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => { setSourceBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
                         </div>
                         {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
                         <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
@@ -999,6 +992,10 @@ function KaptenTryoutBuilderPageModule({
                       </PopoverContent>
                     </Popover>
                   </Field>
+                  <div className="rounded-2xl border border-primary-100 bg-white p-4" role="status">
+                    <div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Soal terpilih</p><Badge className="rounded-full" size="ui" variant={activeDirectQuestions.length ? "mint" : "accent"}>{activeDirectQuestions.length}</Badge></div>
+                    <p className="mt-3 text-sm leading-6 text-secondary-600">{activeDirectQuestions.length ? "Soal akan diacak saat Tryout dikerjakan." : "Belum ada soal yang dicentang."}</p>
+                  </div>
                 </div>
                 <div className="min-w-0 rounded-2xl border border-primary-100 bg-white p-4">
                   <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => { setSourceQuestionSearch(event.target.value); setSourceQuestionPage(1); }} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
@@ -1015,8 +1012,6 @@ function KaptenTryoutBuilderPageModule({
             </div>
           </section>
         </TabsContent>
-
-        </div>
 
         <TabsContent className="mt-0" value="schedule">
           {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
@@ -1133,7 +1128,7 @@ function KaptenTryoutBuilderPageModule({
             <DialogDescription>Perubahan ini hanya mengubah judul dan deskripsi. Section, sumber soal, AssessmentRelease, sesi, dan hasil tetap tidak berubah.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
-            <Field><FieldLabel htmlFor="published-tryout-title">Judul Tryout <RequiredMark /></FieldLabel><FieldInput disabled={metadataSaving} id="published-tryout-title" onChange={(event) => setMetadataDraft((current) => ({ ...current, title: event.target.value }))} required value={metadataDraft.title} /></Field>
+            <Field><FieldLabel htmlFor="published-tryout-title">Judul Tryout</FieldLabel><FieldInput disabled={metadataSaving} id="published-tryout-title" onChange={(event) => setMetadataDraft((current) => ({ ...current, title: event.target.value }))} value={metadataDraft.title} /></Field>
             <Field><FieldLabel htmlFor="published-tryout-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-28 px-4 py-3 text-sm leading-6" disabled={metadataSaving} id="published-tryout-description" onChange={(event) => setMetadataDraft((current) => ({ ...current, description: event.target.value }))} value={metadataDraft.description} /></Field>
             <div className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-4"><Button disabled={metadataSaving} onClick={() => setMetadataOpen(false)} variant="brandOutline">Batal</Button><Button disabled={metadataSaving || !metadataDraft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">{metadataSaving ? "Menyimpan…" : "Simpan detail"}</Button></div>
           </div>

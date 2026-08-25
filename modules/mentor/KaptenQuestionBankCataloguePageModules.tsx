@@ -23,8 +23,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
+import { ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -492,15 +493,25 @@ function KaptenQuestionBankPageModule({
     },
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
-        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={[...row.bank.subjectCoverage, ...row.bank.categories.map((category) => category.name)].join(" · ")}>
-          {row.bank.subjectCoverage.map((subject) => <Badge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="ui" variant="mint">{subject}</Badge>)}
-          {row.bank.categories.map((category) => <span className="inline-flex min-w-0 max-w-[10rem] shrink-0 items-center truncate rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>)}
+        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.subjectCoverage.join(" · ")}>
+          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <Badge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="ui" variant="mint">{subject}</Badge>) : <span className="text-sm text-secondary-400">—</span>}
         </div>
       ),
-      headerClassName: "min-w-[12rem]",
-      id: "coverage",
+      headerClassName: "min-w-[9rem]",
+      id: "subject",
+      label: "Subject",
+      width: 22,
+    },
+    {
+      cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
+        <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.categories.map((category) => category.name).join(" · ")}>
+          {row.bank.categories.length ? row.bank.categories.map((category) => <span className="inline-flex min-w-0 max-w-[10rem] shrink-0 items-center truncate rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>) : <span className="text-sm text-secondary-400">—</span>}
+        </div>
+      ),
+      headerClassName: "min-w-[10rem]",
+      id: "category",
       label: "Kategori",
-      width: 28,
+      width: 24,
     },
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : <StatusPill status={row.bank.status} />,
@@ -509,38 +520,26 @@ function KaptenQuestionBankPageModule({
       label: "Status",
       width: 13,
     },
-    {
-      cell: (row) => row.kind === "folder" ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${row.folder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</DropdownMenuItem>
-            <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              {row.bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
-              {row.bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
-              {row.bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-      cellClassName: "text-right",
-      headerClassName: "min-w-[5rem] text-right",
-      id: "actions",
-      label: "Aksi",
-      width: 14,
-    },
   ];
+
+  const catalogueRowContextMenu = (row: QuestionBankCatalogueRow) => row.kind === "folder" ? (
+    <ContextMenuContent className="w-48">
+      <ContextMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</ContextMenuItem>
+    </ContextMenuContent>
+  ) : (
+    <ContextMenuContent className="w-52">
+      <ContextMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</ContextMenuItem>
+      <ContextMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuGroup>
+        {row.bank.status === "draft" ? <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</ContextMenuItem> : null}
+        {row.bank.status === "published" ? <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</ContextMenuItem> : null}
+        {row.bank.status !== "archived" ? <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</ContextMenuItem> : <ContextMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</ContextMenuItem>}
+      </ContextMenuGroup>
+    </ContextMenuContent>
+  );
 
   const filterPanel = (
     <div className="space-y-4 p-1">
@@ -630,6 +629,7 @@ function KaptenQuestionBankPageModule({
           headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
           moreMenu={sortMenu}
           rows={catalogueRows}
+          rowContextMenu={catalogueRowContextMenu}
           search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
           isLoading={isCataloguePending}
           loadingLabel="Memuat bank soal…"

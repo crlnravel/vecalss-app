@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -94,6 +95,7 @@ type DataTableProps<T> = {
   loadingLabel?: string;
   moreMenu?: ReactNode;
   rowClassName?: (row: T, selected: boolean) => string | undefined;
+  rowContextMenu?: (row: T) => ReactNode;
   rowProps?: (row: T) => ComponentProps<typeof TableRow>;
   rows: readonly T[];
   onRowClick?: (row: T) => void;
@@ -171,6 +173,7 @@ type DataTableGridProps<T> = {
   loadingLabel?: string;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T, selected: boolean) => string | undefined;
+  rowContextMenu?: (row: T) => ReactNode;
   rowProps?: (row: T) => ComponentProps<typeof TableRow>;
   rowIsClickable: boolean;
   rows: readonly T[];
@@ -229,6 +232,7 @@ function DataTableGrid<T>({
   loadingLabel,
   onRowClick,
   rowClassName,
+  rowContextMenu,
   rowProps,
   rowIsClickable,
   rows,
@@ -299,6 +303,8 @@ function DataTableGrid<T>({
           const id = getRowId(row);
           const selected = selectedIds.has(id);
           const additionalRowProps = rowProps?.(row);
+          const contextMenu = rowContextMenu?.(row);
+          const rowIsInteractive = rowIsClickable || Boolean(contextMenu);
           const rowInteractionProps = rowIsClickable && onRowClick
             ? {
                 onClick: (event: MouseEvent<HTMLTableRowElement>) => {
@@ -328,16 +334,19 @@ function DataTableGrid<T>({
                 },
                 tabIndex: 0,
               }
+            : contextMenu
+              ? { tabIndex: 0 }
             : undefined;
-          return (
+          const tableRow = (
             <TableRow
               {...additionalRowProps}
               {...rowInteractionProps}
+              aria-haspopup={contextMenu ? "menu" : undefined}
               aria-selected={selection ? selected : undefined}
               className={cn(
                 "border-primary-100/55 transition-colors hover:bg-secondary-50/70",
                 selected && "bg-primary-50/60 hover:bg-primary-50/80",
-                rowIsClickable && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
+                rowIsInteractive && "cursor-pointer focus-visible:bg-primary-50/60 focus-visible:outline-2 focus-visible:outline-primary-700/20 focus-visible:outline-offset-[-2px]",
                 rowClassName?.(row, selected),
                 additionalRowProps?.className,
               )}
@@ -359,6 +368,13 @@ function DataTableGrid<T>({
               ))}
             </TableRow>
           );
+
+          return contextMenu ? (
+            <ContextMenu key={id}>
+              <ContextMenuTrigger render={tableRow} />
+              {contextMenu}
+            </ContextMenu>
+          ) : tableRow;
         }) : (
           <TableRow className="hover:bg-transparent">
             <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
@@ -383,6 +399,7 @@ function DataTable<T>({
   loadingLabel,
   moreMenu,
   onRowClick,
+  rowContextMenu,
   rowClassName,
   rowProps,
   rows,
@@ -645,6 +662,7 @@ function DataTable<T>({
         loadingLabel={loadingLabel}
         onRowClick={onRowClick}
         rowClassName={rowClassName}
+        rowContextMenu={rowContextMenu}
         rowIsClickable={rowIsClickable}
         rowProps={rowProps}
         rows={rows}

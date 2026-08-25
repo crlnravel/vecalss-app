@@ -63,11 +63,7 @@ assert.match(workspace, /Informasi dasar[\s\S]*duration-[\s\S]*instruction-/u, "
 assert.doesNotMatch(workspace, /Tujuh Section wajib|Pilih subject untuk mengatur durasi, instruksi, dan soal yang akan digunakan/u, "Build must remove the redundant section overview header");
 assert.doesNotMatch(workspace, /Question source[\s\S]*Pilih Bank Soal, lalu centang soal yang ingin dimasukkan/u, "question-source lead-in must not repeat the Bank Soal instruction");
 assert.doesNotMatch(workspace, /previewOpen|setPreviewOpen|Preview alur peserta/u, "Configure Sections must keep the footer focused on the primary next action");
-assert.match(workspace, /Pilih bank soal/u, "Build must expose one direct question-source path");
-assert.doesNotMatch(workspace, /Pilih langsung|Soal terpilih|Pilih satu Bank Soal, lalu checklist soal yang ingin ditambahkan/u, "question-source setup should stay focused on the bank and checklist");
-assert.doesNotMatch(workspace, /Pilih satu Section\. Durasi, sumber, dan aturan mengikuti pilihan yang sama\./u, "Section rail should not repeat configuration guidance");
-assert.match(workspace, /bg-voyage-warm-sun/u, "incomplete Sections should use the warm yellow status dot");
-assert.match(workspace, /RequiredMark/u, "mandatory Tryout fields should expose required markers");
+assert.match(workspace, /Pilih langsung/u, "Build must expose one direct question-source path");
 assert.match(workspace, /<Checkbox/u, "direct question selection must use a checklist");
 assert.doesNotMatch(workspace, /Behavior &amp; rules|Pool Soal|Blueprint|CAT Pool|Set Ready/u, "Build must not expose CAT or alternative source modes");
 assert.match(workspace, /normalizeWorkspace/u, "legacy workspace query values must be normalized in one boundary");

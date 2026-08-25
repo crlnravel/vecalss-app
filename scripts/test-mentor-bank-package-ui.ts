@@ -18,7 +18,7 @@ assert.doesNotMatch(bankCatalogue, /\{bank\.questionCount\} soal · \{bank\.prog
 assert.doesNotMatch(bankCatalogue, /function FolderTree|<FolderTree|organizationOpen|Tampilkan lokasi|Sembunyikan lokasi|question-bank-organization-panel/u, "Bank Soal folder navigation should live in the main catalogue, not a collapsible sidebar");
 assert.match(bankCatalogue, /Kelola kategori bersama/u, "Category management should remain reachable from the main catalogue toolbar");
 assert.match(bankCatalogue, /Buat folder/u, "Folder creation should remain reachable from the main catalogue");
-assert.match(bankCatalogue, /aria-label=\{`Kelola folder \$\{row\.folder\.name\}`\}/u, "Folder rows should keep folder management actions accessible");
+assert.match(bankCatalogue, /ContextMenuContent[\s\S]*Ubah nama/u, "Folder rows should keep folder management actions accessible through their context menu");
 assert.match(bankCatalogue, /name: "Bank soal"/u, "Root copy should use the Bank Soal product label");
 assert.doesNotMatch(bankCatalogue, /Koleksi utama/u, "Root copy should not use the superseded collection label");
 assert.match(bankCatalogue, /contentElement="div"/u, "Bank Soal should rely on the shell's single page landmark");
