@@ -44,7 +44,6 @@ const mentorRootHrefByLabel: Record<string, string> = {
   Kuis: "/mentor/quiz",
   "Bank Soal": "/mentor/quiz/question-bank",
   Tryout: "/mentor/tryout",
-  "Paket Soal": "/mentor/packages",
   Media: "/mentor/media",
   Pengaturan: "/mentor/settings",
 };
@@ -95,6 +94,7 @@ function MentorNavigationConfirmDialog({
 function MentorWorkspaceShell({
   activeLabel,
   breadcrumbLabel,
+  breadcrumbParent,
   children,
   contentElement: ContentElement = "main",
   mainClassName,
@@ -107,6 +107,7 @@ function MentorWorkspaceShell({
 }: {
   activeLabel: string;
   breadcrumbLabel: string;
+  breadcrumbParent?: { href: string; label: string };
   children: ReactNode;
   contentElement?: "div" | "main";
   mainClassName?: string;
@@ -315,6 +316,19 @@ function MentorWorkspaceShell({
                             {activeLabel}
                           </BreadcrumbLink>
                         </BreadcrumbItem>
+                        {breadcrumbParent ? (
+                          <>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                              <BreadcrumbLink
+                                href={breadcrumbParent.href}
+                                className="text-secondary-500"
+                              >
+                                {breadcrumbParent.label}
+                              </BreadcrumbLink>
+                            </BreadcrumbItem>
+                          </>
+                        ) : null}
                         {!isRootPage ? (
                           <>
                             <BreadcrumbSeparator />

@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { RoleName } from "@/generated/prisma/client";
 import { requireSession } from "@/lib/auth/access";
 import { requireTryoutCapability, TryoutCapabilityError } from "@/lib/tryout/capabilities";
@@ -11,13 +9,13 @@ import {
   getReadyAssemblyRevision,
   listReadyAssemblyRevisions,
   previewAssembly,
-  readyAssemblyDraft,
-  saveAssemblyDraft,
   validateAssemblyDraft,
 } from "@/lib/tryout/assembly-repository";
 import { AssemblyValidationError } from "@/lib/tryout/assembly-validation";
 import type { PreviewAssemblyInput, SaveAssemblyDraftInput } from "@/lib/tryout/assembly-repository";
 import type { AssemblyAttachmentTarget, AssemblyAttachmentTestType } from "@/lib/tryout/assembly-validation";
+
+const archivedPackageMessage = "Paket Soal sedang diarsipkan dan tidak dapat diakses oleh Kapten.";
 
 async function assemblyManagementSession() {
   const session = await requireSession();
@@ -77,15 +75,9 @@ async function getAssemblyDraftForEditAction(packageId: string) {
 }
 
 async function saveAssemblyDraftAction(input: SaveAssemblyDraftInput) {
-  const session = await assemblyManagementSession();
-  try {
-    const result = await saveAssemblyDraft(input, session.user.id, { isAdmin: session.user.roles.includes(RoleName.admin) });
-    revalidatePath("/mentor/packages");
-    revalidatePath("/mentor/tryout");
-    return { ok: true as const, result };
-  } catch (error) {
-    return { ok: false as const, message: assemblyMessage(error) };
-  }
+  await assemblyManagementSession();
+  void input;
+  return { message: archivedPackageMessage, ok: false as const };
 }
 
 async function validateAssemblyDraftAction(packageId: string) {
@@ -107,15 +99,9 @@ async function previewAssemblyAction(input: PreviewAssemblyInput) {
 }
 
 async function readyAssemblyDraftAction(packageId: string) {
-  const session = await assemblyManagementSession();
-  try {
-    const result = await readyAssemblyDraft(packageId, session.user.id, { isAdmin: session.user.roles.includes(RoleName.admin) });
-    revalidatePath("/mentor/packages");
-    revalidatePath("/mentor/tryout");
-    return { ok: true as const, result };
-  } catch (error) {
-    return { ok: false as const, message: assemblyMessage(error) };
-  }
+  await assemblyManagementSession();
+  void packageId;
+  return { message: archivedPackageMessage, ok: false as const };
 }
 
 export {

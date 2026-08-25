@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldInput } from "@/components/ui/field";
 import {
   Table,
   TableBody,
@@ -25,10 +26,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
-import { OperationalPageHeader, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
-import { openTryoutDeliverySessionAction } from "@/modules/mentor/tryout-actions";
+import { HelpFieldLabel, OperationalPageHeader, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { openTryoutDeliverySessionAction, updateTryoutDeliverySessionScheduleAction } from "@/modules/mentor/tryout-actions";
 
 type Confirmation = "open" | null;
 
@@ -60,7 +62,15 @@ function KaptenTryoutSessionDetailPageModule({
   const delivery = initial.sessions.find((session) => session.id === sessionId)!;
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [busy, setBusy] = useState(false);
+  const [schedule, setSchedule] = useState(() => ({
+    availableFrom: formatTryoutDateTimeLocal(delivery.availableFrom),
+    availableUntil: formatTryoutDateTimeLocal(delivery.availableUntil),
+  }));
+  const [scheduleBusy, setScheduleBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const scheduleLocked = delivery.attempts.length > 0 || ["closed", "archived"].includes(delivery.status);
+  const scheduleChanged = schedule.availableFrom !== formatTryoutDateTimeLocal(delivery.availableFrom)
+    || schedule.availableUntil !== formatTryoutDateTimeLocal(delivery.availableUntil);
   const effectivePolicy = (delivery.releasePolicy === "inherit"
     ? initial.defaultReleasePolicy
     : delivery.releasePolicy) as Policy;
@@ -84,6 +94,36 @@ function KaptenTryoutSessionDetailPageModule({
       setNotice(actionError instanceof Error ? actionError.message : "Tindakan tidak dapat diproses.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleScheduleSave = async () => {
+    if (scheduleLocked || scheduleBusy || !scheduleChanged) return;
+    if (!schedule.availableFrom || !schedule.availableUntil || new Date(schedule.availableUntil) <= new Date(schedule.availableFrom)) {
+      setNotice("Waktu selesai harus setelah waktu mulai.");
+      return;
+    }
+    setScheduleBusy(true);
+    setNotice(null);
+    try {
+      const result = await updateTryoutDeliverySessionScheduleAction(
+        {
+          availableFrom: schedule.availableFrom,
+          availableUntil: schedule.availableUntil,
+          deliverySessionId: delivery.id,
+        },
+        "Memperbarui jadwal sesi Tryout",
+      );
+      if (!result.ok) {
+        setNotice(result.message ?? "Jadwal sesi tidak dapat diperbarui.");
+        return;
+      }
+      setNotice("Jadwal sesi berhasil diperbarui.");
+      router.refresh();
+    } catch (actionError) {
+      setNotice(actionError instanceof Error ? actionError.message : "Jadwal sesi tidak dapat diperbarui.");
+    } finally {
+      setScheduleBusy(false);
     }
   };
 
@@ -115,21 +155,52 @@ function KaptenTryoutSessionDetailPageModule({
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
-          <div>
-            <p className="text-secondary-500">Jadwal</p>
-            <p className="mt-1 font-medium text-secondary-900">
-              {sessionDateTimeFormatter.format(new Date(delivery.availableFrom))} — {sessionDateTimeFormatter.format(new Date(delivery.availableUntil))}
-            </p>
+        <CardContent className="grid gap-6">
+          <div className="grid gap-5 text-sm md:grid-cols-2">
+            <Field>
+              <HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." />
+              <FieldInput
+                aria-required="true"
+                disabled={scheduleLocked || scheduleBusy}
+                id="session-detail-from"
+                onChange={(event) => setSchedule({ ...schedule, availableFrom: event.target.value })}
+                type="datetime-local"
+                value={schedule.availableFrom}
+              />
+            </Field>
+            <Field>
+              <HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." />
+              <FieldInput
+                aria-required="true"
+                disabled={scheduleLocked || scheduleBusy}
+                id="session-detail-until"
+                min={schedule.availableFrom || undefined}
+                onChange={(event) => setSchedule({ ...schedule, availableUntil: event.target.value })}
+                type="datetime-local"
+                value={schedule.availableUntil}
+              />
+            </Field>
           </div>
-          <div>
-            <p className="text-secondary-500">Jadwal rilis hasil</p>
-            <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
-            {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? (
-              <p className="mt-1 text-secondary-600">
-                {sessionDateTimeFormatter.format(new Date(delivery.scheduledReleaseAt))}
-              </p>
-            ) : null}
+          <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="text-sm">
+              <p className="text-secondary-500">Jadwal rilis hasil</p>
+              <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>
+              {effectivePolicy === "scheduled" && delivery.scheduledReleaseAt ? (
+                <p className="mt-1 text-secondary-600">
+                  {sessionDateTimeFormatter.format(new Date(delivery.scheduledReleaseAt))}
+                </p>
+              ) : null}
+              {scheduleLocked ? (
+                <p className="mt-2 text-xs text-secondary-600">Jadwal dikunci setelah sesi memiliki attempt atau ditutup.</p>
+              ) : null}
+            </div>
+            <Button
+              disabled={scheduleLocked || scheduleBusy || !scheduleChanged}
+              onClick={() => void handleScheduleSave()}
+              variant="brand"
+            >
+              {scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}
+            </Button>
           </div>
         </CardContent>
       </Card>

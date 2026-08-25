@@ -26,6 +26,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { formatTryoutDateTime } from "@/lib/tryout/time";
 import {
   modeLabels,
   policyLabels,
@@ -174,7 +175,7 @@ function KaptenTryoutOperationsModule({
                   <CardHeader>
                     <CardTitle className="font-semibold">{session.name}</CardTitle>
                     <CardDescription>
-                      {new Date(session.availableFrom).toLocaleString("id-ID")} — {new Date(session.availableUntil).toLocaleString("id-ID")}
+                      {formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB
                     </CardDescription>
                     <CardAction className="flex items-center gap-2">
                       <StatusBadge status={session.status} />

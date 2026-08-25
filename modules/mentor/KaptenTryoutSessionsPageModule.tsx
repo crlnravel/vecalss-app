@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, ChevronRight, Plus } from "@/lib/icons";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,8 +20,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { formatTryoutDateTime } from "@/lib/tryout/time";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { OperationalPageHeader } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { KaptenTryoutSessionPrimaryAction } from "@/modules/mentor/KaptenTryoutSessionPrimaryAction";
 
 function KaptenTryoutSessionsPageModule({
   embedded = false,
@@ -31,10 +34,13 @@ function KaptenTryoutSessionsPageModule({
 }) {
   const base = `/mentor/tryout/${initial.id}/operations/sessions`;
   const Root = embedded ? "section" : "main";
+  const hasActiveSession = initial.sessions.some((session) => session.status === "active");
+  const orderedSessions = [...initial.sessions].sort((left, right) => Number(right.isDefaultOpenRegistration) - Number(left.isDefaultOpenRegistration));
+  const currentPrimarySession = orderedSessions.find((session) => session.isDefaultOpenRegistration) ?? null;
 
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
-      {embedded ? <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2><p className="mt-1 text-sm text-secondary-600">Jadwal dan status pelaksanaan Tryout.</p></div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
+      {embedded ? <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2>{!hasActiveSession ? <p className="mt-1 text-sm font-medium text-danger-600" role="alert">Paling tidak harus terdapat satu sesi yang aktif</p> : null}</div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`}
         description={initial.title}
         title="Sesi"
@@ -47,38 +53,74 @@ function KaptenTryoutSessionsPageModule({
       />}
 
       {initial.sessions.length ? (
-        <div className="mt-5 grid gap-3">
-          {initial.sessions.map((session) => (
-            <Link
-              className="group focus-visible:outline-none"
-              href={`${base}/${session.id}`}
-              key={session.id}
-            >
-              <Card className="shadow-none ring-primary-100 transition-colors group-hover:bg-secondary-50 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold">{session.name}</CardTitle>
-                  <CardDescription>
-                    {new Date(session.availableFrom).toLocaleString("id-ID")} — {new Date(session.availableUntil).toLocaleString("id-ID")}
-                  </CardDescription>
-                  <CardAction className="flex items-center gap-2">
-                    <StatusBadge status={session.status} />
-                    <ChevronRight aria-hidden="true" className="text-secondary-400" />
-                  </CardAction>
-                </CardHeader>
-                {session.releasedAt ? (
-                  <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary-600">
-                    <span>Hasil dirilis</span>
-                    {session.assessmentRelease ? <span className="font-medium text-primary-800">Konten rilis {session.assessmentRelease.number}</span> : null}
-                  </CardContent>
-                ) : session.assessmentRelease ? (
-                  <CardContent className="text-sm text-primary-800">
-                    Konten terkunci pada rilis {session.assessmentRelease.number}
-                  </CardContent>
-                ) : null}
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="mt-5 grid gap-3">
+            {orderedSessions.map((session) => {
+              const sessionReady = session.status === "active" && Boolean(session.assessmentRelease);
+              const isPrimary = session.isDefaultOpenRegistration;
+              return (
+                <Card
+                  className={isPrimary
+                    ? "border border-primary-200 bg-primary-50/65 shadow-[0_14px_32px_-24px_rgba(1,76,56,0.42)] ring-primary-300/70"
+                    : "ring-primary-100"}
+                  key={session.id}
+                  size="sm"
+                >
+                  <div className="flex items-stretch">
+                    <Link
+                      className={isPrimary
+                        ? "group min-w-0 flex-1 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/35"
+                        : "group min-w-0 flex-1 transition-colors hover:bg-secondary-50 focus-visible:bg-secondary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/40"}
+                      href={`${base}/${session.id}`}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-base font-semibold">{session.name}</CardTitle>
+                        <CardDescription className="text-xs">
+                          {formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB
+                        </CardDescription>
+                        <CardAction className="flex items-center gap-2">
+                          {!sessionReady ? <span aria-label="Sesi belum siap" className="size-2 rounded-full bg-voyage-warm-sun" role="img" title="Sesi belum siap" /> : null}
+                          <StatusBadge status={session.status} />
+                        </CardAction>
+                      </CardHeader>
+                      {session.releasedAt ? (
+                        <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
+                          <span>Hasil dirilis</span>
+                          {session.assessmentRelease ? <span className="font-medium text-primary-800">Konten rilis {session.assessmentRelease.number}</span> : null}
+                        </CardContent>
+                      ) : null}
+                    </Link>
+
+                    <div className="flex shrink-0 items-center justify-end gap-2 px-2 sm:px-3">
+                      {isPrimary ? (
+                        <Badge className="rounded-full px-2.5 py-1" size="ui" variant="mint">
+                          Sesi utama
+                        </Badge>
+                      ) : (
+                        <KaptenTryoutSessionPrimaryAction
+                          currentPrimaryName={currentPrimarySession?.name}
+                          disabled={!sessionReady}
+                          sessionId={session.id}
+                          sessionName={session.name}
+                        />
+                      )}
+                    </div>
+
+                    <Link
+                      aria-label={`Buka sesi ${session.name}`}
+                      className={isPrimary
+                        ? "flex w-10 shrink-0 items-center justify-center border-l border-primary-200/70 text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/35"
+                        : "flex w-10 shrink-0 items-center justify-center border-l border-secondary-100 text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/40"}
+                      href={`${base}/${session.id}`}
+                    >
+                      <ChevronRight aria-hidden="true" />
+                    </Link>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <Empty className="mt-5 border border-dashed border-primary-100 bg-white">
           <EmptyHeader>

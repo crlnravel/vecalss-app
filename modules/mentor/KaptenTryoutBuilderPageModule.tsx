@@ -9,8 +9,8 @@ import {
   CircleAlert,
   CircleHelp,
   Copy,
+  FilePenLine,
   Lock,
-  Pencil,
   Save,
   Search,
 } from "@/lib/icons";
@@ -29,13 +29,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -43,10 +36,9 @@ import {
   FullWidthLineTabsTrigger,
 } from "@/components/ui/full-width-line-tabs";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
-import type { AssemblyAttachmentSummary } from "@/lib/tryout/assembly-repository";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import type { ReusableQuestionPackageHandoff } from "@/lib/tryout/repository";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
@@ -56,11 +48,10 @@ import { KaptenTryoutPolicyPageModule } from "@/modules/mentor/KaptenTryoutPolic
 import { KaptenTryoutResultsPageModule } from "@/modules/mentor/KaptenTryoutResultsPageModule";
 import { KaptenTryoutSessionsPageModule } from "@/modules/mentor/KaptenTryoutSessionsPageModule";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
-import { duplicateTryoutAction, saveTryoutAction, updateTryoutMetadataAction } from "@/modules/mentor/tryout-actions";
+import { duplicateTryoutAction, saveTryoutAction, unpublishTryoutAction, updateTryoutMetadataAction } from "@/modules/mentor/tryout-actions";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
 type SubjectCode = (typeof subjectCodes)[number];
-type AssemblyMode = "fixed_set" | "random_pool" | "blueprint" | "cat_pool";
 type DirectQuestionDraft = {
   bankId?: string;
   bankTitle?: string;
@@ -78,9 +69,6 @@ type TestDraft = {
   directQuestions?: DirectQuestionDraft[];
   durationMinutes: number;
   instructions: string;
-  packageVersionId?: string;
-  packageVersionLabel?: string;
-  packageVersionMode?: AssemblyMode;
   scoringConfig?: Record<string, unknown>;
   shuffleItems: boolean;
   subtest: SubjectCode;
@@ -102,17 +90,6 @@ type TryoutDraft = {
   status: "draft" | "published";
   title: string;
   updatedAt: number;
-};
-type ReadyVersion = {
-  catReady: boolean;
-  contentReady: boolean;
-  hasExplanations: boolean;
-  hasReadyMedia: boolean;
-  id: string;
-  itemCount: number;
-  label: string;
-  sourceQuestionIds: string[];
-  subtest: SubjectCode;
 };
 type SourceBank = {
   categories?: Array<{ id: string; name: string }>;
@@ -139,7 +116,7 @@ type SourceQuestion = {
 };
 type Workspace = "basics" | "sections" | "questions" | "rules" | "schedule" | "live" | "attempts" | "results" | "review" | "publish";
 type DeliveryArea = "policy" | "sessions" | "participants";
-type WorkspacePhase = "overview" | "build" | "review_publish" | "delivery" | "operations" | "results";
+type WorkspacePhase = "overview" | "build" | "review_publish" | "delivery" | "live" | "attempts" | "results";
 type WorkflowMode = "draft" | "published";
 
 type WorkspacePhaseDefinition = {
@@ -168,17 +145,24 @@ const draftWorkspacePhases: WorkspacePhaseDefinition[] = [
 
 const publishedWorkspacePhases: WorkspacePhaseDefinition[] = [
   {
+    label: "Overview",
+    value: "overview",
+    items: [{ label: "Overview", value: "basics" }],
+  },
+  {
     label: "Delivery",
     value: "delivery",
     items: [{ label: "Policy · Sessions · Participants", value: "schedule" }],
   },
   {
-    label: "Operations",
-    value: "operations",
-    items: [
-      { label: "Live", value: "live" },
-      { label: "Attempts", value: "attempts" },
-    ],
+    label: "Live",
+    value: "live",
+    items: [{ label: "Live", value: "live" }],
+  },
+  {
+    label: "Attempts",
+    value: "attempts",
+    items: [{ label: "Attempts", value: "attempts" }],
   },
   {
     label: "Results",
@@ -192,7 +176,8 @@ const lifecyclePhaseOrder: Array<{ label: string; value: WorkspacePhase }> = [
   { label: "Soal", value: "build" },
   { label: "Review & Publish", value: "review_publish" },
   { label: "Delivery", value: "delivery" },
-  { label: "Operations", value: "operations" },
+  { label: "Live", value: "live" },
+  { label: "Attempts", value: "attempts" },
   { label: "Results", value: "results" },
 ];
 
@@ -201,10 +186,10 @@ function lifecyclePhasesForMode(mode: WorkflowMode) {
   return lifecyclePhaseOrder.filter((phase) => phaseValues.has(phase.value));
 }
 
-const deliveryAreas: Array<{ description: string; label: string; value: DeliveryArea }> = [
-  { description: "Siapa yang boleh masuk dan kapan hasil dibuka.", label: "Policy", value: "policy" },
-  { description: "Jendela waktu dan rilis konten peserta.", label: "Sessions", value: "sessions" },
-  { description: "Admission, undangan, dan penugasan peserta.", label: "Participants", value: "participants" },
+const deliveryAreas: Array<{ label: string; value: DeliveryArea }> = [
+  { label: "Policy", value: "policy" },
+  { label: "Sessions", value: "sessions" },
+  { label: "Participants", value: "participants" },
 ];
 
 function phaseForWorkspace(value: Workspace): WorkspacePhase {
@@ -212,7 +197,8 @@ function phaseForWorkspace(value: Workspace): WorkspacePhase {
   if (["sections", "questions", "rules"].includes(value)) return "build";
   if (["review", "publish"].includes(value)) return "review_publish";
   if (value === "schedule") return "delivery";
-  if (["live", "attempts"].includes(value)) return "operations";
+  if (value === "live") return "live";
+  if (value === "attempts") return "attempts";
   return "results";
 }
 
@@ -251,35 +237,6 @@ function normalize(draft: TryoutDraft): TryoutDraft {
       ...(byCode.get(code) ?? fallback.find((section) => section.subtest === code)!),
       shuffleItems: true,
     })),
-  };
-}
-
-function seedPackageHandoff(draft: TryoutDraft, handoff: ReusableQuestionPackageHandoff) {
-  const packageVersionMode = handoff.packageVersionMode as AssemblyMode;
-  const target = draft.sections.find((section) => section.subtest === handoff.subtest);
-  if (!target) return { draft, didSeed: false };
-  const nextSection: TestDraft = {
-    ...target,
-    catItemCount: handoff.testType === "cat" ? handoff.catItemCount : undefined,
-    directQuestions: [],
-    packageVersionId: handoff.packageVersionId,
-    packageVersionLabel: handoff.packageVersionLabel,
-    packageVersionMode,
-    testType: handoff.testType,
-  };
-  const didSeed = target.packageVersionId !== nextSection.packageVersionId
-    || target.packageVersionLabel !== nextSection.packageVersionLabel
-    || target.packageVersionMode !== nextSection.packageVersionMode
-    || target.testType !== nextSection.testType
-    || target.catItemCount !== nextSection.catItemCount
-    || Boolean(target.directQuestions?.length);
-  if (!didSeed) return { draft, didSeed: false };
-  return {
-    didSeed: true,
-    draft: {
-      ...draft,
-      sections: draft.sections.map((section) => section.subtest === handoff.subtest ? nextSection : section),
-    },
   };
 }
 
@@ -333,7 +290,7 @@ function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
           <Save aria-hidden="true" />
         </div>
         <h2 className="text-lg font-semibold text-secondary-900">Simpan perubahan untuk membuka area ini</h2>
-        <p className="text-sm leading-6 text-secondary-600">Soal dan Review &amp; Publish bisa disiapkan sekarang. Delivery, Operations, dan Results akan tersambung setelah Tryout memiliki ID.</p>
+        <p className="text-sm leading-6 text-secondary-600">Soal dan Review &amp; Publish bisa disiapkan sekarang. Delivery, Live, Attempts, dan Results akan tersambung setelah Tryout memiliki ID.</p>
         <Button onClick={onSaveDraft} variant="brand">Simpan perubahan</Button>
       </div>
     </section>
@@ -391,36 +348,26 @@ function KaptenTryoutBuilderPageModule({
   id,
   initialDraft,
   initialDeliveryArea,
-  initialPackageHandoff,
-  initialPackageHandoffError,
   initialParent,
   initialSessionId,
   initialWorkspace = "basics",
   operationsInitial,
   initialSourceBankTotal,
   initialSourceBanks,
-  readyAssemblies,
-  readyVersions,
   session,
 }: {
   id?: string;
   initialDraft?: TryoutDraft | null;
   initialDeliveryArea?: string;
-  initialPackageHandoff?: ReusableQuestionPackageHandoff;
-  initialPackageHandoffError?: string;
   initialParent?: { id: string; publishedAt?: string; title: string };
   initialSessionId?: string;
   initialWorkspace?: string;
   initialSourceBankTotal?: number;
   initialSourceBanks: SourceBank[];
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
-  readyAssemblies: AssemblyAttachmentSummary[];
-  readyVersions: ReadyVersion[];
   session: SessionContext;
 }) {
   void session;
-  void readyAssemblies;
-  void readyVersions;
   const [initialFormDraft] = useState<TryoutDraft>(() => normalize(initialDraft ?? {
     description: "",
     id: id ?? "baru",
@@ -430,13 +377,12 @@ function KaptenTryoutBuilderPageModule({
     title: "Draft Tryout Baru",
     updatedAt: Date.now(),
   }));
-  const initialSeed = initialPackageHandoff ? seedPackageHandoff(initialFormDraft, initialPackageHandoff) : { didSeed: false, draft: initialFormDraft };
-  const [draft, setDraft] = useState<TryoutDraft>(() => initialSeed.draft);
+  const [draft, setDraft] = useState<TryoutDraft>(() => initialFormDraft);
   const [savedDraft, setSavedDraft] = useState<TryoutDraft>(() => initialFormDraft);
-  const [activeCode, setActiveCode] = useState<SubjectCode>(() => initialPackageHandoff?.subtest ?? initialSeed.draft.sections.find((section) => !section.packageVersionId && !section.directQuestions?.length)?.subtest ?? "PU");
-  const [error, setError] = useState<string | null>(() => initialPackageHandoffError ?? null);
+  const [activeCode, setActiveCode] = useState<SubjectCode>(() => initialFormDraft.sections.find((section) => !section.directQuestions?.length)?.subtest ?? "PU");
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(() => !id || initialSeed.didSeed);
+  const [dirty, setDirty] = useState(() => !id);
   const [sourceBankSearch, setSourceBankSearch] = useState("");
   const [sourceBanks, setSourceBanks] = useState<SourceBank[]>(initialSourceBanks);
   const [sourceBankPage, setSourceBankPage] = useState(1);
@@ -449,17 +395,16 @@ function KaptenTryoutBuilderPageModule({
   const [sourceQuestionLoading, setSourceQuestionLoading] = useState(false);
   const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [unpublishOpen, setUnpublishOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [requestedWorkspace, setRequestedWorkspace] = useState<Workspace>(() => {
     const requested = normalizeWorkspace(initialWorkspace);
-    if (initialDraft?.status === "published" && ["basics", "sections", "review", "publish"].includes(requested)) return "schedule";
+    if (initialDraft?.status === "published" && ["sections", "review", "publish"].includes(requested)) return "schedule";
     if (initialDraft?.status !== "published" && ["schedule", "live", "attempts", "results"].includes(requested)) return "basics";
     return requested;
   });
   const [deliveryArea, setDeliveryArea] = useState<DeliveryArea>(() => deliveryAreaFor(initialDeliveryArea ?? initialWorkspace));
-  const [metadataOpen, setMetadataOpen] = useState(false);
   const [metadataSaving, setMetadataSaving] = useState(false);
-  const [metadataDraft, setMetadataDraft] = useState(() => ({ description: initialSeed.draft.description, title: initialSeed.draft.title }));
   const [pendingWorkspace, setPendingWorkspace] = useState<Workspace | null>(null);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [dirtyNavigationOpen, setDirtyNavigationOpen] = useState(false);
@@ -473,14 +418,14 @@ function KaptenTryoutBuilderPageModule({
   const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
   const incompleteSections = draft.sections.filter((section) => {
     const directQuestions = section.directQuestions ?? [];
-    const hasSource = Boolean(section.packageVersionId || directQuestions.length);
-    const contentReady = section.packageVersionId ? true : directQuestionsReady(directQuestions);
+    const hasSource = Boolean(directQuestions.length);
+    const contentReady = directQuestionsReady(directQuestions);
     return !hasSource
       || !contentReady;
   });
   const sectionReadiness = Object.fromEntries(draft.sections.map((section) => {
     const directQuestions = section.directQuestions ?? [];
-    const hasSource = Boolean(section.packageVersionId || directQuestions.length);
+    const hasSource = Boolean(directQuestions.length);
     const issues: string[] = [];
     let target: Workspace = "sections";
     if (!hasSource) issues.push("Sumber soal belum dipilih.");
@@ -505,6 +450,7 @@ function KaptenTryoutBuilderPageModule({
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
   const workflow = operationsInitial?.workflow;
   const mode: WorkflowMode = workflow?.mode ?? (draft.status === "published" ? "published" : "draft");
+  const hasActiveAttempt = Boolean(operationsInitial?.attempts.some((attempt) => attempt.status === "in_progress" || attempt.attemptState === "in_progress" || attempt.runs.some((run) => run.status === "active")));
   const hasPersistedTryout = Boolean(id && draft.id !== "baru");
   const configureReady = draft.sections.length === 7
     && incompleteSections.length === 0
@@ -532,7 +478,7 @@ function KaptenTryoutBuilderPageModule({
       if (configureReady) allowed.push("review");
       return allowed;
     }
-    const allowed: Workspace[] = ["schedule"];
+    const allowed: Workspace[] = ["basics", "schedule"];
     if (liveEligibleSessionIds.length) allowed.push("live");
     if (operationsAvailable) allowed.push("attempts");
     if (resultEligible) allowed.push("results");
@@ -553,18 +499,26 @@ function KaptenTryoutBuilderPageModule({
   const activePhase = phaseForWorkspace(workspace);
   const lifecyclePhases = useMemo(() => lifecyclePhasesForMode(mode), [mode]);
   const activePhaseDefinition = visiblePhaseDefinitions.find((phase) => phase.value === activePhase);
+  const unavailablePhaseReason = (phase: WorkspacePhase) => {
+    if (mode === "draft") {
+      if (phase === "build") return hasPersistedTryout && Boolean(draft.title.trim()) ? "Selesaikan langkah sebelumnya terlebih dahulu." : "Simpan identitas Tryout terlebih dahulu.";
+      if (phase === "review_publish") return "Selesaikan Configure Sections terlebih dahulu.";
+      return "Tersedia setelah Tryout diterbitkan.";
+    }
+    if (phase === "live") return "Live tersedia setelah ada sesi aktif dengan rilis konten.";
+    if (phase === "attempts") return "Attempts tersedia setelah peserta memulai Tryout.";
+    if (phase === "results") return "Results tersedia setelah ada sesi selesai.";
+    return "Selesaikan langkah sebelumnya terlebih dahulu.";
+  };
   const routeNormalizationNotice = useMemo(() => {
     const raw = initialWorkspace.trim().toLowerCase();
-    if (mode === "published" && ["basics", "sections", "questions", "rules", "review", "publish", "overview", "configure_sections", "readiness_publish"].includes(raw)) {
-      return "Tryout sudah terbit. Area authoring disembunyikan; buka Delivery atau buat draf perubahan untuk mengubah konten.";
-    }
     if (mode === "draft" && ["schedule", "delivery", "live", "operations", "attempts", "results"].includes(raw)) {
-      return "Delivery, Operations, dan Results terbuka setelah Tryout diterbitkan. Anda dikembalikan ke langkah draf yang tersedia.";
+      return "Delivery, Live, Attempts, dan Results terbuka setelah Tryout diterbitkan. Anda dikembalikan ke langkah draf yang tersedia.";
     }
-    if (requestedWorkspace !== workspace) {
+    if (mode === "draft" && requestedWorkspace !== workspace) {
       return "Langkah tersebut belum tersedia. Selesaikan langkah sebelumnya untuk membukanya.";
     }
-    if (["questions", "rules"].includes(raw)) {
+    if (mode === "draft" && ["questions", "rules"].includes(raw)) {
       return "Link lama diarahkan ke Configure Sections agar pemilihan soal tetap berada dalam satu konteks.";
     }
     return null;
@@ -612,9 +566,6 @@ function KaptenTryoutBuilderPageModule({
         sourceQuestionId: question.id,
         sourceQuestionRevisionId: question.questionRevisionId,
       }],
-      packageVersionId: undefined,
-      packageVersionLabel: undefined,
-      packageVersionMode: undefined,
       catItemCount: undefined,
       testType: "cbt",
     });
@@ -633,7 +584,6 @@ function KaptenTryoutBuilderPageModule({
           directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })),
           durationMinutes: section.durationMinutes,
           instructions: section.instructions,
-          packageVersionId: section.packageVersionId,
           scoringConfig: section.scoringConfig,
           shuffleItems: true,
           subtest: section.subtest,
@@ -682,6 +632,24 @@ function KaptenTryoutBuilderPageModule({
     }
   };
 
+  const unpublish = async () => {
+    if (!id) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await unpublishTryoutAction(id);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      window.location.assign(`/mentor/tryout/${id}`);
+    } catch (unpublishError) {
+      setError(unpublishError instanceof Error ? unpublishError.message : "Tryout belum dapat dikembalikan ke draf. Coba lagi.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const commitWorkspaceChange = (nextWorkspace: Workspace) => {
     setRequestedWorkspace(nextWorkspace);
     const url = new URL(window.location.href);
@@ -725,7 +693,7 @@ function KaptenTryoutBuilderPageModule({
     setMetadataSaving(true);
     setError(null);
     try {
-      const result = await updateTryoutMetadataAction({ ...metadataDraft, id });
+      const result = await updateTryoutMetadataAction({ description: draft.description, id, title: draft.title });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -733,8 +701,7 @@ function KaptenTryoutBuilderPageModule({
       const nextDraft = normalize(result.result);
       setDraft(nextDraft);
       setSavedDraft(nextDraft);
-      setMetadataDraft({ description: nextDraft.description, title: nextDraft.title });
-      setMetadataOpen(false);
+      setDirty(false);
     } catch (metadataError) {
       setError(metadataError instanceof Error ? metadataError.message : "Detail Tryout belum dapat disimpan.");
     } finally {
@@ -853,11 +820,23 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="flex items-center gap-3 pb-4">
-        <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
-          <ChevronLeft aria-hidden="true" className="size-5" />
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight text-secondary-900">{id ? "Edit Tryout" : "Buat Tryout"}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+        <div className="flex items-center gap-3">
+          <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
+            <ChevronLeft aria-hidden="true" className="size-5" />
+          </Button>
+          <h1 className="text-2xl font-semibold tracking-tight text-secondary-900">{mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}</h1>
+        </div>
+        {mode === "published" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button disabled={saving || hasActiveAttempt} onClick={() => setUnpublishOpen(true)} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
+              <FilePenLine />Jadikan draf
+            </Button>
+            <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brandOutline">
+              <Copy />Duplikat draf baru
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -890,20 +869,32 @@ function KaptenTryoutBuilderPageModule({
         value={activePhase}
       >
         <FullWidthLineTabsList aria-label="Fase lifecycle Tryout">
-          {lifecyclePhases.map((phase) => {
-            const available = visiblePhaseDefinitions.some((definition) => definition.value === phase.value);
-            return (
-              <FullWidthLineTabsTrigger
-                aria-label={available ? phase.label : `${phase.label} terkunci`}
-                disabled={!available}
-                key={phase.value}
-                value={phase.value}
-              >
-                {phase.label}
-                {!available ? <Lock aria-hidden="true" className="size-3.5" /> : null}
-              </FullWidthLineTabsTrigger>
-            );
-          })}
+          <TooltipProvider>
+            {lifecyclePhases.map((phase) => {
+              const available = visiblePhaseDefinitions.some((definition) => definition.value === phase.value);
+              const reason = unavailablePhaseReason(phase.value);
+              const trigger = (
+                <FullWidthLineTabsTrigger
+                  aria-label={available ? phase.label : `${phase.label} terkunci`}
+                  disabled={!available}
+                  key={phase.value}
+                  value={phase.value}
+                >
+                  {phase.label}
+                  {!available ? <Lock aria-hidden="true" className="size-3.5" /> : null}
+                </FullWidthLineTabsTrigger>
+              );
+              if (available) return trigger;
+              return (
+                <Tooltip key={phase.value}>
+                  <TooltipTrigger render={<span className="flex min-w-0 flex-1" title={reason} />}>
+                    {trigger}
+                  </TooltipTrigger>
+                  <TooltipContent>{reason}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
         </FullWidthLineTabsList>
       </Tabs>
 
@@ -920,7 +911,7 @@ function KaptenTryoutBuilderPageModule({
           </div>
         ) : null}
 
-        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-5"}>
+        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-5 w-full"}>
           {activePhase === "build" ? (
             <SectionRail
               activeCode={activeCode}
@@ -930,21 +921,28 @@ function KaptenTryoutBuilderPageModule({
             />
           ) : null}
 
-        <div className="grid gap-3 lg:col-start-2">
+        <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-3"}>
 
-        <TabsContent className="mt-0 lg:col-start-2" value="basics">
-          <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
+        <TabsContent className="mt-0 w-full" value="basics">
+          <section className="grid w-full gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
             <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
             <div className="grid gap-5">
               <Field>
                 <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-                <FieldInput disabled={draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
+                <FieldInput disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
-                <FieldTextarea className="min-h-32 px-4 py-3 text-sm leading-6" disabled={draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
+                <FieldTextarea className="min-h-32 px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
               </Field>
             </div>
+            {mode === "published" ? (
+              <div className="flex justify-end border-t border-primary-100 pt-4">
+                <Button disabled={metadataSaving || !draft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">
+                  {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
+                </Button>
+              </div>
+            ) : null}
           </section>
         </TabsContent>
 
@@ -1019,33 +1017,38 @@ function KaptenTryoutBuilderPageModule({
 
         <TabsContent className="mt-0" value="schedule">
           {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
-            <div className="grid gap-5">
-              <nav aria-label="Subarea Delivery" className="grid gap-2 rounded-3xl border border-primary-100 bg-white p-3 sm:grid-cols-3 sm:p-4">
-                {deliveryAreas.map((area) => (
-                  <Button aria-current={deliveryArea === area.value ? "page" : undefined} className={`h-auto min-h-16 justify-start rounded-2xl px-3 py-2.5 text-left ${deliveryArea === area.value ? "bg-primary-700 text-white hover:bg-primary-800" : "text-secondary-700 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} variant="ghost">
-                    <span className="grid gap-0.5"><span className="font-semibold">{area.label}</span><span className={`text-xs font-normal leading-5 ${deliveryArea === area.value ? "text-white/80" : "text-secondary-500"}`}>{area.description}</span></span>
-                  </Button>
-                ))}
-              </nav>
+            <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+              <aside aria-label="Area Delivery" className="grid gap-2 lg:sticky lg:top-5 lg:self-start">
+                <div aria-label="Policy, Sessions, Participants" className="grid gap-2" role="tablist">
+                  {deliveryAreas.map((area) => {
+                    const active = deliveryArea === area.value;
+                    return (
+                      <Button aria-current={active ? "page" : undefined} className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-200 bg-primary-50 text-primary-900 hover:bg-primary-100" : "border-transparent text-secondary-800 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} role="tab" variant="ghost">
+                        {area.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </aside>
 
-              {deliveryArea === "policy" ? (
-                <section aria-labelledby="schedule-policy-title">
-                  <div className="mb-4"><h2 id="schedule-policy-title" className="text-xl font-semibold text-secondary-900">Access rules</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Atur cara peserta masuk dan kebijakan paket hasil sebelum membuat sesi.</p></div>
-                  <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} />
-                </section>
-              ) : null}
-              {deliveryArea === "sessions" ? (
-                <section aria-labelledby="schedule-sessions-title">
-                  <div className="mb-4"><h2 id="schedule-sessions-title" className="text-xl font-semibold text-secondary-900">Sessions</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Tentukan jendela waktu dan versi terbit yang dipakai peserta.</p></div>
-                  <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
-                </section>
-              ) : null}
-              {deliveryArea === "participants" ? (
-                <section aria-labelledby="schedule-participants-title">
-                  <div className="mb-4"><h2 id="schedule-participants-title" className="text-xl font-semibold text-secondary-900">Participants</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Kelola admission, undangan, dan penugasan sesi.</p></div>
-                  <KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} />
-                </section>
-              ) : null}
+              <div className="min-w-0">
+                {deliveryArea === "policy" ? (
+                  <section aria-labelledby="schedule-policy-title">
+                    <h2 className="mb-4 text-xl font-semibold text-secondary-900" id="schedule-policy-title">Aturan akses</h2>
+                    <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} onNext={() => changeDeliveryArea("sessions")} />
+                  </section>
+                ) : null}
+                {deliveryArea === "sessions" ? (
+                  <section aria-label="Sessions">
+                    <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
+                  </section>
+                ) : null}
+                {deliveryArea === "participants" ? (
+                  <section aria-label="Participants">
+                    <KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} />
+                  </section>
+                ) : null}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -1100,36 +1103,24 @@ function KaptenTryoutBuilderPageModule({
       {mode === "draft" && workspace !== "review" ? (
         <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4" aria-label="Tindakan langkah Tryout">
           <div className="flex flex-wrap justify-end gap-2">
-            {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button> : null}
+            {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Duplikat draf baru</Button> : null}
             {!draft.locked && workspace === "basics" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
             {!draft.locked && workspace === "sections" ? <Button className="bg-transparent text-primary-700 hover:bg-primary-50" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
           </div>
         </footer>
-      ) : mode === "published" ? (
-        <section className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3.5" aria-label="Tindakan versi terbit">
-          <div className="min-w-0"><p className="font-semibold text-secondary-900">Versi terbit tidak dapat diubah strukturnya</p><p className="mt-1 text-sm leading-6 text-secondary-600">Edit detail hanya mengubah judul dan deskripsi. Perubahan Section atau sumber dibuat sebagai draf perubahan.</p></div>
-          <div className="flex flex-wrap gap-2"><Button disabled={metadataSaving} onClick={() => { setMetadataDraft({ description: draft.description, title: draft.title }); setMetadataOpen(true); }} variant="brandOutline"><Pencil />Edit details</Button><Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button></div>
-        </section>
       ) : null}
-
-      <Dialog onOpenChange={(open) => { if (!metadataSaving) setMetadataOpen(open); }} open={metadataOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Edit details Tryout</DialogTitle>
-            <DialogDescription>Perubahan ini hanya mengubah judul dan deskripsi. Section, sumber soal, AssessmentRelease, sesi, dan hasil tetap tidak berubah.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <Field><FieldLabel htmlFor="published-tryout-title">Judul Tryout <RequiredMark /></FieldLabel><FieldInput disabled={metadataSaving} id="published-tryout-title" onChange={(event) => setMetadataDraft((current) => ({ ...current, title: event.target.value }))} required value={metadataDraft.title} /></Field>
-            <Field><FieldLabel htmlFor="published-tryout-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-28 px-4 py-3 text-sm leading-6" disabled={metadataSaving} id="published-tryout-description" onChange={(event) => setMetadataDraft((current) => ({ ...current, description: event.target.value }))} value={metadataDraft.description} /></Field>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-4"><Button disabled={metadataSaving} onClick={() => setMetadataOpen(false)} variant="brandOutline">Batal</Button><Button disabled={metadataSaving || !metadataDraft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">{metadataSaving ? "Menyimpan…" : "Simpan detail"}</Button></div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog onOpenChange={(open) => { if (!saving) setPublishOpen(open); }} open={publishOpen}>
         <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
           <AlertDialogHeader><AlertDialogTitle>Terbitkan Tryout?</AlertDialogTitle><AlertDialogDescription>Setelah tryout di-publish dan terdapat siswa mengerjakan, soal akan terkunci dan Anda tidak dapat mengubahnya kembali.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter className="grid gap-2 sm:grid-cols-2"><AlertDialogCancel className="w-full" disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction className="w-full" disabled={saving} onClick={() => { setPublishOpen(false); void save("published"); }} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog onOpenChange={(open) => { if (!saving) setUnpublishOpen(open); }} open={unpublishOpen}>
+        <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
+          <AlertDialogHeader><AlertDialogTitle>Jadikan Tryout draf?</AlertDialogTitle><AlertDialogDescription>Tryout tidak lagi tersedia untuk pendaftaran baru. Riwayat peserta dan AssessmentRelease tetap tersimpan. Perintah ini hanya dapat dilakukan saat tidak ada peserta yang sedang mengerjakan.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving || hasActiveAttempt} onClick={() => { setUnpublishOpen(false); void unpublish(); }} variant="brand">{saving ? "Memproses…" : "Jadikan draf"}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

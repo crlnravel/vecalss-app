@@ -14,6 +14,7 @@ import {
   safeParticipantIdentity,
   toParticipantViews,
 } from "@/lib/tryout/participant-view";
+import { synchronizeTryoutSessionReleaseState, TryoutResultValidationError } from "@/lib/tryout/result-repository";
 import { projectTryoutWorkflow } from "@/lib/tryout/workflow-projection";
 
 type TryoutOperationsRecord = NonNullable<
@@ -480,8 +481,20 @@ async function getOwnedTryoutOperationsView(
   // authoritative.
   const synchronized = await synchronizeTryoutOperations(tryoutId, actorId);
   if (!synchronized) return null;
-  const operations = await getTryoutDeliveryOperations(tryoutId, actorId);
+  let operations = await getTryoutDeliveryOperations(tryoutId, actorId);
   if (!operations) return null;
+  const sessionsWithAttempts = operations.deliverySessions.filter((session) => session.attempts.length > 0);
+  for (const session of sessionsWithAttempts) {
+    try {
+      await synchronizeTryoutSessionReleaseState(session.id, new Date());
+    } catch (error) {
+      if (!(error instanceof TryoutResultValidationError)) throw error;
+    }
+  }
+  if (sessionsWithAttempts.length > 0) {
+    operations = await getTryoutDeliveryOperations(tryoutId, actorId);
+    if (!operations) return null;
+  }
   return serializeTryoutOperations(operations);
 }
 

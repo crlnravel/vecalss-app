@@ -62,7 +62,7 @@ function PackageStatusPill({ status }: { status: PackageItem["availability"] }) 
 function PackageRowAction({ item }: { item: PackageItem }) {
   if (item.availability !== "draft" && !item.hasDraftChanges) return null;
 
-  const label = item.availability === "draft" ? "Siapkan untuk Tryout" : "Lanjutkan perubahan";
+  const label = item.availability === "draft" ? "Siapkan versi pertama" : "Lanjutkan perubahan";
   return (
     <Button
       aria-label={`${label} untuk ${item.title}`}

@@ -52,11 +52,17 @@ function KaptenTryoutParticipantsPageModule({
         title="Peserta"
       />}
 
-      <KaptenTryoutInvitationPicker
-        onRefresh={applyRefresh}
-        sessions={sessions}
-        tryoutId={initial.id}
-      />
+      {initial.admissionMode === "open" ? (
+        <section aria-labelledby="tryout-open-admission-title" className="mt-5 flex min-h-16 items-center rounded-3xl border border-primary-200 bg-primary-50/55 px-4 py-4 sm:px-6">
+          <h2 className="text-lg font-semibold text-primary-950" id="tryout-open-admission-title">Semua peserta dapat bergabung</h2>
+        </section>
+      ) : (
+        <KaptenTryoutInvitationPicker
+          onRefresh={applyRefresh}
+          sessions={sessions}
+          tryoutId={initial.id}
+        />
+      )}
 
       {participants.length ? (
         <div className="mt-5 grid gap-3">

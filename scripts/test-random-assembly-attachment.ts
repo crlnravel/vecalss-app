@@ -94,34 +94,14 @@ assert.match(actions, /input\.target !== "tryout"/u);
 assert.match(actions, /async function detachReadyAssemblyAction/u);
 assert.match(actions, /requireTryoutCapability\(session, "tryout\.delivery\.configure"\)/u);
 
-assert.match(builder, /function ReadyAssemblyPicker/u);
-assert.match(builder, /attachReadyAssemblyAction\(\{ target: "tryout"/u);
-assert.match(builder, /targetTestType: activeSection\.testType/u);
-assert.match(builder, /detachReadyAssemblyAction\(\{ target: "tryout" \}/u);
-assert.match(builder, /readiness\.blockers/u);
-assert.match(builder, /label: "Assembly siap dirilis"/u);
-assert.match(builder, /packageVersionId: result\.result\.id/u);
-assert.match(builder, /directQuestions: \[\]/u);
-assert.match(builder, /previewAssemblyAction\(\{ versionId: assembly\.id \}\)/u);
-assert.match(builder, /invalidAssemblyTypeSections/u);
-const readyPickerBody = builder.slice(builder.indexOf("function ReadyAssemblyPicker"), builder.indexOf("function MockFlowNotice"));
-assert.doesNotMatch(readyPickerBody, /role="listbox"/u);
-assert.doesNotMatch(readyPickerBody, /role="option"/u);
-assert.match(readyPickerBody, /<ul/u);
-assert.match(readyPickerBody, /<li/u);
+assert.doesNotMatch(builder, /ReadyAssemblyPicker|attachReadyAssemblyAction|detachReadyAssemblyAction|previewAssemblyAction/u, "archived Tryout authoring must not expose assembly attachment controls");
+assert.doesNotMatch(createPage, /listReadyAssemblyRevisions|readyAssemblies/u, "Tryout creation must not load archived assembly sources");
+assert.doesNotMatch(editPage, /listReadyAssemblyRevisions|readyAssemblies/u, "Tryout editing must not load archived assembly sources");
 
-assert.match(createPage, /listReadyAssemblyRevisions/u);
-assert.match(createPage, /readyAssemblies=\{readyAssemblies\}/u);
-assert.match(editPage, /listReadyAssemblyRevisions/u);
-assert.match(editPage, /readyAssemblies=\{readyAssemblies\}/u);
-
-assert.match(tryoutRepository, /sectionInput\.packageVersionId && \(!version \|\| version\.status !== ContentStatus\.published/u);
-assert.match(tryoutRepository, /version\.subtestId !== subtest\.id/u);
-assert.match(tryoutRepository, /if \(version && directSelections\.length\)/u);
+assert.match(tryoutRepository, /Paket Soal sudah diarsipkan/u, "Tryout save must reject archived package bindings");
+assert.doesNotMatch(tryoutRepository, /sectionInput\.packageVersionId/u, "Tryout save must not resolve package versions");
 assert.match(tryoutRepository, /Number\.isFinite\(Number\(calibration\.difficulty\)\)/u);
 assert.match(tryoutRepository, /Number\(calibration\.discrimination\) <= 0/u);
-assert.match(tryoutRepository, /version\.subtestId !== subtest\.id/u, "save must compare the immutable version Subtest identity");
-assert.match(tryoutRepository, /version\.mode === ReusableQuestionPackageMode\.cat_pool\) !== \(sectionInput\.testType === "cat"\)/u, "save must reject forged assembly/Test type combinations");
 assert.match(sourceRepository, /Number\.isFinite\(Number\(calibration\.difficulty\)\)/u, "direct Question DTO must expose numeric CAT readiness parity");
 assert.match(sourceRepository, /Number\(calibration\.discrimination\) > 0/u, "direct Question DTO must require positive discrimination");
 

@@ -591,20 +591,19 @@ Pada **Sessions**, tekan **Buat sesi** dan isi:
 1. **Nama sesi**, misalnya “Tryout Nasional Agustus”;
 2. **Mulai**;
 3. **Selesai**;
-4. **Peringkat**: Nasional, Cohort, atau Tanpa peringkat;
-5. **Rilis hasil**:
-   - Ikuti kebijakan Tryout,
-   - Segera,
-   - Setelah sesi,
-   - Manual, atau
-   - Tanggal tertentu;
-6. **Waktu rilis hasil** jika memilih Tanggal tertentu;
-7. **Minta layar penuh** bila ingin meminta siswa masuk fullscreen;
-8. **Sesi utama pendaftaran** bila sesi ini menjadi sesi default untuk
-   pendaftaran terbuka;
-9. **Alasan perubahan**.
+4. **Aktif saat dibuat**, yang menyala secara default. Matikan bila sesi perlu
+   disimpan sebagai draf dan dibuka nanti;
+5. **Minta layar penuh** bila ingin meminta siswa masuk fullscreen.
 
-Tekan **Simpan sesi** pada bagian bawah form.
+Tekan **Buat sesi** pada bagian bawah form. Sesi aktif langsung memiliki
+AssessmentRelease dan dapat dipakai sesuai jendelanya; sesi draf dapat dibuka
+dari detail sesi setelah validasi rilis berhasil.
+
+Setelah sesi dibuat, kembali ke daftar **Sesi**. **Sesi utama** selalu berada di
+urutan teratas dan diberi penanda khusus. Pada sesi lain yang aktif dan sudah
+memiliki rilis konten, tekan **Jadikan sesi utama**, konfirmasi pergantian,
+lalu isi **Alasan audit**. Hanya satu sesi yang dapat menjadi tujuan default
+untuk pendaftaran terbuka; pergantian dicatat di audit log.
 
 ![Halaman Buat sesi](tryout-creation-guide/screenshots/10-create-session.png)
 
@@ -613,9 +612,9 @@ Aturan waktu:
 - **Mulai** sebaiknya masih akan datang ketika siswa belum boleh masuk;
 - **Selesai** harus cukup panjang untuk seluruh durasi tujuh Test dan toleransi
   keterlambatan;
-- waktu rilis terjadwal tidak boleh lebih awal dari waktu sesi selesai;
 - setelah **Selesai** lewat, siswa tidak dapat memulai sesi tersebut;
-- sesi dapat dibuka dari detail sesi setelah AssessmentRelease valid;
+- waktu **Mulai** dan **Selesai** dapat diperbarui dari detail sesi selama belum
+  ada attempt;
 - hanya satu sesi aktif yang boleh menjadi sesi utama open registration.
 
 ### 9.3 Participants: undang atau atur peserta
@@ -1093,8 +1092,7 @@ dokumentasi dan link baru agar pengguna tidak merasa berpindah produk.
 | Tujuan | Lokasi |
 |---|---|
 | Katalog Tryout | **/tryout** |
-| Detail Tryout | **/tryout/{tryoutId}** |
-| Pendaftaran | **/tryout/{tryoutId}/register** |
+| Detail Tryout, target, dan pendaftaran | **/tryout/{tryoutId}** |
 | Ruang tunggu | **/tryout/{tryoutId}/waiting** |
 | Attempt aktif | **/tryout/attempt/{attemptId}** |
 | Hasil attempt | **/tryout/attempt/{attemptId}/result** |
@@ -1122,8 +1120,7 @@ dokumentasi dan link baru agar pengguna tidak merasa berpindah produk.
 - [ ] Kebijakan admission sudah disimpan.
 - [ ] Kebijakan rilis hasil sudah dipilih.
 - [ ] Sesi memiliki nama, Mulai, dan Selesai yang benar.
-- [ ] Rule peringkat sudah benar.
-- [ ] Waktu rilis terjadwal tidak lebih awal dari Selesai.
+- [ ] Status sesi (aktif atau draf) sudah benar.
 - [ ] Pengaturan fullscreen sudah dipahami sebagai sinyal review, bukan penalti.
 - [ ] Sesi utama open registration tidak konflik dengan sesi lain.
 - [ ] Sesi dibuka hanya setelah validasi rilis berhasil.

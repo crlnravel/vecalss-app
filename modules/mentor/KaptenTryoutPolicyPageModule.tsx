@@ -1,21 +1,12 @@
 "use client";
 
-import { Save } from "@/lib/icons";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Field, FieldInput } from "@/components/ui/field";
+import { Card, CardContent } from "@/components/ui/card";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
-import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
+import { policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
-  HelpFieldLabel,
   OperationalPageHeader,
   OperationNotice,
   OptionSet,
@@ -28,38 +19,33 @@ import {
 function KaptenTryoutPolicyPageModule({
   embedded = false,
   initial,
+  onNext,
 }: {
   embedded?: boolean;
   initial: TryoutOperationsView;
+  onNext?: () => void;
 }) {
-  const [admissionMode, setAdmissionMode] = useState(
-    initial.admissionMode as Mode,
-  );
+  const [admissionMode, setAdmissionMode] = useState<Mode>("open");
   const [defaultReleasePolicy, setDefaultReleasePolicy] = useState(
     initial.defaultReleasePolicy as DefaultPolicy,
   );
-  const [auditReason, setAuditReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "default" | "error" } | null>(null);
   const tryoutHref = `/mentor/tryout/${initial.id}`;
 
   const handleSave = async () => {
-    if (!auditReason.trim()) {
-      setNotice({ message: "Alasan audit wajib diisi.", tone: "error" });
-      return;
-    }
     setBusy(true);
     try {
       const [admission, release] = await Promise.all([
         configureTryoutAdmissionAction(
           initial.id,
           admissionMode,
-          auditReason,
+          "Pengaturan akses peserta Tryout",
         ),
         configureTryoutDefaultResultReleaseAction(
           initial.id,
           defaultReleasePolicy,
-          auditReason,
+          "Pengaturan jadwal rilis hasil Tryout",
         ),
       ]);
       if (!admission.ok) {
@@ -70,8 +56,8 @@ function KaptenTryoutPolicyPageModule({
         setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
         return;
       }
-      setAuditReason("");
-      setNotice({ message: "Kebijakan Tryout berhasil disimpan.", tone: "default" });
+      setNotice(null);
+      onNext?.();
     } catch (saveError) {
       setNotice({ message: saveError instanceof Error ? saveError.message : "Kebijakan Tryout belum dapat disimpan.", tone: "error" });
     } finally {
@@ -91,30 +77,20 @@ function KaptenTryoutPolicyPageModule({
       <OperationNotice message={notice?.message ?? null} tone={notice?.tone} />
 
       <Card className={`${embedded ? "" : "mt-5"} shadow-none ring-primary-100`}>
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Akses dan hasil</CardTitle>
-        </CardHeader>
         <CardContent className="grid gap-7 lg:grid-cols-2">
           <OptionSet
-            label="Admission peserta"
-            labelTooltip="Menentukan bagaimana peserta memperoleh akses ke Tryout ini."
+            label="Akses peserta"
             onValueChange={setAdmissionMode}
-            options={(Object.entries(modeLabels) as Array<[Mode, string]>).map(
-              ([value, label]) => ({
-                label,
-                tooltip: value === "open"
-                  ? "Peserta dapat mendaftar dan memperoleh admission aktif tanpa persetujuan manual."
-                  : value === "approval_required"
-                    ? "Pendaftaran peserta menunggu keputusan mentor sebelum dapat ditugaskan ke sesi."
-                    : "Hanya peserta yang diundang mentor yang dapat memperoleh akses.",
-                value,
-              }),
-            )}
+            options={[
+              { disabled: true, label: "Perlu persetujuan", value: "approval_required" },
+              { disabled: true, label: "Undangan saja", value: "invitation_only" },
+              { label: "Terbuka", value: "open" },
+            ]}
             required
             value={admissionMode}
           />
           <OptionSet
-            label="Rilis hasil default"
+            label="Jadwal rilis hasil"
             labelTooltip="Kebijakan ini digunakan oleh sesi yang memilih Ikuti kebijakan Tryout."
             onValueChange={setDefaultReleasePolicy}
             options={(["immediate", "automatic_at_end", "manual"] as DefaultPolicy[]).map((value) => ({
@@ -129,24 +105,13 @@ function KaptenTryoutPolicyPageModule({
             required
             value={defaultReleasePolicy}
           />
-          <Field className="lg:col-span-2">
-            <HelpFieldLabel htmlFor="policy-audit-reason" label="Alasan audit" required tooltip="Alasan ini disimpan pada jejak audit untuk menjelaskan perubahan kebijakan." />
-            <FieldInput
-              aria-required="true"
-              id="policy-audit-reason"
-              onChange={(event) => setAuditReason(event.target.value)}
-              placeholder="Contoh: Menyesuaikan kebijakan pendaftaran Tryout"
-              value={auditReason}
-            />
-          </Field>
         </CardContent>
-        <CardFooter className="justify-end border-t border-primary-100">
-          <Button disabled={busy} onClick={() => void handleSave()} variant="brand">
-            <Save data-icon="inline-start" />
-            {busy ? "Menyimpan…" : "Simpan kebijakan"}
-          </Button>
-        </CardFooter>
       </Card>
+      <div className="mt-5 flex justify-end">
+        <Button disabled={busy} onClick={() => void handleSave()} variant="brand">
+          {busy ? "Menyimpan…" : "Selanjutnya"}
+        </Button>
+      </div>
     </Root>
   );
 }

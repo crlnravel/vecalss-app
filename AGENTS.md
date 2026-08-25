@@ -59,6 +59,12 @@ Once harness is set up:
 - If a runtime, orchestration tool, or user request selects any model other than exact `gpt-5.6-luna`, stop before starting or continuing that agent and request explicit permission from the user for that model in the current task.
 - If the selected model cannot be verified, treat it as non-Luna and request permission. See `_harness/rules.md` for the durable delegation rule.
 
+### Design and UI policy
+
+- **For any task involving UI, components, styling, layout, or visual design:** Read and follow `DESIGN.md` as the authoritative design system. `DESIGN.md` links to focused guidelines in `docs/design-guidelines/` — load the narrowest relevant guide for the work at hand.
+- Do not deviate from its tokens, patterns, or guidelines without explicit user approval.
+- `DESIGN.md` is a protected file — propose changes rather than editing directly.
+
 ### Routing
 
 - Project overview → `_harness/readme.md`

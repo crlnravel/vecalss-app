@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { requireStudentSession } from "@/lib/auth/access";
 import { getStudentNotificationFeed } from "@/lib/notifications/service";
-import { participantTryoutDetail } from "@/lib/tryout/participant-repository";
+import { participantTargetProfile, participantTryoutDetail } from "@/lib/tryout/participant-repository";
+import { prisma } from "@/lib/prisma";
 import { ParticipantTryoutDetailModule } from "@/modules/tryout/ParticipantTryoutDetailModule";
 import { canEnterParticipantWaitingRoom } from "@/modules/tryout/ParticipantTryoutWorkspaceUtils";
 
@@ -15,13 +16,33 @@ export default async function ParticipantTryoutDetailPage({
   params: Promise<{ tryoutId: string }>;
 }) {
   const [{ tryoutId }, session] = await Promise.all([params, requireStudentSession()]);
-  const [tryout, notificationFeed] = await Promise.all([
+  const [tryout, notificationFeed, targetProfile, universities, majors] = await Promise.all([
     participantTryoutDetail(tryoutId, session.user.id),
     getStudentNotificationFeed({ userId: session.user.id }),
+    participantTargetProfile(session.user.id),
+    prisma.university.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, shortName: true },
+    }),
+    prisma.major.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, universityId: true },
+      where: { isActive: true },
+    }),
   ]);
   if (!tryout) notFound();
   if (canEnterParticipantWaitingRoom(tryout)) {
     redirect(`/tryout/${tryout.id}/waiting`);
   }
-  return <ParticipantTryoutDetailModule notificationFeed={notificationFeed} session={session} tryout={tryout} />;
+  return (
+    <ParticipantTryoutDetailModule
+      initialMajorId={targetProfile.major?.id ?? null}
+      initialUniversityId={targetProfile.university?.id ?? null}
+      majors={majors}
+      notificationFeed={notificationFeed}
+      session={session}
+      tryout={tryout}
+      universities={universities}
+    />
+  );
 }

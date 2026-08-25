@@ -1353,7 +1353,18 @@ async function assertTryoutReleaseEligibility(
       },
     },
   });
-  if (!tryout || tryout.status !== ContentStatus.published || tryout.sections.length !== 7 || tryout.sections.some((section) => {
+  if (!tryout || tryout.status !== ContentStatus.published) {
+    throw new Error("Tryout belum siap dibuka: tujuh Test harus diterbitkan dan memiliki Paket Soal siap atau pilihan soal langsung yang valid.");
+  }
+  const latestArchivedReleasePayload = tryout.assessmentReleases[0]?.payload as {
+    tryout?: { revision?: unknown };
+  } | undefined;
+  const hasArchivedPackageBinding = tryout.sections.some((section) => Boolean(section.packageVersionId) || section.items.some((item) => Boolean(item.packageVersionId)));
+  if (hasArchivedPackageBinding) {
+    if (latestArchivedReleasePayload?.tryout?.revision === tryout.revision) return tryout;
+    throw new Error("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat membuka rilis baru.");
+  }
+  if (tryout.sections.length !== 7 || tryout.sections.some((section) => {
     if (section.packageVersionId) {
       const seededAssembly = section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
         || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint
@@ -1461,6 +1472,14 @@ async function createOrReuseAssessmentRelease(
     throw new Error("Tryout harus diterbitkan sebelum AssessmentRelease dibuat.");
   }
   const publicationIntentKey = normalizePublicationIntentKey(options.publicationIntentKey);
+  const hasArchivedPackageBinding = tryout.sections.some((section) => Boolean(section.packageVersionId) || section.items.some((item) => Boolean(item.packageVersionId)));
+  if (hasArchivedPackageBinding) {
+    if (latestReleaseMatchesIntent(tryout, publicationIntentKey)) {
+      const latest = tryout.assessmentReleases[0];
+      if (latest) return latest;
+    }
+    throw new Error("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat membuat rilis baru.");
+  }
   const hasSeededAssembly = tryout.sections.some((section) =>
     section.packageVersion?.mode === ReusableQuestionPackageMode.random_pool
     || section.packageVersion?.mode === ReusableQuestionPackageMode.blueprint

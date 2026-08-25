@@ -44,6 +44,8 @@ assert.doesNotMatch(narrowRefreshSource, /sessions: view\.sessions/u, "refresh m
 assert.doesNotMatch(narrowRefreshSource, /results:|attempts:/u, "refresh DTO must stay focused");
 
 assert.match(page, /KaptenTryoutInvitationPicker/u);
+assert.match(page, /initial\.admissionMode === "open"/u, "open admission should bypass invitation entry");
+assert.match(page, /Semua peserta dapat bergabung/u, "open admission should explain that every participant can join");
 assert.match(page, /setParticipants\(view\.participants\)/u);
 assert.match(page, /setSessions\(view\.sessions\)/u);
 assert.match(ui, /searchTryoutInvitationStudentsAction/u);

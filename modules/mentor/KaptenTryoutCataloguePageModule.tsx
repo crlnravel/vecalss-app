@@ -69,7 +69,7 @@ function KaptenTryoutCataloguePageModule({ initialItems, session }: { initialIte
                   <ClipboardList className="size-4 text-primary-800" />
                   <h2 className="truncate font-semibold text-secondary-900">{item.title}</h2>
                   <StatusPill status={item.status} />
-                  {item.locked ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-secondary-500"><Lock className="size-3" />Terkunci</span> : null}
+                  {item.locked ? <span aria-label="Tryout terkunci" className="inline-flex text-secondary-500" role="img" title="Tryout terkunci"><Lock aria-hidden className="size-3.5" /></span> : null}
                 </div>
                 {item.description ? <p className="mt-1 line-clamp-1 text-sm text-secondary-500">{item.description}</p> : null}
               </div>

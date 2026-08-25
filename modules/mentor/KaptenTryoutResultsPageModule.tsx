@@ -1,22 +1,30 @@
 "use client";
 
-import Link from "next/link";
-import { BarChart3, ChevronRight, CircleAlert, ExternalLink, ShieldCheck, Upload } from "@/lib/icons";
+import { CircleAlert } from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { formatTryoutDateTime } from "@/lib/tryout/time";
 import {
-  rankingAvailabilityLabels,
-  resultReadinessLabels,
   resultReleaseStateLabels,
 } from "@/lib/tryout/operations-projections";
-import { rankingLabels, policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
-import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 
-function ResultPill({ label, tone = "neutral" }: { label: string; tone?: "attention" | "neutral" | "success" }) {
-  return <Badge className="rounded-full" size="ui" variant={tone === "success" ? "mint" : "accent"}>{label}</Badge>;
+type ResultStatusTone = "attention" | "neutral" | "success";
+
+function resultReleaseLabel(state: string) {
+  return state === "hidden"
+    ? "Belum dirilis"
+    : resultReleaseStateLabels[state as keyof typeof resultReleaseStateLabels] ?? state;
+}
+
+function resultReleaseTone(state: string): ResultStatusTone {
+  return state === "released" ? "success" : "attention";
+}
+
+function ResultStatus({ label, tone = "neutral" }: { label: string; tone?: ResultStatusTone }) {
+  const dotClass = tone === "success" ? "bg-primary-700" : tone === "attention" ? "bg-voyage-warm-sun" : "bg-secondary-400";
+  return <span className="inline-flex items-center gap-2 text-sm text-secondary-700"><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${dotClass}`} />{label}</span>;
 }
 
 function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
@@ -40,95 +48,57 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
     url.searchParams.set("session", sessionId);
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
-  const scored = initial.results.filter((result) => result.resultReadiness === "scored").length;
-  const reviewRequired = initial.results.filter((result) => result.resultReadiness === "review_required").length;
-  const released = initial.results.filter((result) => result.releaseState === "released").length;
-  const rankingAvailable = initial.results.filter((result) => result.rankingAvailability === "available").length;
 
   return (
     <section className="grid gap-6" aria-labelledby="tryout-results-title">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
-            <BarChart3 aria-hidden="true" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-secondary-900" id="tryout-results-title">Results</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Bedakan kesiapan scoring, kebutuhan review, status rilis, dan ketersediaan peringkat sebelum membuka analisis.</p>
-          </div>
-        </div>
-        <Badge className="rounded-full" size="ui" variant="mint">{initial.results.length} hasil terpantau</Badge>
+      <header className="flex items-center gap-3">
+        <h2 className="text-xl font-semibold text-secondary-900" id="tryout-results-title">Results</h2>
       </header>
-
-      <AssessmentReleaseNotice
-        label="Rilis konten Tryout"
-        missingDescription="AssessmentRelease adalah sumber konten immutable untuk seluruh attempt dan hasil."
-        release={initial.assessmentRelease}
-      />
-
-      <div className="flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
-        <ShieldCheck aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary-800" />
-        <p><strong className="font-semibold text-secondary-900">Workspace tidak membuka bundle hasil parsial.</strong> Skor hanya tampil ketika scoring sudah valid dan paket hasil sesi sudah dirilis; jawaban, kunci, dan konten embargo tetap mengikuti gate server.</p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Sudah dinilai</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{scored}</p></CardContent></Card>
-        <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Perlu review</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{reviewRequired}</p></CardContent></Card>
-        <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Hasil dirilis</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{released}</p></CardContent></Card>
-        <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Peringkat tersedia</p><p className="mt-1 text-2xl font-semibold tabular-nums text-secondary-900">{rankingAvailable}</p></CardContent></Card>
-      </div>
 
       {initial.sessions.length ? <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3.5">
         <label className="text-sm font-semibold text-secondary-900" htmlFor="results-session">Sesi yang ditampilkan</label>
-        <select className="min-h-10 min-w-0 flex-1 rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100 sm:max-w-md" id="results-session" onChange={(event) => selectSession(event.target.value)} value={validSessionId ?? ""}>
+        <select className="min-h-10 w-full min-w-0 basis-full rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100 sm:basis-auto sm:flex-1 sm:max-w-md" id="results-session" onChange={(event) => selectSession(event.target.value)} value={validSessionId ?? ""}>
           {initial.sessions.map((session) => <option key={session.id} value={session.id}>{session.name} · {session.status === "closed" ? "Ditutup" : session.status === "active" ? "Aktif" : "Draf"}</option>)}
         </select>
         {selectedSessionId && selectedSessionId !== validSessionId ? <p className="basis-full text-xs leading-5 text-[#8a5e00]">Sesi dari tautan sebelumnya tidak tersedia. Sesi ini dipilih agar konteks tetap aman.</p> : null}
       </div> : null}
 
-      <div className="grid gap-4">
+      <div className="grid gap-5">
         {visibleSessions.length ? visibleSessions.map((session) => {
           const results = initial.results.filter((result) => result.sessionId === session.id);
-          const sessionScored = results.filter((result) => result.resultReadiness === "scored").length;
-          const sessionReview = results.filter((result) => result.resultReadiness === "review_required").length;
-          const effectivePolicy = (session.releasePolicy === "inherit" ? initial.defaultReleasePolicy : session.releasePolicy) as Policy;
-          const releaseBlockers = [
-            !session.assessmentRelease ? "AssessmentRelease belum tersedia" : null,
-            session.rankingRule === "none" ? "Aturan peringkat belum dipilih" : null,
-            !results.length ? "Belum ada attempt" : null,
-            results.some((result) => result.resultReadiness !== "scored") ? "Semua attempt harus selesai dan dinilai" : null,
-          ].filter((value): value is string => Boolean(value));
-          const canReleaseManually = effectivePolicy === "manual" && !session.releasedAt && releaseBlockers.length === 0;
-          const releaseBlocked = effectivePolicy === "manual" && !session.releasedAt && releaseBlockers.length > 0;
           return (
-            <Card className="shadow-none ring-primary-100" key={session.id}>
-              <CardHeader>
-                <CardTitle className="font-semibold">{session.name}</CardTitle>
-                <CardDescription>{new Date(session.availableFrom).toLocaleString("id-ID")} — {new Date(session.availableUntil).toLocaleString("id-ID")}</CardDescription>
-                <CardAction className="flex items-center gap-2"><ResultPill label={resultReleaseStateLabels[session.releaseState as keyof typeof resultReleaseStateLabels] ?? session.releaseState} tone={session.releaseState === "released" ? "success" : "attention"} /><ChevronRight aria-hidden="true" className="text-secondary-400" /></CardAction>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-3 rounded-2xl border border-primary-100 bg-primary-50/35 p-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <div><p className="text-xs text-secondary-500">Kebijakan</p><p className="mt-1 font-semibold text-secondary-900">{policyLabels[effectivePolicy]}</p></div>
-                  <div><p className="text-xs text-secondary-500">Peringkat</p><p className="mt-1 font-semibold text-secondary-900">{rankingLabels[session.rankingRule as keyof typeof rankingLabels] ?? session.rankingRule}</p></div>
-                  <div><p className="text-xs text-secondary-500">Scoring</p><p className="mt-1 font-semibold text-secondary-900">{sessionScored} dinilai · {sessionReview} review</p></div>
-                  <div><p className="text-xs text-secondary-500">Rilis</p><p className="mt-1 font-semibold text-secondary-900">{session.releaseState === "scheduled" && session.scheduledReleaseAt ? new Date(session.scheduledReleaseAt).toLocaleString("id-ID") : resultReleaseStateLabels[session.releaseState as keyof typeof resultReleaseStateLabels] ?? session.releaseState}</p></div>
+            <section aria-labelledby={`results-session-${session.id}`} key={session.id}>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-secondary-900" id={`results-session-${session.id}`}>{session.name}</h3>
+                  <p className="mt-1 text-sm text-secondary-600">{formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB</p>
                 </div>
+                <ResultStatus label={resultReleaseLabel(session.releaseState)} tone={resultReleaseTone(session.releaseState)} />
+              </div>
 
-                {results.length ? <div className="grid gap-2">{results.map((result) => (
-                  <div className="grid gap-3 rounded-2xl border border-primary-100 px-3.5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={result.attemptId}>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-secondary-900">{result.participant}</p>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600"><span>{resultReadinessLabels[result.resultReadiness]}</span><span>{resultReleaseStateLabels[result.releaseState]}</span><span>{rankingAvailabilityLabels[result.rankingAvailability]}</span></p>
-                      {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[#6a4a00]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:justify-end"><span className="min-w-24 text-right text-sm font-semibold tabular-nums text-secondary-900">{result.scoreVisible && result.displayScore !== null ? Number(result.displayScore).toFixed(2) : "Skor ditahan"}</span><Link className="inline-flex min-h-10 items-center justify-center rounded-xl border border-primary-200 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/participants/${result.admissionId}`}>Participant</Link><Link aria-label={`Buka analisis attempt ${result.participant}`} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/attempts/${result.attemptId}`}>Analisis <ExternalLink aria-hidden="true" className="size-4" /></Link></div>
-                  </div>
-                ))}</div> : <p className="rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center text-sm text-secondary-500">{session.status === "closed" ? "Tidak ada attempt untuk sesi ini. Sesi tetap tersimpan untuk audit." : "Belum ada attempt untuk sesi ini."}</p>}
-
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-primary-100 pt-3"><p className="text-xs text-secondary-600">{canReleaseManually ? "Rilis manual tersedia dari detail sesi; server akan memeriksa kesiapan hasil." : releaseBlocked ? `Rilis manual tertahan: ${releaseBlockers.join(" · ")}.` : "Buka detail sesi untuk validasi bundle lengkap dan tindakan lanjutan."}</p><div className="flex flex-wrap gap-2">{canReleaseManually ? <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}?tab=details#session-actions`}><Upload aria-hidden="true" className="size-4" />Rilis hasil</Link> : null}<Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30" href={`/mentor/tryout/${initial.id}/operations/sessions/${session.id}?tab=details#session-actions`}>Detail sesi <ChevronRight aria-hidden="true" className="size-4" /></Link></div></div>
-              </CardContent>
-            </Card>
+              <div className="mt-3 overflow-hidden rounded-2xl border border-primary-100 bg-white">
+                <Table className="min-w-[520px]">
+                  <caption className="sr-only">Hasil peserta untuk {session.name}</caption>
+                  <TableHeader className="bg-secondary-50/80">
+                    <TableRow className="border-primary-100 hover:bg-secondary-50/80">
+                      <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Peserta</TableHead>
+                      <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Skor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {results.length ? results.map((result) => (
+                      <TableRow className="border-primary-100 hover:bg-secondary-50/70" key={result.attemptId}>
+                        <TableCell className="max-w-[16rem] whitespace-normal px-4 py-3.5 align-top sm:px-5">
+                          <p className="font-medium text-secondary-900">{result.participant}</p>
+                          {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[#6a4a00]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 align-top sm:px-5">{result.scoreVisible && result.displayScore !== null ? <span className="font-semibold tabular-nums text-secondary-900">{Number(result.displayScore).toFixed(2)}</span> : <span className="text-sm text-secondary-500">Belum tersedia</span>}</TableCell>
+                      </TableRow>
+                    )) : <TableRow className="hover:bg-transparent"><TableCell className="px-4 py-10 text-center text-sm text-secondary-600 sm:px-5" colSpan={2}>{session.status === "closed" ? "Tidak ada attempt untuk sesi ini. Sesi tetap tersimpan untuk audit." : "Belum ada attempt untuk sesi ini."}</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
           );
         }) : <div className="grid min-h-40 place-items-center rounded-3xl border border-dashed border-primary-200 bg-white px-5 py-10 text-center text-sm text-secondary-500">Belum ada sesi delivery untuk menampilkan hasil.</div>}
       </div>

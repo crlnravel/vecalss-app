@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [attempt, attemptRepository, delivery, detail, detailPage, registration, registrationPrompt, result, waiting, workspace, workspaceUtils] = await Promise.all([
+const [attempt, attemptRepository, delivery, detail, detailPage, registerPage, enrollment, result, waiting, workspace, workspaceUtils] = await Promise.all([
   readFile(new URL("../modules/tryout/ParticipantAttemptModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/attempt-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/tryout/ParticipantTryoutDetailModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/tryout/[tryoutId]/page.tsx", import.meta.url), "utf8"),
-  readFile(new URL("../modules/tryout/ParticipantTryoutRegistrationModule.tsx", import.meta.url), "utf8"),
-  readFile(new URL("../modules/tryout/ParticipantTryoutRegistrationPrompt.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/tryout/[tryoutId]/register/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/tryout/ParticipantTryoutEnrollmentPanel.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/tryout/ParticipantResultModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/tryout/ParticipantWaitingRoomModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/tryout/ParticipantTryoutWorkspace.tsx", import.meta.url), "utf8"),
@@ -25,9 +25,13 @@ assert.match(workspace, /`\/tryout\/\$\{tryout\.id\}\/waiting`/);
 assert.match(workspace, /Reset pencarian/);
 assert.match(detailPage, /canEnterParticipantWaitingRoom\(tryout\)/);
 assert.match(detailPage, /redirect\(`\/tryout\/\$\{tryout\.id\}\/waiting`\)/);
-assert.match(detail, /ParticipantTryoutRegistrationPrompt/);
-assert.match(registrationPrompt, /AlertDialogTitle>Daftar ke tryout ini\?/);
-assert.match(registrationPrompt, /Lanjutkan pendaftaran/);
+assert.match(detail, /ParticipantTryoutEnrollmentPanel/);
+assert.match(detailPage, /participantTargetProfile/);
+assert.match(detailPage, /universities/);
+assert.match(enrollment, /AlertDialogTitle>Konfirmasi pendaftaran/);
+assert.match(enrollment, /registerForTryoutWithTargetAction/);
+assert.match(enrollment, /aria-label="Cari universitas target"/);
+assert.match(registerPage, /redirect\(`\/tryout\/\$\{tryoutId\}`\)/);
 
 assert.match(waiting, /Panduan tryout/);
 assert.match(waiting, /className="w-full"/);
@@ -59,9 +63,7 @@ assert.doesNotMatch(attemptRepository, /\$queryRaw`SELECT pg_advisory_xact_lock/
 assert.match(attempt, /nativeButton=\{false\}[\s\S]*render=\{<Link href=\{`\/tryout\/attempt/);
 assert.match(waiting, /nativeButton=\{false\}[\s\S]*render=\{<Link href=\{resultReady/);
 assert.match(result, /nativeButton=\{false\}[\s\S]*render=\{<Link href="\/tryout"/);
-assert.match(registration, /nativeButton=\{false\}[\s\S]*render=\{<Link href=\{`\/tryout\//);
-
-assert.match(registration, /response\.result\.state === "unavailable"/);
+assert.match(enrollment, /response\.result\.state === "unavailable"/);
 const unavailableGuard = delivery.indexOf("status === TryoutAdmissionStatus.active && !defaultSession");
 const newAdmissionTargetWrite = delivery.indexOf("await tx.studentProfile.update", unavailableGuard);
 assert.ok(unavailableGuard > -1, "open registration must guard missing sessions");

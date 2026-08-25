@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LibraryBig,
   ListChecks,
-  PackageCheck,
   Settings,
 } from "@/lib/icons";
 
@@ -45,7 +44,6 @@ const kaptenMainNavigation: KaptenNavigationItem[] = [
 
 const kaptenTryoutNavigation: KaptenNavigationItem[] = [
   { href: "/mentor/tryout", icon: Gauge, label: "Tryout" },
-  { href: "/mentor/packages", icon: PackageCheck, label: "Paket Soal" },
 ];
 
 const kaptenUtilityNavigation: KaptenNavigationItem[] = [

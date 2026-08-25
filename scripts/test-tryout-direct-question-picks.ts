@@ -29,11 +29,12 @@ assert.match(repository, /async function readAndValidateDirectSources/u, "direct
 assert.match(repository, /!selection\.sourceQuestionRevisionId[\s\S]*?selection\.sourceQuestionRevisionId !== revision\.id/u, "missing or stale direct revisions must be rejected");
 assert.match(repository, /!selection\.sourceContentDigest[\s\S]*?selection\.sourceContentDigest !== revision\.contentDigest/u, "missing or stale direct content digests must be rejected");
 assert.match(repository, /FOR SHARE OF q, b/u, "direct source reads must share-lock Question and Bank rows");
-assert.match(repository, /packageCode: version\?\.package\.code \?\? "direct"/u, "direct snapshots must not require a saved package");
-assert.match(repository, /questionCount: version\?\.items\.length \?\? directSources\.length/u, "direct selections must determine the Section question count");
+assert.match(repository, /packageCode: "direct"/u, "direct snapshots must not require a saved package");
+assert.match(repository, /questionCount: directSources\.length/u, "direct selections must determine the Section question count");
 assert.match(repository, /sourceQuestionRevision: \{ select: \{ calibrations/u, "direct readback must expose CAT calibration readiness");
-assert.match(repository, /Set dan pilihan langsung sekaligus/u, "a Section must not mix a saved Set with direct picks");
-assert.match(assessmentRelease, /if \(section\.packageVersionId\)\s*\{[\s\S]*?section\.packageVersion\?\.status/u, "release eligibility must retain the published Set branch");
+assert.match(repository, /Paket Soal sudah diarsipkan/u, "legacy package bindings must be rejected at the save boundary");
+assert.doesNotMatch(repository, /sectionInput\.packageVersionId/u, "Tryout authoring must not resolve package versions");
+assert.match(assessmentRelease, /if \(section\.packageVersionId\)\s*\{[\s\S]*?section\.packageVersion\?\.status/u, "release eligibility must retain the published package branch for historical releases");
 assert.match(assessmentRelease, /item\.packageVersionId !== null[\s\S]*?item\.sourceRevisionProvenance === QuestionRevisionProvenance\.legacy_unknown/u, "release eligibility must validate direct snapshot provenance");
 assert.match(assessmentRelease, /section\.packageVersionId \? section\.packageVersion\?\.items \?\? \[\] : section\.items/u, "direct CAT release eligibility must inspect physical direct items");
 
@@ -41,6 +42,7 @@ assert.match(sourceRepository, /catReady\?: boolean/u, "source question DTOs mus
 assert.match(sourceRepository, /CANONICAL_2PL_MODEL_VERSION/u, "CAT readiness must use the canonical calibration profile");
 assert.match(createRoute, /listQuestionBankSourcePage/u, "create route must seed the direct source catalogue");
 assert.match(editRoute, /listQuestionBankSourcePage/u, "edit route must seed the direct source catalogue");
-assert.match(catalogue, /section\.packageVersionId \|\| section\.directQuestions\?\.length/u, "Tryout catalogue readiness must count direct selections");
+assert.doesNotMatch(catalogue, /section\.packageVersionId/u, "Tryout catalogue must not expose package readiness");
+assert.match(catalogue, /sections: Array<\{ directQuestions\?:/u, "Tryout catalogue data must retain direct selections without package bindings");
 
 console.log("Tryout direct question pick contract passed.");

@@ -14,7 +14,7 @@ async function refreshTryoutLiveAction(tryoutId: string) {
       serverUpdatedAt: new Date().toISOString(),
     };
   } catch {
-    return { ok: false as const, message: "Refresh Live tidak dapat diproses saat ini." };
+    return { ok: false as const, message: "Refresh operasional tidak dapat diproses saat ini." };
   }
 }
 

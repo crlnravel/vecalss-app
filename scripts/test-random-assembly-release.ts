@@ -177,7 +177,8 @@ assert.match(release, /TryoutDeliverySessionStatus\.active/u);
 assert.match(release, /membuat ulang assembly/u);
 assert.doesNotMatch(release, /ORDER BY random\(\)/u);
 assert.match(repository, /publicationIntentKey/u);
-assert.match(repository, /version\.mode === ReusableQuestionPackageMode\.blueprint\) return/u);
+assert.match(repository, /readAndValidateDirectSources/u, "Tryout authoring should now resolve direct Bank Soal selections");
+assert.match(repository, /packageVersionId: null/u, "Tryout authoring should persist direct-only section/item bindings");
 assert.match(canonical, /assembly: section\.assembly \?\?/u);
 
 console.log("Random and Blueprint AssessmentRelease resolution contract passed.");

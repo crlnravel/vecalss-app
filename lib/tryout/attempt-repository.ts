@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, Prisma, QuestionRevisionProvenance, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AssessmentResultReleaseState, AssessmentScoringProvenance, AssessmentScoringState, AttemptStatus, ContentStatus, Prisma, QuestionRevisionProvenance, TryoutAttemptTestRunStatus, TryoutAssignmentStatus, TryoutCatRunState, TryoutDeliverySessionStatus, TryoutIntegrityEventType, TryoutTestType } from "@/generated/prisma/client";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { isManagedPreviewPurpose } from "@/lib/admin/student-preview-contract";
 import {
@@ -914,6 +914,8 @@ async function startTryoutAttempt(deliverySessionId: string, studentId: string) 
 
     // This is the single content-lock transition: same aggregate lock as authoring writes.
     await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${session.tryoutId}::uuid FOR UPDATE`;
+    const tryout = await tx.tryoutPackage.findUnique({ where: { id: session.tryoutId }, select: { status: true } });
+    if (!tryout || tryout.status !== ContentStatus.published) throw new TryoutAttemptValidationError("Tryout ini sudah tidak tersedia untuk memulai attempt baru.");
     const lockedTryout = await tx.tryoutPackage.findUniqueOrThrow({
       where: { id: session.tryoutId },
       include: {

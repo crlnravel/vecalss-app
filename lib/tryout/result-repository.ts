@@ -266,7 +266,6 @@ async function sessionReleaseReadiness(tx: Prisma.TransactionClient, deliverySes
   if (!session) throw new TryoutResultValidationError("Sesi delivery Tryout tidak ditemukan.");
   if (!session.assessmentRelease) throw new TryoutResultValidationError("Sesi delivery Tryout belum memiliki AssessmentRelease yang valid.");
   const policy = effectivePolicy(session);
-  if (session.rankingRule === "none") throw new TryoutResultValidationError("Aturan peringkat sesi harus dipilih sebelum paket hasil dapat dirilis.");
   if (!session.attempts.length) throw new TryoutResultValidationError("Belum ada attempt pada sesi ini untuk dirilis.");
   for (const attempt of session.attempts) {
     for (const run of attempt.runs) {
@@ -338,8 +337,7 @@ async function synchronizeTryoutSessionReleaseState(deliverySessionId: string, n
         && hasCanonicalSevenRunSet({ tryoutId: session.tryoutId, tryout: session.tryout, runs: attempt.runs })
         && attempt.runs.every((run) => run.assessmentReleaseId === session.assessmentRelease!.id && run.assessmentReleaseNumber === session.assessmentRelease!.releaseNumber && run.assessmentReleaseDigest === session.assessmentRelease!.contentDigest && run.scoringState === AssessmentScoringState.scored && run.normalizedScore !== null && run.calculationReleaseable && run.catState !== TryoutCatRunState.voided && (run.status === TryoutAttemptTestRunStatus.sealed || run.status === TryoutAttemptTestRunStatus.expired) && explanationsComplete(run));
     }).map((attempt) => attempt.id);
-    const ready = session.rankingRule !== "none"
-      && session.attempts.length > 0
+    const ready = session.attempts.length > 0
       && releaseableAttemptIds.length === session.attempts.length;
     if (policy === "scheduled" && !session.scheduledReleaseAt) throw new TryoutResultValidationError("Jadwal rilis hasil sesi belum lengkap.");
     const thresholdReached = policy === "immediate"
@@ -548,4 +546,4 @@ async function participantTryoutResult(attemptId: string, studentId: string) {
   };
 }
 
-export { calculateTryoutAttempt, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, TryoutResultValidationError };
+export { calculateTryoutAttempt, hasCanonicalSevenRunSet, materializeTryoutAttemptInTransaction, participantTryoutResult, releaseTryoutSessionResults, synchronizeTryoutSessionReleaseState, TryoutResultValidationError };

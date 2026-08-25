@@ -3,23 +3,29 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route, createRoute, shell, sidebar, repository, useRoute, useModule, actions] = await Promise.all([
+const [workspace, route, createRoute, shell, sidebar, repository, deliveryRepository, useRoute, actions, policy, sessions, sessionCreate, sessionRoute, catalogue, attemptRepository, sessionDetail] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/components/mentor-workspace-shell.tsx`, "utf8"),
   readFile(`${root}/components/ui/sidebar.tsx`, "utf8"),
   readFile(`${root}/lib/tryout/repository.ts`, "utf8"),
+  readFile(`${root}/lib/tryout/delivery-repository.ts`, "utf8"),
   readFile(`${root}/app/mentor/packages/[packageId]/use/page.tsx`, "utf8"),
-  readFile(`${root}/modules/mentor/KaptenPackageUsePageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/tryout-actions.ts`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenTryoutPolicyPageModule.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenTryoutSessionsPageModule.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenTryoutSessionCreatePageModule.tsx`, "utf8"),
+  readFile(`${root}/app/mentor/tryout/[tryoutId]/operations/sessions/new/page.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenTryoutCataloguePageModule.tsx`, "utf8"),
+  readFile(`${root}/lib/tryout/attempt-repository.ts`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenTryoutSessionDetailPageModule.tsx`, "utf8"),
 ]);
 
 for (const label of [
   "Soal",
   "Review & Publish",
   "Delivery",
-  "Operations",
   "Results",
   "Overview",
   "Configure Sections",
@@ -37,6 +43,9 @@ for (const label of [
 
 assert.match(workspace, /const draftWorkspacePhases/u, "draft navigation must be grouped into lifecycle phases");
 assert.match(workspace, /const publishedWorkspacePhases/u, "published navigation must be grouped into lifecycle phases");
+assert.match(workspace, /const publishedWorkspacePhases[\s\S]*label: "Overview",\s*value: "overview"[\s\S]*label: "Delivery"/u, "published navigation must expose Overview before Delivery");
+assert.match(workspace, /label: "Live",\s*value: "live"[\s\S]*label: "Attempts",\s*value: "attempts"/u, "Live and Attempts must be root published phases");
+assert.doesNotMatch(workspace, /label: "Operations",\s*value: "operations"/u, "Operations must not remain a published tab");
 assert.match(workspace, /const lifecyclePhaseOrder/u, "the lifecycle roadmap must preserve orientation while future phases are locked");
 assert.match(workspace, /function lifecyclePhasesForMode\(mode: WorkflowMode\)/u, "the lifecycle roadmap must be scoped to the current mode");
 assert.match(workspace, /lifecyclePhases\.map\(\(phase\)/u, "the roadmap must render only mode-relevant phases");
@@ -53,6 +62,14 @@ assert.match(workspace, /Setelah tryout di-publish dan terdapat siswa mengerjaka
 assert.match(workspace, /AlertDialogContent className="!max-w-xl rounded-5xl gap-5"[\s\S]*AlertDialogFooter className="!justify-stretch grid w-full gap-2"/u, "unsaved-change confirmation must keep its actions inside a responsive modal layout");
 assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
+assert.match(workspace, /<aside aria-label="Area Delivery"[\s\S]*role="tablist"/u, "Delivery areas must use a persistent sidebar rail");
+assert.doesNotMatch(workspace, /id="delivery-area-title">Delivery/u, "Delivery rail should not show a redundant heading");
+assert.doesNotMatch(workspace, /Siapa yang boleh masuk dan kapan hasil dibuka\.|Jendela waktu dan rilis konten peserta\.|Admission, undangan, dan penugasan peserta\./u, "Delivery rail items must not repeat descriptions");
+assert.doesNotMatch(workspace, /Tryout sudah terbit\. Area authoring disembunyikan/u, "published workspaces must not show the authoring redirect notice");
+assert.match(workspace, /id="schedule-policy-title">Aturan akses/u, "Policy should use the Indonesian access-rules heading");
+assert.doesNotMatch(workspace, /Atur cara peserta masuk dan kebijakan paket hasil sebelum membuat sesi\./u, "Policy should not repeat the area description");
+assert.match(workspace, /KaptenTryoutPolicyPageModule embedded initial=\{operationsInitial\} onNext=\{\(\) => changeDeliveryArea\("sessions"\)\}/u, "Policy next action should advance to Sessions");
+assert.doesNotMatch(workspace, /Tentukan jendela waktu dan versi terbit yang dipakai peserta\./u, "Sessions should not repeat the lifecycle description");
 assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a persistent rail");
 assert.match(workspace, /sectionReadiness/u, "Section rail must expose per-section readiness");
 assert.match(workspace, /aria-label="Kembali ke semua Tryout"[\s\S]*size="icon"[\s\S]*<ChevronLeft/u, "Tryout workspace back navigation must be an icon-only chevron control");
@@ -61,6 +78,7 @@ assert.doesNotMatch(workspace, /function phaseDescription|Perubahan belum disimp
 assert.doesNotMatch(workspace, /border-b border-primary-100 pb-4/u, "back navigation must not render a divider below the control");
 assert.doesNotMatch(workspace, /<footer className="[^"]*border-t border-primary-100/u, "draft actions must not render a divider above the next action");
 assert.match(workspace, /id="tryout-basic-info-title">Informasi dasar/u, "Soal must label the basic information block");
+assert.match(workspace, /<TabsContent className="mt-0 w-full" value="basics">/u, "Overview identity content must use the full available width");
 assert.match(workspace, /Informasi dasar[\s\S]*duration-[\s\S]*instruction-/u, "Soal must stack duration and instructions in the basic information block");
 assert.doesNotMatch(workspace, /Tujuh Section wajib|Pilih subject untuk mengatur durasi, instruksi, dan soal yang akan digunakan/u, "Soal must remove the redundant section overview header");
 assert.doesNotMatch(workspace, /Question source[\s\S]*Pilih Bank Soal, lalu centang soal yang ingin dimasukkan/u, "question-source lead-in must not repeat the Bank Soal instruction");
@@ -100,34 +118,65 @@ assert.doesNotMatch(workspace, /AssessmentReleaseNotice/u, "draft Review & Publi
 assert.match(workspace, /Simpan perubahan/u, "workspace must expose draft persistence");
 assert.match(workspace, /dirtyNavigationOpen/u, "dirty navigation must require an explicit Save, Discard, or Stay decision");
 assert.match(workspace, /updateTryoutMetadataAction/u, "published details must use a metadata-only server action");
-assert.match(workspace, /Buat draf perubahan/u, "published structural changes must use an explicit change draft");
+assert.match(workspace, /Duplikat draf baru/u, "published structural changes must use an explicit change draft");
+assert.match(workspace, /const allowed: Workspace\[\] = \["basics", "schedule"\]/u, "published workspaces must allow Overview alongside Delivery");
+assert.match(workspace, /mode === "published" \? \([\s\S]*variant="brandOutline"[\s\S]*Duplikat draf baru/u, "published duplicate action must move to the top as an outline control");
+assert.match(workspace, /updateTryoutMetadataAction\(\{ description: draft\.description, id, title: draft\.title \}\)/u, "published Overview must save the inline title and description");
+assert.match(workspace, /disabled=\{mode === "draft" && draft\.locked\}/u, "published Overview metadata must remain editable when structure is locked");
+assert.match(workspace, /mode === "published"[\s\S]*Simpan perubahan/u, "published Overview must expose a metadata save action");
+assert.match(workspace, /unpublishTryoutAction/u, "published Tryout detail must expose the unpublish action");
+assert.match(workspace, /Jadikan draf/u, "published Tryout detail must label the unpublish action plainly");
+assert.match(workspace, /hasActiveAttempt/u, "unpublish affordance must reflect active student work in the mentor view");
+assert.doesNotMatch(workspace, /Versi terbit tidak dapat diubah strukturnya|Tindakan versi terbit|metadataOpen|metadataDraft|Edit details Tryout|Simpan detail|<Dialog\b|<Pencil\b/u, "published pages must remove the structural-lock widget and metadata modal");
 assert.match(repository, /current\.status === ContentStatus\.published[\s\S]*Buat draf perubahan/u, "server save must reject structural edits to published Tryouts");
 assert.match(repository, /updateTryoutMetadata/u, "server metadata editing must remain a separate allowlisted path");
+assert.match(repository, /async function unpublishTryout/u, "Tryout unpublish must be implemented at the repository boundary");
+assert.match(repository, /action: "tryout\.unpublished"/u, "Tryout unpublish must leave an audit trail");
+assert.match(repository, /AssessmentAttemptState\.in_progress/u, "Tryout unpublish must guard canonical active attempts");
+assert.match(repository, /TryoutAttemptTestRunStatus\.active/u, "Tryout unpublish must guard an active Test run even if attempt metadata is inconsistent");
+assert.match(actions, /unpublishTryoutAction/u, "Tryout unpublish must be exposed through the mentor server action boundary");
+assert.match(attemptRepository, /status !== ContentStatus\.published[\s\S]*memulai attempt baru/u, "unpublished Tryouts must reject new participant attempts");
+assert.match(catalogue, /aria-label="Tryout terkunci"[\s\S]*<Lock aria-hidden/u, "Tryout catalogue locks must remain accessible while rendering icon-only");
+assert.doesNotMatch(catalogue, />Terkunci</u, "Tryout catalogue must remove the visible Terkunci label");
 assert.doesNotMatch(workspace, /\/mentor\/packages(?:\/|\b)/u, "workspace must not route mentors through package authoring");
 assert.match(workspace, /Buka Bank Soal/u, "missing sources should point back to Bank Soal, not package authoring");
-assert.match(route, /packageId\?: string; packageVersionId\?: string;[\s\S]*subtest\?: string/u, "Tryout edit route must accept package handoff query state");
-assert.match(createRoute, /packageId\?: string; packageVersionId\?: string; subtest\?: string/u, "Tryout create route must accept package handoff query state");
-assert.match(route, /resolveReusableQuestionPackageHandoff\([\s\S]*tryoutId/u, "existing Tryout handoff must be resolved against the owner-scoped target");
-assert.match(createRoute, /resolveReusableQuestionPackageHandoff\(/u, "new Tryout handoff must be resolved server-side");
-assert.match(workspace, /initialPackageHandoff/u, "builder must accept typed package handoff state");
-assert.match(workspace, /packageVersionId: handoff\.packageVersionId/u, "handoff must seed a package version in local form state");
-assert.match(workspace, /catItemCount/u, "handoff must carry CAT count when the Ready mode requires it");
-assert.match(repository, /async function getReusableQuestionPackageUseContext\(/u, "handoff context must have an owner-scoped repository read");
-assert.match(repository, /createdByUserId: actorId/u, "handoff package and Tryout reads must be owner scoped");
-assert.match(repository, /status: ContentStatus\.draft/u, "handoff targets must be draft Tryouts only");
-assert.match(repository, /attempts: \{ none: \{\} \}/u, "participant-attempt Tryouts must be excluded from handoff targets");
-assert.match(repository, /assessmentReleaseId: \{ not: null \}/u, "participant-accessible release-bound Tryouts must be excluded");
-assert.match(repository, /disabledReason/u, "conflicting package sources must expose a clear disabled reason");
-assert.match(repository, /rule: \{ select: \{ requestedCount: true \} \}/u, "CAT handoff context must read the immutable Ready delivery rule");
-assert.match(repository, /catItemCount: latestVersion\.mode === ReusableQuestionPackageMode\.cat_pool \? latestVersion\.rule\?\.requestedCount/u, "CAT handoff must seed the Ready rule requested count");
-assert.doesNotMatch(repository, /catItemCount: latestVersion\.mode === ReusableQuestionPackageMode\.cat_pool \? latestVersion\.items\.length/u, "CAT handoff must not use the candidate pool size as delivered count");
-assert.match(repository, /resolveReusableQuestionPackageHandoff\(/u, "Tryout routes must use a server-side handoff validator");
-assert.match(useRoute, /getReusableQuestionPackageUseContext\(/u, "use route must read its context through the repository boundary");
-assert.match(useModule, /Tryout yang sudah ada/u, "chooser must expose the existing Tryout choice");
-assert.match(useModule, /Tryout baru/u, "chooser must expose the new Tryout choice");
-assert.match(useModule, /context\.targets\.length/u, "chooser must render every target when all drafts are unavailable");
-assert.doesNotMatch(useModule, /eligibleTargets/u, "chooser visibility must not hide disabled targets when no eligible target exists");
-assert.doesNotMatch(useModule, /saveTryoutAction|saveTryout\(/u, "chooser navigation must not persist a Tryout");
+assert.doesNotMatch(route, /packageId|packageVersionId|resolveReusableQuestionPackageHandoff/u, "Tryout edit must not accept Paket Soal handoffs");
+assert.doesNotMatch(createRoute, /packageId|packageVersionId|resolveReusableQuestionPackageHandoff|listReadyPackageVersions/u, "Tryout create must not accept or load Paket Soal handoffs");
+assert.doesNotMatch(workspace, /initialPackageHandoff|seedPackageHandoff|packageVersionId/u, "Tryout authoring state must remain direct-only");
+assert.match(repository, /Paket Soal sudah diarsipkan/u, "the save boundary must reject forged legacy package bindings");
+assert.match(useRoute, /redirect\(.+packageId.+\)/u, "legacy package handoff URLs must return to the package overview");
+assert.doesNotMatch(useRoute, /getReusableQuestionPackageUseContext|KaptenPackageUsePageModule|Gunakan di Tryout/u, "package routes must not expose a Tryout chooser");
+assert.match(actions, /Paket Soal sedang diarsipkan/u, "legacy package actions must fail closed");
 assert.match(actions, /revalidatePath\(`\/mentor\/tryout\/\$\{result\.id\}`\)/u, "save must revalidate the selected Tryout route");
+assert.match(policy, /label="Akses peserta"/u, "Policy must use the simpler participant-access label");
+assert.match(policy, /label="Jadwal rilis hasil"/u, "Policy must use the simpler result-release label");
+assert.doesNotMatch(policy, /description: "Semua peserta bisa mengikuti"/u, "open access must not carry redundant helper copy");
+assert.doesNotMatch(policy, /Akses dan hasil/u, "Policy must not repeat the removed card title");
+assert.match(policy, /busy \? "Menyimpan…" : "Selanjutnya"/u, "Policy must use the plain next action");
+assert.match(policy, /onNext\?: \(\) => void/u, "Policy should accept a next-step callback");
+assert.match(policy, /setNotice\(null\);[\s\S]*onNext\?\.\(\)/u, "Policy success should advance without a success notice");
+assert.doesNotMatch(policy, /Kebijakan Tryout berhasil disimpan\./u, "Policy should not show a success status widget");
+assert.doesNotMatch(policy, /CardFooter|border-t border-primary-100/u, "Policy next action should sit directly on the page background");
+assert.doesNotMatch(policy, /Simpan kebijakan|<Save\b|@\/lib\/icons/u, "Policy next action must not include the save label or icon");
+assert.doesNotMatch(policy, /Alasan audit|policy-audit-reason/u, "Policy must not expose an audit-reason field");
+assert.doesNotMatch(sessionCreate, /Alasan perubahan|session-audit-reason/u, "Session creation must not expose an audit-reason field");
+assert.doesNotMatch(sessions, /Jadwal dan status pelaksanaan Tryout\./u, "Sessions should not show the redundant schedule description");
+assert.match(sessions, /const hasActiveSession = initial\.sessions\.some\(\(session\) => session\.status === "active"\)/u, "Sessions should derive the active-session warning from current sessions");
+assert.match(sessions, /!hasActiveSession/u, "Sessions should only show the warning when no session is active");
+assert.match(sessions, /text-danger-600/u, "The missing-active-session warning should use the danger color");
+assert.doesNotMatch(sessions, /Konten terkunci pada rilis/u, "Sessions should not expose release-lock copy");
+assert.doesNotMatch(sessionCreate, /label="Peringkat"|label="Rilis hasil"|Waktu rilis hasil|rankingRule:\s*"national"|resultReleasePolicy:\s*"scheduled"|scheduledReleaseAt/u, "Session creation should archive ranking and per-session result release controls");
+assert.match(sessionCreate, /rankingRule: "none", resultReleasePolicy: "inherit"/u, "Session creation should follow the no-ranking/default-release policy");
+assert.match(sessionCreate, /status: "active"/u, "New sessions should default to active");
+assert.match(sessionCreate, /label="Aktif saat dibuat"/u, "Mentors should be able to change the new-session status");
+assert.match(sessionCreate, /router\.push\(`\/mentor\/tryout\/\$\{initial\.id\}\?workspace=schedule&delivery=sessions`\)/u, "Session creation should return to the Tryout editor");
+assert.match(sessionCreate, /busy \? "Membuat…" : "Buat sesi"/u, "Session creation should use the plain create action");
+assert.doesNotMatch(sessionCreate, /<Save\b|Simpan sesi|CardFooter|border-t border-primary-100/u, "Session creation should render a divider-free text-only primary action");
+assert.match(deliveryRepository, /async function updateTryoutDeliverySessionSchedule\(/u, "Session schedule editing should have a repository boundary");
+assert.match(actions, /updateTryoutDeliverySessionScheduleAction/u, "Session schedule editing should use a mentor server action");
+assert.match(sessionDetail, /type="datetime-local"/u, "Session detail should expose editable session times");
+assert.match(sessionDetail, /Jadwal sesi berhasil diperbarui/u, "Session schedule edits should provide confirmation");
+assert.match(shell, /breadcrumbParent\?: \{ href: string; label: string \}/u, "Workspace shell should support a nested breadcrumb");
+assert.match(sessionRoute, /breadcrumbLabel="Buat Sesi"[\s\S]*breadcrumbParent=\{\{ href: `\/mentor\/tryout\/\$\{tryoutId\}`, label: "Edit Tryout" \}\}/u, "Session creation should show Tryout > Edit Tryout > Buat Sesi");
 
 console.log("Tryout authoring workspace contract passed.");

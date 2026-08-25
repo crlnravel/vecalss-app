@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  CaretDown,
   Clock,
   HourglassMedium,
   Info,
@@ -18,7 +17,7 @@ import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { ParticipantTryout } from "@/lib/tryout/participant-repository";
 import { ChevronLeft } from "@/lib/icons";
 import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
-import { ParticipantTryoutRegistrationPrompt } from "@/modules/tryout/ParticipantTryoutRegistrationPrompt";
+import { ParticipantTryoutEnrollmentPanel, type MajorOption, type UniversityOption } from "@/modules/tryout/ParticipantTryoutEnrollmentPanel";
 
 const detailDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -223,63 +222,22 @@ function TryoutSectionList({
   );
 }
 
-function TryoutTargetSection({ href }: { href: string }) {
-  return (
-    <section
-      aria-labelledby="target-jurusan"
-      className="rounded-xl bg-white p-5 shadow-[0_14px_34px_-28px_rgba(1,76,56,0.26)] sm:p-6"
-    >
-      <h2
-        id="target-jurusan"
-        className="text-center font-heading text-xl font-extrabold tracking-[-0.025em] text-secondary-900"
-      >
-        Target Jurusan
-      </h2>
-      <div className="mt-5 grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center">
-        <div className="flex min-h-36 items-center justify-center overflow-hidden rounded-2xl bg-primary-100">
-          <Image
-            alt=""
-            className="h-32 w-32 object-contain"
-            height={256}
-            src="/brand/mascot-vecalss.png"
-            width={256}
-          />
-        </div>
-        <div className="grid gap-3">
-          <Link
-            aria-label="Pilih universitas target"
-            className="flex min-h-12 items-center justify-between rounded-xl bg-primary-50 px-4 text-sm font-bold text-secondary-500 transition hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
-            href={href}
-          >
-            <span>Pilih Universitas</span>
-            <CaretDown className="size-5 text-primary-600" />
-          </Link>
-          <Link
-            aria-label="Pilih jurusan target"
-            className="flex min-h-12 items-center justify-between rounded-xl bg-primary-50 px-4 text-sm font-bold text-secondary-500 transition hover:bg-primary-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
-            href={href}
-          >
-            <span>Pilih Jurusan</span>
-            <CaretDown className="size-5 text-primary-600" />
-          </Link>
-          <p className="text-sm leading-6 text-secondary-600">
-            Target jurusan akan tersimpan di profilmu saat kamu menyelesaikan
-            pendaftaran.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ParticipantTryoutDetailModule({
+  initialMajorId,
+  initialUniversityId,
+  majors,
   notificationFeed,
   session,
   tryout,
+  universities,
 }: {
+  initialMajorId: string | null;
+  initialUniversityId: string | null;
+  majors: MajorOption[];
   notificationFeed?: StudentNotificationFeed;
   session: SessionContext;
   tryout: ParticipantTryout;
+  universities: UniversityOption[];
 }) {
   const totalDuration = tryout.sections.reduce(
     (sum, section) => sum + section.durationSeconds,
@@ -305,7 +263,7 @@ function ParticipantTryoutDetailModule({
   const summarySession =
     assignedSession ?? (canPreviewSchedule ? defaultOpenSession : undefined);
 
-  let actionHref = "/tryout/" + tryout.id + "/register";
+  let actionHref = "/tryout/" + tryout.id;
   let actionLabel = "Daftar tryout";
   let canTakeAction = true;
   if (attempt?.status === "in_progress") {
@@ -533,7 +491,14 @@ function ParticipantTryoutDetailModule({
 
           {!admissionNotice && canTakeAction ? (
             actionLabel === "Daftar tryout" ? (
-              <ParticipantTryoutRegistrationPrompt href={actionHref} />
+              <ParticipantTryoutEnrollmentPanel
+                initialMajorId={initialMajorId}
+                initialUniversityId={initialUniversityId}
+                majors={majors}
+                tryoutId={tryout.id}
+                tryoutTitle={tryout.title}
+                universities={universities}
+              />
             ) : (
               <Link
                 className={buttonVariants({
@@ -547,10 +512,6 @@ function ParticipantTryoutDetailModule({
                 {actionDisplayLabel === "Daftar" ? null : <ArrowRight />}
               </Link>
             )
-          ) : null}
-
-          {!admissionNotice && actionLabel === "Daftar tryout" ? (
-            <TryoutTargetSection href={actionHref} />
           ) : null}
         </div>
       </div>

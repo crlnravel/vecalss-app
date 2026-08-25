@@ -3,12 +3,13 @@ import { readFile } from "node:fs/promises";
 
 import { deriveTryoutLiveProjection } from "../lib/tryout/operations-projections";
 
-const [attemptRepository, operationsView, mentorActions, participantActions, liveModule, liveAction, detailModule] = await Promise.all([
+const [attemptRepository, operationsView, mentorActions, participantActions, liveModule, refreshModule, liveAction, detailModule] = await Promise.all([
   readFile(new URL("../lib/tryout/attempt-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/tryout-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/tryout/participant-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutLivePageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenTryoutOperationsRefresh.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/tryout-operations-actions.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutAttemptDetailPageModule.tsx", import.meta.url), "utf8"),
 ]);
@@ -54,11 +55,13 @@ assert.match(participantActions, /reconcileTryoutDisconnect\(attemptId, runId, s
 assert.match(liveAction, /requireTutorSession/u);
 assert.match(liveAction, /toTryoutWorkspaceView/u);
 assert.match(liveModule, /^"use client";/u);
-assert.match(liveModule, /refreshTryoutLiveAction/u);
-assert.match(liveModule, /setInterval\(poll, LIVE_REFRESH_INTERVAL_MS\)/u);
-assert.match(liveModule, /MAX_AUTO_REFRESH_FAILURES/u);
-assert.match(liveModule, /document\.visibilityState/u);
-assert.match(liveModule, /lastUpdatedAt/u);
+assert.match(liveModule, /useTryoutOperationsRefresh/u);
+assert.match(refreshModule, /^"use client";/u);
+assert.match(refreshModule, /refreshTryoutLiveAction/u);
+assert.match(refreshModule, /setInterval\(poll, LIVE_REFRESH_INTERVAL_MS\)/u);
+assert.match(refreshModule, /MAX_AUTO_REFRESH_FAILURES/u);
+assert.match(refreshModule, /document\.visibilityState/u);
+assert.match(refreshModule, /lastUpdatedAt/u);
 assert.doesNotMatch(liveModule, /recordTryoutIntegrityEventAction/u);
 assert.doesNotMatch(liveModule, /disconnectStartedAt\s*=/u);
 assert.match(detailModule, /startTryoutDisconnectAction/u);

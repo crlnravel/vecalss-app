@@ -7,12 +7,13 @@ import {
   sanitizeTryoutWorkspaceParticipant,
 } from "../lib/tryout/operations-projections";
 
-const [delivery, operations, workspace, live, attempts, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, sessionDetailRoute, sessionCreateRoute, operationsRoute] = await Promise.all([
+const [delivery, operations, workspace, live, attempts, refreshModule, results, participants, attemptDetail, participantDetail, attemptDetailRoute, participantDetailRoute, sessionDetailRoute, sessionCreateRoute, operationsRoute, resultRepository] = await Promise.all([
   readFile(new URL("../lib/tryout/delivery-repository.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/tryout/operations-view.ts", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutBuilderPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutLivePageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutAttemptsPageModule.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../modules/mentor/KaptenTryoutOperationsRefresh.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutResultsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutParticipantsPageModule.tsx", import.meta.url), "utf8"),
   readFile(new URL("../modules/mentor/KaptenTryoutAttemptDetailPageModule.tsx", import.meta.url), "utf8"),
@@ -22,6 +23,7 @@ const [delivery, operations, workspace, live, attempts, results, participants, a
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/sessions/[sessionId]/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/sessions/new/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/mentor/tryout/[tryoutId]/operations/page.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../lib/tryout/result-repository.ts", import.meta.url), "utf8"),
 ]);
 
 const baseRun = {
@@ -144,6 +146,7 @@ assert.match(operations, /\["rejected", "revoked"\]/u);
 assert.match(operations, /answer\.selectedOptionId \|\| answer\.answerText\?\.trim\(\)/u);
 assert.match(operations, /eligibleRankingAttempts/u);
 assert.match(operations, /resultReleaseReady/u);
+assert.match(operations, /synchronizeTryoutSessionReleaseState/u);
 assert.match(operations, /toTryoutWorkspaceView/u);
 assert.match(operations, /sanitizeTryoutWorkspaceParticipant/u);
 assert.doesNotMatch(operations, /participant: attempt\.student,\n\s+score: attempt\.score/u, "results must not carry raw hidden scores");
@@ -159,19 +162,31 @@ assert.match(live, /checked_in/u);
 assert.match(live, /disconnected/u);
 assert.match(live, /needs_attention/u);
 assert.match(live, /cat_failure/u);
-assert.match(live, /tidak ada penalti skor/iu);
-assert.match(live, /marker lifecycle server/iu);
-assert.match(attempts, /integrityEventTrail/u);
-assert.match(attempts, /catResolutionAudits/u);
+assert.match(live, /useTryoutOperationsRefresh/u);
+assert.doesNotMatch(live, /Pantau posisi peserta dari admission sampai terkirim/u);
+assert.doesNotMatch(live, /peserta terpantau/u);
+assert.match(attempts, /useTryoutOperationsRefresh/u);
+assert.match(attempts, /TryoutRefreshToolbar/u);
+assert.match(attempts, /TryoutRefreshNotice/u);
+assert.match(refreshModule, /setInterval\(poll, LIVE_REFRESH_INTERVAL_MS\)/u);
 assert.match(attempts, /remainingSeconds/u);
-assert.match(attempts, /Terputus/u);
-assert.match(attempts, /Tidak ada konsekuensi otomatis/iu);
-assert.match(results, /scoreVisible/u);
-assert.match(results, /rankingAvailabilityLabels/u);
-assert.match(results, /operations\/participants\/\$\{result\.admissionId\}/u);
-assert.match(results, /bundle hasil parsial/u);
-assert.match(results, /releaseBlockers/u);
-assert.match(results, /Rilis manual tertahan/u);
+assert.match(results, /displayScore/u);
+assert.doesNotMatch(results, /BarChart3/u);
+assert.doesNotMatch(results, /Kesiapan scoring/u);
+assert.doesNotMatch(results, /<TableHead[^>]*>Rilis<\/TableHead>/u);
+assert.doesNotMatch(results, /Peringkat/u);
+assert.doesNotMatch(results, /<TableHead[^>]*>Aksi<\/TableHead>/u);
+assert.doesNotMatch(results, /operations\/participants\/\$\{result\.admissionId\}/u);
+assert.doesNotMatch(results, /ExternalLink/u);
+assert.match(results, /TableHeader/u);
+assert.match(results, /Belum dirilis/u);
+assert.doesNotMatch(results, /bundle hasil parsial/u);
+assert.doesNotMatch(results, /releaseBlockers/u);
+assert.doesNotMatch(results, /Rilis manual tertahan/u);
+assert.doesNotMatch(results, /Buka detail sesi untuk validasi bundle lengkap/u);
+assert.doesNotMatch(results, /AssessmentReleaseNotice/u);
+assert.doesNotMatch(resultRepository, /Aturan peringkat sesi harus dipilih sebelum paket hasil dapat dirilis/u);
+assert.match(resultRepository, /const ready = session\.attempts\.length > 0/u);
 assert.match(participants, /participant\.attention/u);
 assert.doesNotMatch(attemptDetail, /<main\b/u, "attempt detail must not nest a page landmark inside MentorWorkspaceShell");
 assert.doesNotMatch(participantDetail, /<main\b/u, "participant detail must not nest a page landmark inside MentorWorkspaceShell");
