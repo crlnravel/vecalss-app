@@ -64,7 +64,10 @@ assert.match(detail, /className="w-full"[^>]*disabled=\{disabled \|\| isSaving/u
 assert.match(detail, /Perubahan Kuis tersimpan/u, "settings save must provide a success action toast");
 assert.match(detail, /showToast\(result\.message, \{ variant: "error" \}\)/u, "save failures must provide an error action toast");
 assert.match(detail, /data-quiz-settings-metadata="bank-style"/u, "Kuis metadata settings must use the Bank Soal editing treatment");
-assert.match(detail, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(18rem,24rem\)\]/u, "Kuis metadata settings must use the Bank Soal two-column layout");
+assert.doesNotMatch(detail, />Informasi Kuis<\/h2>/u, "Kuis settings must not render a duplicate Informasi Kuis form heading");
+assert.match(detail, /aria-label="Ubah judul Kuis"/u, "Kuis title metadata must use an inline edit affordance");
+assert.match(detail, /aria-label="Ubah deskripsi Kuis"/u, "Kuis description metadata must use an inline edit affordance");
+assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata must use an inline edit affordance");
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.doesNotMatch(detail, /Arsipkan|updateStandaloneQuizLifecycleAction/u, "Kuis detail must not expose archive lifecycle controls");
 assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");

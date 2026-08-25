@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, FilePenLine, ListChecks, Pencil, SendHorizontal } from "@/lib/icons";
+import { Check, ChevronLeft, FilePenLine, ListChecks, Pencil, SendHorizontal, X } from "@/lib/icons";
 import { useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { FullWidthLineTabsList, FullWidthLineTabsTrigger } from "@/components/ui/full-width-line-tabs";
+import { Input } from "@/components/ui/input";
 import { showToast } from "@/components/ui/sonner";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
@@ -108,27 +109,154 @@ function QuizSettings({
     { label: "5 kali", value: "5" },
     { label: "Tanpa batas", value: "unlimited" },
   ];
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState(form.title);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionInput, setDescriptionInput] = useState(form.description);
+  const [isEditingSubject, setIsEditingSubject] = useState(false);
+  const [subjectInput, setSubjectInput] = useState(form.subjectCode);
+  const subject = kaptenSubjects.find((item) => item.code === form.subjectCode);
+
+  function startTitleEdit() {
+    setTitleInput(form.title);
+    setIsEditingTitle(true);
+  }
+
+  function saveTitleDraft() {
+    const nextTitle = titleInput.trim();
+    if (!nextTitle) {
+      setTitleInput(form.title);
+      setIsEditingTitle(false);
+      return;
+    }
+    onChange({ title: nextTitle });
+    setIsEditingTitle(false);
+  }
+
+  function cancelTitleEdit() {
+    setTitleInput(form.title);
+    setIsEditingTitle(false);
+  }
+
+  function startDescriptionEdit() {
+    setDescriptionInput(form.description);
+    setIsEditingDescription(true);
+  }
+
+  function saveDescriptionDraft() {
+    onChange({ description: descriptionInput.trim() });
+    setIsEditingDescription(false);
+  }
+
+  function cancelDescriptionEdit() {
+    setDescriptionInput(form.description);
+    setIsEditingDescription(false);
+  }
+
+  function startSubjectEdit() {
+    setSubjectInput(form.subjectCode);
+    setIsEditingSubject(true);
+  }
+
+  function saveSubjectDraft() {
+    onChange({ subjectCode: subjectInput });
+    setIsEditingSubject(false);
+  }
+
+  function cancelSubjectEdit() {
+    setSubjectInput(form.subjectCode);
+    setIsEditingSubject(false);
+  }
+
   return (
     <div className="grid gap-6">
       <section className="max-w-6xl" data-quiz-settings-metadata="bank-style">
-        <h2 className="text-lg font-semibold text-secondary-900">Informasi Kuis</h2>
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
-          <div className="grid gap-5">
-            <Field>
-              <FieldLabel htmlFor="quiz-settings-title">Judul Kuis</FieldLabel>
-              <FieldInput disabled={disabled} id="quiz-settings-title" onChange={(event) => onChange({ title: event.target.value })} value={form.title} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="quiz-settings-description">Deskripsi</FieldLabel>
-              <FieldTextarea className="min-h-[110px]" disabled={disabled} id="quiz-settings-description" onChange={(event) => onChange({ description: event.target.value })} value={form.description} />
-            </Field>
+        <div className="space-y-6">
+          <div>
+            {isEditingTitle ? (
+              <div className="flex max-w-3xl items-center gap-2">
+                <Input
+                  autoFocus
+                  className="h-auto bg-transparent px-0 py-0 text-3xl font-semibold tracking-tight shadow-none focus-visible:border-primary-300 focus-visible:ring-0 md:text-4xl"
+                  disabled={disabled || isSaving}
+                  id="quiz-settings-title"
+                  onChange={(event) => setTitleInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      saveTitleDraft();
+                    } else if (event.key === "Escape") {
+                      cancelTitleEdit();
+                    }
+                  }}
+                  value={titleInput}
+                />
+                <Button disabled={disabled || isSaving || !titleInput.trim()} onClick={saveTitleDraft} size="sm" type="button" variant="brand">
+                  <Check />
+                  Simpan
+                </Button>
+                <Button disabled={disabled || isSaving} onClick={cancelTitleEdit} size="sm" type="button" variant="ghost">
+                  <X />
+                  Batal
+                </Button>
+              </div>
+            ) : (
+              <div className="group flex items-start gap-3">
+                <h2 className="text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">{form.title || "Kuis tanpa judul"}</h2>
+                {!disabled ? (
+                  <Button aria-label="Ubah judul Kuis" className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100" onClick={startTitleEdit} size="icon-sm" title="Ubah judul Kuis" type="button" variant="ghost">
+                    <Pencil className="size-4" />
+                  </Button>
+                ) : null}
+              </div>
+            )}
           </div>
-          <section className="rounded-2xl border border-primary-100 bg-white p-5 shadow-sm md:p-6">
-            <Field>
-              <FieldLabel htmlFor="quiz-settings-subject">Subjek</FieldLabel>
-              <DropdownField disabled={disabled} id="quiz-settings-subject" onValueChange={(value) => onChange({ subjectCode: value })} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} · ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value={form.subjectCode} />
-            </Field>
-          </section>
+
+          <div className="space-y-2 border-t border-primary-100/70 pt-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-secondary-500">Deskripsi</span>
+              {!isEditingDescription && !disabled ? (
+                <Button aria-label="Ubah deskripsi Kuis" className="size-7 text-secondary-400 hover:text-secondary-900" onClick={startDescriptionEdit} size="icon-sm" title="Ubah deskripsi Kuis" type="button" variant="ghost">
+                  <Pencil className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
+            {isEditingDescription ? (
+              <div className="max-w-3xl space-y-2">
+                <FieldTextarea autoFocus className="min-h-[90px] text-sm" disabled={disabled || isSaving} id="quiz-settings-description" onChange={(event) => setDescriptionInput(event.target.value)} placeholder="Tuliskan deskripsi ringkas tentang Kuis ini…" value={descriptionInput} />
+                <div className="flex gap-2">
+                  <Button disabled={disabled || isSaving} onClick={saveDescriptionDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
+                  <Button disabled={disabled || isSaving} onClick={cancelDescriptionEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
+                </div>
+              </div>
+            ) : (
+              <p className="max-w-3xl text-sm leading-6 text-secondary-700">{form.description || <span className="italic text-secondary-400">Belum ada deskripsi untuk Kuis ini. Klik ikon pensil untuk menambahkan.</span>}</p>
+            )}
+          </div>
+
+          <div className="border-t border-primary-100/70 pt-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-secondary-500">Subjek</span>
+              {!isEditingSubject && !disabled ? (
+                <Button aria-label="Ubah subjek Kuis" className="size-7 text-secondary-400 hover:text-secondary-900" onClick={startSubjectEdit} size="icon-sm" title="Ubah subjek Kuis" type="button" variant="ghost">
+                  <Pencil className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
+            {isEditingSubject ? (
+              <div className="mt-2 max-w-md space-y-2">
+                <DropdownField disabled={disabled || isSaving} id="quiz-settings-subject" onValueChange={setSubjectInput} options={kaptenSubjects.map((item) => ({ label: `${item.code} · ${item.name}`, value: item.code }))} placeholder="Pilih subjek" value={subjectInput} />
+                <div className="flex gap-2">
+                  <Button disabled={disabled || isSaving} onClick={saveSubjectDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
+                  <Button disabled={disabled || isSaving} onClick={cancelSubjectEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <Badge size="ui" variant="mint">{subject ? `${subject.code} · ${subject.name}` : form.subjectCode}</Badge>
+              </div>
+            )}
+          </div>
         </div>
       </section>
       <section className="max-w-6xl rounded-2xl border border-primary-100 bg-white p-5 shadow-sm md:p-6">
