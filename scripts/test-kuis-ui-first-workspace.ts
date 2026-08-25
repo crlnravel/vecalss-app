@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, builder, actions, repository, results, submission] = await Promise.all([
+const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, builder, actions, repository, results, submission, quizCatalogue] = await Promise.all([
   readFile(`${root}/app/mentor/quiz/[quizId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/[quizId]/editor/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/quiz/create/page.tsx`, "utf8"),
@@ -15,6 +15,7 @@ const [detailRoute, editorRoute, createRoute, resultsRoute, detail, editor, buil
   readFile(`${root}/lib/quiz/repository.ts`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizResultsPageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenQuizSubmissionPageModule.tsx`, "utf8"),
+  readFile(`${root}/modules/mentor/KaptenQuizCataloguePageModules.tsx`, "utf8"),
 ]);
 
 const noBankOrAssemblyClientDependency = /listQuestionBank|listReadyAssembly|question-bank|QuestionBank|attachStandaloneQuizAssembly|detachStandaloneQuizAssembly|assemblyVersionId|sourceBankId/u;
@@ -24,7 +25,9 @@ for (const [label, source] of [["detail route", detailRoute], ["editor route", e
 
 assert.match(detailRoute, /searchParams: Promise/u, "detail route must accept a deep-linked tab");
 assert.match(detail, /value="preview"/u, "detail must expose Preview Soal");
+assert.match(detail, /value="preview">Soal<\/FullWidthLineTabsTrigger>/u, "detail must label the question tab Soal");
 assert.match(detail, /value="hasil"/u, "detail must expose Hasil");
+assert.match(detail, /value="hasil">Hasil<\/FullWidthLineTabsTrigger>/u, "Hasil tab must remain text-only");
 assert.match(detail, /value="pengaturan"/u, "detail must expose Pengaturan");
 assert.match(detail, /router\.push\(`\/mentor\/quiz\/\$\{quiz\.id\}\?tab=\$\{next\}`/u, "detail tab selection must preserve URL history");
 assert.match(detail, /Edit soal/u, "detail must expose the dedicated editor action");
@@ -60,6 +63,15 @@ assert.match(detail, /Acak soal setiap percobaan/u, "retry choices must explain 
 assert.match(detail, /className="w-full"[^>]*disabled=\{disabled \|\| isSaving/u, "settings save action must span the page width at the bottom");
 assert.match(detail, /Perubahan Kuis tersimpan/u, "settings save must provide a success action toast");
 assert.match(detail, /showToast\(result\.message, \{ variant: "error" \}\)/u, "save failures must provide an error action toast");
+assert.match(detail, /data-quiz-settings-metadata="bank-style"/u, "Kuis metadata settings must use the Bank Soal editing treatment");
+assert.match(detail, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(18rem,24rem\)\]/u, "Kuis metadata settings must use the Bank Soal two-column layout");
+assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
+assert.doesNotMatch(detail, /Arsipkan|updateStandaloneQuizLifecycleAction/u, "Kuis detail must not expose archive lifecycle controls");
+assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");
+assert.match(quizCatalogue, /group grid gap-4 rounded-3xl border border-primary-100 bg-white p-4/u, "quiz rows must use compact Tryout-style cards");
+assert.match(quizCatalogue, /aria-label=\{`Buka \$\{quiz\.title\}`\}/u, "quiz rows must provide a direct open action");
+assert.match(quizCatalogue, /<ChevronRight aria-hidden/u, "quiz rows must use the Tryout-style trailing chevron");
+assert.doesNotMatch(quizCatalogue, /<Archive|>Arsipkan<|>Pulihkan</u, "subject catalogue must not expose archive lifecycle actions");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");

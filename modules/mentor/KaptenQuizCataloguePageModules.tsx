@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, BarChart3, ChevronLeft, Ellipsis, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, X } from "@/lib/icons";
+import { BarChart3, ChevronLeft, ChevronRight, Ellipsis, FilePenLine, ListChecks, Pencil, Plus, Trash2, Upload, X } from "@/lib/icons";
 import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -108,22 +108,27 @@ function KaptenQuizPageModule({ session, subjects }: { session: SessionContext; 
 
 function QuizRow({ quiz, onAction, onSelectedChange, selectionMode, selected }: { quiz: KaptenQuiz; onAction: (action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void; onSelectedChange: (checked: boolean) => void; selectionMode: boolean; selected: boolean }) {
   return (
-    <article className={`grid gap-4 rounded-3xl border border-primary-100 bg-white p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] ${selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)_auto]" : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-center`}>
+    <article className={`group grid gap-4 rounded-3xl border border-primary-100 bg-white p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] ${selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)_auto]" : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-center`}>
       {selectionMode ? <Checkbox aria-label={`Pilih ${quiz.title}`} checked={selected} onCheckedChange={(checked) => onSelectedChange(checked === true)} /> : null}
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold text-secondary-900">{quiz.title}</h2>
-          <StatusPill status={quiz.status} />
+      <Link aria-label={`Buka ${quiz.title}`} className="group/link flex min-w-0 items-center justify-between gap-4 rounded-2xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={quiz.href}>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <ListChecks className="size-4 shrink-0 text-primary-800" />
+            <h2 className="truncate font-semibold text-secondary-900">{quiz.title}</h2>
+            <StatusPill status={quiz.status} />
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
+            <span>{quiz.primaryMetric}</span>
+            {quiz.opensAt ? <span>Buka {quizDateFormatter.format(new Date(quiz.opensAt))}</span> : null}
+            {quiz.closesAt ? <span>Tutup {quizDateFormatter.format(new Date(quiz.closesAt))}</span> : null}
+          </div>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary-500">
-          {quiz.opensAt ? <span>Buka {quizDateFormatter.format(new Date(quiz.opensAt))}</span> : null}
-          {quiz.closesAt ? <span>Tutup {quizDateFormatter.format(new Date(quiz.closesAt))}</span> : null}
-        </div>
-      </div>
+        <ChevronRight aria-hidden className="size-5 shrink-0 text-secondary-400 transition-transform group-hover/link:translate-x-0.5" />
+      </Link>
       <div className="flex flex-wrap gap-2 sm:justify-end">
         <Button render={<Link href={`/mentor/quiz/${quiz.id}/results`} />} size="sm" title="Lihat hasil siswa" variant="brandOutline"><BarChart3 />Hasil</Button>
         <Button aria-label="Edit quiz" render={<Link href={quiz.href} />} size="icon-sm" title="Edit quiz" variant="brand"><Pencil /></Button>
-        <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${quiz.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{quiz.status === "draft" ? <DropdownMenuItem disabled={quiz.questionCount === 0} onClick={() => onAction("publish")}><Upload />Terbitkan</DropdownMenuItem> : null}{quiz.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}><FilePenLine />Batalkan terbit</DropdownMenuItem> : null}{quiz.status !== "archived" ? <DropdownMenuItem onClick={() => onAction("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => onAction("restore")}>Pulihkan</DropdownMenuItem>}<DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+        {quiz.status === "draft" || quiz.status === "published" ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${quiz.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup>{quiz.status === "draft" ? <DropdownMenuItem disabled={quiz.questionCount === 0} onClick={() => onAction("publish")}><Upload />Terbitkan</DropdownMenuItem> : null}{quiz.status === "published" ? <DropdownMenuItem onClick={() => onAction("unpublish")}><FilePenLine />Batalkan terbit</DropdownMenuItem> : null}<DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu> : null}
       </div>
     </article>
   );
@@ -241,8 +246,6 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
               { label: "Semua status", value: "" },
               { label: "Draf", value: "draft" },
               { label: "Diterbitkan", value: "published" },
-              { label: "Diarsipkan", value: "archived" },
-              { label: "Terjadwal", value: "scheduled" },
             ]}
             value={statusFilter}
           />
