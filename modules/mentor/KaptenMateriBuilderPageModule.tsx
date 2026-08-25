@@ -274,6 +274,7 @@ function MateriBuilderEditor({
   subjects: KaptenMateriSubjectView[];
 }) {
   const selectedSubjectOption = subjects.find((subject) => subject.slug === builderState.subjectSlug);
+  const hasDocumentName = Boolean(builderState.documentName.trim());
 
   return isPreviewOpen ? (
     <section aria-live="polite" className="max-w-4xl rounded-[28px] border border-primary-100 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:p-7">
@@ -365,9 +366,7 @@ function MateriBuilderEditor({
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-secondary-900">{selectedDocumentName}</p>
-                <p className="mt-1 text-xs leading-5 text-secondary-500">
-                  {builderState.documentAssetId ? "PDF dipilih dari Media Kapten." : "Belum ada PDF yang dipilih."}
-                </p>
+                {!hasDocumentName ? <p className="mt-1 text-xs leading-5 text-secondary-500">Placeholder</p> : null}
               </div>
             </div>
             <Button disabled={isArchived} onClick={onOpenPicker} size="sm" type="button" variant="brandOutline">
@@ -489,7 +488,7 @@ function KaptenMateriBuilderPageModule({
   const readiness = Object.keys(validateMateriBuilderState(builderState, subjects)).length === 0
     ? "ready"
     : "incomplete";
-  const selectedDocumentName = builderState.documentName.trim() || "Belum ada PDF yang dipilih";
+  const selectedDocumentName = builderState.documentName.trim() || "test.pdf";
 
   useMateriNavigationGuards({ hasUnsavedChanges, pendingRouteReplacement, router });
 
