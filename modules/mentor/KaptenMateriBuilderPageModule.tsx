@@ -168,7 +168,7 @@ function MateriBuilderHeader({
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="flex w-full flex-wrap items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
             <Button
               aria-label="Kembali ke materi"
