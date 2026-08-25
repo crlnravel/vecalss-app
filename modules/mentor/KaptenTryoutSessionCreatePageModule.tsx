@@ -25,6 +25,7 @@ import {
 import { createTryoutDeliverySessionAction } from "@/modules/mentor/tryout-actions";
 
 type SessionDraft = {
+  auditReason: string;
   availableFrom: string;
   availableUntil: string;
   fullscreenPrompt: boolean;
@@ -36,6 +37,7 @@ type SessionDraft = {
 };
 
 const emptySession: SessionDraft = {
+  auditReason: "",
   availableFrom: "",
   availableUntil: "",
   fullscreenPrompt: false,
@@ -62,7 +64,8 @@ function KaptenTryoutSessionCreatePageModule({
       !session.name.trim() ||
       !session.availableFrom ||
       !session.availableUntil ||
-      (session.resultReleasePolicy === "scheduled" && !session.scheduledReleaseAt)
+      (session.resultReleasePolicy === "scheduled" && !session.scheduledReleaseAt) ||
+      !session.auditReason.trim()
     ) {
       setNotice({ message: "Lengkapi semua kolom wajib sebelum menyimpan sesi.", tone: "error" });
       return;
@@ -75,7 +78,7 @@ function KaptenTryoutSessionCreatePageModule({
     try {
       const result = await createTryoutDeliverySessionAction(
         { ...session, tryoutId: initial.id },
-        "Membuat sesi Tryout",
+        session.auditReason,
       );
       if (!result.ok) {
         setNotice({ message: result.message ?? "Sesi tidak dapat dibuat.", tone: "error" });
@@ -223,6 +226,18 @@ function KaptenTryoutSessionCreatePageModule({
             </Field>
           </div>
 
+          <Field>
+            <HelpFieldLabel htmlFor="session-audit-reason" label="Alasan perubahan" required tooltip="Alasan ini disimpan pada jejak audit untuk menjelaskan pembuatan dan konfigurasi sesi." />
+            <FieldInput
+              aria-required="true"
+              id="session-audit-reason"
+              onChange={(event) =>
+                setSession({ ...session, auditReason: event.target.value })
+              }
+              placeholder="Contoh: Membuka jadwal Tryout gelombang pertama"
+              value={session.auditReason}
+            />
+          </Field>
         </CardContent>
         <CardFooter className="justify-end border-t border-primary-100">
           <Button disabled={busy} onClick={() => void handleCreate()} variant="brand">

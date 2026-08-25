@@ -201,10 +201,10 @@ function lifecyclePhasesForMode(mode: WorkflowMode) {
   return lifecyclePhaseOrder.filter((phase) => phaseValues.has(phase.value));
 }
 
-const deliveryAreas: Array<{ label: string; value: DeliveryArea }> = [
-  { label: "Policy", value: "policy" },
-  { label: "Sessions", value: "sessions" },
-  { label: "Participants", value: "participants" },
+const deliveryAreas: Array<{ description: string; label: string; value: DeliveryArea }> = [
+  { description: "Siapa yang boleh masuk dan kapan hasil dibuka.", label: "Policy", value: "policy" },
+  { description: "Jendela waktu dan rilis konten peserta.", label: "Sessions", value: "sessions" },
+  { description: "Admission, undangan, dan penugasan peserta.", label: "Participants", value: "participants" },
 ];
 
 function phaseForWorkspace(value: Workspace): WorkspacePhase {
@@ -555,13 +555,16 @@ function KaptenTryoutBuilderPageModule({
   const activePhaseDefinition = visiblePhaseDefinitions.find((phase) => phase.value === activePhase);
   const routeNormalizationNotice = useMemo(() => {
     const raw = initialWorkspace.trim().toLowerCase();
+    if (mode === "published" && ["basics", "sections", "questions", "rules", "review", "publish", "overview", "configure_sections", "readiness_publish"].includes(raw)) {
+      return "Tryout sudah terbit. Area authoring disembunyikan; buka Delivery atau buat draf perubahan untuk mengubah konten.";
+    }
     if (mode === "draft" && ["schedule", "delivery", "live", "operations", "attempts", "results"].includes(raw)) {
       return "Delivery, Operations, dan Results terbuka setelah Tryout diterbitkan. Anda dikembalikan ke langkah draf yang tersedia.";
     }
-    if (mode === "draft" && requestedWorkspace !== workspace) {
+    if (requestedWorkspace !== workspace) {
       return "Langkah tersebut belum tersedia. Selesaikan langkah sebelumnya untuk membukanya.";
     }
-    if (mode === "draft" && ["questions", "rules"].includes(raw)) {
+    if (["questions", "rules"].includes(raw)) {
       return "Link lama diarahkan ke Configure Sections agar pemilihan soal tetap berada dalam satu konteks.";
     }
     return null;
@@ -1016,41 +1019,33 @@ function KaptenTryoutBuilderPageModule({
 
         <TabsContent className="mt-0" value="schedule">
           {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
-            <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
-              <aside aria-labelledby="delivery-area-title" className="grid gap-3 rounded-3xl border border-primary-100 bg-[#f8fbf9] p-4 lg:sticky lg:top-5 lg:self-start">
-                <h2 className="font-semibold text-secondary-900" id="delivery-area-title">Delivery</h2>
-                <div aria-label="Area Delivery" className="grid gap-2" role="tablist">
-                  {deliveryAreas.map((area) => {
-                    const active = deliveryArea === area.value;
-                    return (
-                      <Button aria-current={active ? "page" : undefined} className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-200 bg-primary-50 text-primary-900 hover:bg-primary-100" : "border-transparent text-secondary-800 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} role="tab" variant="ghost">
-                        {area.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </aside>
+            <div className="grid gap-5">
+              <nav aria-label="Subarea Delivery" className="grid gap-2 rounded-3xl border border-primary-100 bg-white p-3 sm:grid-cols-3 sm:p-4">
+                {deliveryAreas.map((area) => (
+                  <Button aria-current={deliveryArea === area.value ? "page" : undefined} className={`h-auto min-h-16 justify-start rounded-2xl px-3 py-2.5 text-left ${deliveryArea === area.value ? "bg-primary-700 text-white hover:bg-primary-800" : "text-secondary-700 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} variant="ghost">
+                    <span className="grid gap-0.5"><span className="font-semibold">{area.label}</span><span className={`text-xs font-normal leading-5 ${deliveryArea === area.value ? "text-white/80" : "text-secondary-500"}`}>{area.description}</span></span>
+                  </Button>
+                ))}
+              </nav>
 
-              <div className="min-w-0">
-                {deliveryArea === "policy" ? (
-                  <section aria-labelledby="schedule-policy-title">
-                    <div className="mb-4"><h2 id="schedule-policy-title" className="text-xl font-semibold text-secondary-900">Access rules</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Atur cara peserta masuk dan kebijakan paket hasil sebelum membuat sesi.</p></div>
-                    <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} />
-                  </section>
-                ) : null}
-                {deliveryArea === "sessions" ? (
-                  <section aria-labelledby="schedule-sessions-title">
-                    <div className="mb-4"><h2 id="schedule-sessions-title" className="text-xl font-semibold text-secondary-900">Sessions</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Tentukan jendela waktu dan versi terbit yang dipakai peserta.</p></div>
-                    <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
-                  </section>
-                ) : null}
-                {deliveryArea === "participants" ? (
-                  <section aria-labelledby="schedule-participants-title">
-                    <div className="mb-4"><h2 id="schedule-participants-title" className="text-xl font-semibold text-secondary-900">Participants</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Kelola admission, undangan, dan penugasan sesi.</p></div>
-                    <KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} />
-                  </section>
-                ) : null}
-              </div>
+              {deliveryArea === "policy" ? (
+                <section aria-labelledby="schedule-policy-title">
+                  <div className="mb-4"><h2 id="schedule-policy-title" className="text-xl font-semibold text-secondary-900">Access rules</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Atur cara peserta masuk dan kebijakan paket hasil sebelum membuat sesi.</p></div>
+                  <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} />
+                </section>
+              ) : null}
+              {deliveryArea === "sessions" ? (
+                <section aria-labelledby="schedule-sessions-title">
+                  <div className="mb-4"><h2 id="schedule-sessions-title" className="text-xl font-semibold text-secondary-900">Sessions</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Tentukan jendela waktu dan versi terbit yang dipakai peserta.</p></div>
+                  <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
+                </section>
+              ) : null}
+              {deliveryArea === "participants" ? (
+                <section aria-labelledby="schedule-participants-title">
+                  <div className="mb-4"><h2 id="schedule-participants-title" className="text-xl font-semibold text-secondary-900">Participants</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Kelola admission, undangan, dan penugasan sesi.</p></div>
+                  <KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} />
+                </section>
+              ) : null}
             </div>
           )}
         </TabsContent>

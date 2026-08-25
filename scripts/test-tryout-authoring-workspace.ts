@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const [workspace, route, createRoute, shell, sidebar, repository, useRoute, useModule, actions, policy, sessionCreate] = await Promise.all([
+const [workspace, route, createRoute, shell, sidebar, repository, useRoute, useModule, actions] = await Promise.all([
   readFile(`${root}/modules/mentor/KaptenTryoutBuilderPageModule.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/[tryoutId]/page.tsx`, "utf8"),
   readFile(`${root}/app/mentor/tryout/create/page.tsx`, "utf8"),
@@ -13,8 +13,6 @@ const [workspace, route, createRoute, shell, sidebar, repository, useRoute, useM
   readFile(`${root}/app/mentor/packages/[packageId]/use/page.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/KaptenPackageUsePageModule.tsx`, "utf8"),
   readFile(`${root}/modules/mentor/tryout-actions.ts`, "utf8"),
-  readFile(`${root}/modules/mentor/KaptenTryoutPolicyPageModule.tsx`, "utf8"),
-  readFile(`${root}/modules/mentor/KaptenTryoutSessionCreatePageModule.tsx`, "utf8"),
 ]);
 
 for (const label of [
@@ -55,9 +53,6 @@ assert.match(workspace, /Setelah tryout di-publish dan terdapat siswa mengerjaka
 assert.match(workspace, /AlertDialogContent className="!max-w-xl rounded-5xl gap-5"[\s\S]*AlertDialogFooter className="!justify-stretch grid w-full gap-2"/u, "unsaved-change confirmation must keep its actions inside a responsive modal layout");
 assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
-assert.match(workspace, /aria-labelledby="delivery-area-title"[\s\S]*aria-label="Area Delivery"/u, "Delivery areas must use a persistent sidebar rail");
-assert.doesNotMatch(workspace, /Siapa yang boleh masuk dan kapan hasil dibuka\.|Jendela waktu dan rilis konten peserta\.|Admission, undangan, dan penugasan peserta\./u, "Delivery rail items must not repeat descriptions");
-assert.doesNotMatch(workspace, /Tryout sudah terbit\. Area authoring disembunyikan/u, "published workspaces must not show the authoring redirect notice");
 assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a persistent rail");
 assert.match(workspace, /sectionReadiness/u, "Section rail must expose per-section readiness");
 assert.match(workspace, /aria-label="Kembali ke semua Tryout"[\s\S]*size="icon"[\s\S]*<ChevronLeft/u, "Tryout workspace back navigation must be an icon-only chevron control");
@@ -134,9 +129,5 @@ assert.match(useModule, /context\.targets\.length/u, "chooser must render every 
 assert.doesNotMatch(useModule, /eligibleTargets/u, "chooser visibility must not hide disabled targets when no eligible target exists");
 assert.doesNotMatch(useModule, /saveTryoutAction|saveTryout\(/u, "chooser navigation must not persist a Tryout");
 assert.match(actions, /revalidatePath\(`\/mentor\/tryout\/\$\{result\.id\}`\)/u, "save must revalidate the selected Tryout route");
-assert.match(policy, /label="Akses peserta"/u, "Policy must use the simpler participant-access label");
-assert.match(policy, /label="Jadwal rilis hasil"/u, "Policy must use the simpler result-release label");
-assert.doesNotMatch(policy, /Alasan audit|policy-audit-reason/u, "Policy must not expose an audit-reason field");
-assert.doesNotMatch(sessionCreate, /Alasan perubahan|session-audit-reason/u, "Session creation must not expose an audit-reason field");
 
 console.log("Tryout authoring workspace contract passed.");

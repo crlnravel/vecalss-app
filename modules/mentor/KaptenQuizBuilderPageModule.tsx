@@ -9,11 +9,11 @@ import {
   ArrowUp,
   ChevronRight,
   CircleHelp,
-  Ellipsis,
   Eye,
   FilePenLine,
   GripVertical,
   Plus,
+  RotateCcw,
   Save,
   Search,
   Trash2,
@@ -33,9 +33,10 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FullWidthLineTabsList, FullWidthLineTabsTrigger } from "@/components/ui/full-width-line-tabs";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Field,
   FieldInput,
@@ -45,7 +46,6 @@ import {
 import type { SessionContext } from "@/lib/auth/types";
 import type { AssemblyAttachmentSummary } from "@/lib/tryout/assembly-repository";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
-import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
 import { DropdownField } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -786,7 +786,6 @@ function KaptenQuizBuilderPageModule({
         publishError,
         questionSearchQuery,
         quizStatus,
-        readyQuestionCount,
         saveError,
         saveLabel,
         selectedAssembly,
@@ -842,7 +841,6 @@ type QuizBuilderViewState = {
   publishError: string | null;
   questionSearchQuery: string;
   quizStatus: KaptenQuiz["status"];
-  readyQuestionCount: number;
   saveError: string | null;
   saveLabel: string;
   selectedAssembly: AssemblyAttachmentSummary | null;
@@ -933,43 +931,61 @@ function QuizBuilderHeader({
   mode: "create" | "edit";
   state: QuizBuilderViewState;
 }) {
+  const lifecycleLabel = state.isDraft
+    ? "Terbitkan"
+    : state.quizStatus === "published"
+      ? "Batalkan publikasi"
+      : "Pulihkan";
+
   return (
-    <section className="flex flex-wrap items-start justify-between gap-4">
+    <section className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         {state.isPreviewOpen ? <Button aria-label="Kembali mengedit" onClick={actions.onClosePreview} size="icon-sm" type="button" variant="ghost"><ChevronLeft /></Button> : <Button aria-label="Kembali ke quiz" render={<Link href="/mentor/quiz" />} size="icon-sm" title="Kembali ke quiz" variant="ghost"><ChevronLeft /></Button>}
         <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
-            {mode === "create" ? "Buat Quiz" : state.builderState.title}
+            {mode === "create" ? "Buat Kuis" : "Edit Kuis"}
           </h1>
-          <span className={cn("inline-flex items-center gap-2 text-sm font-medium text-secondary-600", state.hasUnsavedChanges ? "text-[#856300]" : "text-primary-800")}>
-            <span aria-hidden="true" className={cn("size-2 rounded-full", state.hasUnsavedChanges ? "bg-[#d29b18]" : "bg-primary-700")} />
-            {state.hasUnsavedChanges ? "Belum disimpan" : "Tersimpan"}
-          </span>
         </div>
-        {state.builderState.questions.length > 0 ? <p className="mt-2 text-sm text-secondary-500">{state.readyQuestionCount}/{state.builderState.questions.length} soal siap</p> : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button aria-label="Preview Quiz" disabled={state.builderState.questions.length === 0} onClick={actions.onOpenPreview} size="icon-sm" title="Preview" type="button" variant="brandOutline">
-          <Eye />
-        </Button>
-        <Button disabled={state.isSaving || state.quizStatus === "archived"} onClick={actions.onSave} type="button" variant="brand">
-          <Save />
-          {state.isSaving ? "Menyimpan..." : state.saveLabel}
-        </Button>
-        {state.isDraft ? <Button aria-busy={state.isSaving} disabled={state.isSaving || Boolean(state.publishError)} onClick={actions.onPublish} type="button" variant="brandOutline"><Upload />{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button> : state.quizStatus === "published" ? <Button aria-busy={state.isSaving} disabled={state.isSaving} onClick={() => actions.onSetConfirmationRequest({ confirmLabel: "Batalkan publikasi", description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.", onConfirm: actions.onUnpublish, title: "Batalkan publikasi quiz?", variant: "warning" })} type="button" variant="brandOutline"><FilePenLine />{state.isSaving ? "Membatalkan…" : "Batalkan publikasi"}</Button> : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button aria-label="Aksi Quiz" size="icon-sm" type="button" variant="ghost" />}>
-            <Ellipsis />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuGroup>
-              {state.quizStatus !== "archived" ? <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("archive")}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem disabled={state.isSaving} onClick={() => actions.onLifecycle("restore")}>Pulihkan</DropdownMenuItem>}
-              <DropdownMenuItem disabled variant="destructive"><Trash2 />Hapus</DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <TooltipProvider>
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+          <Tooltip>
+            <TooltipTrigger render={<Button aria-label="Preview Kuis" disabled={state.builderState.questions.length === 0} onClick={actions.onOpenPreview} size="icon" type="button" variant="brandOutline" />}>
+              <Eye />
+            </TooltipTrigger>
+            <TooltipContent>Preview</TooltipContent>
+          </Tooltip>
+          <Button disabled={state.isSaving || state.quizStatus === "archived"} onClick={actions.onSave} type="button" variant="brand">
+            <Save />
+            {state.isSaving ? "Menyimpan..." : state.saveLabel}
+          </Button>
+          {state.isDraft ? (
+            <Tooltip>
+              <TooltipTrigger render={<Button aria-busy={state.isSaving} aria-label="Terbitkan Kuis" disabled={state.isSaving || Boolean(state.publishError)} onClick={actions.onPublish} size="icon" type="button" variant="brandOutline" />}>
+                <Upload />
+              </TooltipTrigger>
+              <TooltipContent>{state.isSaving ? "Menerbitkan…" : lifecycleLabel}</TooltipContent>
+            </Tooltip>
+          ) : state.quizStatus === "published" ? (
+            <Tooltip>
+              <TooltipTrigger render={<Button aria-busy={state.isSaving} aria-label="Batalkan publikasi Kuis" disabled={state.isSaving} onClick={() => actions.onSetConfirmationRequest({ confirmLabel: "Batalkan publikasi", description: "Quiz tidak lagi dapat diakses siswa dan kembali menjadi draf.", onConfirm: actions.onUnpublish, title: "Batalkan publikasi quiz?", variant: "warning" })} size="icon" type="button" variant="brandOutline" />}>
+                <FilePenLine />
+              </TooltipTrigger>
+              <TooltipContent>{state.isSaving ? "Membatalkan…" : lifecycleLabel}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          <Tooltip>
+            <TooltipTrigger render={<Button aria-label={state.quizStatus === "archived" ? "Pulihkan Kuis" : "Arsipkan Kuis"} disabled={state.isSaving} onClick={() => actions.onLifecycle(state.quizStatus === "archived" ? "restore" : "archive")} size="icon" type="button" variant="ghost" />}>
+              {state.quizStatus === "archived" ? <RotateCcw /> : <Archive />}
+            </TooltipTrigger>
+            <TooltipContent>{state.quizStatus === "archived" ? "Pulihkan" : "Arsipkan"}</TooltipContent>
+          </Tooltip>
+          <Button aria-label="Hapus Kuis" disabled size="icon" title="Hapus Kuis belum tersedia" type="button" variant="ghost">
+            <Trash2 />
+          </Button>
+        </div>
+      </TooltipProvider>
     </section>
   );
 }
@@ -1034,14 +1050,12 @@ function QuizBuilderTabs({
   state: QuizBuilderViewState;
 }) {
   return (
-    <Tabs className="gap-8" onValueChange={actions.onActiveTabChange} value={state.activeTab}>
-      <div className="max-w-full overflow-x-auto pb-1">
-        <TabsList className="w-max min-w-full sm:min-w-0">
-          <TabsTrigger className="h-11 rounded-full px-4 text-sm" value="information">Informasi quiz</TabsTrigger>
-          <TabsTrigger className="h-11 rounded-full px-4 text-sm" value="content">Isi quiz <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{state.builderState.questions.length}</span></TabsTrigger>
-          <TabsTrigger className="h-11 rounded-full px-4 text-sm" value="settings">Pengaturan</TabsTrigger>
-        </TabsList>
-      </div>
+    <Tabs className="w-full min-w-0 gap-8" onValueChange={actions.onActiveTabChange} value={state.activeTab}>
+      <FullWidthLineTabsList aria-label="Bagian editor Kuis">
+        <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="information">Informasi quiz</FullWidthLineTabsTrigger>
+        <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="content">Isi quiz <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{state.builderState.questions.length}</span></FullWidthLineTabsTrigger>
+        <FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="settings">Pengaturan</FullWidthLineTabsTrigger>
+      </FullWidthLineTabsList>
       <QuizInformationTab actions={actions} data={data} state={state} />
       <QuizSettingsTab scheduleError={data.scheduleError} actions={actions} state={state} />
       <QuizContentTab actions={actions} data={data} state={state} />
@@ -1061,9 +1075,9 @@ function QuizInformationTab({
   const { builderState } = state;
 
   return (
-    <TabsContent className="m-0" value="information">
-      <section className="w-full">
-        <div className="grid gap-5 lg:grid-cols-2">
+    <TabsContent className="m-0 min-w-0" value="information">
+      <section className="w-full min-w-0">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-2">
           <Field><FieldLabel htmlFor="quiz-title">Judul quiz</FieldLabel><FieldInput id="quiz-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} value={builderState.title} /></Field>
           <Field><FieldLabel htmlFor="quiz-subject">Subjek</FieldLabel><DropdownField id="quiz-subject" onValueChange={actions.selectSubject} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value={builderState.subjectCode} /></Field>
           <Field className="lg:col-span-2">
@@ -1073,9 +1087,9 @@ function QuizInformationTab({
                 <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-400" />
                 <Input aria-label="Cari bank soal" className="h-12 rounded-2xl border-secondary-900/14 bg-white pl-11" onChange={(event) => actions.onSourceBankSearchQueryChange(event.target.value)} placeholder="Cari judul, folder, atau kategori" value={data.sourceBankSearchQuery} />
               </label>
-              <DropdownField ariaLabel="Filter kategori bank soal" onValueChange={actions.onSourceBankCategoryFilterChange} options={[{ label: "Semua kategori", value: "" }, ...data.sourceBankCategories.map((category) => ({ label: category.name, value: category.id }))]} placeholder="Filter kategori" value={data.sourceBankCategoryFilter} />
+              <DropdownField ariaLabel="Filter kategori bank soal" className="min-w-0" onValueChange={actions.onSourceBankCategoryFilterChange} options={[{ label: "Semua kategori", value: "" }, ...data.sourceBankCategories.map((category) => ({ label: category.name, value: category.id }))]} placeholder="Filter kategori" value={data.sourceBankCategoryFilter} />
             </div>
-            <DropdownField className="mt-3" id="quiz-bank" onValueChange={actions.selectSourceBank} options={data.visibleCompatibleBanks.map(({ bank }) => ({ label: getBankOrganizationLabel(bank), value: bank.id }))} placeholder="Pilih bank soal" value={builderState.sourceBankId} />
+            <DropdownField className="mt-3 min-w-0" id="quiz-bank" onValueChange={actions.selectSourceBank} options={data.visibleCompatibleBanks.map(({ bank }) => ({ label: getBankOrganizationLabel(bank), value: bank.id }))} placeholder="Pilih bank soal" value={builderState.sourceBankId} />
             {data.sourceBankLoading ? <p className="mt-2 text-xs text-secondary-500">Memuat bank soal…</p> : null}
             {data.sourceBankPageCount > 1 ? <div className="mt-3 flex items-center justify-between gap-3 text-xs text-secondary-500"><span>Halaman {data.sourceBankPage} dari {data.sourceBankPageCount}</span><span className="flex gap-2"><Button aria-label="Bank soal sebelumnya" disabled={data.sourceBankPage === 1} onClick={() => actions.onSourceBankPageChange(data.sourceBankPage - 1)} size="icon-xs" type="button" variant="ghost"><ChevronLeft /></Button><Button aria-label="Bank soal berikutnya" disabled={data.sourceBankPage === data.sourceBankPageCount} onClick={() => actions.onSourceBankPageChange(data.sourceBankPage + 1)} size="icon-xs" type="button" variant="ghost"><ChevronRight /></Button></span></div> : null}
             {data.compatibleBanks.length === 0 ? <p className="mt-2 text-xs text-secondary-500">Belum ada bank terbit yang sesuai dengan subject quiz.</p> : data.visibleCompatibleBanks.length === 0 ? <p className="mt-2 text-xs text-secondary-500">Tidak ada bank yang cocok dengan filter.</p> : null}
@@ -1106,7 +1120,7 @@ function QuizSettingsTab({
   ];
 
   return (
-    <TabsContent className="m-0" value="settings">
+    <TabsContent className="m-0 min-w-0" value="settings">
       <section className="max-w-4xl rounded-3xl border border-primary-100 bg-white p-5 md:p-6">
         <div><h2 className="text-lg font-semibold text-secondary-900">Ketersediaan untuk siswa</h2><p className="mt-1 text-sm leading-6 text-secondary-500">Pengaturan ini opsional. Jika keduanya kosong, quiz yang diterbitkan langsung dapat diakses siswa.</p></div>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -1144,8 +1158,8 @@ function QuizContentTab({
   const { builderState } = state;
 
   return (
-    <TabsContent className="m-0" value="content">
-      <section className="mt-6 grid gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
+    <TabsContent className="m-0 min-w-0" value="content">
+      <section className="mt-6 grid min-w-0 gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
         <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
           <div><p className="text-sm font-semibold text-secondary-900">Susunan soal</p><p className="mt-1 text-xs text-secondary-500">{builderState.questions.length} dipilih</p></div>
           <div className="mt-4 flex gap-1 overflow-x-auto border-t border-primary-100 pt-3 xl:mt-5 xl:block xl:space-y-1">
