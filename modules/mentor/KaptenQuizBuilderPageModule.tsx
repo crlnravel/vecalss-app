@@ -12,13 +12,14 @@ import {
   Ellipsis,
   Eye,
   FilePenLine,
-  GripVertical,
+  ListChecks,
   Plus,
   RotateCcw,
   Save,
   Search,
   Trash2,
   Upload,
+  X,
 } from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
 
@@ -254,6 +255,7 @@ function createQuizBuilderActions({
     setQuestionSearchQuery("");
     setSourceQuestionPage(1);
     setSourceQuestionTotal(0);
+    setPreviewQuestionIndex(0);
     setIsAddingLocalQuestion(false);
   }
 
@@ -286,6 +288,7 @@ function createQuizBuilderActions({
     setQuestionSearchQuery("");
     setSourceQuestionPage(1);
     setSourceQuestionTotal(0);
+    setPreviewQuestionIndex(0);
     setIsAddingLocalQuestion(false);
   }
 
@@ -320,6 +323,7 @@ function createQuizBuilderActions({
     setQuestionSearchQuery("");
     setSourceQuestionPage(1);
     setSourceQuestionTotal(0);
+    if (versionId) setPreviewQuestionIndex(0);
     setIsAddingLocalQuestion(false);
   }
 
@@ -365,7 +369,7 @@ function createQuizBuilderActions({
   function removeQuestion(questionId: string) {
     const nextQuestions = builderState.questions.filter((question) => question.id !== questionId);
     markChanged({ ...builderState, questions: nextQuestions });
-    setPreviewQuestionIndex((index) => Math.max(0, Math.min(index, nextQuestions.length - 1)));
+    setPreviewQuestionIndex((index) => Math.max(0, Math.min(index, Math.max(0, nextQuestions.length - 1))));
   }
 
   function moveQuestion(questionId: string, direction: "up" | "down") {
@@ -1166,45 +1170,107 @@ function QuizContentTab({
   state: QuizBuilderViewState;
 }) {
   const { builderState } = state;
+  const readyQuestionCount = getReadiness(builderState.questions);
+  const sourceLoading = data.sourceBankLoading || data.sourceQuestionLoading;
 
   return (
     <TabsContent className="m-0 min-w-0" value="content">
-      <section className="mt-6 grid min-w-0 gap-8 xl:grid-cols-[minmax(270px,0.3fr)_minmax(0,0.7fr)]">
-        <aside className="order-2 border-t border-primary-100 pt-5 xl:order-none xl:border-t-0 xl:border-r xl:pr-7 xl:pt-1">
-          <div><p className="text-sm font-semibold text-secondary-900">Susunan soal</p><p className="mt-1 text-xs text-secondary-500">{builderState.questions.length} dipilih</p></div>
-          <div className="mt-4 flex gap-1 overflow-x-auto border-t border-primary-100 pt-3 xl:mt-5 xl:block xl:space-y-1">
-            {builderState.questions.length > 0 ? builderState.questions.map((question, index) => (
-                <div className="flex min-w-[215px] items-center gap-2 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-primary-50/60 xl:w-full" key={question.id}>
-                  <GripVertical className="size-4 shrink-0 text-secondary-300" />
-                <button className="min-w-0 flex-1 text-left" disabled={Boolean(builderState.assemblyVersionId)} onClick={() => { actions.onActiveTabChange("content"); actions.onPreviewQuestionIndex(index); actions.onOpenPreview(); }} type="button">
-                  <span className="block truncate text-sm font-semibold text-secondary-900">{String(index + 1).padStart(2, "0")}. {question.prompt || "Soal tanpa pertanyaan"}</span>
-                  <span className="mt-1 block text-xs text-secondary-500">{question.origin === "local" ? "Soal lokal" : data.selectedBank?.title ?? "Question Bank"}</span>
-                </button>
-                {!builderState.assemblyVersionId ? <div className="flex shrink-0 items-center"><Button aria-label="Pindah soal ke atas" onClick={() => actions.moveQuestion(question.id, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp className="size-3.5" /></Button><Button aria-label="Pindah soal ke bawah" onClick={() => actions.moveQuestion(question.id, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown className="size-3.5" /></Button><Button aria-label="Hapus soal" onClick={() => actions.removeQuestion(question.id)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-3.5" /></Button></div> : null}
-              </div>
-            )) : <p className="px-2 py-4 text-sm leading-6 text-secondary-500">Belum ada soal di quiz ini.</p>}
+      <section className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[minmax(270px,0.34fr)_minmax(0,0.66fr)]">
+        <aside aria-labelledby="quiz-question-order-heading" className="order-2 min-w-0 rounded-3xl border border-primary-100 bg-white p-5 xl:order-none xl:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold text-secondary-900" id="quiz-question-order-heading">Susunan soal</h2>
+              <p className="mt-1 text-xs text-secondary-500">{readyQuestionCount} dari {builderState.questions.length} soal siap</p>
+            </div>
+            <span aria-label={`${builderState.questions.length} soal dipilih`} className="inline-flex min-w-8 items-center justify-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800">{builderState.questions.length}</span>
           </div>
+
+          {builderState.questions.length > 0 ? (
+            <ol className="mt-5 grid gap-2 border-t border-primary-100 pt-4">
+              {builderState.questions.map((question, index) => (
+                <li className="rounded-2xl border border-transparent p-2 transition-colors hover:border-primary-100 hover:bg-primary-50/50" key={question.id}>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary-50 text-xs font-bold text-primary-800">{String(index + 1).padStart(2, "0")}</span>
+                    <button aria-label={`Preview soal ${index + 1}`} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2" onClick={() => { actions.onPreviewQuestionIndex(index); actions.onOpenPreview(); }} type="button">
+                      <span className="block truncate text-sm font-semibold text-secondary-900">{question.prompt || "Soal tanpa pertanyaan"}</span>
+                      <span className="mt-1 block truncate text-xs text-secondary-500">{question.origin === "local" ? "Soal lokal" : data.selectedBank?.title ?? "Question Bank"}</span>
+                    </button>
+                  </div>
+                  {!builderState.assemblyVersionId ? (
+                    <div className="mt-2 flex items-center justify-end gap-1">
+                      <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={state.isSaving || index === 0} onClick={() => actions.moveQuestion(question.id, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp className="size-3.5" /></Button>
+                      <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={state.isSaving || index === builderState.questions.length - 1} onClick={() => actions.moveQuestion(question.id, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown className="size-3.5" /></Button>
+                      <Button aria-label={`Hapus soal ${index + 1}`} disabled={state.isSaving} onClick={() => actions.removeQuestion(question.id)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-3.5" /></Button>
+                    </div>
+                  ) : <p className="mt-2 text-right text-xs text-secondary-500">Terkunci oleh assembly Ready</p>}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center">
+              <ListChecks aria-hidden="true" className="mx-auto size-7 text-primary-300" />
+              <p className="mt-3 text-sm font-semibold text-secondary-900">Belum ada soal di kuis ini</p>
+              <p className="mx-auto mt-1 max-w-xs text-sm leading-6 text-secondary-500">Tambahkan soal dari Bank Soal atau buat soal lokal untuk mulai menyusun kuis.</p>
+            </div>
+          )}
         </aside>
 
-        <div className="order-1 xl:order-none">
-          {builderState.assemblyVersionId ? <div className="rounded-3xl border border-primary-100 bg-primary-50/45 p-5"><p className="text-sm font-semibold text-secondary-900">Assembly terpasang</p><p className="mt-2 text-sm leading-6 text-secondary-600">Soal fisik di sini berasal dari versi Ready yang tersimpan. Lepaskan assembly untuk mengubah pilihan soal secara langsung.</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-secondary-500">Mode</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.mode === "random_pool" ? "Pool acak" : state.selectedAssembly?.mode === "blueprint" ? "Blueprint" : "Set tetap"}</p></div><div><p className="text-xs text-secondary-500">Rilis</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.versionNo ? packageReleaseLabel(state.selectedAssembly.versionNo) : "—"}</p></div><div><p className="text-xs text-secondary-500">Bank</p><p className="mt-1 truncate text-sm font-semibold text-secondary-900">{state.selectedAssembly?.bankNames[0] ?? "—"}</p></div></div><Button className="mt-5" onClick={actions.detachAssembly} type="button" variant="brandOutline">Lepaskan assembly</Button></div> : null}
-          {!builderState.assemblyVersionId ? <>
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-secondary-900">Pilih soal</p><p className="mt-1 text-sm text-secondary-500">{data.selectedBank ? `Soal dari ${data.selectedBank.title} akan disalin ke quiz ini.` : "Pilih Question Bank yang sesuai dengan subject terlebih dahulu."}</p></div><Button onClick={() => actions.onSetAddingLocalQuestion(!state.isAddingLocalQuestion)} type="button" variant="brandOutline"><Plus />Soal lokal</Button></div>
-
-          {data.selectedBank ? (
-            <div className="mt-5 grid gap-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><label className="relative block min-w-0 flex-1"><Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-400" /><Input aria-label="Cari soal" className="h-11 rounded-xl border border-primary-100 bg-white pl-10" onChange={(event) => actions.onSearchQueryChange(event.target.value)} placeholder="Cari pertanyaan, pilihan jawaban, atau penjelasan..." value={state.questionSearchQuery} /></label><p aria-live="polite" className="text-sm text-secondary-500">{data.sourceQuestionLoading ? "Memuat soal…" : `${data.filteredBankQuestions.length} soal tersedia`}</p></div>
-              {data.paginatedBankQuestions.length > 0 ? data.paginatedBankQuestions.map((question) => (
-                <div className="flex flex-col gap-4 rounded-2xl border border-primary-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between" key={question.id}><div className="min-w-0"><div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-secondary-400"><span>{question.subjectCode}</span><span>·</span><span>{question.difficulty === "easy" ? "Mudah" : question.difficulty === "medium" ? "Sedang" : "Sulit"}</span></div><p className="mt-2 text-sm leading-6 font-semibold text-secondary-900">{question.prompt}</p></div><Button className="shrink-0" onClick={() => actions.addBankQuestion(question)} size="sm" type="button" variant="brandOutline"><Plus />Tambah</Button></div>
-              )) : <div className="rounded-2xl border border-dashed border-primary-200 px-4 py-5 text-sm leading-6 text-secondary-500">{data.availableBankQuestions.length === 0 ? "Semua soal dari bank ini sudah dipilih. Tambahkan soal lokal bila masih diperlukan." : "Tidak ada soal yang sesuai dengan pencarian ini."}</div>}
-              {data.sourceQuestionTotal > data.sourceQuestionLoadedCount ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {data.sourceQuestionLoadedCount} dari {data.sourceQuestionTotal} soal siap.</p><Button disabled={data.sourceQuestionLoading} onClick={actions.onLoadMoreSourceQuestions} size="sm" type="button" variant="brandOutline"><ArrowDown />{data.sourceQuestionLoading ? "Memuat…" : "Muat 100 soal lagi"}</Button></div> : null}
-              {data.filteredBankQuestions.length > 0 ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-sm text-secondary-500">Halaman {data.visibleQuestionPage} dari {data.questionPageCount}</p><div className="flex items-center gap-2"><Button aria-label="Halaman sebelumnya" disabled={data.visibleQuestionPage === 1} onClick={() => actions.onSetQuestionPage(data.visibleQuestionPage - 1)} size="sm" type="button" variant="brandOutline"><ChevronLeft /> Sebelumnya</Button><Button aria-label="Halaman berikutnya" disabled={data.visibleQuestionPage === data.questionPageCount} onClick={() => actions.onSetQuestionPage(data.visibleQuestionPage + 1)} size="sm" type="button" variant="brandOutline">Berikutnya <ChevronRight /></Button></div></div> : null}
+        <section aria-labelledby="quiz-question-picker-heading" className="order-1 min-w-0 rounded-3xl border border-primary-100 bg-white p-5 xl:order-none xl:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-secondary-900" id="quiz-question-picker-heading">Pilih soal</h2>
+              <p className="mt-1 text-sm leading-6 text-secondary-500">{data.selectedBank ? `Soal dari ${data.selectedBank.title} akan disalin ke kuis ini.` : "Pilih Bank Soal yang sesuai dengan subjek terlebih dahulu."}</p>
             </div>
-          ) : <div className="mt-5 flex items-start gap-3 rounded-2xl border border-dashed border-primary-200 px-4 py-5 text-sm leading-6 text-secondary-500"><CircleHelp className="mt-0.5 size-5 shrink-0 text-primary-800" /><p>{data.compatibleBanks.length === 0 ? "Belum ada Question Bank yang sesuai dengan subject ini. " : "Question Bank yang tampil akan selalu mengikuti subject Quiz. "}{data.compatibleBanks.length === 0 ? <Link className="font-semibold text-primary-800 underline underline-offset-4" href="/mentor/quiz/question-bank">Buka Question Bank</Link> : null}</p></div>}
+            {!builderState.assemblyVersionId ? <Button onClick={() => actions.onSetAddingLocalQuestion(!state.isAddingLocalQuestion)} type="button" variant="brandOutline"><Plus />Soal lokal</Button> : null}
+          </div>
 
-          {state.isAddingLocalQuestion ? <LocalQuestionForm state={state} actions={actions} /> : null}
-          </> : null}
-        </div>
+          {builderState.assemblyVersionId ? (
+            <div className="mt-6 rounded-2xl border border-primary-100 bg-primary-50/45 p-5" role="status">
+              <p className="text-sm font-semibold text-secondary-900">Assembly terpasang</p>
+              <p className="mt-2 text-sm leading-6 text-secondary-600">Soal fisik di sini berasal dari versi Ready yang tersimpan. Lepaskan assembly untuk mengubah pilihan soal secara langsung.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div><p className="text-xs text-secondary-500">Mode</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.mode === "random_pool" ? "Pool acak" : state.selectedAssembly?.mode === "blueprint" ? "Blueprint" : "Set tetap"}</p></div>
+                <div><p className="text-xs text-secondary-500">Rilis</p><p className="mt-1 text-sm font-semibold text-secondary-900">{state.selectedAssembly?.versionNo ? packageReleaseLabel(state.selectedAssembly.versionNo) : "—"}</p></div>
+                <div><p className="text-xs text-secondary-500">Bank</p><p className="mt-1 truncate text-sm font-semibold text-secondary-900">{state.selectedAssembly?.bankNames[0] ?? "—"}</p></div>
+              </div>
+              <Button className="mt-5" disabled={state.isSaving} onClick={actions.detachAssembly} type="button" variant="brandOutline">Lepaskan assembly</Button>
+            </div>
+          ) : data.selectedBank ? (
+            <div className="mt-6 grid min-w-0 gap-3">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <label className="relative block min-w-0 flex-1">
+                  <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-400" />
+                  <Input aria-label="Cari soal" className="h-11 rounded-xl border border-primary-100 bg-white pl-10" onChange={(event) => actions.onSearchQueryChange(event.target.value)} placeholder="Cari pertanyaan, pilihan jawaban, atau penjelasan…" value={state.questionSearchQuery} />
+                </label>
+                <p aria-live="polite" className="shrink-0 text-sm text-secondary-500">{sourceLoading ? "Memuat soal…" : `${data.filteredBankQuestions.length} soal siap ditambahkan`}</p>
+              </div>
+              {sourceLoading && data.sourceQuestionLoadedCount === 0 ? <div aria-live="polite" className="rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center text-sm text-secondary-500">Memuat soal siap dari Bank Soal…</div> : data.paginatedBankQuestions.length > 0 ? data.paginatedBankQuestions.map((question) => (
+                <article className="flex min-w-0 flex-col gap-4 rounded-2xl border border-primary-100 bg-white px-4 py-4 transition-colors hover:border-primary-200 hover:bg-primary-50/30 sm:flex-row sm:items-center sm:justify-between" key={question.id}>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-secondary-400"><span>{question.subjectCode}</span><span aria-hidden="true">·</span><span>{question.difficulty === "easy" ? "Mudah" : question.difficulty === "medium" ? "Sedang" : "Sulit"}</span></div>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 font-semibold text-secondary-900">{question.prompt}</p>
+                  </div>
+                  <Button className="shrink-0" disabled={state.isSaving} onClick={() => actions.addBankQuestion(question)} size="sm" type="button" variant="brandOutline"><Plus />Tambah</Button>
+                </article>
+              )) : <div className="rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center text-sm leading-6 text-secondary-500">{data.availableBankQuestions.length === 0 ? "Semua soal dari Bank Soal ini sudah dipilih. Tambahkan soal lokal bila masih diperlukan." : "Tidak ada soal yang sesuai dengan pencarian ini."}</div>}
+              {data.sourceQuestionTotal > data.sourceQuestionLoadedCount ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {data.sourceQuestionLoadedCount} dari {data.sourceQuestionTotal} soal siap.</p><Button disabled={state.isSaving || data.sourceQuestionLoading} onClick={actions.onLoadMoreSourceQuestions} size="sm" type="button" variant="brandOutline"><ArrowDown />{data.sourceQuestionLoading ? "Memuat…" : "Muat 100 soal lagi"}</Button></div> : null}
+              {data.filteredBankQuestions.length > 0 ? <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-sm text-secondary-500">Halaman {data.visibleQuestionPage} dari {data.questionPageCount}</p><div className="flex items-center gap-2"><Button aria-label="Halaman sebelumnya" disabled={state.isSaving || data.visibleQuestionPage === 1} onClick={() => actions.onSetQuestionPage(data.visibleQuestionPage - 1)} size="sm" type="button" variant="brandOutline"><ChevronLeft /> Sebelumnya</Button><Button aria-label="Halaman berikutnya" disabled={state.isSaving || data.visibleQuestionPage === data.questionPageCount} onClick={() => actions.onSetQuestionPage(data.visibleQuestionPage + 1)} size="sm" type="button" variant="brandOutline">Berikutnya <ChevronRight /></Button></div></div> : null}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center">
+              <CircleHelp aria-hidden="true" className="mx-auto size-7 text-primary-300" />
+              <p className="mt-3 text-sm font-semibold text-secondary-900">Belum ada Bank Soal dipilih</p>
+              <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-secondary-500">Atur Bank Soal di tab Informasi quiz agar daftar soal siap muncul di sini. {data.compatibleBanks.length === 0 ? "Belum ada Bank Soal terbit yang sesuai dengan subjek ini." : "Bank Soal akan otomatis mengikuti subjek quiz."}</p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <Button onClick={() => actions.onActiveTabChange("information")} type="button" variant="brand">Pilih Bank Soal</Button>
+                <Button onClick={() => actions.onSetAddingLocalQuestion(true)} type="button" variant="brandOutline">Buat soal lokal</Button>
+              </div>
+              {data.compatibleBanks.length === 0 ? <Link className="mt-4 inline-flex text-sm font-semibold text-primary-800 underline underline-offset-4" href="/mentor/quiz/question-bank">Buka Question Bank</Link> : null}
+            </div>
+          )}
+
+          {!builderState.assemblyVersionId && state.isAddingLocalQuestion ? <LocalQuestionForm state={state} actions={actions} /> : null}
+        </section>
       </section>
     </TabsContent>
   );
@@ -1221,7 +1287,7 @@ function LocalQuestionForm({
 
   return (
     <div className="mt-5 rounded-3xl border border-primary-200 bg-primary-50/45 p-5">
-      <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-secondary-900">Soal pilihan ganda lokal</p><p className="mt-1 text-sm text-secondary-500">Soal ini hanya tersimpan dalam Quiz, bukan Question Bank.</p></div><Button aria-label="Tutup formulir soal lokal" onClick={() => actions.onSetAddingLocalQuestion(false)} size="icon-sm" type="button" variant="ghost"><Trash2 className="size-4" /></Button></div>
+      <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-secondary-900">Soal pilihan ganda lokal</p><p className="mt-1 text-sm text-secondary-500">Soal ini hanya tersimpan dalam Kuis, bukan Bank Soal.</p></div><Button aria-label="Tutup formulir soal lokal" onClick={() => actions.onSetAddingLocalQuestion(false)} size="icon-sm" type="button" variant="ghost"><X className="size-4" /></Button></div>
       <div className="mt-5 grid gap-5">
         <Field><FieldLabel htmlFor="local-question-prompt">Pertanyaan</FieldLabel><FieldTextarea id="local-question-prompt" onChange={(event) => actions.onLocalQuestionChange((current) => ({ ...current, prompt: event.target.value }))} value={localQuestion.prompt} /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
