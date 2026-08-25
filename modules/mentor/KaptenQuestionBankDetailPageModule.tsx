@@ -40,8 +40,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FieldTextarea } from "@/components/ui/field";
@@ -58,19 +56,10 @@ import { MediaAssetPreview } from "@/modules/media/media-library";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import type { BankQuestion, KaptenQuestionBank } from "@/modules/mentor/mock-data";
 import {
-  moveQuestionBanksToFolderAction,
   saveQuestionBankAction,
   setQuestionBankCategoriesAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
-
-const ROOT_FOLDER_VALUE = "__bank_soal_root__";
-
-type QuestionBankFolderNode = {
-  children?: QuestionBankFolderNode[];
-  id: string | null;
-  name: string;
-};
 
 type QuestionBankCategoryOption = {
   id: string;
@@ -83,29 +72,6 @@ type ConfirmationRequest = {
   onConfirm: () => void;
   title: string;
 };
-
-function flattenQuestionBankFolders(
-  folders: QuestionBankFolderNode[],
-  depth = 0,
-): Array<{ depth: number; folder: QuestionBankFolderNode & { id: string } }> {
-  return folders.flatMap((folder) => [
-    ...(folder.id ? [{ depth, folder: folder as QuestionBankFolderNode & { id: string } }] : []),
-    ...(folder.children ? flattenQuestionBankFolders(folder.children, depth + 1) : []),
-  ]);
-}
-
-function findQuestionBankFolder(
-  folders: QuestionBankFolderNode[],
-  id: string | null,
-): QuestionBankFolderNode | null {
-  if (id === null) return folders.find((folder) => folder.id === null) ?? null;
-  for (const folder of folders) {
-    if (folder.id === id) return folder;
-    const child = folder.children ? findQuestionBankFolder(folder.children, id) : null;
-    if (child) return child;
-  }
-  return null;
-}
 
 function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
   if (status === "published") {
@@ -136,7 +102,6 @@ function KaptenQuestionBankDetailPageModule({
   bankId,
   initialBank,
   initialCategories = [],
-  initialFolderTree = [],
   initialQuestions = [],
   initialReadiness = null,
   session,
@@ -144,7 +109,6 @@ function KaptenQuestionBankDetailPageModule({
   bankId: string;
   initialBank: KaptenQuestionBank;
   initialCategories?: QuestionBankCategoryOption[];
-  initialFolderTree?: QuestionBankFolderNode[];
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   session: SessionContext;
@@ -153,7 +117,6 @@ function KaptenQuestionBankDetailPageModule({
   const [bank, setBank] = useState<KaptenQuestionBank>(initialBank);
   const [questions] = useState<BankQuestion[]>(initialQuestions);
   const [categories] = useState<QuestionBankCategoryOption[]>(initialCategories);
-  const [folders] = useState<QuestionBankFolderNode[]>(initialFolderTree);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(bank.title);
@@ -170,9 +133,7 @@ function KaptenQuestionBankDetailPageModule({
   const readiness = initialReadiness ?? getQuestionBankReadinessFromDrafts(questions);
   const isMetadataLocked = bank.status === "archived" || bank.status === "scheduled";
 
-  const currentFolder = findQuestionBankFolder(folders, bank.folderId ?? null);
-  const folderLabel = questionBankFolderLabel(bank.folderId ?? null, currentFolder?.name ?? "Folder tidak ditemukan");
-  const folderOptions = flattenQuestionBankFolders(folders);
+  const folderLabel = questionBankFolderLabel(bank.folderId ?? null, bank.folder?.name ?? "Folder tidak ditemukan");
   const assignedCategories = categories.filter((category) => (bank.categoryIds ?? []).includes(category.id));
 
   const subjectCoverage = [
@@ -252,35 +213,6 @@ function KaptenQuestionBankDetailPageModule({
       setLifecycleError(err instanceof Error ? err.message : "Gagal mengubah deskripsi bank soal.");
     } finally {
       setIsSavingDescription(false);
-    }
-  }
-
-  async function handleFolderChange(nextFolderId: string | null) {
-    if (nextFolderId === bank.folderId || isMetadataLocked) return;
-    setLifecycleError(null);
-    try {
-      const result = await moveQuestionBanksToFolderAction([bank.id], nextFolderId, {
-        expected: {
-          [bank.id]: {
-            expectedRevision: bank.revision,
-            expectedUpdatedAt: bank.updatedAt,
-          },
-        },
-      });
-      if (!result.ok) {
-        setLifecycleError(result.message);
-        return;
-      }
-      const version = result.result.versions.find((item) => item.id === bank.id);
-      setBank((current) => ({
-        ...current,
-        folderId: nextFolderId,
-        ...(version ? { revision: version.revision, updatedAt: version.updatedAt } : {}),
-      }));
-      showToast("Folder Bank Soal diperbarui.", { variant: "success" });
-      router.refresh();
-    } catch (err) {
-      setLifecycleError(err instanceof Error ? err.message : "Gagal memindahkan folder.");
     }
   }
 
@@ -623,7 +555,7 @@ function KaptenQuestionBankDetailPageModule({
           </div>
 
           {/* Taxonomy & Organization with Editable Pickers */}
-          <div className="grid gap-5 rounded-xl border border-primary-100 bg-primary-50/30 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
+          <div className="grid gap-5 rounded-xl border border-primary-100 bg-primary-50/30 p-4 sm:grid-cols-2 sm:p-5">
             {/* Folder Selection */}
             <div>
               <span className="text-xs font-semibold text-secondary-500">Folder</span>
@@ -632,42 +564,6 @@ function KaptenQuestionBankDetailPageModule({
                   <Folder className="size-4 text-primary-700" />
                   <span className="truncate">{folderLabel}</span>
                 </span>
-                {!isMetadataLocked ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          aria-label="Pindahkan folder"
-                          className="size-6 text-secondary-400 hover:text-secondary-900"
-                          size="icon-sm"
-                          title="Pindahkan folder"
-                          type="button"
-                          variant="ghost"
-                        />
-                      }
-                    >
-                      <Pencil className="size-3" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Pilih Folder</DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        onValueChange={(val) =>
-                          handleFolderChange(val === ROOT_FOLDER_VALUE ? null : val)
-                        }
-                        value={bank.folderId ?? ROOT_FOLDER_VALUE}
-                      >
-                        <DropdownMenuRadioItem value={ROOT_FOLDER_VALUE}>
-                          Bank soal (Utama)
-                        </DropdownMenuRadioItem>
-                        {folderOptions.map(({ depth, folder }) => (
-                          <DropdownMenuRadioItem key={folder.id} value={folder.id}>
-                            <span style={{ paddingLeft: `${depth * 12}px` }}>{folder.name}</span>
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null}
               </div>
             </div>
 
@@ -729,19 +625,6 @@ function KaptenQuestionBankDetailPageModule({
               </div>
             </div>
 
-            {/* Readiness & Quality Summary */}
-            <div>
-              <span className="text-xs font-semibold text-secondary-500">Status Kesiapan</span>
-              <p className="mt-1.5 text-sm font-semibold text-secondary-900">
-                Kesiapan terbit: {readiness.readyCount}/{readiness.totalCount}
-              </p>
-              {readiness.incompleteCount > 0 ? (
-                <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-amber-900">
-                  <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
-                  {readiness.incompleteCount} soal perlu diperbaiki
-                </p>
-              ) : null}
-            </div>
           </div>
         </div>
       </section>
@@ -758,18 +641,7 @@ function KaptenQuestionBankDetailPageModule({
                 {questions.length} Soal
               </span>
             </div>
-            <p className="text-sm text-secondary-600">
-              Kesiapan terbit: {readiness.readyCount}/{readiness.totalCount}
-            </p>
-            {readiness.incompleteCount > 0 ? (
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-900">
-                <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
-                {readiness.incompleteCount} soal perlu diperbaiki
-              </p>
-            ) : null}
           </div>
-
-          {/* Button on top of soal summary to go to the editor */}
           <Button
             aria-label="Buka Editor Soal"
             className="w-full shadow-sm sm:w-auto"
@@ -851,21 +723,6 @@ function KaptenQuestionBankDetailPageModule({
                       ) : null}
                     </div>
 
-                    <Button
-                      aria-label={`Edit soal ${index + 1}`}
-                      nativeButton={false}
-                      render={
-                        <Link
-                          href={`/mentor/quiz/question-bank/${bankId}/editor?question=${question.id}`}
-                        />
-                      }
-                      size="sm"
-                      className="self-start"
-                      variant="brandOutline"
-                    >
-                      <Pencil data-icon="inline-start" />
-                      Edit Soal
-                    </Button>
                   </div>
 
                   {/* Question Content */}

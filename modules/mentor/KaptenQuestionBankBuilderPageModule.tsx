@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   CircleHelp,
   Ellipsis,
-  Folder,
   ImagePlus,
   Plus,
   Save,
@@ -61,7 +60,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import type { MediaAssetDto } from "@/lib/media/types";
-import { questionBankFolderLabel } from "@/lib/question-bank/labels";
 import {
   getQuestionBankReadinessFromDrafts,
   getQuestionReadinessFromDraft,
@@ -81,13 +79,10 @@ import {
   type KaptenQuestionBank,
 } from "@/modules/mentor/mock-data";
 import {
-  moveQuestionBanksToFolderAction,
   saveQuestionBankAction,
   setQuestionBankCategoriesAction,
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
-
-const ROOT_FOLDER_VALUE = "__bank_soal_root__";
 
 type QuestionBankEditorTab = "questions" | "details";
 type InventoryFilter = "all" | "incomplete";
@@ -134,16 +129,9 @@ type QuestionBankEditorState = {
 type LocalQuestionBankState = {
   categoryIds: string[];
   description: string;
-  folderId: string | null;
   questions: BankQuestion[];
   subjectCode: string;
   title: string;
-};
-
-type QuestionBankFolderNode = {
-  children?: QuestionBankFolderNode[];
-  id: string | null;
-  name: string;
 };
 
 type QuestionBankCategoryOption = {
@@ -153,36 +141,12 @@ type QuestionBankCategoryOption = {
 
 type QuestionBankOrganizationPatch = {
   categoryIds?: string[];
-  folderId?: string | null;
 };
 
 type QuestionBankEditorAction = { type: "patch"; patch: Partial<QuestionBankEditorState> };
 
 function questionBankEditorReducer(state: QuestionBankEditorState, action: QuestionBankEditorAction): QuestionBankEditorState {
   return action.type === "patch" ? { ...state, ...action.patch } : state;
-}
-
-function flattenQuestionBankFolders(
-  folders: QuestionBankFolderNode[],
-  depth = 0,
-): Array<{ depth: number; folder: QuestionBankFolderNode & { id: string } }> {
-  return folders.flatMap((folder) => [
-    ...(folder.id ? [{ depth, folder: folder as QuestionBankFolderNode & { id: string } }] : []),
-    ...(folder.children ? flattenQuestionBankFolders(folder.children, depth + 1) : []),
-  ]);
-}
-
-function findQuestionBankFolder(
-  folders: QuestionBankFolderNode[],
-  id: string | null,
-): QuestionBankFolderNode | null {
-  if (id === null) return folders.find((folder) => folder.id === null) ?? null;
-  for (const folder of folders) {
-    if (folder.id === id) return folder;
-    const child = folder.children ? findQuestionBankFolder(folder.children, id) : null;
-    if (child) return child;
-  }
-  return null;
 }
 
 function sameStringSet(left: string[], right: string[]) {
@@ -832,22 +796,17 @@ function QuestionBankOrganizationPanel({
   builderState,
   categories,
   collapsedByDefault = false,
-  folders,
   isDisabled,
   onUpdate,
 }: {
   builderState: QuestionBankBuilderFormState;
   categories: QuestionBankCategoryOption[];
   collapsedByDefault?: boolean;
-  folders: QuestionBankFolderNode[];
   isDisabled: boolean;
   onUpdate: (patch: QuestionBankOrganizationPatch) => void;
 }) {
   const [isOpen, setIsOpen] = useState(!collapsedByDefault);
-  const folder = findQuestionBankFolder(folders, builderState.folderId);
-  const folderLabel = questionBankFolderLabel(builderState.folderId, folder?.name ?? "Folder tidak ditemukan");
   const selectedCategories = categories.filter((category) => builderState.categoryIds.includes(category.id));
-  const folderOptions = flattenQuestionBankFolders(folders);
 
   return (
     <section className="rounded-2xl border border-primary-100 bg-primary-50/35 p-5 md:p-6">
@@ -861,7 +820,7 @@ function QuestionBankOrganizationPanel({
         >
           <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Organisasi</p>
           <h2 className="mt-1 text-xl font-semibold text-secondary-900">Organisasi (opsional)</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-600">Atur folder dan kategori tanpa mengubah isi soal.</p>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">Atur kategori tanpa mengubah isi soal.</p>
         </button>
         <Button
           aria-controls="bank-organization-fields"
@@ -875,42 +834,8 @@ function QuestionBankOrganizationPanel({
         >
           <ChevronDown className={cn("transition-transform", isOpen ? "rotate-180" : undefined)} />
         </Button>
-        <Folder className="mt-1 hidden size-5 shrink-0 text-primary-700 sm:block" />
       </div>
       {isOpen ? <div className="mt-5 grid gap-5" id="bank-organization-fields">
-        <Field>
-          <FieldLabel htmlFor="bank-folder">Folder</FieldLabel>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={isDisabled}
-              render={<Button className="w-full justify-between" id="bank-folder" type="button" variant="context" />}
-            >
-              <span className="truncate">{folderLabel}</span>
-              <ChevronDown className="size-4 text-secondary-400" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-(--anchor-width)">
-              <DropdownMenuLabel>Pilih folder</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                onValueChange={(value) => onUpdate({ folderId: value === ROOT_FOLDER_VALUE ? null : value })}
-                value={builderState.folderId ?? ROOT_FOLDER_VALUE}
-              >
-                <DropdownMenuRadioItem disabled={isDisabled} value={ROOT_FOLDER_VALUE}>Bank soal</DropdownMenuRadioItem>
-                {folderOptions.map(({ depth, folder: option }) => (
-                  <DropdownMenuRadioItem
-                    className="pr-3"
-                    disabled={isDisabled}
-                    key={option.id}
-                    style={{ paddingLeft: `${12 + depth * 12}px` }}
-                    value={option.id}
-                  >
-                    {option.name}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {folder?.id ? <p className="mt-2 truncate text-xs text-secondary-500">Folder bersama · {folder.name}</p> : null}
-        </Field>
         <Field>
           <FieldLabel htmlFor="bank-categories">Kategori</FieldLabel>
           <DropdownMenu>
@@ -937,7 +862,7 @@ function QuestionBankOrganizationPanel({
           </DropdownMenu>
           {selectedCategories.length ? <div className="mt-3 flex flex-wrap gap-2">{selectedCategories.map((category) => <Badge key={category.id} size="ui" variant="mint">{category.name}</Badge>)}</div> : null}
         </Field>
-      </div> : <p className="mt-3 text-sm text-secondary-600">Folder dan kategori bersifat opsional.</p>}
+      </div> : <p className="mt-3 text-sm text-secondary-600">Kategori bersifat opsional.</p>}
     </section>
   );
 }
@@ -945,7 +870,6 @@ function QuestionBankOrganizationPanel({
 type QuestionBankBuilderFormState = {
   categoryIds: string[];
   description: string;
-  folderId: string | null;
   questions: BankQuestion[];
   subjectCode: string;
   title: string;
@@ -1017,7 +941,7 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
 
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <span className="inline-flex items-center gap-2 text-sm font-medium text-[#856300]"><span aria-hidden="true" className="size-2 rounded-full bg-[#d29b18]" />Belum disimpan</span> : null}<p className="text-sm text-secondary-600" id="question-bank-readiness-summary">Kesiapan terbit: {state.readiness.readyCount}/{state.readiness.totalCount}</p>{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
+      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <span className="inline-flex items-center gap-2 text-sm font-medium text-[#856300]"><span aria-hidden="true" className="size-2 rounded-full bg-[#d29b18]" />Belum disimpan</span> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
       <div className="flex flex-wrap items-center gap-2">
         <Button aria-describedby={titleMissing ? "create-bank-title-help" : undefined} aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "brandOutline"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
         {titleMissing ? <p className="text-xs text-secondary-600" id="create-bank-title-help">Isi judul untuk membuat bank soal.</p> : null}
@@ -1072,12 +996,12 @@ function QuestionBankQuestionWorkspace({
   );
 }
 
-function QuestionBankTabs({ actions, builderState, categories, folders, mode, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; folders: QuestionBankFolderNode[]; mode: "create" | "edit"; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
+function QuestionBankTabs({ actions, builderState, categories, mode, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; mode: "create" | "edit"; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
   return <Tabs className="gap-8" onValueChange={actions.onChangeTab} value={state.activeTab}>
     {state.lifecycleStatus === "archived" ? <Alert><AlertTitle className="text-secondary-900">Bank diarsipkan</AlertTitle><AlertDescription className="text-secondary-900">Soal dan informasi bank dikunci saat diarsipkan. Pulihkan bank untuk membuat revisi baru.</AlertDescription></Alert> : null}
     {state.lifecycleStatus === "scheduled" ? <Alert><AlertTitle className="text-secondary-900">Bank terjadwal</AlertTitle><AlertDescription className="text-secondary-900">Bank Soal Terjadwal belum didukung untuk perubahan di editor ini. Kembali ke Bank Soal untuk melihat status publikasi.</AlertDescription></Alert> : null}
     <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max min-w-full sm:min-w-0"><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="questions">Soal <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{builderState.questions.length}</span></TabsTrigger><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="details">Detail bank</TabsTrigger></TabsList></div>
-    <TabsContent className="m-0" value="details"><section className="grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start"><div className="grid gap-5"><Field><FieldLabel htmlFor="bank-title">Judul bank</FieldLabel><FieldInput aria-describedby={mode === "create" && !builderState.title.trim() ? "bank-title-help" : undefined} aria-required={mode === "create"} disabled={state.isMetadataLocked} id="bank-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} required={mode === "create"} value={builderState.title} />{mode === "create" && !builderState.title.trim() ? <p className="text-xs text-secondary-600" id="bank-title-help">Isi judul untuk membuat bank soal.</p> : null}</Field><Field><FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-[100px]" disabled={state.isMetadataLocked} id="bank-description" onChange={(event) => actions.updateMetadata("description", event.target.value)} value={builderState.description} /></Field></div><QuestionBankOrganizationPanel builderState={builderState} categories={categories} collapsedByDefault={mode === "create"} folders={folders} isDisabled={state.isMetadataLocked} onUpdate={actions.updateOrganization} /></section></TabsContent>
+    <TabsContent className="m-0" value="details"><section className="grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start"><div className="grid gap-5"><Field><FieldLabel htmlFor="bank-title">Judul bank</FieldLabel><FieldInput aria-describedby={mode === "create" && !builderState.title.trim() ? "bank-title-help" : undefined} aria-required={mode === "create"} disabled={state.isMetadataLocked} id="bank-title" onChange={(event) => actions.updateMetadata("title", event.target.value)} required={mode === "create"} value={builderState.title} />{mode === "create" && !builderState.title.trim() ? <p className="text-xs text-secondary-600" id="bank-title-help">Isi judul untuk membuat bank soal.</p> : null}</Field><Field><FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel><FieldTextarea className="min-h-[100px]" disabled={state.isMetadataLocked} id="bank-description" onChange={(event) => actions.updateMetadata("description", event.target.value)} value={builderState.description} /></Field></div><QuestionBankOrganizationPanel builderState={builderState} categories={categories} collapsedByDefault={mode === "create"} isDisabled={state.isMetadataLocked} onUpdate={actions.updateOrganization} /></section></TabsContent>
     <TabsContent className="m-0" value="questions"><QuestionBankQuestionWorkspace actions={actions} builderState={builderState} state={state} workspaceRef={workspaceRef} /></TabsContent>
   </Tabs>;
 }
@@ -1087,7 +1011,6 @@ function QuestionBankBuilderScreen({
   bankId,
   builderState,
   categories,
-  folders,
   mode,
   session,
   state,
@@ -1097,7 +1020,6 @@ function QuestionBankBuilderScreen({
   bankId?: string;
   builderState: QuestionBankBuilderFormState;
   categories: QuestionBankCategoryOption[];
-  folders: QuestionBankFolderNode[];
   mode: "create" | "edit";
   session: SessionContext;
   state: QuestionBankBuilderViewState;
@@ -1133,7 +1055,7 @@ function QuestionBankBuilderScreen({
         <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
         <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
         {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
-        <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} folders={folders} mode={mode} state={state} workspaceRef={workspaceRef} />
+        <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} mode={mode} state={state} workspaceRef={workspaceRef} />
         <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
         <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       </MentorWorkspaceShell>
@@ -1167,9 +1089,6 @@ function QuestionBankBuilderScreen({
               </span>
             ) : null}
           </div>
-          <p className="hidden xl:inline text-xs text-secondary-500" id="question-bank-readiness-summary">
-            Kesiapan terbit: {state.readiness.readyCount}/{state.readiness.totalCount}
-          </p>
           {state.readiness.incompleteCount > 0 ? (
             <Button
               aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`}
@@ -1472,28 +1391,15 @@ function useQuestionBankPersistence({
       revisionRef.current = result.result.bank.revision;
       bankIdRef.current = result.result.bank.id;
       const savedBank = result.result.bank;
-      const desiredFolderId = builderState.folderId;
       const desiredCategoryIds = [...builderState.categoryIds];
       const contentState = {
         categoryIds: desiredCategoryIds,
         description: savedBank.description,
-        folderId: desiredFolderId,
         questions: result.result.questions,
         subjectCode: builderState.subjectCode,
         title: savedBank.title,
       };
-      let organizationVersion = { expectedRevision: savedBank.revision, expectedUpdatedAt: savedBank.updatedAt };
-
-      if (savedBank.folderId !== desiredFolderId) {
-        const folderResult = await moveQuestionBanksToFolderAction([savedBank.id], desiredFolderId, { expected: { [savedBank.id]: organizationVersion } });
-        if (!folderResult.ok) {
-          setLocalBuilderState(contentState);
-          updateEditor({ lifecycleError: folderResult.message, hasUnsavedChanges: true });
-          return;
-        }
-        const version = folderResult.result.versions.find((item) => item.id === savedBank.id);
-        if (version) organizationVersion = { expectedRevision: version.revision, expectedUpdatedAt: version.updatedAt };
-      }
+      const organizationVersion = { expectedRevision: savedBank.revision, expectedUpdatedAt: savedBank.updatedAt };
 
       if (!sameStringSet(savedBank.categoryIds, desiredCategoryIds)) {
         const categoryResult = await setQuestionBankCategoriesAction(savedBank.id, desiredCategoryIds, organizationVersion);
@@ -1547,7 +1453,6 @@ function KaptenQuestionBankBuilderPageModule({
   initialActiveQuestionId,
   initialCategories = [],
   initialBank = null,
-  initialFolderTree = [],
   initialQuestions = [],
   initialReadiness = null,
   mode,
@@ -1557,7 +1462,6 @@ function KaptenQuestionBankBuilderPageModule({
   initialActiveQuestionId?: string;
   initialCategories?: QuestionBankCategoryOption[];
   initialBank?: KaptenQuestionBank | null;
-  initialFolderTree?: QuestionBankFolderNode[];
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
@@ -1574,7 +1478,6 @@ function KaptenQuestionBankBuilderPageModule({
     return {
       categoryIds: initialBank?.categoryIds ?? [],
       description: initialBank?.description ?? "",
-      folderId: initialBank?.folderId ?? null,
       questions,
       subjectCode,
       title: initialBank?.title ?? "",
@@ -1830,7 +1733,6 @@ function KaptenQuestionBankBuilderPageModule({
     markChanged({
       ...builderState,
       ...(patch.categoryIds ? { categoryIds: [...new Set(patch.categoryIds)] } : {}),
-      ...(patch.folderId !== undefined ? { folderId: patch.folderId } : {}),
     });
   }
 
@@ -2036,7 +1938,6 @@ function KaptenQuestionBankBuilderPageModule({
     bankId={bankId ?? initialBank?.id}
     builderState={builderState}
     categories={initialCategories}
-    folders={initialFolderTree}
     mode={mode}
     session={session}
     state={{ activeQuestionId, activeTab, confirmationRequest, filteredQuestions, focusedIssueKey, hasSubmittedPreview, hasUnsavedChanges, issueCursorIndex, issueCursorWasLast, issueLoopEnded, inventoryFilter, isMetadataLocked, isQuestionContentLocked, isSaving, isDraftLifecycle, lifecycleError, lifecycleStatus, mediaPickerTarget, pendingRouteReplacement, previewChoiceId, questionDraft, questionEditorTab, questionRowRefs, readiness, readinessAnnouncement, selectedMediaAssetId }}

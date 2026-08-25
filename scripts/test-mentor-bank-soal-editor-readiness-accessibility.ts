@@ -24,13 +24,13 @@ const lifecycleSource = builder.match(/async function updateLifecycle\([\s\S]*?\
 assert.match(builder, /getQuestionBankReadinessFromDrafts\(builderState\.questions\)/u);
 assert.match(builder, /mergeQuestionBankReadiness\(/u);
 assert.match(builder, /pruneServerReadinessForDraftChange\(/u);
-assert.match(builder, /readyCount\}\/\{state\.readiness\.totalCount\}/u);
 assert.match(builder, /state\.readiness\.incompleteCount/u);
-assert.match(builder, /Kesiapan terbit:/u);
+assert.doesNotMatch(builder, /Kesiapan terbit:/u);
 assert.match(builder, /AlertTriangle/u);
 assert.match(builder, /showToast\(/u);
 assert.doesNotMatch(builder, /Semua soal siap diterbitkan|Siap dipakai|Tersimpan/u);
-assert.match(detail, /Kesiapan terbit:/u);
+assert.doesNotMatch(detail, /Status Kesiapan|Kesiapan terbit:/u);
+assert.doesNotMatch(detail, /Edit Soal|Pindahkan folder/u);
 assert.match(detail, /AlertTriangle/u);
 assert.match(detail, /Perlu diperbaiki/u);
 assert.match(detail, /showToast\(/u);

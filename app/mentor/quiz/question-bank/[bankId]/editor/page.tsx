@@ -5,7 +5,6 @@ import { requireTutorSession } from "@/lib/auth/access";
 import {
   getQuestionBankForEdit,
   listQuestionBankCategories,
-  listQuestionBankFolderTree,
 } from "@/lib/question-bank/repository";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 
@@ -27,9 +26,8 @@ export default async function MentorQuestionBankEditorPage({
     searchParams ? searchParams : Promise.resolve<{ question?: string }>({}),
     requireTutorSession(),
   ]);
-  const [initial, initialFolderTree, initialCategories] = await Promise.all([
+  const [initial, initialCategories] = await Promise.all([
     getQuestionBankForEdit(bankId),
-    listQuestionBankFolderTree(),
     listQuestionBankCategories(),
   ]);
   if (!initial) notFound();
@@ -40,7 +38,6 @@ export default async function MentorQuestionBankEditorPage({
       initialActiveQuestionId={query?.question}
       initialBank={initial.bank}
       initialCategories={initialCategories}
-      initialFolderTree={initialFolderTree}
       initialQuestions={initial.questions}
       initialReadiness={initial.readiness}
       mode="edit"

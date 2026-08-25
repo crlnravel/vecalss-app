@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 
 import { requireTutorSession } from "@/lib/auth/access";
-import {
-  listQuestionBankCategories,
-  listQuestionBankFolderTree,
-} from "@/lib/question-bank/repository";
+import { listQuestionBankCategories } from "@/lib/question-bank/repository";
 import { KaptenQuestionBankBuilderPageModule } from "@/modules/mentor/KaptenQuestionBankBuilderPageModule";
 
 export const metadata: Metadata = {
@@ -13,10 +10,7 @@ export const metadata: Metadata = {
 
 export default async function CreateMentorQuestionBankPage() {
   const session = await requireTutorSession();
-  const [initialFolderTree, initialCategories] = await Promise.all([
-    listQuestionBankFolderTree(),
-    listQuestionBankCategories(),
-  ]);
+  const initialCategories = await listQuestionBankCategories();
 
-  return <KaptenQuestionBankBuilderPageModule initialCategories={initialCategories} initialFolderTree={initialFolderTree} mode="create" session={session} />;
+  return <KaptenQuestionBankBuilderPageModule initialCategories={initialCategories} mode="create" session={session} />;
 }
