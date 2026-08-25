@@ -3,11 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { modeLabels, policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
@@ -23,9 +19,11 @@ import {
 function KaptenTryoutPolicyPageModule({
   embedded = false,
   initial,
+  onNext,
 }: {
   embedded?: boolean;
   initial: TryoutOperationsView;
+  onNext?: () => void;
 }) {
   const [admissionMode, setAdmissionMode] = useState(
     initial.admissionMode as Mode,
@@ -60,7 +58,8 @@ function KaptenTryoutPolicyPageModule({
         setNotice({ message: release.message ?? "Kebijakan rilis gagal disimpan.", tone: "error" });
         return;
       }
-      setNotice({ message: "Kebijakan Tryout berhasil disimpan.", tone: "default" });
+      setNotice(null);
+      onNext?.();
     } catch (saveError) {
       setNotice({ message: saveError instanceof Error ? saveError.message : "Kebijakan Tryout belum dapat disimpan.", tone: "error" });
     } finally {
@@ -116,12 +115,12 @@ function KaptenTryoutPolicyPageModule({
             value={defaultReleasePolicy}
           />
         </CardContent>
-        <CardFooter className="justify-end border-t border-primary-100">
-          <Button disabled={busy} onClick={() => void handleSave()} variant="brand">
-            {busy ? "Menyimpan…" : "Selanjutnya"}
-          </Button>
-        </CardFooter>
       </Card>
+      <div className="mt-5 flex justify-end">
+        <Button disabled={busy} onClick={() => void handleSave()} variant="brand">
+          {busy ? "Menyimpan…" : "Selanjutnya"}
+        </Button>
+      </div>
     </Root>
   );
 }

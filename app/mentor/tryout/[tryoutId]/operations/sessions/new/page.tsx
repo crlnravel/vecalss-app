@@ -28,6 +28,7 @@ export default async function NewTryoutSessionPage({
     <MentorWorkspaceShell
       activeLabel="Tryout"
       breadcrumbLabel="Buat Sesi"
+      breadcrumbParent={{ href: `/mentor/tryout/${tryoutId}`, label: "Edit Tryout" }}
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
       session={session}

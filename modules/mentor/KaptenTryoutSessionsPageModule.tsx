@@ -34,7 +34,7 @@ function KaptenTryoutSessionsPageModule({
 
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
-      {embedded ? <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2><p className="mt-1 text-sm text-secondary-600">Jadwal dan status pelaksanaan Tryout.</p></div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
+      {embedded ? <header className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`}
         description={initial.title}
         title="Sesi"

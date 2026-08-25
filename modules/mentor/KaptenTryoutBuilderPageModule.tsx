@@ -1048,12 +1048,11 @@ function KaptenTryoutBuilderPageModule({
                 {deliveryArea === "policy" ? (
                   <section aria-labelledby="schedule-policy-title">
                     <h2 className="mb-4 text-xl font-semibold text-secondary-900" id="schedule-policy-title">Aturan akses</h2>
-                    <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} />
+                    <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} onNext={() => changeDeliveryArea("sessions")} />
                   </section>
                 ) : null}
                 {deliveryArea === "sessions" ? (
                   <section aria-labelledby="schedule-sessions-title">
-                    <div className="mb-4"><h2 id="schedule-sessions-title" className="text-xl font-semibold text-secondary-900">Sessions</h2><p className="mt-1 text-sm leading-6 text-secondary-600">Tentukan jendela waktu dan versi terbit yang dipakai peserta.</p></div>
                     <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
                   </section>
                 ) : null}
