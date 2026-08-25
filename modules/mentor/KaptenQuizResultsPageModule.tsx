@@ -44,7 +44,6 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold text-secondary-900">Hasil Kuis</h2>
-        <p className="mt-1 text-sm leading-6 text-secondary-500">Lihat pengiriman jawaban dan buka detail submisi tanpa meninggalkan detail Kuis.</p>
       </div>
       <section className="rounded-2xl border border-primary-100 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

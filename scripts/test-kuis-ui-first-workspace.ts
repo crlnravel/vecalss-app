@@ -46,12 +46,20 @@ assert.match(createRoute, /mode="create"/u, "create flow must use the standalone
 assert.match(resultsRoute, /redirect\(`\/mentor\/quiz\/\$\{quizId\}\?tab=hasil`/u, "legacy results route must redirect to Hasil");
 assert.match(results, /function KaptenQuizResultsContent/u, "results must have embeddable content");
 assert.doesNotMatch(results, /Bagian hasil Kuis|Peserta|Statistik|StatisticsPanel|Distribusi nilai|Peta skor|recharts/u, "Hasil must remain one results view without participant/statistics tabs or aggregate statistics");
+assert.doesNotMatch(results, /Lihat pengiriman jawaban dan buka detail submisi tanpa meninggalkan detail Kuis/u, "Hasil must not include the removed helper copy");
 assert.match(results, /aria-label="Filter hasil"/u, "one results view must retain lightweight attempt filters");
 assert.match(detail, /KaptenQuizResultsContent/u, "detail must embed results without a nested shell");
-assert.match(detail, /Daftar Soal/u, "detail preview must use the Bank Soal-style question list");
-assert.match(detail, /Buka Editor Soal/u, "question list must expose the editor action");
 assert.match(detail, /QuizQuestionCard/u, "question list must render authored question cards");
+assert.match(detail, /questions\.map\(\(question, index\)/u, "question list must preserve authored question order");
 assert.match(detail, /Pembahasan/u, "question cards must render authored explanations");
+assert.doesNotMatch(detail, /Daftar Soal|Buka Editor Soal/u, "Kuis preview must not show a separate Bank Soal list header");
+assert.doesNotMatch(detail, /Metadata ini hanya berlaku untuk Kuis mandiri ini|Perubahan akan divalidasi lagi oleh server saat disimpan/u, "settings must not include implementation helper copy");
+assert.match(detail, /Susunan soal di percobaan ulang/u, "retry behavior must use clearer language");
+assert.match(detail, /Pertahankan soal dan urutan/u, "retry choices must explain the stable form");
+assert.match(detail, /Acak soal setiap percobaan/u, "retry choices must explain randomization");
+assert.match(detail, /className="w-full"[^>]*disabled=\{disabled \|\| isSaving/u, "settings save action must span the page width at the bottom");
+assert.match(detail, /Perubahan Kuis tersimpan/u, "settings save must provide a success action toast");
+assert.match(detail, /showToast\(result\.message, \{ variant: "error" \}\)/u, "save failures must provide an error action toast");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");
