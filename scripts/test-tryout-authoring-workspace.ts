@@ -23,8 +23,8 @@ for (const label of [
   "Results",
   "Overview",
   "Configure Sections",
-  "Readiness",
-  "Published versions",
+  "Ringkasan Tryout",
+  "Sections",
   "Policy",
   "Sessions",
   "Participants",
@@ -44,12 +44,15 @@ assert.match(workspace, /lifecyclePhases\.map\(\(phase\)/u, "the roadmap must re
 assert.match(workspace, /type WorkspacePhase = "overview"[\s\S]*"build"/u, "draft navigation must model Overview separately from Build");
 assert.match(workspace, /label: "Overview",\s*value: "overview"[\s\S]*label: "Build",\s*value: "build"/u, "Overview must appear before Build in the lifecycle roadmap");
 assert.match(workspace, /items: \[\{ label: "Configure Sections", value: "sections" \}\]/u, "Build must contain Configure Sections as its only subarea");
+assert.match(workspace, /items: \[\{ label: "Review & Publish", value: "review" \}\]/u, "Review & Publish must be a single summary workspace without inner tabs");
+assert.doesNotMatch(workspace, /Readiness server|Content readiness|Delivery readiness|Published versions|contentReviewChecks|deliveryReviewChecks|readyToPublish|TabsContent className="mt-0" value="publish"/u, "Review & Publish must not expose readiness or version sub-tabs");
+assert.match(workspace, /id="tryout-summary-title"[\s\S]*draft\.title[\s\S]*draft\.description/u, "Review & Publish must summarize the Tryout title and description");
+assert.match(workspace, /draft\.sections\.map[\s\S]*durationMinutes/u, "Review & Publish must summarize every Section duration");
+assert.match(workspace, /setPublishOpen\(true\)[\s\S]*Terbitkan Tryout/u, "Review & Publish must expose one primary publish action");
 assert.doesNotMatch(workspace, /items: \[[\s\S]*?Questions[\s\S]*?Rules/u, "Questions and Rules must not remain peer-level navigation items");
 assert.match(workspace, /const deliveryAreas/u, "Delivery must expose Policy, Sessions, and Participants");
 assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a persistent rail");
 assert.match(workspace, /sectionReadiness/u, "Section rail must expose per-section readiness");
-assert.match(workspace, /contentReviewChecks/u, "Review must separate content readiness");
-assert.match(workspace, /deliveryReviewChecks/u, "Review must separate delivery readiness");
 assert.match(workspace, /aria-label="Kembali ke semua Tryout"[\s\S]*size="icon"[\s\S]*<ChevronLeft/u, "Tryout workspace back navigation must be an icon-only chevron control");
 assert.doesNotMatch(workspace, /TRYOUT WORKSPACE|Mode authoring|Mode operasional|Semua Tryout/u, "workspace header copy and mode label must stay out of the builder surface");
 assert.doesNotMatch(workspace, /previewOpen|setPreviewOpen|Preview alur peserta/u, "Configure Sections must keep the footer focused on the primary next action");
@@ -70,7 +73,6 @@ assert.doesNotMatch(workspace, /Simpan &amp; lanjut ke Configure Sections/u, "th
 assert.doesNotMatch(workspace, /<ArrowRight\b/u, "the draft next action must not show a right-arrow icon");
 assert.match(workspace, /items\.length > 1/u, "single-item phases must not render an inner tab strip");
 assert.doesNotMatch(workspace, /keepMounted/u, "draft Delivery content must not remain mounted outside the published lifecycle mode");
-assert.match(workspace, /duplicateSourceCount/u, "Review must include duplicate source detection");
 assert.match(workspace, /FullWidthLineTabsList/u, "workspace tabs must use the shared full-width line list");
 assert.match(workspace, /FullWidthLineTabsTrigger/u, "workspace tabs must use the shared full-width line triggers");
 assert.match(workspace, /overflow-x-auto/u, "workspace tabs must remain navigable on narrow screens");
@@ -81,7 +83,7 @@ assert.match(route, /contentElement="div"/u, "Edit Tryout route should keep the 
 assert.match(createRoute, /contentElement="div"/u, "Create Tryout route should keep the shell landmark as the only main");
 assert.match(shell, /<SidebarInset\b/u, "workspace shell must render the page landmark container");
 assert.match(sidebar, /function SidebarInset[\s\S]*?<main\b/u, "sidebar inset must own the page main landmark");
-assert.match(workspace, /AssessmentReleaseNotice/u, "workspace must expose the durable release state");
+assert.doesNotMatch(workspace, /AssessmentReleaseNotice/u, "draft Review & Publish must not expose release-readiness cards");
 assert.match(workspace, /Simpan perubahan/u, "workspace must expose draft persistence");
 assert.match(workspace, /dirtyNavigationOpen/u, "dirty navigation must require an explicit Save, Discard, or Stay decision");
 assert.match(workspace, /updateTryoutMetadataAction/u, "published details must use a metadata-only server action");

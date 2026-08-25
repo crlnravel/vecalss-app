@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -51,7 +50,6 @@ import type { AssemblyAttachmentSummary } from "@/lib/tryout/assembly-repository
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { ReusableQuestionPackageHandoff } from "@/lib/tryout/repository";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
-import { AssessmentReleaseNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
 import { KaptenTryoutAttemptsPageModule } from "@/modules/mentor/KaptenTryoutAttemptsPageModule";
@@ -166,10 +164,7 @@ const draftWorkspacePhases: WorkspacePhaseDefinition[] = [
   {
     label: "Review & Publish",
     value: "review_publish",
-    items: [
-      { label: "Readiness", value: "review" },
-      { label: "Published versions", value: "publish" },
-    ],
+    items: [{ label: "Review & Publish", value: "review" }],
   },
 ];
 
@@ -245,7 +240,7 @@ function phaseDescription(phase: WorkspacePhase) {
     case "build":
       return "Susun tujuh Section dan pilih soal dari Bank Soal.";
     case "review_publish":
-      return "Pastikan isi siap, lalu buat versi terbit yang dipakai sesi.";
+      return "Tinjau ringkasan Tryout, lalu buat versi terbit.";
     case "delivery":
       return "Atur akses, jendela waktu, dan peserta yang dapat mengikuti.";
     case "operations":
@@ -318,8 +313,9 @@ function normalizeWorkspace(value?: string): Workspace {
     case "attempts":
     case "results":
     case "review":
-    case "publish":
       return value;
+    case "publish":
+      return "review";
     case "configure_sections":
     case "questions":
     case "rules":
@@ -342,13 +338,6 @@ function normalizeWorkspace(value?: string): Workspace {
 
 function subjectName(code: SubjectCode) {
   return kaptenSubjects.find((subject) => subject.code === code)?.name ?? code;
-}
-
-function releaseFor(
-  draft: TryoutDraft,
-  operationsInitial?: TryoutOperationsView,
-): ReleaseMeta | null {
-  return draft.assessmentRelease ?? operationsInitial?.assessmentRelease ?? null;
 }
 
 function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
@@ -489,9 +478,7 @@ function KaptenTryoutBuilderPageModule({
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
   const activeSectionIndex = Math.max(0, draft.sections.findIndex((section) => section.subtest === activeSection.subtest));
   const boundCount = draft.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
-  const selectedDirectQuestions = draft.sections.flatMap((section) => section.directQuestions ?? []);
-  const selectedSourceQuestionIds = selectedDirectQuestions.map((question) => question.sourceQuestionId);
-  const duplicateSourceCount = selectedSourceQuestionIds.length - new Set(selectedSourceQuestionIds).size;
+  const selectedSourceQuestionIds = draft.sections.flatMap((section) => section.directQuestions ?? []).map((question) => question.sourceQuestionId);
   const directQuestionsReady = (questions: DirectQuestionDraft[]) => Boolean(
     questions.length
       && questions.every((question) => Boolean(question.prompt?.trim()) && question.hasExplanation === true && question.hasReadyMedia !== false),
@@ -529,23 +516,6 @@ function KaptenTryoutBuilderPageModule({
   // Keep the canonical readiness projection available to the authoring contract;
   // the Build rail intentionally renders only the section codes.
   void sectionReadiness;
-  const scheduleSessions = operationsInitial?.sessions ?? [];
-  const scheduleConflicts = scheduleSessions.some((session) => new Date(session.availableUntil) <= new Date(session.availableFrom)) || scheduleSessions.filter((session) => session.isDefaultOpenRegistration).length > 1;
-  const explanationsAndMediaReady = draft.sections.every((section) => section.packageVersionId || directQuestionsReady(section.directQuestions ?? []));
-  const reviewChecks = [
-    { detail: draft.title.trim() ? "Judul Tryout sudah terisi." : "Tambahkan judul sebelum publikasi.", label: "Basics lengkap", status: Boolean(draft.title.trim()) },
-    { detail: draft.sections.length === 7 ? "PU, PPU, PBM, PK, LBI, LBE, dan PM tersedia." : "Tryout harus memiliki tepat tujuh Section.", label: "Tujuh Section tetap", status: draft.sections.length === 7 },
-    { detail: boundCount === 7 ? "Semua Section memiliki sumber soal siap." : `${7 - boundCount} Section belum memiliki sumber soal.`, label: "Sumber soal lengkap", status: boundCount === 7 },
-    { detail: incompleteSections.length === 0 ? "Snapshot soal, opsi, dan konten tersedia." : "Periksa soal, opsi, atau snapshot sumber yang belum siap.", label: "Konten soal siap", status: incompleteSections.length === 0 },
-    { detail: explanationsAndMediaReady ? "Penjelasan dan media siap digunakan peserta." : "Lengkapi penjelasan dan media pada soal yang dipilih.", label: "Penjelasan & media siap", status: explanationsAndMediaReady },
-    { detail: duplicateSourceCount ? `${duplicateSourceCount} soal sumber muncul lebih dari sekali.` : "Tidak ada soal sumber yang duplikat.", label: "Sumber soal unik", status: duplicateSourceCount === 0 },
-    { detail: invalidDurationSections.length ? "Periksa durasi setiap Section." : "Durasi setiap Section valid.", label: "Durasi valid", status: invalidDurationSections.length === 0 },
-    { detail: scheduleConflicts ? "Perbaiki jendela sesi atau lebih dari satu sesi default open registration." : scheduleSessions.length ? `${scheduleSessions.length} sesi tersimpan tanpa konflik konfigurasi.` : "Sesi dapat dijadwalkan setelah Tryout diterbitkan.", label: "Delivery readiness", status: !scheduleConflicts },
-  ];
-  const contentReviewChecks = reviewChecks.slice(0, 7);
-  const deliveryReviewChecks = reviewChecks.slice(7);
-  const reviewFailures = reviewChecks.filter((check) => !check.status).length;
-  const readyToPublish = !draft.locked && reviewFailures === 0;
   const activeDirectQuestions = activeSection.directQuestions ?? [];
   const activeSectionHasSource = Boolean(activeSection.packageVersionId || activeDirectQuestions.length);
   const activeDirectBankTitles = [...new Set(activeDirectQuestions.map((question) => question.bankTitle).filter(Boolean))];
@@ -556,7 +526,6 @@ function KaptenTryoutBuilderPageModule({
       : "Sumber belum dipilih";
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
-  const release = releaseFor(draft, operationsInitial);
   const workflow = operationsInitial?.workflow;
   const mode: WorkflowMode = workflow?.mode ?? (draft.status === "published" ? "published" : "draft");
   const hasPersistedTryout = Boolean(id && draft.id !== "baru");
@@ -583,7 +552,7 @@ function KaptenTryoutBuilderPageModule({
     if (mode === "draft") {
       const allowed: Workspace[] = ["basics"];
       if (hasPersistedTryout && Boolean(draft.title.trim())) allowed.push("sections");
-      if (configureReady) allowed.push("review", "publish");
+      if (configureReady) allowed.push("review");
       return allowed;
     }
     const allowed: Workspace[] = ["schedule"];
@@ -1161,56 +1130,48 @@ function KaptenTryoutBuilderPageModule({
         </TabsContent>
 
         <TabsContent className="mt-0" value="review">
-          <section className="grid gap-6">
-            <header className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-secondary-900">Review &amp; Publish</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Periksa isi dan kesiapan workspace sebelum membuat versi terbit. Membuka area ini tidak membuat attempt atau mengubah state peserta.</p>
-              </div>
-            </header>
-            <div className="grid gap-5">
-              <section className="grid gap-3" aria-labelledby="content-readiness-title">
-                <div><h3 className="font-semibold text-secondary-900" id="content-readiness-title">Content readiness</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Periksa isi sebelum menerbitkan versi yang akan dipakai sesi.</p></div>
-                {contentReviewChecks.map((check) => (
-                  <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${check.status ? "border-primary-100 bg-white" : "border-[#f3d486] bg-[#fff7e5]"}`} key={check.label} role="status">
-                    {check.status ? <Check className="mt-1 size-5 shrink-0 text-primary-700" /> : <CircleAlert className="mt-1 size-5 shrink-0 text-[#a46b00]" />}
-                    <div><p className="font-semibold text-secondary-900">{check.label}</p><p className="mt-0.5 text-sm leading-6 text-secondary-600">{check.detail}</p></div>
-                  </div>
-                ))}
-              </section>
-              <section className="grid gap-3" aria-labelledby="delivery-readiness-title">
-                <div><h3 className="font-semibold text-secondary-900" id="delivery-readiness-title">Delivery readiness</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Sesi dibuat setelah publish. Check ini hanya menandai konflik konfigurasi yang sudah ada.</p></div>
-                {deliveryReviewChecks.map((check) => (
-                  <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 ${check.status ? "border-primary-100 bg-white" : "border-[#f3d486] bg-[#fff7e5]"}`} key={check.label} role="status">
-                    {check.status ? <Check className="mt-1 size-5 shrink-0 text-primary-700" /> : <CircleAlert className="mt-1 size-5 shrink-0 text-[#a46b00]" />}
-                    <div><p className="font-semibold text-secondary-900">{check.label}</p><p className="mt-0.5 text-sm leading-6 text-secondary-600">{check.detail}</p></div>
-                  </div>
-                ))}
-              </section>
-            </div>
-            <section className="grid gap-4 rounded-3xl border border-primary-100 bg-white p-5 sm:p-6">
-              <div className="flex items-start gap-3"><CircleHelp className="mt-1 size-5 text-primary-800" /><div><h3 className="font-semibold text-secondary-900">Server checks tetap berlaku</h3><p className="mt-1 text-sm leading-6 text-secondary-600">Saat publish, server memeriksa sumber, opsi, duplicate question, dan snapshot AssessmentRelease. Checklist ini membantu navigasi; bukan pengganti validasi otoritatif.</p></div></div>
-              {incompleteSections.length ? <div className="flex flex-wrap gap-2 border-t border-primary-100 pt-4">{incompleteSections.map((section) => <Button className="h-8 rounded-lg border-[#d4a943] bg-white/70 px-2.5 text-xs text-[#6a4a00] hover:bg-white" key={section.subtest} onClick={() => { changeActiveCode(section.subtest); goTo("sections"); }} variant="outline">Lengkapi {section.subtest}</Button>)}</div> : null}
-            </section>
-          </section>
-        </TabsContent>
-
-        <TabsContent className="mt-0" value="publish">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold text-secondary-900">Published versions</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Simpan perubahan dan publish adalah dua tindakan berbeda. Publish membuat atau memajukan identitas AssessmentRelease yang dipakai sesi peserta.</p>
+                <h2 className="text-xl font-semibold text-secondary-900">Review &amp; Publish</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Tinjau ringkasan Tryout sebelum membuat versi terbit.</p>
               </div>
-              <Upload className="size-6 text-primary-800" />
             </header>
-            <AssessmentReleaseNotice label="Versi terbit" missingDescription="Belum ada versi terbit. Publish akan membuat versi pertama setelah semua pemeriksaan server berhasil." release={release} state={draft.status === "draft" ? "historical" : "current"} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Kesiapan sumber</p><p className="mt-1 text-lg font-semibold text-secondary-900">{boundCount}/7 Section siap</p><p className="mt-1 text-sm leading-6 text-secondary-600">Semua sumber akan disalin sebagai snapshot immutable.</p></CardContent></Card>
-              <Card className="shadow-none ring-primary-100"><CardContent className="p-5"><p className="text-xs text-secondary-500">Perlindungan riwayat</p><p className="mt-1 text-lg font-semibold text-secondary-900">{draft.locked ? "Terkunci" : "Siap diperbarui"}</p><p className="mt-1 text-sm leading-6 text-secondary-600">Setelah participant start, perubahan fairness-sensitive memakai Duplikasi.</p></CardContent></Card>
+            <div className="grid gap-5">
+              <section className="grid gap-4 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-5" aria-labelledby="tryout-summary-title">
+                <h3 className="font-semibold text-secondary-900" id="tryout-summary-title">Ringkasan Tryout</h3>
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Judul</dt>
+                    <dd className="mt-1 font-semibold text-secondary-900">{draft.title || "Tanpa judul"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Deskripsi</dt>
+                    <dd className="mt-1 text-sm leading-6 text-secondary-700">{draft.description || "Belum ada deskripsi."}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section className="grid gap-3" aria-labelledby="tryout-sections-summary-title">
+                <div>
+                  <h3 className="font-semibold text-secondary-900" id="tryout-sections-summary-title">Sections</h3>
+                  <p className="mt-1 text-sm leading-6 text-secondary-600">Tujuh Section dan durasi pengerjaannya.</p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {draft.sections.map((section, index) => (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-primary-100 px-4 py-3" key={section.subtest}>
+                      <div>
+                        <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
+                        <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold text-primary-800">{section.durationMinutes} menit</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
-            <div className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 text-sm leading-6 text-secondary-700 sm:flex-row sm:items-start"><CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" /><p>{release ? "Publish ulang hanya membuat rilis baru bila isi Tryout berubah. Sesi yang sudah terbuka tetap terikat pada rilis sebelumnya." : "Sesi peserta belum boleh dibuka sebelum memiliki AssessmentRelease. Setelah publish, buka Delivery → Sessions."}</p></div>
-            {!readyToPublish && !draft.locked ? <p className="text-right text-sm text-[#8a5e00]">Lengkapi Readiness terlebih dahulu: {reviewFailures} pemeriksaan belum lulus.</p> : null}
+            <div className="flex justify-end border-t border-primary-100 pt-5">
+              <Button disabled={saving || draft.locked} onClick={() => setPublishOpen(true)} variant="brand"><Upload />{saving ? "Menerbitkan…" : "Terbitkan Tryout"}</Button>
+            </div>
           </section>
         </TabsContent>
         </div>
@@ -1219,14 +1180,13 @@ function KaptenTryoutBuilderPageModule({
       {mode === "draft" ? (
         <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 bg-white/95 px-1 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/85" aria-label="Tindakan langkah Tryout">
           <div className="min-w-0 text-sm text-secondary-600">
-            {dirty ? <span className="font-semibold text-[#8a5e00]">Perubahan belum disimpan</span> : <span>{workspace === "review" || workspace === "publish" ? "Readiness server tetap menjadi penentu publikasi." : "Langkah tersimpan dapat dibuka kembali selama Tryout masih draf."}</span>}
+            {dirty ? <span className="font-semibold text-[#8a5e00]">Perubahan belum disimpan</span> : <span>{workspace === "review" ? "Ringkasan Tryout siap diterbitkan." : "Langkah tersimpan dapat dibuka kembali selama Tryout masih draf."}</span>}
             {workspace === "sections" && !configureReady ? <span className="ml-2 text-[#8a5e00]">Lengkapi semua Section untuk membuka Readiness.</span> : null}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button> : null}
             {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
             {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-            {!draft.locked && (workspace === "review" || workspace === "publish") ? <Button disabled={saving || !readyToPublish} onClick={() => setPublishOpen(true)} variant="brand"><Upload />Terbitkan Tryout</Button> : null}
           </div>
         </footer>
       ) : (
