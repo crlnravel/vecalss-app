@@ -48,8 +48,10 @@ assert.match(results, /function KaptenQuizResultsContent/u, "results must have e
 assert.doesNotMatch(results, /Bagian hasil Kuis|Peserta|Statistik|StatisticsPanel|Distribusi nilai|Peta skor|recharts/u, "Hasil must remain one results view without participant/statistics tabs or aggregate statistics");
 assert.match(results, /aria-label="Filter hasil"/u, "one results view must retain lightweight attempt filters");
 assert.match(detail, /KaptenQuizResultsContent/u, "detail must embed results without a nested shell");
-assert.doesNotMatch(detail, /choice\.id === question\.correctChoiceId|<Check/u, "detail preview must not reveal answer correctness or simulate a student submission");
-assert.match(detail, /tampilan penulis/u, "detail preview must identify the author-style rendering");
+assert.match(detail, /Daftar Soal/u, "detail preview must use the Bank Soal-style question list");
+assert.match(detail, /Buka Editor Soal/u, "question list must expose the editor action");
+assert.match(detail, /QuizQuestionCard/u, "question list must render authored question cards");
+assert.match(detail, /Pembahasan/u, "question cards must render authored explanations");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");
