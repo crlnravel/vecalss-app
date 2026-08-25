@@ -15,6 +15,14 @@
 - Focused direct-question, simplified-authoring, workspace contract tests,
   TypeScript, focused ESLint, and `pnpm verify` pass. Preserve unrelated dirty
   package/admin files in the worktree.
+- `8884f20` collapses Review & Publish to a single summary view: no Readiness or
+  Published versions inner tabs/checklist cards, title/description plus all
+  Section durations, and one `Terbitkan Tryout` primary action. The sticky
+  footer no longer duplicates publish, and legacy `workspace=publish` deep links
+  normalize to `review`.
+- Browser semantic QA confirms zero inner tab roles, no readiness/version copy,
+  seven Section durations, one publish button, and no footer buttons on the
+  configured draft Review & Publish route. Full `pnpm verify` passed.
 
 ## Current Tryout gated lifecycle closeout (2026-08-24)
 

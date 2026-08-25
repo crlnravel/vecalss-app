@@ -16,6 +16,14 @@
 - [x] Removed the leftover participant-preview dialog and tightened the
   Configure Sections footer to one primary `Selanjutnya` action with no icon;
   the workspace contract and browser semantic check pass (`f5bad7b`).
+- [x] Collapsed draft Review & Publish to one summary workspace in `8884f20`:
+  removed the Readiness and Published versions inner tabs/checklist cards,
+  summarized Tryout title, description, Sections, and durations, and kept one
+  `Terbitkan Tryout` primary action with no duplicate footer publish action.
+  Legacy `workspace=publish` links now normalize to the summary view.
+- [x] Focused authoring contracts, TypeScript, focused ESLint, `git diff --check`,
+  full `pnpm verify`, and authenticated browser semantic QA pass for the
+  summary-only Review & Publish state.
 
 ## Tryout lifecycle refactor closeout (2026-08-24)
 
