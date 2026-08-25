@@ -55,6 +55,13 @@ assert.match(workspace, /SectionRail/u, "Section setup must remain visible as a 
 assert.match(workspace, /sectionReadiness/u, "Section rail must expose per-section readiness");
 assert.match(workspace, /aria-label="Kembali ke semua Tryout"[\s\S]*size="icon"[\s\S]*<ChevronLeft/u, "Tryout workspace back navigation must be an icon-only chevron control");
 assert.doesNotMatch(workspace, /TRYOUT WORKSPACE|Mode authoring|Mode operasional|Semua Tryout/u, "workspace header copy and mode label must stay out of the builder surface");
+assert.doesNotMatch(workspace, /function phaseDescription|Perubahan belum disimpan\. Simpan sebelum berpindah langkah/u, "phase intro copy and inline dirty status must stay out of the builder chrome");
+assert.doesNotMatch(workspace, /border-b border-primary-100 pb-4/u, "back navigation must not render a divider below the control");
+assert.doesNotMatch(workspace, /<footer className="[^"]*border-t border-primary-100/u, "draft actions must not render a divider above the next action");
+assert.match(workspace, /id="tryout-basic-info-title">Informasi dasar/u, "Build must label the basic information block");
+assert.match(workspace, /Informasi dasar[\s\S]*duration-[\s\S]*instruction-/u, "Build must stack duration and instructions in the basic information block");
+assert.doesNotMatch(workspace, /Tujuh Section wajib|Pilih subject untuk mengatur durasi, instruksi, dan soal yang akan digunakan/u, "Build must remove the redundant section overview header");
+assert.doesNotMatch(workspace, /Question source[\s\S]*Pilih Bank Soal, lalu centang soal yang ingin dimasukkan/u, "question-source lead-in must not repeat the Bank Soal instruction");
 assert.doesNotMatch(workspace, /previewOpen|setPreviewOpen|Preview alur peserta/u, "Configure Sections must keep the footer focused on the primary next action");
 assert.match(workspace, /Pilih langsung/u, "Build must expose one direct question-source path");
 assert.match(workspace, /<Checkbox/u, "direct question selection must use a checklist");

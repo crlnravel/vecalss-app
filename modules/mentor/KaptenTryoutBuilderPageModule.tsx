@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   CircleAlert,
   CircleHelp,
-  ClipboardList,
   Copy,
   Lock,
   Pencil,
@@ -231,23 +230,6 @@ function workspaceForDeliveryArea(): Workspace {
 
 function phaseStartWorkspace(phase: WorkspacePhase, mode: WorkflowMode = "draft"): Workspace {
   return (mode === "draft" ? draftWorkspacePhases : publishedWorkspacePhases).find((item) => item.value === phase)?.items[0]?.value ?? (mode === "draft" ? "basics" : "schedule");
-}
-
-function phaseDescription(phase: WorkspacePhase) {
-  switch (phase) {
-    case "overview":
-      return "Lengkapi identitas Tryout sebelum memilih soal untuk setiap Section.";
-    case "build":
-      return "Susun tujuh Section dan pilih soal dari Bank Soal.";
-    case "review_publish":
-      return "Tinjau ringkasan Tryout, lalu buat versi terbit.";
-    case "delivery":
-      return "Atur akses, jendela waktu, dan peserta yang dapat mengikuti.";
-    case "operations":
-      return "Pantau peserta berjalan dan buka detail yang membutuhkan tindakan.";
-    case "results":
-      return "Periksa scoring, rilis, dan peringkat dalam satu tempat.";
-  }
 }
 
 function defaultSections(): TestDraft[] {
@@ -476,8 +458,6 @@ function KaptenTryoutBuilderPageModule({
   const [dirtyNavigationOpen, setDirtyNavigationOpen] = useState(false);
 
   const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
-  const activeSectionIndex = Math.max(0, draft.sections.findIndex((section) => section.subtest === activeSection.subtest));
-  const boundCount = draft.sections.filter((section) => section.packageVersionId || section.directQuestions?.length).length;
   const selectedSourceQuestionIds = draft.sections.flatMap((section) => section.directQuestions ?? []).map((question) => question.sourceQuestionId);
   const directQuestionsReady = (questions: DirectQuestionDraft[]) => Boolean(
     questions.length
@@ -517,13 +497,6 @@ function KaptenTryoutBuilderPageModule({
   // the Build rail intentionally renders only the section codes.
   void sectionReadiness;
   const activeDirectQuestions = activeSection.directQuestions ?? [];
-  const activeSectionHasSource = Boolean(activeSection.packageVersionId || activeDirectQuestions.length);
-  const activeDirectBankTitles = [...new Set(activeDirectQuestions.map((question) => question.bankTitle).filter(Boolean))];
-  const activeSectionSourceSummary = activeSection.packageVersionId
-    ? `Sumber tersimpan · ${activeSection.packageVersionLabel ?? "Sumber soal"}`
-    : activeDirectQuestions.length
-      ? `${activeDirectQuestions.length} soal langsung dipilih${activeDirectBankTitles.length ? ` · ${activeDirectBankTitles.join(", ")}` : ""}`
-      : "Sumber belum dipilih";
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
   const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
   const workflow = operationsInitial?.workflow;
@@ -876,7 +849,7 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="min-w-0 w-full px-4 py-5 sm:px-6 lg:px-8">
-      <div className="border-b border-primary-100 pb-4">
+      <div className="pb-4">
         <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
           <ChevronLeft aria-hidden="true" className="size-5" />
         </Button>
@@ -933,26 +906,17 @@ function KaptenTryoutBuilderPageModule({
       </nav>
 
       <Tabs className="mt-4 min-w-0" onValueChange={changeWorkspace} value={workspace}>
-        <div className="grid gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-3 sm:px-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-secondary-900">{activePhaseDefinition?.label ?? lifecyclePhaseOrder.find((phase) => phase.value === activePhase)?.label}</p>
-              <p className="text-xs leading-5 text-secondary-600">{phaseDescription(activePhase)}</p>
-            </div>
-            {dirty && mode === "draft" ? <span className="text-xs font-semibold text-[#8a5e00]">Perubahan belum disimpan. Simpan sebelum berpindah langkah.</span> : null}
+        {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
+          <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
+              {activePhaseDefinition.items.map((item) => (
+                <FullWidthLineTabsTrigger className="min-w-max" key={item.value} value={item.value}>
+                  {item.label}
+                </FullWidthLineTabsTrigger>
+              ))}
+            </FullWidthLineTabsList>
           </div>
-          {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
-            <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
-                {activePhaseDefinition.items.map((item) => (
-                  <FullWidthLineTabsTrigger className="min-w-max" key={item.value} value={item.value}>
-                    {item.label}
-                  </FullWidthLineTabsTrigger>
-                ))}
-              </FullWidthLineTabsList>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
 
         <div className={activePhase === "build" ? "mt-5 grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-5"}>
           {activePhase === "build" ? (
@@ -980,36 +944,10 @@ function KaptenTryoutBuilderPageModule({
         </TabsContent>
 
         <TabsContent className="mt-0 lg:col-start-2" value="sections">
-          <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
-            <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800"><ClipboardList /></div>
-                <div>
-                <h2 className="text-xl font-semibold text-secondary-900">Tujuh Section wajib</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih subject untuk mengatur durasi, instruksi, dan soal yang akan digunakan.</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium text-secondary-700" role="status">
-                <span className="text-primary-800">{boundCount}/7 sumber siap</span>
-              </div>
-            </header>
-
-            <div className="grid min-w-0 gap-5">
-              <div aria-live="polite" className="grid gap-4 border-y border-primary-100 py-5" role="status">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-800">Section {activeSectionIndex + 1} dari 7</p>
-                    <h3 className="mt-1 text-lg font-semibold text-secondary-900">{activeSection.subtest} · {subjectName(activeSection.subtest)}</h3>
-                  </div>
-                  <Badge className="rounded-full" size="ui" variant={activeSectionHasSource ? "mint" : "accent"}>{activeSection.packageVersionId ? "Sumber tersimpan" : activeDirectQuestions.length ? "Soal siap" : "Perlu sumber"}</Badge>
-                </div>
-                <div className="grid gap-1 text-sm leading-6">
-                  <p className="font-semibold text-secondary-900">{activeSectionSourceSummary}</p>
-                  {activeSection.packageVersionId ? <p className="text-secondary-600">Sumber ini tetap tersimpan untuk kompatibilitas data lama. Pilih soal baru di bawah untuk menggantinya.</p> : activeDirectQuestions.length ? <p className="text-secondary-600">Soal yang dicentang akan diacak saat Tryout dikerjakan.</p> : <p className="text-secondary-600">Pilih Bank Soal, lalu centang soal yang ingin digunakan.</p>}
-                </div>
-              </div>
-
-              <div className="grid items-start gap-5 border-t border-primary-100 pt-5 md:grid-cols-[minmax(12rem,16rem)_minmax(0,1fr)]">
+          <div className="grid gap-5">
+            <section aria-labelledby="tryout-basic-info-title" className="grid gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
+              <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
+              <div className="grid gap-5">
                 <Field>
                   <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi</FieldLabel>
                   <div className="relative">
@@ -1022,25 +960,18 @@ function KaptenTryoutBuilderPageModule({
                   <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => update(activeSection.subtest, { instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
                 </Field>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         </TabsContent>
 
         <TabsContent className="mt-0 lg:col-start-2" value="sections">
           <section className="grid gap-6 rounded-3xl border border-primary-100 bg-white p-5 shadow-[0_18px_45px_-38px_rgba(16,36,29,0.18)] sm:p-7">
-            <header className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-secondary-900">Question source</h2>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">Pilih Bank Soal, lalu centang soal yang ingin dimasukkan ke {activeSection.subtest}. Semua soal akan diacak saat Tryout dikerjakan.</p>
-              </div>
-            </header>
+            <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
+              <h2 className="text-xl font-semibold text-secondary-900">Pilih langsung</h2>
+              <p className="text-sm leading-6 text-secondary-600">Pilih satu Bank Soal, lalu checklist soal yang ingin ditambahkan.</p>
+            </div>
 
-            <div className="grid gap-5 rounded-2xl border border-primary-100 bg-[#f8fbf9] p-4 sm:p-5">
-              <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
-                <p className="text-sm font-semibold text-secondary-900">Pilih langsung</p>
-                <p className="text-sm leading-6 text-secondary-600">Pilih satu Bank Soal, lalu checklist soal yang ingin ditambahkan.</p>
-              </div>
-
+            <div className="grid gap-5">
               <div className="grid gap-5 lg:grid-cols-[minmax(15rem,.65fr)_minmax(0,1.35fr)]">
                 <div className="grid min-w-0 gap-4">
                   <Field>
@@ -1177,24 +1108,20 @@ function KaptenTryoutBuilderPageModule({
         </div>
       </Tabs>
 
-      {mode === "draft" ? (
-        <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 bg-white/95 px-1 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/85" aria-label="Tindakan langkah Tryout">
-          <div className="min-w-0 text-sm text-secondary-600">
-            {dirty ? <span className="font-semibold text-[#8a5e00]">Perubahan belum disimpan</span> : <span>{workspace === "review" ? "Ringkasan Tryout siap diterbitkan." : "Langkah tersimpan dapat dibuka kembali selama Tryout masih draf."}</span>}
-            {workspace === "sections" && !configureReady ? <span className="ml-2 text-[#8a5e00]">Lengkapi semua Section untuk membuka Readiness.</span> : null}
-          </div>
+      {mode === "draft" && workspace !== "review" ? (
+        <footer className="sticky bottom-0 z-20 mt-5 flex flex-wrap items-center justify-end gap-3 bg-white/95 px-1 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/85" aria-label="Tindakan langkah Tryout">
           <div className="flex flex-wrap justify-end gap-2">
             {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button> : null}
             {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
             {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
           </div>
         </footer>
-      ) : (
+      ) : mode === "published" ? (
         <section className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3.5" aria-label="Tindakan versi terbit">
           <div className="min-w-0"><p className="font-semibold text-secondary-900">Versi terbit tidak dapat diubah strukturnya</p><p className="mt-1 text-sm leading-6 text-secondary-600">Edit detail hanya mengubah judul dan deskripsi. Perubahan Section atau sumber dibuat sebagai draf perubahan.</p></div>
           <div className="flex flex-wrap gap-2"><Button disabled={metadataSaving} onClick={() => { setMetadataDraft({ description: draft.description, title: draft.title }); setMetadataOpen(true); }} variant="brandOutline"><Pencil />Edit details</Button><Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Buat draf perubahan</Button></div>
         </section>
-      )}
+      ) : null}
 
       <Dialog onOpenChange={(open) => { if (!metadataSaving) setMetadataOpen(open); }} open={metadataOpen}>
         <DialogContent className="sm:max-w-xl">
