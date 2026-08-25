@@ -122,7 +122,7 @@ function assemblyIdentityFrom(input: KuisAssessmentDefinitionInput) {
 function normalizeKuisAssessmentDefinition(input: KuisAssessmentDefinitionInput): KuisAssessmentDefinition {
   return {
     assembly: assemblyIdentityFrom(input),
-    attemptsAllowed: input.attemptsAllowed ?? 1,
+    attemptsAllowed: input.attemptsAllowed === undefined ? 1 : input.attemptsAllowed,
     correctAnswerVisibility: input.correctAnswerVisibility ?? "show",
     description: input.description,
     formBehavior: input.formBehavior ?? "same",

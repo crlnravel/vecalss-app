@@ -248,7 +248,7 @@ function editableFromInitialDraft(definition: KuisAssessmentDefinitionInput): Ku
         packageVersionId: definition.assembly?.packageVersionId ?? definition.assemblyPackageVersionId ?? null,
         seed: definition.assembly?.seed ?? definition.assemblySeed ?? null,
       },
-      attemptsAllowed: definition.attemptsAllowed ?? 1,
+      attemptsAllowed: definition.attemptsAllowed === undefined ? 1 : definition.attemptsAllowed,
       correctAnswerVisibility: definition.correctAnswerVisibility ?? "show",
       description: definition.description,
       formBehavior: definition.formBehavior ?? "same",

@@ -84,6 +84,7 @@ import { fieldControlClassName } from "@/components/ui/field-constants";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { showToast } from "@/components/ui/sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   allMediaMimeTypes,
@@ -607,7 +608,13 @@ function useMediaLibraryUploads({
 
     setUploadStatus(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    refreshLibrary(files.length === 1 ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diupload.` : `${files.length} ${mediaLabel} berhasil diupload.`);
+    showToast(
+      files.length === 1
+        ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} berhasil diupload.`
+        : `${files.length} ${mediaLabel} berhasil diupload.`,
+      { variant: "success" },
+    );
+    refreshLibrary();
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {

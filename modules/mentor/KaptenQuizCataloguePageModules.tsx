@@ -46,7 +46,6 @@ type QuizCatalogueState = {
   isPending: boolean;
   selectionMode: boolean;
   statusFilter: string;
-  questionFilter: string;
 };
 
 type QuizCatalogueAction =
@@ -138,7 +137,6 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
     isPending: false,
     notice: null,
     page: 1,
-    questionFilter: "",
     query: "",
     quizzes: catalogue.filter((quiz) => quiz.subjectCode === subject.code),
     selectedIds: new Set<string>(),
@@ -151,7 +149,6 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
     isPending,
     notice,
     page,
-    questionFilter,
     query,
     quizzes,
     selectedIds,
@@ -161,7 +158,6 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
   const visibleQuizzes = quizzes.filter((quiz) =>
     (!query.trim() || [quiz.title, quiz.status, quiz.primaryMetric].some((value) => value.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
     && (!statusFilter || quiz.status === statusFilter)
-    && (!questionFilter || (questionFilter === "ready" ? quiz.questionCount > 0 : quiz.questionCount === 0))
   );
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(visibleQuizzes.length / pageSize));
@@ -249,16 +245,6 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
               { label: "Terjadwal", value: "scheduled" },
             ]}
             value={statusFilter}
-          />
-          <CatalogueFilter
-            label="Filter isi soal"
-            onValueChange={(value) => dispatch({ patch: { page: 1, questionFilter: value, selectedIds: new Set() }, type: "patch" })}
-            options={[
-              { label: "Semua isi soal", value: "" },
-              { label: "Memiliki soal", value: "ready" },
-              { label: "Belum memiliki soal", value: "empty" },
-            ]}
-            value={questionFilter}
           />
           {!selectionMode ? <Button aria-label="Pilih beberapa quiz" className="ml-auto" onClick={() => dispatch({ patch: { selectionMode: true }, type: "patch" })} size="icon-sm" title="Pilih beberapa quiz" type="button" variant="brandOutline"><ListChecks /></Button> : null}
         </div>

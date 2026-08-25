@@ -96,6 +96,16 @@ assert.equal(
   "definition digest must ignore object insertion order and schedule/visibility",
 );
 assert.notEqual(
+  digestKuisAssessmentDefinition({ ...definition, attemptsAllowed: null }),
+  digestKuisAssessmentDefinition({ ...definition, attemptsAllowed: 1 }),
+  "unlimited attempts must remain distinct from a one-attempt definition",
+);
+assert.equal(
+  normalizeKuisAssessmentDefinition({ ...definition, attemptsAllowed: null }).attemptsAllowed,
+  null,
+  "explicit null attempts must remain unlimited",
+);
+assert.notEqual(
   digestKuisAssessmentDefinition(definition),
   digestKuisAssessmentDefinition({ ...definition, title: "Kuis Berubah" }),
   "title is a versioned field",
@@ -224,6 +234,11 @@ assert.equal(initial.actions.publish.label, "Terbitkan Kuis");
 assert.equal(initial.actions.publish.enabled, true);
 assert.equal(initial.draftRevision?.isInitial, true);
 assert.equal(initial.hasUnpublishedChanges, false);
+const unlimitedInitial = projectKuisEditor({
+  initialDraft: { ...definition, attemptsAllowed: null },
+  quiz: { ...quiz, status: "draft" },
+});
+assert.equal(unlimitedInitial.editable?.attemptsAllowed, null, "initial draft projection must preserve unlimited attempts");
 
 const hidden = projectKuisEditor({ quiz: { ...quiz, status: "hidden" }, activeVersion: active });
 assert.equal(hidden.activeVersion?.label, "Versi 2 aktif", "hidden operational state keeps the active version summary");
