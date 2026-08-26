@@ -553,7 +553,9 @@ enum AiPolicyState {
 
 enum AiPolicyAuditAction {
   created
+  draft_edited
   validated
+  previewed
   rejected
   submitted
   approved
@@ -561,6 +563,8 @@ enum AiPolicyAuditAction {
   activated
   retired
   rolled_back
+  rollback_created
+  retention_extension_requested
 
   @@map("ai_policy_audit_action")
 }
