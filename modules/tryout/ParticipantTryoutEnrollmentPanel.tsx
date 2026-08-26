@@ -22,6 +22,236 @@ import { registerForTryoutWithTargetAction } from "@/modules/tryout/participant-
 type UniversityOption = { id: string; name: string; shortName: string | null };
 type MajorOption = { id: string; name: string; universityId: string };
 
+function UniversityPicker({
+  matchingUniversities,
+  onOpenChange,
+  onQueryChange,
+  onSelectUniversity,
+  open,
+  query,
+  selectedUniversity,
+  selectedUniversityId,
+}: {
+  matchingUniversities: UniversityOption[];
+  onOpenChange: (open: boolean) => void;
+  onQueryChange: (query: string) => void;
+  onSelectUniversity: (id: string) => void;
+  open: boolean;
+  query: string;
+  selectedUniversity?: UniversityOption;
+  selectedUniversityId: string;
+}) {
+  return (
+    <div className="grid gap-2 text-sm font-medium text-secondary-800">
+      <span className="flex items-center gap-2">
+        <Buildings className="text-primary-700" />
+        Universitas target
+      </span>
+      <Popover onOpenChange={onOpenChange} open={open}>
+        <PopoverTrigger
+          aria-haspopup="listbox"
+          render={
+            <Button
+              className="h-12 w-full justify-between rounded-xl px-4 text-left"
+              type="button"
+              variant="context"
+            />
+          }
+        >
+          <span className={selectedUniversity ? "truncate" : "truncate text-secondary-500"}>
+            {selectedUniversity?.name ?? "Pilih universitas"}
+          </span>
+          <CaretDown className="text-secondary-500" />
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3">
+          <div className="relative">
+            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Input
+              aria-label="Cari universitas target"
+              autoFocus
+              className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Cari universitas..."
+              value={query}
+            />
+          </div>
+          <div aria-label="Pilihan universitas" className="grid max-h-60 gap-1 overflow-y-auto" role="listbox">
+            {matchingUniversities.length ? (
+              matchingUniversities.map((item) => (
+                <Button
+                  aria-selected={item.id === selectedUniversityId}
+                  className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+                  key={item.id}
+                  onClick={() => onSelectUniversity(item.id)}
+                  role="option"
+                  type="button"
+                  variant={item.id === selectedUniversityId ? "contextSelected" : "ghost"}
+                >
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  {item.id === selectedUniversityId ? <Check className="text-primary-700" /> : null}
+                </Button>
+              ))
+            ) : (
+              <p className="px-3 py-5 text-sm text-secondary-500">Universitas tidak ditemukan.</p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function MajorPicker({
+  disabled,
+  matchingMajors,
+  onOpenChange,
+  onQueryChange,
+  onSelectMajor,
+  open,
+  query,
+  selectedMajor,
+  selectedMajorId,
+  selectedUniversityId,
+}: {
+  disabled: boolean;
+  matchingMajors: MajorOption[];
+  onOpenChange: (open: boolean) => void;
+  onQueryChange: (query: string) => void;
+  onSelectMajor: (id: string) => void;
+  open: boolean;
+  query: string;
+  selectedMajor?: MajorOption;
+  selectedMajorId: string;
+  selectedUniversityId: string;
+}) {
+  return (
+    <div className="grid gap-2 text-sm font-medium text-secondary-800">
+      <span className="flex items-center gap-2">
+        <GraduationCap className="text-primary-700" />
+        Jurusan target
+      </span>
+      <Popover onOpenChange={onOpenChange} open={open}>
+        <PopoverTrigger
+          aria-haspopup="listbox"
+          disabled={disabled}
+          render={
+            <Button
+              className="h-12 w-full justify-between rounded-xl px-4 text-left"
+              type="button"
+              variant="context"
+            />
+          }
+        >
+          <span className={selectedMajor ? "truncate" : "truncate text-secondary-500"}>
+            {!selectedUniversityId ? "Pilih universitas terlebih dahulu" : selectedMajor?.name ?? "Pilih jurusan"}
+          </span>
+          <CaretDown className="text-secondary-500" />
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3">
+          <div className="relative">
+            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
+            <Input
+              aria-label="Cari jurusan target"
+              autoFocus
+              className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Cari jurusan..."
+              value={query}
+            />
+          </div>
+          <div aria-label="Pilihan jurusan" className="grid max-h-60 gap-1 overflow-y-auto" role="listbox">
+            {matchingMajors.length ? (
+              matchingMajors.map((item) => (
+                <Button
+                  aria-selected={item.id === selectedMajorId}
+                  className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+                  key={item.id}
+                  onClick={() => onSelectMajor(item.id)}
+                  role="option"
+                  type="button"
+                  variant={item.id === selectedMajorId ? "contextSelected" : "ghost"}
+                >
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  {item.id === selectedMajorId ? <Check className="text-primary-700" /> : null}
+                </Button>
+              ))
+            ) : (
+              <p className="px-3 py-5 text-sm text-secondary-500">Jurusan tidak ditemukan.</p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function EnrollmentConfirmationDialog({
+  busy,
+  major,
+  message,
+  onConfirm,
+  onOpenChange,
+  open,
+  tryoutTitle,
+  university,
+}: {
+  busy: boolean;
+  major?: MajorOption;
+  message: string | null;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  tryoutTitle: string;
+  university?: UniversityOption;
+}) {
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={open}>
+      <AlertDialogContent pending={busy}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Konfirmasi pendaftaran</AlertDialogTitle>
+          <AlertDialogDescription>
+            Periksa targetmu sebelum mendaftar ke {tryoutTitle}. Pendaftaran tidak langsung menjalankan timer; kamu tetap akan masuk ke ruang tunggu dan membaca aturan ujian.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <dl className="grid gap-0 divide-y divide-primary-100 rounded-2xl border border-primary-100 px-4">
+          <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr]">
+            <dt className="text-sm text-secondary-500">Universitas target</dt>
+            <dd className="font-semibold text-secondary-900">{university?.name}</dd>
+          </div>
+          <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr]">
+            <dt className="text-sm text-secondary-500">Jurusan target</dt>
+            <dd className="font-semibold text-secondary-900">{major?.name}</dd>
+          </div>
+        </dl>
+
+        {message ? (
+          <p className="rounded-xl border border-student-status-danger-border bg-student-status-danger-bg p-3 text-sm text-student-status-danger-fg" role="alert">
+            {message}
+          </p>
+        ) : null}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
+          <Button disabled={busy} onClick={onConfirm} type="button" variant="brand">
+            {busy ? (
+              <>
+                <SpinnerGap className="animate-spin" />
+                Mendaftarkan…
+              </>
+            ) : (
+              <>
+                Konfirmasi dan daftar
+                <ArrowRight />
+              </>
+            )}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function ParticipantTryoutEnrollmentPanel({
   initialMajorId,
   initialUniversityId,
@@ -48,16 +278,14 @@ function ParticipantTryoutEnrollmentPanel({
   const [message, setMessage] = useState<string | null>(null);
 
   const visibleMajors = useMemo(
-    () => majors.filter((major) => major.universityId === universityId),
+    () => majors.filter((m) => m.universityId === universityId),
     [majors, universityId],
   );
   const matchingUniversities = useMemo(() => {
     const query = universityQuery.trim().toLocaleLowerCase("id-ID");
     if (!query) return universities;
     return universities.filter((item) =>
-      `${item.name} ${item.shortName ?? ""}`
-        .toLocaleLowerCase("id-ID")
-        .includes(query),
+      `${item.name} ${item.shortName ?? ""}`.toLocaleLowerCase("id-ID").includes(query),
     );
   }, [universityQuery, universities]);
   const matchingMajors = useMemo(() => {
@@ -67,6 +295,7 @@ function ParticipantTryoutEnrollmentPanel({
       item.name.toLocaleLowerCase("id-ID").includes(query),
     );
   }, [majorQuery, visibleMajors]);
+
   const university = universities.find((item) => item.id === universityId);
   const major = majors.find(
     (item) => item.id === majorId && item.universityId === universityId,
@@ -158,173 +387,30 @@ function ParticipantTryoutEnrollmentPanel({
             />
           </div>
           <div className="grid gap-3">
-            <div className="grid gap-2 text-sm font-medium text-secondary-800">
-              <span className="flex items-center gap-2">
-                <Buildings className="text-primary-700" />
-                Universitas target
-              </span>
-              <Popover
-                onOpenChange={setUniversityOpen}
-                open={universityOpen}
-              >
-                <PopoverTrigger
-                  aria-haspopup="listbox"
-                  render={
-                    <Button
-                      className="h-12 w-full justify-between rounded-xl px-4 text-left"
-                      type="button"
-                      variant="context"
-                    />
-                  }
-                >
-                  <span
-                    className={
-                      university
-                        ? "truncate"
-                        : "truncate text-secondary-500"
-                    }
-                  >
-                    {university?.name ?? "Pilih universitas"}
-                  </span>
-                  <CaretDown className="text-secondary-500" />
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3"
-                >
-                  <div className="relative">
-                    <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
-                    <Input
-                      aria-label="Cari universitas target"
-                      autoFocus
-                      className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
-                      onChange={(event) =>
-                        setUniversityQuery(event.target.value)
-                      }
-                      placeholder="Cari universitas..."
-                      value={universityQuery}
-                    />
-                  </div>
-                  <div
-                    aria-label="Pilihan universitas"
-                    className="grid max-h-60 gap-1 overflow-y-auto"
-                    role="listbox"
-                  >
-                    {matchingUniversities.length ? (
-                      matchingUniversities.map((item) => (
-                        <Button
-                          aria-selected={item.id === universityId}
-                          className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
-                          key={item.id}
-                          onClick={() => handleUniversityChange(item.id)}
-                          role="option"
-                          type="button"
-                          variant={
-                            item.id === universityId
-                              ? "contextSelected"
-                              : "ghost"
-                          }
-                        >
-                          <span className="min-w-0 flex-1 truncate">
-                            {item.name}
-                          </span>
-                          {item.id === universityId ? (
-                            <Check className="text-primary-700" />
-                          ) : null}
-                        </Button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-5 text-sm text-secondary-500">
-                        Universitas tidak ditemukan.
-                      </p>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="grid gap-2 text-sm font-medium text-secondary-800">
-              <span className="flex items-center gap-2">
-                <GraduationCap className="text-primary-700" />
-                Jurusan target
-              </span>
-              <Popover onOpenChange={setMajorOpen} open={majorOpen}>
-                <PopoverTrigger
-                  aria-haspopup="listbox"
-                  disabled={!universityId}
-                  render={
-                    <Button
-                      className="h-12 w-full justify-between rounded-xl px-4 text-left"
-                      type="button"
-                      variant="context"
-                    />
-                  }
-                >
-                  <span
-                    className={major ? "truncate" : "truncate text-secondary-500"}
-                  >
-                    {major?.name ??
-                      (universityId
-                        ? "Pilih jurusan"
-                        : "Pilih universitas dulu")}
-                  </span>
-                  <CaretDown className="text-secondary-500" />
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3"
-                >
-                  <div className="relative">
-                    <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
-                    <Input
-                      aria-label="Cari jurusan target"
-                      autoFocus
-                      className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
-                      onChange={(event) => setMajorQuery(event.target.value)}
-                      placeholder="Cari jurusan..."
-                      value={majorQuery}
-                    />
-                  </div>
-                  <div
-                    aria-label="Pilihan jurusan"
-                    className="grid max-h-60 gap-1 overflow-y-auto"
-                    role="listbox"
-                  >
-                    {matchingMajors.length ? (
-                      matchingMajors.map((item) => (
-                        <Button
-                          aria-selected={item.id === majorId}
-                          className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
-                          key={item.id}
-                          onClick={() => handleMajorChange(item.id)}
-                          role="option"
-                          type="button"
-                          variant={
-                            item.id === majorId
-                              ? "contextSelected"
-                              : "ghost"
-                          }
-                        >
-                          <span className="min-w-0 flex-1 truncate">
-                            {item.name}
-                          </span>
-                          {item.id === majorId ? (
-                            <Check className="text-primary-700" />
-                          ) : null}
-                        </Button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-5 text-sm text-secondary-500">
-                        Jurusan tidak ditemukan.
-                      </p>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+            <UniversityPicker
+              matchingUniversities={matchingUniversities}
+              onOpenChange={setUniversityOpen}
+              onQueryChange={setUniversityQuery}
+              onSelectUniversity={handleUniversityChange}
+              open={universityOpen}
+              query={universityQuery}
+              selectedUniversity={university}
+              selectedUniversityId={universityId}
+            />
+            <MajorPicker
+              disabled={!universityId}
+              matchingMajors={matchingMajors}
+              onOpenChange={setMajorOpen}
+              onQueryChange={setMajorQuery}
+              onSelectMajor={handleMajorChange}
+              open={majorOpen}
+              query={majorQuery}
+              selectedMajor={major}
+              selectedMajorId={majorId}
+              selectedUniversityId={universityId}
+            />
             <p className="text-sm leading-6 text-secondary-600">
-              Target jurusan akan tersimpan di profilmu saat kamu menyelesaikan
-              pendaftaran.
+              Target jurusan akan tersimpan di profilmu saat kamu menyelesaikan pendaftaran.
             </p>
           </div>
         </div>
@@ -357,65 +443,18 @@ function ParticipantTryoutEnrollmentPanel({
         ) : null}
       </div>
 
-      <AlertDialog
+      <EnrollmentConfirmationDialog
+        busy={busy}
+        major={major}
+        message={message}
+        onConfirm={() => void handleRegister()}
         onOpenChange={(nextOpen) => {
           if (!busy) setConfirmOpen(nextOpen);
         }}
         open={confirmOpen}
-      >
-        <AlertDialogContent pending={busy}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Konfirmasi pendaftaran</AlertDialogTitle>
-            <AlertDialogDescription>
-              Periksa targetmu sebelum mendaftar ke {tryoutTitle}. Pendaftaran
-              tidak langsung menjalankan timer; kamu tetap akan masuk ke ruang
-              tunggu dan membaca aturan ujian.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <dl className="grid gap-0 divide-y divide-primary-100 rounded-2xl border border-primary-100 px-4">
-            <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr]">
-              <dt className="text-sm text-secondary-500">Universitas target</dt>
-              <dd className="font-semibold text-secondary-900">{university?.name}</dd>
-            </div>
-            <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr]">
-              <dt className="text-sm text-secondary-500">Jurusan target</dt>
-              <dd className="font-semibold text-secondary-900">{major?.name}</dd>
-            </div>
-          </dl>
-
-          {message ? (
-            <p
-              className="rounded-xl border border-student-status-danger-border bg-student-status-danger-bg p-3 text-sm text-student-status-danger-fg"
-              role="alert"
-            >
-              {message}
-            </p>
-          ) : null}
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Batal</AlertDialogCancel>
-            <Button
-              disabled={busy}
-              onClick={() => void handleRegister()}
-              type="button"
-              variant="brand"
-            >
-              {busy ? (
-                <>
-                  <SpinnerGap className="animate-spin" />
-                  Mendaftarkan…
-                </>
-              ) : (
-                <>
-                  Konfirmasi dan daftar
-                  <ArrowRight />
-                </>
-              )}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        tryoutTitle={tryoutTitle}
+        university={university}
+      />
     </div>
   );
 }

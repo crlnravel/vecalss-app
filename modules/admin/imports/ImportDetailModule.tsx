@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast";
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
 import {

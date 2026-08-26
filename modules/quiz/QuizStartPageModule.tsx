@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ function QuizStartPageModule({
   subjectTitle: string;
 }) {
   const router = useRouter();
-  const [startRequestId, setStartRequestId] = useState<string | null>(null);
+  const startRequestIdRef = useRef<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -40,8 +40,8 @@ function QuizStartPageModule({
     setIsStarting(true);
     setMessage(null);
     try {
-      const requestId = startRequestId ?? crypto.randomUUID();
-      setStartRequestId(requestId);
+      const requestId = startRequestIdRef.current ?? crypto.randomUUID();
+      startRequestIdRef.current = requestId;
       const response = await startQuizAction(subjectCode, quiz.slug, requestId);
       if (!response.ok) {
         setMessage(response.message);

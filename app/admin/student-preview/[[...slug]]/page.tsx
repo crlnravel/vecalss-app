@@ -120,6 +120,13 @@ function PreviewUnavailable({ message, standalone = false }: { message: string; 
   );
 }
 
+const PREVIEW_PLACEHOLDER_LINKS = [
+  ["Beranda", buildAdminStudentPreviewRoute("/")],
+  ["Materi", buildAdminStudentPreviewRoute("/courses")],
+  ["Kuis", buildAdminStudentPreviewRoute("/quiz")],
+  ["Tryout", buildAdminStudentPreviewRoute("/tryout")],
+] as const;
+
 function PreviewPlaceholder({
   context,
   surface,
@@ -127,12 +134,7 @@ function PreviewPlaceholder({
   context: AdminStudentPreviewContext;
   surface: PreviewSurface;
 }) {
-  const links = [
-    ["Beranda", buildAdminStudentPreviewRoute("/")],
-    ["Materi", buildAdminStudentPreviewRoute("/courses")],
-    ["Kuis", buildAdminStudentPreviewRoute("/quiz")],
-    ["Tryout", buildAdminStudentPreviewRoute("/tryout")],
-  ] as const;
+  const links = PREVIEW_PLACEHOLDER_LINKS;
 
   return (
     <section className="grid gap-6">

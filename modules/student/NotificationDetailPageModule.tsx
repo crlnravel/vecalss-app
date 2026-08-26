@@ -155,7 +155,7 @@ function NotificationDetailPageModule({
             <Button
               className="mt-8"
               nativeButton={false}
-              render={<a href={notification.href} rel="noreferrer" target="_blank" />}
+              render={<a aria-label="Buka tautan Zoom" href={notification.href} rel="noreferrer" target="_blank" />}
               variant="brand"
             >
               Buka tautan Zoom

@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { House, RefreshCw } from "@/lib/icons";
 import {
@@ -26,6 +27,8 @@ import {
   AssessmentResultWorkspace,
   AssessmentUtilityPill,
 } from "@/modules/assessment/AssessmentWorkspace";
+import { AssessmentReviewAnswerOption } from "@/modules/assessment/AssessmentReviewAnswerOption";
+import { AssessmentResultStat } from "@/modules/assessment/AssessmentResultStat";
 import { cn } from "@/lib/utils";
 import { participantTryoutResultAction } from "./participant-actions";
 
@@ -149,7 +152,7 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
           <p className="mt-3 text-sm leading-6 text-secondary-600">{result.status}</p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Button onClick={() => void load()} variant="brand">Periksa lagi</Button>
-            <Button aria-label="Kembali ke tryout" nativeButton={false} render={<Link href="/tryout" />} size="icon" title="Kembali ke tryout" variant="brandOutline"><ArrowLeft /></Button>
+            <BackButton href="/tryout" label="Kembali ke tryout" variant="brandOutline"><ArrowLeft /></BackButton>
           </div>
         </div>
       </main>
@@ -251,12 +254,12 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
         <div className="space-y-3 text-left">
           <div className="flex items-start gap-2 text-sm text-secondary-600"><Target className="mt-0.5 size-4 shrink-0 text-primary-700" /><span>{targetLabel}</span></div>
           <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-            <ResultStat label="Benar" value={`${metrics.correct}`} />
-            <ResultStat label="Salah" value={`${metrics.wrong}`} />
-            <ResultStat label="Kosong" value={`${metrics.blank}`} />
-            <ResultStat label="Akurasi" value={`${metrics.accuracy}%`} />
-            <ResultStat label="Rata-rata" value={formatTime(metrics.total ? Math.round(metrics.totalTime / metrics.total) : 0)} />
-            <ResultStat label={rankingScope} value={rankingLabel} />
+            <AssessmentResultStat label="Benar" value={`${metrics.correct}`} />
+            <AssessmentResultStat label="Salah" value={`${metrics.wrong}`} />
+            <AssessmentResultStat label="Kosong" value={`${metrics.blank}`} />
+            <AssessmentResultStat label="Akurasi" value={`${metrics.accuracy}%`} />
+            <AssessmentResultStat label="Rata-rata" value={formatTime(metrics.total ? Math.round(metrics.totalTime / metrics.total) : 0)} />
+            <AssessmentResultStat label={rankingScope} value={rankingLabel} />
           </div>
           <p className="text-xs leading-5 text-secondary-500">Skor ini untuk latihan dan bukan nilai resmi SNBT.</p>
           {result.ranking.provisional ? <p className="text-xs text-student-status-attention-fg">Peringkat sementara hingga sesi ditutup.</p> : null}
@@ -284,7 +287,13 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
 
         <div className="mt-7 grid gap-3">
           {question.options.map((option) => (
-            <ReviewAnswerOption key={option.id} option={option} selected={option.id === question.selectedOptionId} />
+            <AssessmentReviewAnswerOption
+              correct={option.correct === true}
+              key={option.id}
+              label={option.choiceKey}
+              selected={option.id === question.selectedOptionId}
+              text={option.content}
+            />
           ))}
         </div>
 
@@ -370,28 +379,6 @@ function ParticipantResultModule({ attemptId }: { attemptId: string }) {
         </section>
       </div>
     </AssessmentResultWorkspace>
-  );
-}
-
-function ResultStat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-2xl border border-primary-100 bg-secondary-50 px-3 py-3"><p className="text-xs font-medium text-secondary-500">{label}</p><p className="mt-1 text-xl font-semibold text-secondary-900">{value}</p></div>;
-}
-
-function ReviewAnswerOption({
-  option,
-  selected,
-}: {
-  option: { choiceKey: string; content: string; correct: boolean | undefined; id: string };
-  selected: boolean;
-}) {
-  const isIncorrectSelection = selected && option.correct !== true;
-  return (
-    <div className={cn("flex items-start gap-4 rounded-3xl border px-4 py-4 sm:px-5", option.correct === true && "border-student-status-success-border bg-student-status-success-bg", isIncorrectSelection && "border-student-status-danger-border bg-student-status-danger-bg", option.correct !== true && !isIncorrectSelection && "border-primary-100 bg-white")}>
-      <span className={cn("mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold", option.correct === true && "border-student-status-success-solid-bg bg-student-status-success-solid-bg text-student-status-success-solid-fg", isIncorrectSelection && "border-student-status-danger-solid-bg bg-student-status-danger-solid-bg text-student-status-danger-solid-fg", option.correct !== true && !isIncorrectSelection && "border-secondary-200 bg-secondary-50 text-secondary-500")}>
-        {option.correct === true ? <Check className="size-5" /> : option.choiceKey}
-      </span>
-      <p className="min-w-0 flex-1 text-lg leading-[1.8] font-medium text-secondary-800">{option.content}</p>
-    </div>
   );
 }
 

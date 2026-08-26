@@ -353,9 +353,10 @@ function normalizeSelectedSessionId(
   preferredSessionIds: readonly string[] = [],
 ) {
   const ids = uniqueSessionIds(sessions);
+  const idSet = new Set(ids);
   const requested = asTrimmedString(requestedSessionId);
-  if (requested && ids.includes(requested)) return requested;
-  const preferred = preferredSessionIds.find((id) => ids.includes(id));
+  if (requested && idSet.has(requested)) return requested;
+  const preferred = preferredSessionIds.find((id) => idSet.has(id));
   return preferred ?? ids[0] ?? null;
 }
 
@@ -391,14 +392,20 @@ function normalizeTryoutSessionSelection(
 function projectTryoutWorkflow(input: TryoutWorkflowProjectionInput): TryoutWorkflowProjection {
   const mode = modeFrom(input);
   const sessions = input.sessions ?? [];
-  const liveEligibleSessionIds = mode === "published" ? sessions
-    .filter(sessionIsRuntimeEligible)
-    .map((session) => asTrimmedString(session.id))
-    .filter((id): id is string => Boolean(id)) : [];
-  const resultEligibleSessionIds = mode === "published" ? sessions
-    .filter(sessionHasResultActivity)
-    .map((session) => asTrimmedString(session.id))
-    .filter((id): id is string => Boolean(id)) : [];
+  const liveEligibleSessionIds = mode === "published"
+    ? sessions.flatMap((session) => {
+        if (!sessionIsRuntimeEligible(session)) return [];
+        const id = asTrimmedString(session.id);
+        return id ? [id] : [];
+      })
+    : [];
+  const resultEligibleSessionIds = mode === "published"
+    ? sessions.flatMap((session) => {
+        if (!sessionHasResultActivity(session)) return [];
+        const id = asTrimmedString(session.id);
+        return id ? [id] : [];
+      })
+    : [];
   const operationsAvailable = mode === "published" && sessions.some(sessionHasOpened);
   const resultsAvailable = resultEligibleSessionIds.length > 0;
   const requestedSessionId = requestedSessionFrom(input);

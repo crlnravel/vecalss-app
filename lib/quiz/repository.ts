@@ -533,43 +533,46 @@ async function getMentorStandaloneQuizSubmission(quizId: string, attemptId: stri
 async function bulkUpdateStandaloneQuizLifecycle(ids: string[], tutorId: string, operation: "publish" | "unpublish") {
   return prisma.$transaction(async (tx) => {
     const uniqueIds = [...new Set(ids)];
-    for (const id of [...uniqueIds].sort()) {
-      await tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`;
-    }
+    const sortedIds = [...uniqueIds].sort();
+    await Promise.all(
+      sortedIds.map((id) => tx.$queryRaw`SELECT id FROM standalone_quizzes WHERE id = ${id}::uuid FOR UPDATE`),
+    );
     const records = await tx.standaloneQuiz.findMany({ where: { id: { in: uniqueIds }, createdByUserId: tutorId }, include: quizInclude });
     if (records.length !== uniqueIds.length) throw new QuizValidationError("Sebagian Quiz tidak ditemukan.");
     if (operation === "publish") {
-      for (const record of records) {
-        let publicationQuestions = record.items.map(toSnapshot);
-        if (record.assemblyPackageVersionId) {
-          try {
-            const materialization = await resolveReadyAssemblyForKuis(tx, record.assemblyPackageVersionId, record.subtestId, {
-              expectedDefinitionDigest: record.assemblyDefinitionDigest,
-              expectedMode: record.assemblyMode as "fixed_set" | "random_pool" | "blueprint" | null,
-              seed: record.assemblySeed,
-            });
-            assertAssemblyItemsMatch(record.items, materialization);
-            publicationQuestions = snapshotsFromAssembly(materialization);
-          } catch (error) {
-            if (error instanceof AssemblyValidationError) throw new QuizValidationError(error.message);
-            throw error;
+      await Promise.all(
+        records.map(async (record) => {
+          let publicationQuestions = record.items.map(toSnapshot);
+          if (record.assemblyPackageVersionId) {
+            try {
+              const materialization = await resolveReadyAssemblyForKuis(tx, record.assemblyPackageVersionId, record.subtestId, {
+                expectedDefinitionDigest: record.assemblyDefinitionDigest,
+                expectedMode: record.assemblyMode as "fixed_set" | "random_pool" | "blueprint" | null,
+                seed: record.assemblySeed,
+              });
+              assertAssemblyItemsMatch(record.items, materialization);
+              publicationQuestions = snapshotsFromAssembly(materialization);
+            } catch (error) {
+              if (error instanceof AssemblyValidationError) throw new QuizValidationError(error.message);
+              throw error;
+            }
+          } else {
+            await revalidateStoredBankItems(tx, record);
           }
-        } else {
-          await revalidateStoredBankItems(tx, record);
-        }
-        validateForPublication({
-          assemblyVersionId: record.assemblyPackageVersionId ?? undefined,
-          closesAt: record.closesAt?.toISOString() ?? "",
-          description: record.description ?? "",
-          id: record.id,
-          opensAt: record.opensAt?.toISOString() ?? "",
-          questions: publicationQuestions,
-          sourceBankId: record.sourceBankId ?? undefined,
-          status: "published",
-          subjectCode: record.subtest.code,
-          title: record.title,
-        }, record.opensAt, record.closesAt, { materializedAssembly: Boolean(record.assemblyPackageVersionId) });
-      }
+          validateForPublication({
+            assemblyVersionId: record.assemblyPackageVersionId ?? undefined,
+            closesAt: record.closesAt?.toISOString() ?? "",
+            description: record.description ?? "",
+            id: record.id,
+            opensAt: record.opensAt?.toISOString() ?? "",
+            questions: publicationQuestions,
+            sourceBankId: record.sourceBankId ?? undefined,
+            status: "published",
+            subjectCode: record.subtest.code,
+            title: record.title,
+          }, record.opensAt, record.closesAt, { materializedAssembly: Boolean(record.assemblyPackageVersionId) });
+        }),
+      );
     }
     const status = operation === "publish" ? ContentStatus.published : ContentStatus.draft;
     await tx.standaloneQuiz.updateMany({ where: { id: { in: uniqueIds }, createdByUserId: tutorId }, data: { status } });
@@ -1035,6 +1038,7 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
     const itemById = new Map(snapshot.items.map((item) => [item.id, item]));
     let invalidAnswer = false;
     let correctCount = 0;
+    const updates: Array<{ id: string; isCorrect: boolean }> = [];
     for (const answer of attempt.answers) {
       const item = itemById.get(answer.quizItemId);
       const option = item?.options.find((candidate) => candidate.id === answer.selectedOptionId);
@@ -1044,11 +1048,16 @@ async function submitStandaloneQuiz(attemptId: string, studentId: string) {
       }
       const isCorrect = option.isCorrect;
       if (isCorrect) correctCount += 1;
-      await tx.standaloneQuizAnswer.update({
-        where: { id: answer.id },
-        data: { isCorrect, pointsAwarded: isCorrect ? 1 : 0, scoringVersion: KUIS_SCORING_VERSION },
-      });
+      updates.push({ id: answer.id, isCorrect });
     }
+    await Promise.all(
+      updates.map(({ id, isCorrect }) =>
+        tx.standaloneQuizAnswer.update({
+          where: { id },
+          data: { isCorrect, pointsAwarded: isCorrect ? 1 : 0, scoringVersion: KUIS_SCORING_VERSION },
+        }),
+      ),
+    );
 
     if (invalidAnswer) {
       await tx.standaloneQuizAttempt.update({

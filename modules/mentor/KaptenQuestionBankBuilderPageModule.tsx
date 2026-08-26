@@ -43,7 +43,7 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
-import { showToast } from "@/components/ui/sonner";
+import { showToast } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -323,6 +323,11 @@ function toQuestionDraft(question: BankQuestion): BankQuestion {
   };
 }
 
+function describedBy(...ids: Array<string | undefined>) {
+  const presentIds = ids.filter((id): id is string => Boolean(id));
+  return presentIds.length ? presentIds.join(" ") : undefined;
+}
+
 function QuestionBankEditorForm({
   activeQuestionId,
   isQuestionContentLocked,
@@ -364,10 +369,6 @@ function QuestionBankEditorForm({
   const readinessHint = readinessIssues.length
     ? `Perbaiki ${readinessIssues.map(readinessFieldLabel).join(", ")}.`
     : undefined;
-  const describedBy = (...ids: Array<string | undefined>) => {
-    const presentIds = ids.filter((id): id is string => Boolean(id));
-    return presentIds.length ? presentIds.join(" ") : undefined;
-  };
 
   return (
     <div className="grid min-w-0 gap-6 rounded-2xl border border-primary-100 bg-white p-5 shadow-sm md:p-6">
@@ -732,7 +733,8 @@ function QuestionBankOrganizationPanel({
   onUpdate: (patch: QuestionBankOrganizationPatch) => void;
 }) {
   const [isOpen, setIsOpen] = useState(!collapsedByDefault);
-  const selectedCategories = categories.filter((category) => builderState.categoryIds.includes(category.id));
+  const categoryIdSet = new Set(builderState.categoryIds);
+  const selectedCategories = categories.filter((category) => categoryIdSet.has(category.id));
 
   return (
     <section className="rounded-2xl border border-primary-100 bg-primary-50/35 p-5 md:p-6">
@@ -776,7 +778,7 @@ function QuestionBankOrganizationPanel({
               <DropdownMenuLabel>Pilih satu atau beberapa kategori</DropdownMenuLabel>
               {categories.length ? categories.map((category) => (
                 <DropdownMenuCheckboxItem
-                  checked={builderState.categoryIds.includes(category.id)}
+                  checked={categoryIdSet.has(category.id)}
                   disabled={isDisabled}
                   key={category.id}
                   onCheckedChange={(checked) => onUpdate({ categoryIds: checked ? [...builderState.categoryIds, category.id] : builderState.categoryIds.filter((id) => id !== category.id) })}
@@ -1297,24 +1299,20 @@ function useQuestionBankPersistence({
   return { saveDraft, updateLifecycle };
 }
 
-function KaptenQuestionBankBuilderPageModule({
+function useQuestionBankBuilderState({
   bankId,
   initialActiveQuestionId,
-  initialCategories = [],
   initialBank = null,
   initialQuestions = [],
   initialReadiness = null,
   mode,
-  session,
 }: {
   bankId?: string;
   initialActiveQuestionId?: string;
-  initialCategories?: QuestionBankCategoryOption[];
   initialBank?: KaptenQuestionBank | null;
   initialQuestions?: BankQuestion[];
   initialReadiness?: QuestionBankReadiness | null;
   mode: "create" | "edit";
-  session: SessionContext;
 }) {
   const router = useRouter();
   const [localBuilderState, setLocalBuilderState] = useState(() => {
@@ -1347,11 +1345,11 @@ function KaptenQuestionBankBuilderPageModule({
     lifecycleStatus: initialBank?.status ?? "draft",
     mediaPickerTarget: null,
     pendingRouteReplacement: null,
-    readinessAnnouncement: "",
-    serverReadiness: mode === "edit" ? initialReadiness : null,
     previewChoiceId: null,
     questionDraft: toQuestionDraft(initialQuestion),
     questionEditorTab: "edit",
+    readinessAnnouncement: "",
+    serverReadiness: mode === "edit" ? initialReadiness : null,
   });
   const {
     activeQuestionId,
@@ -1722,20 +1720,20 @@ function KaptenQuestionBankBuilderPageModule({
     updateEditor,
   });
 
-  return <QuestionBankBuilderScreen
-    actions={{
+  return {
+    actions: {
       addChoice,
       addQuestion,
       closeConfirmation,
       confirmPendingAction,
       focusFirstIssue,
-      onChangeTab: (value) => {
+      onChangeTab: (value: string) => {
         if (value === "questions" || value === "details") updateEditor({ activeTab: value });
       },
-      onChoiceChange: (value) => updateEditor({ hasSubmittedPreview: false, previewChoiceId: value }),
+      onChoiceChange: (value: string) => updateEditor({ hasSubmittedPreview: false, previewChoiceId: value }),
       onCloseMedia: () => updateEditor({ mediaPickerTarget: null }),
-      onEditorTabChange: (value) => updateEditor({ questionEditorTab: value }),
-      onOpenMedia: (target) => updateEditor({ mediaPickerTarget: target }),
+      onEditorTabChange: (value: string) => updateEditor({ questionEditorTab: value as "edit" | "preview" }),
+      onOpenMedia: (target: MediaPickerTarget) => updateEditor({ mediaPickerTarget: target }),
       onOpenQuestion: selectQuestion,
       onRemoveChoice: removeChoice,
       onRemoveChoiceMedia: removeChoiceMedia,
@@ -1748,15 +1746,93 @@ function KaptenQuestionBankBuilderPageModule({
       updateLifecycle,
       updateMetadata,
       updateOrganization,
-    }}
-    bankId={bankId ?? initialBank?.id}
-    builderState={builderState}
-    categories={initialCategories}
-    mode={mode}
-    session={session}
-    state={{ activeQuestionId, activeTab, confirmationRequest, hasSubmittedPreview, hasUnsavedChanges, isMetadataLocked, isQuestionContentLocked, isSaving, isDraftLifecycle, lifecycleError, lifecycleStatus, mediaPickerTarget, pendingRouteReplacement, previewChoiceId, questionDraft, questionEditorTab, questionRowRefs, readiness, readinessAnnouncement, selectedMediaAssetId }}
-    workspaceRef={workspaceRef}
-  />;
+    },
+    bankIdValue: bankId ?? initialBank?.id,
+    builderState,
+    editorState,
+    isDraftLifecycle,
+    isMetadataLocked,
+    isQuestionContentLocked,
+    questionRowRefs,
+    readiness,
+    selectedMediaAssetId,
+    workspaceRef,
+  };
+}
+
+function KaptenQuestionBankBuilderPageModule({
+  bankId,
+  initialActiveQuestionId,
+  initialCategories = [],
+  initialBank = null,
+  initialQuestions = [],
+  initialReadiness = null,
+  mode,
+  session,
+}: {
+  bankId?: string;
+  initialActiveQuestionId?: string;
+  initialCategories?: QuestionBankCategoryOption[];
+  initialBank?: KaptenQuestionBank | null;
+  initialQuestions?: BankQuestion[];
+  initialReadiness?: QuestionBankReadiness | null;
+  mode: "create" | "edit";
+  session: SessionContext;
+}) {
+  const {
+    actions,
+    bankIdValue,
+    builderState,
+    editorState,
+    isDraftLifecycle,
+    isMetadataLocked,
+    isQuestionContentLocked,
+    questionRowRefs,
+    readiness,
+    selectedMediaAssetId,
+    workspaceRef,
+  } = useQuestionBankBuilderState({
+    bankId,
+    initialActiveQuestionId,
+    initialBank,
+    initialQuestions,
+    initialReadiness,
+    mode,
+  });
+
+  return (
+    <QuestionBankBuilderScreen
+      actions={actions}
+      bankId={bankIdValue}
+      builderState={builderState}
+      categories={initialCategories}
+      mode={mode}
+      session={session}
+      state={{
+        activeQuestionId: editorState.activeQuestionId,
+        activeTab: editorState.activeTab,
+        confirmationRequest: editorState.confirmationRequest,
+        hasSubmittedPreview: editorState.hasSubmittedPreview,
+        hasUnsavedChanges: editorState.hasUnsavedChanges,
+        isDraftLifecycle,
+        isMetadataLocked,
+        isQuestionContentLocked,
+        isSaving: editorState.isSaving,
+        lifecycleError: editorState.lifecycleError,
+        lifecycleStatus: editorState.lifecycleStatus,
+        mediaPickerTarget: editorState.mediaPickerTarget,
+        pendingRouteReplacement: editorState.pendingRouteReplacement,
+        previewChoiceId: editorState.previewChoiceId,
+        questionDraft: editorState.questionDraft,
+        questionEditorTab: editorState.questionEditorTab,
+        questionRowRefs,
+        readiness,
+        readinessAnnouncement: editorState.readinessAnnouncement,
+        selectedMediaAssetId,
+      }}
+      workspaceRef={workspaceRef}
+    />
+  );
 }
 
 export { KaptenQuestionBankBuilderPageModule };

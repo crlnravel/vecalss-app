@@ -233,7 +233,7 @@ function ImportsIntakeModule({
             <Button
               className="mt-4"
               nativeButton={false}
-              render={<a download={template.fileName} href={`/api/admin/imports/templates/${template.version}`} />}
+              render={<a aria-label="Download template" download={template.fileName} href={`/api/admin/imports/templates/${template.version}`} />}
               size="default"
               variant="brandOutline"
             >

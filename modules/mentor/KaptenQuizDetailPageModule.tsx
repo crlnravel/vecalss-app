@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { FullWidthLineTabsList, FullWidthLineTabsTrigger } from "@/components/ui/full-width-line-tabs";
 import { Input } from "@/components/ui/input";
-import { showToast } from "@/components/ui/sonner";
+import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
 import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
@@ -322,7 +322,7 @@ function KaptenQuizDetailPageModule({
   const router = useRouter();
   const [quiz, setQuiz] = useState(initialQuiz);
   const [activeTab, setActiveTab] = useState<QuizDetailTab>(initialTab);
-  const [questions, setQuestions] = useState(initialQuestions.map((question) => ({ ...question, choices: question.choices.map((choice) => ({ ...choice })) })));
+  const [questions, setQuestions] = useState(() => initialQuestions.map((question) => ({ ...question, choices: question.choices.map((choice) => ({ ...choice })) })));
   const [settings, setSettings] = useState(() => settingsFromQuiz(initialQuiz));
   const [isSaving, setIsSaving] = useState(false);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);

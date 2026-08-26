@@ -13,6 +13,7 @@ import {
 } from "@/lib/icons";
 import { useState } from "react";
 
+import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
@@ -189,16 +190,12 @@ function LessonPlayer({
 
   return (
     <article className="mx-auto w-full max-w-[96rem]">
-      <Button
-        aria-label={`Kembali ke ${course.description} (${course.title})`}
-        nativeButton={false}
-        render={<Link href={`/courses/${course.slug}`} />}
-        size="icon"
-        title={`Kembali ke ${course.description} (${course.title})`}
-        variant="ghost"
+      <BackButton
+        href={`/courses/${course.slug}`}
+        label={`Kembali ke ${course.description} (${course.title})`}
       >
         <ChevronLeft />
-      </Button>
+      </BackButton>
 
       <MateriLessonPresentation
         action={(
@@ -315,17 +312,14 @@ function LockedLessonState({
           <ArrowLeft className="size-4 rotate-180" data-icon="inline-end" />
         </Button>
       ) : (
-        <Button
-          aria-label="Kembali ke Materi"
+        <BackButton
           className="mt-7"
-          nativeButton={false}
-          render={<Link href={`/courses/${course.slug}`} />}
-          size="icon"
-          title="Kembali ke Materi"
+          href={`/courses/${course.slug}`}
+          label="Kembali ke Materi"
           variant="brand"
         >
           <ChevronLeft />
-        </Button>
+        </BackButton>
       )}
     </section>
   );

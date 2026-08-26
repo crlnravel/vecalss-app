@@ -238,6 +238,10 @@ async function ensureAdminStudentPreviewFixture(client, { adminUserId }) {
     throw new Error("The admin student preview fixture is ambiguous; repair the original rows before seeding.");
   }
 
+  if (byPurpose.rowCount && byPurpose.rows[0].id !== ADMIN_STUDENT_PREVIEW_FIXTURE.id) {
+    throw new Error("The admin student preview purpose belongs to a different user identity; restore the original UUID before seeding.");
+  }
+
   const byId = await client.query(
     `
       SELECT id, preview_purpose
@@ -247,10 +251,6 @@ async function ensureAdminStudentPreviewFixture(client, { adminUserId }) {
     `,
     [ADMIN_STUDENT_PREVIEW_FIXTURE.id],
   );
-
-  if (byPurpose.rowCount && byPurpose.rows[0].id !== ADMIN_STUDENT_PREVIEW_FIXTURE.id) {
-    throw new Error("The admin student preview purpose belongs to a different user identity; restore the original UUID before seeding.");
-  }
 
   if (byId.rowCount && byId.rows[0].preview_purpose !== ADMIN_STUDENT_PREVIEW_FIXTURE.previewPurpose) {
     throw new Error("The reserved admin student preview fixture UUID is claimed by another account.");

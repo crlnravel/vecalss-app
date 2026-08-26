@@ -26,12 +26,14 @@ const scheduleLabels: Record<AdminPreviewTryout["schedule"][number]["scheduleSta
   future: "Akan datang",
 };
 
+const scheduleFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 function formatSchedule(value: string) {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date(value));
+  return scheduleFormatter.format(new Date(value));
 }
 
 function AdminStudentPreviewTryoutRestart({ tryout }: { tryout: AdminPreviewTryout }) {
@@ -42,7 +44,8 @@ function AdminStudentPreviewTryoutRestart({ tryout }: { tryout: AdminPreviewTryo
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: "error" | "success" } | null>(null);
   const requestIdRef = useRef<string | null>(null);
-  const sourceSessions = tryout.schedule.filter((session) => tryout.restart.eligibleSourceSessionIds.includes(session.id));
+  const eligibleSet = new Set(tryout.restart.eligibleSourceSessionIds);
+  const sourceSessions = tryout.schedule.filter((session) => eligibleSet.has(session.id));
   const disabled = !tryout.restart.enabled || sourceSessions.length === 0;
 
   const handleOpenChange = (nextOpen: boolean) => {

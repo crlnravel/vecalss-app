@@ -108,12 +108,15 @@ function highlightSearchMatches(text: string, query: string): ReactNode {
   return parts;
 }
 
+const createdDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+});
+
 function formatCreatedDate(value: string) {
-  return new Date(value).toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return createdDateFormatter.format(new Date(value));
 }
 
 function directoryHref({

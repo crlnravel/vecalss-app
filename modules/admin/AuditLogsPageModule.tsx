@@ -54,6 +54,15 @@ const auditTargetTypeLabels: Record<AuditLogTargetType, string> = {
   user: "User",
 };
 
+const AUDIT_LOGS_EMPTY_STATE = (
+  <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
+    <div className="max-w-xl">
+      <h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">No audit events match these filters.</h3>
+      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Try another search or target filter to find the recorded event.</p>
+    </div>
+  </div>
+);
+
 function humanizeAuditValue(value: string) {
   return value
     .replaceAll("_", " ")
@@ -319,6 +328,8 @@ function AuditLogsPageModule({
 }) {
   const [selectedAudit, setSelectedAudit] = useState<AdminAuditLogEntry | null>(null);
   const [selectedUser, setSelectedUser] = useState<Pick<AdminAuditLogEntry, "actorEmail" | "actorId" | "actorName"> | null>(null);
+  const visibleStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const visibleEnd = Math.min(total, page * pageSize);
   const clearSearchHref = auditLogHref({ direction, page: 1, query: "", sort, targetType });
   const clearTargetHref = auditLogHref({ direction, page: 1, query, sort, targetType: null });
   const clearFiltersHref = auditLogHref({ direction, page: 1, query: "", sort, targetType: null });
@@ -378,17 +389,6 @@ function AuditLogsPageModule({
     },
   ];
 
-  const visibleStart = entries.length ? (page - 1) * pageSize + 1 : 0;
-  const visibleEnd = entries.length ? visibleStart + entries.length - 1 : 0;
-  const emptyState = (
-    <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
-      <div className="max-w-xl">
-        <h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">No audit events match these filters.</h3>
-        <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Try another search or target filter to find the recorded event.</p>
-      </div>
-    </div>
-  );
-
   return (
     <PortalShell
       activeAdminSection="audit-logs"
@@ -415,7 +415,7 @@ function AuditLogsPageModule({
             caption="Recorded administrative events"
             clearFiltersHref={clearFiltersHref}
             columns={columns}
-            emptyState={emptyState}
+            emptyState={AUDIT_LOGS_EMPTY_STATE}
             filterPanel={<AuditFilterPanel direction={direction} query={query} sort={sort} targetType={targetType} />}
             filters={filters}
             getRowId={(entry) => entry.id}

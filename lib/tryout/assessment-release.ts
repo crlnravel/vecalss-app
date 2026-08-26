@@ -728,9 +728,9 @@ async function lockAndReadCatCalibrations(
     },
     orderBy: [{ questionRevisionId: "asc" }, { id: "asc" }],
   });
-  return new Map(rows
-    .filter((row) => row.modelVersion === CANONICAL_2PL_MODEL_VERSION)
-    .map((row) => [
+  return new Map(rows.flatMap((row) => {
+    if (row.modelVersion !== CANONICAL_2PL_MODEL_VERSION) return [];
+    return [[
       row.questionRevisionId,
       {
         approvalState: row.approvalState,
@@ -743,7 +743,8 @@ async function lockAndReadCatCalibrations(
         questionRevisionId: row.questionRevisionId,
         sourceRevisionProvenance: row.sourceRevisionProvenance,
       } satisfies CatCalibrationRecord,
-    ] as const));
+    ] as const];
+  }));
 }
 
 function releaseSeed(tryoutId: string, publicationIntentKey?: string) {
@@ -870,17 +871,18 @@ async function resolveAndMaterializeAssemblies(
         versionSubtestId: version.subtestId,
       });
     }
-    if (!version.rule || version.rule.requestedCount < 1) {
+    const requestedCount = version.rule?.requestedCount ?? 0;
+    if (!version.rule || requestedCount < 1) {
       resolutionError("quota", "Assembly tidak memiliki jumlah soal rilis yang valid.", { sectionId: section.id, versionId: version.id });
     }
     if (version.mode === ReusableQuestionPackageMode.cat_pool
       && (!section.catItemCount
-        || section.catItemCount !== version.rule.requestedCount
+        || section.catItemCount !== requestedCount
         || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION)) {
       resolutionError("mode_incompatible", "CAT Pool harus memakai jumlah delivered item dan profil 2PL kanonis yang sama dengan versi Ready.", {
         catItemCount: section.catItemCount,
         catModelVersion: section.catModelVersion,
-        requestedCount: version.rule.requestedCount,
+        requestedCount,
         sectionId: section.id,
       });
     }
@@ -894,10 +896,19 @@ async function resolveAndMaterializeAssemblies(
           versionId: version.id,
         });
       }
-      const ids = await queryBlueprintSourceIds(tx, version);
-      blueprintSourceIdsByVersion.set(version.id, ids);
-      sourceIds.push(...ids);
     }
+  }
+
+  const blueprintVersions = versions.filter((v) => v.mode === ReusableQuestionPackageMode.blueprint);
+  const blueprintResults = await Promise.all(
+    blueprintVersions.map(async (version) => {
+      const ids = await queryBlueprintSourceIds(tx, version);
+      return { id: version.id, ids };
+    }),
+  );
+  for (const { id, ids } of blueprintResults) {
+    blueprintSourceIdsByVersion.set(id, ids);
+    sourceIds.push(...ids);
   }
 
   // Every source row is locked once, in UUID order, after all Ready revisions
@@ -905,13 +916,16 @@ async function resolveAndMaterializeAssemblies(
   // candidate report because they are compared against this reread map.
   const sources = await lockAndReadReleaseSources(tx, sourceIds);
   const sourceById = new Map(sources.map((source) => [source.id, source]));
-  const catRevisionIds = versions
-    .filter((version) => version.mode === ReusableQuestionPackageMode.cat_pool)
-    .flatMap((version) => version.items.flatMap((item) => [
-      item.sourceQuestionRevisionId,
-      sourceById.get(item.sourceQuestionId)?.currentRevision?.id,
-    ]))
-    .filter((id): id is string => Boolean(id));
+  const catRevisionIds = versions.flatMap((version) => {
+    if (version.mode !== ReusableQuestionPackageMode.cat_pool) return [];
+    return version.items.flatMap((item) => {
+      const currentRevId = sourceById.get(item.sourceQuestionId)?.currentRevision?.id;
+      const ids: string[] = [];
+      if (item.sourceQuestionRevisionId) ids.push(item.sourceQuestionRevisionId);
+      if (currentRevId) ids.push(currentRevId);
+      return ids;
+    });
+  });
   const catCalibrations = await lockAndReadCatCalibrations(tx, catRevisionIds);
   const seed = releaseSeed(tryout.id, publicationIntentKey);
   const resolutions: AssemblySectionResolution[] = [];
@@ -1073,10 +1087,10 @@ async function resolveAndMaterializeAssemblies(
     }
 
     const scopedSourceIds = blueprintSourceIdsByVersion.get(version.id) ?? [];
-    const scopedSources = scopedSourceIds
-      .map((sourceId) => sourceById.get(sourceId))
-      .filter((source): source is ReleaseSourceRecord => Boolean(source))
-      .filter((source) => sourceMatchesBlueprintScope(source, version));
+    const scopedSources = scopedSourceIds.flatMap((sourceId) => {
+      const source = sourceById.get(sourceId);
+      return source && sourceMatchesBlueprintScope(source, version) ? [source] : [];
+    });
     const invalidSourceIds: string[] = [];
     const invalidBlockers: AssessmentReleaseResolutionBlocker[] = [];
     const validSources: ReleaseSourceRecord[] = [];
@@ -1105,6 +1119,7 @@ async function resolveAndMaterializeAssemblies(
     };
     let selectedSources: ReleaseSourceRecord[];
     try {
+      const validSourceById = new Map(validSources.map((source) => [source.id, source]));
       selectedSources = resolveBlueprintCandidates(validSources.map((source) => ({
         difficulty: source.currentRevision?.difficulty === "easy" || source.currentRevision?.difficulty === "medium" || source.currentRevision?.difficulty === "hard"
           ? source.currentRevision.difficulty
@@ -1112,7 +1127,7 @@ async function resolveAndMaterializeAssemblies(
         sourceContentDigest: source.currentRevision?.contentDigest ?? "",
         sourceQuestionId: source.id,
         sourceQuestionRevisionId: source.currentRevision?.id ?? "",
-      })), quotas, seed).map((candidate) => validSources.find((source) => source.id === candidate.sourceQuestionId)!);
+      })), quotas, seed).map((candidate) => validSourceById.get(candidate.sourceQuestionId)!);
     } catch (error) {
       if (error instanceof AssemblyResolutionError) {
         resolutionError(error.code, error.message, {
@@ -1165,9 +1180,10 @@ async function resolveAndMaterializeAssemblies(
     resolutions.push({ metadata, sectionId: section.id, snapshots });
   }
 
+  const resolutionBySectionId = new Map(resolutions.map((candidate) => [candidate.sectionId, candidate]));
   const sourceOwners = new Map<string, string>();
   for (const section of tryout.sections) {
-    const resolution = resolutions.find((candidate) => candidate.sectionId === section.id);
+    const resolution = resolutionBySectionId.get(section.id);
     const sourceIdsForSection = resolution
       ? resolution.snapshots.map((snapshot) => snapshot.sourceQuestionId)
       : section.items.map((item) => item.sourceQuestionId).filter((id): id is string => Boolean(id));
@@ -1184,10 +1200,11 @@ async function resolveAndMaterializeAssemblies(
     }
   }
 
+  const tryoutSectionById = new Map(tryout.sections.map((section) => [section.id, section]));
   for (const resolution of resolutions) {
     await tx.tryoutItem.deleteMany({ where: { tryoutSectionId: resolution.sectionId } });
     await tx.tryoutSection.update({ where: { id: resolution.sectionId }, data: { questionCount: resolution.snapshots.length } });
-    const version = versionById.get(tryout.sections.find((section) => section.id === resolution.sectionId)?.packageVersionId ?? "");
+    const version = versionById.get(tryoutSectionById.get(resolution.sectionId)?.packageVersionId ?? "");
     if (!version) resolutionError("stale_candidate", "Versi Ready assembly tidak tersedia saat membuat bridge fisik.", { sectionId: resolution.sectionId });
     await Promise.all(resolution.snapshots.map(async (snapshot, index) => {
       const item = await tx.tryoutItem.create({
@@ -1237,9 +1254,7 @@ async function attachCatCalibrationSnapshots(
   tx: Prisma.TransactionClient,
   tryout: ReleaseTryoutRecord,
 ) {
-  const catItems = tryout.sections
-    .filter((section) => section.testType === "cat")
-    .flatMap((section) => section.items);
+  const catItems = tryout.sections.flatMap((section) => section.testType === "cat" ? section.items : []);
   if (catItems.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
     throw new Error("AssessmentRelease CAT memerlukan provenance QuestionRevision dan digest sumber yang lengkap.");
   }
@@ -1417,15 +1432,14 @@ async function assertTryoutReleaseEligibility(
     // locked resolver below after the Tryout revision or intent changes.
     return tryout;
   }
-  const catItems = tryout.sections
-    .filter((section) => section.testType === "cat" && section.packageVersion?.mode !== ReusableQuestionPackageMode.cat_pool)
-    .flatMap((section) => {
-      const items = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
-      if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
-        throw new Error("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
-      }
-      return items;
-    });
+  const catItems = tryout.sections.flatMap((section) => {
+    if (section.testType !== "cat" || section.packageVersion?.mode === ReusableQuestionPackageMode.cat_pool) return [];
+    const items = section.packageVersionId ? section.packageVersion?.items ?? [] : section.items;
+    if (!section.catItemCount || section.catModelVersion !== CANONICAL_2PL_MODEL_VERSION || items.length < section.catItemCount || items.some((item) => item.subtestId !== section.subtestId || !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || item.sourceRevisionProvenance === null || item.sourceRevisionProvenance === QuestionRevisionProvenance.legacy_unknown)) {
+      throw new Error("Pool CAT immutable harus memakai profil 2PL kanonis dan mencukupi jumlah soal.");
+    }
+    return items;
+  });
   const revisionIds = [...new Set(catItems.map((item) => item.sourceQuestionRevisionId).filter((id): id is string => Boolean(id)))];
   if (!revisionIds.length) return tryout;
   const [revisions, calibrations] = await Promise.all([

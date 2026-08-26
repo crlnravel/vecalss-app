@@ -10,7 +10,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -394,17 +394,14 @@ function ParticipantTryoutDetailModule({
             className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.88)_0%,rgba(1,76,56,0.68)_52%,rgba(1,76,56,0.74)_100%)]"
           />
           <div className="relative mx-auto w-full max-w-[64rem] px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
-            <Button
-              aria-label="Kembali ke katalog"
+            <BackButton
               className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40"
-              nativeButton={false}
-              render={<Link href="/tryout" />}
-              size="icon"
-              title="Kembali ke katalog"
+              href="/tryout"
+              label="Kembali ke katalog"
               variant="ghost"
             >
               <ChevronLeft aria-hidden="true" className="size-6" />
-            </Button>
+            </BackButton>
           </div>
         </div>
 

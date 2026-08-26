@@ -11,21 +11,7 @@ import {
 
 import { AlertTriangle, CircleCheckBig, CircleX, Info } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-
-type ToastVariant = "default" | "error" | "info" | "success" | "warning";
-
-type VecalssToastOptions = Omit<ExternalToast, "className"> & {
-  className?: string;
-  variant?: ToastVariant;
-};
-
-const toastVariantClassNames: Record<ToastVariant, string> = {
-  default: "!border-primary-200 !bg-white !text-secondary-900",
-  error: "!border-student-status-danger-border !bg-student-status-danger-bg !text-student-status-danger-fg",
-  info: "!border-primary-200 !bg-primary-50 !text-primary-800",
-  success: "!border-student-status-success-border !bg-student-status-success-bg !text-student-status-success-fg",
-  warning: "!border-student-status-attention-border !bg-student-status-attention-bg !text-student-status-attention-fg",
-};
+import { toastVariantClassNames, type ToastVariant, type VecalssToastOptions } from "./toast";
 
 const defaultToastClassNames: ToastClassnames = {
   actionButton: "rounded-lg bg-primary-700 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-800",
@@ -78,22 +64,5 @@ function Toaster({ className, toastOptions, ...props }: ToasterProps) {
   );
 }
 
-function showToast(message: ReactNode, { variant = "default", ...options }: VecalssToastOptions = {}) {
-  const emit = variant === "success"
-    ? sonnerToast.success
-    : variant === "error"
-      ? sonnerToast.error
-      : variant === "info"
-        ? sonnerToast.info
-        : variant === "warning"
-          ? sonnerToast.warning
-          : sonnerToast;
-
-  return emit(message, {
-    ...options,
-    className: cn(toastVariantClassNames[variant], options.className),
-  });
-}
-
-export { Toaster, showToast, sonnerToast as toast };
+export { Toaster };
 export type { ToastVariant, VecalssToastOptions };

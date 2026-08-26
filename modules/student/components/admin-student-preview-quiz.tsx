@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NextImage from "next/image";
 
 import {
   ArrowUpRight,
@@ -54,15 +55,17 @@ function AvailabilityBadge({ availability }: { availability: AdminPreviewQuizAva
   );
 }
 
+const quizDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 function formatQuizDate(value: string | null) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(date);
+  return quizDateFormatter.format(date);
 }
 
 function QuizSchedule({ availability }: { availability: AdminPreviewQuizAvailability }) {
@@ -84,13 +87,15 @@ function QuizPreviewQuestionMedia({ media }: { media: AdminPreviewQuizQuestion["
 
   return (
     // The DTO only permits HTTPS image URLs; the image is never a link or an HTML injection boundary.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <NextImage
       alt={media.alt}
       className="max-h-56 max-w-full rounded-2xl border border-primary-100 object-contain"
+      height={224}
       loading="lazy"
       referrerPolicy="no-referrer"
       src={media.url}
+      unoptimized
+      width={400}
     />
   );
 }

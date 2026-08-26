@@ -116,7 +116,10 @@ class AssemblyValidationError extends Error {
 const ASSEMBLY_MODES: readonly AssemblyMode[] = ["fixed_set", "random_pool", "blueprint", "cat_pool"];
 
 function uniqueIds(values: readonly string[] | undefined, label: string) {
-  const normalized = (values ?? []).map((value) => value.trim()).filter(Boolean);
+  const normalized = (values ?? []).flatMap((value) => {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  });
   if (new Set(normalized).size !== normalized.length) {
     throw new AssemblyValidationError("scope", `${label} tidak boleh berulang.`, { label });
   }

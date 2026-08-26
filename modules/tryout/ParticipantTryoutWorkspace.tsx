@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { Input } from "@/components/ui/input";
-import { studentCatalogueCardVariants } from "@/components/ui/student-catalogue-card-variants";
+import { StudentCatalogueCardFrame } from "@/components/ui/student-catalogue-card";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
 import type { StudentBannerContent } from "@/lib/student/banner-content";
@@ -207,12 +207,7 @@ function ParticipantTryoutWorkspace({
                         : "Daftar";
 
               return (
-                <article
-                  className={studentCatalogueCardVariants({ variant: "tryout" })}
-                  data-content-variant="tryout"
-                  data-slot="student-catalogue-card"
-                  key={tryout.id}
-                >
+                <StudentCatalogueCardFrame key={tryout.id} variant="tryout">
                   <TryoutCardArtwork />
 
                   <div className="relative flex min-h-[16rem] flex-1 flex-col overflow-hidden bg-[#14241d] p-3 sm:p-4 md:p-5">
@@ -263,7 +258,7 @@ function ParticipantTryoutWorkspace({
                       </div>
                     </div>
                   </div>
-                </article>
+                </StudentCatalogueCardFrame>
               );
             })}
           </div>

@@ -39,13 +39,15 @@ import {
   voidCatTestRunAction,
 } from "@/modules/mentor/tryout-actions";
 
+const timestampFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 function formatTimestamp(value: string | null) {
   if (!value) return null;
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date(value));
+  return timestampFormatter.format(new Date(value));
 }
 
 function KaptenTryoutAttemptDetailPageModule({

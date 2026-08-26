@@ -31,7 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
-import { showToast } from "@/components/ui/sonner";
+import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MediaAssetDto } from "@/lib/media/types";
 import type { SessionContext } from "@/lib/auth/types";
@@ -270,7 +270,7 @@ function QuestionForm({
           return (
             <div className="min-w-0 rounded-2xl border border-primary-100 bg-white p-3" key={choice.id}>
               <div className="flex min-w-0 items-center gap-3">
-                <input aria-label={`Jawaban benar opsi ${label}`} checked={choice.id === question.correctChoiceId} disabled={disabled} onChange={() => onChange({ correctChoiceId: choice.id })} type="radio" />
+                <input aria-label={`Jawaban benar opsi ${label}`} checked={choice.id === question.correctChoiceId} disabled={disabled} name={`correct-choice-${question.id ?? "current"}`} onChange={() => onChange({ correctChoiceId: choice.id })} type="radio" />
                 <span aria-hidden="true" className="text-xs font-semibold text-primary-800">{label}</span>
                 <input aria-label={`Teks opsi ${label}`} className="min-w-0 flex-1 bg-transparent text-sm text-secondary-900 outline-none placeholder:text-secondary-400 focus-visible:ring-3 focus-visible:ring-primary-200" disabled={disabled} onChange={(event) => onChange({ choices: question.choices.map((item) => item.id === choice.id ? { ...item, text: event.target.value } : item) })} placeholder={`Opsi ${label}`} value={choice.text} />
                 <Button aria-label={`${choice.mediaAssetId ? "Ganti" : "Tambah"} gambar opsi ${label}`} disabled={disabled} onClick={() => onOpenMedia({ choiceId: choice.id, kind: "choice", label: `Gambar opsi ${label}` })} size="icon-sm" type="button" variant="ghost"><ImagePlus /></Button>

@@ -37,9 +37,9 @@ assert.match(waiting, /Panduan tryout/);
 assert.match(waiting, /className="w-full"/);
 assert.match(waiting, /Menyiapkan…/);
 assert.match(waiting, /: "Mulai"/);
-assert.match(waiting, /aria-label="Kembali ke katalog tryout"/);
+assert.match(waiting, /<BackButton\b[^>]*\blabel="Kembali ke katalog tryout"/);
 assert.equal(
-  waiting.match(/<WaitingRoomBackLink \/>/g)?.length,
+  waiting.match(/<BackButton\b/g)?.length,
   2,
   "both waiting-room branches need a catalogue back link",
 );
@@ -51,7 +51,7 @@ assert.doesNotMatch(waiting, /countdown/);
 assert.match(workspace, /\? "Lanjutkan"/);
 assert.match(workspace, /\? "Lihat hasil"/);
 assert.match(workspace, /\? "Selesai"/);
-assert.match(detail, /aria-label="Kembali ke katalog"/);
+assert.match(detail, /<BackButton\b[^>]*\blabel="Kembali ke katalog"/);
 assert.doesNotMatch(detail, /<span>Detail Tryout<\/span>/);
 
 assert.match(attempt, /:position`/);
@@ -62,7 +62,7 @@ assert.match(attemptRepository, /\$executeRaw`SELECT pg_advisory_xact_lock/);
 assert.doesNotMatch(attemptRepository, /\$queryRaw`SELECT pg_advisory_xact_lock/);
 assert.match(attempt, /nativeButton=\{false\}[\s\S]*render=\{<Link href=\{`\/tryout\/attempt/);
 assert.match(waiting, /nativeButton=\{false\}[\s\S]*render=\{<Link href=\{resultReady/);
-assert.match(result, /nativeButton=\{false\}[\s\S]*render=\{<Link href="\/tryout"/);
+assert.match(result, /<BackButton\b[^>]*\bhref="\/tryout"[^>]*\blabel="Kembali ke tryout"/);
 assert.match(enrollment, /response\.result\.state === "unavailable"/);
 const unavailableGuard = delivery.indexOf("status === TryoutAdmissionStatus.active && !defaultSession");
 const newAdmissionTargetWrite = delivery.indexOf("await tx.studentProfile.update", unavailableGuard);

@@ -546,6 +546,141 @@ type MateriSubjectCatalogueData = {
   visiblePage: number;
 };
 
+function MateriSubjectCatalogueFilterPanel({
+  onReadinessFilterChange,
+  onStatusFilterChange,
+  onVideoFilterChange,
+  readinessFilter,
+  statusFilter,
+  videoFilter,
+}: {
+  onReadinessFilterChange: (value: string) => void;
+  onStatusFilterChange: (value: string) => void;
+  onVideoFilterChange: (value: string) => void;
+  readinessFilter: string;
+  statusFilter: string;
+  videoFilter: string;
+}) {
+  return (
+    <div className="space-y-3 p-1">
+      <p className="px-2 text-xs font-semibold tracking-[0.02em] text-secondary-500">Filter lesson</p>
+      <CatalogueFilter
+        label="Filter status"
+        onValueChange={onStatusFilterChange}
+        options={[
+          { label: "Semua status", value: "" },
+          { label: "Draf", value: "draft" },
+          { label: "Diterbitkan", value: "published" },
+          { label: "Diarsipkan", value: "archived" },
+          { label: "Terjadwal", value: "scheduled" },
+        ]}
+        value={statusFilter}
+      />
+      <CatalogueFilter
+        label="Filter kesiapan PDF"
+        onValueChange={onReadinessFilterChange}
+        options={[
+          { label: "Semua kesiapan PDF", value: "" },
+          { label: "PDF siap", value: "ready" },
+          { label: "PDF belum siap", value: "incomplete" },
+        ]}
+        value={readinessFilter}
+      />
+      <CatalogueFilter
+        label="Filter video opsional"
+        onValueChange={onVideoFilterChange}
+        options={[
+          { label: "Semua video", value: "" },
+          { label: "Dengan video opsional", value: "with-video" },
+          { label: "Tanpa video", value: "without-video" },
+        ]}
+        value={videoFilter}
+      />
+    </div>
+  );
+}
+
+function MateriSubjectCatalogueEmptyState({
+  clearFiltersHref,
+  hasActiveFilters,
+}: {
+  clearFiltersHref: string;
+  hasActiveFilters: boolean;
+}) {
+  return (
+    <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
+      <FileText aria-hidden="true" className="size-7 text-primary-300" />
+      <h2 className="mt-3 text-lg font-semibold tracking-[-0.03em] text-secondary-900">
+        {hasActiveFilters ? "Tidak ada lesson yang cocok" : "Belum ada lesson"}
+      </h2>
+      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">
+        {hasActiveFilters
+          ? "Coba ubah kata kunci atau filter untuk menemukan lesson lain."
+          : "Buat materi baru untuk mulai mengisi subject ini."}
+      </p>
+      {hasActiveFilters ? (
+        <Button
+          className="mt-5"
+          render={<Link href={clearFiltersHref} />}
+          size="sm"
+          variant="brandOutline"
+        >
+          Reset filter
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function MateriSubjectCatalogueBulkDialog({
+  bulkError,
+  bulkIntent,
+  confirmation,
+  isBulkPending,
+  onCloseBulkDialog,
+  onConfirmBulkLifecycle,
+  publishEligible,
+  unpublishEligible,
+}: {
+  bulkError: string | null;
+  bulkIntent: "publish" | "unpublish" | null;
+  confirmation: { confirm: string; description: string; title: string };
+  isBulkPending: boolean;
+  onCloseBulkDialog: () => void;
+  onConfirmBulkLifecycle: () => void;
+  publishEligible: boolean;
+  unpublishEligible: boolean;
+}) {
+  return (
+    <Dialog onOpenChange={onCloseBulkDialog} open={Boolean(bulkIntent)}>
+      <DialogContent pending={isBulkPending} showCloseButton={!isBulkPending} variant="info">
+        <DialogHeader>
+          <DialogTitle>{confirmation.title}</DialogTitle>
+          <DialogDescription>{confirmation.description}</DialogDescription>
+        </DialogHeader>
+        {bulkError ? (
+          <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            {bulkError}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <DialogClose disabled={isBulkPending} render={<Button type="button" variant="brandOutline" />}>
+            Batal
+          </DialogClose>
+          <Button
+            disabled={isBulkPending || (bulkIntent === "publish" ? !publishEligible : !unpublishEligible)}
+            onClick={onConfirmBulkLifecycle}
+            type="button"
+            variant="brand"
+          >
+            {isBulkPending ? "Memproses..." : confirmation.confirm}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function MateriSubjectCatalogueScreen({
   actions,
   data,
@@ -600,43 +735,7 @@ function MateriSubjectCatalogueScreen({
     ...(readinessFilter ? [{ id: "readiness", label: "Kesiapan", value: readinessLabel(readinessFilter as KaptenMateriView["readiness"]), href: buildHref({ readiness: "" }) }] : []),
     ...(videoFilter ? [{ id: "video", label: "Video", value: videoFilter === "with-video" ? "Dengan video opsional" : "Tanpa video", href: buildHref({ video: "" }) }] : []),
   ];
-  const filterPanel = (
-    <div className="space-y-3 p-1">
-      <p className="px-2 text-xs font-semibold tracking-[0.02em] text-secondary-500">Filter lesson</p>
-      <CatalogueFilter
-        label="Filter status"
-        onValueChange={actions.onStatusFilterChange}
-        options={[
-          { label: "Semua status", value: "" },
-          { label: "Draf", value: "draft" },
-          { label: "Diterbitkan", value: "published" },
-          { label: "Diarsipkan", value: "archived" },
-          { label: "Terjadwal", value: "scheduled" },
-        ]}
-        value={statusFilter}
-      />
-      <CatalogueFilter
-        label="Filter kesiapan PDF"
-        onValueChange={actions.onReadinessFilterChange}
-        options={[
-          { label: "Semua kesiapan PDF", value: "" },
-          { label: "PDF siap", value: "ready" },
-          { label: "PDF belum siap", value: "incomplete" },
-        ]}
-        value={readinessFilter}
-      />
-      <CatalogueFilter
-        label="Filter video opsional"
-        onValueChange={actions.onVideoFilterChange}
-        options={[
-          { label: "Semua video", value: "" },
-          { label: "Dengan video opsional", value: "with-video" },
-          { label: "Tanpa video", value: "without-video" },
-        ]}
-        value={videoFilter}
-      />
-    </div>
-  );
+
   const columns: DataTableColumn<KaptenMateriView>[] = [
     {
       cell: (lesson) => (
@@ -710,29 +809,7 @@ function MateriSubjectCatalogueScreen({
       width: 12,
     },
   ];
-  const emptyState = (
-    <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
-      <FileText aria-hidden="true" className="size-7 text-primary-300" />
-      <h2 className="mt-3 text-lg font-semibold tracking-[-0.03em] text-secondary-900">
-        {hasActiveFilters ? "Tidak ada lesson yang cocok" : "Belum ada lesson"}
-      </h2>
-      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">
-        {hasActiveFilters
-          ? "Coba ubah kata kunci atau filter untuk menemukan lesson lain."
-          : "Buat materi baru untuk mulai mengisi subject ini."}
-      </p>
-      {hasActiveFilters ? (
-        <Button
-          className="mt-5"
-          render={<Link href={clearFiltersHref} />}
-          size="sm"
-          variant="brandOutline"
-        >
-          Reset filter
-        </Button>
-      ) : null}
-    </div>
-  );
+
   const previousHref = visiblePage > 1 ? buildHref({ page: visiblePage - 1 }) : undefined;
   const nextHref = visiblePage < pageCount ? buildHref({ page: visiblePage + 1 }) : undefined;
 
@@ -786,8 +863,22 @@ function MateriSubjectCatalogueScreen({
             caption={`Daftar materi subject ${subject.name}`}
             clearFiltersHref={clearFiltersHref}
             columns={columns}
-            emptyState={emptyState}
-            filterPanel={filterPanel}
+            emptyState={
+              <MateriSubjectCatalogueEmptyState
+                clearFiltersHref={clearFiltersHref}
+                hasActiveFilters={hasActiveFilters}
+              />
+            }
+            filterPanel={
+              <MateriSubjectCatalogueFilterPanel
+                onReadinessFilterChange={actions.onReadinessFilterChange}
+                onStatusFilterChange={actions.onStatusFilterChange}
+                onVideoFilterChange={actions.onVideoFilterChange}
+                readinessFilter={readinessFilter}
+                statusFilter={statusFilter}
+                videoFilter={videoFilter}
+              />
+            }
             filters={activeFilters}
             getRowId={(lesson) => lesson.code}
             key={tableVersion}
@@ -835,32 +926,16 @@ function MateriSubjectCatalogueScreen({
         </section>
       </div>
 
-      <Dialog onOpenChange={actions.onCloseBulkDialog} open={Boolean(bulkIntent)}>
-        <DialogContent pending={isBulkPending} showCloseButton={!isBulkPending} variant="info">
-          <DialogHeader>
-            <DialogTitle>{confirmation.title}</DialogTitle>
-            <DialogDescription>{confirmation.description}</DialogDescription>
-          </DialogHeader>
-          {bulkError ? (
-            <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-              {bulkError}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <DialogClose disabled={isBulkPending} render={<Button type="button" variant="brandOutline" />}>
-              Batal
-            </DialogClose>
-            <Button
-              disabled={isBulkPending || (bulkIntent === "publish" ? !publishEligible : !unpublishEligible)}
-              onClick={actions.onConfirmBulkLifecycle}
-              type="button"
-              variant="brand"
-            >
-              {isBulkPending ? "Memproses..." : confirmation.confirm}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MateriSubjectCatalogueBulkDialog
+        bulkError={bulkError}
+        bulkIntent={bulkIntent}
+        confirmation={confirmation}
+        isBulkPending={isBulkPending}
+        onCloseBulkDialog={actions.onCloseBulkDialog}
+        onConfirmBulkLifecycle={actions.onConfirmBulkLifecycle}
+        publishEligible={publishEligible}
+        unpublishEligible={unpublishEligible}
+      />
     </MentorWorkspaceShell>
   );
 }

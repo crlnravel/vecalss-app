@@ -31,9 +31,9 @@ function folderKeyForQuestionBank(bank) {
 
 function categoryNamesForQuestionBank(bank) {
   const text = classificationText(bank);
-  const matched = DEFAULT_CATEGORIES
-    .filter((category) => category.keywords.some((keyword) => text.includes(keyword)))
-    .map((category) => category.name);
+  const matched = DEFAULT_CATEGORIES.flatMap((category) =>
+    category.keywords.some((keyword) => text.includes(keyword)) ? [category.name] : [],
+  );
   return matched.length ? matched : ["Campuran"];
 }
 

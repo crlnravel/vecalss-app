@@ -10,14 +10,16 @@ import { Button } from "@/components/ui/button";
 const LIVE_REFRESH_INTERVAL_MS = 15_000;
 const MAX_AUTO_REFRESH_FAILURES = 3;
 
+const timestampFormatter = new Intl.DateTimeFormat("id-ID", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: "Asia/Jakarta",
+});
+
 function formatTimestamp(value: string | null) {
   if (!value) return null;
-  return new Intl.DateTimeFormat("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date(value));
+  return timestampFormatter.format(new Date(value));
 }
 
 function useTryoutOperationsRefresh(initial: TryoutOperationsView) {

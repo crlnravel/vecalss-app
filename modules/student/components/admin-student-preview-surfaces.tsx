@@ -353,7 +353,7 @@ function PreviewContentBlocks({
         </Card>
       ) : null}
       {content.map((block, index) => (
-        <Card className="rounded-3xl border border-[#d6e5db] bg-white shadow-none" key={`${block.title ?? "content"}-${index}`}>
+        <Card className="rounded-3xl border border-[#d6e5db] bg-white shadow-none" key={`${block.title ?? "content"}-${block.body.slice(0, 32)}`}>
           <CardHeader>
             <CardTitle className="text-lg">{block.title ?? `Catatan ${index + 1}`}</CardTitle>
           </CardHeader>
@@ -366,6 +366,12 @@ function PreviewContentBlocks({
   );
 }
 
+const tryoutDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
+
 const tryoutScheduleLabels: Record<AdminPreviewTryoutSchedule["scheduleStatus"], string> = {
   active: "Aktif",
   archived: "Arsip",
@@ -377,11 +383,7 @@ function formatTryoutDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Tanggal tidak tersedia";
 
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(date);
+  return tryoutDateFormatter.format(date);
 }
 
 function TryoutScheduleBadge({ status }: { status: AdminPreviewTryoutSchedule["scheduleStatus"] }) {

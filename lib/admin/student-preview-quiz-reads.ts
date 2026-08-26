@@ -113,16 +113,15 @@ function toPreviewQuizSubjects(
   records: PreviewQuizRecord[],
   now = new Date(),
 ): AdminPreviewQuizSubjectWithQuizzes[] {
-  const summaries = records
-    .map((record) => toAdminPreviewQuizSummary(toContractRecord(record), now))
-    .filter((summary): summary is AdminPreviewQuizSummary => Boolean(summary));
+  const summaries = records.flatMap((record) => {
+    const summary = toAdminPreviewQuizSummary(toContractRecord(record), now);
+    return summary ? [summary] : [];
+  });
 
-  return ADMIN_PREVIEW_QUIZ_SUBJECTS
-    .map((subject) => ({
-      ...subject,
-      quizzes: summaries.filter((summary) => summary.subject.slug === subject.slug),
-    }))
-    .filter((subject) => subject.quizzes.length > 0);
+  return ADMIN_PREVIEW_QUIZ_SUBJECTS.flatMap((subject) => {
+    const quizzes = summaries.filter((summary) => summary.subject.slug === subject.slug);
+    return quizzes.length > 0 ? [{ ...subject, quizzes }] : [];
+  });
 }
 
 async function readAdminPreviewQuizCatalogue(): Promise<AdminPreviewQuizCatalogueRead> {

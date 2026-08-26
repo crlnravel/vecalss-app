@@ -245,7 +245,7 @@ function StudentPdfPreview({
                         <Button
                           aria-label="Buka PDF"
                           nativeButton={false}
-                          render={<a href={previewUrl} rel="noreferrer" target="_blank" />}
+                          render={<a aria-label="Buka PDF" href={previewUrl} rel="noreferrer" target="_blank" />}
                           size="icon-lg"
                           title="Buka PDF"
                           variant="brandOutline"
@@ -262,7 +262,7 @@ function StudentPdfPreview({
                         <Button
                           aria-label="Download PDF"
                           nativeButton={false}
-                          render={<a download={documentName} href={downloadUrl ?? previewUrl} />}
+                          render={<a aria-label="Download PDF" download={documentName} href={downloadUrl ?? previewUrl} />}
                           size="icon-lg"
                           title="Download PDF"
                           variant="brandOutline"

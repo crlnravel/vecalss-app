@@ -41,13 +41,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FieldTextarea } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { showToast } from "@/components/ui/sonner";
+import { showToast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SessionContext } from "@/lib/auth/types";
 import { questionBankFolderLabel } from "@/lib/question-bank/labels";
 import {
   getQuestionBankReadinessFromDrafts,
   type QuestionBankReadiness,
+  type QuestionReadinessIssue,
 } from "@/lib/question-bank/readiness";
 import { cn } from "@/lib/utils";
 import { MediaAssetPreview } from "@/modules/media/media-library";
@@ -96,6 +97,636 @@ function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
   );
 }
 
+function QuestionBankDetailHeaderBar({
+  bank,
+  handleLifecycle,
+  isSavingLifecycle,
+  publishDisabledReason,
+  readiness,
+  requestArchive,
+}: {
+  bank: KaptenQuestionBank;
+  handleLifecycle: (operation: "publish" | "unpublish" | "archive" | "restore") => Promise<void>;
+  isSavingLifecycle: boolean;
+  publishDisabledReason?: string;
+  readiness: QuestionBankReadiness;
+  requestArchive: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <Button
+          aria-label="Kembali ke Bank Soal"
+          nativeButton={false}
+          render={<Link href="/mentor/quiz/question-bank" />}
+          size="sm"
+          title="Kembali ke Bank Soal"
+          variant="ghost"
+        >
+          <ChevronLeft />
+          <span>Kembali ke Bank Soal</span>
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {bank.status === "archived" ? (
+          <Button
+            aria-busy={isSavingLifecycle}
+            disabled={isSavingLifecycle}
+            onClick={() => void handleLifecycle("restore")}
+            size="sm"
+            type="button"
+            variant="brandOutline"
+          >
+            <Upload />
+            {isSavingLifecycle ? "Memulihkan…" : "Pulihkan bank"}
+          </Button>
+        ) : bank.status === "published" ? (
+          <Button
+            aria-busy={isSavingLifecycle}
+            disabled={isSavingLifecycle}
+            onClick={() => void handleLifecycle("unpublish")}
+            size="sm"
+            type="button"
+            variant="brandOutline"
+          >
+            <FilePenLine />
+            {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
+          </Button>
+        ) : bank.status === "draft" ? (
+          <Button
+            aria-busy={isSavingLifecycle}
+            aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
+            disabled={isSavingLifecycle || readiness.incompleteCount > 0}
+            onClick={() => void handleLifecycle("publish")}
+            size="sm"
+            type="button"
+            variant="brand"
+          >
+            <Upload />
+            {isSavingLifecycle ? "Mempublikasikan…" : "Publish"}
+          </Button>
+        ) : null}
+
+        {bank.status !== "archived" && bank.status !== "scheduled" ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-busy={isSavingLifecycle}
+                    aria-label="Arsipkan bank soal"
+                    disabled={isSavingLifecycle}
+                    onClick={requestArchive}
+                    size="icon-sm"
+                    type="button"
+                    variant="dangerOutline"
+                  />
+                }
+              >
+                <Archive />
+              </TooltipTrigger>
+              <TooltipContent>Arsipkan bank soal</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+        {publishDisabledReason ? (
+          <p className="sr-only" id="publish-disabled-reason">
+            {publishDisabledReason}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+type QuestionBankMetadataFormState = {
+  isEditingDescription: boolean;
+  isEditingTitle: boolean;
+  isLocked: boolean;
+  isSavingDescription: boolean;
+  isSavingTitle: boolean;
+};
+
+function QuestionBankMetadataCard({
+  assignedCategories,
+  bank,
+  categories,
+  descriptionInput,
+  folderLabel,
+  formState,
+  handleCategoriesChange,
+  handleSaveDescription,
+  handleSaveTitle,
+  setDescriptionInput,
+  setIsEditingDescription,
+  setIsEditingTitle,
+  setTitleInput,
+  subjectCoverage,
+  titleInput,
+}: {
+  assignedCategories: QuestionBankCategoryOption[];
+  bank: KaptenQuestionBank;
+  categories: QuestionBankCategoryOption[];
+  descriptionInput: string;
+  folderLabel: string;
+  formState: QuestionBankMetadataFormState;
+  handleCategoriesChange: (nextCategoryIds: string[]) => Promise<void>;
+  handleSaveDescription: () => Promise<void>;
+  handleSaveTitle: () => Promise<void>;
+  setDescriptionInput: (value: string) => void;
+  setIsEditingDescription: (value: boolean) => void;
+  setIsEditingTitle: (value: boolean) => void;
+  setTitleInput: (value: string) => void;
+  subjectCoverage: string[];
+  titleInput: string;
+}) {
+  const {
+    isEditingDescription,
+    isEditingTitle,
+    isLocked: isMetadataLocked,
+    isSavingDescription,
+    isSavingTitle,
+  } = formState;
+  return (
+    <section className="rounded-2xl border border-primary-100 bg-white p-5 shadow-xs sm:p-6">
+      <div className="space-y-6">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            {subjectCoverage.map((code) => (
+              <Badge key={code} size="ui" variant="mint">
+                {code}
+              </Badge>
+            ))}
+          </div>
+
+          {isEditingTitle ? (
+            <div className="mt-3 flex max-w-2xl items-center gap-2">
+              <Input
+                autoFocus
+                className="text-2xl font-semibold md:text-3xl"
+                disabled={isSavingTitle}
+                id="edit-bank-title-input"
+                onChange={(e) => setTitleInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleSaveTitle();
+                  } else if (e.key === "Escape") {
+                    setIsEditingTitle(false);
+                    setTitleInput(bank.title);
+                  }
+                }}
+                value={titleInput}
+              />
+              <Button
+                disabled={isSavingTitle || !titleInput.trim()}
+                onClick={() => void handleSaveTitle()}
+                size="sm"
+                type="button"
+                variant="brand"
+              >
+                <Check />
+                Simpan
+              </Button>
+              <Button
+                disabled={isSavingTitle}
+                onClick={() => {
+                  setIsEditingTitle(false);
+                  setTitleInput(bank.title);
+                }}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                <X />
+                Batal
+              </Button>
+            </div>
+          ) : (
+            <div className="group mt-3 flex items-start gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">
+                {bank.title}
+              </h1>
+              {!isMetadataLocked ? (
+                <Button
+                  aria-label="Ubah judul bank soal"
+                  className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
+                  onClick={() => {
+                    setTitleInput(bank.title);
+                    setIsEditingTitle(true);
+                  }}
+                  size="icon-sm"
+                  title="Ubah judul bank soal"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              ) : null}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <StatusPill status={bank.status} />
+          </div>
+        </div>
+
+        <div className="space-y-5 border-t border-primary-100/70 pt-4">
+          <div>
+            <div className="flex items-center justify-start gap-1.5">
+              <span className="text-xs font-semibold text-secondary-500">Deskripsi</span>
+              {!isEditingDescription && !isMetadataLocked ? (
+                <Button
+                  aria-label="Ubah deskripsi bank"
+                  className="size-7 text-secondary-400 hover:text-secondary-900"
+                  onClick={() => {
+                    setDescriptionInput(bank.description ?? "");
+                    setIsEditingDescription(true);
+                  }}
+                  size="icon-sm"
+                  title="Ubah deskripsi"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
+
+            {isEditingDescription ? (
+              <div className="mt-2 max-w-3xl space-y-2">
+                <FieldTextarea
+                  autoFocus
+                  className="min-h-[90px] text-sm"
+                  disabled={isSavingDescription}
+                  onChange={(e) => setDescriptionInput(e.target.value)}
+                  placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
+                  value={descriptionInput}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    disabled={isSavingDescription}
+                    onClick={() => void handleSaveDescription()}
+                    size="sm"
+                    type="button"
+                    variant="brand"
+                  >
+                    <Check />
+                    Simpan
+                  </Button>
+                  <Button
+                    disabled={isSavingDescription}
+                    onClick={() => {
+                      setIsEditingDescription(false);
+                      setDescriptionInput(bank.description ?? "");
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <X />
+                    Batal
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm leading-6 text-secondary-700">
+                {bank.description ? (
+                  bank.description
+                ) : (
+                  <span className="italic text-secondary-400">
+                    Belum ada deskripsi untuk bank soal ini. Klik ikon pensil untuk menambahkan.
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <span className="text-xs font-semibold text-secondary-500">Folder</span>
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-900">
+                <Folder className="size-4 text-primary-700" />
+                <span className="truncate">{folderLabel}</span>
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-start gap-1.5">
+              <span className="text-xs font-semibold text-secondary-500">Kategori</span>
+              {!isMetadataLocked ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        aria-label="Kelola kategori"
+                        className="size-6 text-secondary-400 hover:text-secondary-900"
+                        size="icon-sm"
+                        title="Kelola kategori"
+                        type="button"
+                        variant="ghost"
+                      />
+                    }
+                  >
+                    <Pencil className="size-3" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuLabel>Pilih Kategori</DropdownMenuLabel>
+                    {categories.map((category) => {
+                      const categoryIds = bank.categoryIds ?? [];
+                      const checked = categoryIds.includes(category.id);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          checked={checked}
+                          key={category.id}
+                          onCheckedChange={(nextChecked) => {
+                            const nextIds = nextChecked
+                              ? [...categoryIds, category.id]
+                              : categoryIds.filter((id) => id !== category.id);
+                            void handleCategoriesChange(nextIds);
+                          }}
+                        >
+                          {category.name}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {assignedCategories.length > 0 ? (
+                assignedCategories.map((cat) => (
+                  <span
+                    className="inline-flex items-center rounded-full border border-primary-200 bg-white px-2.5 py-0.5 text-xs font-medium text-primary-800"
+                    key={cat.id}
+                  >
+                    {cat.name}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-secondary-400">Tanpa kategori</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QuestionBankQuestionCard({
+  index,
+  question,
+  questionIssues,
+}: {
+  index: number;
+  question: BankQuestion;
+  questionIssues: QuestionReadinessIssue[];
+}) {
+  const hasIssues = questionIssues.length > 0;
+
+  return (
+    <article
+      className={cn(
+        "rounded-xl border p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5",
+        hasIssues
+          ? "border-amber-300 bg-amber-50/60 hover:border-amber-400"
+          : "border-primary-100 bg-white hover:border-primary-200",
+      )}
+      key={question.id}
+    >
+      <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">
+            {index + 1}
+          </span>
+          <Badge size="ui" variant="mint">
+            {question.subjectCode}
+          </Badge>
+          <Badge
+            size="ui"
+            variant={
+              question.difficulty === "easy"
+                ? "neutral"
+                : question.difficulty === "hard"
+                  ? "accent"
+                  : "mint"
+            }
+          >
+            {question.difficulty === "easy"
+              ? "Mudah"
+              : question.difficulty === "hard"
+                ? "Sulit"
+                : "Sedang"}
+          </Badge>
+          {hasIssues ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-950">
+              <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+              Perlu diperbaiki ({questionIssues.length})
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        <div>
+          <p className="text-sm font-medium leading-6 text-secondary-900">
+            {question.prompt || (
+              <span className="italic text-secondary-400">Pertanyaan belum diisi…</span>
+            )}
+          </p>
+          {question.promptMediaAssetId ? (
+            <div className="mt-3 max-w-md overflow-hidden rounded-xl border border-primary-100">
+              <MediaAssetPreview
+                alt={`Gambar soal ${index + 1}`}
+                assetId={question.promptMediaAssetId}
+                className="max-h-48 bg-white"
+              />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {question.choices.map((choice, choiceIndex) => {
+            const isCorrect = choice.id === question.correctChoiceId;
+            const choiceLabel = String.fromCharCode(65 + choiceIndex);
+            return (
+              <div
+                className={cn(
+                  "flex items-start gap-2.5 rounded-xl border p-3 text-sm transition-colors",
+                  isCorrect
+                    ? "border-primary-200 bg-primary-50/60 text-primary-950 font-medium"
+                    : "border-secondary-100 bg-secondary-50/40 text-secondary-700",
+                )}
+                key={choice.id}
+              >
+                <span
+                  className={cn(
+                    "flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold uppercase",
+                    isCorrect
+                      ? "bg-primary-700 text-white"
+                      : "bg-secondary-200 text-secondary-700",
+                  )}
+                >
+                  {choiceLabel}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="leading-5">{choice.text || <span className="italic text-secondary-400">Opsi kosong</span>}</p>
+                  {choice.mediaAssetId ? (
+                    <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
+                      <MediaAssetPreview
+                        alt={`Media opsi ${choice.id.toUpperCase()}`}
+                        assetId={choice.mediaAssetId}
+                        className="max-h-24 bg-white"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {question.explanation || question.explanationMediaAssetId ? (
+          <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-sm leading-6 text-secondary-700">
+            <span className="font-bold text-primary-900">Pembahasan: </span>
+            {question.explanation}
+            {question.explanationMediaAssetId ? (
+              <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
+                <MediaAssetPreview
+                  alt="Media pembahasan"
+                  assetId={question.explanationMediaAssetId}
+                  className="max-h-28 bg-white"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function QuestionBankQuestionsSection({
+  bank,
+  bankId,
+  questions,
+  readiness,
+}: {
+  bank: KaptenQuestionBank;
+  bankId: string;
+  questions: BankQuestion[];
+  readiness: QuestionBankReadiness;
+}) {
+  return (
+    <section className="space-y-6">
+      <div className="flex flex-col items-start gap-4 rounded-xl border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
+              Daftar Soal
+            </h2>
+            <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-bold text-primary-800">
+              {questions.length} Soal
+            </span>
+          </div>
+        </div>
+        {bank.status === "draft" ? (
+          <Button
+            aria-label="Buka Editor Soal"
+            className="w-full shadow-sm sm:w-auto"
+            nativeButton={false}
+            render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+            size="default"
+            variant="brand"
+          >
+            <Pencil data-icon="inline-start" />
+            Buka Editor Soal
+          </Button>
+        ) : null}
+      </div>
+
+      {questions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-white py-16 text-center">
+          <LibraryBig className="size-12 text-primary-300" />
+          <h3 className="mt-4 font-semibold text-secondary-900">Belum ada soal dalam bank ini</h3>
+          <p className="mt-1 text-sm text-secondary-600">
+            Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan pembahasan.
+          </p>
+          {bank.status === "draft" ? (
+            <Button
+              className="mt-6"
+              nativeButton={false}
+              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+              variant="brand"
+            >
+              <Plus />
+              Tulis Soal Pertama
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {questions.map((question, index) => {
+            const questionIssues = readiness.issues.filter(
+              (issue) => issue.questionId === question.id,
+            );
+            return (
+              <QuestionBankQuestionCard
+                index={index}
+                key={question.id}
+                question={question}
+                questionIssues={questionIssues}
+              />
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function QuestionBankArchiveConfirmationDialog({
+  confirmationRequest,
+  onClose,
+}: {
+  confirmationRequest: ConfirmationRequest | null;
+  onClose: () => void;
+}) {
+  return (
+    <AlertDialog
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      open={Boolean(confirmationRequest)}
+    >
+      <AlertDialogContent size="sm" variant="danger">
+        <AlertDialogHeader>
+          <AlertDialogMedia variant="danger">
+            <CircleHelp />
+          </AlertDialogMedia>
+          <AlertDialogTitle>{confirmationRequest?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{confirmationRequest?.description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>
+            Batal
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => confirmationRequest?.onConfirm()}
+            variant="destructive"
+          >
+            {confirmationRequest?.confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function KaptenQuestionBankDetailPageModule({
   bankId,
   initialBank,
@@ -132,7 +763,8 @@ function KaptenQuestionBankDetailPageModule({
   const isMetadataLocked = bank.status === "archived" || bank.status === "scheduled";
 
   const folderLabel = questionBankFolderLabel(bank.folderId ?? null, bank.folder?.name ?? "Folder tidak ditemukan");
-  const assignedCategories = categories.filter((category) => (bank.categoryIds ?? []).includes(category.id));
+  const bankCategoryIdSet = new Set(bank.categoryIds ?? []);
+  const assignedCategories = categories.filter((category) => bankCategoryIdSet.has(category.id));
 
   const subjectCoverage = [
     ...new Set(
@@ -297,92 +929,14 @@ function KaptenQuestionBankDetailPageModule({
       session={session}
       showSearch={false}
     >
-      {/* Top Bar Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button
-            aria-label="Kembali ke Bank Soal"
-            nativeButton={false}
-            render={<Link href="/mentor/quiz/question-bank" />}
-            size="sm"
-            title="Kembali ke Bank Soal"
-            variant="ghost"
-          >
-            <ChevronLeft />
-            <span>Kembali ke Bank Soal</span>
-          </Button>
-        </div>
-
-        {/* Global Bank Lifecycle Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          {bank.status === "archived" ? (
-            <Button
-              aria-busy={isSavingLifecycle}
-              disabled={isSavingLifecycle}
-              onClick={() => handleLifecycle("restore")}
-              size="sm"
-              type="button"
-              variant="brandOutline"
-            >
-              <Upload />
-              {isSavingLifecycle ? "Memulihkan…" : "Pulihkan bank"}
-            </Button>
-          ) : bank.status === "published" ? (
-            <Button
-              aria-busy={isSavingLifecycle}
-              disabled={isSavingLifecycle}
-              onClick={() => handleLifecycle("unpublish")}
-              size="sm"
-              type="button"
-              variant="brandOutline"
-            >
-              <FilePenLine />
-              {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
-            </Button>
-          ) : bank.status === "draft" ? (
-            <Button
-              aria-busy={isSavingLifecycle}
-              aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-              disabled={isSavingLifecycle || readiness.incompleteCount > 0}
-              onClick={() => handleLifecycle("publish")}
-              size="sm"
-              type="button"
-              variant="brand"
-            >
-              <Upload />
-              {isSavingLifecycle ? "Mempublikasikan…" : "Publish"}
-            </Button>
-          ) : null}
-
-          {bank.status !== "archived" && bank.status !== "scheduled" ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      aria-busy={isSavingLifecycle}
-                      aria-label="Arsipkan bank soal"
-                      disabled={isSavingLifecycle}
-                      onClick={requestArchive}
-                      size="icon-sm"
-                      type="button"
-                      variant="dangerOutline"
-                    />
-                  }
-                >
-                  <Archive />
-                </TooltipTrigger>
-                <TooltipContent>Arsipkan bank soal</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
-          {publishDisabledReason ? (
-            <p className="sr-only" id="publish-disabled-reason">
-              {publishDisabledReason}
-            </p>
-          ) : null}
-        </div>
-      </div>
+      <QuestionBankDetailHeaderBar
+        bank={bank}
+        handleLifecycle={handleLifecycle}
+        isSavingLifecycle={isSavingLifecycle}
+        publishDisabledReason={publishDisabledReason}
+        readiness={readiness}
+        requestArchive={requestArchive}
+      />
 
       {lifecycleError ? (
         <Alert variant="destructive">
@@ -391,455 +945,41 @@ function KaptenQuestionBankDetailPageModule({
         </Alert>
       ) : null}
 
-      {/* Main Bank Information Header Card */}
-      <section className="rounded-2xl border border-primary-100 bg-white p-5 shadow-xs sm:p-6">
-        <div className="space-y-6">
-          {/* Bank Title & Status */}
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              {subjectCoverage.map((code) => (
-                <Badge key={code} size="ui" variant="mint">
-                  {code}
-                </Badge>
-              ))}
-            </div>
-
-            {isEditingTitle ? (
-              <div className="mt-3 flex max-w-2xl items-center gap-2">
-                <Input
-                  autoFocus
-                  className="text-2xl font-semibold md:text-3xl"
-                  disabled={isSavingTitle}
-                  id="edit-bank-title-input"
-                  onChange={(e) => setTitleInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleSaveTitle();
-                    } else if (e.key === "Escape") {
-                      setIsEditingTitle(false);
-                      setTitleInput(bank.title);
-                    }
-                  }}
-                  value={titleInput}
-                />
-                <Button
-                  disabled={isSavingTitle || !titleInput.trim()}
-                  onClick={handleSaveTitle}
-                  size="sm"
-                  type="button"
-                  variant="brand"
-                >
-                  <Check />
-                  Simpan
-                </Button>
-                <Button
-                  disabled={isSavingTitle}
-                  onClick={() => {
-                    setIsEditingTitle(false);
-                    setTitleInput(bank.title);
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <X />
-                  Batal
-                </Button>
-              </div>
-            ) : (
-              <div className="group mt-3 flex items-start gap-3">
-                <h1 className="text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">
-                  {bank.title}
-                </h1>
-                {!isMetadataLocked ? (
-                  <Button
-                    aria-label="Ubah judul bank soal"
-                    className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100"
-                    onClick={() => {
-                      setTitleInput(bank.title);
-                      setIsEditingTitle(true);
-                    }}
-                    size="icon-sm"
-                    title="Ubah judul bank soal"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                ) : null}
-              </div>
-            )}
-
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <StatusPill status={bank.status} />
-            </div>
-          </div>
-
-          {/* Description, folder, and category metadata */}
-          <div className="space-y-5 border-t border-primary-100/70 pt-4">
-            <div>
-              <div className="flex items-center justify-start gap-1.5">
-                <span className="text-xs font-semibold text-secondary-500">
-                  Deskripsi
-                </span>
-                {!isEditingDescription && !isMetadataLocked ? (
-                  <Button
-                    aria-label="Ubah deskripsi bank"
-                    className="size-7 text-secondary-400 hover:text-secondary-900"
-                    onClick={() => {
-                      setDescriptionInput(bank.description ?? "");
-                      setIsEditingDescription(true);
-                    }}
-                    size="icon-sm"
-                    title="Ubah deskripsi"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                ) : null}
-              </div>
-
-              {isEditingDescription ? (
-                <div className="mt-2 max-w-3xl space-y-2">
-                  <FieldTextarea
-                    autoFocus
-                    className="min-h-[90px] text-sm"
-                    disabled={isSavingDescription}
-                    onChange={(e) => setDescriptionInput(e.target.value)}
-                    placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
-                    value={descriptionInput}
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      disabled={isSavingDescription}
-                      onClick={handleSaveDescription}
-                      size="sm"
-                      type="button"
-                      variant="brand"
-                    >
-                      <Check />
-                      Simpan
-                    </Button>
-                    <Button
-                      disabled={isSavingDescription}
-                      onClick={() => {
-                        setIsEditingDescription(false);
-                        setDescriptionInput(bank.description ?? "");
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <X />
-                      Batal
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm leading-6 text-secondary-700">
-                  {bank.description ? (
-                    bank.description
-                  ) : (
-                    <span className="italic text-secondary-400">
-                      Belum ada deskripsi untuk bank soal ini. Klik ikon pensil untuk menambahkan.
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
-
-            {/* Folder Selection */}
-            <div>
-              <span className="text-xs font-semibold text-secondary-500">Folder</span>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary-900">
-                  <Folder className="size-4 text-primary-700" />
-                  <span className="truncate">{folderLabel}</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Category Selection */}
-            <div>
-              <div className="flex items-center justify-start gap-1.5">
-                <span className="text-xs font-semibold text-secondary-500">Kategori</span>
-                {!isMetadataLocked ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          aria-label="Kelola kategori"
-                          className="size-6 text-secondary-400 hover:text-secondary-900"
-                          size="icon-sm"
-                          title="Kelola kategori"
-                          type="button"
-                          variant="ghost"
-                        />
-                      }
-                    >
-                      <Pencil className="size-3" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Pilih Kategori</DropdownMenuLabel>
-                      {categories.map((category) => {
-                        const categoryIds = bank.categoryIds ?? [];
-                        const checked = categoryIds.includes(category.id);
-                        return (
-                          <DropdownMenuCheckboxItem
-                            checked={checked}
-                            key={category.id}
-                            onCheckedChange={(nextChecked) => {
-                              const nextIds = nextChecked
-                                ? [...categoryIds, category.id]
-                                : categoryIds.filter((id) => id !== category.id);
-                              void handleCategoriesChange(nextIds);
-                            }}
-                          >
-                            {category.name}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null}
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {assignedCategories.length > 0 ? (
-                  assignedCategories.map((cat) => (
-                    <span
-                      className="inline-flex items-center rounded-full border border-primary-200 bg-white px-2.5 py-0.5 text-xs font-medium text-primary-800"
-                      key={cat.id}
-                    >
-                      {cat.name}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-secondary-400">Tanpa kategori</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Soal-soal Section in the Bottom with Prominent Editor Button */}
-      <section className="space-y-6">
-        <div className="flex flex-col items-start gap-4 rounded-xl border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
-                Daftar Soal
-              </h2>
-              <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-bold text-primary-800">
-                {questions.length} Soal
-              </span>
-            </div>
-          </div>
-          {bank.status === "draft" ? (
-            <Button
-              aria-label="Buka Editor Soal"
-              className="w-full shadow-sm sm:w-auto"
-              nativeButton={false}
-              render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
-              size="default"
-              variant="brand"
-            >
-              <Pencil data-icon="inline-start" />
-              Buka Editor Soal
-            </Button>
-          ) : null}
-        </div>
-
-        {/* Questions Cards List */}
-        {questions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-white py-16 text-center">
-            <LibraryBig className="size-12 text-primary-300" />
-            <h3 className="mt-4 font-semibold text-secondary-900">Belum ada soal dalam bank ini</h3>
-            <p className="mt-1 text-sm text-secondary-600">
-              Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan pembahasan.
-            </p>
-            {bank.status === "draft" ? (
-              <Button
-                className="mt-6"
-                nativeButton={false}
-                render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
-                variant="brand"
-              >
-                <Plus />
-                Tulis Soal Pertama
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {questions.map((question, index) => {
-              const questionIssues = readiness.issues.filter(
-                (issue) => issue.questionId === question.id,
-              );
-              const hasIssues = questionIssues.length > 0;
-
-              return (
-                <article
-                  className={cn(
-                    "rounded-xl border p-4 shadow-xs transition-shadow hover:shadow-sm sm:p-5",
-                    hasIssues
-                      ? "border-amber-300 bg-amber-50/60 hover:border-amber-400"
-                      : "border-primary-100 bg-white hover:border-primary-200",
-                  )}
-                  key={question.id}
-                >
-                  <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">
-                        {index + 1}
-                      </span>
-                      <Badge size="ui" variant="mint">
-                        {question.subjectCode}
-                      </Badge>
-                      <Badge
-                        size="ui"
-                        variant={
-                          question.difficulty === "easy"
-                            ? "neutral"
-                            : question.difficulty === "hard"
-                              ? "accent"
-                              : "mint"
-                        }
-                      >
-                        {question.difficulty === "easy"
-                          ? "Mudah"
-                          : question.difficulty === "hard"
-                            ? "Sulit"
-                            : "Sedang"}
-                      </Badge>
-                      {hasIssues ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-950">
-                          <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
-                          Perlu diperbaiki ({questionIssues.length})
-                        </span>
-                      ) : null}
-                    </div>
-
-                  </div>
-
-                  {/* Question Content */}
-                  <div className="mt-4 space-y-4">
-                    {/* Prompt Text & Image */}
-                    <div>
-                      <p className="text-sm font-medium leading-6 text-secondary-900">
-                        {question.prompt || (
-                          <span className="italic text-secondary-400">
-                            Pertanyaan belum diisi…
-                          </span>
-                        )}
-                      </p>
-                      {question.promptMediaAssetId ? (
-                        <div className="mt-3 max-w-md overflow-hidden rounded-xl border border-primary-100">
-                          <MediaAssetPreview
-                            alt={`Gambar soal ${index + 1}`}
-                            assetId={question.promptMediaAssetId}
-                            className="max-h-48 bg-white"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Choices Grid */}
-                    <div className="grid gap-2.5 sm:grid-cols-2">
-                      {question.choices.map((choice, choiceIndex) => {
-                        const isCorrect = choice.id === question.correctChoiceId;
-                        const choiceLabel = String.fromCharCode(65 + choiceIndex);
-                        return (
-                          <div
-                            className={cn(
-                              "flex items-start gap-2.5 rounded-xl border p-3 text-sm transition-colors",
-                              isCorrect
-                                ? "border-primary-200 bg-primary-50/60 text-primary-950 font-medium"
-                                : "border-secondary-100 bg-secondary-50/40 text-secondary-700",
-                            )}
-                            key={choice.id}
-                          >
-                            <span
-                              className={cn(
-                                "flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold uppercase",
-                                isCorrect
-                                  ? "bg-primary-700 text-white"
-                                  : "bg-secondary-200 text-secondary-700",
-                              )}
-                            >
-                              {choiceLabel}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="leading-5">{choice.text || <span className="italic text-secondary-400">Opsi kosong</span>}</p>
-                              {choice.mediaAssetId ? (
-                                <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
-                                  <MediaAssetPreview
-                                    alt={`Media opsi ${choice.id.toUpperCase()}`}
-                                    assetId={choice.mediaAssetId}
-                                    className="max-h-24 bg-white"
-                                  />
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Explanation if present */}
-                    {question.explanation || question.explanationMediaAssetId ? (
-                      <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-sm leading-6 text-secondary-700">
-                        <span className="font-bold text-primary-900">Pembahasan: </span>
-                        {question.explanation}
-                        {question.explanationMediaAssetId ? (
-                          <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100">
-                            <MediaAssetPreview
-                              alt="Media pembahasan"
-                              assetId={question.explanationMediaAssetId}
-                              className="max-h-28 bg-white"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Confirmation Dialog for Archiving / Lifecycle */}
-      <AlertDialog
-        onOpenChange={(open) => {
-          if (!open) setConfirmationRequest(null);
+      <QuestionBankMetadataCard
+        assignedCategories={assignedCategories}
+        bank={bank}
+        categories={categories}
+        descriptionInput={descriptionInput}
+        folderLabel={folderLabel}
+        formState={{
+          isEditingDescription,
+          isEditingTitle,
+          isLocked: isMetadataLocked,
+          isSavingDescription,
+          isSavingTitle,
         }}
-        open={Boolean(confirmationRequest)}
-      >
-        <AlertDialogContent size="sm" variant="danger">
-          <AlertDialogHeader>
-            <AlertDialogMedia variant="danger">
-              <CircleHelp />
-            </AlertDialogMedia>
-            <AlertDialogTitle>{confirmationRequest?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirmationRequest?.description}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConfirmationRequest(null)}>
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => confirmationRequest?.onConfirm()}
-              variant="destructive"
-            >
-              {confirmationRequest?.confirmLabel}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        handleCategoriesChange={handleCategoriesChange}
+        handleSaveDescription={handleSaveDescription}
+        handleSaveTitle={handleSaveTitle}
+        setDescriptionInput={setDescriptionInput}
+        setIsEditingDescription={setIsEditingDescription}
+        setIsEditingTitle={setIsEditingTitle}
+        setTitleInput={setTitleInput}
+        subjectCoverage={subjectCoverage}
+        titleInput={titleInput}
+      />
+
+      <QuestionBankQuestionsSection
+        bank={bank}
+        bankId={bankId}
+        questions={questions}
+        readiness={readiness}
+      />
+
+      <QuestionBankArchiveConfirmationDialog
+        confirmationRequest={confirmationRequest}
+        onClose={() => setConfirmationRequest(null)}
+      />
     </MentorWorkspaceShell>
   );
 }

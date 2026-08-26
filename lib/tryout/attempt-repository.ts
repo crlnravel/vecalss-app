@@ -245,11 +245,19 @@ async function calculateAndSealRun(tx: Prisma.TransactionClient, runId: string, 
     await markAttemptSubmittedIfComplete(tx, failed.attemptId, now, !expired);
     return failed;
   }
-  for (const answer of run.answers) {
-    const materialized = scored.materializedAnswers.find((candidate) => candidate.itemId === answer.tryoutItemId);
-    if (!materialized) continue;
-    await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION } });
-  }
+  const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
+  await Promise.all(
+    run.answers.flatMap((answer) => {
+      const materialized = materializedByItemId.get(answer.tryoutItemId);
+      if (!materialized) return [];
+      return [
+        tx.tryoutAnswer.update({
+          where: { id: answer.id },
+          data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CBT_SCORING_VERSION },
+        }),
+      ];
+    }),
+  );
   const result = { answeredCount: scored.answeredCount, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore: scored.normalizedScore, score: scored.rawScore, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({
     where: { id: run.id },
@@ -310,11 +318,19 @@ async function calculateAndSealCatRun(tx: Prisma.TransactionClient, run: { id: s
     await markAttemptSubmittedIfComplete(tx, sealedFailed.attemptId, now, !expired);
     return sealedFailed;
   }
-  for (const answer of run.answers) {
-    const materialized = scored.materializedAnswers.find((candidate) => candidate.itemId === answer.tryoutItemId);
-    if (!materialized) continue;
-    await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CAT_SCORING_VERSION } });
-  }
+  const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
+  await Promise.all(
+    run.answers.flatMap((answer) => {
+      const materialized = materializedByItemId.get(answer.tryoutItemId);
+      if (!materialized) return [];
+      return [
+        tx.tryoutAnswer.update({
+          where: { id: answer.id },
+          data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CAT_SCORING_VERSION },
+        }),
+      ];
+    }),
+  );
   const normalizedScore = normalizeCatAbility(current.currentAbility);
   const result = { ability: current.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: current.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: current.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount };
   const sealed = await tx.tryoutAttemptTestRun.update({ where: { id: run.id }, data: { calculationInput: json({ modelVersion: current.modelVersion, parameters: current.parameters, selectedItemIds: current.selectedItemIds, updates: current.updates }), calculationResult: json(result), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: current.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, sealedAt: now, status: expired ? TryoutAttemptTestRunStatus.expired : TryoutAttemptTestRunStatus.sealed, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
@@ -1359,11 +1375,19 @@ async function retryCatTestRun(runId: string, actorId: string, reason: string, a
     if (!snapshot || !scored || scored.invalid || scored.normalizedScore === null) {
       await failCatRun(tx, runId, "Snapshot CAT tidak dapat dihitung ulang dari jawaban yang tersimpan.");
     } else {
-      for (const answer of run.answers) {
-        const materialized = scored.materializedAnswers.find((candidate) => candidate.itemId === answer.tryoutItemId);
-        if (!materialized) continue;
-        await tx.tryoutAnswer.update({ where: { id: answer.id }, data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CAT_SCORING_VERSION } });
-      }
+      const materializedByItemId = new Map(scored.materializedAnswers.map((candidate) => [candidate.itemId, candidate]));
+      await Promise.all(
+        run.answers.flatMap((answer) => {
+          const materialized = materializedByItemId.get(answer.tryoutItemId);
+          if (!materialized) return [];
+          return [
+            tx.tryoutAnswer.update({
+              where: { id: answer.id },
+              data: { isCorrect: materialized.isCorrect, pointsAwarded: materialized.pointsAwarded, scoringVersion: TRYOUT_CAT_SCORING_VERSION },
+            }),
+          ];
+        }),
+      );
       const normalizedScore = normalizeCatAbility(snapshot.currentAbility);
       await tx.tryoutAttemptTestRun.update({ where: { id: runId }, data: { calculationInput: json({ modelVersion: snapshot.modelVersion, parameters: snapshot.parameters, selectedItemIds: snapshot.selectedItemIds, updates: snapshot.updates }), calculationResult: json({ ability: snapshot.currentAbility, answeredCount: scored.answeredCount, correctCount: scored.correctCount, deliveredCount: snapshot.selectedItemIds.length, maxScore: scored.maxScore, normalizedScore, score: snapshot.currentAbility, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount }), calculationVersion: TRYOUT_CAT_SCORING_VERSION, calculationReleaseable: true, catFailureReason: null, catState: TryoutCatRunState.ready, correctCount: scored.correctCount, maxScore: scored.maxScore, normalizedScore, rawScore: snapshot.currentAbility, scaledScore: normalizedScore, scoringProvenance: AssessmentScoringProvenance.runtime, scoringReviewReason: null, scoringState: AssessmentScoringState.scored, scoringVersion: TRYOUT_CAT_SCORING_VERSION, unansweredCount: scored.unansweredCount, wrongCount: scored.wrongCount } });
     }

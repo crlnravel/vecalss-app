@@ -272,17 +272,18 @@ function toPreviewQuizMedia(asset: AdminPreviewQuizAssetInput | null | undefined
 }
 
 function toAdminPreviewQuizQuestion(item: AdminPreviewQuizItemInput): AdminPreviewQuizQuestion {
-  const choices = [...item.options]
-    .sort((left, right) => left.sortOrder - right.sortOrder)
-    .map((choice) => ({
-      media: toPreviewQuizMedia(choice.asset),
-      text: sanitizePreviewText(choice.content),
-    }))
-    .filter((choice) => choice.text.length > 0)
-    .map((choice, index) => ({
-      ...choice,
-      key: String.fromCharCode(65 + index),
-    }));
+  const choices: AdminPreviewQuizChoice[] = [];
+  const sorted = [...item.options].sort((left, right) => left.sortOrder - right.sortOrder);
+  for (const choice of sorted) {
+    const text = sanitizePreviewText(choice.content);
+    if (text.length > 0) {
+      choices.push({
+        key: String.fromCharCode(65 + choices.length),
+        media: toPreviewQuizMedia(choice.asset),
+        text,
+      });
+    }
+  }
 
   return {
     choices,

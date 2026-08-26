@@ -14,7 +14,8 @@ import {
   Save,
   Search,
 } from "@/lib/icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
+import { formatTryoutDateTime } from "@/lib/tryout/time";
 
 import {
   AlertDialog,
@@ -120,54 +121,54 @@ type WorkspacePhase = "overview" | "build" | "review_publish" | "delivery" | "li
 type WorkflowMode = "draft" | "published";
 
 type WorkspacePhaseDefinition = {
+  items: Array<{ label: string; value: Workspace }>;
   label: string;
   value: WorkspacePhase;
-  items: Array<{ label: string; value: Workspace }>;
 };
 
 const draftWorkspacePhases: WorkspacePhaseDefinition[] = [
   {
+    items: [{ label: "Overview", value: "basics" }],
     label: "Overview",
     value: "overview",
-    items: [{ label: "Overview", value: "basics" }],
   },
   {
+    items: [{ label: "Configure Sections", value: "sections" }],
     label: "Soal",
     value: "build",
-    items: [{ label: "Configure Sections", value: "sections" }],
   },
   {
+    items: [{ label: "Review & Publish", value: "review" }],
     label: "Review & Publish",
     value: "review_publish",
-    items: [{ label: "Review & Publish", value: "review" }],
   },
 ];
 
 const publishedWorkspacePhases: WorkspacePhaseDefinition[] = [
   {
+    items: [{ label: "Overview", value: "basics" }],
     label: "Overview",
     value: "overview",
-    items: [{ label: "Overview", value: "basics" }],
   },
   {
+    items: [{ label: "Policy · Sessions · Participants", value: "schedule" }],
     label: "Delivery",
     value: "delivery",
-    items: [{ label: "Policy · Sessions · Participants", value: "schedule" }],
   },
   {
+    items: [{ label: "Live", value: "live" }],
     label: "Live",
     value: "live",
-    items: [{ label: "Live", value: "live" }],
   },
   {
+    items: [{ label: "Attempts", value: "attempts" }],
     label: "Attempts",
     value: "attempts",
-    items: [{ label: "Attempts", value: "attempts" }],
   },
   {
+    items: [{ label: "Results & release", value: "results" }],
     label: "Results",
     value: "results",
-    items: [{ label: "Results & release", value: "results" }],
   },
 ];
 
@@ -278,6 +279,14 @@ function subjectName(code: SubjectCode) {
   return kaptenSubjects.find((subject) => subject.code === code)?.name ?? code;
 }
 
+function unavailablePhaseReason(phase: WorkspacePhase) {
+  if (phase === "build") return "Isi judul Tryout di Overview untuk membuka Soal.";
+  if (phase === "review_publish") return "Lengkapi durasi dan soal di semua Section untuk membuka Review & Publish.";
+  if (phase === "live") return "Live hanya tersedia untuk sesi aktif yang sudah memiliki AssessmentRelease.";
+  if (phase === "results") return "Results belum tersedia sampai ada sesi yang ditutup atau attempt terminal.";
+  return "Selesaikan langkah sebelumnya terlebih dahulu untuk membuka area ini.";
+}
+
 function RequiredMark() {
   return <><span aria-hidden="true" className="ml-1 text-danger-500">*</span><span className="sr-only"> wajib</span></>;
 }
@@ -304,6 +313,52 @@ type SectionReadiness = {
   target: Workspace;
 };
 
+function directQuestionsReady(questions: DirectQuestionDraft[]) {
+  return Boolean(
+    questions.length
+      && questions.every((question) => Boolean(question.prompt?.trim()) && question.hasExplanation === true && question.hasReadyMedia !== false),
+  );
+}
+
+function SourceBankList({
+  activeSectionSubtest,
+  browseBankId,
+  guardExternalNavigation,
+  onSelectBank,
+  sourceBanks,
+}: {
+  activeSectionSubtest: SubjectCode;
+  browseBankId: string;
+  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  onSelectBank: (bankId: string) => void;
+  sourceBanks: SourceBank[];
+}) {
+  if (!sourceBanks.length) {
+    return (
+      <div className="grid gap-3 px-3 py-5">
+        <p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSectionSubtest}.</p>
+        <Button className="w-fit" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button>
+      </div>
+    );
+  }
+  return sourceBanks.map((bank) => (
+    <Button
+      aria-selected={browseBankId === bank.id}
+      className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+      key={bank.id}
+      onClick={() => onSelectBank(bank.id)}
+      role="option"
+      variant={browseBankId === bank.id ? "contextSelected" : "ghost"}
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-semibold">{bank.title}</span>
+        <span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span>
+      </span>
+      {browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}
+    </Button>
+  ));
+}
+
 function SectionRail({
   activeCode,
   onSelect,
@@ -320,12 +375,12 @@ function SectionRail({
       <div>
         <h2 className="font-semibold text-secondary-900" id="section-rail-title">Configure Sections</h2>
       </div>
-      <div className="grid gap-2" role="list" aria-label="Tujuh Section Tryout">
+      <ul aria-label="Tujuh Section Tryout" className="m-0 grid gap-2 list-none p-0">
         {sections.map((section) => {
           const active = section.subtest === activeCode;
           const incomplete = readiness[section.subtest]?.status !== "ready";
           return (
-            <div key={section.subtest} role="listitem">
+            <li key={section.subtest}>
               <Button
                 aria-current={active ? "page" : undefined}
                 aria-label={`${section.subtest}${incomplete ? " (belum lengkap)" : ""}`}
@@ -336,39 +391,458 @@ function SectionRail({
                 <span>{section.subtest}</span>
                 {incomplete ? <span aria-hidden="true" className="ml-auto size-2 rounded-full bg-voyage-warm-sun" /> : null}
               </Button>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </aside>
   );
 }
 
-function KaptenTryoutBuilderPageModule({
+type BuilderState = {
+  activeCode: SubjectCode;
+  browseBankId: string;
+  deliveryArea: DeliveryArea;
+  dirty: boolean;
+  dirtyNavigationOpen: boolean;
+  draft: TryoutDraft;
+  duplicateOpen: boolean;
+  error: string | null;
+  metadataSaving: boolean;
+  publishOpen: boolean;
+  requestedWorkspace: Workspace;
+  saving: boolean;
+  sourceBankLoading: boolean;
+  sourceBankPage: number;
+  sourceBankSearch: string;
+  sourceBankTotal: number;
+  sourceBanks: SourceBank[];
+  sourceQuestionLoading: boolean;
+  sourceQuestionPage: number;
+  sourceQuestionSearch: string;
+  sourceQuestionTotal: number;
+  sourceQuestions: SourceQuestion[];
+  unpublishOpen: boolean;
+};
+
+type BuilderAction =
+  | { type: "setDraft"; draft: TryoutDraft }
+  | { type: "updateSection"; change: Partial<TestDraft>; subtest: SubjectCode }
+  | { type: "changeActiveCode"; code: SubjectCode }
+  | { type: "setSourceBankSearch"; search: string }
+  | { type: "setSourceBankPage"; page: number }
+  | { type: "setSourceBankLoading"; loading: boolean }
+  | { type: "setSourceBankResults"; banks: SourceBank[]; total: number }
+  | { type: "setBrowseBankId"; bankId: string }
+  | { type: "setSourceQuestionSearch"; search: string }
+  | { type: "setSourceQuestionPage"; page: number }
+  | { type: "setSourceQuestionLoading"; loading: boolean }
+  | { type: "setSourceQuestionResults"; questions: SourceQuestion[]; total: number }
+  | { type: "setRequestedWorkspace"; workspace: Workspace }
+  | { type: "setDeliveryArea"; area: DeliveryArea }
+  | { type: "setSaving"; saving: boolean }
+  | { type: "setMetadataSaving"; saving: boolean }
+  | { type: "setError"; error: string | null }
+  | { type: "setDirty"; dirty: boolean }
+  | { type: "setPublishOpen"; open: boolean }
+  | { type: "setUnpublishOpen"; open: boolean }
+  | { type: "setDuplicateOpen"; open: boolean }
+  | { type: "setDirtyNavigationOpen"; open: boolean };
+
+function builderReducer(state: BuilderState, action: BuilderAction): BuilderState {
+  switch (action.type) {
+    case "setDraft":
+      return { ...state, draft: action.draft };
+    case "updateSection":
+      return {
+        ...state,
+        dirty: true,
+        draft: {
+          ...state.draft,
+          sections: state.draft.sections.map((section) =>
+            section.subtest === action.subtest ? { ...section, ...action.change } : section,
+          ),
+        },
+      };
+    case "changeActiveCode":
+      return {
+        ...state,
+        activeCode: action.code,
+        sourceBankPage: 1,
+        sourceBankSearch: "",
+        sourceQuestionPage: 1,
+        sourceQuestionSearch: "",
+        sourceQuestions: [],
+      };
+    case "setSourceBankSearch":
+      return { ...state, sourceBankPage: 1, sourceBankSearch: action.search };
+    case "setSourceBankPage":
+      return { ...state, sourceBankPage: action.page };
+    case "setSourceBankLoading":
+      return { ...state, sourceBankLoading: action.loading };
+    case "setSourceBankResults": {
+      const nextBanks = state.sourceBankPage === 1
+        ? action.banks
+        : [...state.sourceBanks, ...action.banks].filter((bank, index, all) => all.findIndex((candidate) => candidate.id === bank.id) === index);
+      const nextBrowseBankId = nextBanks.some((bank) => bank.id === state.browseBankId) ? state.browseBankId : nextBanks[0]?.id ?? "";
+      return { ...state, browseBankId: nextBrowseBankId, sourceBankTotal: action.total, sourceBanks: nextBanks };
+    }
+    case "setBrowseBankId":
+      return {
+        ...state,
+        browseBankId: action.bankId,
+        sourceQuestionPage: 1,
+        sourceQuestionSearch: "",
+        sourceQuestions: [],
+      };
+    case "setSourceQuestionSearch":
+      return { ...state, sourceQuestionPage: 1, sourceQuestionSearch: action.search };
+    case "setSourceQuestionPage":
+      return { ...state, sourceQuestionPage: action.page };
+    case "setSourceQuestionLoading":
+      return { ...state, sourceQuestionLoading: action.loading };
+    case "setSourceQuestionResults": {
+      const nextQuestions = state.sourceQuestionPage === 1
+        ? action.questions
+        : [...state.sourceQuestions, ...action.questions].filter((question, index, all) => all.findIndex((candidate) => candidate.id === question.id) === index);
+      return { ...state, sourceQuestionTotal: action.total, sourceQuestions: nextQuestions };
+    }
+    case "setRequestedWorkspace":
+      return { ...state, requestedWorkspace: action.workspace };
+    case "setDeliveryArea":
+      return { ...state, deliveryArea: action.area };
+    case "setSaving":
+      return { ...state, saving: action.saving };
+    case "setMetadataSaving":
+      return { ...state, metadataSaving: action.saving };
+    case "setError":
+      return { ...state, error: action.error };
+    case "setDirty":
+      return { ...state, dirty: action.dirty };
+    case "setPublishOpen":
+      return { ...state, publishOpen: action.open };
+    case "setUnpublishOpen":
+      return { ...state, unpublishOpen: action.open };
+    case "setDuplicateOpen":
+      return { ...state, duplicateOpen: action.open };
+    case "setDirtyNavigationOpen":
+      return { ...state, dirtyNavigationOpen: action.open };
+    default:
+      return state;
+  }
+}
+
+function TryoutBasicsTab({
+  draft,
+  metadataSaving,
+  mode,
+  onDescriptionChange,
+  onSaveMetadata,
+  onTitleChange,
+}: {
+  draft: TryoutDraft;
+  metadataSaving: boolean;
+  mode: WorkflowMode;
+  onDescriptionChange: (description: string) => void;
+  onSaveMetadata: () => void;
+  onTitleChange: (title: string) => void;
+}) {
+  return (
+    <TabsContent className="mt-0 w-full" value="basics">
+      <section className="grid w-full gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+        <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
+        <div className="grid gap-5">
+          <Field>
+            <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
+            <FieldInput className="h-12 border-primary-200 bg-white text-base font-semibold text-secondary-900" disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => onTitleChange(event.target.value)} required value={draft.title} />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
+            <FieldTextarea className="min-h-32 border-primary-200 bg-white px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => onDescriptionChange(event.target.value)} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
+          </Field>
+        </div>
+        {mode === "published" ? (
+          <div className="flex justify-end border-t border-primary-100 pt-4">
+            <Button disabled={metadataSaving || !draft.title.trim()} onClick={onSaveMetadata} variant="brand">
+              {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
+            </Button>
+          </div>
+        ) : null}
+      </section>
+    </TabsContent>
+  );
+}
+
+function TryoutSectionsTab({
+  activeBrowseBank,
+  activeDirectQuestions,
+  activeSection,
+  activeSourceQuestions,
+  browseBankId,
+  draft,
+  guardExternalNavigation,
+  onBankPageNext,
+  onBankSearchChange,
+  onQuestionPageNext,
+  onQuestionSearchChange,
+  onSelectBank,
+  onToggleQuestion,
+  onUpdateSection,
+  selectedSourceQuestionIdsSet,
+  sourceBankLoading,
+  sourceBankSearch,
+  sourceBankTotal,
+  sourceBanks,
+  sourceQuestionLoading,
+  sourceQuestionSearch,
+  sourceQuestionTotal,
+  sourceQuestions,
+}: {
+  activeBrowseBank?: SourceBank;
+  activeDirectQuestions: DirectQuestionDraft[];
+  activeSection: TestDraft;
+  activeSourceQuestions: SourceQuestion[];
+  browseBankId: string;
+  draft: TryoutDraft;
+  guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
+  onBankPageNext: () => void;
+  onBankSearchChange: (search: string) => void;
+  onQuestionPageNext: () => void;
+  onQuestionSearchChange: (search: string) => void;
+  onSelectBank: (bankId: string) => void;
+  onToggleQuestion: (question: SourceQuestion) => void;
+  onUpdateSection: (change: Partial<TestDraft>) => void;
+  selectedSourceQuestionIdsSet: Set<string>;
+  sourceBankLoading: boolean;
+  sourceBankSearch: string;
+  sourceBankTotal: number;
+  sourceBanks: SourceBank[];
+  sourceQuestionLoading: boolean;
+  sourceQuestionSearch: string;
+  sourceQuestionTotal: number;
+  sourceQuestions: SourceQuestion[];
+}) {
+  return (
+    <>
+      <TabsContent className="mt-0 lg:col-start-2" value="sections">
+        <div className="grid gap-5">
+          <section aria-labelledby="tryout-basic-info-title" className="grid gap-5 rounded-3xl border border-primary-200 bg-primary-50/35 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+            <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
+            <div className="grid gap-5">
+              <Field>
+                <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi <RequiredMark /></FieldLabel>
+                <div className="relative">
+                  <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => onUpdateSection({ durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
+                  <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
+                </div>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
+                <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
+              </Field>
+            </div>
+          </section>
+        </div>
+      </TabsContent>
+
+      <TabsContent className="mt-0 lg:col-start-2" value="sections">
+        <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+          <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
+            <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
+          </div>
+
+          <div className="grid gap-5">
+            <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)] lg:items-start">
+              <div className="grid min-w-0 gap-4 rounded-2xl border border-primary-200 bg-white/80 p-4">
+                <Field>
+                  <FieldLabel>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
+                  <Popover>
+                    <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
+                      <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
+                      <ChevronDown />
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
+                        <FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
+                      </div>
+                      {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
+                      <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
+                        <SourceBankList
+                          activeSectionSubtest={activeSection.subtest}
+                          browseBankId={browseBankId}
+                          guardExternalNavigation={guardExternalNavigation}
+                          onSelectBank={onSelectBank}
+                          sourceBanks={sourceBanks}
+                        />
+                      </div>
+                      {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={onBankPageNext} size="sm" variant="brandOutline">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
+                    </PopoverContent>
+                  </Popover>
+                </Field>
+              </div>
+              <div className="min-w-0 rounded-3xl border border-primary-200 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+                <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-11 rounded-xl border-primary-200 bg-primary-50/35 py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
+                {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
+                {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
+                  const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
+                  const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
+                  const checkboxId = `source-question-${question.id}`;
+                  return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-400 bg-primary-50/70 shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-secondary-100 bg-secondary-50/30 hover:border-primary-200 hover:bg-primary-50/40"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
+                })}</div> : <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center text-sm leading-6 text-secondary-500">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</div>}
+                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
+              </div>
+            </div>
+          </div>
+        </section>
+      </TabsContent>
+    </>
+  );
+}
+
+function TryoutReviewTab({
+  draft,
+  onPublishClick,
+  saving,
+  setPublishOpen,
+}: {
+  draft: TryoutDraft;
+  onPublishClick: () => void;
+  saving: boolean;
+  setPublishOpen: (open: boolean) => void;
+}) {
+  return (
+    <TabsContent className="mt-0" value="review">
+      <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+        <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Review &amp; Publish</h2>
+        <dl className="grid gap-5">
+          <div className="grid gap-1">
+            <dt className="text-sm font-semibold text-secondary-600">Judul</dt>
+            <dd className="text-lg font-semibold text-secondary-900">{draft.title || "Tanpa judul"}</dd>
+          </div>
+          <div className="grid gap-1">
+            <dt className="text-sm font-semibold text-secondary-600">Deskripsi</dt>
+            <dd className="text-sm leading-6 text-secondary-700">{draft.description || "Belum ada deskripsi."}</dd>
+          </div>
+        </dl>
+        <section aria-labelledby="tryout-sections-summary-title" className="grid gap-3">
+          <h3 className="font-semibold text-secondary-900" id="tryout-sections-summary-title">Sections</h3>
+          <div className="grid gap-2">
+            {draft.sections.map((section, index) => (
+              <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary-200 bg-white/80 px-4 py-3 transition-colors hover:border-primary-300 hover:bg-white" key={section.subtest}>
+                <div>
+                  <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
+                  <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1.5 text-sm font-bold text-primary-800">{section.durationMinutes} menit</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="flex justify-end">
+          <Button disabled={saving || draft.locked} onClick={() => setPublishOpen(true)} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</Button>
+        </div>
+      </section>
+    </TabsContent>
+  );
+}
+
+function TryoutLifecycleModals({
+  dirtyNavigationOpen,
+  draft,
+  duplicateOpen,
+  hasActiveAttempt,
+  onCancelDirtyNavigation,
+  onConfirmDiscard,
+  onConfirmDuplicate,
+  onConfirmPublish,
+  onConfirmSaveDirty,
+  onConfirmUnpublish,
+  onOpenChangeDirtyNavigation,
+  onOpenChangeDuplicate,
+  onOpenChangePublish,
+  onOpenChangeUnpublish,
+  publishOpen,
+  saving,
+  unpublishOpen,
+}: {
+  dirtyNavigationOpen: boolean;
+  draft: TryoutDraft;
+  duplicateOpen: boolean;
+  hasActiveAttempt: boolean;
+  onCancelDirtyNavigation: () => void;
+  onConfirmDiscard: () => void;
+  onConfirmDuplicate: () => void;
+  onConfirmPublish: () => void;
+  onConfirmSaveDirty: () => void;
+  onConfirmUnpublish: () => void;
+  onOpenChangeDirtyNavigation: (open: boolean) => void;
+  onOpenChangeDuplicate: (open: boolean) => void;
+  onOpenChangePublish: (open: boolean) => void;
+  onOpenChangeUnpublish: (open: boolean) => void;
+  publishOpen: boolean;
+  saving: boolean;
+  unpublishOpen: boolean;
+}) {
+  return (
+    <>
+      <AlertDialog onOpenChange={onOpenChangePublish} open={publishOpen}>
+        <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
+          <AlertDialogHeader><AlertDialogTitle>Terbitkan Tryout?</AlertDialogTitle><AlertDialogDescription>Setelah tryout di-publish dan terdapat siswa mengerjakan, soal akan terkunci dan Anda tidak dapat mengubahnya kembali.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter className="grid gap-2 sm:grid-cols-2"><AlertDialogCancel className="w-full" disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction className="w-full" disabled={saving} onClick={onConfirmPublish} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog onOpenChange={onOpenChangeUnpublish} open={unpublishOpen}>
+        <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
+          <AlertDialogHeader><AlertDialogTitle>Jadikan Tryout draf?</AlertDialogTitle><AlertDialogDescription>Tryout tidak lagi tersedia untuk pendaftaran baru. Riwayat peserta dan AssessmentRelease tetap tersimpan. Perintah ini hanya dapat dilakukan saat tidak ada peserta yang sedang mengerjakan.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving || hasActiveAttempt} onClick={onConfirmUnpublish} variant="brand">{saving ? "Memproses…" : "Jadikan draf"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog onOpenChange={onOpenChangeDuplicate} open={duplicateOpen}>
+        <AlertDialogContent className="rounded-5xl" pending={saving} variant="info">
+          <AlertDialogHeader><AlertDialogTitle>Duplikasi Tryout?</AlertDialogTitle><AlertDialogDescription>Salinan akan dibuat sebagai draf yang dapat diedit. Riwayat peserta dan AssessmentRelease Tryout ini tetap tidak berubah.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving} onClick={onConfirmDuplicate} variant="brand"><Copy />{saving ? "Menyalin…" : "Buat salinan"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog onOpenChange={onOpenChangeDirtyNavigation} open={dirtyNavigationOpen}>
+        <AlertDialogContent className="!max-w-xl rounded-5xl gap-5" pending={saving} variant="warning">
+          <AlertDialogHeader><AlertDialogTitle>Perubahan belum disimpan</AlertDialogTitle><AlertDialogDescription>Simpan perubahan sebelum berpindah langkah, atau buang perubahan lokal. Jika penyimpanan gagal, Anda tetap berada di langkah ini.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter className="!justify-stretch grid w-full gap-2">
+            <AlertDialogCancel className="w-full" disabled={saving} onClick={onCancelDirtyNavigation}>Tetap di sini</AlertDialogCancel>
+            <Button className="w-full" disabled={saving} onClick={onConfirmDiscard} variant="brandOutline">Buang perubahan</Button>
+            <AlertDialogAction className="w-full" disabled={saving || !draft.title.trim()} onClick={onConfirmSaveDirty} variant="brand"><Save />Simpan dan lanjutkan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function useTryoutBuilderState({
   id,
-  initialDraft,
   initialDeliveryArea,
+  initialDraft,
   initialParent,
   initialSessionId,
-  initialWorkspace = "basics",
-  operationsInitial,
   initialSourceBankTotal,
   initialSourceBanks,
-  session,
+  initialWorkspace = "basics",
+  operationsInitial,
 }: {
   id?: string;
-  initialDraft?: TryoutDraft | null;
   initialDeliveryArea?: string;
+  initialDraft?: TryoutDraft | null;
   initialParent?: { id: string; publishedAt?: string; title: string };
   initialSessionId?: string;
-  initialWorkspace?: string;
   initialSourceBankTotal?: number;
   initialSourceBanks: SourceBank[];
+  initialWorkspace?: string;
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
-  session: SessionContext;
 }) {
-  void session;
-  const [initialFormDraft] = useState<TryoutDraft>(() => normalize(initialDraft ?? {
+  const initialFormDraft = useMemo<TryoutDraft>(() => normalize(initialDraft ?? {
     description: "",
     id: id ?? "baru",
     locked: false,
@@ -376,184 +850,166 @@ function KaptenTryoutBuilderPageModule({
     status: "draft",
     title: "Draft Tryout Baru",
     updatedAt: Date.now(),
-  }));
-  const [draft, setDraft] = useState<TryoutDraft>(() => initialFormDraft);
-  const [savedDraft, setSavedDraft] = useState<TryoutDraft>(() => initialFormDraft);
-  const [activeCode, setActiveCode] = useState<SubjectCode>(() => initialFormDraft.sections.find((section) => !section.directQuestions?.length)?.subtest ?? "PU");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(() => !id);
-  const [sourceBankSearch, setSourceBankSearch] = useState("");
-  const [sourceBanks, setSourceBanks] = useState<SourceBank[]>(initialSourceBanks);
-  const [sourceBankPage, setSourceBankPage] = useState(1);
-  const [sourceBankTotal, setSourceBankTotal] = useState(initialSourceBankTotal ?? initialSourceBanks.length);
-  const [sourceBankLoading, setSourceBankLoading] = useState(false);
-  const [browseBankId, setBrowseBankId] = useState(initialSourceBanks[0]?.id ?? "");
-  const [sourceQuestionSearch, setSourceQuestionSearch] = useState("");
-  const [sourceQuestionPage, setSourceQuestionPage] = useState(1);
-  const [sourceQuestionTotal, setSourceQuestionTotal] = useState(0);
-  const [sourceQuestionLoading, setSourceQuestionLoading] = useState(false);
-  const [sourceQuestions, setSourceQuestions] = useState<SourceQuestion[]>([]);
-  const [publishOpen, setPublishOpen] = useState(false);
-  const [unpublishOpen, setUnpublishOpen] = useState(false);
-  const [duplicateOpen, setDuplicateOpen] = useState(false);
-  const [requestedWorkspace, setRequestedWorkspace] = useState<Workspace>(() => {
-    const requested = normalizeWorkspace(initialWorkspace);
-    if (initialDraft?.status === "published" && ["sections", "review", "publish"].includes(requested)) return "schedule";
-    if (initialDraft?.status !== "published" && ["schedule", "live", "attempts", "results"].includes(requested)) return "basics";
-    return requested;
-  });
-  const [deliveryArea, setDeliveryArea] = useState<DeliveryArea>(() => deliveryAreaFor(initialDeliveryArea ?? initialWorkspace));
-  const [metadataSaving, setMetadataSaving] = useState(false);
-  const [pendingWorkspace, setPendingWorkspace] = useState<Workspace | null>(null);
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
-  const [dirtyNavigationOpen, setDirtyNavigationOpen] = useState(false);
+  }), [id, initialDraft]);
 
-  const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0];
-  const selectedSourceQuestionIds = draft.sections.flatMap((section) => section.directQuestions ?? []).map((question) => question.sourceQuestionId);
-  const directQuestionsReady = (questions: DirectQuestionDraft[]) => Boolean(
-    questions.length
-      && questions.every((question) => Boolean(question.prompt?.trim()) && question.hasExplanation === true && question.hasReadyMedia !== false),
-  );
-  const invalidDurationSections = draft.sections.filter((section) => !Number.isInteger(section.durationMinutes) || section.durationMinutes < 1);
-  const incompleteSections = draft.sections.filter((section) => {
-    const directQuestions = section.directQuestions ?? [];
-    const hasSource = Boolean(directQuestions.length);
-    const contentReady = directQuestionsReady(directQuestions);
-    return !hasSource
-      || !contentReady;
-  });
-  const sectionReadiness = Object.fromEntries(draft.sections.map((section) => {
-    const directQuestions = section.directQuestions ?? [];
-    const hasSource = Boolean(directQuestions.length);
-    const issues: string[] = [];
-    let target: Workspace = "sections";
-    if (!hasSource) issues.push("Sumber soal belum dipilih.");
-    if (invalidDurationSections.some((candidate) => candidate.subtest === section.subtest)) {
-      issues.push("Durasi belum valid.");
-      if (hasSource) target = "sections";
-    }
-    if (incompleteSections.some((candidate) => candidate.subtest === section.subtest) && !issues.length) {
-      issues.push("Pilih soal dan pastikan kontennya siap.");
-      target = "sections";
-    }
-    const hasAnyConfiguration = hasSource || Boolean(section.instructions.trim()) || section.durationMinutes !== 30;
-    return [section.subtest, {
-      detail: issues[0] ?? "Sumber dan durasi siap diperiksa.",
-      issueCount: issues.length,
-      status: !hasAnyConfiguration ? "setup" : !hasSource || issues.length ? (issues.length ? "attention" : "in_progress") : "ready",
-      target,
-    } satisfies SectionReadiness];
-  })) as Record<SubjectCode, SectionReadiness>;
+  const [state, dispatch] = useReducer(builderReducer, undefined, () => ({
+    activeCode: initialFormDraft.sections.find((section) => !section.directQuestions?.length)?.subtest ?? "PU",
+    browseBankId: initialSourceBanks[0]?.id ?? "",
+    deliveryArea: deliveryAreaFor(initialDeliveryArea),
+    dirty: !id,
+    dirtyNavigationOpen: false,
+    draft: initialFormDraft,
+    duplicateOpen: false,
+    error: null,
+    metadataSaving: false,
+    publishOpen: false,
+    requestedWorkspace: normalizeWorkspace(initialWorkspace),
+    saving: false,
+    sourceBankLoading: false,
+    sourceBankPage: 1,
+    sourceBankSearch: "",
+    sourceBankTotal: initialSourceBankTotal ?? initialSourceBanks.length,
+    sourceBanks: initialSourceBanks,
+    sourceQuestionLoading: false,
+    sourceQuestionPage: 1,
+    sourceQuestionSearch: "",
+    sourceQuestionTotal: 0,
+    sourceQuestions: [],
+    unpublishOpen: false,
+  }));
+
+  const {
+    activeCode,
+    browseBankId,
+    deliveryArea,
+    dirty,
+    dirtyNavigationOpen,
+    draft,
+    duplicateOpen,
+    error,
+    metadataSaving,
+    publishOpen,
+    requestedWorkspace,
+    saving,
+    sourceBankLoading,
+    sourceBankPage,
+    sourceBankSearch,
+    sourceBankTotal,
+    sourceBanks,
+    sourceQuestionLoading,
+    sourceQuestionPage,
+    sourceQuestionSearch,
+    sourceQuestionTotal,
+    sourceQuestions,
+    unpublishOpen,
+  } = state;
+
+  const savedDraftRef = useRef<TryoutDraft>(initialFormDraft);
+  const pendingWorkspaceRef = useRef<Workspace | null>(null);
+  const pendingHrefRef = useRef<string | null>(null);
+
+  const selectedSessionId = useMemo(() => {
+    return initialSessionId
+      ?? operationsInitial?.sessions.find((candidate) => candidate.status === "active")?.id
+      ?? operationsInitial?.sessions[0]?.id
+      ?? "";
+  }, [initialSessionId, operationsInitial?.sessions]);
+
+  const hasActiveAttempt = useMemo(() => {
+    return Boolean(operationsInitial?.sessions.some((candidate) =>
+      candidate.attempts.some((attempt) => attempt.attemptState === "in_progress"),
+    ));
+  }, [operationsInitial?.sessions]);
+
+  const mode: WorkflowMode = draft.status === "published" ? "published" : "draft";
+  const activeSection = draft.sections.find((section) => section.subtest === activeCode) ?? draft.sections[0]!;
   const activeDirectQuestions = activeSection.directQuestions ?? [];
+  const selectedSourceQuestionIdsSet = useMemo(() => {
+    const ids = new Set<string>();
+    draft.sections.forEach((section) => {
+      section.directQuestions?.forEach((question) => ids.add(question.sourceQuestionId));
+    });
+    return ids;
+  }, [draft.sections]);
+
+  const sectionReadiness = useMemo(() => {
+    return draft.sections.reduce<Record<SubjectCode, SectionReadiness>>((acc, section) => {
+      const questions = section.directQuestions ?? [];
+      const hasDirectQuestions = Boolean(questions.length);
+      const isReady = directQuestionsReady(questions);
+      acc[section.subtest] = {
+        detail: isReady ? `${questions.length} soal ready` : hasDirectQuestions ? `${questions.length} soal (cek kelengkapan)` : "Belum ada soal",
+        issueCount: isReady ? 0 : 1,
+        status: isReady ? "ready" : hasDirectQuestions ? "in_progress" : "setup",
+        target: "sections",
+      };
+      return acc;
+    }, {} as Record<SubjectCode, SectionReadiness>);
+  }, [draft.sections]);
+
+  const configureReady = useMemo(() => {
+    return draft.sections.every((section) => sectionReadiness[section.subtest]?.status === "ready");
+  }, [draft.sections, sectionReadiness]);
+
   const activeBrowseBank = sourceBanks.find((bank) => bank.id === browseBankId);
-  const activeSourceQuestions = sourceQuestions.filter((question) => question.subjectCode === activeSection.subtest);
-  const workflow = operationsInitial?.workflow;
-  const mode: WorkflowMode = workflow?.mode ?? (draft.status === "published" ? "published" : "draft");
-  const hasActiveAttempt = Boolean(operationsInitial?.attempts.some((attempt) => attempt.status === "in_progress" || attempt.attemptState === "in_progress" || attempt.runs.some((run) => run.status === "active")));
-  const hasPersistedTryout = Boolean(id && draft.id !== "baru");
-  const configureReady = draft.sections.length === 7
-    && incompleteSections.length === 0
-    && invalidDurationSections.length === 0;
-  const fallbackOperationsAvailable = Boolean(
-    operationsInitial?.sessions.some((session) => ["active", "archived", "closed", "open", "opened", "released"].includes(session.status) || Boolean(session.assessmentRelease))
-      || operationsInitial?.attempts.length,
-  );
-  const fallbackResultEligible = Boolean(
-    operationsInitial?.sessions.some((session) => session.status === "closed")
-      || operationsInitial?.results.length,
-  );
-  const operationsAvailable = workflow?.operationsAvailable ?? fallbackOperationsAvailable;
-  const resultEligible = workflow?.resultEligibleSessionIds?.length ? true : workflow?.resultEligibleSessionIds ? false : fallbackResultEligible;
-  const liveEligibleSessionIds = workflow?.liveEligibleSessionIds ?? operationsInitial?.sessions
-    .filter((session) => session.status === "active" && Boolean(session.assessmentRelease))
-    .map((session) => session.id) ?? [];
-  const resultEligibleSessionIds = workflow?.resultEligibleSessionIds ?? operationsInitial?.sessions
-    .filter((session) => session.status === "closed" || operationsInitial.results.some((result) => result.sessionId === session.id))
-    .map((session) => session.id) ?? [];
-  const allowedWorkspaces = useMemo<Workspace[]>(() => {
-    if (mode === "draft") {
-      const allowed: Workspace[] = ["basics"];
-      if (hasPersistedTryout && Boolean(draft.title.trim())) allowed.push("sections");
-      if (configureReady) allowed.push("review");
-      return allowed;
-    }
+  const activeSourceQuestions = sourceQuestions.filter((question) => question.bankId === browseBankId && question.subjectCode === activeSection.subtest);
+
+  const allowedWorkspaces = useMemo(() => {
+    if (mode === "published") return ["basics", "schedule", "live", "attempts", "results"] as Workspace[];
     const allowed: Workspace[] = ["basics", "schedule"];
-    if (liveEligibleSessionIds.length) allowed.push("live");
-    if (operationsAvailable) allowed.push("attempts");
-    if (resultEligible) allowed.push("results");
+    if (draft.title.trim()) allowed.push("sections");
+    if (configureReady) allowed.push("review");
     return allowed;
-  }, [configureReady, draft.title, hasPersistedTryout, liveEligibleSessionIds.length, mode, operationsAvailable, resultEligible]);
-  const visiblePhaseDefinitions = useMemo<WorkspacePhaseDefinition[]>(() => {
-    const definitions = mode === "draft" ? draftWorkspacePhases : publishedWorkspacePhases;
-    return definitions
-      .map((phase) => ({ ...phase, items: phase.items.filter((item) => allowedWorkspaces.includes(item.value)) }))
-      .filter((phase) => phase.items.length > 0);
-  }, [allowedWorkspaces, mode]);
-  const selectedSessionId = initialSessionId ?? workflow?.selectedSessionId ?? resultEligibleSessionIds[0] ?? liveEligibleSessionIds[0] ?? operationsInitial?.sessions[0]?.id ?? null;
-  const projectedDefaultWorkspace = workflow?.defaultStep ? normalizeWorkspace(workflow.defaultStep) : null;
-  const fallbackWorkspace = projectedDefaultWorkspace && allowedWorkspaces.includes(projectedDefaultWorkspace)
-    ? projectedDefaultWorkspace
+  }, [configureReady, draft.title, mode]);
+
+  const workspace = allowedWorkspaces.includes(requestedWorkspace)
+    ? requestedWorkspace
     : allowedWorkspaces[allowedWorkspaces.length - 1] ?? (mode === "draft" ? "basics" : "schedule");
-  const workspace = allowedWorkspaces.includes(requestedWorkspace) ? requestedWorkspace : fallbackWorkspace;
   const activePhase = phaseForWorkspace(workspace);
+
+  const visiblePhaseDefinitions = useMemo(() => {
+    const allowedSet = new Set(allowedWorkspaces);
+    return (mode === "draft" ? draftWorkspacePhases : publishedWorkspacePhases).filter((phase) =>
+      phase.items.some((item) => allowedSet.has(item.value)),
+    );
+  }, [allowedWorkspaces, mode]);
+
   const lifecyclePhases = useMemo(() => lifecyclePhasesForMode(mode), [mode]);
-  const activePhaseDefinition = visiblePhaseDefinitions.find((phase) => phase.value === activePhase);
-  const unavailablePhaseReason = (phase: WorkspacePhase) => {
-    if (mode === "draft") {
-      if (phase === "build") return hasPersistedTryout && Boolean(draft.title.trim()) ? "Selesaikan langkah sebelumnya terlebih dahulu." : "Simpan identitas Tryout terlebih dahulu.";
-      if (phase === "review_publish") return "Selesaikan Configure Sections terlebih dahulu.";
-      return "Tersedia setelah Tryout diterbitkan.";
-    }
-    if (phase === "live") return "Live tersedia setelah ada sesi aktif dengan rilis konten.";
-    if (phase === "attempts") return "Attempts tersedia setelah peserta memulai Tryout.";
-    if (phase === "results") return "Results tersedia setelah ada sesi selesai.";
-    return "Selesaikan langkah sebelumnya terlebih dahulu.";
-  };
+  const activePhaseDefinition = (mode === "draft" ? draftWorkspacePhases : publishedWorkspacePhases).find((item) => item.value === activePhase);
+
   const routeNormalizationNotice = useMemo(() => {
-    const raw = initialWorkspace.trim().toLowerCase();
-    if (mode === "draft" && ["schedule", "delivery", "live", "operations", "attempts", "results"].includes(raw)) {
-      return "Delivery, Live, Attempts, dan Results terbuka setelah Tryout diterbitkan. Anda dikembalikan ke langkah draf yang tersedia.";
-    }
-    if (mode === "draft" && requestedWorkspace !== workspace) {
-      return "Langkah tersebut belum tersedia. Selesaikan langkah sebelumnya untuk membukanya.";
-    }
-    if (mode === "draft" && ["questions", "rules"].includes(raw)) {
-      return "Link lama diarahkan ke Configure Sections agar pemilihan soal tetap berada dalam satu konteks.";
+    if (!initialWorkspace) return null;
+    const requested = normalizeWorkspace(initialWorkspace);
+    if (requestedWorkspace !== workspace && requested === requestedWorkspace) {
+      if (mode === "draft" && requested === "review") return "Selesaikan konfigurasi Soal untuk membuka Review & Publish.";
+      if (mode === "draft" && requested === "sections") return "Isi judul Tryout terlebih dahulu untuk membuka Soal.";
+      return "Area yang diminta belum siap dibuka. Kami mengarahkan ke langkah yang sedang aktif.";
     }
     return null;
   }, [initialWorkspace, mode, requestedWorkspace, workspace]);
 
   const update = (subtest: SubjectCode, change: Partial<TestDraft>) => {
-    setDirty(true);
-    setDraft((current) => ({
-      ...current,
-      sections: current.sections.map((section) => section.subtest === subtest ? { ...section, ...change } : section),
-    }));
+    dispatch({ change, subtest, type: "updateSection" });
   };
 
   const changeActiveCode = (nextCode: SubjectCode) => {
-    setActiveCode(nextCode);
-    setSourceBankPage(1);
-    setSourceBankSearch("");
-    setSourceQuestionPage(1);
-    setSourceQuestionSearch("");
-    setSourceQuestions([]);
+    dispatch({ code: nextCode, type: "changeActiveCode" });
   };
 
   const toggleDirectQuestion = (question: SourceQuestion) => {
     const selectedInActiveSection = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
     if (selectedInActiveSection) {
       update(activeCode, { directQuestions: activeDirectQuestions.filter((candidate) => candidate.sourceQuestionId !== question.id) });
-      setError(null);
+      dispatch({ error: null, type: "setError" });
       return;
     }
-    if (selectedSourceQuestionIds.includes(question.id)) {
-      setError("Soal ini sudah dipilih di Section lain.");
+    if (selectedSourceQuestionIdsSet.has(question.id)) {
+      dispatch({ error: "Soal ini sudah dipilih di Section lain.", type: "setError" });
       return;
     }
     const bank = sourceBanks.find((candidate) => candidate.id === question.bankId);
     update(activeCode, {
+      catItemCount: undefined,
       directQuestions: [...activeDirectQuestions, {
         bankId: question.bankId,
         bankTitle: bank?.title,
@@ -566,15 +1022,14 @@ function KaptenTryoutBuilderPageModule({
         sourceQuestionId: question.id,
         sourceQuestionRevisionId: question.questionRevisionId,
       }],
-      catItemCount: undefined,
       testType: "cbt",
     });
-    setError(null);
+    dispatch({ error: null, type: "setError" });
   };
 
   const save = async (status: "draft" | "published" = "draft", redirectWorkspace: Workspace = status === "published" ? "schedule" : "basics"): Promise<boolean> => {
-    setSaving(true);
-    setError(null);
+    dispatch({ saving: true, type: "setSaving" });
+    dispatch({ error: null, type: "setError" });
     try {
       const result = await saveTryoutAction({
         description: draft.description,
@@ -593,13 +1048,13 @@ function KaptenTryoutBuilderPageModule({
         title: draft.title,
       });
       if (!result.ok) {
-        setError(result.message);
+        dispatch({ error: result.message, type: "setError" });
         return false;
       }
       const nextDraft = normalize(result.result);
-      setDraft(nextDraft);
-      setSavedDraft(nextDraft);
-      setDirty(false);
+      dispatch({ draft: nextDraft, type: "setDraft" });
+      savedDraftRef.current = nextDraft;
+      dispatch({ dirty: false, type: "setDirty" });
       if (!id) {
         const nextUrl = new URL(`/mentor/tryout/${result.result.id}`, window.location.origin);
         if (redirectWorkspace !== "basics") nextUrl.searchParams.set("workspace", redirectWorkspace);
@@ -607,51 +1062,51 @@ function KaptenTryoutBuilderPageModule({
       }
       return true;
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Tryout belum dapat disimpan. Coba lagi.");
+      dispatch({ error: saveError instanceof Error ? saveError.message : "Tryout belum dapat disimpan. Coba lagi.", type: "setError" });
       return false;
     } finally {
-      setSaving(false);
+      dispatch({ saving: false, type: "setSaving" });
     }
   };
 
   const duplicate = async () => {
     if (!id) return;
-    setSaving(true);
-    setError(null);
+    dispatch({ saving: true, type: "setSaving" });
+    dispatch({ error: null, type: "setError" });
     try {
       const result = await duplicateTryoutAction(id);
       if (!result.ok) {
-        setError(result.message);
+        dispatch({ error: result.message, type: "setError" });
         return;
       }
       window.location.assign(`/mentor/tryout/${result.result.id}?workspace=basics&parent=${encodeURIComponent(id)}`);
     } catch (duplicateError) {
-      setError(duplicateError instanceof Error ? duplicateError.message : "Tryout belum dapat disalin. Coba lagi.");
+      dispatch({ error: duplicateError instanceof Error ? duplicateError.message : "Tryout belum dapat disalin. Coba lagi.", type: "setError" });
     } finally {
-      setSaving(false);
+      dispatch({ saving: false, type: "setSaving" });
     }
   };
 
   const unpublish = async () => {
     if (!id) return;
-    setSaving(true);
-    setError(null);
+    dispatch({ saving: true, type: "setSaving" });
+    dispatch({ error: null, type: "setError" });
     try {
       const result = await unpublishTryoutAction(id);
       if (!result.ok) {
-        setError(result.message);
+        dispatch({ error: result.message, type: "setError" });
         return;
       }
       window.location.assign(`/mentor/tryout/${id}`);
     } catch (unpublishError) {
-      setError(unpublishError instanceof Error ? unpublishError.message : "Tryout belum dapat dikembalikan ke draf. Coba lagi.");
+      dispatch({ error: unpublishError instanceof Error ? unpublishError.message : "Tryout belum dapat dikembalikan ke draf. Coba lagi.", type: "setError" });
     } finally {
-      setSaving(false);
+      dispatch({ saving: false, type: "setSaving" });
     }
   };
 
   const commitWorkspaceChange = (nextWorkspace: Workspace) => {
-    setRequestedWorkspace(nextWorkspace);
+    dispatch({ type: "setRequestedWorkspace", workspace: nextWorkspace });
     const url = new URL(window.location.href);
     if (nextWorkspace === "basics") url.searchParams.delete("workspace");
     else url.searchParams.set("workspace", nextWorkspace);
@@ -663,25 +1118,29 @@ function KaptenTryoutBuilderPageModule({
     const nextWorkspace = normalizeWorkspace(value);
     if (!allowedWorkspaces.includes(nextWorkspace)) {
       const fallback = allowedWorkspaces[allowedWorkspaces.length - 1] ?? (mode === "draft" ? "basics" : "schedule");
-      setError(nextWorkspace === "results"
-        ? "Results belum tersedia sampai ada sesi yang ditutup atau attempt terminal."
-        : nextWorkspace === "live"
-          ? "Live hanya tersedia untuk sesi aktif yang sudah memiliki AssessmentRelease."
-          : "Selesaikan langkah sebelumnya terlebih dahulu untuk membuka area ini.");
+      dispatch({
+        error: nextWorkspace === "results"
+          ? "Results belum tersedia sampai ada sesi yang ditutup atau attempt terminal."
+          : nextWorkspace === "live"
+            ? "Live hanya tersedia untuk sesi aktif yang sudah memiliki AssessmentRelease."
+            : "Selesaikan langkah sebelumnya terlebih dahulu untuk membuka area ini.",
+        type: "setError",
+      });
       if (workspace !== fallback) commitWorkspaceChange(fallback);
       return;
     }
     if (nextWorkspace === workspace) return;
     if (dirty && mode === "draft") {
-      setPendingWorkspace(nextWorkspace);
-      setDirtyNavigationOpen(true);
+      pendingWorkspaceRef.current = nextWorkspace;
+      pendingHrefRef.current = null;
+      dispatch({ open: true, type: "setDirtyNavigationOpen" });
       return;
     }
     commitWorkspaceChange(nextWorkspace);
   };
 
   const changeDeliveryArea = (nextArea: DeliveryArea) => {
-    setDeliveryArea(nextArea);
+    dispatch({ area: nextArea, type: "setDeliveryArea" });
     const url = new URL(window.location.href);
     url.searchParams.set("workspace", workspaceForDeliveryArea());
     url.searchParams.set("delivery", nextArea);
@@ -690,22 +1149,22 @@ function KaptenTryoutBuilderPageModule({
 
   const saveMetadata = async () => {
     if (!id) return;
-    setMetadataSaving(true);
-    setError(null);
+    dispatch({ saving: true, type: "setMetadataSaving" });
+    dispatch({ error: null, type: "setError" });
     try {
       const result = await updateTryoutMetadataAction({ description: draft.description, id, title: draft.title });
       if (!result.ok) {
-        setError(result.message);
+        dispatch({ error: result.message, type: "setError" });
         return;
       }
       const nextDraft = normalize(result.result);
-      setDraft(nextDraft);
-      setSavedDraft(nextDraft);
-      setDirty(false);
+      dispatch({ draft: nextDraft, type: "setDraft" });
+      savedDraftRef.current = nextDraft;
+      dispatch({ dirty: false, type: "setDirty" });
     } catch (metadataError) {
-      setError(metadataError instanceof Error ? metadataError.message : "Detail Tryout belum dapat disimpan.");
+      dispatch({ error: metadataError instanceof Error ? metadataError.message : "Detail Tryout belum dapat disimpan.", type: "setError" });
     } finally {
-      setMetadataSaving(false);
+      dispatch({ saving: false, type: "setMetadataSaving" });
     }
   };
 
@@ -729,12 +1188,12 @@ function KaptenTryoutBuilderPageModule({
         else url.searchParams.set("workspace", workspace);
         if (workspace !== "schedule") url.searchParams.delete("delivery");
         window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-        setPendingWorkspace(nextWorkspace);
-        setPendingHref(null);
-        setDirtyNavigationOpen(true);
+        pendingWorkspaceRef.current = nextWorkspace;
+        pendingHrefRef.current = null;
+        dispatch({ open: true, type: "setDirtyNavigationOpen" });
         return;
       }
-      setRequestedWorkspace(nextWorkspace);
+      dispatch({ type: "setRequestedWorkspace", workspace: nextWorkspace });
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -754,7 +1213,7 @@ function KaptenTryoutBuilderPageModule({
     if (workspace !== "sections") return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
-      setSourceBankLoading(true);
+      dispatch({ loading: true, type: "setSourceBankLoading" });
       try {
         const result = await listQuestionBankSourcePageAction({
           page: sourceBankPage,
@@ -764,15 +1223,11 @@ function KaptenTryoutBuilderPageModule({
         });
         if (cancelled) return;
         const nextBanks = result.items.map(({ bank }) => bank as SourceBank);
-        setSourceBanks((current) => sourceBankPage === 1
-          ? nextBanks
-          : [...current, ...nextBanks].filter((bank, index, all) => all.findIndex((candidate) => candidate.id === bank.id) === index));
-        setSourceBankTotal(result.total);
-        setBrowseBankId((current) => nextBanks.some((bank) => bank.id === current) ? current : nextBanks[0]?.id ?? "");
+        dispatch({ banks: nextBanks, total: result.total, type: "setSourceBankResults" });
       } catch (sourceError) {
-        if (!cancelled) setError(sourceError instanceof Error ? sourceError.message : "Bank Soal belum dapat dimuat.");
+        if (!cancelled) dispatch({ error: sourceError instanceof Error ? sourceError.message : "Bank Soal belum dapat dimuat.", type: "setError" });
       } finally {
-        if (!cancelled) setSourceBankLoading(false);
+        dispatch({ loading: false, type: "setSourceBankLoading" });
       }
     }, sourceBankSearch.trim() ? 250 : 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
@@ -782,8 +1237,7 @@ function KaptenTryoutBuilderPageModule({
     if (workspace !== "sections" || !browseBankId) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
-      setSourceQuestionLoading(true);
-      if (sourceQuestionPage === 1) setSourceQuestions([]);
+      dispatch({ loading: true, type: "setSourceQuestionLoading" });
       try {
         const result = await listQuestionBankSourceQuestionsAction(browseBankId, {
           page: sourceQuestionPage,
@@ -793,14 +1247,11 @@ function KaptenTryoutBuilderPageModule({
         });
         if (cancelled || !result) return;
         const incoming = result.questions as SourceQuestion[];
-        setSourceQuestionTotal(result.total);
-        setSourceQuestions((current) => sourceQuestionPage === 1
-          ? incoming
-          : [...current, ...incoming].filter((question, index, all) => all.findIndex((candidate) => candidate.id === question.id) === index));
+        dispatch({ questions: incoming, total: result.total, type: "setSourceQuestionResults" });
       } catch (sourceError) {
-        if (!cancelled) setError(sourceError instanceof Error ? sourceError.message : "Soal siap belum dapat dimuat.");
+        if (!cancelled) dispatch({ error: sourceError instanceof Error ? sourceError.message : "Soal siap belum dapat dimuat.", type: "setError" });
       } finally {
-        if (!cancelled) setSourceQuestionLoading(false);
+        dispatch({ loading: false, type: "setSourceQuestionLoading" });
       }
     }, sourceQuestionSearch.trim() ? 200 : 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
@@ -813,56 +1264,87 @@ function KaptenTryoutBuilderPageModule({
   const guardExternalNavigation = (href: string, event: { preventDefault: () => void }) => {
     if (!dirty || mode !== "draft") return;
     event.preventDefault();
-    setPendingWorkspace(null);
-    setPendingHref(href);
-    setDirtyNavigationOpen(true);
+    pendingWorkspaceRef.current = null;
+    pendingHrefRef.current = href;
+    dispatch({ open: true, type: "setDirtyNavigationOpen" });
   };
 
-  return (
-    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3 pb-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
-            <ChevronLeft aria-hidden="true" className="size-5" />
-          </Button>
-          <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-secondary-900">{mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}</h1>
-        </div>
-        {mode === "published" ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={saving || hasActiveAttempt} onClick={() => setUnpublishOpen(true)} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
-              <FilePenLine />Jadikan draf
-            </Button>
-            <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brandOutline">
-              <Copy />Duplikat draf baru
-            </Button>
-          </div>
-        ) : null}
-      </div>
+  return {
+    activeBrowseBank,
+    activeCode,
+    activeDirectQuestions,
+    activePhase,
+    activePhaseDefinition,
+    activeSection,
+    activeSourceQuestions,
+    browseBankId,
+    changeActiveCode,
+    changeDeliveryArea,
+    changeWorkspace,
+    commitWorkspaceChange,
+    configureReady,
+    deliveryArea,
+    dirtyNavigationOpen,
+    dispatch,
+    draft,
+    duplicate,
+    duplicateOpen,
+    error,
+    goTo,
+    guardExternalNavigation,
+    hasActiveAttempt,
+    lifecyclePhases,
+    metadataSaving,
+    mode,
+    pendingHrefRef,
+    pendingWorkspaceRef,
+    publishOpen,
+    routeNormalizationNotice,
+    save,
+    saveMetadata,
+    savedDraftRef,
+    saving,
+    sectionReadiness,
+    selectedSessionId,
+    selectedSourceQuestionIdsSet,
+    sourceBankLoading,
+    sourceBankPage,
+    sourceBankSearch,
+    sourceBankTotal,
+    sourceBanks,
+    sourceQuestionLoading,
+    sourceQuestionPage,
+    sourceQuestionSearch,
+    sourceQuestionTotal,
+    sourceQuestions,
+    toggleDirectQuestion,
+    unpublish,
+    unpublishOpen,
+    update,
+    visiblePhaseDefinitions,
+    workspace,
+  };
+}
 
-      {error ? (
-        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
-          <CircleAlert className="mt-1 size-4 shrink-0" />
-          {error}
-        </p>
-      ) : null}
-      {routeNormalizationNotice ? (
-        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
-          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
-          {routeNormalizationNotice}
-        </p>
-      ) : null}
-      {draft.locked ? (
-        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
-          <Lock className="mt-1 size-4 shrink-0" />
-          <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
-        </section>
-      ) : null}
-      {initialParent && mode === "draft" ? (
-        <section className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
-          <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${new Date(initialParent.publishedAt).toLocaleString("id-ID")}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
-          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
-        </section>
-      ) : null}
+function TryoutPhaseNavigation({
+  activePhase,
+  activePhaseDefinition,
+  changeWorkspace,
+  goTo,
+  lifecyclePhases,
+  mode,
+  visiblePhaseDefinitions,
+}: {
+  activePhase: WorkspacePhase;
+  activePhaseDefinition?: WorkspacePhaseDefinition;
+  changeWorkspace: (workspace: Workspace) => void;
+  goTo: (workspace: Workspace) => void;
+  lifecyclePhases: Array<{ label: string; value: WorkspacePhase }>;
+  mode: WorkflowMode;
+  visiblePhaseDefinitions: WorkspacePhaseDefinition[];
+}) {
+  return (
+    <>
       <Tabs
         className="mt-5 min-w-0"
         onValueChange={(value) => goTo(phaseStartWorkspace(value as WorkspacePhase, mode))}
@@ -898,19 +1380,269 @@ function KaptenTryoutBuilderPageModule({
         </FullWidthLineTabsList>
       </Tabs>
 
-      <Tabs className="mt-5 min-w-0" onValueChange={changeWorkspace} value={workspace}>
-        {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
-          <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
-              {activePhaseDefinition.items.map((item) => (
-                <FullWidthLineTabsTrigger className="min-w-max" key={item.value} value={item.value}>
-                  {item.label}
-                </FullWidthLineTabsTrigger>
-              ))}
-            </FullWidthLineTabsList>
+      {activePhaseDefinition && activePhaseDefinition.items.length > 1 ? (
+        <div className="mt-5 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <FullWidthLineTabsList aria-label={`Subarea ${activePhaseDefinition.label}`} className="min-w-max xl:min-w-0">
+            {activePhaseDefinition.items.map((item) => (
+              <FullWidthLineTabsTrigger
+                className="min-w-max"
+                key={item.value}
+                onClick={() => changeWorkspace(item.value)}
+                value={item.value}
+              >
+                {item.label}
+              </FullWidthLineTabsTrigger>
+            ))}
+          </FullWidthLineTabsList>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function TryoutDeliveryTab({
+  changeDeliveryArea,
+  deliveryArea,
+  id,
+  onSaveDraft,
+  operationsInitial,
+}: {
+  changeDeliveryArea: (area: DeliveryArea) => void;
+  deliveryArea: DeliveryArea;
+  id?: string;
+  onSaveDraft: () => void;
+  operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
+}) {
+  return (
+    <TabsContent className="mt-0" value="schedule">
+      {!id || !operationsInitial ? (
+        <WorkspaceUnavailable onSaveDraft={onSaveDraft} />
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+          <aside aria-label="Area Delivery" className="grid gap-2 lg:sticky lg:top-5 lg:self-start">
+            <div aria-label="Policy, Sessions, Participants" className="grid gap-2" role="tablist">
+              {deliveryAreas.map((area) => {
+                const active = deliveryArea === area.value;
+                return (
+                  <Button
+                    aria-current={active ? "page" : undefined}
+                    className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-900 bg-primary-900 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" : "border-transparent text-secondary-800 hover:bg-primary-50"}`}
+                    key={area.value}
+                    onClick={() => changeDeliveryArea(area.value)}
+                    role="tab"
+                    variant={active ? "brand" : "ghost"}
+                  >
+                    {area.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <div className="min-w-0">
+            {deliveryArea === "policy" ? (
+              <section aria-labelledby="schedule-policy-title">
+                <h2 className="mb-4 text-xl font-semibold text-secondary-900" id="schedule-policy-title">Aturan akses</h2>
+                <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} onNext={() => changeDeliveryArea("sessions")} />
+              </section>
+            ) : null}
+            {deliveryArea === "sessions" ? (
+              <section aria-label="Sessions">
+                <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
+              </section>
+            ) : null}
+            {deliveryArea === "participants" ? (
+              <section aria-label="Participants">
+                <KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} />
+              </section>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </TabsContent>
+  );
+}
+
+function TryoutFooterActions({
+  commitWorkspaceChange,
+  configureReady,
+  draft,
+  id,
+  mode,
+  onDuplicateClick,
+  save,
+  saving,
+  workspace,
+}: {
+  commitWorkspaceChange: (workspace: Workspace) => void;
+  configureReady: boolean;
+  draft: TryoutDraft;
+  id?: string;
+  mode: WorkflowMode;
+  onDuplicateClick: () => void;
+  save: (status?: "draft" | "published", nextWorkspace?: Workspace) => Promise<boolean>;
+  saving: boolean;
+  workspace: Workspace;
+}) {
+  if (mode !== "draft" || workspace === "review") return null;
+
+  return (
+    <footer aria-label="Tindakan langkah Tryout" className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4">
+      <div className="flex flex-wrap justify-end gap-2">
+        {draft.locked ? <Button disabled={saving} onClick={onDuplicateClick} variant="brand"><Copy />Duplikat draf baru</Button> : null}
+        {!draft.locked && workspace === "basics" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+        {!draft.locked && workspace === "sections" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+      </div>
+    </footer>
+  );
+}
+
+function KaptenTryoutBuilderPageModule({
+  id,
+  initialDraft,
+  initialDeliveryArea,
+  initialParent,
+  initialSessionId,
+  initialWorkspace = "basics",
+  operationsInitial,
+  initialSourceBankTotal,
+  initialSourceBanks,
+  session,
+}: {
+  id?: string;
+  initialDeliveryArea?: string;
+  initialDraft?: TryoutDraft | null;
+  initialParent?: { id: string; publishedAt?: string; title: string };
+  initialSessionId?: string;
+  initialSourceBankTotal?: number;
+  initialSourceBanks: SourceBank[];
+  initialWorkspace?: string;
+  operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
+  session: SessionContext;
+}) {
+  const {
+    activeBrowseBank,
+    activeCode,
+    activeDirectQuestions,
+    activePhase,
+    activePhaseDefinition,
+    activeSection,
+    activeSourceQuestions,
+    browseBankId,
+    changeActiveCode,
+    changeDeliveryArea,
+    changeWorkspace,
+    commitWorkspaceChange,
+    configureReady,
+    deliveryArea,
+    dirtyNavigationOpen,
+    dispatch,
+    draft,
+    duplicate,
+    duplicateOpen,
+    error,
+    goTo,
+    guardExternalNavigation,
+    hasActiveAttempt,
+    lifecyclePhases,
+    metadataSaving,
+    mode,
+    pendingHrefRef,
+    pendingWorkspaceRef,
+    publishOpen,
+    routeNormalizationNotice,
+    save,
+    savedDraftRef,
+    saveMetadata,
+    saving,
+    sectionReadiness,
+    selectedSessionId,
+    selectedSourceQuestionIdsSet,
+    sourceBankLoading,
+    sourceBankPage,
+    sourceBankSearch,
+    sourceBankTotal,
+    sourceBanks,
+    sourceQuestionLoading,
+    sourceQuestionPage,
+    sourceQuestionSearch,
+    sourceQuestionTotal,
+    sourceQuestions,
+    toggleDirectQuestion,
+    unpublish,
+    unpublishOpen,
+    update,
+    visiblePhaseDefinitions,
+    workspace,
+  } = useTryoutBuilderState({
+    id,
+    initialDeliveryArea,
+    initialDraft,
+    initialParent,
+    initialSessionId,
+    initialSourceBanks,
+    initialSourceBankTotal,
+    initialWorkspace,
+    operationsInitial,
+  });
+
+  return (
+    <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
+            <ChevronLeft aria-hidden="true" className="size-5" />
+          </Button>
+          <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-secondary-900">{mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}</h1>
+        </div>
+        {mode === "published" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
+              <FilePenLine />Jadikan draf
+            </Button>
+            <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
+              <Copy />Duplikat draf baru
+            </Button>
           </div>
         ) : null}
+      </div>
 
+      {error ? (
+        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm leading-6 text-danger-500" role="alert">
+          <CircleAlert className="mt-1 size-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+      {routeNormalizationNotice ? (
+        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+          <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
+          {routeNormalizationNotice}
+        </p>
+      ) : null}
+      {draft.locked ? (
+        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+          <Lock className="mt-1 size-4 shrink-0" />
+          <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
+        </section>
+      ) : null}
+      {initialParent && mode === "draft" ? (
+        <section className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
+          <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
+          <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
+        </section>
+      ) : null}
+
+      <TryoutPhaseNavigation
+        activePhase={activePhase}
+        activePhaseDefinition={activePhaseDefinition}
+        changeWorkspace={changeWorkspace}
+        goTo={goTo}
+        lifecyclePhases={lifecyclePhases}
+        mode={mode}
+        visiblePhaseDefinitions={visiblePhaseDefinitions}
+      />
+
+      <Tabs className="mt-5 min-w-0" onValueChange={changeWorkspace} value={workspace}>
         <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-6 w-full"}>
           {activePhase === "build" ? (
             <SectionRail
@@ -921,226 +1653,138 @@ function KaptenTryoutBuilderPageModule({
             />
           ) : null}
 
-        <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-5"}>
+          <div className={activePhase === "build" ? "grid min-w-0 gap-3 lg:col-start-2" : "grid w-full min-w-0 gap-5"}>
+            <TryoutBasicsTab
+              draft={draft}
+              metadataSaving={metadataSaving}
+              mode={mode}
+              onDescriptionChange={(desc) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, description: desc }, type: "setDraft" }); }}
+              onSaveMetadata={() => void saveMetadata()}
+              onTitleChange={(title) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, title }, type: "setDraft" }); }}
+            />
 
-        <TabsContent className="mt-0 w-full" value="basics">
-          <section className="grid w-full gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
-            <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
-            <div className="grid gap-5">
-              <Field>
-                <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-                <FieldInput className="h-12 border-primary-200 bg-white text-base font-semibold text-secondary-900" disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => { setDirty(true); setDraft({ ...draft, title: event.target.value }); }} required value={draft.title} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
-                <FieldTextarea className="min-h-32 border-primary-200 bg-white px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => { setDirty(true); setDraft({ ...draft, description: event.target.value }); }} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
-              </Field>
-            </div>
-            {mode === "published" ? (
-              <div className="flex justify-end border-t border-primary-100 pt-4">
-                <Button disabled={metadataSaving || !draft.title.trim()} onClick={() => { void saveMetadata(); }} variant="brand">
-                  {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
-                </Button>
-              </div>
-            ) : null}
-          </section>
-        </TabsContent>
+            <TryoutSectionsTab
+              activeBrowseBank={activeBrowseBank}
+              activeDirectQuestions={activeDirectQuestions}
+              activeSection={activeSection}
+              activeSourceQuestions={activeSourceQuestions}
+              browseBankId={browseBankId}
+              draft={draft}
+              guardExternalNavigation={guardExternalNavigation}
+              onBankPageNext={() => dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })}
+              onBankSearchChange={(search) => dispatch({ search, type: "setSourceBankSearch" })}
+              onQuestionPageNext={() => dispatch({ page: sourceQuestionPage + 1, type: "setSourceQuestionPage" })}
+              onQuestionSearchChange={(search) => dispatch({ search, type: "setSourceQuestionSearch" })}
+              onSelectBank={(bankId) => dispatch({ bankId, type: "setBrowseBankId" })}
+              onToggleQuestion={toggleDirectQuestion}
+              onUpdateSection={(change) => update(activeSection.subtest, change)}
+              selectedSourceQuestionIdsSet={selectedSourceQuestionIdsSet}
+              sourceBankLoading={sourceBankLoading}
+              sourceBankSearch={sourceBankSearch}
+              sourceBankTotal={sourceBankTotal}
+              sourceBanks={sourceBanks}
+              sourceQuestionLoading={sourceQuestionLoading}
+              sourceQuestionSearch={sourceQuestionSearch}
+              sourceQuestionTotal={sourceQuestionTotal}
+              sourceQuestions={sourceQuestions}
+            />
 
-        <TabsContent className="mt-0 lg:col-start-2" value="sections">
-          <div className="grid gap-5">
-            <section aria-labelledby="tryout-basic-info-title" className="grid gap-5 rounded-3xl border border-primary-200 bg-primary-50/35 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
-              <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
-              <div className="grid gap-5">
-                <Field>
-                  <FieldLabel htmlFor={`duration-${activeSection.subtest}`}>Durasi <RequiredMark /></FieldLabel>
-                  <div className="relative">
-                    <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => update(activeSection.subtest, { durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
-                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
-                  </div>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
-                  <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => update(activeSection.subtest, { instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
-                </Field>
-              </div>
-            </section>
+            <TryoutDeliveryTab
+              changeDeliveryArea={changeDeliveryArea}
+              deliveryArea={deliveryArea}
+              id={id}
+              onSaveDraft={() => void save("draft")}
+              operationsInitial={operationsInitial}
+            />
+
+            <TabsContent className="mt-0" value="live">
+              {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutLivePageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
+            </TabsContent>
+
+            <TabsContent className="mt-0" value="attempts">
+              {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutAttemptsPageModule initial={operationsInitial} />}
+            </TabsContent>
+
+            <TabsContent className="mt-0" value="results">
+              {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutResultsPageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
+            </TabsContent>
+
+            <TryoutReviewTab
+              draft={draft}
+              onPublishClick={() => dispatch({ open: true, type: "setPublishOpen" })}
+              saving={saving}
+              setPublishOpen={(open) => dispatch({ open, type: "setPublishOpen" })}
+            />
           </div>
-        </TabsContent>
-
-        <TabsContent className="mt-0 lg:col-start-2" value="sections">
-          <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
-            <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
-              <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
-            </div>
-
-            <div className="grid gap-5">
-              <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)] lg:items-start">
-                <div className="grid min-w-0 gap-4 rounded-2xl border border-primary-200 bg-white/80 p-4">
-                  <Field>
-                    <FieldLabel>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
-                    <Popover>
-                      <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
-                        <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
-                        <ChevronDown />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
-                        <div className="relative">
-                          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                          <FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => { setSourceBankSearch(event.target.value); setSourceBankPage(1); }} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
-                        </div>
-                        {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
-                        <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
-                          {sourceBanks.length ? sourceBanks.map((bank) => <Button aria-selected={browseBankId === bank.id} className="h-auto justify-start rounded-xl px-3 py-2.5 text-left" key={bank.id} onClick={() => { setBrowseBankId(bank.id); setSourceQuestionPage(1); setSourceQuestionSearch(""); setSourceQuestions([]); }} role="option" variant={browseBankId === bank.id ? "contextSelected" : "ghost"}><span className="min-w-0"><span className="block truncate font-semibold">{bank.title}</span><span className="mt-0.5 block truncate text-xs font-normal text-secondary-500">{bank.questionCount} soal{bank.folderPath?.length ? ` · ${bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</span></span>{browseBankId === bank.id ? <Check className="ml-auto shrink-0" /> : null}</Button>) : <div className="grid gap-3 px-3 py-5"><p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSection.subtest}.</p><Button className="w-fit" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button></div>}
-                        </div>
-                        {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={() => setSourceBankPage((page) => page + 1)} size="sm" variant="brandOutline">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
-                      </PopoverContent>
-                    </Popover>
-                  </Field>
-                </div>
-                <div className="min-w-0 rounded-3xl border border-primary-200 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
-                  <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-11 rounded-xl border-primary-200 bg-primary-50/35 py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => { setSourceQuestionSearch(event.target.value); setSourceQuestionPage(1); }} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
-                  {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
-                  {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
-                    const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
-                    const selectedInOtherSection = !selected && selectedSourceQuestionIds.includes(question.id);
-                    const checkboxId = `source-question-${question.id}`;
-                    return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-400 bg-primary-50/70 shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-secondary-100 bg-secondary-50/30 hover:border-primary-200 hover:bg-primary-50/40"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => toggleDirectQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
-                  })}</div> : <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center text-sm leading-6 text-secondary-500">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</div>}
-                  {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={() => setSourceQuestionPage((page) => page + 1)} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
-                </div>
-              </div>
-            </div>
-          </section>
-        </TabsContent>
-
-        </div>
-
-        <TabsContent className="mt-0" value="schedule">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : (
-            <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
-              <aside aria-label="Area Delivery" className="grid gap-2 lg:sticky lg:top-5 lg:self-start">
-                <div aria-label="Policy, Sessions, Participants" className="grid gap-2" role="tablist">
-                  {deliveryAreas.map((area) => {
-                    const active = deliveryArea === area.value;
-                    return (
-                      <Button aria-current={active ? "page" : undefined} className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-900 bg-primary-900 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" : "border-transparent text-secondary-800 hover:bg-primary-50"}`} key={area.value} onClick={() => changeDeliveryArea(area.value)} role="tab" variant={active ? "brand" : "ghost"}>
-                        {area.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </aside>
-
-              <div className="min-w-0">
-                {deliveryArea === "policy" ? (
-                  <section aria-labelledby="schedule-policy-title">
-                    <h2 className="mb-4 text-xl font-semibold text-secondary-900" id="schedule-policy-title">Aturan akses</h2>
-                    <KaptenTryoutPolicyPageModule embedded initial={operationsInitial} onNext={() => changeDeliveryArea("sessions")} />
-                  </section>
-                ) : null}
-                {deliveryArea === "sessions" ? (
-                  <section aria-label="Sessions">
-                    <KaptenTryoutSessionsPageModule embedded initial={operationsInitial} />
-                  </section>
-                ) : null}
-                {deliveryArea === "participants" ? (
-                  <section aria-label="Participants">
-                    <KaptenTryoutParticipantsPageModule embedded initial={operationsInitial} />
-                  </section>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent className="mt-0" value="live">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutLivePageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
-        </TabsContent>
-
-        <TabsContent className="mt-0" value="attempts">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutAttemptsPageModule initial={operationsInitial} />}
-        </TabsContent>
-
-        <TabsContent className="mt-0" value="results">
-          {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutResultsPageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
-        </TabsContent>
-
-        <TabsContent className="mt-0" value="review">
-          <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
-            <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Review &amp; Publish</h2>
-            <dl className="grid gap-5">
-              <div className="grid gap-1">
-                <dt className="text-sm font-semibold text-secondary-600">Judul</dt>
-                <dd className="text-lg font-semibold text-secondary-900">{draft.title || "Tanpa judul"}</dd>
-              </div>
-              <div className="grid gap-1">
-                <dt className="text-sm font-semibold text-secondary-600">Deskripsi</dt>
-                <dd className="text-sm leading-6 text-secondary-700">{draft.description || "Belum ada deskripsi."}</dd>
-              </div>
-            </dl>
-            <section className="grid gap-3" aria-labelledby="tryout-sections-summary-title">
-              <h3 className="font-semibold text-secondary-900" id="tryout-sections-summary-title">Sections</h3>
-              <div className="grid gap-2">
-                {draft.sections.map((section, index) => (
-                  <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary-200 bg-white/80 px-4 py-3 transition-colors hover:border-primary-300 hover:bg-white" key={section.subtest}>
-                    <div>
-                      <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
-                      <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1.5 text-sm font-bold text-primary-800">{section.durationMinutes} menit</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <div className="flex justify-end">
-              <Button disabled={saving || draft.locked} onClick={() => setPublishOpen(true)} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</Button>
-            </div>
-          </section>
-        </TabsContent>
         </div>
       </Tabs>
 
-      {mode === "draft" && workspace !== "review" ? (
-        <footer className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4" aria-label="Tindakan langkah Tryout">
-          <div className="flex flex-wrap justify-end gap-2">
-            {draft.locked ? <Button disabled={saving} onClick={() => setDuplicateOpen(true)} variant="brand"><Copy />Duplikat draf baru</Button> : null}
-            {!draft.locked && workspace === "basics" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-            {!draft.locked && workspace === "sections" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-          </div>
-        </footer>
-      ) : null}
+      <TryoutFooterActions
+        commitWorkspaceChange={commitWorkspaceChange}
+        configureReady={configureReady}
+        draft={draft}
+        id={id}
+        mode={mode}
+        onDuplicateClick={() => dispatch({ open: true, type: "setDuplicateOpen" })}
+        save={save}
+        saving={saving}
+        workspace={workspace}
+      />
 
-      <AlertDialog onOpenChange={(open) => { if (!saving) setPublishOpen(open); }} open={publishOpen}>
-        <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
-          <AlertDialogHeader><AlertDialogTitle>Terbitkan Tryout?</AlertDialogTitle><AlertDialogDescription>Setelah tryout di-publish dan terdapat siswa mengerjakan, soal akan terkunci dan Anda tidak dapat mengubahnya kembali.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter className="grid gap-2 sm:grid-cols-2"><AlertDialogCancel className="w-full" disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction className="w-full" disabled={saving} onClick={() => { setPublishOpen(false); void save("published"); }} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog onOpenChange={(open) => { if (!saving) setUnpublishOpen(open); }} open={unpublishOpen}>
-        <AlertDialogContent className="rounded-5xl" pending={saving} variant="warning">
-          <AlertDialogHeader><AlertDialogTitle>Jadikan Tryout draf?</AlertDialogTitle><AlertDialogDescription>Tryout tidak lagi tersedia untuk pendaftaran baru. Riwayat peserta dan AssessmentRelease tetap tersimpan. Perintah ini hanya dapat dilakukan saat tidak ada peserta yang sedang mengerjakan.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving || hasActiveAttempt} onClick={() => { setUnpublishOpen(false); void unpublish(); }} variant="brand">{saving ? "Memproses…" : "Jadikan draf"}</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog onOpenChange={(open) => { if (!saving) setDuplicateOpen(open); }} open={duplicateOpen}>
-        <AlertDialogContent className="rounded-5xl" pending={saving} variant="info">
-          <AlertDialogHeader><AlertDialogTitle>Duplikasi Tryout?</AlertDialogTitle><AlertDialogDescription>Salinan akan dibuat sebagai draf yang dapat diedit. Riwayat peserta dan AssessmentRelease Tryout ini tetap tidak berubah.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel disabled={saving}>Batal</AlertDialogCancel><AlertDialogAction disabled={saving} onClick={() => { setDuplicateOpen(false); void duplicate(); }} variant="brand"><Copy />{saving ? "Menyalin…" : "Buat salinan"}</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog onOpenChange={(open) => { if (!saving) setDirtyNavigationOpen(open); }} open={dirtyNavigationOpen}>
-        <AlertDialogContent className="!max-w-xl rounded-5xl gap-5" pending={saving} variant="warning">
-          <AlertDialogHeader><AlertDialogTitle>Perubahan belum disimpan</AlertDialogTitle><AlertDialogDescription>Simpan perubahan sebelum berpindah langkah, atau buang perubahan lokal. Jika penyimpanan gagal, Anda tetap berada di langkah ini.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter className="!justify-stretch grid w-full gap-2">
-            <AlertDialogCancel className="w-full" disabled={saving} onClick={() => { setPendingWorkspace(null); setPendingHref(null); setDirtyNavigationOpen(false); }}>Tetap di sini</AlertDialogCancel>
-            <Button className="w-full" disabled={saving} onClick={() => { const target = pendingWorkspace; const href = pendingHref; setDraft(savedDraft); setDirty(false); setPendingWorkspace(null); setPendingHref(null); setDirtyNavigationOpen(false); if (target) commitWorkspaceChange(target); else if (href) window.location.assign(href); }} variant="brandOutline">Buang perubahan</Button>
-            <AlertDialogAction className="w-full" disabled={saving || !draft.title.trim()} onClick={() => { const target = pendingWorkspace; const href = pendingHref; void save("draft").then((ok) => { if (ok && target) commitWorkspaceChange(target); else if (ok && href) window.location.assign(href); if (ok) { setPendingWorkspace(null); setPendingHref(null); setDirtyNavigationOpen(false); } }); }} variant="brand"><Save />Simpan dan lanjutkan</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <TryoutLifecycleModals
+        dirtyNavigationOpen={dirtyNavigationOpen}
+        draft={draft}
+        duplicateOpen={duplicateOpen}
+        hasActiveAttempt={hasActiveAttempt}
+        onCancelDirtyNavigation={() => {
+          pendingWorkspaceRef.current = null;
+          pendingHrefRef.current = null;
+          dispatch({ open: false, type: "setDirtyNavigationOpen" });
+        }}
+        onConfirmDiscard={() => {
+          const target = pendingWorkspaceRef.current;
+          const href = pendingHrefRef.current;
+          dispatch({ draft: savedDraftRef.current, type: "setDraft" });
+          dispatch({ dirty: false, type: "setDirty" });
+          pendingWorkspaceRef.current = null;
+          pendingHrefRef.current = null;
+          dispatch({ open: false, type: "setDirtyNavigationOpen" });
+          if (target) commitWorkspaceChange(target);
+          else if (href) window.location.assign(href);
+        }}
+        onConfirmDuplicate={() => {
+          dispatch({ open: false, type: "setDuplicateOpen" });
+          void duplicate();
+        }}
+        onConfirmPublish={() => {
+          dispatch({ open: false, type: "setPublishOpen" });
+          void save("published");
+        }}
+        onConfirmSaveDirty={() => {
+          const target = pendingWorkspaceRef.current;
+          const href = pendingHrefRef.current;
+          void save("draft").then((ok) => {
+            if (ok && target) commitWorkspaceChange(target);
+            else if (ok && href) window.location.assign(href);
+            if (ok) {
+              pendingWorkspaceRef.current = null;
+              pendingHrefRef.current = null;
+              dispatch({ open: false, type: "setDirtyNavigationOpen" });
+            }
+          });
+        }}
+        onConfirmUnpublish={() => {
+          dispatch({ open: false, type: "setUnpublishOpen" });
+          void unpublish();
+        }}
+        onOpenChangeDirtyNavigation={(open) => { if (!saving) dispatch({ open, type: "setDirtyNavigationOpen" }); }}
+        onOpenChangeDuplicate={(open) => { if (!saving) dispatch({ open, type: "setDuplicateOpen" }); }}
+        onOpenChangePublish={(open) => { if (!saving) dispatch({ open, type: "setPublishOpen" }); }}
+        onOpenChangeUnpublish={(open) => { if (!saving) dispatch({ open, type: "setUnpublishOpen" }); }}
+        publishOpen={publishOpen}
+        saving={saving}
+        unpublishOpen={unpublishOpen}
+      />
     </div>
   );
 }

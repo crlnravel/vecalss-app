@@ -15,6 +15,7 @@ import { ChevronLeft } from "@/lib/icons";
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -32,21 +33,6 @@ const rules = [
   { description: "Pada CBT, kamu bisa kembali ke soal dalam bagian yang sama. Pada CAT, jawaban terkunci setelah dikirim.", icon: Compass, title: "Ikuti format soal" },
   { description: "Perpindahan tab, hilang fokus, dan keluar dari layar penuh dicatat sebagai peringatan tanpa penalti skor otomatis.", icon: Eye, title: "Aktivitas layar dicatat" },
 ];
-
-function WaitingRoomBackLink() {
-  return (
-    <Button
-      aria-label="Kembali ke katalog tryout"
-      nativeButton={false}
-      render={<Link href="/tryout" />}
-      size="icon"
-      title="Kembali ke katalog tryout"
-      variant="ghost"
-    >
-      <ChevronLeft aria-hidden="true" className="size-5" />
-    </Button>
-  );
-}
 
 function ParticipantWaitingRoomModule({
   assignment,
@@ -104,7 +90,12 @@ function ParticipantWaitingRoomModule({
     const resultReady = attempt.status !== "in_progress";
     return (
       <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
-        <WaitingRoomBackLink />
+        <BackButton
+          href="/tryout"
+          label="Kembali ke katalog tryout"
+        >
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </BackButton>
         <div className="mx-auto grid w-full max-w-3xl gap-5 px-1 py-8 text-center sm:px-4 sm:py-12">
           <CheckCircle aria-hidden="true" className="mx-auto text-5xl text-primary-700" />
           <h1 className="font-heading text-3xl font-semibold tracking-[-0.035em]">{resultReady ? "Tryout sudah selesai" : "Tryout masih berjalan"}</h1>
@@ -119,7 +110,12 @@ function ParticipantWaitingRoomModule({
 
   return (
     <CourseWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Ruang tunggu" mainClassName="gap-4 py-5 md:py-6" notificationFeed={notificationFeed} session={session} showSearch={false}>
-      <WaitingRoomBackLink />
+      <BackButton
+        href="/tryout"
+        label="Kembali ke katalog tryout"
+      >
+        <ChevronLeft aria-hidden="true" className="size-5" />
+      </BackButton>
 
       <div className="mx-auto grid w-full max-w-3xl gap-8">
         <section aria-labelledby="waiting-room-title">

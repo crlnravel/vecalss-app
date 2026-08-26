@@ -3,6 +3,22 @@ const WIB_OFFSET = "+07:00";
 
 const localDateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/;
 
+const wibPartsFormatter = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  hour: "2-digit",
+  hourCycle: "h23",
+  minute: "2-digit",
+  month: "2-digit",
+  timeZone: TRYOUT_TIME_ZONE,
+  year: "numeric",
+});
+
+const tryoutDateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: TRYOUT_TIME_ZONE,
+});
+
 /**
  * Parse a Tryout date input without depending on the server's local timezone.
  * Values from datetime-local controls are intentionally timezone-less; in this
@@ -22,15 +38,7 @@ function wibParts(value: Date | string) {
   const date = parseTryoutDateTime(value);
   if (Number.isNaN(date.getTime())) return null;
 
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
-    minute: "2-digit",
-    month: "2-digit",
-    timeZone: TRYOUT_TIME_ZONE,
-    year: "numeric",
-  }).formatToParts(date);
+  const parts = wibPartsFormatter.formatToParts(date);
 
   return Object.fromEntries(parts.map(({ type, value: partValue }) => [type, partValue]));
 }
@@ -44,11 +52,7 @@ function formatTryoutDateTimeLocal(value: Date | string) {
 function formatTryoutDateTime(value: Date | string) {
   const date = parseTryoutDateTime(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: TRYOUT_TIME_ZONE,
-  }).format(date);
+  return tryoutDateTimeFormatter.format(date);
 }
 
 export { formatTryoutDateTime, formatTryoutDateTimeLocal, parseTryoutDateTime, TRYOUT_TIME_ZONE };

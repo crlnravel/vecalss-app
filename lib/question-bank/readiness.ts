@@ -221,7 +221,7 @@ export function normalizeQuestionRevisionForReadiness(
       text: option.content,
     })),
     correctChoiceId: options.find((option) => option.isCorrect)?.id,
-    correctChoiceIds: options.filter((option) => option.isCorrect).map((option) => option.id),
+    correctChoiceIds: options.flatMap((option) => option.isCorrect ? [option.id] : []),
     explanationAsset: revision?.explanationAsset,
     id: input.questionId,
     prompt: revision?.stem,

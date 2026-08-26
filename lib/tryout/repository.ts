@@ -270,17 +270,20 @@ function toTryoutDto(record: TryoutReadRecord) {
     locked: record.attempts.length > 0,
     sections: record.sections.map((section) => ({
       catItemCount: section.catItemCount ?? undefined,
-      directQuestions: section.packageVersionId ? [] : section.items.filter((item) => !item.packageVersionId && item.sourceQuestionId).map((item) => ({
-        bankId: item.sourceQuestion?.questionBank?.id,
-        bankTitle: item.sourceQuestion?.questionBank?.name,
-        catReady: Boolean(item.sourceQuestionRevision?.calibrations.some((calibration) => calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && Number.isFinite(Number(calibration.difficulty)) && Number.isFinite(Number(calibration.discrimination)) && Number(calibration.discrimination) > 0 && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown)),
-        hasExplanation: Boolean(item.explanation?.trim() || item.explanationAssetId),
-        hasReadyMedia: [item.promptAsset, item.explanationAsset, ...item.options.map((option) => option.asset)].every((asset) => !asset || asset.state === "ready"),
-        prompt: item.prompt,
-        sourceContentDigest: item.sourceContentDigest ?? undefined,
-        sourceQuestionId: item.sourceQuestionId!,
-        sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined,
-      })),
+      directQuestions: section.packageVersionId ? [] : section.items.flatMap((item) => {
+        if (item.packageVersionId || !item.sourceQuestionId) return [];
+        return [{
+          bankId: item.sourceQuestion?.questionBank?.id,
+          bankTitle: item.sourceQuestion?.questionBank?.name,
+          catReady: Boolean(item.sourceQuestionRevision?.calibrations.some((calibration) => calibration.questionId === item.sourceQuestionId && calibration.contentDigest === item.sourceContentDigest && Number.isFinite(Number(calibration.difficulty)) && Number.isFinite(Number(calibration.discrimination)) && Number(calibration.discrimination) > 0 && calibration.sourceRevisionProvenance !== QuestionRevisionProvenance.legacy_unknown)),
+          hasExplanation: Boolean(item.explanation?.trim() || item.explanationAssetId),
+          hasReadyMedia: [item.promptAsset, item.explanationAsset, ...item.options.map((option) => option.asset)].every((asset) => !asset || asset.state === "ready"),
+          prompt: item.prompt,
+          sourceContentDigest: item.sourceContentDigest ?? undefined,
+          sourceQuestionId: item.sourceQuestionId,
+          sourceQuestionRevisionId: item.sourceQuestionRevisionId ?? undefined,
+        }];
+      }),
       durationMinutes: Math.round(section.durationSeconds / 60),
       id: section.id,
       instructions: section.instructions ?? "",
@@ -445,25 +448,41 @@ async function commitPackageReadyVersion(tx: Prisma.TransactionClient, packageId
     if (!source || !revision || !membership.sourceQuestionRevisionId || membership.sourceQuestionRevisionId !== revision.id) {
       throw new TryoutValidationError("Paket memiliki sumber soal yang sudah berubah. Muat ulang Paket lalu simpan ulang sebelum menerbitkan versi.");
     }
-    const item = await tx.reusableQuestionPackageVersionItem.create({
-      data: {
-        difficulty: revision.difficulty,
-        explanation: revision.explanation,
-        explanationAssetId: revision.explanationAssetId,
-        packageVersionId: version.id,
-        pointValue: membership.pointValue,
-        prompt: revision.stem,
-        promptAssetId: revision.promptAssetId,
-        sortOrder: membership.sortOrder,
-        sourceContentDigest: revision.contentDigest,
-        sourceQuestionId: source.id,
-        sourceQuestionRevisionId: revision.id,
-        sourceRevisionProvenance: revision.provenance,
-        subtestId: source.subtestId!,
-      },
-    });
-    await tx.reusableQuestionPackageVersionItemOption.createMany({ data: revision.options.map((option, index) => ({ assetId: option.assetId, choiceKey: String.fromCharCode(65 + index), content: option.content, isCorrect: option.isCorrect, packageVersionItemId: item.id, sortOrder: index, sourceQuestionOptionId: null, sourceQuestionRevisionOptionId: option.id })) });
   }
+  await Promise.all(
+    pkg.items.map(async (membership) => {
+      const source = sourceById.get(membership.sourceQuestionId)!;
+      const revision = source.currentRevision!;
+      const item = await tx.reusableQuestionPackageVersionItem.create({
+        data: {
+          difficulty: revision.difficulty,
+          explanation: revision.explanation,
+          explanationAssetId: revision.explanationAssetId,
+          packageVersionId: version.id,
+          pointValue: membership.pointValue,
+          prompt: revision.stem,
+          promptAssetId: revision.promptAssetId,
+          sortOrder: membership.sortOrder,
+          sourceContentDigest: revision.contentDigest,
+          sourceQuestionId: source.id,
+          sourceQuestionRevisionId: revision.id,
+          sourceRevisionProvenance: revision.provenance,
+          subtestId: pkg.subtestId,
+        },
+      });
+      await tx.reusableQuestionPackageVersionItemOption.createMany({
+        data: revision.options.map((option, index) => ({
+          assetId: option.assetId,
+          choiceKey: option.label || String.fromCharCode(65 + index),
+          content: option.content,
+          isCorrect: option.isCorrect,
+          packageVersionItemId: item.id,
+          sortOrder: option.sortOrder,
+          sourceQuestionOptionId: option.id,
+        })),
+      });
+    }),
+  );
 
   // Publish only after every immutable child and option row exists.  Any
   // failure before or after this point aborts the surrounding transaction.
@@ -515,8 +534,10 @@ async function saveReusableQuestionPackage(input: PackageInput, actorId: string)
     const releasedVersion = completionIntent === "ready"
       ? await commitPackageReadyVersion(tx, id, actorId, { incrementRevision: Boolean(current) })
       : undefined;
-    const saved = await tx.reusableQuestionPackage.findUniqueOrThrow({ where: { id }, include: packageInclude });
-    const usageCounts = await readPackageUsageCounts([id], tx);
+    const [saved, usageCounts] = await Promise.all([
+      tx.reusableQuestionPackage.findUniqueOrThrow({ where: { id }, include: packageInclude }),
+      readPackageUsageCounts([id], tx),
+    ]);
     return packageSaveResult(toPackageDto(saved, usageCounts.get(id) ?? 0), releasedVersion);
   });
 }
@@ -527,8 +548,10 @@ async function saveReusableQuestionPackageMetadata(input: PackageMetadataInput, 
     await tx.$queryRaw`SELECT id FROM reusable_question_packages WHERE id = ${input.id}::uuid FOR UPDATE`;
     const current = await tx.reusableQuestionPackage.findFirst({ where: { id: input.id, createdByUserId: actorId } });
     if (!current) throw new TryoutValidationError("Paket Soal tidak ditemukan.");
-    const saved = await tx.reusableQuestionPackage.update({ where: { id: input.id }, data: { description: input.description.trim() || null, revision: { increment: 1 }, title: input.title.trim(), updatedByUserId: actorId }, include: packageInclude });
-    const usageCounts = await readPackageUsageCounts([input.id], tx);
+    const [saved, usageCounts] = await Promise.all([
+      tx.reusableQuestionPackage.update({ where: { id: input.id }, data: { description: input.description.trim() || null, revision: { increment: 1 }, title: input.title.trim(), updatedByUserId: actorId }, include: packageInclude }),
+      readPackageUsageCounts([input.id], tx),
+    ]);
     return toPackageDto(saved, usageCounts.get(input.id) ?? 0);
   });
 }
@@ -602,7 +625,7 @@ async function readyReusableQuestionPackageVersion(packageId: string, actorId: s
 
 async function listTryouts(actorId: string) {
   const records = await prisma.tryoutPackage.findMany({ where: { createdByUserId: actorId }, include: tryoutInclude, orderBy: { updatedAt: "desc" } });
-  return records.filter((record) => !hasArchivedPackageBinding(record)).map(toTryoutDto);
+  return records.flatMap((record) => hasArchivedPackageBinding(record) ? [] : [toTryoutDto(record)]);
 }
 async function getTryoutForEdit(id: string, actorId: string) {
   const record = await prisma.tryoutPackage.findFirst({ where: { id, createdByUserId: actorId }, include: tryoutInclude });

@@ -36,6 +36,7 @@ import {
   AssessmentUtilityPill,
   AssessmentWorkspace,
 } from "@/modules/assessment/AssessmentWorkspace";
+import { AssessmentNavigationFooter } from "@/modules/assessment/AssessmentNavigationFooter";
 
 import { saveQuizAnswerAction, submitQuizAction } from "./actions";
 
@@ -406,8 +407,7 @@ function QuizOngoingScreen({
         </Button>
       }
       footer={
-        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-20 px-4 md:bottom-7 md:px-8">
-          <div className="pointer-events-auto mx-auto grid w-full max-w-[540px] grid-cols-[1fr_6rem_1fr] items-center gap-2 rounded-[1.25rem] border border-primary-100 bg-white p-2 shadow-[0_18px_42px_-28px_rgba(1,76,56,0.65)]">
+        <AssessmentNavigationFooter>
             <Button
               aria-label="Soal sebelumnya"
               className="h-12 w-full justify-center"
@@ -447,8 +447,7 @@ function QuizOngoingScreen({
                 <ChevronRight />
               </Button>
             )}
-          </div>
-        </div>
+        </AssessmentNavigationFooter>
       }
       header={
         <div className="relative flex min-h-20 items-center justify-center bg-white px-12 py-2 sm:min-h-20 sm:px-16">

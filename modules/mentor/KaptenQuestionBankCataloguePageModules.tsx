@@ -165,9 +165,13 @@ function removeFolder(nodes: FolderNode[], id: string): FolderNode[] {
 }
 
 function detachFolder(nodes: FolderNode[], id: string): FolderNode[] {
-  return nodes
-    .filter((folder) => folder.id !== id)
-    .map((folder) => folder.children ? { ...folder, children: detachFolder(folder.children, id) } : folder);
+  const result: FolderNode[] = [];
+  for (const folder of nodes) {
+    if (folder.id !== id) {
+      result.push(folder.children ? { ...folder, children: detachFolder(folder.children, id) } : folder);
+    }
+  }
+  return result;
 }
 
 function insertFolder(nodes: FolderNode[], folder: FolderNode): FolderNode[] {
@@ -211,20 +215,356 @@ function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
   return <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold", status === "published" ? "border-primary-200 bg-primary-50 text-primary-800" : status === "archived" ? "border-secondary-200 bg-secondary-50 text-secondary-600" : status === "scheduled" ? "border-secondary-200 bg-secondary-50 text-secondary-700" : "border-[#ead9a5] bg-[#fff8df] text-[#856300]")}>{statusCopy(status)}</span>;
 }
 
-function KaptenQuestionBankPageModule({
+function QuestionBankCatalogueFilterPanel({
+  categories,
+  navigateCatalogue,
+  resetPage,
+  selectedCategories,
+  selectedSubjects,
+  setSelectedCategories,
+  setSelectedSubjects,
+  setStatusFilter,
+  statusFilter,
+}: {
+  categories: CategoryNode[];
+  navigateCatalogue: (next?: { categories?: string[]; folder?: FolderSelection; page?: number; query?: string; sort?: BankSortMode; status?: string; subjects?: string[] }) => void;
+  resetPage: () => void;
+  selectedCategories: string[];
+  selectedSubjects: string[];
+  setSelectedCategories: (categories: string[]) => void;
+  setSelectedSubjects: (subjects: string[]) => void;
+  setStatusFilter: (status: string) => void;
+  statusFilter: string;
+}) {
+  const selectedSubjectsSet = new Set(selectedSubjects);
+  const selectedCategoriesSet = new Set(selectedCategories);
+
+  return (
+    <div className="space-y-4 p-1">
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-semibold tracking-[0.02em] text-secondary-500">Subject</legend>
+        <div className="space-y-1">
+          {kaptenSubjects.map((subject) => (
+            <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-secondary-700 hover:bg-primary-50/60" key={subject.code}>
+              <input checked={selectedSubjectsSet.has(subject.code)} className="size-4 accent-primary-700" onChange={(event) => { const next = event.target.checked ? [...selectedSubjects, subject.code] : selectedSubjects.filter((code) => code !== subject.code); setSelectedSubjects(next); resetPage(); navigateCatalogue({ page: 1, subjects: next }); }} type="checkbox" />
+              <span>{subject.code} · {subject.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-semibold tracking-[0.02em] text-secondary-500">Kategori</legend>
+        <div className="space-y-1">
+          {categories.length ? categories.map((category) => (
+            <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}>
+              <input checked={selectedCategoriesSet.has(category.id)} className="size-4 accent-primary-700" onChange={(event) => { const next = event.target.checked ? [...selectedCategories, category.id] : selectedCategories.filter((id) => id !== category.id); setSelectedCategories(next); resetPage(); navigateCatalogue({ categories: next, page: 1 }); }} type="checkbox" />
+              <span>{category.name}</span>
+            </label>
+          )) : <p className="px-2 text-sm text-secondary-500">Belum ada kategori bersama.</p>}
+        </div>
+      </fieldset>
+      <label className="block space-y-2 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="question-bank-status-filter">
+        <span>Status</span>
+        <select className="min-h-10 w-full rounded-lg border border-primary-100 bg-white px-3 text-sm font-normal tracking-normal text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="question-bank-status-filter" onChange={(event) => { const next = event.target.value; setStatusFilter(next); resetPage(); navigateCatalogue({ page: 1, status: next }); }} value={statusFilter}>
+          <option value="">Semua status</option>
+          <option value="draft">Draf</option>
+          <option value="published">Diterbitkan</option>
+          <option value="archived">Diarsipkan</option>
+          <option value="scheduled">Terjadwal</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
+function QuestionBankFolderDialog({
+  flatFolders,
+  folderDialog,
+  folderError,
+  folderName,
+  folderParentId,
+  folders,
+  isApplying,
+  onClose,
+  onFolderNameChange,
+  onFolderParentIdChange,
+  onSubmit,
+}: {
+  flatFolders: Array<{ depth: number; folder: FolderNode }>;
+  folderDialog: FolderDialogState;
+  folderError: string | null;
+  folderName: string;
+  folderParentId: string | null;
+  folders: FolderNode[];
+  isApplying: boolean;
+  onClose: () => void;
+  onFolderNameChange: (name: string) => void;
+  onFolderParentIdChange: (parentId: string | null) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !isApplying) onClose(); }} open={Boolean(folderDialog)}>
+      <DialogContent className="sm:max-w-sm" pending={isApplying}>
+        <DialogHeader>
+          <DialogTitle>{folderDialog?.kind === "create" ? "Buat folder" : folderDialog?.kind === "rename" ? "Ubah nama folder" : "Pindahkan folder"}</DialogTitle>
+          <DialogDescription>{folderDialog?.kind === "move" ? "Pilih tingkat induk baru. Folder tidak dapat dipindahkan ke dalam turunannya sendiri." : "Folder membantu tim menemukan bank tanpa mengubah isi soal."}</DialogDescription>
+        </DialogHeader>
+        {folderDialog?.kind === "move" ? (
+          <Field>
+            <FieldLabel htmlFor="folder-parent">Folder induk</FieldLabel>
+            <select aria-label="Folder induk" className="min-h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="folder-parent" onChange={(event) => onFolderParentIdChange(event.target.value || null)} value={folderParentId ?? ""}>
+              <option value="">Tidak ada · root</option>
+              {flatFolders.flatMap(({ depth, folder }) => {
+                if (folder.id === null || folder.id === folderDialog.folderId || folderPath(folders, folder.id).some((item) => item.id === folderDialog.folderId)) return [];
+                return [<option key={folder.id} value={folder.id ?? ""}>{"— ".repeat(depth)}{folder.name}</option>];
+              })}
+            </select>
+          </Field>
+        ) : (
+          <Field>
+            <FieldLabel htmlFor="folder-name">Nama folder</FieldLabel>
+            <FieldInput autoFocus id="folder-name" maxLength={160} onChange={(event) => onFolderNameChange(event.target.value)} value={folderName} />
+          </Field>
+        )}
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        <DialogFooter>
+          <Button disabled={isApplying} onClick={onClose} type="button" variant="brandOutline">Batal</Button>
+          <Button disabled={isApplying || (folderDialog?.kind !== "move" && !folderName.trim())} onClick={onSubmit} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuestionBankMoveDialog({
+  bankMoveId,
+  flatFolders,
+  folderError,
+  folderParentId,
+  isApplying,
+  onClose,
+  onFolderParentIdChange,
+  onSubmit,
+  selectedBank,
+}: {
+  bankMoveId: string | null;
+  flatFolders: Array<{ depth: number; folder: FolderNode }>;
+  folderError: string | null;
+  folderParentId: string | null;
+  isApplying: boolean;
+  onClose: () => void;
+  onFolderParentIdChange: (parentId: string | null) => void;
+  onSubmit: () => void;
+  selectedBank: BankEntry["bank"] | null;
+}) {
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !isApplying) onClose(); }} open={Boolean(bankMoveId)}>
+      <DialogContent className="sm:max-w-sm" pending={isApplying}>
+        <DialogHeader>
+          <DialogTitle>Pindahkan bank</DialogTitle>
+          <DialogDescription>{selectedBank ? `“${selectedBank.title}” tetap dapat dipakai di Quiz dan Tryout setelah dipindahkan.` : "Pilih folder tujuan untuk bank ini."}</DialogDescription>
+        </DialogHeader>
+        <Field>
+          <FieldLabel htmlFor="bank-folder">Folder tujuan</FieldLabel>
+          <select aria-label="Folder tujuan" className="min-h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="bank-folder" onChange={(event) => onFolderParentIdChange(event.target.value || null)} value={folderParentId ?? selectedBank?.folderId ?? ""}>
+            <option value="">Belum ditempatkan</option>
+            {flatFolders.flatMap(({ depth, folder }) => folder.id !== null ? [<option key={folder.id} value={folder.id ?? ""}>{"— ".repeat(depth)}{folder.name}</option>] : [])}
+          </select>
+        </Field>
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        <DialogFooter>
+          <Button disabled={isApplying} onClick={onClose} type="button" variant="brandOutline">Batal</Button>
+          <Button disabled={isApplying} onClick={onSubmit} type="button" variant="brand">{isApplying ? "Memindahkan…" : "Pindahkan"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuestionBankCategorySelectionDialog({
+  bankCategoryId,
+  bankCategorySelection,
+  categories,
+  categoryBank,
+  folderError,
+  isApplying,
+  onClose,
+  onSelectionChange,
+  onSubmit,
+}: {
+  bankCategoryId: string | null;
+  bankCategorySelection: string[];
+  categories: CategoryNode[];
+  categoryBank: BankEntry["bank"] | null;
+  folderError: string | null;
+  isApplying: boolean;
+  onClose: () => void;
+  onSelectionChange: (selection: string[]) => void;
+  onSubmit: () => void;
+}) {
+  const selectionSet = new Set(bankCategorySelection);
+
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !isApplying) onClose(); }} open={Boolean(bankCategoryId)}>
+      <DialogContent className="sm:max-w-sm" pending={isApplying}>
+        <DialogHeader>
+          <DialogTitle>Kelola kategori</DialogTitle>
+          <DialogDescription>{categoryBank ? `Pilih label untuk “${categoryBank.title}”. Kategori hanya mengatur penemuan, bukan isi soal.` : "Pilih kategori untuk bank ini."}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2">
+          {categories.length ? categories.map((category) => (
+            <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-primary-100 px-3 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}>
+              <input checked={selectionSet.has(category.id)} className="size-4 accent-primary-700" onChange={(event) => onSelectionChange(event.target.checked ? [...bankCategorySelection, category.id] : bankCategorySelection.filter((id) => id !== category.id))} type="checkbox" />
+              {category.name}
+            </label>
+          )) : <p className="text-sm text-secondary-500">Belum ada kategori. Buat dari menu kategori.</p>}
+        </div>
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+        <DialogFooter>
+          <Button disabled={isApplying} onClick={onClose} type="button" variant="brandOutline">Batal</Button>
+          <Button disabled={isApplying} onClick={onSubmit} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan kategori"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuestionBankCategoryManagementDialog({
+  categories,
+  categoryEditor,
+  categoryManagementOpen,
+  categoryName,
+  folderError,
+  handleCategoryEditorKeyDown,
+  isApplying,
+  onCancelCategoryEditor,
+  onCategoryNameChange,
+  onClose,
+  onOpenCategoryCreate,
+  onOpenCategoryRename,
+  onRemoveCategory,
+  onSubmitCategoryEditor,
+}: {
+  categories: CategoryNode[];
+  categoryEditor: CategoryEditorState;
+  categoryManagementOpen: boolean;
+  categoryName: string;
+  folderError: string | null;
+  handleCategoryEditorKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  isApplying: boolean;
+  onCancelCategoryEditor: () => void;
+  onCategoryNameChange: (name: string) => void;
+  onClose: () => void;
+  onOpenCategoryCreate: () => void;
+  onOpenCategoryRename: (category: CategoryNode) => void;
+  onRemoveCategory: (category: CategoryNode) => void;
+  onSubmitCategoryEditor: () => void;
+}) {
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !isApplying) onClose(); }} open={categoryManagementOpen}>
+      <DialogContent className="sm:max-w-lg" pending={isApplying}>
+        <DialogHeader>
+          <DialogTitle>Kelola kategori bersama</DialogTitle>
+          <DialogDescription>Buat kosakata bersama agar semua tutor dapat menemukan bank dengan cepat.</DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary-500">Kategori</p>
+          <Button disabled={Boolean(categoryEditor)} onClick={onOpenCategoryCreate} size="sm" type="button" variant="brandOutline"><Plus />Buat kategori</Button>
+        </div>
+        <div className="grid gap-2">
+          {categoryEditor?.kind === "create" ? (
+            <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1">
+              <Field className="min-w-0 flex-1">
+                <FieldLabel className="sr-only" htmlFor="category-name">Nama kategori baru</FieldLabel>
+                <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id="category-name" maxLength={120} onChange={(event) => onCategoryNameChange(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
+              </Field>
+              <div className="flex shrink-0 items-center justify-end gap-2">
+                <Button disabled={isApplying} onClick={onCancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
+                <Button disabled={isApplying || !categoryName.trim()} onClick={onSubmitCategoryEditor} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
+              </div>
+            </div>
+          ) : null}
+          {categories.map((category) => categoryEditor?.kind === "rename" && categoryEditor.categoryId === category.id ? (
+            <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1" key={category.id}>
+              <Field className="min-w-0 flex-1">
+                <FieldLabel className="sr-only" htmlFor={`category-name-${category.id}`}>Nama kategori</FieldLabel>
+                <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id={`category-name-${category.id}`} maxLength={120} onChange={(event) => onCategoryNameChange(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
+              </Field>
+              <div className="flex shrink-0 items-center justify-end gap-2">
+                <Button disabled={isApplying} onClick={onCancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
+                <Button disabled={isApplying || !categoryName.trim()} onClick={onSubmitCategoryEditor} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-primary-100 px-3" key={category.id}>
+              <span className="min-w-0 flex-1 truncate text-sm text-secondary-700">{category.name}</span>
+              <span className="text-xs text-secondary-400">{category.bankCount}</span>
+              <Button aria-label={`Ubah kategori ${category.name}`} disabled={Boolean(categoryEditor) || isApplying} onClick={() => onOpenCategoryRename(category)} size="icon-sm" type="button" variant="ghost"><Pencil /></Button>
+              <Button aria-label={`Hapus kategori ${category.name}`} disabled={Boolean(categoryEditor) || isApplying} onClick={() => onRemoveCategory(category)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
+            </div>
+          ))}
+          {!categories.length && categoryEditor?.kind !== "create" ? <p className="rounded-2xl bg-primary-50/50 px-3 py-4 text-sm text-secondary-500">Belum ada kategori bersama.</p> : null}
+        </div>
+        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuestionBankLifecycleConfirmationDialog({
+  folderError,
+  isApplying,
+  lifecycleCopy,
+  lifecycleError,
+  onCancel,
+  onConfirm,
+  onOpenChange,
+  open,
+  pendingConfirmation,
+}: {
+  folderError: string | null;
+  isApplying: boolean;
+  lifecycleCopy: [string, string, string];
+  lifecycleError: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  pendingConfirmation: ConfirmationState;
+}) {
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={open}>
+      <AlertDialogContent pending={isApplying} size="sm" variant={pendingConfirmation ? "danger" : lifecycleCopy[0].includes("Arsipkan") ? "warning" : "info"}>
+        <AlertDialogHeader>
+          <AlertDialogMedia variant={pendingConfirmation ? "danger" : lifecycleCopy[0].includes("Arsipkan") ? "warning" : "info"}><CircleHelp /></AlertDialogMedia>
+          <AlertDialogTitle>{pendingConfirmation?.title ?? lifecycleCopy[0]}</AlertDialogTitle>
+          <AlertDialogDescription>{pendingConfirmation?.description ?? lifecycleCopy[1]}</AlertDialogDescription>
+        </AlertDialogHeader>
+        {lifecycleError || folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{lifecycleError ?? folderError}</p> : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isApplying} onClick={onCancel}>Batal</AlertDialogCancel>
+          <AlertDialogAction disabled={isApplying} onClick={onConfirm} variant={pendingConfirmation ? "destructive" : "brand"}>
+            {isApplying ? "Memproses…" : pendingConfirmation?.label ?? lifecycleCopy[2]}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function useQuestionBankCatalogueState({
   initialCategories,
   initialEntries,
   initialFolderTree,
   initialPage = 1,
   initialPageSize = BANKS_PER_PAGE,
   initialSearch = "",
-  initialSort = "updated",
   initialSelectedCategories = [],
   initialSelectedFolder = ROOT_FOLDER,
   initialSelectedSubjects = [],
+  initialSort = "updated",
   initialStatusFilter = "",
   initialTotal,
-  session,
 }: {
   initialCategories: CategoryNode[];
   initialEntries: BankEntry[];
@@ -232,13 +572,12 @@ function KaptenQuestionBankPageModule({
   initialPage?: number;
   initialPageSize?: number;
   initialSearch?: string;
-  initialSort?: BankSortMode;
   initialSelectedCategories?: string[];
   initialSelectedFolder?: FolderSelection;
   initialSelectedSubjects?: string[];
+  initialSort?: BankSortMode;
   initialStatusFilter?: string;
   initialTotal: number;
-  session: SessionContext;
 }) {
   const router = useRouter();
   const [isCataloguePending, startCatalogueTransition] = useTransition();
@@ -272,6 +611,7 @@ function KaptenQuestionBankPageModule({
   const folderCreateLabel = selectedFolder === ROOT_FOLDER || selectedFolder === null ? "Buat folder" : "Buat subfolder";
   const totalPages = Math.max(1, Math.ceil(initialTotal / initialPageSize));
   const visiblePage = Math.min(page, totalPages);
+  const isGlobalSearch = Boolean(initialSearch.trim());
   const childFolders = selectedFolder === ROOT_FOLDER
     ? folders.filter((folder) => folder.id !== null)
     : selectedFolder && currentFolder
@@ -299,7 +639,7 @@ function KaptenQuestionBankPageModule({
   function openFolderCreate(parentId: string | null) { setFolderError(null); setFolderName(""); setFolderParentId(parentId); setFolderDialog({ kind: "create" }); }
   function openFolderManage(folder: FolderNode, kind: "move" | "rename" | "remove") {
     if (kind === "remove") {
-      setPendingConfirmation({ description: `Bank di dalam folder akan dipindahkan ke tingkat induknya. Subfolder juga akan dinaikkan satu tingkat.`, label: "Hapus folder", onConfirm: () => void removeFolderFromServer(folder), title: `Hapus folder “${folder.name}”?` });
+      setPendingConfirmation({ description: "Bank di dalam folder akan dipindahkan ke tingkat induknya. Subfolder juga akan dinaikkan satu tingkat.", label: "Hapus folder", onConfirm: () => void removeFolderFromServer(folder), title: `Hapus folder “${folder.name}”?` });
       return;
     }
     setFolderError(null);
@@ -309,6 +649,7 @@ function KaptenQuestionBankPageModule({
   }
   async function removeFolderFromServer(folder: FolderNode) {
     setIsApplying(true);
+    setFolderError(null);
     try {
       const result = await removeQuestionBankFolderAction(folder.id ?? "", { expectedUpdatedAt: folder.updatedAt });
       if (!result.ok) { setFolderError(result.message); return; }
@@ -361,6 +702,7 @@ function KaptenQuestionBankPageModule({
       setFolderDialog(null); refreshFromServer();
     } finally { setIsApplying(false); }
   }
+  function openMoveBank(bankId: string) { setFolderError(null); setBankMoveId(bankId); }
   async function moveBankToFolder() {
     if (!bankMoveId || isApplying) return;
     setIsApplying(true); setFolderError(null);
@@ -377,7 +719,7 @@ function KaptenQuestionBankPageModule({
       setBankMoveId(null); refreshFromServer();
     } finally { setIsApplying(false); }
   }
-  function openBankCategories(bank: BankEntry["bank"]) { setBankCategoryId(bank.id); setBankCategorySelection(bank.categoryIds); setFolderError(null); }
+  function openBankCategories(bank: BankEntry["bank"]) { setBankCategoryId(bank.id); setBankCategorySelection(bank.categoryIds ?? []); setFolderError(null); }
   async function saveBankCategories() {
     if (!bankCategoryId || isApplying) return;
     setIsApplying(true); setFolderError(null);
@@ -386,54 +728,38 @@ function KaptenQuestionBankPageModule({
       if (!bank) { setFolderError("Bank Soal tidak ditemukan. Muat ulang halaman lalu coba lagi."); return; }
       const result = await setQuestionBankCategoriesAction(bankCategoryId, bankCategorySelection, { expectedRevision: bank.revision, expectedUpdatedAt: bank.updatedAt });
       if (!result.ok) { setFolderError(result.message); return; }
-      const previousCategoryIds = categoryBank?.categoryIds ?? [];
-      setEntries((current) => current.map((entry) => entry.bank.id === bankCategoryId ? { ...entry, bank: { ...entry.bank, categoryIds: bankCategorySelection, categories: categories.filter((category) => bankCategorySelection.includes(category.id)).map(({ id, name }) => ({ id, name })), revision: result.result.revision, updatedAt: result.result.updatedAt } } : entry));
-      setCategories((current) => current.map((category) => ({
-        ...category,
-        bankCount: category.bankCount
-          + (bankCategorySelection.includes(category.id) ? 1 : 0)
-          - (previousCategoryIds.includes(category.id) ? 1 : 0),
-      })));
+      const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+      const newCategories = bankCategorySelection.flatMap((id) => {
+        const name = categoryMap.get(id);
+        return name ? [{ id, name }] : [];
+      });
+      setEntries((current) => current.map((entry) => entry.bank.id === bankCategoryId ? { ...entry, bank: { ...entry.bank, categories: newCategories, categoryIds: bankCategorySelection, revision: result.result.revision, updatedAt: result.result.updatedAt } } : entry));
       setBankCategoryId(null); refreshFromServer();
     } finally { setIsApplying(false); }
   }
-  function openCategoryCreate() {
-    if (isApplying) return;
-    setFolderError(null);
-    setCategoryName("");
-    setCategoryEditor({ kind: "create" });
-  }
-  function openCategoryRename(category: CategoryNode) {
-    if (isApplying) return;
-    setFolderError(null);
-    setCategoryName(category.name);
-    setCategoryEditor({ categoryId: category.id, kind: "rename" });
-  }
-  function cancelCategoryEditor() {
-    if (isApplying) return;
-    setCategoryEditor(null);
-    setCategoryName("");
-    setFolderError(null);
-  }
-  function handleCategoryEditorKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+  function openCategoryCreate() { setCategoryName(""); setFolderError(null); setCategoryEditor({ categoryId: "", kind: "create" }); }
+  function openCategoryRename(category: CategoryNode) { setCategoryName(category.name); setFolderError(null); setCategoryEditor({ categoryId: category.id, kind: "rename" }); }
+  function cancelCategoryEditor() { setCategoryEditor(null); setCategoryName(""); setFolderError(null); }
+  function handleCategoryEditorKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       event.preventDefault();
       void submitCategoryEditor();
     } else if (event.key === "Escape") {
+      event.preventDefault();
       cancelCategoryEditor();
     }
   }
   async function submitCategoryEditor() {
-    if (!categoryEditor || isApplying) return;
+    if (!categoryEditor || isApplying || !categoryName.trim()) return;
     setIsApplying(true); setFolderError(null);
     try {
       if (categoryEditor.kind === "create") {
-        const result = await createQuestionBankCategoryAction(categoryName);
+        const result = await createQuestionBankCategoryAction(categoryName.trim());
         if (!result.ok) { setFolderError(result.message); return; }
         setCategories((current) => [...current, result.result].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })));
       } else {
         const category = categories.find((item) => item.id === categoryEditor.categoryId);
-        const result = await renameQuestionBankCategoryAction(categoryEditor.categoryId ?? "", categoryName, { expectedUpdatedAt: category?.updatedAt });
+        const result = await renameQuestionBankCategoryAction(categoryEditor.categoryId ?? "", categoryName.trim(), { expectedUpdatedAt: category?.updatedAt });
         if (!result.ok) { setFolderError(result.message); return; }
         setCategories((current) => current.map((item) => item.id === result.result.id ? result.result : item));
         setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categories: entry.bank.categories.map((item) => item.id === result.result.id ? { id: item.id, name: result.result.name } : item) } })));
@@ -441,7 +767,7 @@ function KaptenQuestionBankPageModule({
       setCategoryEditor(null); setCategoryName(""); refreshFromServer();
     } finally { setIsApplying(false); }
   }
-  function removeCategory(category: CategoryNode) {
+  async function removeCategory(category: CategoryNode) {
     setPendingConfirmation({ description: "Kategori akan dilepas dari semua bank. Isi bank dan snapshot yang sudah ada tidak berubah.", label: "Hapus kategori", onConfirm: () => void (async () => { setIsApplying(true); try { const result = await removeQuestionBankCategoryAction(category.id, { expectedUpdatedAt: category.updatedAt }); if (!result.ok) { setFolderError(result.message); return; } setCategories((current) => current.filter((item) => item.id !== category.id)); setEntries((current) => current.map((entry) => ({ ...entry, bank: { ...entry.bank, categoryIds: entry.bank.categoryIds.filter((id) => id !== category.id), categories: entry.bank.categories.filter((item) => item.id !== category.id) } }))); setPendingConfirmation(null); refreshFromServer(); } finally { setIsApplying(false); } })(), title: `Hapus kategori “${category.name}”?` });
   }
   async function applyLifecycle() {
@@ -450,42 +776,59 @@ function KaptenQuestionBankPageModule({
     try {
       const result = await updateQuestionBankLifecycleAction(pendingLifecycle.bank.id, pendingLifecycle.action, { expectedRevision: pendingLifecycle.bank.revision ?? 1 });
       if (!result.ok) { setLifecycleError(result.message); return; }
-      setEntries((current) => current.map((entry) => entry.bank.id === pendingLifecycle.bank.id ? { ...entry, bank: { ...entry.bank, status: result.result.status } } : entry));
+      setEntries((current) => current.map((entry) => entry.bank.id === pendingLifecycle.bank.id ? { ...entry, bank: { ...entry.bank, revision: result.result.revision, status: result.result.status } } : entry));
       setPendingLifecycle(null); refreshFromServer();
     } finally { setIsApplying(false); }
   }
 
-  const lifecycleCopy = pendingLifecycle?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan tersedia sebagai sumber baru.", "Terbitkan"] : pendingLifecycle?.action === "unpublish" ? ["Kembalikan ke draf?", "Bank tidak lagi tersedia sebagai sumber baru sampai diterbitkan lagi.", "Jadikan draf"] : pendingLifecycle?.action === "archive" ? ["Arsipkan bank?", "Bank disembunyikan dari sumber baru tanpa menghapus soal atau snapshot.", "Arsipkan"] : ["Pulihkan bank?", "Bank kembali sebagai draf dan dapat diatur lagi.", "Pulihkan"];
-  const isGlobalSearch = Boolean(initialSearch.trim());
-
-  function selectFolder(folder: FolderSelection) {
-    setSelectedFolder(folder);
-    resetPage();
-    navigateCatalogue({ folder, page: 1 });
-  }
-
   const catalogueRows: QuestionBankCatalogueRow[] = [
-    ...childFolders.map((folder) => ({ folder, kind: "folder" as const })),
-    ...entries.map(({ bank }) => ({ bank, kind: "bank" as const })),
+    ...childFolders.map((folder): QuestionBankCatalogueRow => ({ folder, kind: "folder" })),
+    ...entries.map(({ bank }): QuestionBankCatalogueRow => ({ bank, kind: "bank" })),
   ];
 
   const catalogueColumns: DataTableColumn<QuestionBankCatalogueRow>[] = [
     {
       cell: (row) => row.kind === "folder" ? (
-        <button aria-label={`Buka folder ${row.folder.name}`} className="flex min-w-0 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" onClick={() => selectFolder(row.folder.id)} type="button">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><Folder size={18} /></span>
-          <span className="min-w-0 truncate font-semibold text-secondary-900" title={row.folder.name}>{row.folder.name}</span>
-        </button>
-      ) : (
-        <div className="flex min-w-0 max-w-full items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800"><LibraryBig size={18} /></span>
-          <div className="min-w-0">
-            <Link className="block min-w-0 max-w-full truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20" href={row.bank.href} title={row.bank.title}>{row.bank.title}</Link>
-            <span className="mt-1 block text-xs text-secondary-500">{row.bank.questionCount} soal</span>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><Folder className="size-4" /></span>
+            <div className="min-w-0">
+              <button className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" onClick={() => { setSelectedFolder(row.folder.id); resetPage(); navigateCatalogue({ folder: row.folder.id, page: 1 }); }} type="button">{row.folder.name}</button>
+              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.folder.bankCount} bank{row.folder.children?.length ? ` · ${row.folder.children.length} subfolder` : ""}</p>
+            </div>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button aria-label={`Aksi folder ${row.folder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : (
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><LibraryBig aria-hidden="true" className="size-4" /></span>
+            <div className="min-w-0">
+              <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" href={row.bank.href}>{row.bank.title}</Link>
+              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.bank.questionCount} soal{row.bank.folderPath?.length ? ` · ${row.bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</p>
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</DropdownMenuItem>
+              <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {row.bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
+              {row.bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
+              {row.bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
-      headerClassName: "min-w-[14rem]",
+      headerClassName: "min-w-[18rem]",
       hideable: false,
       id: "name",
       label: "Nama",
@@ -541,47 +884,10 @@ function KaptenQuestionBankPageModule({
     </ContextMenuContent>
   );
 
-  const filterPanel = (
-    <div className="space-y-4 p-1">
-      <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold tracking-[0.02em] text-secondary-500">Subject</legend>
-        <div className="space-y-1">
-          {kaptenSubjects.map((subject) => (
-            <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-secondary-700 hover:bg-primary-50/60" key={subject.code}>
-              <input checked={selectedSubjects.includes(subject.code)} className="size-4 accent-primary-700" onChange={(event) => { const next = event.target.checked ? [...selectedSubjects, subject.code] : selectedSubjects.filter((code) => code !== subject.code); setSelectedSubjects(next); resetPage(); navigateCatalogue({ subjects: next, page: 1 }); }} type="checkbox" />
-              <span>{subject.code} · {subject.name}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold tracking-[0.02em] text-secondary-500">Kategori</legend>
-        <div className="space-y-1">
-          {categories.length ? categories.map((category) => (
-            <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}>
-              <input checked={selectedCategories.includes(category.id)} className="size-4 accent-primary-700" onChange={(event) => { const next = event.target.checked ? [...selectedCategories, category.id] : selectedCategories.filter((id) => id !== category.id); setSelectedCategories(next); resetPage(); navigateCatalogue({ categories: next, page: 1 }); }} type="checkbox" />
-              <span>{category.name}</span>
-            </label>
-          )) : <p className="px-2 text-sm text-secondary-500">Belum ada kategori bersama.</p>}
-        </div>
-      </fieldset>
-      <label className="block space-y-2 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="question-bank-status-filter">
-        <span>Status</span>
-        <select className="min-h-10 w-full rounded-lg border border-primary-100 bg-white px-3 text-sm font-normal tracking-normal text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="question-bank-status-filter" onChange={(event) => { const next = event.target.value; setStatusFilter(next); resetPage(); navigateCatalogue({ status: next, page: 1 }); }} value={statusFilter}>
-          <option value="">Semua status</option>
-          <option value="draft">Draf</option>
-          <option value="published">Diterbitkan</option>
-          <option value="archived">Diarsipkan</option>
-          <option value="scheduled">Terjadwal</option>
-        </select>
-      </label>
-    </div>
-  );
-
   const activeFilters: DataTableFilter[] = [
-    ...(selectedSubjects.length ? [{ id: "subjects", label: "Subject", value: selectedSubjects.join(", "), href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, status: statusFilter }) }] : []),
-    ...(selectedCategories.length ? [{ id: "categories", label: "Kategori", value: `${selectedCategories.length} dipilih`, href: questionBankHref({ folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, status: statusFilter, subjects: selectedSubjects }) }] : []),
-    ...(statusFilter ? [{ id: "status", label: "Status", value: statusCopy(statusFilter as KaptenQuestionBank["status"]), href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, subjects: selectedSubjects }) }] : []),
+    ...(selectedSubjects.length ? [{ href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, status: statusFilter }), id: "subjects", label: "Subject", value: selectedSubjects.join(", ") }] : []),
+    ...(selectedCategories.length ? [{ href: questionBankHref({ folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), id: "categories", label: "Kategori", value: `${selectedCategories.length} dipilih` }] : []),
+    ...(statusFilter ? [{ href: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, query: initialSearch, sort: initialSort, subjects: selectedSubjects }), id: "status", label: "Status", value: statusCopy(statusFilter as KaptenQuestionBank["status"]) }] : []),
   ];
   const clearFiltersHref = questionBankHref({ folder: selectedFolder, page: 1, sort: initialSort });
   const folderBreadcrumb = (
@@ -597,7 +903,7 @@ function KaptenQuestionBankPageModule({
   const sortMenu = (
     <>
       <DropdownMenuLabel className="font-semibold text-secondary-900">Urutkan koleksi</DropdownMenuLabel>
-      <DropdownMenuRadioGroup onValueChange={(value) => navigateCatalogue({ sort: value as BankSortMode, page: 1 })} value={initialSort}>
+      <DropdownMenuRadioGroup onValueChange={(value) => { resetPage(); navigateCatalogue({ page: 1, sort: value as BankSortMode }); }} value={initialSort}>
         <DropdownMenuRadioItem value="updated">Terbaru diperbarui</DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="name">Nama A–Z</DropdownMenuRadioItem>
         <DropdownMenuRadioItem value="questions">Jumlah soal</DropdownMenuRadioItem>
@@ -605,91 +911,312 @@ function KaptenQuestionBankPageModule({
     </>
   );
 
-  return <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false}>
-    <div className="space-y-8">
-      <section className="flex flex-wrap items-start justify-between gap-4">
-        <div><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1></div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
-          <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="icon-sm" title="Buat bank soal baru" type="button" variant="brand"><Plus /></Button>
-          <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
-        </div>
-      </section>
+  return {
+    activeFilters,
+    applyLifecycle,
+    bankCategoryId,
+    bankCategorySelection,
+    bankMoveId,
+    cancelCategoryEditor,
+    catalogueColumns,
+    catalogueRowContextMenu,
+    catalogueRows,
+    categories,
+    categoryBank,
+    categoryEditor,
+    categoryManagementOpen,
+    categoryName,
+    clearFiltersHref,
+    currentFolder,
+    flatFolders,
+    folderBreadcrumb,
+    folderCreateLabel,
+    folderCreateParentId,
+    folderDialog,
+    folderError,
+    folderName,
+    folderParentId,
+    folders,
+    handleCategoryEditorKeyDown,
+    isApplying,
+    isCataloguePending,
+    isGlobalSearch,
+    lifecycleError,
+    moveBankToFolder,
+    navigateCatalogue,
+    openBankCategories,
+    openCategoryCreate,
+    openCategoryRename,
+    openFolderCreate,
+    openFolderManage,
+    openMoveBank,
+    pendingConfirmation,
+    pendingLifecycle,
+    removeCategory,
+    resetPage,
+    saveBankCategories,
+    selectedBank,
+    selectedCategories,
+    selectedFolder,
+    selectedSubjects,
+    setBankCategoryId,
+    setBankCategorySelection,
+    setBankMoveId,
+    setCategoryEditor,
+    setCategoryManagementOpen,
+    setCategoryName,
+    setFolderDialog,
+    setFolderError,
+    setFolderName,
+    setFolderParentId,
+    setLifecycleError,
+    setPage,
+    setPendingConfirmation,
+    setPendingLifecycle,
+    setSelectedCategories,
+    setSelectedFolder,
+    setSelectedSubjects,
+    setStatusFilter,
+    sortMenu,
+    statusFilter,
+    submitCategoryEditor,
+    submitFolderDialog,
+    totalPages,
+    visiblePage,
+  };
+}
 
-      <div className="min-w-0">
-        <MentorCatalogueTable
-          breadcrumb={folderBreadcrumb}
-          caption="Daftar folder dan bank soal"
-          clearFiltersHref={clearFiltersHref}
-          columns={catalogueColumns}
-          emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank/create" />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
-          filterPanel={filterPanel}
-          filters={activeFilters}
-          getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
-          headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
-          moreMenu={sortMenu}
-          rows={catalogueRows}
-          rowContextMenu={catalogueRowContextMenu}
-          search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
-          isLoading={isCataloguePending}
-          loadingLabel="Memuat bank soal…"
-          tableClassName="min-w-[760px]"
-        />
-        {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
+function KaptenQuestionBankPageModule({
+  initialCategories,
+  initialEntries,
+  initialFolderTree,
+  initialPage = 1,
+  initialPageSize = BANKS_PER_PAGE,
+  initialSearch = "",
+  initialSort = "updated",
+  initialSelectedCategories = [],
+  initialSelectedFolder = ROOT_FOLDER,
+  initialSelectedSubjects = [],
+  initialStatusFilter = "",
+  initialTotal,
+  session,
+}: {
+  initialCategories: CategoryNode[];
+  initialEntries: BankEntry[];
+  initialFolderTree: FolderNode[];
+  initialPage?: number;
+  initialPageSize?: number;
+  initialSearch?: string;
+  initialSort?: BankSortMode;
+  initialSelectedCategories?: string[];
+  initialSelectedFolder?: FolderSelection;
+  initialSelectedSubjects?: string[];
+  initialStatusFilter?: string;
+  initialTotal: number;
+  session: SessionContext;
+}) {
+  const {
+    activeFilters,
+    applyLifecycle,
+    bankCategoryId,
+    bankCategorySelection,
+    bankMoveId,
+    cancelCategoryEditor,
+    catalogueColumns,
+    catalogueRowContextMenu,
+    catalogueRows,
+    categories,
+    categoryBank,
+    categoryEditor,
+    categoryManagementOpen,
+    categoryName,
+    clearFiltersHref,
+    currentFolder,
+    flatFolders,
+    folderBreadcrumb,
+    folderCreateLabel,
+    folderCreateParentId,
+    folderDialog,
+    folderError,
+    folderName,
+    folderParentId,
+    folders,
+    handleCategoryEditorKeyDown,
+    isApplying,
+    isCataloguePending,
+    isGlobalSearch,
+    lifecycleError,
+    moveBankToFolder,
+    navigateCatalogue,
+    openBankCategories,
+    openCategoryCreate,
+    openCategoryRename,
+    openFolderCreate,
+    openFolderManage,
+    pendingConfirmation,
+    pendingLifecycle,
+    removeCategory,
+    resetPage,
+    saveBankCategories,
+    selectedBank,
+    selectedCategories,
+    selectedFolder,
+    selectedSubjects,
+    setBankCategoryId,
+    setBankCategorySelection,
+    setBankMoveId,
+    setCategoryEditor,
+    setCategoryManagementOpen,
+    setCategoryName,
+    setFolderDialog,
+    setFolderError,
+    setFolderName,
+    setFolderParentId,
+    setLifecycleError,
+    setPage,
+    setPendingConfirmation,
+    setPendingLifecycle,
+    setSelectedCategories,
+    setSelectedSubjects,
+    setStatusFilter,
+    sortMenu,
+    statusFilter,
+    submitCategoryEditor,
+    submitFolderDialog,
+    totalPages,
+    visiblePage,
+  } = useQuestionBankCatalogueState({
+    initialCategories,
+    initialEntries,
+    initialFolderTree,
+    initialPage,
+    initialPageSize,
+    initialSearch,
+    initialSelectedCategories,
+    initialSelectedFolder,
+    initialSelectedSubjects,
+    initialSort,
+    initialStatusFilter,
+    initialTotal,
+  });
+
+  const lifecycleCopy = pendingLifecycle?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan tersedia sebagai sumber baru.", "Terbitkan"] : pendingLifecycle?.action === "unpublish" ? ["Kembalikan ke draf?", "Bank tidak lagi tersedia sebagai sumber baru sampai diterbitkan lagi.", "Jadikan draf"] : pendingLifecycle?.action === "archive" ? ["Arsipkan bank?", "Bank disembunyikan dari sumber baru tanpa menghapus soal atau snapshot.", "Arsipkan"] : ["Pulihkan bank?", "Bank kembali sebagai draf dan dapat diatur lagi.", "Pulihkan"];
+
+  return (
+    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false}>
+      <div className="space-y-8">
+        <section className="flex flex-wrap items-start justify-between gap-4">
+          <div><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
+            <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="icon-sm" title="Buat bank soal baru" type="button" variant="brand"><Plus /></Button>
+            <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
+          </div>
+        </section>
+
+        <div className="min-w-0">
+          <MentorCatalogueTable
+            breadcrumb={folderBreadcrumb}
+            caption="Daftar folder dan bank soal"
+            clearFiltersHref={clearFiltersHref}
+            columns={catalogueColumns}
+            emptyState={<div className="min-w-0 max-w-[calc(100vw-2rem)] whitespace-normal flex flex-col items-center py-2 text-center"><LibraryBig className="size-7 text-primary-300" /><h2 className="mt-3 font-semibold text-secondary-900">{isGlobalSearch ? "Tidak ada hasil pencarian" : "Belum ada item di lokasi ini"}</h2><p className="mt-1 text-sm font-normal leading-6 text-secondary-600">Buat bank soal atau folder baru untuk mulai mengisi ruang ini.</p>{!isGlobalSearch ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank/create" />} size="sm" type="button" variant="brand"><Plus />Buat bank soal</Button><Button onClick={() => openFolderCreate(folderCreateParentId)} size="sm" type="button" variant="brandOutline"><FolderPlus />{folderCreateLabel}</Button></div> : null}</div>}
+            filterPanel={
+              <QuestionBankCatalogueFilterPanel
+                categories={categories}
+                navigateCatalogue={navigateCatalogue}
+                resetPage={resetPage}
+                selectedCategories={selectedCategories}
+                selectedSubjects={selectedSubjects}
+                setSelectedCategories={setSelectedCategories}
+                setSelectedSubjects={setSelectedSubjects}
+                setStatusFilter={setStatusFilter}
+                statusFilter={statusFilter}
+              />
+            }
+            filters={activeFilters}
+            getRowId={(row) => row.kind === "folder" ? `folder-${row.folder.id ?? row.folder.name}` : `bank-${row.bank.id}`}
+            headerActions={selectedFolder !== ROOT_FOLDER && currentFolder?.id ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label={`Kelola folder ${currentFolder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "rename")}><Pencil />Ubah nama</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => openFolderManage(currentFolder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}
+            isLoading={isCataloguePending}
+            loadingLabel="Memuat bank soal…"
+            moreMenu={sortMenu}
+            rowContextMenu={catalogueRowContextMenu}
+            rows={catalogueRows}
+            search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
+            tableClassName="min-w-[760px]"
+          />
+          {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
+        </div>
       </div>
-    </div>
 
-    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setFolderDialog(null); setFolderError(null); } }} open={Boolean(folderDialog)}><DialogContent className="sm:max-w-sm" pending={isApplying}><DialogHeader><DialogTitle>{folderDialog?.kind === "create" ? "Buat folder" : folderDialog?.kind === "rename" ? "Ubah nama folder" : "Pindahkan folder"}</DialogTitle><DialogDescription>{folderDialog?.kind === "move" ? "Pilih tingkat induk baru. Folder tidak dapat dipindahkan ke dalam turunannya sendiri." : "Folder membantu tim menemukan bank tanpa mengubah isi soal."}</DialogDescription></DialogHeader>{folderDialog?.kind === "move" ? <Field><FieldLabel htmlFor="folder-parent">Folder induk</FieldLabel><select className="min-h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="folder-parent" onChange={(event) => setFolderParentId(event.target.value || null)} value={folderParentId ?? ""}><option value="">Tidak ada · root</option>{flatFolders.filter(({ folder }) => folder.id !== null && folder.id !== folderDialog.folderId && !folderPath(folders, folder.id).some((item) => item.id === folderDialog.folderId)).map(({ depth, folder }) => <option key={folder.id} value={folder.id ?? ""}>{"— ".repeat(depth)}{folder.name}</option>)}</select></Field> : <Field><FieldLabel htmlFor="folder-name">Nama folder</FieldLabel><FieldInput autoFocus id="folder-name" maxLength={160} onChange={(event) => setFolderName(event.target.value)} value={folderName} /></Field>}{folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}<DialogFooter><Button disabled={isApplying} onClick={() => setFolderDialog(null)} type="button" variant="brandOutline">Batal</Button><Button disabled={isApplying || (folderDialog?.kind !== "move" && !folderName.trim())} onClick={() => void submitFolderDialog()} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button></DialogFooter></DialogContent></Dialog>
+      <QuestionBankFolderDialog
+        flatFolders={flatFolders}
+        folderDialog={folderDialog}
+        folderError={folderError}
+        folderName={folderName}
+        folderParentId={folderParentId}
+        folders={folders}
+        isApplying={isApplying}
+        onClose={() => { setFolderDialog(null); setFolderError(null); }}
+        onFolderNameChange={setFolderName}
+        onFolderParentIdChange={setFolderParentId}
+        onSubmit={() => void submitFolderDialog()}
+      />
 
-    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setBankMoveId(null); setFolderError(null); } }} open={Boolean(bankMoveId)}><DialogContent className="sm:max-w-sm" pending={isApplying}><DialogHeader><DialogTitle>Pindahkan bank</DialogTitle><DialogDescription>{selectedBank ? `“${selectedBank.title}” tetap dapat dipakai di Quiz dan Tryout setelah dipindahkan.` : "Pilih folder tujuan untuk bank ini."}</DialogDescription></DialogHeader><Field><FieldLabel htmlFor="bank-folder">Folder tujuan</FieldLabel><select className="min-h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="bank-folder" onChange={(event) => setFolderParentId(event.target.value || null)} value={folderParentId ?? selectedBank?.folderId ?? ""}><option value="">Belum ditempatkan</option>{flatFolders.filter(({ folder }) => folder.id !== null).map(({ depth, folder }) => <option key={folder.id} value={folder.id ?? ""}>{"— ".repeat(depth)}{folder.name}</option>)}</select></Field>{folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}<DialogFooter><Button disabled={isApplying} onClick={() => setBankMoveId(null)} type="button" variant="brandOutline">Batal</Button><Button disabled={isApplying} onClick={() => void moveBankToFolder()} type="button" variant="brand">{isApplying ? "Memindahkan…" : "Pindahkan"}</Button></DialogFooter></DialogContent></Dialog>
+      <QuestionBankMoveDialog
+        bankMoveId={bankMoveId}
+        flatFolders={flatFolders}
+        folderError={folderError}
+        folderParentId={folderParentId}
+        isApplying={isApplying}
+        onClose={() => { setBankMoveId(null); setFolderError(null); }}
+        onFolderParentIdChange={setFolderParentId}
+        onSubmit={() => void moveBankToFolder()}
+        selectedBank={selectedBank}
+      />
 
-    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setBankCategoryId(null); setFolderError(null); } }} open={Boolean(bankCategoryId)}><DialogContent className="sm:max-w-sm" pending={isApplying}><DialogHeader><DialogTitle>Kelola kategori</DialogTitle><DialogDescription>{categoryBank ? `Pilih label untuk “${categoryBank.title}”. Kategori hanya mengatur penemuan, bukan isi soal.` : "Pilih kategori untuk bank ini."}</DialogDescription></DialogHeader><div className="grid gap-2">{categories.length ? categories.map((category) => <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-primary-100 px-3 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}><input checked={bankCategorySelection.includes(category.id)} className="size-4 accent-primary-700" onChange={(event) => setBankCategorySelection((current) => event.target.checked ? [...current, category.id] : current.filter((id) => id !== category.id))} type="checkbox" />{category.name}</label>) : <p className="text-sm text-secondary-500">Belum ada kategori. Buat dari menu kategori.</p>}</div>{folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}<DialogFooter><Button disabled={isApplying} onClick={() => setBankCategoryId(null)} type="button" variant="brandOutline">Batal</Button><Button disabled={isApplying} onClick={() => void saveBankCategories()} type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan kategori"}</Button></DialogFooter></DialogContent></Dialog>
+      <QuestionBankCategorySelectionDialog
+        bankCategoryId={bankCategoryId}
+        bankCategorySelection={bankCategorySelection}
+        categories={categories}
+        categoryBank={categoryBank}
+        folderError={folderError}
+        isApplying={isApplying}
+        onClose={() => { setBankCategoryId(null); setFolderError(null); }}
+        onSelectionChange={setBankCategorySelection}
+        onSubmit={() => void saveBankCategories()}
+      />
 
-    <Dialog onOpenChange={(open) => { if (!open && !isApplying) { setCategoryManagementOpen(false); setCategoryEditor(null); setCategoryName(""); setFolderError(null); } }} open={categoryManagementOpen}>
-      <DialogContent className="sm:max-w-lg" pending={isApplying}>
-        <DialogHeader><DialogTitle>Kelola kategori bersama</DialogTitle><DialogDescription>Buat kosakata bersama agar semua tutor dapat menemukan bank dengan cepat.</DialogDescription></DialogHeader>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary-500">Kategori</p>
-          <Button disabled={Boolean(categoryEditor)} onClick={openCategoryCreate} size="sm" type="button" variant="brandOutline"><Plus />Buat kategori</Button>
-        </div>
-        <div className="grid gap-2">
-          {categoryEditor?.kind === "create" ? <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1">
-            <Field className="min-w-0 flex-1">
-              <FieldLabel className="sr-only" htmlFor="category-name">Nama kategori baru</FieldLabel>
-              <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id="category-name" maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
-            </Field>
-            <div className="flex shrink-0 items-center justify-end gap-2">
-              <Button disabled={isApplying} onClick={cancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
-              <Button disabled={isApplying || !categoryName.trim()} onClick={() => void submitCategoryEditor()} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
-            </div>
-          </div> : null}
-          {categories.map((category) => categoryEditor?.kind === "rename" && categoryEditor.categoryId === category.id ? (
-            <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1" key={category.id}>
-              <Field className="min-w-0 flex-1">
-                <FieldLabel className="sr-only" htmlFor={`category-name-${category.id}`}>Nama kategori</FieldLabel>
-                <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id={`category-name-${category.id}`} maxLength={120} onChange={(event) => setCategoryName(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
-              </Field>
-              <div className="flex shrink-0 items-center justify-end gap-2">
-                <Button disabled={isApplying} onClick={cancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
-                <Button disabled={isApplying || !categoryName.trim()} onClick={() => void submitCategoryEditor()} size="sm" type="button" variant="brand">{isApplying ? "Menyimpan…" : "Simpan"}</Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-primary-100 px-3" key={category.id}>
-              <span className="min-w-0 flex-1 truncate text-sm text-secondary-700">{category.name}</span>
-              <span className="text-xs text-secondary-400">{category.bankCount}</span>
-              <Button aria-label={`Ubah kategori ${category.name}`} disabled={Boolean(categoryEditor) || isApplying} onClick={() => openCategoryRename(category)} size="icon-sm" type="button" variant="ghost"><Pencil /></Button>
-              <Button aria-label={`Hapus kategori ${category.name}`} disabled={Boolean(categoryEditor) || isApplying} onClick={() => removeCategory(category)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
-            </div>
-          ))}
-          {!categories.length && categoryEditor?.kind !== "create" ? <p className="rounded-2xl bg-primary-50/50 px-3 py-4 text-sm text-secondary-500">Belum ada kategori bersama.</p> : null}
-        </div>
-        {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
-      </DialogContent>
-    </Dialog>
+      <QuestionBankCategoryManagementDialog
+        categories={categories}
+        categoryEditor={categoryEditor}
+        categoryManagementOpen={categoryManagementOpen}
+        categoryName={categoryName}
+        folderError={folderError}
+        handleCategoryEditorKeyDown={handleCategoryEditorKeyDown}
+        isApplying={isApplying}
+        onCancelCategoryEditor={cancelCategoryEditor}
+        onCategoryNameChange={setCategoryName}
+        onClose={() => { setCategoryManagementOpen(false); setCategoryEditor(null); setCategoryName(""); setFolderError(null); }}
+        onOpenCategoryCreate={openCategoryCreate}
+        onOpenCategoryRename={openCategoryRename}
+        onRemoveCategory={(cat) => void removeCategory(cat)}
+        onSubmitCategoryEditor={() => void submitCategoryEditor()}
+      />
 
-    <AlertDialog onOpenChange={(open) => { if (!open && !isApplying) { setPendingLifecycle(null); setPendingConfirmation(null); setLifecycleError(null); } }} open={Boolean(pendingLifecycle || pendingConfirmation)}><AlertDialogContent pending={isApplying} size="sm" variant={pendingConfirmation ? "danger" : pendingLifecycle?.action === "archive" ? "warning" : "info"}><AlertDialogHeader><AlertDialogMedia variant={pendingConfirmation ? "danger" : pendingLifecycle?.action === "archive" ? "warning" : "info"}><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{pendingConfirmation?.title ?? lifecycleCopy[0]}</AlertDialogTitle><AlertDialogDescription>{pendingConfirmation?.description ?? lifecycleCopy[1]}</AlertDialogDescription></AlertDialogHeader>{lifecycleError || folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{lifecycleError ?? folderError}</p> : null}<AlertDialogFooter><AlertDialogCancel disabled={isApplying} onClick={() => { setPendingLifecycle(null); setPendingConfirmation(null); }} >Batal</AlertDialogCancel><AlertDialogAction disabled={isApplying} onClick={() => { if (pendingConfirmation) { pendingConfirmation.onConfirm(); } else { void applyLifecycle(); } }} variant={pendingConfirmation ? "destructive" : "brand"}>{isApplying ? "Memproses…" : pendingConfirmation?.label ?? lifecycleCopy[2]}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-  </MentorWorkspaceShell>;
+      <QuestionBankLifecycleConfirmationDialog
+        folderError={folderError}
+        isApplying={isApplying}
+        lifecycleCopy={lifecycleCopy as [string, string, string]}
+        lifecycleError={lifecycleError}
+        onCancel={() => { setPendingLifecycle(null); setPendingConfirmation(null); }}
+        onConfirm={() => { if (pendingConfirmation) { pendingConfirmation.onConfirm(); } else { void applyLifecycle(); } }}
+        onOpenChange={(open) => { if (!open && !isApplying) { setPendingLifecycle(null); setPendingConfirmation(null); setLifecycleError(null); } }}
+        open={Boolean(pendingLifecycle || pendingConfirmation)}
+        pendingConfirmation={pendingConfirmation}
+      />
+    </MentorWorkspaceShell>
+  );
 }
 
 export { KaptenQuestionBankPageModule };

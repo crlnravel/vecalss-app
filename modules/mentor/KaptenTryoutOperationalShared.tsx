@@ -63,6 +63,11 @@ type AssessmentReleaseSummary = {
   publishedAt: string;
 };
 
+const assessmentReleaseDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeZone: "Asia/Jakarta",
+});
+
 function AssessmentReleaseNotice({
   label = "Konten sesi",
   missingDescription = "Buka sesi setelah tujuh Test dan kesiapan CAT tervalidasi.",
@@ -76,10 +81,7 @@ function AssessmentReleaseNotice({
 }) {
   const historical = state === "historical";
   const publishedAt = release
-    ? new Intl.DateTimeFormat("id-ID", {
-        dateStyle: "medium",
-        timeZone: "Asia/Jakarta",
-      }).format(new Date(release.publishedAt))
+    ? assessmentReleaseDateFormatter.format(new Date(release.publishedAt))
     : null;
 
   return (

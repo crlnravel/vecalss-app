@@ -63,7 +63,7 @@ assert.match(ui, /aria-activedescendant/u);
 assert.match(ui, /min-h-11/u);
 assert.match(ui, /aria-required="true"/u);
 assert.match(ui, /required\s+value=\{reason\}/u);
-assert.match(ui, /searchRequestRef\.current \+= 1;\s*setStudents\(\[\]\);\s*setActiveIndex\(-1\)/u, "submit must invalidate stale picker results");
+assert.match(ui, /searchRequestRef\.current \+= 1;\s*(?:setStudents\(\[\]\);\s*setActiveIndex\(-1\)|dispatch\(\{\s*type:\s*"submitStart"\s*\}\))/u, "submit must invalidate stale picker results");
 assert.match(ui, /if \(busy\) return;/u, "busy picker must ignore late selection callbacks");
 assert.match(ui, /Muat ulang halaman/u);
 assert.doesNotMatch(ui, /\bemail\b/u, "picker UI must not render email");

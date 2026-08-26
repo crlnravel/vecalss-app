@@ -3,11 +3,11 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   BookOpenCheck,
-  ChevronLeft,
   Clock3,
   ListChecks,
 } from "@/lib/icons";
 
+import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
 import type { SessionContext } from "@/lib/auth/types";
@@ -39,17 +39,11 @@ function QuizSubjectDetailPageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <Button
-          aria-label="Kembali ke subjek kuis"
+        <BackButton
           className="self-start"
-          nativeButton={false}
-          render={<Link href="/quiz" />}
-          size="icon"
-          title="Kembali ke subjek kuis"
-          variant="ghost"
-        >
-          <ChevronLeft />
-        </Button>
+          href="/quiz"
+          label="Kembali ke subjek kuis"
+        />
 
         <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-[0_28px_72px_-44px_rgba(1,76,56,0.75)]">
           <div

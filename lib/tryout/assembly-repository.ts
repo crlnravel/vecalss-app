@@ -831,14 +831,14 @@ async function readyAssemblyDraft(packageId: string, actorId: string, options: A
       });
     }
     const definition = validateAssemblyDefinitionShape(toDefinitionInput(packageRecord, draft, packageRecord.items.map(candidateFromPackageItem)));
+    if (definition.mode === "blueprint" && packageRecord.items.length) {
+      throw new AssemblyValidationError("scope", "Blueprint tidak boleh menyimpan kandidat fisik.", { packageId });
+    }
     await assertScope(tx, definition);
     const candidates = definition.candidates;
     const candidateState = definition.mode === "blueprint"
       ? { sources: [] as SourceRecord[], calibrations: undefined }
       : await assertCandidates(tx, definition, candidates, true);
-    if (definition.mode === "blueprint" && packageRecord.items.length) {
-      throw new AssemblyValidationError("scope", "Blueprint tidak boleh menyimpan kandidat fisik.", { packageId });
-    }
 
     const sourceById = new Map(candidateState.sources.map((source) => [source.id, source]));
     await tx.reusableQuestionPackageVersionItem.deleteMany({ where: { packageVersionId: draft.id } });
@@ -846,35 +846,41 @@ async function readyAssemblyDraft(packageId: string, actorId: string, options: A
       const source = sourceById.get(candidate.sourceQuestionId);
       const revision = source?.currentRevision;
       if (!source || !revision) throw new AssemblyValidationError("stale_candidate", "Kandidat berubah saat versi assembly disiapkan.", { sourceQuestionId: candidate.sourceQuestionId });
-      const item = await tx.reusableQuestionPackageVersionItem.create({
-        data: {
-          difficulty: revision.difficulty,
-          explanation: revision.explanation,
-          explanationAssetId: revision.explanationAssetId,
-          packageVersionId: draft.id,
-          pointValue: candidate.pointValue,
-          prompt: revision.stem,
-          promptAssetId: revision.promptAssetId,
-          sortOrder: candidates.findIndex((entry) => entry.sourceQuestionId === candidate.sourceQuestionId) + 1,
-          sourceContentDigest: revision.contentDigest,
-          sourceQuestionId: source.id,
-          sourceQuestionRevisionId: revision.id,
-          sourceRevisionProvenance: revision.provenance,
-          subtestId: definition.subtestId,
-        },
-      });
-      await tx.reusableQuestionPackageVersionItemOption.createMany({
-        data: revision.options.map((option, index) => ({
-          assetId: option.assetId,
-          choiceKey: option.label || String.fromCharCode(65 + index),
-          content: option.content,
-          isCorrect: option.isCorrect,
-          packageVersionItemId: item.id,
-          sortOrder: index,
-          sourceQuestionRevisionOptionId: option.id,
-        })),
-      });
     }
+    await Promise.all(
+      candidates.map(async (candidate, index) => {
+        const source = sourceById.get(candidate.sourceQuestionId)!;
+        const revision = source.currentRevision!;
+        const item = await tx.reusableQuestionPackageVersionItem.create({
+          data: {
+            difficulty: revision.difficulty,
+            explanation: revision.explanation,
+            explanationAssetId: revision.explanationAssetId,
+            packageVersionId: draft.id,
+            pointValue: candidate.pointValue,
+            prompt: revision.stem,
+            promptAssetId: revision.promptAssetId,
+            sortOrder: index + 1,
+            sourceContentDigest: revision.contentDigest,
+            sourceQuestionId: source.id,
+            sourceQuestionRevisionId: revision.id,
+            sourceRevisionProvenance: revision.provenance,
+            subtestId: definition.subtestId,
+          },
+        });
+        await tx.reusableQuestionPackageVersionItemOption.createMany({
+          data: revision.options.map((option, optIndex) => ({
+            assetId: option.assetId,
+            choiceKey: option.label || String.fromCharCode(65 + optIndex),
+            content: option.content,
+            isCorrect: option.isCorrect,
+            packageVersionItemId: item.id,
+            sortOrder: optIndex,
+            sourceQuestionRevisionOptionId: option.id,
+          })),
+        });
+      }),
+    );
 
     await tx.reusableQuestionPackageVersion.update({
       where: { id: draft.id },
@@ -930,18 +936,18 @@ async function listReadyAssemblyRevisions(): Promise<AssemblyAttachmentSummary[]
       include: versionInclude,
       orderBy: [{ package: { title: "asc" } }, { versionNo: "desc" }],
     });
-    const summaries: AssemblyAttachmentSummary[] = [];
-    for (const version of versions) {
-      const report = await collectReadiness(tx, definitionInputForVersion(version), {
-        expectedDefinitionDigest: version.definitionDigest,
-        expectedPackageMode: version.package.mode as AssemblyMode,
-        expectedSourceBankId: version.sourceBankId,
-        expectedSubtestId: version.subtestId,
-        snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
-      });
-      summaries.push(toAttachmentSummary(version, report.readiness));
-    }
-    return summaries;
+    return Promise.all(
+      versions.map(async (version) => {
+        const report = await collectReadiness(tx, definitionInputForVersion(version), {
+          expectedDefinitionDigest: version.definitionDigest,
+          expectedPackageMode: version.package.mode as AssemblyMode,
+          expectedSourceBankId: version.sourceBankId,
+          expectedSubtestId: version.subtestId,
+          snapshotItems: version.mode === ReusableQuestionPackageMode.fixed_set ? version.items : undefined,
+        });
+        return toAttachmentSummary(version, report.readiness);
+      }),
+    );
   });
 }
 

@@ -17,5 +17,5 @@ export default async function NewPackageVersionPage({ params }: { params: Promis
     listQuestionBankSourcePage({ page: 1, pageSize: 20, subjectCoverage: [initialDraft.subtest] }),
     listQuestionBankCategories(),
   ]);
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Edit pertanyaan & poin" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageBuilderPageModule id={packageId} initialDraft={initialDraft} sourceCatalog={sourcePage.items.map(({ bank }) => ({ bank, questions: [] }))} sourceCatalogPage={sourcePage} sourceCategories={sourceCategories} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Edit pertanyaan & poin" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageBuilderPageModule id={packageId} initialDraft={initialDraft} sourceCatalogPage={sourcePage} sourceCategories={sourceCategories} /></MentorWorkspaceShell>;
 }

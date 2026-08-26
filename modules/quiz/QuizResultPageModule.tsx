@@ -7,7 +7,6 @@ import { Printer } from "@phosphor-icons/react";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   CheckCircle2,
   Flag,
   CircleX,
@@ -15,6 +14,7 @@ import {
   RefreshCw,
 } from "@/lib/icons";
 
+import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
 import {
@@ -22,6 +22,8 @@ import {
   AssessmentResultNavigation,
   AssessmentResultWorkspace,
 } from "@/modules/assessment/AssessmentWorkspace";
+import { AssessmentReviewAnswerOption } from "@/modules/assessment/AssessmentReviewAnswerOption";
+import { AssessmentResultStat } from "@/modules/assessment/AssessmentResultStat";
 import { cn } from "@/lib/utils";
 
 type QuizResult = {
@@ -77,17 +79,14 @@ function QuizResultPageModule({
       <main className="mx-auto max-w-3xl px-5 py-14">
         <h1 className="text-3xl font-semibold text-secondary-900">Quiz belum dikirim</h1>
         <p className="mt-3 text-secondary-600">Kembali ke quiz untuk menyelesaikan dan mengirim jawabanmu.</p>
-        <Button
-          aria-label="Kembali ke daftar quiz"
+        <BackButton
           className="mt-6"
-          nativeButton={false}
-          render={<Link href={`/quiz/${subjectSlug}`} />}
-          size="icon"
-          title="Kembali ke daftar quiz"
+          href={`/quiz/${subjectSlug}`}
+          label="Kembali ke daftar quiz"
           variant="brand"
         >
           <ArrowLeft />
-        </Button>
+        </BackButton>
       </main>
     );
   }
@@ -151,9 +150,9 @@ function QuizResultPageModule({
       scoreLabel="Skor Akhir"
       summary={
         <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1">
-          <ResultStat label="Benar" value={`${result.correctCount ?? 0}`} />
-          <ResultStat label="Dijawab" value={`${result.answeredCount}/${result.totalQuestions}`} />
-          <ResultStat label="Skor percobaan" value={result.attemptScore === null ? "—" : `${result.attemptScore}`} />
+          <AssessmentResultStat label="Benar" value={`${result.correctCount ?? 0}`} />
+          <AssessmentResultStat label="Dijawab" value={`${result.answeredCount}/${result.totalQuestions}`} />
+          <AssessmentResultStat label="Skor percobaan" value={result.attemptScore === null ? "—" : `${result.attemptScore}`} />
         </div>
       }
       title={result.title}
@@ -179,12 +178,14 @@ function QuizResultPageModule({
 
         <div className="mt-7 grid gap-3">
           {question.options.map((option) => (
-            <ReviewAnswerOption
+            <AssessmentReviewAnswerOption
               correctnessAvailable={result.correctnessAvailable}
+              correct={option.correct}
               key={option.id}
-              option={option}
+              label={option.key}
               selected={option.id === question.selectedOptionId}
-              textClass={readingTextClass}
+              text={option.text}
+              textClassName={readingTextClass}
             />
           ))}
         </div>
@@ -225,53 +226,6 @@ function QuizResultPageModule({
         </div>
       </article>
     </AssessmentResultWorkspace>
-  );
-}
-
-function ResultStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-primary-100 bg-secondary-50 px-3 py-3">
-      <p className="text-xs font-medium text-secondary-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-secondary-900">{value}</p>
-    </div>
-  );
-}
-
-function ReviewAnswerOption({
-  correctnessAvailable,
-  option,
-  selected,
-  textClass,
-}: {
-  correctnessAvailable: boolean;
-  option: { correct: boolean; id: string; key: string; text: string };
-  selected: boolean;
-  textClass: string;
-}) {
-  const isCorrect = correctnessAvailable && option.correct;
-  const isIncorrectSelection = correctnessAvailable && selected && !option.correct;
-
-  return (
-    <div
-      className={cn(
-        "flex w-full items-start gap-4 rounded-3xl border bg-white px-4 py-4 text-left sm:px-5",
-        isCorrect && "border-student-status-success-border bg-student-status-success-bg",
-        isIncorrectSelection && "border-student-status-danger-border bg-student-status-danger-bg",
-        !option.correct && !isIncorrectSelection && "border-primary-100",
-      )}
-    >
-      <span
-        className={cn(
-          "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
-          isCorrect && "border-student-status-success-solid-bg bg-student-status-success-solid-bg text-student-status-success-solid-fg",
-          isIncorrectSelection && "border-student-status-danger-solid-bg bg-student-status-danger-solid-bg text-student-status-danger-solid-fg",
-          !option.correct && !isIncorrectSelection && "border-secondary-200 bg-secondary-50 text-secondary-500",
-        )}
-      >
-        {isCorrect ? <Check className="size-5" /> : option.key}
-      </span>
-      <p className={cn("min-w-0 flex-1 font-medium text-secondary-800", textClass)}>{option.text}</p>
-    </div>
   );
 }
 

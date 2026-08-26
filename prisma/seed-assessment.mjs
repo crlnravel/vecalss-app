@@ -1015,11 +1015,11 @@ async function upsertAssessmentRelease(client, { tryoutId, tutorId }) {
     });
   }
   if (sections.length !== 7 || sections.some((section) => section.items.length === 0)) throw new Error("The assessment seed expects seven populated Tryout sections.");
-  const catItems = sections.filter((section) => section.testType === "cat").flatMap((section) => section.items);
+  const catItems = sections.flatMap((section) => section.testType === "cat" ? section.items : []);
   if (catItems.some((item) => !item.sourceQuestionId || !item.sourceQuestionRevisionId || !item.sourceContentDigest || !item.sourceRevisionProvenance || item.sourceRevisionProvenance === "legacy_unknown")) {
     throw new Error("The assessment seed requires complete CAT source provenance.");
   }
-  const catRevisionIds = [...new Set(catItems.map((item) => item.sourceQuestionRevisionId).filter(Boolean))];
+  const catRevisionIds = [...new Set(catItems.flatMap((item) => item.sourceQuestionRevisionId ? [item.sourceQuestionRevisionId] : []))];
   if (catRevisionIds.length) {
     const [revisionResult, calibrationResult] = await Promise.all([
       client.query(
@@ -1373,12 +1373,14 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
     return snapshotOption.id;
   });
   const releaseOptionIds = releaseOptions.map((releaseOption) => releaseOption.physicalId);
+  const releaseOptionIdSet = new Set(releaseOptionIds);
   if (releaseOptionIds.some((id) => typeof id !== "string")
     || new Set(snapshotOptionIds).size !== snapshotOptionIds.length
-    || new Set(releaseOptionIds).size !== releaseOptionIds.length
-    || snapshotOptionIds.some((id) => !releaseOptionIds.includes(id))) {
+    || releaseOptionIdSet.size !== releaseOptionIds.length
+    || snapshotOptionIds.some((id) => !releaseOptionIdSet.has(id))) {
     throw new Error(`The assessment seed found a non-bijective option bridge for ${label}.`);
   }
+  const releaseOptionById = new Map(releaseOptions.map((candidate) => [candidate.physicalId, candidate]));
   for (const snapshotOption of snapshotOptions) {
     if (!isRecord(snapshotOption)
       || !Object.prototype.hasOwnProperty.call(snapshotOption, "assetId")
@@ -1388,7 +1390,7 @@ function assertSeedReleaseItemBridge(releaseItem, snapshotItem, label) {
       || !Object.prototype.hasOwnProperty.call(snapshotOption, "sortOrder")) {
       throw new Error(`The assessment seed found an incomplete frozen option for ${label}.`);
     }
-    const releaseOption = releaseOptions.find((candidate) => candidate.physicalId === snapshotOption.id);
+    const releaseOption = releaseOptionById.get(snapshotOption.id);
     if (!releaseOption
       || releaseOption.assetId !== snapshotOption.assetId
       || releaseOption.choiceKey !== snapshotOption.choiceKey
@@ -1454,14 +1456,16 @@ function assertSeedSnapshotMatchesRelease(contentSnapshot, releasePayload, label
     return snapshotItem.id;
   });
   const releaseItemIds = releaseItems.map((releaseItem) => releaseItem.physicalId);
+  const releaseItemIdSet = new Set(releaseItemIds);
   if (releaseItemIds.some((id) => typeof id !== "string")
     || new Set(snapshotItemIds).size !== snapshotItemIds.length
-    || new Set(releaseItemIds).size !== releaseItemIds.length
-    || snapshotItemIds.some((id) => !releaseItemIds.includes(id))) {
+    || releaseItemIdSet.size !== releaseItemIds.length
+    || snapshotItemIds.some((id) => !releaseItemIdSet.has(id))) {
     throw new Error(`The assessment seed found a non-bijective item bridge for ${label}.`);
   }
+  const releaseItemById = new Map(releaseItems.map((candidate) => [candidate.physicalId, candidate]));
   for (const snapshotItem of snapshotItems) {
-    const releaseItem = releaseItems.find((candidate) => candidate.physicalId === snapshotItem.id);
+    const releaseItem = releaseItemById.get(snapshotItem.id);
     assertSeedReleaseItemBridge(releaseItem, snapshotItem, label);
   }
 }
@@ -1908,8 +1912,10 @@ async function seedTryoutOperations(client, { assessmentRelease, studentIds, try
 }
 
 async function seedAssessmentDemo(client, { examEventId, studentIds, tutorId }) {
-  const subtestIds = await resolveSubtests(client);
-  const bankId = await upsertQuestionBank(client, tutorId);
+  const [subtestIds, bankId] = await Promise.all([
+    resolveSubtests(client),
+    upsertQuestionBank(client, tutorId),
+  ]);
   await seedQuestionBankOrganization(client, { tutorId });
   const questions = await upsertQuestions(client, { bankId, subtestIds, tutorId });
   await upsertCalibrations(client, tutorId, questions);

@@ -322,15 +322,14 @@ function serializeTryoutOperations(operations: TryoutOperationsRecord) {
     totalDisconnectSeconds: attempt.totalDisconnectSeconds,
   }));
   const attemptById = new Map(attemptRecords.map((attempt) => [attempt.id, attempt]));
-  const live = participants
-    .filter((participant) => !["rejected", "revoked"].includes(participant.admission.status))
-    .map((participant) => {
-      const currentAttempt = participant.attempt?.id
-        ? attemptById.get(participant.attempt.id)
-        : participant.session?.id
-          ? attemptRecords.find((attempt) => attempt.admissionId === participant.admissionId && attempt.sessionId === participant.session?.id)
-          : attemptRecords.find((attempt) => attempt.admissionId === participant.admissionId);
-      const projection = deriveTryoutLiveProjection({
+  const live = participants.flatMap((participant) => {
+    if (participant.admission.status === "rejected" || participant.admission.status === "revoked") return [];
+    const currentAttempt = participant.attempt?.id
+      ? attemptById.get(participant.attempt.id)
+      : participant.session?.id
+        ? attemptRecords.find((attempt) => attempt.admissionId === participant.admissionId && attempt.sessionId === participant.session?.id)
+        : attemptRecords.find((attempt) => attempt.admissionId === participant.admissionId);
+    const projection = deriveTryoutLiveProjection({
         admissionStatus: participant.admission.status,
         attempt: currentAttempt
           ? {
@@ -484,13 +483,15 @@ async function getOwnedTryoutOperationsView(
   let operations = await getTryoutDeliveryOperations(tryoutId, actorId);
   if (!operations) return null;
   const sessionsWithAttempts = operations.deliverySessions.filter((session) => session.attempts.length > 0);
-  for (const session of sessionsWithAttempts) {
-    try {
-      await synchronizeTryoutSessionReleaseState(session.id, new Date());
-    } catch (error) {
-      if (!(error instanceof TryoutResultValidationError)) throw error;
-    }
-  }
+  await Promise.all(
+    sessionsWithAttempts.map(async (session) => {
+      try {
+        await synchronizeTryoutSessionReleaseState(session.id, new Date());
+      } catch (error) {
+        if (!(error instanceof TryoutResultValidationError)) throw error;
+      }
+    }),
+  );
   if (sessionsWithAttempts.length > 0) {
     operations = await getTryoutDeliveryOperations(tryoutId, actorId);
     if (!operations) return null;

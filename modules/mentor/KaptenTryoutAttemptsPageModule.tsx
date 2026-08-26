@@ -18,7 +18,7 @@ function formatRemaining(seconds: number | null) {
 
 function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperationsView }) {
   const { refreshMessage, refreshState, retryRefresh, updatedLabel, view } = useTryoutOperationsRefresh(initial);
-  const liveByAttemptId = useMemo(() => new Map(view.live.filter((item) => item.attemptId).map((item) => [item.attemptId!, item])), [view.live]);
+  const liveByAttemptId = useMemo(() => new Map(view.live.flatMap((item) => item.attemptId ? [[item.attemptId, item] as const] : [])), [view.live]);
 
   return (
     <section className="grid gap-4" aria-labelledby="tryout-attempts-title">

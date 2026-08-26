@@ -138,13 +138,13 @@ function toPreviewLesson(
   const resources = readMateriResources(lesson.assets);
   if (!resources.document || !isMateriReady(lesson.title, resources)) return null;
 
-  const content = lesson.assets
-    .filter((asset) => asset.assetType === ModuleAssetType.text || asset.assetType === ModuleAssetType.example)
-    .map((asset) => ({
-      body: sanitizePreviewText(asset.bodyText),
-      title: sanitizePreviewText(asset.title) || null,
-    }))
-    .filter((block) => block.body.length > 0);
+  const content = lesson.assets.flatMap((asset) => {
+    if (asset.assetType !== ModuleAssetType.text && asset.assetType !== ModuleAssetType.example) return [];
+    const body = sanitizePreviewText(asset.bodyText);
+    return body.length > 0
+      ? [{ body, title: sanitizePreviewText(asset.title) || null }]
+      : [];
+  });
 
   const optionalVideo = resources.video
     ? sanitizePreviewVideo(resources.video.mediaUrl)
@@ -261,17 +261,19 @@ async function readAdminPreviewMateriCatalogue(): Promise<AdminPreviewMateriCour
   });
 
   const subtestsByCode = new Map(subtests.map((subtest) => [subtest.code, subtest]));
+  const topicCodeSet = new Set(topicCodes);
 
   return materiSubjects.flatMap((subject) => {
     const subtest = subtestsByCode.get(subject.code);
     if (!subtest) return [];
 
     const lessons = subtest.topics
-      .filter((topic) => topicCodes.includes(topic.code))
-      .flatMap((topic) => topic.modules)
+      .flatMap((topic) => topicCodeSet.has(topic.code) ? topic.modules : [])
       .sort((left, right) => left.sequenceNo - right.sequenceNo || left.code.localeCompare(right.code))
-      .map((lesson, position) => toPreviewLesson(lesson, position))
-      .filter((lesson): lesson is AdminPreviewMateriLesson => Boolean(lesson));
+      .flatMap((lesson, position) => {
+        const preview = toPreviewLesson(lesson, position);
+        return preview ? [preview] : [];
+      });
 
     return [{
       code: subject.code,

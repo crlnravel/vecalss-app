@@ -6,7 +6,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast";
 import type { FormState } from "@/modules/auth/form-state";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
 import { BookOpen, Gauge, House, ListChecks, type AppIcon } from "@/lib/icons";

@@ -39,7 +39,6 @@ import {
   Clock as PhosphorClock,
   ClockCounterClockwise as PhosphorHistory,
   Copy as PhosphorCopy,
-  DotsSixVertical as PhosphorGripVertical,
   DotsThree as PhosphorMoreHorizontal,
   Download as PhosphorDownload,
   Eye as PhosphorEye,
@@ -68,7 +67,6 @@ import {
   ListChecks as PhosphorListChecks,
   Lock as PhosphorLock,
   LockKey as PhosphorLockKeyhole,
-  LockOpen as PhosphorLockOpen,
   MagnifyingGlass as PhosphorSearch,
   Minus as PhosphorMinus,
   NotePencil as PhosphorNotebookPen,
@@ -126,7 +124,6 @@ export const ArrowRight = PhosphorArrowRight;
 export const ArrowUp = PhosphorArrowUp;
 export const ArrowUpRight = PhosphorArrowUpRight;
 export const AtSign = PhosphorAtSign;
-export const BarChart3 = PhosphorChartBar;
 export const Bell = PhosphorBell;
 export const BookOpen = PhosphorBookOpen;
 export const BookOpenCheck = PhosphorBookOpenText;
@@ -176,7 +173,6 @@ export const FolderInput = PhosphorFolderInput;
 export const FolderPlus = PhosphorFolderPlus;
 export const Gauge = PhosphorGauge;
 export const GraduationCap = PhosphorGraduationCap;
-export const GripVertical = PhosphorGripVertical;
 export const History = PhosphorHistory;
 export const House = PhosphorHouse;
 export const Image = PhosphorImage;
@@ -188,13 +184,11 @@ export const LayoutDashboard = PhosphorSquaresFour;
 export const LayoutGrid = PhosphorSquaresFour;
 export const LibraryBig = PhosphorBooks;
 export const Link2 = PhosphorLink2;
-export const List = PhosphorList;
 export const ListChecks = PhosphorListChecks;
 export const ListFilter = PhosphorListFilter;
 export const LoaderCircle = PhosphorLoaderCircle;
 export const Lock = PhosphorLock;
 export const LockKeyhole = PhosphorLockKeyhole;
-export const LockOpen = PhosphorLockOpen;
 export const LogOut = PhosphorSignOut;
 export const Maximize2 = PhosphorArrowsOut;
 export const Minimize2 = PhosphorArrowsIn;
@@ -207,7 +201,6 @@ export const MoreHorizontal = PhosphorMoreHorizontal;
 export const MoreHorizontalIcon = PhosphorMoreHorizontal;
 export const NotebookPen = PhosphorNotebookPen;
 export const PackageCheck = PhosphorPackage;
-export const PackagePlus = PhosphorPackage;
 export const PanelLeftClose = PhosphorPanelLeft;
 export const PanelLeftIcon = PhosphorPanelLeft;
 export const PanelLeftOpen = PhosphorPanelLeft;
