@@ -849,7 +849,7 @@ function useTryoutBuilderState({
     sections: defaultSections(),
     status: "draft",
     title: "Draft Tryout Baru",
-    updatedAt: Date.now(),
+    updatedAt: 0,
   }), [id, initialDraft]);
 
   const [state, dispatch] = useReducer(builderReducer, undefined, () => ({
