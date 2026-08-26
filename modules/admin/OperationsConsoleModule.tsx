@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
+  BarChart3,
   ChevronRight,
   UserPlus,
   X,
@@ -169,6 +170,27 @@ function OperationsConsoleModule({
           <CreateKaptenForm />
         </section>
       ) : null}
+
+      <section className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}>
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
+            <BarChart3 aria-hidden="true" size={19} />
+          </span>
+          <div>
+            <h2 className="text-base font-semibold text-secondary-900">Vera AI usage</h2>
+            <p className="mt-1 max-w-[60ch] text-sm leading-6 text-secondary-600">Lihat volume dan incident dalam bentuk agregat dengan suppression cohort. Tidak ada identitas atau isi percakapan di report.</p>
+          </div>
+        </div>
+        <Button
+          className="shrink-0"
+          nativeButton={false}
+          render={<Link href="/admin/ai-usage" />}
+          variant="outline"
+        >
+          Open AI usage
+          <ChevronRight aria-hidden="true" size={16} />
+        </Button>
+      </section>
 
       <ActivityPanel audits={snapshot.audits} />
     </div>

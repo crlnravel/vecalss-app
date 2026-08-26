@@ -721,6 +721,58 @@ enum AiReportBudgetState {
   @@map("ai_report_budget_state")
 }
 
+enum AiReportWindowKind {
+  budget_24h
+  burst_10m
+
+  @@map("ai_report_window_kind")
+}
+
+enum AiReportReservationState {
+  reserved
+  completed
+  failed
+  process_lost
+  expired
+
+  @@map("ai_report_reservation_state")
+}
+
+enum AiReportReservationResultKind {
+  report
+  policy_preview
+  typed_error
+
+  @@map("ai_report_reservation_result_kind")
+}
+
+enum AiAdminReportEventType {
+  reservation
+  outcome
+
+  @@map("ai_admin_report_event_type")
+}
+
+enum AiAdminReportOperation {
+  admin_report_query
+  admin_policy_preview
+
+  @@map("ai_admin_report_operation")
+}
+
+enum AiAdminReportSuppressionState {
+  not_evaluated
+  ready
+  partial_unavailable
+  suppressed
+  coarsened
+  unavailable
+  failed
+  process_lost
+
+  @@map("ai_admin_report_suppression_state")
+}
+
 enum RecommendationStatus {
   active
   clicked
@@ -970,6 +1022,7 @@ model User {
   aiPolicyBundlesApproved                AiPolicyBundle[]                 @relation("AiPolicyApprovedBy")
   aiPolicyAuditEvents                    AiPolicyAuditEvent[]
   aiAdminReportAudits                    AiAdminReportAudit[]
+  aiReportReservations                   AiReportReservation[]
   aiCapabilityGrants                     AiCapabilityGrant[]
   aiArtifactLifecycleChanges             AiArtifactLifecycle[]
   uploadedAssets                         Asset[]                          @relation("UploadedBy")
@@ -3634,10 +3687,16 @@ model AdaptivePracticeItem {
 model AiReportBudgetWindow {
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   principalKey        String              @map("principal_key") @db.VarChar(160)
+  windowKind          AiReportWindowKind  @default(budget_24h) @map("window_kind")
   policyBundleVersion String              @map("policy_bundle_version") @db.VarChar(120)
   state               AiReportBudgetState @default(active)
   windowStartedAt     DateTime            @map("window_started_at") @db.Timestamptz
+  windowEndsAt        DateTime            @map("window_ends_at") @db.Timestamptz
   windowExpiresAt     DateTime            @map("window_expires_at") @db.Timestamptz
+  budgetUnitsSnapshot Int                 @map("budget_units_snapshot")
+  usedBudgetUnits     Int                 @default(0) @map("used_budget_units")
+  requestCount        Int                 @default(0) @map("request_count")
+  version             Int                 @default(0)
   consumedUnits       Int                 @default(0) @map("consumed_units")
   consumedRequests    Int                 @default(0) @map("consumed_requests")
   unitLimit           Int                 @map("unit_limit")
@@ -3645,24 +3704,71 @@ model AiReportBudgetWindow {
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@unique([principalKey, windowStartedAt])
+  @@unique([principalKey, windowKind, windowStartedAt])
   @@index([state, windowExpiresAt])
+  @@index([principalKey, windowKind, windowEndsAt])
   @@map("ai_report_budget_windows")
 }
 
-model AiAdminReportAudit {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorId            String   @map("actor_id") @db.Uuid
-  queryFingerprint   String   @map("query_fingerprint") @db.VarChar(128)
-  displayTimezone    String   @map("display_timezone") @db.VarChar(64)
-  rangeStart         DateTime @map("range_start") @db.Date
-  rangeEnd           DateTime @map("range_end") @db.Date
-  suppressionApplied Boolean  @default(false) @map("suppression_applied")
-  occurredAt         DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+model AiReportReservation {
+  id                    String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminPrincipalId      String                         @map("admin_principal_id") @db.Uuid
+  operation             AiAdminReportOperation
+  idempotencyKey        String                         @map("idempotency_key") @db.VarChar(120)
+  requestFingerprint    String                         @map("request_fingerprint") @db.VarChar(128)
+  fingerprintKeyVersion String                        @map("fingerprint_key_version") @db.VarChar(40)
+  policyBundleVersion   String                         @map("policy_bundle_version") @db.VarChar(120)
+  costUnits             Int                            @map("cost_units")
+  state                 AiReportReservationState       @default(reserved)
+  resultKind            AiReportReservationResultKind?
+  resultSnapshot        Json?                          @map("result_snapshot") @db.JsonB
+  resultDigest          String?                        @map("result_digest") @db.VarChar(128)
+  failureCode           String?                        @map("failure_code") @db.VarChar(80)
+  reservedAt            DateTime                       @default(now()) @map("reserved_at") @db.Timestamptz
+  completedAt           DateTime?                      @map("completed_at") @db.Timestamptz
+  recoveryDeadlineAt    DateTime                       @map("recovery_deadline_at") @db.Timestamptz
+  recoveryLeaseOwner    String?                        @map("recovery_lease_owner") @db.VarChar(120)
+  recoveryFenceToken    Int?                           @map("recovery_fence_token")
+  expiresAt             DateTime?                      @map("expires_at") @db.Timestamptz
+  version               Int                            @default(0)
 
-  actor User @relation(fields: [actorId], references: [id])
+  adminPrincipal User                 @relation(fields: [adminPrincipalId], references: [id])
+  audits         AiAdminReportAudit[]
+
+  @@unique([adminPrincipalId, operation, idempotencyKey])
+  @@index([state, recoveryDeadlineAt])
+  @@index([adminPrincipalId, reservedAt])
+  @@map("ai_report_reservations")
+}
+
+model AiAdminReportAudit {
+  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId            String                       @map("actor_id") @db.Uuid
+  reservationId      String?                      @map("reservation_id") @db.Uuid
+  adminPrincipalId   String?                      @map("admin_principal_id") @db.Uuid
+  eventType          AiAdminReportEventType      @default(reservation) @map("event_type")
+  operation          AiAdminReportOperation      @default(admin_report_query)
+  policyBundleVersion String                     @default("legacy") @map("policy_bundle_version") @db.VarChar(120)
+  queryFingerprint   String                       @map("query_fingerprint") @db.VarChar(128)
+  queryShapeDigest   String?                      @map("query_shape_digest") @db.VarChar(128)
+  displayTimezone    String                       @map("display_timezone") @db.VarChar(64)
+  rangeStart         DateTime                     @map("range_start") @db.Date
+  rangeEnd           DateTime                     @map("range_end") @db.Date
+  localDateSpan      Json?                        @map("local_date_span") @db.JsonB
+  costUnits          Int                          @default(0) @map("cost_units")
+  suppressionState   AiAdminReportSuppressionState @default(not_evaluated) @map("suppression_state")
+  suppressionApplied Boolean                      @default(false) @map("suppression_applied")
+  outcomeCode        String?                      @map("outcome_code") @db.VarChar(80)
+  resultDigest       String?                      @map("result_digest") @db.VarChar(128)
+  version            Int                          @default(0)
+  occurredAt         DateTime                     @default(now()) @map("occurred_at") @db.Timestamptz
+
+  actor       User                  @relation(fields: [actorId], references: [id])
+  reservation AiReportReservation?  @relation(fields: [reservationId], references: [id])
 
   @@index([actorId, occurredAt])
+  @@index([adminPrincipalId, occurredAt])
+  @@unique([reservationId, eventType])
   @@map("ai_admin_report_audits")
 }
 
