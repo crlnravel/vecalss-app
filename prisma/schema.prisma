@@ -3374,7 +3374,7 @@ model AiAdminCommandLedger {
   requestFingerprint    String                 @map("request_fingerprint") @db.VarChar(128)
   fingerprintKeyVersion String                 @map("fingerprint_key_version") @db.VarChar(40)
   state                 AiAdminCommandState    @default(pending)
-  resultKind            AiAdminCommandResultKind
+  resultKind            AiAdminCommandResultKind @map("result_kind")
   resultId              String?                @map("result_id") @db.Uuid
   rejectionCode         String?                @map("rejection_code") @db.VarChar(100)
   rejectionClass        AiRejectionClass?      @map("rejection_class")
@@ -3841,7 +3841,7 @@ model AiReportReservation {
   policyBundleVersion   String                         @map("policy_bundle_version") @db.VarChar(120)
   costUnits             Int                            @map("cost_units")
   state                 AiReportReservationState       @default(reserved)
-  resultKind            AiReportReservationResultKind?
+  resultKind            AiReportReservationResultKind? @map("result_kind")
   resultSnapshot        Json?                          @map("result_snapshot") @db.JsonB
   resultDigest          String?                        @map("result_digest") @db.VarChar(128)
   failureCode           String?                        @map("failure_code") @db.VarChar(80)

@@ -20,6 +20,8 @@ import {
   type VeraLeaseStore,
 } from "@/lib/vera-ai/redis-lease";
 import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
+import type { AiPolicyImpactPreviewDto, PreviewReservationAdapter } from "@/lib/admin/ai-policy/contracts";
+import { parseCompletePolicyConfig } from "@/lib/admin/ai-policy/validation";
 
 import { buildAdminUsageDto } from "./aggregate";
 import {
@@ -108,22 +110,6 @@ function reportDbError(code: VeraAdminUsageError["code"], retryable = true, rese
   return new VeraAdminUsageError(code, 503, retryable, reservationId);
 }
 
-function parseReportConfig(value: Prisma.JsonValue): VeraReportPolicy["reportConfig"] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw reportDbError("report_unavailable", false);
-  const config = value as Record<string, unknown>;
-  const unitLimit = Number(config.unitLimit);
-  const requestLimit = Number(config.requestLimit);
-  const minimumGroupSize = Number(config.minimumGroupSize);
-  const maxRangeDays = Number(config.maxRangeDays);
-  if (
-    !Number.isInteger(unitLimit) || unitLimit < 12 || unitLimit > 240
-    || !Number.isInteger(requestLimit) || requestLimit < 1 || requestLimit > 60
-    || !Number.isInteger(minimumGroupSize) || minimumGroupSize < 5
-    || !Number.isInteger(maxRangeDays) || maxRangeDays < 1 || maxRangeDays > 31
-  ) throw reportDbError("report_unavailable", false);
-  return { unitLimit, requestLimit, minimumGroupSize, maxRangeDays };
-}
-
 async function databaseNow(db: ReportDb): Promise<Date> {
   const rows = await db.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
   const now = rows[0]?.now;
@@ -139,7 +125,24 @@ async function activePolicy(db: ReportDb, now: Date): Promise<{ policy: VeraRepo
   });
   if (rows.length !== 1 || !rows[0]) throw reportDbError("report_unavailable", false);
   const row = rows[0];
-  const reportConfig = parseReportConfig(row.reportConfig);
+  let reportConfig: VeraReportPolicy["reportConfig"];
+  try {
+    const config = parseCompletePolicyConfig({
+      bundleVersion: row.bundleVersion,
+      configSchemaVersion: row.configSchemaVersion,
+      effectiveAt: row.effectiveAt,
+      quotaConfig: row.quotaConfig,
+      settlementConfig: row.settlementConfig,
+      reportConfig: row.reportConfig,
+      retentionConfig: row.retentionConfig,
+      providerGateState: row.providerGateState,
+      changeReason: row.changeReason,
+    });
+    if (!row.validationDigest?.trim()) throw new Error("missing policy validation digest");
+    reportConfig = config.reportConfig;
+  } catch {
+    throw reportDbError("report_unavailable", false);
+  }
   const scheduled = await db.aiPolicyBundle.findFirst({
     where: { state: "scheduled", effectiveAt: { gt: now } },
     orderBy: [{ effectiveAt: "asc" }, { id: "asc" }],
@@ -153,6 +156,12 @@ async function activePolicy(db: ReportDb, now: Date): Promise<{ policy: VeraRepo
 
 function dateOnly(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+function previewAuditQuery(asOf: Date): VeraAdminUsageQuery {
+  const day = asOf.toISOString().slice(0, 10);
+  const nextDay = new Date(asOf.getTime() + 86_400_000).toISOString().slice(0, 10);
+  return parseAdminUsageQuery(new URLSearchParams({ from: day, to: nextDay, timezone: "UTC" }), asOf);
 }
 
 function replayFailure(row: StoredReportReservation): VeraAdminReportFailureDto {
@@ -208,6 +217,7 @@ export class VeraAdminUsageService {
   private readonly db: PrismaClient;
   private readonly leaseStore: VeraLeaseStore;
   private readonly hmacSecret: string;
+  private readonly policyPreviewLeases = new Map<string, VeraLease>();
 
   constructor(input: { db?: PrismaClient; leaseStore?: VeraLeaseStore; hmacSecret?: string } = {}) {
     this.db = input.db ?? defaultPrisma;
@@ -266,6 +276,248 @@ export class VeraAdminUsageService {
       } catch {
         // The lease is bounded and the durable Postgres budget remains the
         // source of truth; a release failure must not rewrite an accepted row.
+      }
+    }
+  }
+
+  /**
+   * Reserve the shared report budget for T10's aggregate policy preview.
+   *
+   * This deliberately lives beside the T9 report reservation implementation:
+   * both operations consume the same principal-scoped rolling windows and
+   * fenced Redis gate, while their durable operation/result kinds remain
+   * distinct in AiReportReservation.
+   */
+  async reservePolicyPreview(input: {
+    principalId: string;
+    clientRequestId: string;
+    requestFingerprint: string;
+    policyBundleVersion: string;
+    costUnits: 3;
+    asOf: Date;
+  }): Promise<{ reservationId: string }> {
+    if (!isSafeReportKey(input.clientRequestId)) {
+      throw new VeraAdminUsageError("missing_idempotency_key", 400, false);
+    }
+
+    const query = previewAuditQuery(input.asOf);
+    let lease: VeraLease | null = null;
+    let createdReservationId: string | null = null;
+    try {
+      const reservation = await this.db.$transaction(async (tx) => {
+        const dbNow = await databaseNow(tx);
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.principalId}, 0))`;
+
+        const existingRows = await tx.$queryRaw<Array<{ id: string; request_fingerprint: string; state: AiReportReservationState; expires_at: Date | null; recovery_deadline_at: Date }>>`
+          SELECT id, request_fingerprint, state, expires_at, recovery_deadline_at
+          FROM ai_report_reservations
+          WHERE admin_principal_id = ${input.principalId}::uuid
+            AND operation = 'admin_policy_preview'::ai_admin_report_operation
+            AND idempotency_key = ${input.clientRequestId}
+          FOR UPDATE
+        `;
+        const existing = existingRows[0];
+        if (existing) {
+          if (existing.state === AiReportReservationState.expired || (existing.expires_at && existing.expires_at <= dbNow)) {
+            throw new VeraAdminUsageError("idempotency_key_expired", 409);
+          }
+          if (existing.request_fingerprint !== input.requestFingerprint) {
+            throw new VeraAdminUsageError("idempotency_conflict", 409);
+          }
+          if (existing.state === AiReportReservationState.completed) return existing.id;
+          if (existing.state === AiReportReservationState.failed || existing.state === AiReportReservationState.process_lost) {
+            throw new VeraAdminUsageError("report_process_lost", 503, false, existing.id);
+          }
+          if (existing.recovery_deadline_at <= dbNow) {
+            throw new VeraAdminUsageError("report_process_lost", 503, false, existing.id);
+          }
+          // A still-live reservation belongs to an in-flight command. Do not
+          // charge or create a second row; the command ledger will replay it.
+          return existing.id;
+        }
+
+        const effective = await activePolicy(tx, dbNow);
+        if (effective.policy.bundleVersion !== input.policyBundleVersion) {
+          throw new VeraAdminUsageError("report_unavailable", 503, false);
+        }
+        const budget = await this.lockOrCreateWindow(tx, input.principalId, AiReportWindowKind.budget_24h, effective.policy, dbNow);
+        const burst = await this.lockOrCreateWindow(tx, input.principalId, AiReportWindowKind.burst_10m, effective.policy, dbNow);
+        if (budget.usedBudgetUnits + input.costUnits > budget.budgetUnitsSnapshot) {
+          throw new VeraAdminUsageError("report_budget_exhausted", 429);
+        }
+        if (burst.requestCount + 1 > effective.policy.reportConfig.requestLimit) {
+          throw new VeraAdminUsageError("report_burst_limited", 429);
+        }
+
+        const acquired = this.leaseStore.acquireWithReason
+          ? await this.leaseStore.acquireWithReason({
+              studentId: input.principalId,
+              featureKey: REPORT_REDIS_FEATURE,
+              maxConcurrent: 1,
+              burstLimit: effective.policy.reportConfig.requestLimit,
+              burstWindowMs: VERA_REPORT_BURST_WINDOW_MS,
+              ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2,
+              now: dbNow,
+            })
+          : { lease: await this.leaseStore.acquire({
+              studentId: input.principalId,
+              featureKey: REPORT_REDIS_FEATURE,
+              maxConcurrent: 1,
+              burstLimit: effective.policy.reportConfig.requestLimit,
+              burstWindowMs: VERA_REPORT_BURST_WINDOW_MS,
+              ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2,
+              now: dbNow,
+            }) };
+        if (!acquired.lease) {
+          if (acquired.rejectionReason === "burst") throw new VeraAdminUsageError("report_burst_limited", 429);
+          throw reportDbError("report_unavailable");
+        }
+        lease = acquired.lease;
+
+        const created = await tx.aiReportReservation.create({
+          data: {
+            adminPrincipalId: input.principalId,
+            operation: AiAdminReportOperation.admin_policy_preview,
+            idempotencyKey: input.clientRequestId,
+            requestFingerprint: input.requestFingerprint,
+            fingerprintKeyVersion: VERA_REPORT_FINGERPRINT_KEY_VERSION,
+            policyBundleVersion: input.policyBundleVersion,
+            costUnits: input.costUnits,
+            state: AiReportReservationState.reserved,
+            reservedAt: dbNow,
+            recoveryDeadlineAt: new Date(dbNow.getTime() + VERA_REPORT_RECOVERY_LEASE_MS),
+            recoveryLeaseOwner: lease.ownerId,
+            recoveryFenceToken: lease.fencingToken,
+          },
+        });
+        await tx.aiReportBudgetWindow.update({
+          where: { id: budget.id },
+          data: {
+            usedBudgetUnits: { increment: input.costUnits },
+            requestCount: { increment: 1 },
+            consumedUnits: { increment: input.costUnits },
+            consumedRequests: { increment: 1 },
+            version: { increment: 1 },
+          },
+        });
+        await tx.aiReportBudgetWindow.update({
+          where: { id: burst.id },
+          data: { requestCount: { increment: 1 }, consumedRequests: { increment: 1 }, version: { increment: 1 } },
+        });
+        await tx.aiAdminReportAudit.create({
+          data: {
+            actorId: input.principalId,
+            adminPrincipalId: input.principalId,
+            reservationId: created.id,
+            eventType: AiAdminReportEventType.reservation,
+            operation: AiAdminReportOperation.admin_policy_preview,
+            policyBundleVersion: input.policyBundleVersion,
+            queryFingerprint: input.requestFingerprint,
+            queryShapeDigest: input.requestFingerprint,
+            displayTimezone: query.timezone,
+            rangeStart: dateOnly(query.from),
+            rangeEnd: dateOnly(query.to),
+            localDateSpan: { from: query.from, to: query.to },
+            costUnits: input.costUnits,
+            suppressionState: AiAdminReportSuppressionState.not_evaluated,
+            suppressionApplied: false,
+          },
+        });
+        createdReservationId = created.id;
+        return created.id;
+      });
+      if (createdReservationId && lease) this.policyPreviewLeases.set(createdReservationId, lease);
+      return { reservationId: reservation };
+    } catch (error) {
+      if (createdReservationId) this.policyPreviewLeases.delete(createdReservationId);
+      if (lease) {
+        try { await this.leaseStore.release(lease); } catch { /* bounded expiry remains safe */ }
+      }
+      if (error instanceof VeraAdminUsageError) throw error;
+      if (error instanceof VeraRedisUnavailableError) throw reportDbError("report_unavailable");
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new VeraAdminUsageError("idempotency_conflict", 409);
+      }
+      throw reportDbError("report_unavailable");
+    }
+  }
+
+  /**
+   * Complete a policy preview reservation with a discriminated, encrypted-at-
+   * rest result snapshot. A completed row is idempotent so a lost response or
+   * duplicate command cannot double-charge or rewrite its outcome audit.
+   */
+  async completePolicyPreview(input: {
+    reservationId: string;
+    result: AiPolicyImpactPreviewDto;
+    resultDigest: string;
+  }): Promise<void> {
+    const query = previewAuditQuery(new Date(input.result.asOf));
+    const lease = this.policyPreviewLeases.get(input.reservationId);
+    try {
+      await this.db.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM ai_report_reservations WHERE id = ${input.reservationId}::uuid FOR UPDATE
+        `;
+        if (!rows[0]) throw reportDbError("report_unavailable", false, input.reservationId);
+        const current = asStoredReservation(await tx.aiReportReservation.findUnique({ where: { id: input.reservationId } }));
+        if (!current) throw reportDbError("report_unavailable", false, input.reservationId);
+        if (current.state === AiReportReservationState.completed && current.resultKind === AiReportReservationResultKind.policy_preview) return;
+        if (current.state !== AiReportReservationState.reserved || !lease) throw reportDbError("report_process_lost", false, input.reservationId);
+        const dbNow = await databaseNow(tx);
+        if (
+          current.recoveryDeadlineAt <= dbNow
+          || current.recoveryLeaseOwner !== lease.ownerId
+          || current.recoveryFenceToken !== lease.fencingToken
+        ) throw reportDbError("report_process_lost", false, input.reservationId);
+        const snapshot = { kind: "policy_preview", dto: input.result };
+        const digest = sha256Hex(canonicalJson(snapshot));
+        if (input.resultDigest !== digest) throw reportDbError("report_unavailable", false, input.reservationId);
+        await tx.aiReportReservation.update({
+          where: { id: current.id },
+          data: {
+            state: AiReportReservationState.completed,
+            resultKind: AiReportReservationResultKind.policy_preview,
+            resultSnapshot: snapshot,
+            resultDigest: digest,
+            completedAt: dbNow,
+            expiresAt: new Date(dbNow.getTime() + VERA_REPORT_REPLAY_TTL_DAYS * 86_400_000),
+            recoveryLeaseOwner: null,
+            recoveryFenceToken: null,
+            version: { increment: 1 },
+          },
+        });
+        const existingAudit = await tx.aiAdminReportAudit.findFirst({
+          where: { reservationId: current.id, eventType: AiAdminReportEventType.outcome },
+          select: { id: true },
+        });
+        if (!existingAudit) {
+          await tx.aiAdminReportAudit.create({
+            data: {
+              actorId: current.adminPrincipalId,
+              adminPrincipalId: current.adminPrincipalId,
+              reservationId: current.id,
+              eventType: AiAdminReportEventType.outcome,
+              operation: AiAdminReportOperation.admin_policy_preview,
+              policyBundleVersion: current.policyBundleVersion,
+              queryFingerprint: current.requestFingerprint,
+              queryShapeDigest: current.requestFingerprint,
+              displayTimezone: query.timezone,
+              rangeStart: dateOnly(query.from),
+              rangeEnd: dateOnly(query.to),
+              localDateSpan: { from: query.from, to: query.to },
+              costUnits: current.costUnits,
+              suppressionState: AiAdminReportSuppressionState.ready,
+              suppressionApplied: false,
+              resultDigest: digest,
+            },
+          });
+        }
+      });
+    } finally {
+      if (lease) {
+        this.policyPreviewLeases.delete(input.reservationId);
+        try { await this.leaseStore.release(lease); } catch { /* bounded expiry remains safe */ }
       }
     }
   }
@@ -539,6 +791,25 @@ export class VeraAdminUsageService {
     if (existing) return;
     await tx.aiAdminReportAudit.create({ data: { actorId: row.adminPrincipalId, adminPrincipalId: row.adminPrincipalId, reservationId: row.id, eventType: AiAdminReportEventType.outcome, operation: AiAdminReportOperation.admin_report_query, policyBundleVersion: row.policyBundleVersion, queryFingerprint: row.requestFingerprint, queryShapeDigest: row.requestFingerprint, displayTimezone: commit.query.timezone, rangeStart: dateOnly(commit.query.from), rangeEnd: dateOnly(commit.query.to), localDateSpan: { from: commit.query.from, to: commit.query.to }, costUnits: row.costUnits, suppressionState, suppressionApplied: suppressionState === AiAdminReportSuppressionState.suppressed, outcomeCode, resultDigest } });
   }
+}
+
+/**
+ * Lazily construct the production adapter so read-only policy metadata and
+ * categorical previews do not require a Redis connection. Aggregate previews
+ * still fail closed when the command-local Redis URL is absent or unavailable.
+ */
+export function createPolicyPreviewReservationAdapter(
+  input: { db?: PrismaClient; leaseStore?: VeraLeaseStore; hmacSecret?: string } = {},
+): PreviewReservationAdapter {
+  let service: VeraAdminUsageService | null = null;
+  const getService = () => {
+    service ??= new VeraAdminUsageService(input);
+    return service;
+  };
+  return {
+    reserveAggregate: (reservationInput) => getService().reservePolicyPreview(reservationInput),
+    completeAggregate: (completionInput) => getService().completePolicyPreview(completionInput),
+  };
 }
 
 function createDefaultReportLeaseStore(): VeraLeaseStore {

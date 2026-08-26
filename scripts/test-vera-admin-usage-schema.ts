@@ -26,5 +26,6 @@ assert.doesNotMatch(migration, /DROP TABLE/iu, "T9 migration must be forward-onl
 assert.doesNotMatch(migration, /DESIGN\.md|PRODUCT\.md|\.env/iu);
 assert.ok(migration.includes('CHECK ("cost_units" BETWEEN 1 AND 12)'));
 assert.ok(migration.includes('CHECK ("recovery_deadline_at" >= "reserved_at")'));
+assert.match(schema, /resultKind\s+AiReportReservationResultKind\?\s+@map\("result_kind"\)/u);
 
 console.log("vera admin usage schema checks passed");

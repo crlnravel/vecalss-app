@@ -13,6 +13,8 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { createPolicyPreviewReservationAdapter, VeraAdminUsageError } from "@/lib/admin/ai-usage/service";
+import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
 
 import {
   AI_POLICY_CAPABILITIES,
@@ -395,6 +397,25 @@ export class AiPolicyCommandService {
   }
 
   private async getPreviewForReplay(row: ExistingCommand): Promise<AiPolicyImpactPreviewDto> {
+    if (row.previewReservationId) {
+      const reservation = await this.db.aiReportReservation.findUnique({ where: { id: row.previewReservationId } });
+      if (
+        !reservation
+        || reservation.operation !== "admin_policy_preview"
+        || reservation.state !== "completed"
+        || reservation.resultKind !== "policy_preview"
+        || !reservation.resultSnapshot
+        || typeof reservation.resultSnapshot !== "object"
+        || Array.isArray(reservation.resultSnapshot)
+      ) {
+        throw new AiPolicyError("policy_result_unavailable", "Snapshot preview agregat belum selesai tersedia.", 503);
+      }
+      const snapshot = reservation.resultSnapshot as { kind?: string; dto?: AiPolicyImpactPreviewDto };
+      if (snapshot.kind !== "policy_preview" || !snapshot.dto || snapshot.dto.mode !== "aggregate") {
+        throw new AiPolicyError("policy_result_unavailable", "Snapshot preview agregat tidak valid.", 503);
+      }
+      return snapshot.dto;
+    }
     if (!row.previewMode || !row.previewActiveBundleId || !row.previewActiveBundleVersion || !row.previewEffectiveAt || !row.previewAsOf || !row.previewValidationDigest || !row.resultId) {
       throw new AiPolicyError("policy_result_unavailable", "Snapshot preview tersimpan tidak lengkap.", 503);
     }
@@ -481,11 +502,15 @@ export class AiPolicyCommandService {
     const row = sourceBundleId
       ? await tx.aiPolicyBundle.findUnique({ where: { id: sourceBundleId }, include: { approvedBy: { select: { id: true, fullName: true, email: true } } } })
       : await tx.aiPolicyBundle.findFirst({
-        where: { state: { in: [AiPolicyState.active, AiPolicyState.scheduled] } },
-        orderBy: [{ state: "asc" }, { effectiveAt: "desc" }],
+        where: { state: AiPolicyState.active },
+        orderBy: [{ activatedAt: "desc" }, { id: "desc" }],
         include: { approvedBy: { select: { id: true, fullName: true, email: true } } },
       });
     if (!row) throw new AiPolicyError("active_policy_unavailable", "Tidak ada snapshot kebijakan lengkap untuk disalin.", 503);
+    if (sourceBundleId && row.state !== AiPolicyState.active && row.state !== AiPolicyState.scheduled) {
+      throw new AiPolicyError("policy_source_invalid", "Sumber draft harus berupa kebijakan active atau scheduled.", 409);
+    }
+    if (!row.validationDigest.trim()) throw new AiPolicyError("active_policy_corrupt", "Snapshot kebijakan sumber tidak memiliki digest valid.", 503);
     try { rowConfig(row); } catch { throw new AiPolicyError("active_policy_corrupt", "Snapshot kebijakan sumber tidak lengkap.", 503); }
     return row;
   }
@@ -614,10 +639,17 @@ export class AiPolicyCommandService {
       if (!active) throw new AiPolicyError("active_policy_unavailable", "Kebijakan aktif tidak tersedia.", 503);
       const changed = changedSectionsFromRows(source, row);
       await this.requireCapabilities(actor, capabilitiesForSections(changed), tx);
-      const candidateConfig = rowConfig(row);
+      rowConfig(row);
       let reservationId: string | undefined;
       if (input.mode === "aggregate") {
-        reservationId = (await this.options.previewReservation!.reserveAggregate({ principalId: actor.id, clientRequestId: input.clientRequestId, requestFingerprint: fingerprint, policyBundleVersion: row.bundleVersion, costUnits: 3, asOf: now })).reservationId;
+        try {
+          reservationId = (await this.options.previewReservation!.reserveAggregate({ principalId: actor.id, clientRequestId: input.clientRequestId, requestFingerprint: fingerprint, policyBundleVersion: active.bundleVersion, costUnits: 3, asOf: now })).reservationId;
+        } catch (error) {
+          if (error instanceof VeraAdminUsageError) {
+            throw new AiPolicyError(error.code, "Preview agregat tidak dapat memperoleh budget report.", error.status, error.reservationId ? { reservationId: error.reservationId } : undefined);
+          }
+          throw error;
+        }
       }
       const result = buildImpactPreview({ candidate: row, source, active, mode: input.mode, validationDigest: input.validationDigest, asOf: now, reservationId });
       await tx.aiAdminCommandLedger.update({ where: { id: command.id }, data: {
@@ -630,7 +662,13 @@ export class AiPolicyCommandService {
         previewReservationId: reservationId ?? null,
       } });
       await tx.aiPolicyAuditEvent.create({ data: { bundleId: row.id, actorId: actor.id, action: AiPolicyAuditAction.previewed, diffDigest: input.validationDigest, validationDigest: input.validationDigest, reason: "Impact preview", fromState: row.state, toState: row.state } });
-      if (reservationId) aggregateCompletion = { reservationId, result, resultDigest: policyValidationDigest(candidateConfig) };
+      if (reservationId) {
+        aggregateCompletion = {
+          reservationId,
+          result,
+          resultDigest: sha256Hex(canonicalJson({ kind: "policy_preview", dto: result })),
+        };
+      }
       return { resultId: row.id, result };
     });
     if (aggregateCompletion) await this.options.previewReservation!.completeAggregate(aggregateCompletion);
@@ -724,7 +762,10 @@ export class AiPolicyCommandService {
 }
 
 export function createAiPolicyCommandService(options?: ConstructorParameters<typeof AiPolicyCommandService>[1]): AiPolicyCommandService {
-  return new AiPolicyCommandService(defaultPrisma, options);
+  const resolvedOptions = options?.previewReservation
+    ? options
+    : { ...options, previewReservation: createPolicyPreviewReservationAdapter() };
+  return new AiPolicyCommandService(defaultPrisma, resolvedOptions);
 }
 
 export { changedSectionsFromRows };

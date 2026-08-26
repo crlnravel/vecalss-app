@@ -11,7 +11,7 @@ function getAdminVeraUsageService(): VeraAdminUsageService {
   return cachedService;
 }
 
-export { VeraAdminUsageError, VeraAdminUsageService } from "./service";
+export { createPolicyPreviewReservationAdapter, VeraAdminUsageError, VeraAdminUsageService } from "./service";
 export { buildAdminUsageDto } from "./aggregate";
 export { parseAdminUsageQuery, reportCost, reportFingerprint, localDateToUtc } from "./validation";
 export type * from "./types";

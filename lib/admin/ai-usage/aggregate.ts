@@ -303,7 +303,7 @@ export function buildAdminUsageDto(input: {
   const summary = buildSummary(currentRequests, sources.now);
   const daily: { partition: VeraAggregatePartition; coarsened: boolean } = query.include.has("dailyTrend") ? buildDailyTrend(currentRequests, query, sources.now) : { partition: unavailable<VeraAggregateRow>("not_requested"), coarsened: false };
   const byFeature: VeraAggregatePartition = query.include.has("byFeature")
-    ? buildBreakdown(currentRequests, sources.now, VERA_REPORT_FEATURES, (row) => row.featureKey?.trim() || "unknown")
+    ? buildBreakdown(currentRequests, sources.now, [...VERA_REPORT_FEATURES, "unknown"], (row) => row.featureKey?.trim() || "unknown")
     : unavailable<VeraAggregateRow>("not_requested");
   const byModel: VeraAggregatePartition = query.include.has("byModel")
     ? buildBreakdown(currentRequests, sources.now, [...VERA_REPORT_MODELS, "unknown"], selectedModel)
