@@ -1003,7 +1003,9 @@ export class VeraAdminUsageService {
     });
     const reads = await Promise.allSettled([
       read("requests", () => this.db.aiRequest.findMany({ where: requestWhere(query.utcStart, query.utcEnd), select: requestSelect, take: 100_001 })),
-      read("admissions", () => this.db.aiAdmissionEvent.findMany({ where: admissionWhere(query.utcStart, query.utcEnd), select: admissionSelect, take: 100_001 })),
+      query.include.has("incidents")
+        ? read("admissions", () => this.db.aiAdmissionEvent.findMany({ where: admissionWhere(query.utcStart, query.utcEnd), select: admissionSelect, take: 100_001 }))
+        : Promise.resolve([]),
       query.include.has("comparison") ? read("previousRequests", () => this.db.aiRequest.findMany({ where: requestWhere(query.previousUtcStart, query.previousUtcEnd), select: requestSelect, take: 100_001 })) : Promise.resolve([]),
     ]);
     const requestRead = reads[0];
@@ -1024,17 +1026,17 @@ export class VeraAdminUsageService {
     const unavailablePartition = (): { state: "unavailable"; reason: string } => ({ state: "unavailable", reason: "partition_unavailable" });
     if (requestUnavailable) {
       built.dto.summary = unavailablePartition();
-      built.dto.dailyTrend = unavailablePartition();
-      built.dto.byFeature = unavailablePartition();
-      built.dto.byModel = unavailablePartition();
-      built.dto.byStatus = unavailablePartition();
       built.dto.latency = unavailablePartition();
       // Incidents combine request and admission cohorts, so a partial
       // incidents partition would carry a misleading denominator.
-      built.dto.incidents = unavailablePartition();
+      if (query.include.has("dailyTrend")) built.dto.dailyTrend = unavailablePartition();
+      if (query.include.has("byFeature")) built.dto.byFeature = unavailablePartition();
+      if (query.include.has("byModel")) built.dto.byModel = unavailablePartition();
+      if (query.include.has("byStatus")) built.dto.byStatus = unavailablePartition();
+      if (query.include.has("incidents")) built.dto.incidents = unavailablePartition();
       if (query.include.has("comparison")) built.dto.comparison = unavailablePartition();
     }
-    if (admissionUnavailable) built.dto.incidents = unavailablePartition();
+    if (admissionUnavailable && query.include.has("incidents")) built.dto.incidents = unavailablePartition();
     if (previousRequestUnavailable && query.include.has("comparison")) built.dto.comparison = unavailablePartition();
     const partitions = [built.dto.summary, built.dto.dailyTrend, built.dto.byFeature, built.dto.byModel, built.dto.byStatus, built.dto.latency, built.dto.incidents, built.dto.comparison];
     const hasUnavailable = partitions.some((partition) => partition.state === "unavailable" && partition.reason !== "not_requested");

@@ -54,6 +54,9 @@ check(policyService.includes("buildPolicyPreviewEffects"), "aggregate preview re
 check(policyService.includes("ensureEffectivePolicyBoundary(tx, now"), "preview uses the DB-clock policy boundary");
 check(usageService.includes("admin_policy_preview"), "shared usage service owns the policy-preview operation");
 check(usageService.includes("Math.max(0, effective.policy.reportConfig.requestLimit - burst.requestCount)"), "Redis burst admission is rehydrated from the durable window");
+check(usageService.includes('query.include.has("incidents")') && usageService.includes('read("admissions"'), "admission source reads are gated by the incidents include");
+check(usageService.includes('if (admissionUnavailable && query.include.has("incidents"))'), "admission faults only rewrite a requested incidents partition");
+check(usageService.includes('if (query.include.has("dailyTrend")) built.dto.dailyTrend') && usageService.includes('if (query.include.has("byFeature")) built.dto.byFeature'), "request faults only rewrite requested breakdown partitions");
 check(usageService.indexOf("existing.state === AiReportReservationState.expired") < usageService.indexOf("existing.request_fingerprint !== input.requestFingerprint"), "preview expiry wins before fingerprint comparison");
 check(usageService.includes("localDateSpan: { from: query.from, to: query.to }"), "preview audit persists the exact local range");
 check(runtimeFixture.includes("const runCommandRace"), "runtime fixture executes concurrent command races through the real service");
@@ -61,6 +64,9 @@ for (const operation of ["create", "edit", "validate", "preview", "approve", "sc
   check(runtimeFixture.includes(`\"${operation}\"`), `runtime fixture covers the ${operation} command race`);
 }
 check(runtimeFixture.includes("runPartitionFault") && runtimeFixture.includes("partial_unavailable"), "runtime fixture covers partition-local aggregate faults");
+check(runtimeFixture.includes("const assertNotRequested") && runtimeFixture.includes("noIncludeService") && runtimeFixture.includes("incidentsOnlyService"), "runtime fixture directly proves omitted optional reads are not requested");
+check(runtimeFixture.includes("requestFaultService") && runtimeFixture.includes("admissionsFaultService") && runtimeFixture.includes("report-request-fault-optional-shape"), "runtime fixture directly proves requested partition fault isolation");
+check(runtimeFixture.includes("omitted optional partitions must not add report cost"), "runtime fixture proves omitted optional partitions are not charged");
 check(runtimeFixture.includes("const fixtureNamespace = `vera-sprint4-runtime-${randomUUID()}`"), "runtime fixture is namespaced for repeatable isolated runs");
 for (const marker of ["dirtySections", "markDirty(\"quota\")", "patch.quotaConfig", "patch.settlementConfig", "patch.reportConfig", "patch.retentionConfig"]) {
   check(policyUi.includes(marker), `policy UI submits only dirty ${marker} sections`);

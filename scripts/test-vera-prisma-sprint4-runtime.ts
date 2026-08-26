@@ -334,10 +334,12 @@ try {
   );
   const rollbackBundle = bundleResult(rollbackRace.winner);
   assert.equal(await db.aiPolicyAuditEvent.count({ where: { bundleId: rollbackBundle.id, action: "rollback_created" } }), 1, "rollback race duplicated the policy audit");
+  const retentionUpperBound = new Date(Date.now() + 86_400_000);
+  const changedRetentionUpperBound = new Date(retentionUpperBound.getTime() + 86_400_000);
   const retentionRace = await runCommandRace(
     "retention",
-    (clientRequestId) => policyService.requestRetentionExtension(governanceOnlyActor, { clientRequestId, targetReference: `${fixtureNamespace}:artifact`, requestedUpperBound: new Date(Date.now() + 86_400_000), reason: `${fixtureNamespace}: retention handoff` }),
-    (clientRequestId) => policyService.requestRetentionExtension(governanceOnlyActor, { clientRequestId, targetReference: `${fixtureNamespace}:changed-artifact`, requestedUpperBound: new Date(Date.now() + 172_800_000), reason: `${fixtureNamespace}: changed retention handoff` }),
+    (clientRequestId) => policyService.requestRetentionExtension(governanceOnlyActor, { clientRequestId, targetReference: `${fixtureNamespace}:artifact`, requestedUpperBound: retentionUpperBound, reason: `${fixtureNamespace}: retention handoff` }),
+    (clientRequestId) => policyService.requestRetentionExtension(governanceOnlyActor, { clientRequestId, targetReference: `${fixtureNamespace}:changed-artifact`, requestedUpperBound: changedRetentionUpperBound, reason: `${fixtureNamespace}: changed retention handoff` }),
     approver.id,
   );
   assert.equal(retentionRace.winner.result && typeof retentionRace.winner.result === "object" && "state" in retentionRace.winner.result ? retentionRace.winner.result.state : null, "pending", "retention handoff must remain pending for T11");
@@ -455,6 +457,100 @@ try {
     const rows = await db.aiReportBudgetWindow.findMany({ where: { principalKey: principalId }, select: { windowKind: true, consumedUnits: true } });
     return rows.filter((row) => row.windowKind === "budget_24h").reduce((total, row) => total + Number(row.consumedUnits), 0);
   };
+  const assertNotRequested = (body: Record<string, { state?: string; reason?: string }>, names: string[]): void => {
+    for (const name of names) {
+      assert.deepEqual(body[name], { state: "unavailable", reason: "not_requested" }, `${name} must be an unrequested partition`);
+    }
+  };
+  const optionalPartitionNames = ["dailyTrend", "byFeature", "byModel", "byStatus", "incidents", "comparison"];
+  const noIncludeReads: string[] = [];
+  const noIncludeService = new VeraAdminUsageService({
+    db,
+    leaseStore: redis,
+    hmacSecret,
+    beforeAggregateRead: (candidate) => {
+      noIncludeReads.push(candidate);
+      if (candidate !== "requests") throw new Error(`unexpected-no-include-${candidate}`);
+    },
+  });
+  const noIncludeKey = `${fixtureNamespace}:report-no-include`;
+  const noIncludeBefore = await budgetUsage(faultAdmin.id);
+  const noInclude = await noIncludeService.getReport({ adminPrincipalId: faultAdmin.id, idempotencyKey: noIncludeKey, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone }) });
+  assert.equal(noInclude.status, 200, "no-include report should still return its always-on summary");
+  assert.deepEqual(noIncludeReads, ["requests"], "omitted incidents/comparison partitions must not issue source reads");
+  const noIncludeBody = noInclude.body as Record<string, { state?: string; reason?: string }>;
+  assert.equal(noIncludeBody.summary?.state, "ready");
+  assert.equal(noIncludeBody.latency?.state, "ready", "latency remains the always-on summary metric");
+  assertNotRequested(noIncludeBody, optionalPartitionNames);
+  assert.equal(await budgetUsage(faultAdmin.id), noIncludeBefore + 1, "omitted optional partitions must not add report cost");
+
+  const incidentsOnlyReads: string[] = [];
+  const incidentsOnlyService = new VeraAdminUsageService({
+    db,
+    leaseStore: redis,
+    hmacSecret,
+    beforeAggregateRead: (candidate) => { incidentsOnlyReads.push(candidate); },
+  });
+  const incidentsOnlyKey = `${fixtureNamespace}:report-incidents-only`;
+  const incidentsOnlyBefore = await budgetUsage(faultAdmin.id);
+  const incidentsOnly = await incidentsOnlyService.getReport({ adminPrincipalId: faultAdmin.id, idempotencyKey: incidentsOnlyKey, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, include: "incidents" }) });
+  assert.equal(incidentsOnly.status, 200, "incidents-only report should return its requested partition");
+  assert.deepEqual(incidentsOnlyReads, ["requests", "admissions"], "incidents-only must read admissions but not comparison data");
+  const incidentsOnlyBody = incidentsOnly.body as Record<string, { state?: string; reason?: string }>;
+  assert.equal(incidentsOnlyBody.summary?.state, "ready");
+  assert.equal(incidentsOnlyBody.latency?.state, "ready");
+  assert.notEqual(incidentsOnlyBody.incidents?.reason, "not_requested");
+  assertNotRequested(incidentsOnlyBody, ["dailyTrend", "byFeature", "byModel", "byStatus", "comparison"]);
+  assert.equal(await budgetUsage(faultAdmin.id), incidentsOnlyBefore + 3, "incidents-only must charge only summary plus incidents");
+
+  const requestFaultReads: string[] = [];
+  const requestFaultService = new VeraAdminUsageService({
+    db,
+    leaseStore: redis,
+    hmacSecret,
+    beforeAggregateRead: (candidate) => {
+      requestFaultReads.push(candidate);
+      if (candidate === "requests") throw new Error("injected-request-fault-optional-shape");
+    },
+  });
+  const requestFaultKey = `${fixtureNamespace}:report-request-fault-optional-shape`;
+  const requestFaultBefore = await budgetUsage(faultAdmin.id);
+  const requestFault = await requestFaultService.getReport({ adminPrincipalId: faultAdmin.id, idempotencyKey: requestFaultKey, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, include: "dailyTrend,incidents" }) });
+  assert.equal(requestFault.status, 200, "requested request-source fault must be a partial 200");
+  assert.deepEqual(requestFaultReads, ["requests", "admissions"]);
+  const requestFaultBody = requestFault.body as Record<string, { state?: string; reason?: string }>;
+  for (const name of ["summary", "latency", "dailyTrend", "incidents"]) assert.equal(requestFaultBody[name]?.state, "unavailable", `${name} must reflect the requested request-source fault`);
+  assertNotRequested(requestFaultBody, ["byFeature", "byModel", "byStatus", "comparison"]);
+  assert.equal(await budgetUsage(faultAdmin.id), requestFaultBefore + 5, "request-source partial result must retain requested-shape cost");
+
+  const admissionsFaultReads: string[] = [];
+  const admissionsFaultService = new VeraAdminUsageService({
+    db,
+    leaseStore: redis,
+    hmacSecret,
+    beforeAggregateRead: (candidate) => {
+      admissionsFaultReads.push(candidate);
+      if (candidate === "admissions") throw new Error("injected-admissions-fault-optional-shape");
+    },
+  });
+  const admissionsFaultKey = `${fixtureNamespace}:report-admissions-fault-optional-shape`;
+  const admissionsFaultBefore = await budgetUsage(faultAdmin.id);
+  const admissionsFault = await admissionsFaultService.getReport({ adminPrincipalId: faultAdmin.id, idempotencyKey: admissionsFaultKey, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, include: "incidents" }) });
+  assert.equal(admissionsFault.status, 200, "requested admissions-source fault must be a partial 200");
+  assert.deepEqual(admissionsFaultReads, ["requests", "admissions"]);
+  const admissionsFaultBody = admissionsFault.body as Record<string, { state?: string; reason?: string }>;
+  assert.equal(admissionsFaultBody.summary?.state, "ready");
+  assert.equal(admissionsFaultBody.latency?.state, "ready");
+  assert.equal(admissionsFaultBody.incidents?.state, "unavailable");
+  assertNotRequested(admissionsFaultBody, ["dailyTrend", "byFeature", "byModel", "byStatus", "comparison"]);
+  assert.equal(await budgetUsage(faultAdmin.id), admissionsFaultBefore + 3, "admissions-source partial result must retain requested-shape cost");
+  console.log("PASS vera-prisma-sprint4-runtime: optional include/read gating covers no-include, incidents-only, request-fault, and admissions-fault shapes");
+
+  // Keep the full-shape fault matrix on its own fresh principal. The Redis
+  // burst adapter intentionally fences its counter against the durable
+  // request count; separating the matrices keeps this evidence deterministic
+  // while preserving the real full-cost/replay assertions below.
+  const partitionFaultAdmin = await db.user.create({ data: { id: randomUUID(), email: `${fixtureNamespace}-partition-fault-admin@example.test`, fullName: "Vera Sprint 4 Partition Fault Admin", passwordHash: "fixture" }, select: { id: true } });
   const runPartitionFault = async (partition: "requests" | "admissions" | "previousRequests", expectedUnavailable: string[]): Promise<void> => {
     const key = `${fixtureNamespace}:report-fault:${partition}`;
     const faultService = new VeraAdminUsageService({
@@ -465,8 +561,8 @@ try {
         if (candidate === partition) throw new Error(`injected-${partition}-fault`);
       },
     });
-    const beforeUnits = await budgetUsage(faultAdmin.id);
-    const response = await faultService.getReport({ adminPrincipalId: faultAdmin.id, idempotencyKey: key, params: reportParams });
+    const beforeUnits = await budgetUsage(partitionFaultAdmin.id);
+    const response = await faultService.getReport({ adminPrincipalId: partitionFaultAdmin.id, idempotencyKey: key, params: reportParams });
     assert.equal(response.status, 200, `${partition} read fault must complete a 200 partial DTO`);
     const body = response.body as Record<string, { state?: string }>;
     for (const name of expectedUnavailable) assert.equal(body[name]?.state, "unavailable", `${partition} fault did not isolate ${name}`);
@@ -474,14 +570,14 @@ try {
       if (!expectedUnavailable.includes(name)) assert.equal(body[name]?.state, "ready", `${partition} fault damaged safe ${name} partition`);
     }
     assert(!JSON.stringify(response.body).includes(`injected-${partition}-fault`), "partition fault text leaked into the aggregate DTO");
-    const reservation = await db.aiReportReservation.findFirstOrThrow({ where: { adminPrincipalId: faultAdmin.id, operation: AiAdminReportOperation.admin_report_query, idempotencyKey: key } });
+    const reservation = await db.aiReportReservation.findFirstOrThrow({ where: { adminPrincipalId: partitionFaultAdmin.id, operation: AiAdminReportOperation.admin_report_query, idempotencyKey: key } });
     assert.equal(reservation.state, AiReportReservationState.completed, "partition fault did not finalize the accepted reservation");
     const outcomeAudit = await db.aiAdminReportAudit.findFirstOrThrow({ where: { reservationId: reservation.id, eventType: AiAdminReportEventType.outcome } });
     assert.equal(outcomeAudit.suppressionState, AiAdminReportSuppressionState.partial_unavailable, "partition fault audit did not record partial_unavailable");
-    const replay = await faultService.getReport({ adminPrincipalId: faultAdmin.id, idempotencyKey: key, params: reportParams });
+    const replay = await faultService.getReport({ adminPrincipalId: partitionFaultAdmin.id, idempotencyKey: key, params: reportParams });
     assert.equal(replay.status, 200);
     assert.deepEqual(replay.body, response.body, "partition fault replay changed the completed DTO");
-    assert.equal(await budgetUsage(faultAdmin.id), beforeUnits + 10, "partial result did not consume the full report cost exactly once");
+    assert.equal(await budgetUsage(partitionFaultAdmin.id), beforeUnits + 10, "partial result did not consume the full report cost exactly once");
   };
   await runPartitionFault("requests", ["summary", "dailyTrend", "byFeature", "byModel", "byStatus", "latency", "incidents", "comparison"]);
   await runPartitionFault("admissions", ["incidents"]);
