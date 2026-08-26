@@ -14,6 +14,7 @@ import { InMemoryVeraLeaseStore } from "@/lib/vera-ai/redis-lease";
 import { canonicalJson, sha256Hex, type VeraContextSelection } from "@/lib/vera-ai/contracts";
 import type { ResolvedContextBlock, VeraContextResolver } from "@/lib/vera-ai/context-pack";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
+import { validateVeraResult } from "@/lib/vera-ai/output-validator";
 import { validateStudioOutput, type NormalizedStudioPayload, type VeraStudioToolId } from "@/lib/vera-ai/studio-contracts";
 import type { VeraStudioIdentityAuthority } from "@/lib/vera-ai/studio-authority";
 
@@ -237,6 +238,86 @@ try {
     assert.equal(await db.aiArtifact.count({ where: { requestId: crashRequest.id } }), 1);
     assert.equal(await db.aiArtifactLifecycle.count({ where: { artifact: { requestId: crashRequest.id } } }), 1);
   }
+  // The closed durable callback registry also contains the non-Studio chat
+  // tuple (toolId=null). Exercise that entry independently through all three
+  // recovery owners: normal finalization, status-triggered recovery, and the
+  // worker/overdue path. The assistant insert trigger proves that callback
+  // failure rolls back the stage transaction instead of becoming an
+  // accounting-only success; each recovery then proves one message and one
+  // ledger finalization, with replay remaining side-effect free.
+  const chatNormalizedResult = validateVeraResult({
+    text: "Mock Vera response.",
+    structured: null,
+    kind: "success",
+    finishReason: "stop",
+    usage: { inputTokens: 12, outputTokens: 16, quotaUnitsConsumed: 40, tokenUsageState: "known" },
+    allowedCitationKeys: [],
+  });
+  await db.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION vera_fixture_crash_assistant_message() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.role = 'assistant' THEN RAISE EXCEPTION 'vera fixture chat assistant insert crash'; END IF; RETURN NEW; END $$`);
+  for (const recoveryMode of ["normal", "status", "worker"] as const) {
+    const chatKey = randomUUID();
+    const chatProvider = new MockProviderAdapter();
+    const chatOrchestrator = new VeraPrismaChatOrchestrator({
+      db,
+      admission,
+      contextResolver,
+      provider: chatProvider,
+      envelope,
+      leaseStore: new InMemoryVeraLeaseStore(),
+      hmacSecret: `sprint3-chat-crash-${recoveryMode}`,
+    });
+    const chatTrigger = "vera_fixture_crash_chat_ai_messages";
+    await db.$executeRawUnsafe(`CREATE TRIGGER ${chatTrigger} BEFORE INSERT ON ai_messages FOR EACH ROW EXECUTE FUNCTION vera_fixture_crash_assistant_message()`);
+    try {
+      const chatResponse = await chatOrchestrator.sse({ studentId, conversationId, clientRequestId: chatKey, kind: "chat", text: `Uji crash chat ${recoveryMode}.`, selection });
+      const chatWire = await chatResponse.text();
+      assert.ok(chatWire.includes("request.recovery_pending"));
+      assert.ok(!chatWire.includes("message.committed"));
+    } finally {
+      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${chatTrigger} ON ai_messages`);
+    }
+    const chatRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: chatKey }, include: { resultStage: true } });
+    assert.equal(chatRequest.featureKey, "vera.chat");
+    assert.equal(chatRequest.outputSchemaId, "vera.chat.freeform.v1");
+    assert.equal(chatProvider.calls.length, 1);
+    assert.equal(chatRequest.status, "pending");
+    assert.equal(chatRequest.assistantMessageId, null);
+    assert.equal(chatRequest.resultStage?.state, "available");
+    const beforeDaily = await db.aiUsageDaily.findFirstOrThrow({ where: { studentId, ledgerVersion: "vera_quota_v1" } });
+
+    if (recoveryMode === "normal") {
+      await admission.finalizeAcceptedRequest({ requestId: chatRequest.id, normalizedResult: chatNormalizedResult, now: new Date() });
+    } else {
+      const overdueAt = new Date(Date.now() - 1_000);
+      await db.aiRequest.update({ where: { id: chatRequest.id }, data: { settlementDeadlineAt: overdueAt } });
+      if (recoveryMode === "status") {
+        const statusRecovery = await readPrismaVeraRequestStatus(db, { studentId, conversationId, clientRequestId: chatKey }, { admission, envelope });
+        assert.equal(statusRecovery?.state, "succeeded");
+        assert.equal(statusRecovery?.resultState, "committed");
+      } else {
+        await admission.settleOverdueRequest({ requestId: chatRequest.id, now: overdueAt });
+      }
+    }
+
+    const recoveredChat = await db.aiRequest.findUniqueOrThrow({ where: { id: chatRequest.id }, include: { resultStage: true } });
+    assert.equal(recoveredChat.status, "succeeded");
+    assert.equal(recoveredChat.resultStage?.state, "consumed");
+    assert.ok(recoveredChat.assistantMessageId);
+    assert.equal(recoveredChat.quotaUnitsConsumed, 40);
+    assert.equal(recoveredChat.usageAccountingState, "known");
+    const assistant = await db.aiMessage.findUniqueOrThrow({ where: { id: recoveredChat.assistantMessageId! } });
+    assert.equal(assistant.role, "assistant");
+    assert.ok(assistant.contentEnvelope);
+    const afterDaily = await db.aiUsageDaily.findFirstOrThrow({ where: { studentId, ledgerVersion: "vera_quota_v1" } });
+    assert.equal(afterDaily.finalizedRequestCount, beforeDaily.finalizedRequestCount + 1);
+    const replay = await readPrismaVeraRequestStatus(db, { studentId, conversationId, clientRequestId: chatKey }, { admission, envelope });
+    assert.equal(replay?.state, "succeeded");
+    assert.equal(replay?.resultState, "committed");
+    const replayDaily = await db.aiUsageDaily.findFirstOrThrow({ where: { studentId, ledgerVersion: "vera_quota_v1" } });
+    assert.equal(replayDaily.finalizedRequestCount, afterDaily.finalizedRequestCount);
+  }
+  await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_assistant_message()`);
+
   const recoveryAdmission = new VeraPrismaAdmissionService(db, envelope);
   const normalFinalize = recoveryAdmission.finalizeAcceptedRequest.bind(recoveryAdmission);
   let injectDrift = true;
@@ -457,7 +538,7 @@ try {
   console.log("PASS vera-prisma-sprint3: signed source cursor, learner payload privacy, materialization and Apply replay");
   console.log("PASS vera-prisma-sprint3: unauthorized existing identities fail before staging and lifecycle tombstones remain readable");
   console.log("PASS vera-prisma-sprint3: callback drift rolls back, preserves stage before deadline, then terminalizes once under overdue race");
-  console.log("PASS vera-prisma-sprint3: all seven persisted callback tuples (analysis, route, review, summary, PTN, drill, recommendation/materialization) roll back under crash triggers, then process-loss recovery persists exactly once");
+  console.log("PASS vera-prisma-sprint3: all seven persisted callback tuples (chat, analysis, route, review, summary, PTN, drill) roll back under normal/status/worker crash recovery, then exactly-once assistant/result/accounting recovery; recommendation materialization remains a separate crash/replay test");
   console.log("PASS vera-prisma-sprint3: recovery retry waits for terminal failure, preserves exact user-message digest and rejects edited text before provider");
   console.log("PASS vera-prisma-sprint3: all three Apply projections cover populated replay/conflict and two-client adaptive CAS race");
 } finally {
@@ -470,10 +551,12 @@ try {
     ["vera_fixture_crash_ptn_ptn_strategy_sessions", "ptn_strategy_sessions"],
     ["vera_fixture_crash_drill_adaptive_practice_sessions", "adaptive_practice_sessions"],
     ["vera_fixture_crash_learning_recommendations", "learning_recommendations"],
+    ["vera_fixture_crash_chat_ai_messages", "ai_messages"],
   ]) {
     await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${trigger} ON ${table}`);
   }
   await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_insert()`);
+  await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_assistant_message()`);
   const requestIds = (await db.aiRequest.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
   const artifactIds = (await db.aiArtifact.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
   const recommendationIds = (await db.learningRecommendation.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
