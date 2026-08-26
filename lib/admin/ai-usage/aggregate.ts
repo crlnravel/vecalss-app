@@ -93,12 +93,10 @@ function aggregateMetrics(rows: MetricRows, now: Date, activeStudents: number | 
   const terminal = rows.filter((row) => TERMINAL_STATUSES.has(row.status));
   metrics.quotaUnits = numericSum(terminal.map((row) => row.quotaUnitsConsumed));
   metrics.reservedQuotaUnits = numericSum(rows.filter((row) => row.status === "pending" || row.status === "staged").map((row) => row.quotaUnitsReserved));
-  const hasUnknownPromptTokens = terminal.some((row) => row.inputTokens === null);
-  const hasUnknownCompletionTokens = terminal.some((row) => row.outputTokens === null);
   const promptValues = terminal.map((row) => row.inputTokens).filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   const completionValues = terminal.map((row) => row.outputTokens).filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  metrics.promptTokens = !hasUnknownPromptTokens && promptValues.length > 0 ? numericSum(promptValues) : null;
-  metrics.completionTokens = !hasUnknownCompletionTokens && completionValues.length > 0 ? numericSum(completionValues) : null;
+  metrics.promptTokens = promptValues.length > 0 ? numericSum(promptValues) : null;
+  metrics.completionTokens = completionValues.length > 0 ? numericSum(completionValues) : null;
   metrics.totalTokens = metrics.promptTokens === null || metrics.completionTokens === null
     ? null
     : metrics.promptTokens + metrics.completionTokens;

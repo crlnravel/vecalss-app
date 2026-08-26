@@ -112,7 +112,7 @@ assert.equal(built.dto.summary.state, "ready");
 assert.equal(built.dto.summary.rows[0]?.requests, 6, "pending and staged remain in headline request count");
 assert.equal(built.dto.summary.rows[0]?.terminalRequests, 4, "terminal denominator excludes pending and staged");
 assert.equal(built.dto.summary.rows[0]?.successRate, 2 / 4);
-assert.equal(built.dto.summary.rows[0]?.promptTokens, null, "null token usage is not presented as zero");
+assert.equal(built.dto.summary.rows[0]?.promptTokens, 30, "null token usage is excluded rather than coerced to zero");
 assert.equal(built.dto.summary.rows[0]?.unknownUsage, 1);
 assert.equal(built.dto.summary.rows[0]?.overrunDebtUnits, 2);
 assert.equal(built.dto.byFeature.state, "suppressed", "unsafe feature partition is suppressed with complement protection");
