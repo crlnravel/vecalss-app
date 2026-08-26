@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto } from "@/lib/admin/ai-policy/contracts";
+import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto, PolicySection } from "@/lib/admin/ai-policy/contracts";
 
 type AiPolicyPageModuleProps = {
   metadata: AiPolicyMetadataDto;
@@ -69,6 +69,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
   const [reason, setReason] = useState("");
   const [targetReference, setTargetReference] = useState("");
   const [requestedUpperBound, setRequestedUpperBound] = useState("");
+  const [dirtySections, setDirtySections] = useState<Set<PolicySection>>(() => new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const canGovern = metadata.capabilities.includes("canManageAiGovernance");
@@ -77,7 +78,16 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
     ? metadata.capabilities.join(" · ")
     : "read-only metadata", [metadata.capabilities]);
 
+  function markDirty(section: PolicySection) {
+    setDirtySections((current) => {
+      const next = new Set(current);
+      next.add(section);
+      return next;
+    });
+  }
+
   function updateModeConfig(mode: string, field: "inputBound" | "hardOutputCap" | "reservationBound", value: number) {
+    markDirty("quota");
     setQuotaConfig((current) => {
       if (!current || !current.modes[mode]) return current;
       return { ...current, modes: { ...current.modes, [mode]: { ...current.modes[mode], [field]: value } } };
@@ -93,12 +103,15 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
       setSettlementConfig(bundle.settlementConfig);
       setReportConfig(bundle.reportConfig);
       setRetentionConfig(bundle.retentionConfig);
+      setDirtySections(new Set());
       setEffectiveAt(bundle.effectiveAt.slice(0, 16));
     }
     const impact = resultPreview(payload);
     if (impact) setPreview(impact);
     return bundle;
   }
+
+  const dirtySectionLabel = dirtySections.size ? [...dirtySections].join(", ") : "none";
 
   async function refresh() {
     const response = await fetch("/api/admin/ai-policy", { cache: "no-store" });
@@ -129,8 +142,21 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
   async function editDraft() {
     if (!draft) return;
     const nextLimit = Number(dailyLimit);
-    if (!Number.isSafeInteger(nextLimit) || !quotaConfig || !settlementConfig || !reportConfig || !retentionConfig) {
+    if (!quotaConfig || !settlementConfig || !reportConfig || !retentionConfig) {
+      setMessage("Snapshot section kebijakan belum lengkap.");
+      return;
+    }
+    if (dirtySections.has("quota") && !Number.isSafeInteger(nextLimit)) {
       setMessage("Batas quota harian harus berupa bilangan bulat.");
+      return;
+    }
+    const patch: Record<string, unknown> = {};
+    if (dirtySections.has("quota")) patch.quotaConfig = { ...quotaConfig, defaultDailyLimit: nextLimit };
+    if (dirtySections.has("settlement")) patch.settlementConfig = settlementConfig;
+    if (dirtySections.has("report")) patch.reportConfig = reportConfig;
+    if (dirtySections.has("retention")) patch.retentionConfig = retentionConfig;
+    if (!Object.keys(patch).length) {
+      setMessage("Pilih perubahan pada section yang menjadi kewenangan akun ini.");
       return;
     }
     setBusy(true);
@@ -139,16 +165,11 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
       const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}`, {
         clientRequestId: createRequestId("edit"),
         expectedRevision: draft.revision,
-        patch: {
-          quotaConfig: { ...quotaConfig, defaultDailyLimit: nextLimit },
-          settlementConfig,
-          reportConfig,
-          retentionConfig,
-        },
+        patch,
         reason: reason.trim() || undefined,
       }, "PATCH");
       applyBundlePayload(payload);
-      setMessage("Section quota, mode, settlement, report budget, dan evidence TTL tersimpan sebagai draft. Validasi tetap diperlukan sebelum approval.");
+      setMessage("Section yang diubah tersimpan sebagai draft. Validasi tetap diperlukan sebelum approval.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Draft tidak dapat diubah.");
     } finally {
@@ -383,7 +404,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                     </div>
                     <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
                       Daily quota units
-                      <input className="h-11 rounded-xl border border-primary-200 bg-white px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:bg-secondary-50" disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
+                      <input className="h-11 rounded-xl border border-primary-200 bg-white px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:bg-secondary-50" disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
                     </label>
                   </div>
 
@@ -412,13 +433,13 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl border border-primary-100 p-4">
                       <p className="text-sm font-bold text-secondary-900">Settlement</p>
-                      <label className="mt-3 grid gap-2 text-sm text-secondary-700">Max pending age (minutes)<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={30} max={360} onChange={(event) => setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: Number(event.target.value) } : current)} type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
+                        <label className="mt-3 grid gap-2 text-sm text-secondary-700">Max pending age (minutes)<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={30} max={360} onChange={(event) => { markDirty("settlement"); setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: Number(event.target.value) } : current); }} type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
                     </div>
                     <div className="rounded-2xl border border-primary-100 p-4">
                       <p className="text-sm font-bold text-secondary-900">Report budget / burst</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="grid gap-2 text-sm text-secondary-700">Units / 24h<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={12} max={240} onChange={(event) => setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current)} type="number" value={reportConfig.unitLimit} /></label>
-                        <label className="grid gap-2 text-sm text-secondary-700">Accepted / 10m<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={1} max={60} onChange={(event) => setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current)} type="number" value={reportConfig.requestLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Units / 24h<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={12} max={240} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.unitLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Accepted / 10m<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={1} max={60} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.requestLimit} /></label>
                         <label className="grid gap-2 text-sm text-secondary-700">Minimum cohort (immutable)<input className="h-10 rounded-lg border border-primary-100 bg-secondary-50 px-2 text-sm" disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
                         <label className="grid gap-2 text-sm text-secondary-700">Max range days (immutable)<input className="h-10 rounded-lg border border-primary-100 bg-secondary-50 px-2 text-sm" disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
                       </div>
@@ -438,12 +459,15 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                         ["operationalMetadataTtlDays", "Operational metadata (days)"],
                         ["activeArtifactEvidenceTtlDays", "Active artifact evidence (days)"],
                       ] as const).map(([field, label]) => (
-                        <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={1} onChange={(event) => setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current)} type="number" value={retentionConfig[field] ?? ""} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={1} onChange={(event) => { markDirty("retention"); setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} type="number" value={retentionConfig[field] ?? ""} /></label>
                       ))}
                     </div>
                   </div>
 
-                  <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern)} onClick={() => void editDraft()} type="button" variant="outline">Save typed policy sections</Button>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-secondary-500">Dirty sections: {dirtySectionLabel}</p>
+                    <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="outline">Save typed policy sections</Button>
+                  </div>
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2">

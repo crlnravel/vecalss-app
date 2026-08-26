@@ -5,6 +5,8 @@ const migration = readFileSync("prisma/migrations/20260826090000_add_vera_policy
 const correctionMigration = readFileSync("prisma/migrations/20260826110000_harden_vera_sprint4_preview/migration.sql", "utf8");
 const policyService = readFileSync("lib/admin/ai-policy/service.ts", "utf8");
 const usageService = readFileSync("lib/admin/ai-usage/service.ts", "utf8");
+const runtimeFixture = readFileSync("scripts/test-vera-prisma-sprint4-runtime.ts", "utf8");
+const policyUi = readFileSync("modules/admin/AiPolicyPageModule.tsx", "utf8");
 const priorFixtures = [
   "scripts/test-vera-prisma-sprint2.ts",
   "scripts/test-vera-prisma-sprint3.ts",
@@ -54,6 +56,15 @@ check(usageService.includes("admin_policy_preview"), "shared usage service owns 
 check(usageService.includes("Math.max(0, effective.policy.reportConfig.requestLimit - burst.requestCount)"), "Redis burst admission is rehydrated from the durable window");
 check(usageService.indexOf("existing.state === AiReportReservationState.expired") < usageService.indexOf("existing.request_fingerprint !== input.requestFingerprint"), "preview expiry wins before fingerprint comparison");
 check(usageService.includes("localDateSpan: { from: query.from, to: query.to }"), "preview audit persists the exact local range");
+check(runtimeFixture.includes("const runCommandRace"), "runtime fixture executes concurrent command races through the real service");
+for (const operation of ["create", "edit", "validate", "preview", "approve", "schedule", "activate", "rollback", "retention"]) {
+  check(runtimeFixture.includes(`\"${operation}\"`), `runtime fixture covers the ${operation} command race`);
+}
+check(runtimeFixture.includes("runPartitionFault") && runtimeFixture.includes("partial_unavailable"), "runtime fixture covers partition-local aggregate faults");
+check(runtimeFixture.includes("const fixtureNamespace = `vera-sprint4-runtime-${randomUUID()}`"), "runtime fixture is namespaced for repeatable isolated runs");
+for (const marker of ["dirtySections", "markDirty(\"quota\")", "patch.quotaConfig", "patch.settlementConfig", "patch.reportConfig", "patch.retentionConfig"]) {
+  check(policyUi.includes(marker), `policy UI submits only dirty ${marker} sections`);
+}
 for (const fixture of priorFixtures) {
   check(fixture.indexOf('data: { state: "draft" }') < fixture.indexOf('data: { state: "active"'), "disposable fixture stages policy rows before active content normalization");
 }

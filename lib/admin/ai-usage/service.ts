@@ -53,6 +53,9 @@ const REPORT_REDIS_FEATURE = "admin_report_query";
 
 type ReportDb = PrismaClient | Prisma.TransactionClient;
 
+export type VeraAggregateReadPartition = "requests" | "admissions" | "previousRequests";
+type AggregateReadHook = (partition: VeraAggregateReadPartition) => void | Promise<void>;
+
 export class VeraAdminUsageError extends Error {
   constructor(
     readonly code:
@@ -447,10 +450,12 @@ export class VeraAdminUsageService {
   private readonly db: PrismaClient;
   private readonly leaseStore: VeraLeaseStore;
   private readonly hmacSecret: string;
-  constructor(input: { db?: PrismaClient; leaseStore?: VeraLeaseStore; hmacSecret?: string } = {}) {
+  private readonly beforeAggregateRead: AggregateReadHook;
+  constructor(input: { db?: PrismaClient; leaseStore?: VeraLeaseStore; hmacSecret?: string; beforeAggregateRead?: AggregateReadHook } = {}) {
     this.db = input.db ?? defaultPrisma;
     this.hmacSecret = input.hmacSecret ?? process.env.VERA_IDEMPOTENCY_HMAC_SECRET ?? "";
     this.leaseStore = input.leaseStore ?? createDefaultReportLeaseStore();
+    this.beforeAggregateRead = input.beforeAggregateRead ?? (() => undefined);
   }
 
   async getReport(input: { adminPrincipalId: string; idempotencyKey: string | null; params: URLSearchParams; now?: Date }): Promise<ReportResponse> {
@@ -950,7 +955,16 @@ export class VeraAdminUsageService {
   }
 
   private async executeAggregate(query: VeraAdminUsageQuery, policy: VeraReportPolicy, scheduledPolicy: { bundleVersion: string; effectiveAt: Date } | null) {
-    const current = await databaseNow(this.db);
+    // The reservation is already durable at this point. A report partition
+    // may therefore fail independently; complete a 200 DTO with a generic
+    // unavailable partition instead of turning a post-reservation read fault
+    // into a whole-response failure. Never expose raw database error text.
+    let current: Date;
+    try {
+      current = await databaseNow(this.db);
+    } catch {
+      current = new Date();
+    }
     const requestSelect = {
       id: true,
       studentId: true,
@@ -983,21 +997,54 @@ export class VeraAdminUsageService {
     } as const;
     const requestWhere = (start: Date, end: Date) => ({ createdAt: { gte: start, lt: end }, ...(query.feature !== "all" ? { featureKey: query.feature } : {}), ...(query.gateway !== "all" ? { gateway: query.gateway === "unknown" ? null : query.gateway } : {}), ...(query.upstreamProvider !== "all" ? { upstreamProvider: query.upstreamProvider === "unknown" ? null : query.upstreamProvider } : {}), ...(query.model !== "all" ? { model: query.model === "unknown" ? null : query.model } : {}), ...(query.status !== "all" ? { status: query.status } : {}) });
     const admissionWhere = (start: Date, end: Date) => ({ occurredAt: { gte: start, lt: end }, ...(query.feature !== "all" ? { featureKey: query.feature } : {}), ...(query.gateway !== "all" ? { gateway: query.gateway === "unknown" ? null : query.gateway } : {}), ...(query.upstreamProvider !== "all" ? { upstreamProvider: query.upstreamProvider === "unknown" ? null : query.upstreamProvider } : {}), ...(query.model !== "all" ? { model: query.model === "unknown" ? null : query.model } : {}) });
-    const [requests, admissions, previousRequests, previousAdmissions] = await Promise.all([
-      this.db.aiRequest.findMany({ where: requestWhere(query.utcStart, query.utcEnd), select: requestSelect, take: 100_001 }),
-      this.db.aiAdmissionEvent.findMany({ where: admissionWhere(query.utcStart, query.utcEnd), select: admissionSelect, take: 100_001 }),
-      query.include.has("comparison") ? this.db.aiRequest.findMany({ where: requestWhere(query.previousUtcStart, query.previousUtcEnd), select: requestSelect, take: 100_001 }) : Promise.resolve([]),
-      query.include.has("comparison") ? this.db.aiAdmissionEvent.findMany({ where: admissionWhere(query.previousUtcStart, query.previousUtcEnd), select: admissionSelect, take: 100_001 }) : Promise.resolve([]),
+    const read = <T,>(partition: VeraAggregateReadPartition, operation: () => Promise<T[]>): Promise<T[]> => Promise.resolve().then(async () => {
+      await this.beforeAggregateRead(partition);
+      return operation();
+    });
+    const reads = await Promise.allSettled([
+      read("requests", () => this.db.aiRequest.findMany({ where: requestWhere(query.utcStart, query.utcEnd), select: requestSelect, take: 100_001 })),
+      read("admissions", () => this.db.aiAdmissionEvent.findMany({ where: admissionWhere(query.utcStart, query.utcEnd), select: admissionSelect, take: 100_001 })),
+      query.include.has("comparison") ? read("previousRequests", () => this.db.aiRequest.findMany({ where: requestWhere(query.previousUtcStart, query.previousUtcEnd), select: requestSelect, take: 100_001 })) : Promise.resolve([]),
     ]);
-    if (requests.length > 100_000 || admissions.length > 100_000 || previousRequests.length > 100_000 || previousAdmissions.length > 100_000) throw reportDbError("report_unavailable");
+    const requestRead = reads[0];
+    const admissionRead = reads[1];
+    const previousRequestRead = reads[2];
+    const requests = requestRead.status === "fulfilled" && requestRead.value.length <= 100_000 ? requestRead.value : [];
+    const admissions = admissionRead.status === "fulfilled" && admissionRead.value.length <= 100_000 ? admissionRead.value : [];
+    const previousRequests = previousRequestRead.status === "fulfilled" && previousRequestRead.value.length <= 100_000 ? previousRequestRead.value : [];
+    const requestUnavailable = requestRead.status === "rejected" || (requestRead.status === "fulfilled" && requestRead.value.length > 100_000);
+    const admissionUnavailable = admissionRead.status === "rejected" || (admissionRead.status === "fulfilled" && admissionRead.value.length > 100_000);
+    const previousRequestUnavailable = query.include.has("comparison") && (previousRequestRead.status === "rejected" || (previousRequestRead.status === "fulfilled" && previousRequestRead.value.length > 100_000));
     const typedRequests = requests as unknown as VeraAdminReportDbRow[];
     const typedAdmissions = admissions as unknown as VeraAdminAdmissionDbRow[];
     const typedPreviousRequests = previousRequests as unknown as VeraAdminReportDbRow[];
-    const typedPreviousAdmissions = previousAdmissions as unknown as VeraAdminAdmissionDbRow[];
     const allTimes = [...typedRequests.map((row) => row.createdAt), ...typedAdmissions.map((row) => row.occurredAt)];
     const lastUpdatedAt = allTimes.length > 0 ? new Date(Math.max(...allTimes.map((value) => value.getTime()))) : null;
-    const built = buildAdminUsageDto({ query, sources: { requests: typedRequests, admissions: typedAdmissions, previousRequests: typedPreviousRequests, previousAdmissions: typedPreviousAdmissions, now: current, lastUpdatedAt }, policy, scheduledPolicy });
-    return { ...built, resultDigest: sha256Hex(canonicalJson({ kind: "report", dto: built.dto })) };
+    const built = buildAdminUsageDto({ query, sources: { requests: typedRequests, admissions: typedAdmissions, previousRequests: typedPreviousRequests, now: current, lastUpdatedAt }, policy, scheduledPolicy });
+    const unavailablePartition = (): { state: "unavailable"; reason: string } => ({ state: "unavailable", reason: "partition_unavailable" });
+    if (requestUnavailable) {
+      built.dto.summary = unavailablePartition();
+      built.dto.dailyTrend = unavailablePartition();
+      built.dto.byFeature = unavailablePartition();
+      built.dto.byModel = unavailablePartition();
+      built.dto.byStatus = unavailablePartition();
+      built.dto.latency = unavailablePartition();
+      // Incidents combine request and admission cohorts, so a partial
+      // incidents partition would carry a misleading denominator.
+      built.dto.incidents = unavailablePartition();
+      if (query.include.has("comparison")) built.dto.comparison = unavailablePartition();
+    }
+    if (admissionUnavailable) built.dto.incidents = unavailablePartition();
+    if (previousRequestUnavailable && query.include.has("comparison")) built.dto.comparison = unavailablePartition();
+    const partitions = [built.dto.summary, built.dto.dailyTrend, built.dto.byFeature, built.dto.byModel, built.dto.byStatus, built.dto.latency, built.dto.incidents, built.dto.comparison];
+    const hasUnavailable = partitions.some((partition) => partition.state === "unavailable" && partition.reason !== "not_requested");
+    const hasSuppressed = partitions.some((partition) => partition.state === "suppressed");
+    const outcome: VeraReportOutcomeState = hasUnavailable
+      ? "partial_unavailable"
+      : hasSuppressed
+        ? "suppressed"
+        : built.outcome;
+    return { dto: built.dto, outcome, resultDigest: sha256Hex(canonicalJson({ kind: "report", dto: built.dto })) };
   }
 
   private async completeReservation(commit: ReservationCommit, dto: VeraAdminUsageDto, outcome: VeraReportOutcomeState, resultDigest: string): Promise<boolean> {
