@@ -31,11 +31,16 @@ check(uiModule.includes("open_blocked"), "UI exposes the closed provider gate");
 check(uiModule.includes("pending") && uiModule.includes("T11"), "UI explains pending retention handoff");
 check(!uiModule.includes("textarea") || uiModule.includes("Alasan perubahan"), "UI textarea is bounded reason input, not a JSON editor");
 check(!uiModule.includes("providerUrl") && !uiModule.includes("apiKey") && !uiModule.includes("liveProvider"), "UI exposes no provider control");
-for (const marker of ["validateDraft", "previewDraft", "approveDraft", "scheduleDraft", "activateDraft", "rollbackBundle", "datetime-local", "policy-lifecycle-controls"]) {
+for (const marker of ["validateDraft", "previewDraft", "approveDraft", "scheduleDraft", "activateDraft", "rollbackBundle", "datetime-local", "policy-lifecycle-controls", "typed-policy-controls", "Grouped quota / plan mapping", "Per-mode input / output / reservation", "Report budget / burst", "Forward evidence / content TTL"]) {
   check(uiModule.includes(marker), `policy UI exposes ${marker}`);
 }
-for (const marker of ["comparison", "Tanggal akhir eksklusif", "sm:grid-cols", "disembunyikan", "Mock / disabled"] as const) {
+for (const marker of ["comparison", "gateway", "upstream", "model", "Tanggal akhir eksklusif", "sm:grid-cols", "disembunyikan", "Mock / disabled"] as const) {
   check(usageUi.toLowerCase().includes(marker.toLowerCase()), `usage UI includes ${marker}`);
 }
+for (const marker of ["gateway !== \"all\"", "upstreamProvider !== \"all\"", "model !== \"all\""] as const) {
+  check(usageUi.includes(marker), `usage query wires ${marker}`);
+}
+check(!usageUi.includes("min-w-[680px]") && !usageUi.includes("overflow-x-auto"), "usage populated/mobile tables do not require horizontal scrolling");
+check(!uiModule.includes("min-w-[700px]") && !uiModule.includes("overflow-x-auto"), "policy history does not require horizontal scrolling");
 check(!routeFiles.some((file) => readFileSync(file, "utf8").includes("AiReportReservation")), "routes do not duplicate T9 reservation ownership");
 console.log(`PASS vera-http-sprint4: ${checks} checks`);

@@ -84,6 +84,13 @@ try {
   const now = new Date();
   // Disposable fixture preparation follows the production immutability rule:
   // normalize state to draft before changing the test effective boundary.
+  const competingPolicyRows = await db.aiPolicyBundle.findMany({
+    where: { id: { not: policy.id }, state: { in: ["active", "scheduled"] } },
+    select: { id: true },
+  });
+  for (const competing of competingPolicyRows) {
+    await db.aiPolicyBundle.update({ where: { id: competing.id }, data: { state: "draft" } });
+  }
   if (policy.state !== "draft") await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "active", effectiveAt: new Date(now.getTime() - 60_000) } });
   await db.user.createMany({ data: [

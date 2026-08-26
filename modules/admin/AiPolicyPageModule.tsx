@@ -57,6 +57,10 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
   const [metadata, setMetadata] = useState(initialMetadata);
   const [draft, setDraft] = useState<AiPolicyBundleDto | null>(null);
   const [dailyLimit, setDailyLimit] = useState("");
+  const [quotaConfig, setQuotaConfig] = useState<AiPolicyBundleDto["quotaConfig"] | null>(null);
+  const [settlementConfig, setSettlementConfig] = useState<AiPolicyBundleDto["settlementConfig"] | null>(null);
+  const [reportConfig, setReportConfig] = useState<AiPolicyBundleDto["reportConfig"] | null>(null);
+  const [retentionConfig, setRetentionConfig] = useState<AiPolicyBundleDto["retentionConfig"] | null>(null);
   const [preview, setPreview] = useState<AiPolicyImpactPreviewDto | null>(null);
   const [previewFrom, setPreviewFrom] = useState("");
   const [previewTo, setPreviewTo] = useState("");
@@ -73,11 +77,22 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
     ? metadata.capabilities.join(" · ")
     : "read-only metadata", [metadata.capabilities]);
 
+  function updateModeConfig(mode: string, field: "inputBound" | "hardOutputCap" | "reservationBound", value: number) {
+    setQuotaConfig((current) => {
+      if (!current || !current.modes[mode]) return current;
+      return { ...current, modes: { ...current.modes, [mode]: { ...current.modes[mode], [field]: value } } };
+    });
+  }
+
   function applyBundlePayload(payload: unknown) {
     const bundle = resultBundle(payload);
     if (bundle) {
       setDraft(bundle);
       setDailyLimit(String(bundle.quotaConfig.defaultDailyLimit));
+      setQuotaConfig(bundle.quotaConfig);
+      setSettlementConfig(bundle.settlementConfig);
+      setReportConfig(bundle.reportConfig);
+      setRetentionConfig(bundle.retentionConfig);
       setEffectiveAt(bundle.effectiveAt.slice(0, 16));
     }
     const impact = resultPreview(payload);
@@ -114,7 +129,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
   async function editDraft() {
     if (!draft) return;
     const nextLimit = Number(dailyLimit);
-    if (!Number.isSafeInteger(nextLimit)) {
+    if (!Number.isSafeInteger(nextLimit) || !quotaConfig || !settlementConfig || !reportConfig || !retentionConfig) {
       setMessage("Batas quota harian harus berupa bilangan bulat.");
       return;
     }
@@ -124,11 +139,16 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
       const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}`, {
         clientRequestId: createRequestId("edit"),
         expectedRevision: draft.revision,
-        patch: { quotaConfig: { ...draft.quotaConfig, defaultDailyLimit: nextLimit } },
+        patch: {
+          quotaConfig: { ...quotaConfig, defaultDailyLimit: nextLimit },
+          settlementConfig,
+          reportConfig,
+          retentionConfig,
+        },
         reason: reason.trim() || undefined,
       }, "PATCH");
       applyBundlePayload(payload);
-      setMessage("Section quota tersimpan sebagai draft. Validasi tetap diperlukan sebelum approval.");
+      setMessage("Section quota, mode, settlement, report budget, dan evidence TTL tersimpan sebagai draft. Validasi tetap diperlukan sebelum approval.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Draft tidak dapat diubah.");
     } finally {
@@ -351,13 +371,81 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                 </div>
                 <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-900">providerGateState=open_blocked</span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
-                  Daily quota limit
-                  <input className="h-11 rounded-xl border border-primary-200 bg-[#f7faf8] px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" id="policy-daily-limit" inputMode="numeric" maxLength={5} onChange={(event) => setDailyLimit(event.target.value)} value={dailyLimit} />
-                </label>
-                <Button className="self-end" disabled={busy || draft.state !== "draft" || !canPolicy} onClick={() => void editDraft()} type="button" variant="outline">Edit quota</Button>
-              </div>
+              {quotaConfig && settlementConfig && reportConfig && retentionConfig ? (
+                <div className="space-y-5" data-testid="typed-policy-controls">
+                  <div className="grid gap-4 rounded-2xl bg-primary-50/60 p-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-bold text-secondary-900">Grouped quota / plan mapping</p>
+                      <p className="mt-1 text-xs leading-5 text-secondary-600">Limit ini adalah default server untuk plan yang telah dipetakan BillingAccount; legacy StudentProfile limit tidak dipakai.</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-secondary-700">
+                        {["free", "trial", "starter", "pro"].map((plan) => <span className="rounded-full border border-primary-100 bg-white px-3 py-1" key={plan}>{plan}: server policy</span>)}
+                      </div>
+                    </div>
+                    <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
+                      Daily quota units
+                      <input className="h-11 rounded-xl border border-primary-200 bg-white px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:bg-secondary-50" disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
+                    </label>
+                  </div>
+
+                  <div className="rounded-2xl border border-primary-100 p-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-bold text-secondary-900">Per-mode input / output / reservation</p>
+                        <p className="mt-1 text-xs text-secondary-600">Certified bounds are validated by the server and cannot change provider attempts.</p>
+                      </div>
+                      <span className="rounded-full bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700">max attempts: {quotaConfig.maxProviderAttempts}</span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {Object.entries(quotaConfig.modes).map(([mode, values]) => (
+                        <div className="rounded-xl bg-secondary-50 p-3" key={mode}>
+                          <p className="text-sm font-semibold text-secondary-900">{mode}</p>
+                          <div className="mt-2 grid gap-2">
+                            <label className="grid gap-1 text-xs text-secondary-600">Input bound<input aria-label={`${mode} input bound`} className="h-9 rounded-lg border border-primary-100 bg-white px-2 text-sm text-secondary-900 disabled:bg-secondary-100" disabled={!canPolicy} min={1000} onChange={(event) => updateModeConfig(mode, "inputBound", Number(event.target.value))} type="number" value={values.inputBound} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Output cap<input aria-label={`${mode} output cap`} className="h-9 rounded-lg border border-primary-100 bg-white px-2 text-sm text-secondary-900 disabled:bg-secondary-100" disabled={!canPolicy} min={256} onChange={(event) => updateModeConfig(mode, "hardOutputCap", Number(event.target.value))} type="number" value={values.hardOutputCap} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Reservation bound<input aria-label={`${mode} reservation bound`} className="h-9 rounded-lg border border-primary-100 bg-white px-2 text-sm text-secondary-900 disabled:bg-secondary-100" disabled={!canPolicy} min={1256} onChange={(event) => updateModeConfig(mode, "reservationBound", Number(event.target.value))} type="number" value={values.reservationBound} /></label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-primary-100 p-4">
+                      <p className="text-sm font-bold text-secondary-900">Settlement</p>
+                      <label className="mt-3 grid gap-2 text-sm text-secondary-700">Max pending age (minutes)<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={30} max={360} onChange={(event) => setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: Number(event.target.value) } : current)} type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
+                    </div>
+                    <div className="rounded-2xl border border-primary-100 p-4">
+                      <p className="text-sm font-bold text-secondary-900">Report budget / burst</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-2 text-sm text-secondary-700">Units / 24h<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={12} max={240} onChange={(event) => setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current)} type="number" value={reportConfig.unitLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Accepted / 10m<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={1} max={60} onChange={(event) => setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current)} type="number" value={reportConfig.requestLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Minimum cohort (immutable)<input className="h-10 rounded-lg border border-primary-100 bg-secondary-50 px-2 text-sm" disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Max range days (immutable)<input className="h-10 rounded-lg border border-primary-100 bg-secondary-50 px-2 text-sm" disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-primary-100 p-4">
+                    <p className="text-sm font-bold text-secondary-900">Forward evidence / content TTL</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {([
+                        ["stageTtlHours", "Stage TTL (hours)"],
+                        ["contextEvidenceTtlDays", "Context evidence (days)"],
+                        ["acceptedKeyTtlDays", "Accepted key (days)"],
+                        ["rejectedKeyTtlHours", "Rejected key (hours)"],
+                        ["tombstoneTtlDays", "Tombstone (days)"],
+                        ["admissionTelemetryTtlDays", "Admission telemetry (days)"],
+                        ["operationalMetadataTtlDays", "Operational metadata (days)"],
+                        ["activeArtifactEvidenceTtlDays", "Active artifact evidence (days)"],
+                      ] as const).map(([field, label]) => (
+                        <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={1} onChange={(event) => setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current)} type="number" value={retentionConfig[field] ?? ""} /></label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern)} onClick={() => void editDraft()} type="button" variant="outline">Save typed policy sections</Button>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <Button disabled={busy || draft.state !== "draft"} onClick={() => void validateDraft()} type="button">Validate draft</Button>
                 <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void previewDraft("categorical")} type="button" variant="outline">Preview impact</Button>
@@ -426,8 +514,8 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
           </div>
           <Button disabled={busy} onClick={() => void refresh().catch((error) => setMessage(error instanceof Error ? error.message : "Metadata tidak tersedia."))} type="button" variant="ghost">Refresh metadata</Button>
         </div>
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[700px] border-collapse text-left text-sm">
+        <div className="mt-5 hidden overflow-hidden sm:block">
+          <table className="w-full table-fixed border-collapse text-left text-sm">
             <thead className="border-b border-primary-100 text-xs uppercase tracking-[0.12em] text-secondary-500">
               <tr><th className="px-3 py-3 font-bold">Version</th><th className="px-3 py-3 font-bold">State</th><th className="px-3 py-3 font-bold">Effective</th><th className="px-3 py-3 font-bold">Reason</th><th className="px-3 py-3 font-bold">Last action</th></tr>
             </thead>
@@ -439,6 +527,23 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
               )) : <tr><td className="px-3 py-8 text-secondary-600" colSpan={5}>Belum ada bundle yang tersimpan.</td></tr>}
             </tbody>
           </table>
+        </div>
+        <div className="mt-5 grid gap-3 sm:hidden">
+          {metadata.history.length ? metadata.history.map((item) => (
+            <article className="rounded-2xl border border-primary-100 bg-primary-50/40 p-4" key={`${item.bundleVersion}-${item.validationDigest}-mobile`}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="break-all text-sm font-semibold text-secondary-900">{item.bundleVersion}</p>
+                  <p className="mt-1 text-xs text-secondary-600">{item.state} · {formatDate(item.effectiveAt)}</p>
+                </div>
+                {item.state !== "active" && item.state !== "scheduled" ? null : <Button className="h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Rollback</Button>}
+              </div>
+              <dl className="mt-3 grid gap-2 text-xs">
+                <div><dt className="text-secondary-500">Reason</dt><dd className="mt-1 break-words text-secondary-700">{item.reason ?? "—"}</dd></div>
+                <div><dt className="text-secondary-500">Last action</dt><dd className="mt-1 break-words text-secondary-700">{item.lastAction ?? "—"}</dd></div>
+              </dl>
+            </article>
+          )) : <p className="rounded-2xl bg-secondary-50 px-4 py-6 text-sm text-secondary-600">Belum ada bundle yang tersimpan.</p>}
         </div>
       </section>
 

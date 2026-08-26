@@ -115,6 +115,18 @@ function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+/**
+ * A duplicate command key aborts the transaction that attempted the insert.
+ * Keep that signal distinct so the caller can re-read the winner in a fresh
+ * transaction instead of querying an aborted interactive transaction.
+ */
+class CommandKeyRaceError extends Error {
+  constructor() {
+    super("policy command key was won concurrently");
+    this.name = "CommandKeyRaceError";
+  }
+}
+
 function asDate(value: Date | string): Date {
   return value instanceof Date ? new Date(value) : new Date(value);
 }
@@ -323,28 +335,21 @@ export class AiPolicyCommandService {
   }
 
   private async createCommand(tx: Tx, input: CommandInput, fingerprint: string, now: Date): Promise<ExistingCommand> {
-    try {
-      return await tx.aiAdminCommandLedger.create({
-        data: {
-          adminPrincipalId: input.actor.id,
-          operation: input.operation,
-          clientRequestId: input.clientRequestId,
-          requestFingerprint: fingerprint,
-          fingerprintKeyVersion: AI_POLICY_FINGERPRINT_KEY_VERSION,
-          state: AiAdminCommandState.pending,
-          resultKind: input.resultKind,
-          reason: input.reason ?? null,
-          firstSeenAt: now,
-          lastSeenAt: now,
-          expiresAt: commandExpiry(now, true),
-        },
-      });
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-      const winner = await this.lockCommand(tx, input, fingerprint, now);
-      if (!winner) throw error;
-      return winner;
-    }
+    return tx.aiAdminCommandLedger.create({
+      data: {
+        adminPrincipalId: input.actor.id,
+        operation: input.operation,
+        clientRequestId: input.clientRequestId,
+        requestFingerprint: fingerprint,
+        fingerprintKeyVersion: AI_POLICY_FINGERPRINT_KEY_VERSION,
+        state: AiAdminCommandState.pending,
+        resultKind: input.resultKind,
+        reason: input.reason ?? null,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        expiresAt: commandExpiry(now, true),
+      },
+    });
   }
 
   private async completeCommand(tx: Tx, rowId: string, resultId: string, now: Date): Promise<void> {
@@ -482,6 +487,34 @@ export class AiPolicyCommandService {
     return { commandId: row.id, replayed: true, operation: input.operation, resultKind: input.resultKind, result: await this.getBundleForReplay(row.resultId) };
   }
 
+  /**
+   * Re-read a command-key winner after the original create transaction has
+   * aborted on a unique constraint. The row is locked and checked through the
+   * same replay/conflict/expiry contract used by the ordinary path. The
+   * transaction is deliberately committed before result hydration so result
+   * reads never run on an aborted or held command transaction.
+   */
+  private async resolveCommandKeyRace(input: CommandInput, fingerprint: string): Promise<AiPolicyCommandResponse> {
+    const outcome = await this.db.$transaction(async (tx) => {
+      const now = await this.dbNow(tx);
+      try {
+        const row = await this.lockCommand(tx, input, fingerprint, now);
+        if (!row) throw new AiPolicyError("policy_command_race_unavailable", "Perintah kebijakan sedang dipulihkan; coba lagi.", 503);
+        return { row } as const;
+      } catch (error) {
+        // lockCommand records an expiry tombstone before raising. Return a
+        // value from the transaction so that tombstone can commit and the
+        // caller receives the required typed 409.
+        if (error instanceof AiPolicyError && error.code === "idempotency_key_expired") {
+          return { rejected: error } as const;
+        }
+        throw error;
+      }
+    });
+    if ("rejected" in outcome) throw outcome.rejected;
+    return this.responseForExisting(input, outcome.row);
+  }
+
   private async executeBundleCommand(input: CommandInput, handler: (tx: Tx, command: ExistingCommand, now: Date) => Promise<{ resultId: string; result: AiPolicyCommandResultPayload }>): Promise<AiPolicyCommandResponse> {
     assertClientRequestId(input.clientRequestId);
     await this.requireAdmin(input.actor);
@@ -492,7 +525,13 @@ export class AiPolicyCommandService {
         try {
           const existing = await this.lockCommand(tx, input, fingerprint, now);
           if (existing) return this.responseForExisting(input, existing);
-          const command = await this.createCommand(tx, input, fingerprint, now);
+          let command: ExistingCommand;
+          try {
+            command = await this.createCommand(tx, input, fingerprint, now);
+          } catch (error) {
+            if (isUniqueViolation(error)) throw new CommandKeyRaceError();
+            throw error;
+          }
           if (command.state !== AiAdminCommandState.pending) return this.responseForExisting(input, command);
           try {
             const output = await handler(tx, command, now);
@@ -513,6 +552,9 @@ export class AiPolicyCommandService {
       if ("rejected" in outcome) throw outcome.rejected;
       return outcome;
     } catch (error) {
+      if (error instanceof CommandKeyRaceError) {
+        return this.resolveCommandKeyRace(input, fingerprint);
+      }
       if (error instanceof AiPolicyError) throw error;
       throw new AiPolicyError("policy_command_failed", "Perintah kebijakan gagal.", 503);
     }

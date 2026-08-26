@@ -3,11 +3,18 @@ import { randomUUID } from "node:crypto";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
+  AiAdmissionReason,
   AiAdminReportEventType,
   AiAdminReportOperation,
   AiAdminReportSuppressionState,
+  AiIdempotencyOperation,
+  AiIdempotencyResultKind,
+  AiIdempotencyState,
+  AiRequestLifecycleState,
   AiPolicyState,
   AiReportReservationState,
+  AiTokenUsageState,
+  AiUsageAccountingState,
   Prisma,
   PrismaClient,
 } from "@/generated/prisma/client";
@@ -20,7 +27,7 @@ import {
   VeraAdminUsageService,
 } from "@/lib/admin/ai-usage/service";
 import { reportFingerprint, parseAdminUsageQuery } from "@/lib/admin/ai-usage/validation";
-import { IORedisVeraLeaseStore } from "@/lib/vera-ai/redis-lease";
+import { IORedisVeraLeaseStore, leaseKey } from "@/lib/vera-ai/redis-lease";
 
 function assertLocalDatabase(value: string): void {
   const parsed = new URL(value);
@@ -103,6 +110,24 @@ try {
   const immutableAfter = await db.aiPolicyBundle.findUniqueOrThrow({ where: { id: seed.id }, select: { quotaConfig: true } });
   assert.deepEqual(immutableAfter.quotaConfig, immutableBefore.quotaConfig, "active policy content changed despite the immutability trigger");
 
+  // A duplicate command key must be resolved after the losing insert
+  // transaction aborts. Exactly one request creates the draft and the other
+  // replays the durable winner; a changed payload gets the shared typed
+  // fingerprint conflict rather than a generic transaction failure.
+  const commandRaceKey = `runtime-command-race-${randomUUID()}`;
+  const [commandRaceA, commandRaceB] = await Promise.all([
+    policyService.createDraft(adminActor, { clientRequestId: commandRaceKey, reason: "Concurrent command winner A" }),
+    policyService.createDraft(adminActor, { clientRequestId: commandRaceKey, reason: "Concurrent command winner A" }),
+  ]);
+  assert.equal([commandRaceA, commandRaceB].filter((item) => !item.replayed).length, 1, "exactly one concurrent command should create the draft");
+  assert.equal([commandRaceA, commandRaceB].filter((item) => item.replayed).length, 1, "the concurrent loser should replay the winner");
+  assert.equal(commandRaceA.result && "id" in commandRaceA.result ? commandRaceA.result.id : null, commandRaceB.result && "id" in commandRaceB.result ? commandRaceB.result.id : null, "concurrent command replay changed the result target");
+  await assert.rejects(
+    () => policyService.createDraft(adminActor, { clientRequestId: commandRaceKey, reason: "Changed command payload" }),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "idempotency_conflict",
+    "changed command payload must return typed idempotency_conflict",
+  );
+
   const draftResponse = await policyService.createDraft(adminActor, { clientRequestId: randomUUID(), reason: "Runtime T10 preview evidence" });
   let draft = bundleResult(draftResponse);
   assert.equal(draft.state, AiPolicyState.draft);
@@ -145,7 +170,13 @@ try {
   const reservationsBeforeRollback = await db.aiReportReservation.count({ where: { adminPrincipalId: admin.id, operation: AiAdminReportOperation.admin_policy_preview } });
   await assert.rejects(
     () => db.$transaction(async (tx) => {
-      await previewAdapter.reserveAggregate({ principalId: admin.id, clientRequestId: randomUUID(), requestFingerprint: "rollback-preview-fingerprint", policyBundleVersion: activeForRollback.bundleVersion, costUnits: 3, asOf: new Date(), range, commandId: randomUUID(), transaction: tx });
+      const rollbackReservation = await previewAdapter.reserveAggregate({ principalId: admin.id, clientRequestId: randomUUID(), requestFingerprint: "rollback-preview-fingerprint", policyBundleVersion: activeForRollback.bundleVersion, costUnits: 3, asOf: new Date(), range, commandId: randomUUID(), transaction: tx });
+      const rollbackRow = await tx.aiReportReservation.findUnique({ where: { id: rollbackReservation.reservationId }, select: { recoveryLeaseOwner: true, recoveryFenceToken: true, recoveryDeadlineAt: true } });
+      assert(rollbackRow?.recoveryLeaseOwner && rollbackRow.recoveryFenceToken !== null, "rollback fixture did not persist its fenced lease identity");
+      // The caller owns the surrounding transaction.  Release the fenced
+      // Redis lease before intentionally aborting that transaction so the
+      // disposable rollback proof also covers the no-orphan-lease boundary.
+      await redis.release({ key: leaseKey(admin.id, "admin_report_query"), ownerId: rollbackRow.recoveryLeaseOwner, fencingToken: rollbackRow.recoveryFenceToken, expiresAt: rollbackRow.recoveryDeadlineAt });
       throw new Error("runtime preview rollback sentinel");
     }),
   );
@@ -165,6 +196,89 @@ try {
   assert.equal(promoted.state, AiPolicyState.active);
   assert.equal(retired.state, AiPolicyState.retired);
   assert.equal(await db.aiPolicyAuditEvent.count({ where: { bundleId: draft.id, action: "activated" } }), 1);
+
+  // Populate the disposable database with durable request/admission rows so
+  // T9 evidence exercises the real Prisma report query.  The two periods use
+  // disjoint student cohorts: comparison suppression must therefore be based
+  // on the union/complement, not on the current-period count alone.
+  const reportFeatures = ["vera.chat", "vera.analysis", "vera.route", "vera.review", "vera.ptn", "vera.summary", "vera.drill"] as const;
+  const reportStatuses = [AiRequestLifecycleState.succeeded, AiRequestLifecycleState.fallback, AiRequestLifecycleState.failed, AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] as const;
+  const reportModels = ["z-ai/glm-5.2:free", "mock", null] as const;
+  const reportGateways = ["openrouter", "mock", null] as const;
+  const reportUpstreams = ["decart", "mock", null] as const;
+  const admissionReasons = [AiAdmissionReason.quota, AiAdmissionReason.burst, AiAdmissionReason.concurrency, AiAdmissionReason.redis_unavailable, AiAdmissionReason.quota_overrun_lock] as const;
+  const reportStudents = Array.from({ length: 70 }, () => randomUUID());
+  await db.user.createMany({ data: reportStudents.map((id, index) => ({ id, email: `vera-report-${id}@example.test`, fullName: `Vera Report Fixture ${index + 1}`, passwordHash: "fixture" })) });
+  const reportRequests: Array<{
+    id: string;
+    studentId: string;
+    idempotencyKeyId: string;
+    featureKey: string;
+    status: AiRequestLifecycleState;
+    model: string | null;
+    gateway: string | null;
+    upstreamProvider: string | null;
+    createdAt: Date;
+    inputTokens: number | null;
+    outputTokens: number | null;
+    tokenUsageState: AiTokenUsageState;
+    usageAccountingState: AiUsageAccountingState;
+    quotaUnitsConsumed: number;
+    quotaOverrunUnits: number;
+  }> = [];
+  const reportKeys: Array<{
+    id: string;
+    studentId: string;
+    clientRequestId: string;
+    requestFingerprint: string;
+    acceptedAt: Date;
+    terminalAt: Date | null;
+    expiresAt: Date;
+  }> = [];
+  const reportRequestData = (studentId: string, index: number, periodStart: Date): void => {
+    const requestId = randomUUID();
+    const idempotencyKeyId = randomUUID();
+    const day = index % 7;
+    const createdAt = new Date(periodStart.getTime() + day * 86_400_000 + 3 * 3_600_000);
+    const status = reportStatuses[index % reportStatuses.length]!;
+    const inputTokens = index % 4 === 0 ? null : 12 + (index % 3);
+    const outputTokens = index % 4 === 0 ? null : 30 + (index % 5);
+    const usageKnown = inputTokens !== null && outputTokens !== null;
+    const quotaOverrunUnits = index % 5 === 0 ? 2 : 0;
+    const terminal = status === AiRequestLifecycleState.succeeded || status === AiRequestLifecycleState.fallback || status === AiRequestLifecycleState.failed;
+    const acceptedAt = createdAt;
+    const model = reportModels[index % reportModels.length]!;
+    const gateway = reportGateways[index % reportGateways.length]!;
+    const upstreamProvider = reportUpstreams[index % reportUpstreams.length]!;
+    reportRequests.push({ id: requestId, studentId, idempotencyKeyId, featureKey: reportFeatures[index % reportFeatures.length]!, status, model, gateway, upstreamProvider, createdAt, inputTokens, outputTokens, tokenUsageState: usageKnown ? AiTokenUsageState.known : AiTokenUsageState.unknown, usageAccountingState: !terminal ? AiUsageAccountingState.unknown : quotaOverrunUnits > 0 ? AiUsageAccountingState.overrun_debt : AiUsageAccountingState.known, quotaUnitsConsumed: terminal ? 42 : 0, quotaOverrunUnits });
+    reportKeys.push({ id: idempotencyKeyId, studentId, clientRequestId: `vera-report-fixture-${requestId}`, requestFingerprint: requestId.replaceAll("-", ""), acceptedAt, terminalAt: terminal ? new Date(createdAt.getTime() + 120_000) : null, expiresAt: new Date(createdAt.getTime() + 90 * 86_400_000) });
+  };
+  const currentPeriod = new Date("2026-08-01T00:00:00.000Z");
+  const previousPeriod = new Date("2026-07-25T00:00:00.000Z");
+  reportStudents.slice(0, 35).forEach((studentId, index) => reportRequestData(studentId, index, currentPeriod));
+  reportStudents.slice(35).forEach((studentId, index) => reportRequestData(studentId, index, previousPeriod));
+  await db.aiIdempotencyKey.createMany({ data: reportKeys.map((key) => ({ id: key.id, studentId: key.studentId, operation: AiIdempotencyOperation.ai_request, clientRequestId: key.clientRequestId, requestFingerprint: key.requestFingerprint, fingerprintKeyVersion: "vera-report-fixture-v1", policyBundleVersion: promoted.bundleVersion, state: AiIdempotencyState.accepted, resultKind: AiIdempotencyResultKind.request, firstSeenAt: key.acceptedAt, lastSeenAt: key.acceptedAt, acceptedAt: key.acceptedAt, terminalAt: key.terminalAt, expiresAt: key.expiresAt })) });
+  await db.aiRequest.createMany({ data: reportRequests.map((request) => ({ id: request.id, studentId: request.studentId, requestType: "vera_chat" as const, model: request.model, inputTokens: request.inputTokens, outputTokens: request.outputTokens, status: request.status, latencyMs: 120 + (request.id.charCodeAt(0) % 30), clientRequestId: `vera-report-request-${request.id}`, requestFingerprint: request.id.replaceAll("-", ""), fingerprintKeyVersion: "vera-report-fixture-v1", idempotencyKeyId: request.idempotencyKeyId, featureKey: request.featureKey, behaviorVersion: "1", outputSchemaVersion: "1", contextPackVersion: "1", gateway: request.gateway, upstreamProvider: request.upstreamProvider, upstreamProviderSlug: request.upstreamProvider ? `${request.upstreamProvider}-slug` : null, observedUpstreamProviderSlug: request.upstreamProvider ? `${request.upstreamProvider}-slug` : null, policyBundleVersion: promoted.bundleVersion, settlementDeadlineAt: request.status === AiRequestLifecycleState.pending || request.status === AiRequestLifecycleState.staged ? new Date(request.createdAt.getTime() - 60_000) : new Date(request.createdAt.getTime() + 300_000), quotaUnitsReserved: 42, quotaUnitsConsumed: request.quotaUnitsConsumed, quotaOverrunUnits: request.quotaOverrunUnits, tokenUsageState: request.tokenUsageState, usageAccountingState: request.usageAccountingState, startedAt: request.createdAt, firstTokenAt: new Date(request.createdAt.getTime() + 100), completedAt: request.status === AiRequestLifecycleState.pending || request.status === AiRequestLifecycleState.staged ? null : new Date(request.createdAt.getTime() + 120_000), timeToFirstTokenMs: 100, finalizedAt: request.status === AiRequestLifecycleState.pending || request.status === AiRequestLifecycleState.staged ? null : new Date(request.createdAt.getTime() + 120_000), createdAt: request.createdAt })) });
+  await db.aiAdmissionEvent.createMany({ data: reportRequests.slice(0, 35).map((request, index) => ({ id: randomUUID(), studentId: request.studentId, occurredAt: request.createdAt, localQuotaDate: new Date("2026-08-01T00:00:00.000Z"), quotaTimezone: "Asia/Jakarta", quotaTimezonePolicyVersion: "vera-quota-v1", policyBundleVersion: promoted.bundleVersion, quotaOffsetMinutes: 420, featureKey: request.featureKey, behaviorVersion: "1", gateway: request.gateway, upstreamProvider: request.upstreamProvider, upstreamProviderSlug: request.upstreamProvider ? `${request.upstreamProvider}-slug` : null, model: request.model, reason: admissionReasons[index % admissionReasons.length]!, idempotencyKeyId: request.idempotencyKeyId })) });
+
+  const populatedQuery = parseAdminUsageQuery(new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, include: "dailyTrend,byFeature,byModel,byStatus,incidents,comparison" }), new Date());
+  const populatedReport = await reportService.getReport({ adminPrincipalId: admin.id, idempotencyKey: `report-populated-${randomUUID()}`, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, include: "dailyTrend,byFeature,byModel,byStatus,incidents,comparison" }) });
+  assert.equal(populatedReport.status, 200, "populated report should be a durable HTTP-200 DTO");
+  const populatedDto = populatedReport.body as { summary?: { state: string }; dailyTrend?: { state: string }; byFeature?: { state: string }; byModel?: { state: string }; byStatus?: { state: string }; comparison?: { state: string }; range?: { from: string; to: string; timezone: string } };
+  assert.equal(populatedDto.range?.from, populatedQuery.from);
+  assert.equal(populatedDto.range?.timezone, populatedQuery.timezone);
+  assert.equal(populatedDto.summary?.state, "ready");
+  assert.equal(populatedDto.dailyTrend?.state, "ready");
+  assert.equal(populatedDto.byFeature?.state, "ready");
+  assert.equal(populatedDto.byModel?.state, "ready");
+  assert.equal(populatedDto.byStatus?.state, "ready");
+  assert.equal(populatedDto.comparison?.state, "ready");
+  assert(!JSON.stringify(populatedDto).includes("vera-report-"), "aggregate DTO must not expose student fixture identities");
+  const unknownReport = await reportService.getReport({ adminPrincipalId: admin.id, idempotencyKey: `report-unknown-${randomUUID()}`, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, model: "unknown", gateway: "unknown", upstreamProvider: "unknown" }) });
+  assert.equal(unknownReport.status, 200, "unknown identity filter should remain aggregate-only");
+  const populatedFilter = await reportService.getReport({ adminPrincipalId: admin.id, idempotencyKey: `report-filter-${randomUUID()}`, params: new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone, feature: "vera.chat", status: "succeeded", gateway: "mock", upstreamProvider: "mock", model: "mock", include: "byFeature" }) });
+  assert.equal(populatedFilter.status, 200, "bounded report filters should be accepted");
+  console.log("PASS vera-prisma-sprint4-runtime: populated persisted AiRequest/AiAdmissionEvent report is ready, filtered, comparison-safe, and identifier-free");
 
   const reportQuery = parseAdminUsageQuery(new URLSearchParams({ from: range.from, to: range.to, timezone: range.timezone }), new Date());
   const reportKey = randomUUID();

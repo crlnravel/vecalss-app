@@ -134,7 +134,11 @@ export async function ensureEffectivePolicyBoundary(db: ReportDb, _now: Date, ac
   // plain PrismaClient would otherwise release the FOR UPDATE lock at the end
   // of the SELECT before the retirement/promotion writes. Keep the whole
   // boundary in one transaction when the caller did not already provide one.
-  if ("$transaction" in db && typeof db.$transaction === "function") {
+  // Interactive transaction clients expose a `$transaction` proxy too, but
+  // intentionally do not expose the lifecycle `$connect` method.  Checking
+  // `$transaction` alone would open a nested transaction, abort the caller's
+  // snapshot, and can cause a second Redis lease attempt during adapter retry.
+  if ("$connect" in db && typeof (db as PrismaClient).$connect === "function") {
     await (db as PrismaClient).$transaction(async (tx) => ensureEffectivePolicyBoundaryInTransaction(tx, await databaseNow(tx), actorId));
     return;
   }

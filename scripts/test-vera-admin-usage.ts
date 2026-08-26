@@ -117,9 +117,35 @@ assert.equal(built.dto.summary.rows[0]?.unknownUsage, 1);
 assert.equal(built.dto.summary.rows[0]?.overrunDebtUnits, 2);
 assert.equal(built.dto.byFeature.state, "suppressed", "unsafe feature partition is suppressed with complement protection");
 assert.equal(built.dto.incidents.state, "suppressed", "incident cohorts use the same k=5 complement rule");
+assert.equal(built.dto.comparison.state, "suppressed", "current/previous comparison applies one union complement boundary");
 assert.equal(built.dto.freshness.state, "fresh");
 assert.equal(built.outcome, "suppressed");
 assert.equal(JSON.stringify(built.dto).includes("request-"), false, "DTO must not contain request identifiers");
 assert.equal(JSON.stringify(built.dto).includes("student-"), false, "DTO must not contain student identifiers");
+
+// A daily trend with six affected students and one complement must not be
+// widened into a ready/coarsened row. Repeat the same query to prove the
+// suppression decision is deterministic and cannot be differenced into a
+// hidden cohort value.
+const trendQuery = parseAdminUsageQuery(new URLSearchParams({
+  from: "2026-08-20",
+  to: "2026-08-22",
+  timezone: "Asia/Jakarta",
+  include: "dailyTrend,comparison",
+}), fixedNow);
+const adversarialRows = Array.from({ length: 7 }, (_, index) => requestRow(index, "succeeded", new Date(index < 6 ? "2026-08-20T03:00:00.000Z" : "2026-08-21T03:00:00.000Z")));
+const adversarialPrevious = Array.from({ length: 7 }, (_, index) => requestRow(index, "succeeded", new Date("2026-08-19T03:00:00.000Z")));
+const adversarialSources = {
+  requests: adversarialRows,
+  admissions: [],
+  previousRequests: adversarialPrevious,
+  now: fixedNow,
+  lastUpdatedAt: new Date("2026-08-26T03:59:00.000Z"),
+};
+const adversarialA = buildAdminUsageDto({ query: trendQuery, sources: adversarialSources, policy, scheduledPolicy: null });
+const adversarialB = buildAdminUsageDto({ query: trendQuery, sources: adversarialSources, policy, scheduledPolicy: null });
+assert.equal(adversarialA.dto.dailyTrend.state, "suppressed", "6-of-7 daily trend cannot coarsen around a one-student complement");
+assert.equal(adversarialA.dto.comparison.state, "suppressed", "6-of-7 comparison cannot expose current/previous complements");
+assert.deepEqual(adversarialB.dto, adversarialA.dto, "repeated adversarial queries must return the same suppression boundary");
 
 console.log("vera admin usage unit checks passed");

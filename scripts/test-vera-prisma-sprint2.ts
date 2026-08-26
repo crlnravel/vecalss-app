@@ -101,6 +101,13 @@ if (!policyRow) throw new Error("Vera policy seed is missing from the disposable
 // The policy-console migration intentionally rejects content/effectiveAt
 // edits once a bundle is non-draft. Normalize this disposable fixture through
 // the legal state transition first; production rows are never bypassed.
+const competingPolicyRows = await db.aiPolicyBundle.findMany({
+  where: { id: { not: policyRow.id }, state: { in: ["active", "scheduled"] } },
+  select: { id: true },
+});
+for (const competing of competingPolicyRows) {
+  await db.aiPolicyBundle.update({ where: { id: competing.id }, data: { state: "draft" } });
+}
 if (policyRow.state !== "draft") {
   await db.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "draft" } });
 }

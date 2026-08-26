@@ -36,6 +36,10 @@ function distinctStudents(rows: Array<{ studentId: string | null }>): Set<string
   return new Set(rows.map((row) => row.studentId).filter((studentId): studentId is string => Boolean(studentId)));
 }
 
+function unionStudents(...sets: Set<string>[]): Set<string> {
+  return new Set(sets.flatMap((set) => [...set]));
+}
+
 function safeCell(baseStudents: Set<string>, cellStudents: Set<string>, minimum = VERA_REPORT_MIN_GROUP_SIZE): boolean {
   return baseStudents.size >= minimum && cellStudents.size >= minimum && baseStudents.size - cellStudents.size >= minimum;
 }
@@ -203,17 +207,56 @@ function buildDailyTrend(rows: MetricRows, query: VeraAdminUsageQuery, now: Date
     };
   }
 
-  // Keep the daily floor while coarsening unsafe cells into one bounded local
-  // calendar range. A range label carries no hidden row count or value.
-  const coarsenedStudents = distinctStudents(rows);
-  if (!safeCell(baseStudents, coarsenedStudents) && baseStudents.size < VERA_REPORT_MIN_GROUP_SIZE) {
-    return { partition: suppressed(), coarsened: false };
-  }
-  const dateRange = `${query.from}–${query.to}`;
+  // Coarsening is allowed only when every resulting contiguous range still
+  // has both sides of the k-anonymity complement. Collapsing the whole trend
+  // into one row would make its complement empty and leak the population for
+  // adversarial 6-of-7 (or analogous) cohorts, so an unpartitionable trend is
+  // suppressed as a whole.
+  const grouped = findSafeDailyGroups(days, baseStudents);
+  if (!grouped) return { partition: suppressed(), coarsened: false };
   return {
-    partition: { state: "ready", rows: [{ ...aggregateMetrics(rows, now, coarsenedStudents.size), date: dateRange }] },
+    partition: {
+      state: "ready",
+      rows: grouped.map((group) => ({
+        ...aggregateMetrics(group.rows, now, group.students.size),
+        date: group.from === group.to ? group.from : `${group.from}–${group.to}`,
+      })),
+    },
     coarsened: true,
   };
+}
+
+type DailyGroup = { from: string; to: string; rows: MetricRows; students: Set<string> };
+
+function findSafeDailyGroups(
+  days: Array<{ date: string; rows: MetricRows; students: Set<string> }>,
+  baseStudents: Set<string>,
+): DailyGroup[] | null {
+  const memo = new Map<number, DailyGroup[] | null>();
+  function search(start: number): DailyGroup[] | null {
+    if (start === days.length) return [];
+    if (memo.has(start)) return memo.get(start) ?? null;
+    const students = new Set<string>();
+    for (let end = start; end < days.length; end += 1) {
+      for (const studentId of days[end]!.students) students.add(studentId);
+      if (!safeCell(baseStudents, students)) continue;
+      const rest = search(end + 1);
+      if (rest) {
+        const group: DailyGroup = {
+          from: days[start]!.date,
+          to: days[end]!.date,
+          rows: days.slice(start, end + 1).flatMap((day) => day.rows),
+          students: new Set(students),
+        };
+        const result = [group, ...rest];
+        memo.set(start, result);
+        return result;
+      }
+    }
+    memo.set(start, null);
+    return null;
+  }
+  return search(0);
 }
 
 function buildIncidents(rows: VeraAdminAdmissionDbRow[], requestRows: MetricRows, now: Date): VeraAggregatePartition<VeraIncidentRow> {
@@ -247,7 +290,13 @@ function buildIncidents(rows: VeraAdminAdmissionDbRow[], requestRows: MetricRows
 function buildComparison(current: MetricRows, previous: MetricRows, now: Date): VeraAggregatePartition<VeraComparisonRow> {
   const currentStudents = distinctStudents(current);
   const previousStudents = distinctStudents(previous);
-  if (!summarySafe(currentStudents) || !summarySafe(previousStudents)) return suppressed();
+  const comparisonStudents = unionStudents(currentStudents, previousStudents);
+  if (
+    !summarySafe(currentStudents)
+    || !summarySafe(previousStudents)
+    || !safeCell(comparisonStudents, currentStudents)
+    || !safeCell(comparisonStudents, previousStudents)
+  ) return suppressed();
   const currentMetrics = aggregateMetrics(current, now, currentStudents.size);
   const previousMetrics = aggregateMetrics(previous, now, previousStudents.size);
   return {

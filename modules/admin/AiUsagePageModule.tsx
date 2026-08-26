@@ -18,6 +18,9 @@ import { AlertCircle, BarChart3, ChevronDown, Clock3, RefreshCw, ShieldCheck } f
 import type { SessionContext } from "@/lib/auth/types";
 import {
   VERA_REPORT_FEATURES,
+  VERA_REPORT_GATEWAYS,
+  VERA_REPORT_MODELS,
+  VERA_REPORT_UPSTREAMS,
   VERA_REPORT_STATUSES,
   type VeraAdminReportFailureDto,
   type VeraAdminUsageDto,
@@ -25,6 +28,9 @@ import {
   type VeraComparisonRow,
   type VeraIncidentRow,
   type VeraReportFeature,
+  type VeraReportGateway,
+  type VeraReportModel,
+  type VeraReportUpstream,
   type VeraReportStatus,
 } from "@/lib/admin/ai-usage/types";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
@@ -35,6 +41,9 @@ import {
 } from "./admin-ui-contract";
 
 type FilterValue = VeraReportFeature | "all";
+type GatewayValue = VeraReportGateway | "unknown" | "all";
+type ModelValue = VeraReportModel | "unknown" | "all";
+type UpstreamValue = VeraReportUpstream | "unknown" | "all";
 type StatusValue = VeraReportStatus | "all";
 type ReportState = { kind: "idle" } | { kind: "loading" } | { kind: "error"; error: VeraAdminReportFailureDto | { error: string } } | { kind: "ready"; dto: VeraAdminUsageDto };
 
@@ -56,6 +65,24 @@ const statusLabels: Record<StatusValue, string> = {
   pending: "Pending",
   staged: "Staged",
   succeeded: "Sukses",
+};
+const gatewayLabels: Record<GatewayValue, string> = {
+  all: "Semua gateway",
+  openrouter: "OpenRouter",
+  mock: "Mock gateway",
+  unknown: "Gateway unknown",
+};
+const upstreamLabels: Record<UpstreamValue, string> = {
+  all: "Semua upstream",
+  decart: "Decart",
+  mock: "Mock upstream",
+  unknown: "Upstream unknown",
+};
+const modelLabels: Record<ModelValue, string> = {
+  all: "Semua model",
+  "z-ai/glm-5.2:free": "z-ai/glm-5.2:free",
+  mock: "Mock model",
+  unknown: "Model unknown",
 };
 
 const countFormatter = new Intl.NumberFormat("id-ID");
@@ -168,7 +195,7 @@ function AggregateTable({ partition, title }: { partition: VeraAggregatePartitio
       </div>
       <PartitionState partition={partition} />
       {partition.state === "ready" && partition.rows.length > 0 ? (
-        <Table className="min-w-[680px]">
+        <Table className="hidden sm:table">
           <TableHeader>
             <TableRow className="bg-secondary-50/80 hover:bg-secondary-50/80">
               <TableHead>Label</TableHead>
@@ -194,6 +221,23 @@ function AggregateTable({ partition, title }: { partition: VeraAggregatePartitio
             ))}
           </TableBody>
         </Table>
+      ) : null}
+      {partition.state === "ready" && partition.rows.length > 0 ? (
+        <div className="grid gap-3 p-4 sm:hidden">
+          {partition.rows.map((row, index) => (
+            <article className="rounded-2xl border border-primary-100 bg-primary-50/40 p-4" key={`${row.label ?? row.date ?? "row"}-mobile-${index}`}>
+              <p className="font-semibold text-secondary-900">{row.label ?? row.date ?? "Total"}</p>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div><dt className="text-secondary-500">Requests</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.requests)}</dd></div>
+                <div><dt className="text-secondary-500">Sukses</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.succeeded)}</dd></div>
+                <div><dt className="text-secondary-500">Fallback</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.fallback)}</dd></div>
+                <div><dt className="text-secondary-500">Failed</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.failed)}</dd></div>
+                <div><dt className="text-secondary-500">Students</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.activeStudents)}</dd></div>
+                <div><dt className="text-secondary-500">Quota</dt><dd className="font-semibold text-secondary-900">{formatDecimal(row.quotaUnits)}</dd></div>
+              </dl>
+            </article>
+          ))}
+        </div>
       ) : null}
       {partition.state === "ready" && partition.rows.length === 0 ? <p className="px-5 py-5 text-sm text-secondary-600">Belum ada data pada rentang ini.</p> : null}
     </section>
@@ -268,6 +312,9 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
   const [to, setTo] = useState("");
   const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [feature, setFeature] = useState<FilterValue>("all");
+  const [gateway, setGateway] = useState<GatewayValue>("all");
+  const [upstreamProvider, setUpstreamProvider] = useState<UpstreamValue>("all");
+  const [model, setModel] = useState<ModelValue>("all");
   const [status, setStatus] = useState<StatusValue>("all");
   const [state, setState] = useState<ReportState>({ kind: "idle" });
 
@@ -276,9 +323,12 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (feature !== "all") params.set("feature", feature);
+    if (gateway !== "all") params.set("gateway", gateway);
+    if (upstreamProvider !== "all") params.set("upstreamProvider", upstreamProvider);
+    if (model !== "all") params.set("model", model);
     if (status !== "all") params.set("status", status);
     return params.toString();
-  }, [feature, from, status, timezone, to]);
+  }, [feature, from, gateway, model, status, timezone, to, upstreamProvider]);
 
   const loadReport = useCallback(async () => {
     setState({ kind: "loading" });
@@ -339,12 +389,15 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
         </section>
 
         <section className={`${ADMIN_CARD_CLASS_NAME} p-5`}>
-          <form className="grid gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" onSubmit={onSubmit}>
+          <form className="grid gap-4 lg:grid-cols-4 xl:grid-cols-8" onSubmit={onSubmit}>
             <label className="grid gap-2 text-sm font-semibold text-secondary-800">Dari<input aria-label="Tanggal mulai" className="h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm outline-none focus-visible:border-primary-500 focus-visible:ring-3 focus-visible:ring-primary-200" onChange={(event) => setFrom(event.target.value)} type="date" value={from} /></label>
             <label className="grid gap-2 text-sm font-semibold text-secondary-800">Sampai<input aria-label="Tanggal akhir eksklusif" className="h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm outline-none focus-visible:border-primary-500 focus-visible:ring-3 focus-visible:ring-primary-200" onChange={(event) => setTo(event.target.value)} type="date" value={to} /></label>
             <label className="grid gap-2 text-sm font-semibold text-secondary-800">Zona IANA<Input aria-label="Zona waktu IANA" onChange={(event) => setTimezone(event.target.value)} value={timezone} /></label>
             <FilterMenu label="Fitur" onChange={setFeature} options={["all", ...VERA_REPORT_FEATURES].map((value) => ({ label: featureLabels[value as FilterValue], value: value as FilterValue }))} value={feature} />
             <FilterMenu label="Status" onChange={setStatus} options={["all", ...VERA_REPORT_STATUSES].map((value) => ({ label: statusLabels[value as StatusValue], value: value as StatusValue }))} value={status} />
+            <FilterMenu label="Gateway" onChange={setGateway} options={["all", ...VERA_REPORT_GATEWAYS, "unknown"].map((value) => ({ label: gatewayLabels[value as GatewayValue], value: value as GatewayValue }))} value={gateway} />
+            <FilterMenu label="Upstream" onChange={setUpstreamProvider} options={["all", ...VERA_REPORT_UPSTREAMS, "unknown"].map((value) => ({ label: upstreamLabels[value as UpstreamValue], value: value as UpstreamValue }))} value={upstreamProvider} />
+            <FilterMenu label="Model" onChange={setModel} options={["all", ...VERA_REPORT_MODELS, "unknown"].map((value) => ({ label: modelLabels[value as ModelValue], value: value as ModelValue }))} value={model} />
             <Button className="min-h-11 self-end" disabled={state.kind === "loading"} type="submit">
               {state.kind === "loading" ? <RefreshCw aria-hidden="true" className="animate-spin" size={16} /> : <RefreshCw aria-hidden="true" size={16} />}
               Muat laporan

@@ -113,6 +113,13 @@ if (!policy) throw new Error("Disposable policy seed is missing.");
 try {
   // Keep the immutable policy trigger intact while preparing this disposable
   // fixture: only draft rows may receive the test effectiveAt normalization.
+  const competingPolicyRows = await db.aiPolicyBundle.findMany({
+    where: { id: { not: policy.id }, state: { in: ["active", "scheduled"] } },
+    select: { id: true },
+  });
+  for (const competing of competingPolicyRows) {
+    await db.aiPolicyBundle.update({ where: { id: competing.id }, data: { state: "draft" } });
+  }
   if (policy.state !== "draft") await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "active", effectiveAt: new Date(now.getTime() - 60_000) } });
   await db.user.createMany({ data: [
