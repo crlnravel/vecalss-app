@@ -703,6 +703,56 @@ enum AiCapabilityName {
   @@map("ai_capability_name")
 }
 
+enum AiProviderGateState {
+  open_blocked
+  release_ready
+
+  @@map("ai_provider_gate_state")
+}
+
+enum AiAdminCommandOperation {
+  ai_policy_draft_create
+  ai_policy_draft_edit
+  ai_policy_validate
+  ai_policy_preview
+  ai_policy_approve
+  ai_policy_schedule
+  ai_policy_activate
+  ai_policy_rollback
+  ai_policy_retention_extension_request
+
+  @@map("ai_admin_command_operation")
+}
+
+enum AiAdminCommandState {
+  pending
+  accepted
+  rejected
+  expired
+
+  @@map("ai_admin_command_state")
+}
+
+enum AiAdminCommandResultKind {
+  draft
+  validation
+  preview
+  approval
+  schedule
+  activation
+  rollback
+  retention_extension
+
+  @@map("ai_admin_command_result_kind")
+}
+
+enum AiPolicyPreviewMode {
+  categorical
+  aggregate
+
+  @@map("ai_policy_preview_mode")
+}
+
 enum AiAdmissionReason {
   quota
   quota_overrun_lock
@@ -1021,6 +1071,7 @@ model User {
   aiPolicyBundlesCreated                 AiPolicyBundle[]                 @relation("AiPolicyCreatedBy")
   aiPolicyBundlesApproved                AiPolicyBundle[]                 @relation("AiPolicyApprovedBy")
   aiPolicyAuditEvents                    AiPolicyAuditEvent[]
+  aiAdminCommandLedgers                  AiAdminCommandLedger[]
   aiAdminReportAudits                    AiAdminReportAudit[]
   aiReportReservations                   AiReportReservation[]
   aiCapabilityGrants                     AiCapabilityGrant[]
@@ -3248,6 +3299,7 @@ model AiPolicyBundle {
   settlementConfig    Json          @map("settlement_config") @db.JsonB
   reportConfig        Json          @map("report_config") @db.JsonB
   retentionConfig     Json          @map("retention_config") @db.JsonB
+  providerGateState   AiProviderGateState @default(open_blocked) @map("provider_gate_state")
   validationDigest    String        @map("validation_digest") @db.VarChar(128)
   changeReason        String?       @map("change_reason") @db.VarChar(500)
   createdByUserId     String?       @map("created_by_user_id") @db.Uuid
@@ -3255,12 +3307,18 @@ model AiPolicyBundle {
   approvedByUserId    String?       @map("approved_by_user_id") @db.Uuid
   approvedAt          DateTime?     @map("approved_at") @db.Timestamptz
   activatedAt         DateTime?     @map("activated_at") @db.Timestamptz
+  editorActorIds      String[]      @default([]) @map("editor_actor_ids") @db.Uuid
+  requiredCapabilityUnion AiCapabilityName[] @default([]) @map("required_capability_union")
+  approvalSnapshotId  String?       @unique @map("approval_snapshot_id") @db.Uuid
+  approvalSnapshotDigest String?    @map("approval_snapshot_digest") @db.VarChar(128)
+  revision            Int           @default(0)
 
   supersedesBundle AiPolicyBundle?      @relation("AiPolicySupersession", fields: [supersedesBundleId], references: [id])
   successors       AiPolicyBundle[]     @relation("AiPolicySupersession")
   createdBy        User?                @relation("AiPolicyCreatedBy", fields: [createdByUserId], references: [id])
   approvedBy       User?                @relation("AiPolicyApprovedBy", fields: [approvedByUserId], references: [id])
   auditEvents      AiPolicyAuditEvent[]
+  approvalSnapshots AiPolicyApprovalSnapshot[]
 
   @@index([state, effectiveAt])
   @@map("ai_policy_bundles")
@@ -3273,7 +3331,12 @@ model AiPolicyAuditEvent {
   actorId    String              @map("actor_id") @db.Uuid
   occurredAt DateTime            @default(now()) @map("occurred_at") @db.Timestamptz
   diffDigest String?             @map("diff_digest") @db.VarChar(128)
+  validationDigest String?        @map("validation_digest") @db.VarChar(128)
   reason     String?             @db.VarChar(500)
+  fromState  AiPolicyState?      @map("from_state")
+  toState    AiPolicyState?      @map("to_state")
+  approvalSnapshotId String?     @map("approval_snapshot_id") @db.Uuid
+  approvalSnapshotDigest String? @map("approval_snapshot_digest") @db.VarChar(128)
 
   bundle AiPolicyBundle @relation(fields: [bundleId], references: [id])
   actor  User           @relation(fields: [actorId], references: [id])
@@ -3282,6 +3345,60 @@ model AiPolicyAuditEvent {
   @@map("ai_policy_audit_events")
 }
 
+model AiPolicyApprovalSnapshot {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bundleId                String              @map("bundle_id") @db.Uuid
+  bundleRevision          Int                 @map("bundle_revision")
+  snapshotVersion         String              @map("snapshot_version") @db.VarChar(40)
+  editorActorIds          String[]            @map("editor_actor_ids") @db.Uuid
+  requiredCapabilityUnion AiCapabilityName[]  @map("required_capability_union")
+  snapshotDigest          String              @unique @map("snapshot_digest") @db.VarChar(128)
+  approvalAuditEventId    String?             @unique @map("approval_audit_event_id") @db.Uuid
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  bundle AiPolicyBundle @relation(fields: [bundleId], references: [id])
+
+  @@unique([bundleId, bundleRevision])
+  @@map("ai_policy_approval_snapshots")
+}
+
+model AiAdminCommandLedger {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminPrincipalId      String                 @map("admin_principal_id") @db.Uuid
+  operation             AiAdminCommandOperation
+  clientRequestId       String                 @map("client_request_id") @db.VarChar(120)
+  requestFingerprint    String                 @map("request_fingerprint") @db.VarChar(128)
+  fingerprintKeyVersion String                 @map("fingerprint_key_version") @db.VarChar(40)
+  state                 AiAdminCommandState    @default(pending)
+  resultKind            AiAdminCommandResultKind
+  resultId              String?                @map("result_id") @db.Uuid
+  rejectionCode         String?                @map("rejection_code") @db.VarChar(100)
+  rejectionClass        AiRejectionClass?      @map("rejection_class")
+  retentionTargetRef    String?                @map("retention_target_ref") @db.VarChar(160)
+  retentionUpperBound   DateTime?              @map("retention_upper_bound") @db.Timestamptz
+  retentionPolicyBundleVersion String?         @map("retention_policy_bundle_version") @db.VarChar(120)
+  retentionAuditReference String?              @map("retention_audit_reference") @db.Uuid
+  previewMode           AiPolicyPreviewMode?  @map("preview_mode")
+  previewActiveBundleId String?               @map("preview_active_bundle_id") @db.Uuid
+  previewActiveBundleVersion String?          @map("preview_active_bundle_version") @db.VarChar(120)
+  previewEffectiveAt    DateTime?             @map("preview_effective_at") @db.Timestamptz
+  previewAsOf           DateTime?             @map("preview_as_of") @db.Timestamptz
+  previewValidationDigest String?             @map("preview_validation_digest") @db.VarChar(128)
+  previewReservationId  String?               @map("preview_reservation_id") @db.VarChar(120)
+  reason                String?                @db.VarChar(500)
+  firstSeenAt           DateTime               @default(now()) @map("first_seen_at") @db.Timestamptz
+  lastSeenAt            DateTime               @default(now()) @map("last_seen_at") @db.Timestamptz
+  terminalAt            DateTime?              @map("terminal_at") @db.Timestamptz
+  expiresAt             DateTime               @map("expires_at") @db.Timestamptz
+  version               Int                    @default(0)
+
+  adminPrincipal User @relation(fields: [adminPrincipalId], references: [id])
+
+  @@unique([adminPrincipalId, operation, clientRequestId])
+  @@index([adminPrincipalId, operation, state])
+  @@index([state, expiresAt])
+  @@map("ai_admin_command_ledgers")
+}
 model AiCapabilityGrant {
   id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   capability AiCapabilityName

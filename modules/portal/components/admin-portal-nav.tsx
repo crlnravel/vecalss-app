@@ -9,6 +9,7 @@ import {
   History,
   LayoutDashboard,
   BarChart3,
+  SlidersHorizontal,
   Users,
 } from "@/lib/icons";
 
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandLockup } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "student-banners" | "student-preview" | "docs";
+type AdminSection = "overview" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
 
 type AdminNavigationItem = {
   href: string;
@@ -37,6 +38,7 @@ type AdminNavigationItem = {
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
   { href: "/admin/ai-usage", icon: BarChart3, id: "ai-usage", label: "AI usage" },
+  { href: "/admin/ai-policy", icon: SlidersHorizontal, id: "ai-policy", label: "Vera AI policy" },
   { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifications" },
   { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Audit logs" },
 ];

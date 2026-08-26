@@ -254,5 +254,9 @@ export function resolveVeraQuotaLimit(input: {
 }
 
 export function isCapabilityGranted(input: { capability: "canManageAiPolicy" | "canManageAiGovernance"; active: boolean; role?: string }): boolean {
-  return input.active && (input.role === "admin" || input.role === "ai_policy_operator" || input.role === "ai_governance_operator");
+  if (!input.active) return false;
+  if (input.role === "admin") return true;
+  if (input.role === "ai_policy_operator") return input.capability === "canManageAiPolicy";
+  if (input.role === "ai_governance_operator") return input.capability === "canManageAiGovernance";
+  return false;
 }
