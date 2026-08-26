@@ -4,6 +4,7 @@ import {
   AiAdminReportEventType,
   AiAdminReportOperation,
   AiAdminReportSuppressionState,
+  AiPolicyAuditAction,
   AiReportBudgetState,
   AiReportReservationResultKind,
   AiReportReservationState,
@@ -16,15 +17,18 @@ import {
   InMemoryVeraLeaseStore,
   IORedisVeraLeaseStore,
   VeraRedisUnavailableError,
+  leaseKey,
   type VeraLease,
   type VeraLeaseStore,
 } from "@/lib/vera-ai/redis-lease";
 import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
-import type { AiPolicyImpactPreviewDto, PreviewReservationAdapter } from "@/lib/admin/ai-policy/contracts";
+import { policyValidationDigest } from "@/lib/admin/ai-policy/contracts";
+import type { AiPolicyImpactCell, AiPolicyImpactPreviewDto, PreviewReservationAdapter, PreviewReservationRange } from "@/lib/admin/ai-policy/contracts";
 import { parseCompletePolicyConfig } from "@/lib/admin/ai-policy/validation";
 
 import { buildAdminUsageDto } from "./aggregate";
 import {
+  dateForDisplay,
   isSafeReportKey,
   parseAdminUsageQuery,
   reportCost,
@@ -111,20 +115,124 @@ function reportDbError(code: VeraAdminUsageError["code"], retryable = true, rese
 }
 
 async function databaseNow(db: ReportDb): Promise<Date> {
-  const rows = await db.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+  const rows = await db.$queryRaw<Array<{ now: Date }>>`SELECT CURRENT_TIMESTAMP AS now`;
   const now = rows[0]?.now;
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) throw reportDbError("report_unavailable");
   return now;
 }
 
-async function activePolicy(db: ReportDb, now: Date): Promise<{ policy: VeraReportPolicy; scheduledPolicy: { bundleVersion: string; effectiveAt: Date } | null }> {
-  const rows = await db.aiPolicyBundle.findMany({
-    where: { state: { in: ["active", "scheduled"] }, effectiveAt: { lte: now } },
-    orderBy: [{ effectiveAt: "desc" }, { id: "desc" }],
-    take: 2,
-  });
-  if (rows.length !== 1 || !rows[0]) throw reportDbError("report_unavailable", false);
-  const row = rows[0];
+/**
+ * Establish one DB-clock policy boundary for every report/preview path.  The
+ * row locks are deliberately short-lived and are acquired before any budget
+ * or Redis decision.  A complete due successor is promoted in this same
+ * transaction; an incomplete/ambiguous successor fails closed instead of
+ * letting callers observe the old active bundle or treating a scheduled row
+ * as active without state/audit/CAS evidence.
+ */
+export async function ensureEffectivePolicyBoundary(db: ReportDb, _now: Date, actorId?: string): Promise<void> {
+  // The exported helper is also used by workers and disposable fixtures. A
+  // plain PrismaClient would otherwise release the FOR UPDATE lock at the end
+  // of the SELECT before the retirement/promotion writes. Keep the whole
+  // boundary in one transaction when the caller did not already provide one.
+  if ("$transaction" in db && typeof db.$transaction === "function") {
+    await (db as PrismaClient).$transaction(async (tx) => ensureEffectivePolicyBoundaryInTransaction(tx, await databaseNow(tx), actorId));
+    return;
+  }
+  await ensureEffectivePolicyBoundaryInTransaction(db, await databaseNow(db), actorId);
+}
+
+async function ensureEffectivePolicyBoundaryInTransaction(db: ReportDb, now: Date, actorId?: string): Promise<void> {
+  const locked = await db.$queryRaw<Array<{ id: string; state: string }>>`
+    SELECT id, state::text AS state
+    FROM ai_policy_bundles
+    WHERE state IN ('active'::ai_policy_state, 'scheduled'::ai_policy_state)
+      AND (state = 'active'::ai_policy_state OR effective_at <= ${now})
+    ORDER BY CASE WHEN state = 'active'::ai_policy_state THEN 0 ELSE 1 END,
+             effective_at ASC,
+             id ASC
+    FOR UPDATE
+  `;
+  const due = locked.filter((row) => row.state === "scheduled");
+  const active = locked.filter((row) => row.state === "active");
+  if (due.length > 1) throw reportDbError("report_unavailable", false);
+  if (due[0]) {
+    if (!actorId || active.length > 1) throw reportDbError("report_unavailable", false);
+    const successor = await db.aiPolicyBundle.findUnique({ where: { id: due[0].id } });
+    if (
+      !successor
+      || successor.state !== "scheduled"
+      || successor.effectiveAt > now
+      || !successor.validationDigest.trim()
+      || !successor.approvalSnapshotId
+      || !successor.approvedAt
+      || !successor.approvedByUserId
+    ) {
+      throw reportDbError("report_unavailable", false);
+    }
+    const approvalSnapshot = await db.aiPolicyApprovalSnapshot.findUnique({ where: { id: successor.approvalSnapshotId } });
+    if (
+      !approvalSnapshot
+      || approvalSnapshot.bundleId !== successor.id
+      || approvalSnapshot.bundleRevision !== successor.revision - 1
+      || approvalSnapshot.snapshotDigest !== successor.approvalSnapshotDigest
+      || !approvalSnapshot.approvalAuditEventId
+    ) {
+      throw reportDbError("report_unavailable", false);
+    }
+    let successorConfig;
+    try {
+      successorConfig = parseCompletePolicyConfig({
+        bundleVersion: successor.bundleVersion,
+        configSchemaVersion: successor.configSchemaVersion,
+        effectiveAt: successor.effectiveAt,
+        quotaConfig: successor.quotaConfig,
+        settlementConfig: successor.settlementConfig,
+        reportConfig: successor.reportConfig,
+        retentionConfig: successor.retentionConfig,
+        providerGateState: successor.providerGateState,
+        changeReason: successor.changeReason,
+      });
+      if (policyValidationDigest(successorConfig) !== successor.validationDigest) throw new Error("policy digest drift");
+    } catch {
+      throw reportDbError("report_unavailable", false);
+    }
+    if (active[0]) {
+      await db.aiPolicyBundle.update({ where: { id: active[0].id }, data: { state: "retired", revision: { increment: 1 } } });
+      await db.aiPolicyAuditEvent.create({
+        data: {
+          bundleId: active[0].id,
+          actorId,
+          action: AiPolicyAuditAction.retired,
+          reason: "DB-clock successor promotion",
+          fromState: "active",
+          toState: "retired",
+        },
+      });
+    }
+    await db.aiPolicyBundle.update({ where: { id: successor.id }, data: { state: "active", activatedAt: now, revision: { increment: 1 } } });
+    await db.aiPolicyAuditEvent.create({
+      data: {
+        bundleId: successor.id,
+        actorId,
+        action: AiPolicyAuditAction.activated,
+        diffDigest: successor.validationDigest,
+        validationDigest: successor.validationDigest,
+        reason: "DB-clock successor promotion",
+        fromState: "scheduled",
+        toState: "active",
+      },
+    });
+    return;
+  }
+  if (active.length !== 1) throw reportDbError("report_unavailable", false);
+  const activeRow = await db.aiPolicyBundle.findUnique({ where: { id: active[0]!.id } });
+  if (!activeRow || activeRow.effectiveAt > now || !activeRow.validationDigest.trim()) throw reportDbError("report_unavailable", false);
+}
+
+async function activePolicy(db: ReportDb, now: Date, actorId?: string): Promise<{ policy: VeraReportPolicy; scheduledPolicy: { bundleVersion: string; effectiveAt: Date } | null }> {
+  await ensureEffectivePolicyBoundary(db, now, actorId);
+  const row = await db.aiPolicyBundle.findFirst({ where: { state: "active" } });
+  if (!row) throw reportDbError("report_unavailable", false);
   let reportConfig: VeraReportPolicy["reportConfig"];
   try {
     const config = parseCompletePolicyConfig({
@@ -154,14 +262,98 @@ async function activePolicy(db: ReportDb, now: Date): Promise<{ policy: VeraRepo
   };
 }
 
-function dateOnly(value: string): Date {
-  return new Date(`${value}T00:00:00.000Z`);
+type PreviewChangedSections = Partial<Record<"quota" | "settlement" | "report" | "retention", true>>;
+type PolicyPreviewEffects = {
+  state: AiPolicyImpactPreviewDto["state"];
+  effects: {
+    futureAdmissions: AiPolicyImpactCell;
+    futureReportReservations: AiPolicyImpactCell;
+    futureContentEvidence: AiPolicyImpactCell;
+  };
+};
+
+function previewPopulationCell(
+  category: "quota" | "report_budget" | "content_evidence",
+  changed: boolean,
+  rows: Array<{ studentId: string | null; at: Date; affected: boolean }>,
+  minimum: number,
+  timezone: string,
+): { cell: AiPolicyImpactCell; coarsened: boolean } {
+  if (!changed) return { cell: { state: "unchanged" }, coarsened: false };
+  const base = new Set(rows.map((row) => row.studentId).filter((value): value is string => Boolean(value)));
+  const affected = new Set(rows.filter((row) => row.affected).map((row) => row.studentId).filter((value): value is string => Boolean(value)));
+  if (base.size < minimum || affected.size < minimum || base.size - affected.size < minimum) {
+    return { cell: { state: "suppressed" }, coarsened: false };
+  }
+  const dates = new Set(rows.map((row) => dateForDisplay(row.at, timezone)));
+  const coarsened = dates.size > 1 && [...dates].some((date) => {
+    const daily = rows.filter((row) => dateForDisplay(row.at, timezone) === date);
+    const dailyBase = new Set(daily.map((row) => row.studentId).filter((value): value is string => Boolean(value)));
+    const dailyAffected = new Set(daily.filter((row) => row.affected).map((row) => row.studentId).filter((value): value is string => Boolean(value)));
+    return dailyBase.size < minimum || dailyAffected.size < minimum || dailyBase.size - dailyAffected.size < minimum;
+  });
+  return {
+    coarsened,
+    cell: {
+      state: coarsened ? "coarsened" : "forward_only",
+      aggregate: { affectedFutureRows: rows.filter((row) => row.affected).length, category },
+    },
+  };
 }
 
-function previewAuditQuery(asOf: Date): VeraAdminUsageQuery {
-  const day = asOf.toISOString().slice(0, 10);
-  const nextDay = new Date(asOf.getTime() + 86_400_000).toISOString().slice(0, 10);
-  return parseAdminUsageQuery(new URLSearchParams({ from: day, to: nextDay, timezone: "UTC" }), asOf);
+/**
+ * Query real durable rows for aggregate policy impact.  This intentionally
+ * returns suppression/coarsening/unavailable states rather than manufacturing
+ * a ready/zero result when the disposable database has no evidence.
+ */
+export async function buildPolicyPreviewEffects(input: {
+  db: Prisma.TransactionClient;
+  query: VeraAdminUsageQuery;
+  changed: PreviewChangedSections;
+  minimumGroupSize?: number;
+}): Promise<PolicyPreviewEffects> {
+  const minimum = input.minimumGroupSize ?? 5;
+  const needAdmissions = input.changed.quota === true || input.changed.settlement === true;
+  const needReports = input.changed.report === true;
+  const needContent = input.changed.retention === true;
+  const requestWhere = {
+    createdAt: { gte: input.query.utcStart, lt: input.query.utcEnd },
+    ...(input.query.feature !== "all" ? { featureKey: input.query.feature } : {}),
+  };
+  const [requestResult, reportResult, artifactResult] = await Promise.allSettled([
+    needAdmissions
+      ? input.db.aiRequest.findMany({ where: requestWhere, select: { studentId: true, status: true, createdAt: true }, take: 10_001 })
+      : Promise.resolve([]),
+    needReports
+      ? input.db.aiReportReservation.findMany({ where: { reservedAt: { gte: input.query.utcStart, lt: input.query.utcEnd }, operation: AiAdminReportOperation.admin_report_query }, select: { adminPrincipalId: true, state: true, reservedAt: true }, take: 10_001 })
+      : Promise.resolve([]),
+    needContent
+      ? input.db.aiArtifact.findMany({ where: { createdAt: { gte: input.query.utcStart, lt: input.query.utcEnd } }, select: { studentId: true, createdAt: true, expiresAt: true }, take: 10_001 })
+      : Promise.resolve([]),
+  ]);
+  const failedCount = [needAdmissions && requestResult.status === "rejected", needReports && reportResult.status === "rejected", needContent && artifactResult.status === "rejected"].filter(Boolean).length;
+  const requestedCount = [needAdmissions, needReports, needContent].filter(Boolean).length;
+  if (requestedCount > 0 && failedCount === requestedCount) throw reportDbError("report_unavailable");
+
+  const admissions = requestResult.status === "fulfilled" ? requestResult.value.map((row) => ({ studentId: row.studentId, at: row.createdAt, affected: row.status === "pending" || row.status === "staged" })) : [];
+  const reports = reportResult.status === "fulfilled" ? reportResult.value.map((row) => ({ studentId: row.adminPrincipalId, at: row.reservedAt, affected: row.state === AiReportReservationState.reserved })) : [];
+  const content = artifactResult.status === "fulfilled" ? artifactResult.value.map((row) => ({ studentId: row.studentId, at: row.createdAt, affected: row.expiresAt === null || row.expiresAt > input.query.utcEnd })) : [];
+  const admissionCell = requestResult.status === "rejected" ? { cell: { state: "unavailable" as const }, coarsened: false } : previewPopulationCell("quota", needAdmissions, admissions, minimum, input.query.timezone);
+  const reportCell = reportResult.status === "rejected" ? { cell: { state: "unavailable" as const }, coarsened: false } : previewPopulationCell("report_budget", needReports, reports, minimum, input.query.timezone);
+  const contentCell = artifactResult.status === "rejected" ? { cell: { state: "unavailable" as const }, coarsened: false } : previewPopulationCell("content_evidence", needContent, content, minimum, input.query.timezone);
+  const cells = [admissionCell, reportCell, contentCell];
+  const state: AiPolicyImpactPreviewDto["state"] = cells.some((entry) => entry.cell.state === "unavailable")
+    ? "partial_unavailable"
+    : cells.some((entry) => entry.cell.state === "suppressed")
+      ? "suppressed"
+      : cells.some((entry) => entry.coarsened)
+        ? "coarsened"
+        : "ready";
+  return { state, effects: { futureAdmissions: admissionCell.cell, futureReportReservations: reportCell.cell, futureContentEvidence: contentCell.cell } };
+}
+
+function dateOnly(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`);
 }
 
 function replayFailure(row: StoredReportReservation): VeraAdminReportFailureDto {
@@ -173,7 +365,7 @@ function replayFailure(row: StoredReportReservation): VeraAdminReportFailureDto 
     return { state: "error", code: "report_process_lost", retryable: false, reservationId: row.id };
   }
   const snapshot = row.resultSnapshot as Partial<VeraAdminReportFailureDto> & { kind?: string };
-  if (snapshot.kind !== "typed_error" || snapshot.state !== "error" || typeof snapshot.code !== "string") {
+  if (snapshot.kind !== "typed_error" || snapshot.state !== "error" || typeof snapshot.code !== "string" || typeof row.resultDigest !== "string" || sha256Hex(canonicalJson(snapshot)) !== row.resultDigest) {
     return { state: "error", code: row.failureCode ?? "report_unavailable", retryable: false, reservationId: row.id };
   }
   return {
@@ -182,6 +374,41 @@ function replayFailure(row: StoredReportReservation): VeraAdminReportFailureDto 
     retryable: snapshot.retryable === true,
     reservationId: row.id,
   };
+}
+
+function isValidReportSnapshot(row: StoredReportReservation): row is StoredReportReservation & { resultSnapshot: { kind: "report"; dto: VeraAdminUsageDto }; resultDigest: string } {
+  if (row.resultKind !== AiReportReservationResultKind.report || !row.resultSnapshot || typeof row.resultSnapshot !== "object" || Array.isArray(row.resultSnapshot) || typeof row.resultDigest !== "string") return false;
+  const snapshot = row.resultSnapshot as { kind?: unknown; dto?: unknown };
+  if (snapshot.kind !== "report" || !snapshot.dto || typeof snapshot.dto !== "object" || Array.isArray(snapshot.dto)) return false;
+  const dto = snapshot.dto as Partial<VeraAdminUsageDto>;
+  if (
+    !dto.range
+    || typeof dto.range !== "object"
+    || Array.isArray(dto.range)
+    || typeof dto.range.from !== "string"
+    || typeof dto.range.to !== "string"
+    || typeof dto.range.timezone !== "string"
+    || typeof dto.policySummary !== "object"
+    || !dto.policySummary
+    || Array.isArray(dto.policySummary)
+    || !dto.policySummary.active
+    || typeof dto.policySummary.active.bundleVersion !== "string"
+    || !dto.summary
+    || !dto.dailyTrend
+    || !dto.byFeature
+    || !dto.byModel
+    || !dto.byStatus
+    || !dto.latency
+    || !dto.incidents
+    || !dto.comparison
+  ) return false;
+  // A replay must be bound to the same persisted policy snapshot and to a
+  // closed aggregate partition shape. Never trust a JSON result merely because
+  // its outer digest happens to match a corrupted row.
+  if (dto.policySummary.active.bundleVersion !== row.policyBundleVersion) return false;
+  const partitions = [dto.summary, dto.dailyTrend, dto.byFeature, dto.byModel, dto.byStatus, dto.latency, dto.incidents, dto.comparison];
+  if (partitions.some((partition) => !partition || typeof partition !== "object" || Array.isArray(partition) || typeof (partition as { state?: unknown }).state !== "string")) return false;
+  return sha256Hex(canonicalJson(row.resultSnapshot)) === row.resultDigest;
 }
 
 function asStoredReservation(value: unknown): StoredReportReservation {
@@ -193,9 +420,8 @@ function isExpired(row: StoredReportReservation, now: Date): boolean {
 }
 
 function replayResponse(row: StoredReportReservation): ReportResponse {
-  if (row.state === AiReportReservationState.completed && row.resultKind === AiReportReservationResultKind.report) {
-    const snapshot = row.resultSnapshot as { kind?: string; dto?: VeraAdminUsageDto } | null;
-    if (snapshot?.kind === "report" && snapshot.dto) return { status: 200, body: snapshot.dto };
+  if (row.state === AiReportReservationState.completed && isValidReportSnapshot(row)) {
+    return { status: 200, body: row.resultSnapshot.dto };
   }
   if (row.state === AiReportReservationState.reserved) return { status: 202, body: { state: "pending", reservationId: row.id } };
   return { status: 503, body: replayFailure(row) };
@@ -217,8 +443,6 @@ export class VeraAdminUsageService {
   private readonly db: PrismaClient;
   private readonly leaseStore: VeraLeaseStore;
   private readonly hmacSecret: string;
-  private readonly policyPreviewLeases = new Map<string, VeraLease>();
-
   constructor(input: { db?: PrismaClient; leaseStore?: VeraLeaseStore; hmacSecret?: string } = {}) {
     this.db = input.db ?? defaultPrisma;
     this.hmacSecret = input.hmacSecret ?? process.env.VERA_IDEMPOTENCY_HMAC_SECRET ?? "";
@@ -295,16 +519,18 @@ export class VeraAdminUsageService {
     policyBundleVersion: string;
     costUnits: 3;
     asOf: Date;
+    range: PreviewReservationRange;
+    commandId: string;
+    transaction?: Prisma.TransactionClient;
   }): Promise<{ reservationId: string }> {
     if (!isSafeReportKey(input.clientRequestId)) {
       throw new VeraAdminUsageError("missing_idempotency_key", 400, false);
     }
 
-    const query = previewAuditQuery(input.asOf);
+    const query = parseAdminUsageQuery(new URLSearchParams({ from: input.range.from, to: input.range.to, timezone: input.range.timezone }), input.asOf);
     let lease: VeraLease | null = null;
-    let createdReservationId: string | null = null;
     try {
-      const reservation = await this.db.$transaction(async (tx) => {
+      const run = async (tx: Prisma.TransactionClient) => {
         const dbNow = await databaseNow(tx);
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.principalId}, 0))`;
 
@@ -336,7 +562,7 @@ export class VeraAdminUsageService {
           return existing.id;
         }
 
-        const effective = await activePolicy(tx, dbNow);
+        const effective = await activePolicy(tx, dbNow, input.principalId);
         if (effective.policy.bundleVersion !== input.policyBundleVersion) {
           throw new VeraAdminUsageError("report_unavailable", 503, false);
         }
@@ -354,7 +580,7 @@ export class VeraAdminUsageService {
               studentId: input.principalId,
               featureKey: REPORT_REDIS_FEATURE,
               maxConcurrent: 1,
-              burstLimit: effective.policy.reportConfig.requestLimit,
+              burstLimit: Math.max(0, effective.policy.reportConfig.requestLimit - burst.requestCount),
               burstWindowMs: VERA_REPORT_BURST_WINDOW_MS,
               ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2,
               now: dbNow,
@@ -363,7 +589,7 @@ export class VeraAdminUsageService {
               studentId: input.principalId,
               featureKey: REPORT_REDIS_FEATURE,
               maxConcurrent: 1,
-              burstLimit: effective.policy.reportConfig.requestLimit,
+              burstLimit: Math.max(0, effective.policy.reportConfig.requestLimit - burst.requestCount),
               burstWindowMs: VERA_REPORT_BURST_WINDOW_MS,
               ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2,
               now: dbNow,
@@ -374,6 +600,17 @@ export class VeraAdminUsageService {
         }
         lease = acquired.lease;
 
+        // Redis is only an admission gate. Re-read the DB clock and policy
+        // boundary after acquiring it so a scheduled cutover or budget race
+        // cannot turn an old snapshot into an accepted preview.
+        const postRedisNow = await databaseNow(tx);
+        const postEffective = await activePolicy(tx, postRedisNow, input.principalId);
+        if (postEffective.policy.bundleVersion !== effective.policy.bundleVersion) throw reportDbError("report_unavailable", true);
+        const postBudget = await this.lockOrCreateWindow(tx, input.principalId, AiReportWindowKind.budget_24h, postEffective.policy, postRedisNow);
+        const postBurst = await this.lockOrCreateWindow(tx, input.principalId, AiReportWindowKind.burst_10m, postEffective.policy, postRedisNow);
+        if (postBudget.usedBudgetUnits + input.costUnits > postBudget.budgetUnitsSnapshot) throw new VeraAdminUsageError("report_budget_exhausted", 429);
+        if (postBurst.requestCount + 1 > postEffective.policy.reportConfig.requestLimit) throw new VeraAdminUsageError("report_burst_limited", 429);
+
         const created = await tx.aiReportReservation.create({
           data: {
             adminPrincipalId: input.principalId,
@@ -381,17 +618,17 @@ export class VeraAdminUsageService {
             idempotencyKey: input.clientRequestId,
             requestFingerprint: input.requestFingerprint,
             fingerprintKeyVersion: VERA_REPORT_FINGERPRINT_KEY_VERSION,
-            policyBundleVersion: input.policyBundleVersion,
+            policyBundleVersion: postEffective.policy.bundleVersion,
             costUnits: input.costUnits,
             state: AiReportReservationState.reserved,
-            reservedAt: dbNow,
-            recoveryDeadlineAt: new Date(dbNow.getTime() + VERA_REPORT_RECOVERY_LEASE_MS),
+            reservedAt: postRedisNow,
+            recoveryDeadlineAt: new Date(postRedisNow.getTime() + VERA_REPORT_RECOVERY_LEASE_MS),
             recoveryLeaseOwner: lease.ownerId,
             recoveryFenceToken: lease.fencingToken,
           },
         });
         await tx.aiReportBudgetWindow.update({
-          where: { id: budget.id },
+          where: { id: postBudget.id },
           data: {
             usedBudgetUnits: { increment: input.costUnits },
             requestCount: { increment: 1 },
@@ -401,7 +638,7 @@ export class VeraAdminUsageService {
           },
         });
         await tx.aiReportBudgetWindow.update({
-          where: { id: burst.id },
+          where: { id: postBurst.id },
           data: { requestCount: { increment: 1 }, consumedRequests: { increment: 1 }, version: { increment: 1 } },
         });
         await tx.aiAdminReportAudit.create({
@@ -411,7 +648,7 @@ export class VeraAdminUsageService {
             reservationId: created.id,
             eventType: AiAdminReportEventType.reservation,
             operation: AiAdminReportOperation.admin_policy_preview,
-            policyBundleVersion: input.policyBundleVersion,
+            policyBundleVersion: postEffective.policy.bundleVersion,
             queryFingerprint: input.requestFingerprint,
             queryShapeDigest: input.requestFingerprint,
             displayTimezone: query.timezone,
@@ -423,13 +660,11 @@ export class VeraAdminUsageService {
             suppressionApplied: false,
           },
         });
-        createdReservationId = created.id;
         return created.id;
-      });
-      if (createdReservationId && lease) this.policyPreviewLeases.set(createdReservationId, lease);
+      };
+      const reservation = input.transaction ? await run(input.transaction) : await this.db.$transaction(run);
       return { reservationId: reservation };
     } catch (error) {
-      if (createdReservationId) this.policyPreviewLeases.delete(createdReservationId);
       if (lease) {
         try { await this.leaseStore.release(lease); } catch { /* bounded expiry remains safe */ }
       }
@@ -451,11 +686,11 @@ export class VeraAdminUsageService {
     reservationId: string;
     result: AiPolicyImpactPreviewDto;
     resultDigest: string;
+    transaction?: Prisma.TransactionClient;
   }): Promise<void> {
-    const query = previewAuditQuery(new Date(input.result.asOf));
-    const lease = this.policyPreviewLeases.get(input.reservationId);
+    let lease: VeraLease | null = null;
     try {
-      await this.db.$transaction(async (tx) => {
+      const run = async (tx: Prisma.TransactionClient) => {
         const rows = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT id FROM ai_report_reservations WHERE id = ${input.reservationId}::uuid FOR UPDATE
         `;
@@ -463,16 +698,18 @@ export class VeraAdminUsageService {
         const current = asStoredReservation(await tx.aiReportReservation.findUnique({ where: { id: input.reservationId } }));
         if (!current) throw reportDbError("report_unavailable", false, input.reservationId);
         if (current.state === AiReportReservationState.completed && current.resultKind === AiReportReservationResultKind.policy_preview) return;
-        if (current.state !== AiReportReservationState.reserved || !lease) throw reportDbError("report_process_lost", false, input.reservationId);
+        if (current.state !== AiReportReservationState.reserved || !current.recoveryLeaseOwner || current.recoveryFenceToken === null) throw reportDbError("report_process_lost", false, input.reservationId);
         const dbNow = await databaseNow(tx);
-        if (
-          current.recoveryDeadlineAt <= dbNow
-          || current.recoveryLeaseOwner !== lease.ownerId
-          || current.recoveryFenceToken !== lease.fencingToken
-        ) throw reportDbError("report_process_lost", false, input.reservationId);
+        if (current.recoveryDeadlineAt <= dbNow) throw reportDbError("report_process_lost", false, input.reservationId);
+        lease = { key: leaseKey(current.adminPrincipalId, REPORT_REDIS_FEATURE), ownerId: current.recoveryLeaseOwner, fencingToken: current.recoveryFenceToken, expiresAt: current.recoveryDeadlineAt };
+        const reservationAudit = await tx.aiAdminReportAudit.findFirst({ where: { reservationId: current.id, eventType: AiAdminReportEventType.reservation }, select: { displayTimezone: true, localDateSpan: true } });
+        if (!reservationAudit || !reservationAudit.localDateSpan || typeof reservationAudit.localDateSpan !== "object" || Array.isArray(reservationAudit.localDateSpan)) throw reportDbError("report_unavailable", false, input.reservationId);
+        const span = reservationAudit.localDateSpan as { from?: unknown; to?: unknown };
+        if (typeof span.from !== "string" || typeof span.to !== "string") throw reportDbError("report_unavailable", false, input.reservationId);
+        const query = parseAdminUsageQuery(new URLSearchParams({ from: span.from, to: span.to, timezone: reservationAudit.displayTimezone }), dbNow);
         const snapshot = { kind: "policy_preview", dto: input.result };
         const digest = sha256Hex(canonicalJson(snapshot));
-        if (input.resultDigest !== digest) throw reportDbError("report_unavailable", false, input.reservationId);
+        if (input.resultDigest !== digest || input.result.mode !== "aggregate" || input.result.reservationId !== current.id) throw reportDbError("report_unavailable", false, input.reservationId);
         await tx.aiReportReservation.update({
           where: { id: current.id },
           data: {
@@ -492,6 +729,7 @@ export class VeraAdminUsageService {
           select: { id: true },
         });
         if (!existingAudit) {
+          const outcomeState = suppressionStateForOutcome(input.result.state === "partial_unavailable" ? "partial_unavailable" : input.result.state);
           await tx.aiAdminReportAudit.create({
             data: {
               actorId: current.adminPrincipalId,
@@ -507,16 +745,17 @@ export class VeraAdminUsageService {
               rangeEnd: dateOnly(query.to),
               localDateSpan: { from: query.from, to: query.to },
               costUnits: current.costUnits,
-              suppressionState: AiAdminReportSuppressionState.ready,
-              suppressionApplied: false,
+              suppressionState: outcomeState,
+              suppressionApplied: outcomeState === AiAdminReportSuppressionState.suppressed,
               resultDigest: digest,
             },
           });
         }
-      });
+      };
+      if (input.transaction) await run(input.transaction);
+      else await this.db.$transaction(run);
     } finally {
       if (lease) {
-        this.policyPreviewLeases.delete(input.reservationId);
         try { await this.leaseStore.release(lease); } catch { /* bounded expiry remains safe */ }
       }
     }
@@ -582,7 +821,7 @@ export class VeraAdminUsageService {
           if (replay[0].request_fingerprint !== input.fingerprint) throw new VeraAdminUsageError("idempotency_conflict", 409);
           throw new VeraAdminUsageError("idempotency_conflict", 409);
         }
-        const effective = await activePolicy(tx, dbNow);
+        const effective = await activePolicy(tx, dbNow, input.adminPrincipalId);
         const budget = await this.lockOrCreateWindow(tx, input.adminPrincipalId, AiReportWindowKind.budget_24h, effective.policy, dbNow);
         const burst = await this.lockOrCreateWindow(tx, input.adminPrincipalId, AiReportWindowKind.burst_10m, effective.policy, dbNow);
         if (budget.usedBudgetUnits + input.costUnits > budget.budgetUnitsSnapshot) throw new VeraAdminUsageError("report_budget_exhausted", 429);
@@ -594,12 +833,12 @@ export class VeraAdminUsageService {
                 studentId: input.adminPrincipalId,
                 featureKey: REPORT_REDIS_FEATURE,
                 maxConcurrent: 1,
-                burstLimit: effective.policy.reportConfig.requestLimit,
+                burstLimit: Math.max(0, effective.policy.reportConfig.requestLimit - burst.requestCount),
                 burstWindowMs: VERA_REPORT_BURST_WINDOW_MS,
                 ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2,
                 now: dbNow,
               })
-            : { lease: await this.leaseStore.acquire({ studentId: input.adminPrincipalId, featureKey: REPORT_REDIS_FEATURE, maxConcurrent: 1, burstLimit: effective.policy.reportConfig.requestLimit, burstWindowMs: VERA_REPORT_BURST_WINDOW_MS, ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2, now: dbNow }) };
+            : { lease: await this.leaseStore.acquire({ studentId: input.adminPrincipalId, featureKey: REPORT_REDIS_FEATURE, maxConcurrent: 1, burstLimit: Math.max(0, effective.policy.reportConfig.requestLimit - burst.requestCount), burstWindowMs: VERA_REPORT_BURST_WINDOW_MS, ttlMs: VERA_REPORT_RECOVERY_LEASE_MS * 2, now: dbNow }) };
           if (!acquired.lease) {
             if (acquired.rejectionReason === "burst") throw new VeraAdminUsageError("report_burst_limited", 429);
             throw reportDbError("report_unavailable");
@@ -611,6 +850,14 @@ export class VeraAdminUsageService {
           throw reportDbError("report_unavailable");
         }
 
+        const postRedisNow = await databaseNow(tx);
+        const postEffective = await activePolicy(tx, postRedisNow, input.adminPrincipalId);
+        if (postEffective.policy.bundleVersion !== effective.policy.bundleVersion) throw reportDbError("report_unavailable", true);
+        const postBudget = await this.lockOrCreateWindow(tx, input.adminPrincipalId, AiReportWindowKind.budget_24h, postEffective.policy, postRedisNow);
+        const postBurst = await this.lockOrCreateWindow(tx, input.adminPrincipalId, AiReportWindowKind.burst_10m, postEffective.policy, postRedisNow);
+        if (postBudget.usedBudgetUnits + input.costUnits > postBudget.budgetUnitsSnapshot) throw new VeraAdminUsageError("report_budget_exhausted", 429);
+        if (postBurst.requestCount + 1 > postEffective.policy.reportConfig.requestLimit) throw new VeraAdminUsageError("report_burst_limited", 429);
+
         const reservation = await tx.aiReportReservation.create({
           data: {
             adminPrincipalId: input.adminPrincipalId,
@@ -618,17 +865,17 @@ export class VeraAdminUsageService {
             idempotencyKey: input.idempotencyKey,
             requestFingerprint: input.fingerprint,
             fingerprintKeyVersion: VERA_REPORT_FINGERPRINT_KEY_VERSION,
-            policyBundleVersion: effective.policy.bundleVersion,
+            policyBundleVersion: postEffective.policy.bundleVersion,
             costUnits: input.costUnits,
             state: AiReportReservationState.reserved,
-            reservedAt: dbNow,
-            recoveryDeadlineAt: new Date(dbNow.getTime() + VERA_REPORT_RECOVERY_LEASE_MS),
+            reservedAt: postRedisNow,
+            recoveryDeadlineAt: new Date(postRedisNow.getTime() + VERA_REPORT_RECOVERY_LEASE_MS),
             recoveryLeaseOwner: lease.ownerId,
             recoveryFenceToken: lease.fencingToken,
           },
         });
-        await tx.aiReportBudgetWindow.update({ where: { id: budget.id }, data: { usedBudgetUnits: { increment: input.costUnits }, requestCount: { increment: 1 }, consumedUnits: { increment: input.costUnits }, consumedRequests: { increment: 1 }, version: { increment: 1 } } });
-        await tx.aiReportBudgetWindow.update({ where: { id: burst.id }, data: { requestCount: { increment: 1 }, consumedRequests: { increment: 1 }, version: { increment: 1 } } });
+        await tx.aiReportBudgetWindow.update({ where: { id: postBudget.id }, data: { usedBudgetUnits: { increment: input.costUnits }, requestCount: { increment: 1 }, consumedUnits: { increment: input.costUnits }, consumedRequests: { increment: 1 }, version: { increment: 1 } } });
+        await tx.aiReportBudgetWindow.update({ where: { id: postBurst.id }, data: { requestCount: { increment: 1 }, consumedRequests: { increment: 1 }, version: { increment: 1 } } });
         await tx.aiAdminReportAudit.create({
           data: {
             actorId: input.adminPrincipalId,
@@ -636,7 +883,7 @@ export class VeraAdminUsageService {
             reservationId: reservation.id,
             eventType: AiAdminReportEventType.reservation,
             operation: AiAdminReportOperation.admin_report_query,
-            policyBundleVersion: effective.policy.bundleVersion,
+            policyBundleVersion: postEffective.policy.bundleVersion,
             queryFingerprint: input.fingerprint,
             queryShapeDigest: input.fingerprint,
             displayTimezone: input.query.timezone,
@@ -648,7 +895,7 @@ export class VeraAdminUsageService {
             suppressionApplied: false,
           },
         });
-        return { reservation: asStoredReservation(reservation), policy: effective.policy, scheduledPolicy: effective.scheduledPolicy, dbNow };
+        return { reservation: asStoredReservation(reservation), policy: postEffective.policy, scheduledPolicy: postEffective.scheduledPolicy, dbNow: postRedisNow };
       });
       if (!lease) throw reportDbError("report_unavailable");
       return { ...committed, query: input.query, lease };
@@ -777,12 +1024,54 @@ export class VeraAdminUsageService {
   }
 
   private async markProcessLost(tx: Prisma.TransactionClient, row: StoredReportReservation, now: Date): Promise<void> {
+    // Recovery must never manufacture query metadata.  The reservation audit
+    // is the immutable source for the exact range/timezone/shape captured at
+    // admission; legacy or corrupt rows fail closed and remain available for
+    // an operator reaper rather than receiving a fabricated epoch/UTC result.
+    const reservationAudit = await tx.aiAdminReportAudit.findFirst({
+      where: { reservationId: row.id, eventType: AiAdminReportEventType.reservation },
+      select: {
+        operation: true,
+        policyBundleVersion: true,
+        queryFingerprint: true,
+        queryShapeDigest: true,
+        displayTimezone: true,
+        rangeStart: true,
+        rangeEnd: true,
+        localDateSpan: true,
+        costUnits: true,
+      },
+    });
+    if (
+      !reservationAudit
+      || reservationAudit.operation !== AiAdminReportOperation.admin_report_query
+      || !reservationAudit.queryShapeDigest
+      || typeof reservationAudit.displayTimezone !== "string"
+      || !reservationAudit.localDateSpan
+      || typeof reservationAudit.localDateSpan !== "object"
+      || Array.isArray(reservationAudit.localDateSpan)
+    ) {
+      throw reportDbError("report_unavailable", false, row.id);
+    }
+    const span = reservationAudit.localDateSpan as { from?: unknown; to?: unknown };
+    if (typeof span.from !== "string" || typeof span.to !== "string") {
+      throw reportDbError("report_unavailable", false, row.id);
+    }
+    let query: VeraAdminUsageQuery;
+    try {
+      query = parseAdminUsageQuery(
+        new URLSearchParams({ from: span.from, to: span.to, timezone: reservationAudit.displayTimezone }),
+        now,
+      );
+    } catch {
+      throw reportDbError("report_unavailable", false, row.id);
+    }
     const snapshot = { kind: "typed_error", state: "error", code: "report_process_lost", retryable: false, reservationId: row.id };
     const resultDigest = sha256Hex(canonicalJson(snapshot));
     await tx.aiReportReservation.update({ where: { id: row.id }, data: { state: AiReportReservationState.process_lost, resultKind: AiReportReservationResultKind.typed_error, resultSnapshot: snapshot, resultDigest, failureCode: "report_process_lost", completedAt: now, expiresAt: new Date(now.getTime() + VERA_REPORT_REPLAY_TTL_DAYS * 86_400_000), recoveryLeaseOwner: null, recoveryFenceToken: null, version: { increment: 1 } } });
     const audit = await tx.aiAdminReportAudit.findFirst({ where: { reservationId: row.id, eventType: AiAdminReportEventType.outcome }, select: { id: true } });
     if (!audit) {
-      await tx.aiAdminReportAudit.create({ data: { actorId: row.adminPrincipalId, adminPrincipalId: row.adminPrincipalId, reservationId: row.id, eventType: AiAdminReportEventType.outcome, operation: AiAdminReportOperation.admin_report_query, policyBundleVersion: row.policyBundleVersion, queryFingerprint: row.requestFingerprint, queryShapeDigest: row.requestFingerprint, displayTimezone: "unknown", rangeStart: new Date("1970-01-01T00:00:00.000Z"), rangeEnd: new Date("1970-01-01T00:00:00.000Z"), costUnits: row.costUnits, suppressionState: AiAdminReportSuppressionState.process_lost, suppressionApplied: false, outcomeCode: "report_process_lost", resultDigest } });
+      await tx.aiAdminReportAudit.create({ data: { actorId: row.adminPrincipalId, adminPrincipalId: row.adminPrincipalId, reservationId: row.id, eventType: AiAdminReportEventType.outcome, operation: reservationAudit.operation, policyBundleVersion: reservationAudit.policyBundleVersion, queryFingerprint: reservationAudit.queryFingerprint, queryShapeDigest: reservationAudit.queryShapeDigest, displayTimezone: query.timezone, rangeStart: reservationAudit.rangeStart, rangeEnd: reservationAudit.rangeEnd, localDateSpan: { from: query.from, to: query.to }, costUnits: reservationAudit.costUnits, suppressionState: AiAdminReportSuppressionState.process_lost, suppressionApplied: false, outcomeCode: "report_process_lost", resultDigest } });
     }
   }
 

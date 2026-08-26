@@ -98,6 +98,12 @@ const otherStudentToken = `vera-route-other-${randomUUID()}`;
 const now = new Date();
 const policyRow = await db.aiPolicyBundle.findFirst({ where: { bundleVersion: "vera-policy-bundle-v1-2026-08-24" } });
 if (!policyRow) throw new Error("Vera policy seed is missing from the disposable database.");
+// The policy-console migration intentionally rejects content/effectiveAt
+// edits once a bundle is non-draft. Normalize this disposable fixture through
+// the legal state transition first; production rows are never bypassed.
+if (policyRow.state !== "draft") {
+  await db.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "draft" } });
+}
 await db.aiPolicyBundle.update({
   where: { id: policyRow.id },
   data: { state: "active", effectiveAt: new Date(now.getTime() - 60_000) },
@@ -330,7 +336,14 @@ try {
   let writerReadyResolve: (() => void) | undefined;
   const writerReady = new Promise<void>((resolve) => { writerReadyResolve = resolve; });
   const policyChange = policyWriter.$transaction(async (tx) => {
+    // The production trigger rejects content edits on non-draft bundles. Keep
+    // this concurrency fixture legal by moving the disposable row through
+    // draft before changing its quota, then restore the active state before
+    // releasing the writer lock. The admission transaction still observes a
+    // complete active successor and must reject the stale captured snapshot.
+    await tx.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "draft" } });
     await tx.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { quotaConfig: changedQuotaConfig } });
+    await tx.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "active" } });
     writerReadyResolve?.();
     await new Promise((resolve) => setTimeout(resolve, 250));
   });
@@ -371,6 +384,7 @@ try {
   await db.$executeRaw`DELETE FROM student_profiles WHERE user_id = ${studentId}::uuid`;
   await db.$executeRaw`DELETE FROM users WHERE id = ${studentId}::uuid`;
   await db.$executeRaw`DELETE FROM users WHERE id = ${otherStudentId}::uuid`;
+  await db.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "scheduled", effectiveAt: new Date("2026-09-01T00:00:00+07:00"), quotaConfig: policyRow.quotaConfig as unknown as Prisma.InputJsonValue } });
   await policyWriter.$disconnect();
   await raceDb.$disconnect();

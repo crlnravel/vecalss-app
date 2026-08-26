@@ -3389,6 +3389,7 @@ model AiAdminCommandLedger {
   previewAsOf           DateTime?             @map("preview_as_of") @db.Timestamptz
   previewValidationDigest String?             @map("preview_validation_digest") @db.VarChar(128)
   previewReservationId  String?               @map("preview_reservation_id") @db.VarChar(120)
+  previewReservationUuid String?              @unique @map("preview_reservation_uuid") @db.Uuid
   reason                String?                @db.VarChar(500)
   firstSeenAt           DateTime               @default(now()) @map("first_seen_at") @db.Timestamptz
   lastSeenAt            DateTime               @default(now()) @map("last_seen_at") @db.Timestamptz
@@ -3397,6 +3398,7 @@ model AiAdminCommandLedger {
   version               Int                    @default(0)
 
   adminPrincipal User @relation(fields: [adminPrincipalId], references: [id])
+  previewReservation AiReportReservation? @relation("AiPolicyPreviewReservation", fields: [previewReservationUuid], references: [id], onDelete: Restrict)
 
   @@unique([adminPrincipalId, operation, clientRequestId])
   @@index([adminPrincipalId, operation, state])
@@ -3855,6 +3857,7 @@ model AiReportReservation {
 
   adminPrincipal User                 @relation(fields: [adminPrincipalId], references: [id])
   audits         AiAdminReportAudit[]
+  policyPreviewCommand AiAdminCommandLedger? @relation("AiPolicyPreviewReservation")
 
   @@unique([adminPrincipalId, operation, idempotencyKey])
   @@index([state, recoveryDeadlineAt])

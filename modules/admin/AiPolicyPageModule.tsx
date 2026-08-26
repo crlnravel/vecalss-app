@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { AiPolicyMetadataDto } from "@/lib/admin/ai-policy/contracts";
+import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto } from "@/lib/admin/ai-policy/contracts";
 
 type AiPolicyPageModuleProps = {
   metadata: AiPolicyMetadataDto;
@@ -24,9 +24,9 @@ function createRequestId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-async function sendCommand(path: string, body: Record<string, unknown>) {
+async function sendCommand(path: string, body: Record<string, unknown>, method: "PATCH" | "POST" = "POST") {
   const response = await fetch(path, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -37,8 +37,31 @@ async function sendCommand(path: string, body: Record<string, unknown>) {
   return payload;
 }
 
+function resultBundle(payload: unknown): AiPolicyBundleDto | null {
+  if (!payload || typeof payload !== "object" || !("result" in payload)) return null;
+  const result = (payload as { result?: unknown }).result;
+  return result && typeof result === "object" && "id" in result && "state" in result
+    ? result as AiPolicyBundleDto
+    : null;
+}
+
+function resultPreview(payload: unknown): AiPolicyImpactPreviewDto | null {
+  if (!payload || typeof payload !== "object" || !("result" in payload)) return null;
+  const result = (payload as { result?: unknown }).result;
+  return result && typeof result === "object" && "effects" in result && "mode" in result
+    ? result as AiPolicyImpactPreviewDto
+    : null;
+}
+
 function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModuleProps) {
   const [metadata, setMetadata] = useState(initialMetadata);
+  const [draft, setDraft] = useState<AiPolicyBundleDto | null>(null);
+  const [dailyLimit, setDailyLimit] = useState("");
+  const [preview, setPreview] = useState<AiPolicyImpactPreviewDto | null>(null);
+  const [previewFrom, setPreviewFrom] = useState("");
+  const [previewTo, setPreviewTo] = useState("");
+  const [previewTimezone, setPreviewTimezone] = useState("Asia/Jakarta");
+  const [effectiveAt, setEffectiveAt] = useState("");
   const [reason, setReason] = useState("");
   const [targetReference, setTargetReference] = useState("");
   const [requestedUpperBound, setRequestedUpperBound] = useState("");
@@ -49,6 +72,18 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
   const capabilitySummary = useMemo(() => metadata.capabilities.length
     ? metadata.capabilities.join(" · ")
     : "read-only metadata", [metadata.capabilities]);
+
+  function applyBundlePayload(payload: unknown) {
+    const bundle = resultBundle(payload);
+    if (bundle) {
+      setDraft(bundle);
+      setDailyLimit(String(bundle.quotaConfig.defaultDailyLimit));
+      setEffectiveAt(bundle.effectiveAt.slice(0, 16));
+    }
+    const impact = resultPreview(payload);
+    if (impact) setPreview(impact);
+    return bundle;
+  }
 
   async function refresh() {
     const response = await fetch("/api/admin/ai-policy", { cache: "no-store" });
@@ -61,15 +96,161 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
     setBusy(true);
     setMessage(null);
     try {
-      await sendCommand("/api/admin/ai-policy/drafts", {
+      const payload = await sendCommand("/api/admin/ai-policy/drafts", {
         clientRequestId: createRequestId("draft"),
         reason: reason.trim(),
       });
+      applyBundlePayload(payload);
       setReason("");
       setMessage("Draft lengkap dibuat. Lanjutkan dengan edit section, validasi, preview, lalu minta approval operator kedua.");
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Draft tidak dapat dibuat.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function editDraft() {
+    if (!draft) return;
+    const nextLimit = Number(dailyLimit);
+    if (!Number.isSafeInteger(nextLimit)) {
+      setMessage("Batas quota harian harus berupa bilangan bulat.");
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}`, {
+        clientRequestId: createRequestId("edit"),
+        expectedRevision: draft.revision,
+        patch: { quotaConfig: { ...draft.quotaConfig, defaultDailyLimit: nextLimit } },
+        reason: reason.trim() || undefined,
+      }, "PATCH");
+      applyBundlePayload(payload);
+      setMessage("Section quota tersimpan sebagai draft. Validasi tetap diperlukan sebelum approval.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Draft tidak dapat diubah.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function validateDraft() {
+    if (!draft) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}/validate`, {
+        clientRequestId: createRequestId("validate"),
+        expectedRevision: draft.revision,
+      });
+      applyBundlePayload(payload);
+      setMessage("Draft tervalidasi dan menunggu approval operator kedua.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Validasi gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function previewDraft(mode: "categorical" | "aggregate") {
+    if (!draft) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const range = mode === "aggregate" ? { from: previewFrom, to: previewTo, timezone: previewTimezone } : undefined;
+      const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}/preview`, {
+        clientRequestId: createRequestId(`preview-${mode}`),
+        expectedRevision: draft.revision,
+        validationDigest: draft.validationDigest,
+        mode,
+        ...(range ? { range } : {}),
+      });
+      applyBundlePayload(payload);
+      setMessage(mode === "aggregate" ? "Preview agregat selesai dengan suppression dan freshness yang tercatat." : "Preview kategorikal selesai.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Preview gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approveDraft() {
+    if (!draft) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}/approve`, {
+        clientRequestId: createRequestId("approve"),
+        expectedRevision: draft.revision,
+        validationDigest: draft.validationDigest,
+        reason: reason.trim() || undefined,
+      });
+      applyBundlePayload(payload);
+      setMessage("Approval dikirim. Server mewajibkan approver berbeda dari seluruh editor draft.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Approval gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function scheduleDraft() {
+    if (!draft || !effectiveAt) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}/schedule`, {
+        clientRequestId: createRequestId("schedule"),
+        expectedRevision: draft.revision,
+        validationDigest: draft.validationDigest,
+        effectiveAt: new Date(effectiveAt).toISOString(),
+        reason: reason.trim() || undefined,
+      });
+      applyBundlePayload(payload);
+      setMessage("Successor terjadwal menggunakan DB-clock boundary.");
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Scheduling gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function activateDraft() {
+    if (!draft) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const payload = await sendCommand(`/api/admin/ai-policy/drafts/${draft.id}/activate`, {
+        clientRequestId: createRequestId("activate"),
+        expectedRevision: draft.revision,
+        reason: reason.trim() || undefined,
+      });
+      applyBundlePayload(payload);
+      setMessage("Bundle diaktifkan setelah pemeriksaan digest dan batas efektif DB.");
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Aktivasi gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rollbackBundle(bundleId: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const payload = await sendCommand(`/api/admin/ai-policy/${bundleId}/rollback`, {
+        clientRequestId: createRequestId("rollback"),
+        reason: reason.trim(),
+      });
+      applyBundlePayload(payload);
+      setMessage("Draft rollback dibuat sebagai snapshot baru; histori lama tetap immutable.");
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Rollback gagal.");
     } finally {
       setBusy(false);
     }
@@ -161,6 +342,63 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
               </Button>
             </div>
           ) : null}
+          {draft ? (
+            <div className="mt-6 space-y-4 border-t border-primary-100 pt-5" data-testid="policy-lifecycle-controls">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Selected draft</p>
+                  <p className="mt-1 break-all text-sm font-semibold text-secondary-900">{draft.bundleVersion} · {draft.state} · rev {draft.revision}</p>
+                </div>
+                <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-900">providerGateState=open_blocked</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
+                  Daily quota limit
+                  <input className="h-11 rounded-xl border border-primary-200 bg-[#f7faf8] px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" id="policy-daily-limit" inputMode="numeric" maxLength={5} onChange={(event) => setDailyLimit(event.target.value)} value={dailyLimit} />
+                </label>
+                <Button className="self-end" disabled={busy || draft.state !== "draft" || !canPolicy} onClick={() => void editDraft()} type="button" variant="outline">Edit quota</Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={busy || draft.state !== "draft"} onClick={() => void validateDraft()} type="button">Validate draft</Button>
+                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void previewDraft("categorical")} type="button" variant="outline">Preview impact</Button>
+                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void approveDraft()} type="button" variant="outline">Approve (second operator)</Button>
+              </div>
+              {draft.state === "pending_approval" ? (
+                <div className="grid gap-3 rounded-2xl bg-secondary-50 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-2">
+                    <p className="text-sm font-semibold text-secondary-800">Aggregate preview range</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input aria-label="Preview range from" className="h-10 rounded-xl border border-primary-200 bg-white px-3 text-sm" onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
+                      <input aria-label="Preview range to" className="h-10 rounded-xl border border-primary-200 bg-white px-3 text-sm" onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
+                    </div>
+                    <input aria-label="Preview IANA timezone" className="h-10 rounded-xl border border-primary-200 bg-white px-3 text-sm" onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
+                    <Button disabled={busy || !previewFrom || !previewTo} onClick={() => void previewDraft("aggregate")} type="button" variant="outline">Run aggregate preview</Button>
+                  </div>
+                  <div className="text-xs leading-5 text-secondary-600">
+                    Preview memerlukan rentang kalender lokal half-open, maksimum 31 hari. Cost penuh tetap dicatat walau hasil suppressed atau unavailable.
+                  </div>
+                </div>
+              ) : null}
+              {draft.state === "pending_approval" || draft.state === "scheduled" ? (
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
+                    Effective at (browser local → UTC)
+                    <input className="h-11 rounded-xl border border-primary-200 bg-[#f7faf8] px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
+                  </label>
+                  <div className="flex items-end gap-2">
+                    <Button disabled={busy || draft.state !== "pending_approval" || !effectiveAt} onClick={() => void scheduleDraft()} type="button">Schedule</Button>
+                    <Button disabled={busy || draft.state !== "scheduled"} onClick={() => void activateDraft()} type="button" variant="outline">Activate due</Button>
+                  </div>
+                </div>
+              ) : null}
+              {preview ? (
+                <div className="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm text-secondary-700" role="status">
+                  <p className="font-semibold text-secondary-900">Preview state: {preview.state}</p>
+                  <p className="mt-1">Admission {preview.effects.futureAdmissions.state}; report {preview.effects.futureReportReservations.state}; content {preview.effects.futureContentEvidence.state}.</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-[24px] border border-primary-100 bg-white p-6 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
@@ -196,7 +434,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
             <tbody>
               {metadata.history.length ? metadata.history.map((item) => (
                 <tr className="border-b border-primary-50 last:border-0" key={`${item.bundleVersion}-${item.validationDigest}`}>
-                  <td className="px-3 py-4 font-semibold text-secondary-900">{item.bundleVersion}</td><td className="px-3 py-4 text-secondary-700">{item.state}</td><td className="px-3 py-4 text-secondary-700">{formatDate(item.effectiveAt)}</td><td className="max-w-xs px-3 py-4 text-secondary-600">{item.reason ?? "—"}</td><td className="px-3 py-4 text-secondary-700">{item.lastAction ?? "—"}</td>
+                  <td className="px-3 py-4 font-semibold text-secondary-900">{item.bundleVersion}</td><td className="px-3 py-4 text-secondary-700">{item.state}</td><td className="px-3 py-4 text-secondary-700">{formatDate(item.effectiveAt)}</td><td className="max-w-xs px-3 py-4 text-secondary-600">{item.reason ?? "—"}</td><td className="px-3 py-4 text-secondary-700"><span>{item.lastAction ?? "—"}</span>{item.state !== "active" && item.state !== "scheduled" ? null : <Button className="ml-3 h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Rollback</Button>}</td>
                 </tr>
               )) : <tr><td className="px-3 py-8 text-secondary-600" colSpan={5}>Belum ada bundle yang tersimpan.</td></tr>}
             </tbody>
@@ -210,4 +448,3 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
 }
 
 export { AiPolicyPageModule };
-

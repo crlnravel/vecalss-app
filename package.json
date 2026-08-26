@@ -60,6 +60,7 @@
     "test:vera-http-sprint3": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-http-sprint3.ts",
     "test:vera-ai-policy": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-ai-policy.ts",
     "test:vera-prisma-sprint4": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-prisma-sprint4.ts",
+    "test:vera-prisma-sprint4-runtime": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-prisma-sprint4-runtime.ts",
     "test:vera-http-sprint4": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-http-sprint4.ts",
     "test:vera-sprint4": "pnpm test:vera-ai-policy && pnpm test:vera-prisma-sprint4 && pnpm test:vera-http-sprint4",
     "test:vera-migration-fixture": "tsx scripts/test-vera-migration-fixture.ts",

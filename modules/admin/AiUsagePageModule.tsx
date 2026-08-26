@@ -22,6 +22,7 @@ import {
   type VeraAdminReportFailureDto,
   type VeraAdminUsageDto,
   type VeraAggregatePartition,
+  type VeraComparisonRow,
   type VeraIncidentRow,
   type VeraReportFeature,
   type VeraReportStatus,
@@ -225,6 +226,43 @@ function IncidentPanel({ partition }: { partition: VeraAggregatePartition<VeraIn
   );
 }
 
+function ComparisonPanel({ partition }: { partition: VeraAggregatePartition<VeraComparisonRow> }) {
+  return (
+    <section className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+      <div className="flex flex-col gap-1 border-b border-primary-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-secondary-900">Period comparison</h2>
+          <p className="mt-1 text-sm text-secondary-600">Perbandingan terhadap rentang kalender lokal sebelumnya; hanya agregat.</p>
+        </div>
+        <Badge className="w-fit border border-primary-100 bg-primary-50 text-primary-800" size="ui">Tidak retroaktif</Badge>
+      </div>
+      <PartitionState partition={partition} />
+      {partition.state === "ready" && partition.rows.length > 0 ? (
+        <div className="grid gap-px bg-primary-100 sm:grid-cols-3">
+          {[
+            { label: "Requests", key: "requests" as const },
+            { label: "Sukses terminal", key: "succeeded" as const },
+            { label: "Quota units", key: "quotaUnits" as const },
+          ].map((metric) => {
+            const row = partition.rows[0]!;
+            const delta = row.delta?.[metric.key] ?? null;
+            return (
+              <div className="bg-white px-5 py-4" key={metric.key}>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary-500">{metric.label}</p>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <p className="text-xl font-semibold text-secondary-900">{formatNumber(row.current[metric.key])}</p>
+                  <span className="text-xs text-secondary-500">vs {formatNumber(row.previous[metric.key])}</span>
+                </div>
+                <p className="mt-1 text-xs text-secondary-600">Delta {formatNumber(delta)}</p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function AiUsagePageModule({ session }: { session: SessionContext }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -355,6 +393,8 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
             </div>
 
             <IncidentPanel partition={dto.incidents} />
+
+            <ComparisonPanel partition={dto.comparison} />
 
             <section className={`${ADMIN_CARD_CLASS_NAME} p-5`}>
               <h2 className="text-base font-semibold text-secondary-900">Policy & freshness</h2>

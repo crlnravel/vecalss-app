@@ -82,6 +82,9 @@ let server: ChildProcess | null = null;
 
 try {
   const now = new Date();
+  // Disposable fixture preparation follows the production immutability rule:
+  // normalize state to draft before changing the test effective boundary.
+  if (policy.state !== "draft") await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "active", effectiveAt: new Date(now.getTime() - 60_000) } });
   await db.user.createMany({ data: [
     { id: studentId, email: `vera-s3-http-${studentId}@example.test`, fullName: "Vera HTTP", passwordHash: "fixture" },
@@ -380,6 +383,7 @@ try {
   await db.user.deleteMany({ where: { id: { in: [studentId, otherStudentId] } } });
   await db.topic.deleteMany({ where: { id: topicId } });
   await db.subtest.deleteMany({ where: { id: subtestId } });
+  await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: policy.state, effectiveAt: policy.effectiveAt } });
   await db.$disconnect();
 }

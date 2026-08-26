@@ -8,6 +8,7 @@ import type {
   AiPolicyPreviewMode,
   AiPolicyState,
 } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const AI_POLICY_SCHEMA_VERSION = "vera-policy-v1";
 export const AI_POLICY_FINGERPRINT_KEY_VERSION = "vera-policy-hmac-v1";
@@ -73,6 +74,27 @@ export type AiPolicyConfig = {
   changeReason: string | null;
 };
 
+export type AiPolicyBundleDto = {
+  id: string;
+  bundleVersion: string;
+  configSchemaVersion: string;
+  state: AiPolicyState;
+  effectiveAt: string;
+  providerGateState: typeof AI_POLICY_PROVIDER_GATE_STATE;
+  validationDigest: string;
+  changeReason: string | null;
+  revision: number;
+  editorActorIds: string[];
+  requiredCapabilityUnion: AiPolicyCapability[];
+  approvedBy: { id: string; display: string } | null;
+  approvedAt: string | null;
+  activatedAt: string | null;
+  quotaConfig: AiPolicyConfig["quotaConfig"];
+  settlementConfig: AiPolicyConfig["settlementConfig"];
+  reportConfig: AiPolicyConfig["reportConfig"];
+  retentionConfig: AiPolicyConfig["retentionConfig"];
+};
+
 export type AiPolicyChangedSections = Partial<Record<PolicySection, true>>;
 
 export type AiPolicyValidationResult = {
@@ -120,6 +142,7 @@ export type AiPolicyMetadataDto = {
   } | null;
   scheduled: { bundleVersion: string; effectiveAt: string; validationDigest: string } | null;
   history: Array<{
+    id: string;
     bundleVersion: string;
     state: AiPolicyState;
     effectiveAt: string;
@@ -137,6 +160,16 @@ export type AiPolicyCommandResult = {
   operation: AiAdminCommandOperation;
   resultKind: string;
   result: unknown;
+};
+
+/** The exact local-calendar range captured by an aggregate preview reservation.
+ * It is persisted/audited as request metadata; no preview may silently fall
+ * back to a fabricated UTC day.
+ */
+export type PreviewReservationRange = {
+  from: string;
+  to: string;
+  timezone: string;
 };
 
 export class AiPolicyError extends Error {
@@ -255,10 +288,14 @@ export type PreviewReservationAdapter = {
     policyBundleVersion: string;
     costUnits: 3;
     asOf: Date;
+    range: PreviewReservationRange;
+    commandId: string;
+    transaction?: Prisma.TransactionClient;
   }): Promise<{ reservationId: string }>;
   completeAggregate(input: {
     reservationId: string;
     result: AiPolicyImpactPreviewDto;
     resultDigest: string;
+    transaction?: Prisma.TransactionClient;
   }): Promise<void>;
 };

@@ -111,6 +111,9 @@ const policy = await db.aiPolicyBundle.findFirst({ where: { bundleVersion: "vera
 if (!policy) throw new Error("Disposable policy seed is missing.");
 
 try {
+  // Keep the immutable policy trigger intact while preparing this disposable
+  // fixture: only draft rows may receive the test effectiveAt normalization.
+  if (policy.state !== "draft") await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "active", effectiveAt: new Date(now.getTime() - 60_000) } });
   await db.user.createMany({ data: [
     { id: studentId, email: `vera-s3-${studentId}@example.test`, fullName: "Vera Sprint 3", passwordHash: "fixture" },
@@ -607,6 +610,7 @@ try {
   await db.module.deleteMany({ where: { id: { in: [moduleId, secondModuleId] } } });
   await db.topic.deleteMany({ where: { id: topicId } });
   await db.subtest.deleteMany({ where: { id: subtestId } });
+  await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: policy.state, effectiveAt: policy.effectiveAt } });
   await db.$disconnect();
 }

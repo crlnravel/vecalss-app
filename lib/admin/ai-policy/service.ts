@@ -13,8 +13,9 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
-import { createPolicyPreviewReservationAdapter, VeraAdminUsageError } from "@/lib/admin/ai-usage/service";
+import { buildPolicyPreviewEffects, createPolicyPreviewReservationAdapter, ensureEffectivePolicyBoundary, VeraAdminUsageError } from "@/lib/admin/ai-usage/service";
 import { canonicalJson, sha256Hex } from "@/lib/vera-ai/contracts";
+import { parseAdminUsageQuery } from "@/lib/admin/ai-usage/validation";
 
 import {
   AI_POLICY_CAPABILITIES,
@@ -32,8 +33,10 @@ import {
   policySnapshotDigest,
   policyValidationDigest,
   type AiPolicyCapability,
+  type AiPolicyBundleDto,
   type AiPolicyConfig,
   type AiPolicyImpactPreviewDto,
+  type AiPolicyImpactCell,
   type AiPolicyMetadataDto,
   type PolicySection,
   type PreviewReservationAdapter,
@@ -51,27 +54,6 @@ export type AiPolicyActor = {
   id: string;
   roles?: readonly string[];
   capabilities?: readonly AiPolicyCapability[];
-};
-
-export type AiPolicyBundleDto = {
-  id: string;
-  bundleVersion: string;
-  configSchemaVersion: string;
-  state: AiPolicyState;
-  effectiveAt: string;
-  providerGateState: typeof AI_POLICY_PROVIDER_GATE_STATE;
-  validationDigest: string;
-  changeReason: string | null;
-  revision: number;
-  editorActorIds: string[];
-  requiredCapabilityUnion: AiPolicyCapability[];
-  approvedBy: { id: string; display: string } | null;
-  approvedAt: string | null;
-  activatedAt: string | null;
-  quotaConfig: AiPolicyConfig["quotaConfig"];
-  settlementConfig: AiPolicyConfig["settlementConfig"];
-  reportConfig: AiPolicyConfig["reportConfig"];
-  retentionConfig: AiPolicyConfig["retentionConfig"];
 };
 
 export type AiPolicyCommandResponse = {
@@ -105,11 +87,13 @@ type CommandInput = {
 
 type ExistingCommand = {
   id: string;
+  adminPrincipalId: string;
   state: AiAdminCommandState;
   resultId: string | null;
   resultKind: AiAdminCommandResultKind;
   requestFingerprint: string;
   rejectionCode: string | null;
+  rejectionClass: "terminal" | "transient" | null;
   expiresAt: Date;
   previewMode: "categorical" | "aggregate" | null;
   previewActiveBundleId: string | null;
@@ -118,6 +102,7 @@ type ExistingCommand = {
   previewAsOf: Date | null;
   previewValidationDigest: string | null;
   previewReservationId: string | null;
+  previewReservationUuid: string | null;
   retentionPolicyBundleVersion: string | null;
   retentionAuditReference: string | null;
 };
@@ -221,16 +206,24 @@ function buildImpactPreview(input: {
   validationDigest: string;
   asOf: Date;
   reservationId?: string;
+  aggregate?: {
+    state: AiPolicyImpactPreviewDto["state"];
+    effects: {
+      futureAdmissions: AiPolicyImpactCell;
+      futureReportReservations: AiPolicyImpactCell;
+      futureContentEvidence: AiPolicyImpactCell;
+    };
+  };
 }): AiPolicyImpactPreviewDto {
   const changed = changedSectionsFromRows(input.source, input.candidate);
   return {
-    state: "ready",
+    state: input.aggregate?.state ?? "ready",
     candidateBundleVersion: input.candidate.bundleVersion,
     activeBundleVersion: input.active.bundleVersion,
     effectiveAt: input.candidate.effectiveAt.toISOString(),
     asOf: input.asOf.toISOString(),
     nonRetroactive: true,
-    effects: {
+    effects: input.aggregate?.effects ?? {
       futureAdmissions: defaultPreviewCell("quota", changed.includes("quota")),
       futureReportReservations: defaultPreviewCell("report_budget", changed.includes("report")),
       futureContentEvidence: defaultPreviewCell("content_evidence", changed.includes("retention")),
@@ -363,7 +356,15 @@ export class AiPolicyCommandService {
 
   private async rejectCommand(tx: Tx, rowId: string, error: unknown, now: Date): Promise<void> {
     const mapped = error instanceof AiPolicyError ? error : new AiPolicyError("policy_command_failed", "Perintah kebijakan gagal.", 503);
-    const terminal = mapped.code !== "policy_clock_unavailable" && mapped.code !== "preview_budget_unavailable";
+    const terminal = !new Set([
+      "policy_clock_unavailable",
+      "preview_budget_unavailable",
+      "preview_unavailable",
+      "report_unavailable",
+      "report_process_lost",
+      "report_budget_exhausted",
+      "report_burst_limited",
+    ]).has(mapped.code);
     await tx.aiAdminCommandLedger.updateMany({
       where: { id: rowId, state: AiAdminCommandState.pending },
       data: {
@@ -397,11 +398,15 @@ export class AiPolicyCommandService {
   }
 
   private async getPreviewForReplay(row: ExistingCommand): Promise<AiPolicyImpactPreviewDto> {
-    if (row.previewReservationId) {
-      const reservation = await this.db.aiReportReservation.findUnique({ where: { id: row.previewReservationId } });
+    const reservationId = row.previewReservationUuid ?? row.previewReservationId;
+    if (reservationId) {
+      const reservation = await this.db.aiReportReservation.findUnique({ where: { id: reservationId } });
       if (
         !reservation
+        || reservation.adminPrincipalId !== row.adminPrincipalId
         || reservation.operation !== "admin_policy_preview"
+        || reservation.requestFingerprint !== row.requestFingerprint
+        || reservation.policyBundleVersion !== row.previewActiveBundleVersion
         || reservation.state !== "completed"
         || reservation.resultKind !== "policy_preview"
         || !reservation.resultSnapshot
@@ -411,8 +416,20 @@ export class AiPolicyCommandService {
         throw new AiPolicyError("policy_result_unavailable", "Snapshot preview agregat belum selesai tersedia.", 503);
       }
       const snapshot = reservation.resultSnapshot as { kind?: string; dto?: AiPolicyImpactPreviewDto };
-      if (snapshot.kind !== "policy_preview" || !snapshot.dto || snapshot.dto.mode !== "aggregate") {
+      if (snapshot.kind !== "policy_preview" || !snapshot.dto || snapshot.dto.mode !== "aggregate" || snapshot.dto.reservationId !== reservation.id || typeof reservation.resultDigest !== "string" || sha256Hex(canonicalJson(reservation.resultSnapshot)) !== reservation.resultDigest) {
         throw new AiPolicyError("policy_result_unavailable", "Snapshot preview agregat tidak valid.", 503);
+      }
+      const candidate = row.resultId
+        ? await this.db.aiPolicyBundle.findUnique({ where: { id: row.resultId }, select: { bundleVersion: true, effectiveAt: true } })
+        : null;
+      if (
+        !candidate
+        || candidate.bundleVersion !== snapshot.dto.candidateBundleVersion
+        || snapshot.dto.activeBundleVersion !== row.previewActiveBundleVersion
+        || snapshot.dto.validationDigest !== row.previewValidationDigest
+        || snapshot.dto.effectiveAt !== candidate.effectiveAt.toISOString()
+      ) {
+        throw new AiPolicyError("policy_result_unavailable", "Snapshot preview agregat tidak sesuai dengan tuple kebijakan tersimpan.", 503);
       }
       return snapshot.dto;
     }
@@ -437,7 +454,10 @@ export class AiPolicyCommandService {
 
   private async responseForExisting(input: CommandInput, row: ExistingCommand): Promise<AiPolicyCommandResponse> {
     if (row.state === AiAdminCommandState.rejected) {
-      throw new AiPolicyError(row.rejectionCode ?? "policy_command_rejected", "Perintah kebijakan ditolak.", 422);
+      const code = row.rejectionCode ?? "policy_command_rejected";
+      const transient = row.rejectionClass === "transient";
+      const status = transient ? (code.includes("budget") || code.includes("burst") ? 429 : 503) : 422;
+      throw new AiPolicyError(code, transient ? "Perintah kebijakan dapat dicoba kembali." : "Perintah kebijakan ditolak.", status);
     }
     if (row.state !== AiAdminCommandState.accepted || !row.resultId) {
       throw new AiPolicyError("policy_command_pending", "Perintah kebijakan masih diproses.", 202, { commandId: row.id });
@@ -532,7 +552,7 @@ export class AiPolicyCommandService {
         lastApprover: active.approvedBy ? { id: active.approvedBy.id, display: active.approvedBy.fullName || active.approvedBy.email } : null,
       } : null,
       scheduled: scheduled ? { bundleVersion: scheduled.bundleVersion, effectiveAt: scheduled.effectiveAt.toISOString(), validationDigest: scheduled.validationDigest } : null,
-      history: history.map((row) => ({ bundleVersion: row.bundleVersion, state: row.state, effectiveAt: row.effectiveAt.toISOString(), validationDigest: row.validationDigest, reason: row.changeReason, lastAction: row.auditEvents[0]?.action ?? null })),
+      history: history.map((row) => ({ id: row.id, bundleVersion: row.bundleVersion, state: row.state, effectiveAt: row.effectiveAt.toISOString(), validationDigest: row.validationDigest, reason: row.changeReason, lastAction: row.auditEvents[0]?.action ?? null })),
       capabilities,
       canMutate: capabilities.length > 0,
     };
@@ -628,30 +648,62 @@ export class AiPolicyCommandService {
   async previewDraft(actor: AiPolicyActor, input: { bundleId: string; expectedRevision: number; validationDigest: string; mode: "categorical" | "aggregate"; clientRequestId: string; range?: { from: string; to: string; timezone: string } }): Promise<AiPolicyCommandResponse> {
     assertPositiveRevision(input.expectedRevision);
     if (input.mode === "aggregate" && !this.options.previewReservation) throw new AiPolicyError("preview_budget_unavailable", "Preview agregat belum memiliki ledger report yang tersedia.", 503);
+    if (input.mode === "aggregate" && input.range === undefined) throw new AiPolicyError("invalid_preview_range", "Preview agregat memerlukan rentang tanggal lokal.", 400);
     if (input.range !== undefined) assertPreviewRange(input.range);
+    if (input.mode === "aggregate") {
+      try {
+        parseAdminUsageQuery(new URLSearchParams({ from: input.range!.from, to: input.range!.to, timezone: input.range!.timezone }));
+      } catch {
+        throw new AiPolicyError("invalid_preview_range", "Rentang preview agregat tidak valid.", 400);
+      }
+    }
     const fingerprint = adminCommandFingerprint({ operation: AiAdminCommandOperation.ai_policy_preview, payload: { bundleId: input.bundleId, expectedRevision: input.expectedRevision, validationDigest: input.validationDigest, mode: input.mode, range: input.range ?? null }, secret: this.secret() });
-    let aggregateCompletion: { reservationId: string; result: AiPolicyImpactPreviewDto; resultDigest: string } | undefined;
     const response = await this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_preview, resultKind: AiAdminCommandResultKind.preview, clientRequestId: input.clientRequestId, payload: { bundleId: input.bundleId, expectedRevision: input.expectedRevision, validationDigest: input.validationDigest, mode: input.mode, range: input.range ?? null } }, async (tx, command, now) => {
       const row = await this.getBundle(tx, input.bundleId);
       if (row.state !== AiPolicyState.pending_approval || row.revision !== input.expectedRevision || row.validationDigest !== input.validationDigest) throw new AiPolicyError("validation_stale", "Preview memerlukan validasi terbaru.", 409);
       const source = row.supersedesBundleId ? await this.getBundle(tx, row.supersedesBundleId) : row;
+      await ensureEffectivePolicyBoundary(tx, now, actor.id);
       const active = await tx.aiPolicyBundle.findFirst({ where: { state: AiPolicyState.active }, orderBy: { activatedAt: "desc" } });
       if (!active) throw new AiPolicyError("active_policy_unavailable", "Kebijakan aktif tidak tersedia.", 503);
+      if (row.supersedesBundleId && row.supersedesBundleId !== active.id) {
+        throw new AiPolicyError("policy_revision_conflict", "Draft preview tidak lagi memakai kebijakan aktif yang sama.", 409);
+      }
       const changed = changedSectionsFromRows(source, row);
       await this.requireCapabilities(actor, capabilitiesForSections(changed), tx);
       rowConfig(row);
       let reservationId: string | undefined;
+      let previewEffects: Awaited<ReturnType<typeof buildPolicyPreviewEffects>> | undefined;
       if (input.mode === "aggregate") {
         try {
-          reservationId = (await this.options.previewReservation!.reserveAggregate({ principalId: actor.id, clientRequestId: input.clientRequestId, requestFingerprint: fingerprint, policyBundleVersion: active.bundleVersion, costUnits: 3, asOf: now })).reservationId;
+          reservationId = (await this.options.previewReservation!.reserveAggregate({ principalId: actor.id, clientRequestId: input.clientRequestId, requestFingerprint: fingerprint, policyBundleVersion: active.bundleVersion, costUnits: 3, asOf: now, range: input.range!, commandId: command.id, transaction: tx })).reservationId;
         } catch (error) {
           if (error instanceof VeraAdminUsageError) {
             throw new AiPolicyError(error.code, "Preview agregat tidak dapat memperoleh budget report.", error.status, error.reservationId ? { reservationId: error.reservationId } : undefined);
           }
           throw error;
         }
+        try {
+          const query = parseAdminUsageQuery(new URLSearchParams({ from: input.range!.from, to: input.range!.to, timezone: input.range!.timezone }), now);
+          previewEffects = await buildPolicyPreviewEffects({ db: tx, query, changed: { quota: changed.includes("quota") ? true : undefined, settlement: changed.includes("settlement") ? true : undefined, report: changed.includes("report") ? true : undefined, retention: changed.includes("retention") ? true : undefined }, minimumGroupSize: 5 });
+        } catch (error) {
+          // The reservation is already durable in this transaction. Preserve
+          // its full cost and finish with a typed, replayable unavailable
+          // snapshot instead of committing a charged pending/orphan row.
+          if (error instanceof AiPolicyError && error.code === "invalid_preview_range") throw error;
+          previewEffects = {
+            state: "unavailable",
+            effects: {
+              futureAdmissions: { state: "unavailable" },
+              futureReportReservations: { state: "unavailable" },
+              futureContentEvidence: { state: "unavailable" },
+            },
+          };
+        }
       }
-      const result = buildImpactPreview({ candidate: row, source, active, mode: input.mode, validationDigest: input.validationDigest, asOf: now, reservationId });
+      const result = buildImpactPreview({ candidate: row, source, active, mode: input.mode, validationDigest: input.validationDigest, asOf: now, reservationId, aggregate: previewEffects });
+      if (reservationId) {
+        await this.options.previewReservation!.completeAggregate({ reservationId, result, resultDigest: sha256Hex(canonicalJson({ kind: "policy_preview", dto: result })), transaction: tx });
+      }
       await tx.aiAdminCommandLedger.update({ where: { id: command.id }, data: {
         previewMode: input.mode === "categorical" ? AiPolicyPreviewMode.categorical : AiPolicyPreviewMode.aggregate,
         previewActiveBundleId: active.id,
@@ -660,18 +712,11 @@ export class AiPolicyCommandService {
         previewAsOf: now,
         previewValidationDigest: input.validationDigest,
         previewReservationId: reservationId ?? null,
+        previewReservationUuid: reservationId ?? null,
       } });
       await tx.aiPolicyAuditEvent.create({ data: { bundleId: row.id, actorId: actor.id, action: AiPolicyAuditAction.previewed, diffDigest: input.validationDigest, validationDigest: input.validationDigest, reason: "Impact preview", fromState: row.state, toState: row.state } });
-      if (reservationId) {
-        aggregateCompletion = {
-          reservationId,
-          result,
-          resultDigest: sha256Hex(canonicalJson({ kind: "policy_preview", dto: result })),
-        };
-      }
       return { resultId: row.id, result };
     });
-    if (aggregateCompletion) await this.options.previewReservation!.completeAggregate(aggregateCompletion);
     return response;
   }
 
@@ -705,8 +750,13 @@ export class AiPolicyCommandService {
       if (!row.approvalSnapshotId || !row.approvedAt) throw new AiPolicyError("approval_required", "Approval operator kedua belum lengkap.", 409);
       const existing = await tx.aiPolicyBundle.findFirst({ where: { state: AiPolicyState.scheduled, id: { not: row.id } }, select: { id: true } });
       if (existing) throw new AiPolicyError("scheduled_successor_exists", "Sudah ada successor kebijakan terjadwal.", 409);
-      const updated = await tx.aiPolicyBundle.update({ where: { id: row.id }, data: { state: AiPolicyState.scheduled, effectiveAt, revision: { increment: 1 } }, include: { approvedBy: { select: { id: true, fullName: true, email: true } } } });
-      await tx.aiPolicyAuditEvent.create({ data: { bundleId: row.id, actorId: actor.id, action: AiPolicyAuditAction.scheduled, diffDigest: input.validationDigest, validationDigest: input.validationDigest, reason: input.reason ?? null, fromState: AiPolicyState.pending_approval, toState: AiPolicyState.scheduled } });
+      // effectiveAt participates in the immutable policy fingerprint. The
+      // approved -> scheduled transition is the sole non-draft exception, so
+      // recalculate the persisted digest for the exact scheduled boundary.
+      const scheduledConfig = rowConfig({ ...row, effectiveAt });
+      const scheduledDigest = policyValidationDigest(scheduledConfig);
+      const updated = await tx.aiPolicyBundle.update({ where: { id: row.id }, data: { state: AiPolicyState.scheduled, effectiveAt, validationDigest: scheduledDigest, revision: { increment: 1 } }, include: { approvedBy: { select: { id: true, fullName: true, email: true } } } });
+      await tx.aiPolicyAuditEvent.create({ data: { bundleId: row.id, actorId: actor.id, action: AiPolicyAuditAction.scheduled, diffDigest: scheduledDigest, validationDigest: scheduledDigest, reason: input.reason ?? null, fromState: AiPolicyState.pending_approval, toState: AiPolicyState.scheduled } });
       return { resultId: updated.id, result: toBundleDto(updated) };
     });
   }
