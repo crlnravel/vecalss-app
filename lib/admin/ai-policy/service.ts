@@ -26,11 +26,9 @@ import {
   assertPositiveRevision,
   assertReason,
   capabilitiesForSections,
-  canonicalPolicyJson,
   defaultPreviewCell,
   policySnapshotDigest,
   policyValidationDigest,
-  policyCapabilityForSection,
   type AiPolicyCapability,
   type AiPolicyConfig,
   type AiPolicyImpactPreviewDto,
@@ -163,16 +161,6 @@ function rowConfig(row: {
     retentionConfig: row.retentionConfig,
     providerGateState: row.providerGateState,
     changeReason: row.changeReason,
-  });
-}
-
-function configForPatch(row: Parameters<typeof rowConfig>[0], patch: Partial<Record<`${PolicySection}Config`, unknown>>): AiPolicyConfig {
-  return rowConfig({
-    ...row,
-    quotaConfig: patch.quotaConfig ?? row.quotaConfig,
-    settlementConfig: patch.settlementConfig ?? row.settlementConfig,
-    reportConfig: patch.reportConfig ?? row.reportConfig,
-    retentionConfig: patch.retentionConfig ?? row.retentionConfig,
   });
 }
 
@@ -535,7 +523,7 @@ export class AiPolicyCommandService {
   async createDraft(actor: AiPolicyActor, input: { clientRequestId: string; sourceBundleId?: string; reason: string }): Promise<AiPolicyCommandResponse> {
     assertReason(input.reason);
     await this.requireAnyCapability(actor);
-    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_draft_create, resultKind: AiAdminCommandResultKind.draft, clientRequestId: input.clientRequestId, payload: { sourceBundleId: input.sourceBundleId ?? null, reason: input.reason }, reason: input.reason }, async (tx, command, now) => {
+    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_draft_create, resultKind: AiAdminCommandResultKind.draft, clientRequestId: input.clientRequestId, payload: { sourceBundleId: input.sourceBundleId ?? null, reason: input.reason }, reason: input.reason }, async (tx, _command, now) => {
       const source = await this.sourceBundle(tx, input.sourceBundleId);
       const bundleVersion = `vera-policy-console-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${randomUUID().slice(0, 8)}`;
       const row = await tx.aiPolicyBundle.create({
@@ -569,7 +557,7 @@ export class AiPolicyCommandService {
     const sections = (Object.keys(input.patch) as string[]).map((key) => key.replace(/Config$/, "") as PolicySection);
     if (!sections.length || sections.some((section) => !["quota", "settlement", "report", "retention"].includes(section))) throw new AiPolicyError("invalid_policy_patch", "Perubahan hanya boleh menyentuh section kebijakan yang diizinkan.", 400);
     await this.requireCapabilities(actor, capabilitiesForSections(sections));
-    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_draft_edit, resultKind: AiAdminCommandResultKind.draft, clientRequestId: input.clientRequestId, payload: { bundleId: input.bundleId, expectedRevision: input.expectedRevision, patch: input.patch, reason: input.reason ?? null }, reason: input.reason ?? null }, async (tx, command, now) => {
+    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_draft_edit, resultKind: AiAdminCommandResultKind.draft, clientRequestId: input.clientRequestId, payload: { bundleId: input.bundleId, expectedRevision: input.expectedRevision, patch: input.patch, reason: input.reason ?? null }, reason: input.reason ?? null }, async (tx) => {
       const row = await this.getBundle(tx, input.bundleId);
       if (row.state !== AiPolicyState.draft || row.revision !== input.expectedRevision) throw new AiPolicyError("policy_revision_conflict", "Draft kebijakan berubah; muat ulang sebelum mengedit.", 409, { currentRevision: row.revision });
       const data: Prisma.AiPolicyBundleUpdateInput = {
@@ -596,7 +584,7 @@ export class AiPolicyCommandService {
 
   async validateDraft(actor: AiPolicyActor, input: { bundleId: string; expectedRevision: number; clientRequestId: string }): Promise<AiPolicyCommandResponse> {
     assertPositiveRevision(input.expectedRevision);
-    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_validate, resultKind: AiAdminCommandResultKind.validation, clientRequestId: input.clientRequestId, payload: { bundleId: input.bundleId, expectedRevision: input.expectedRevision } }, async (tx, command, now) => {
+    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_validate, resultKind: AiAdminCommandResultKind.validation, clientRequestId: input.clientRequestId, payload: { bundleId: input.bundleId, expectedRevision: input.expectedRevision } }, async (tx) => {
       const row = await this.getBundle(tx, input.bundleId);
       if (row.state !== AiPolicyState.draft || row.revision !== input.expectedRevision) throw new AiPolicyError("policy_revision_conflict", "Draft kebijakan berubah; validasi dibatalkan.", 409, { currentRevision: row.revision });
       const source = row.supersedesBundleId ? await this.getBundle(tx, row.supersedesBundleId) : row;
@@ -725,7 +713,7 @@ export class AiPolicyCommandService {
     const requestedUpperBound = asDate(input.requestedUpperBound);
     if (Number.isNaN(requestedUpperBound.getTime())) throw new AiPolicyError("invalid_retention_bound", "Batas retention tidak valid.", 400);
     await this.requireCapabilities(actor, ["canManageAiGovernance"]);
-    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_retention_extension_request, resultKind: AiAdminCommandResultKind.retention_extension, clientRequestId: input.clientRequestId, payload: { targetReference: input.targetReference, requestedUpperBound, reason: input.reason }, reason: input.reason }, async (tx, command, now) => {
+    return this.executeBundleCommand({ actor, operation: AiAdminCommandOperation.ai_policy_retention_extension_request, resultKind: AiAdminCommandResultKind.retention_extension, clientRequestId: input.clientRequestId, payload: { targetReference: input.targetReference, requestedUpperBound, reason: input.reason }, reason: input.reason }, async (tx, command) => {
       const active = await tx.aiPolicyBundle.findFirst({ where: { state: AiPolicyState.active }, orderBy: { activatedAt: "desc" } });
       if (!active) throw new AiPolicyError("active_policy_unavailable", "Kebijakan aktif tidak tersedia.", 503);
       const audit = await tx.aiPolicyAuditEvent.create({ data: { bundleId: active.id, actorId: actor.id, action: AiPolicyAuditAction.retention_extension_requested, reason: input.reason, diffDigest: "pending-t11", validationDigest: active.validationDigest, toState: active.state } });
