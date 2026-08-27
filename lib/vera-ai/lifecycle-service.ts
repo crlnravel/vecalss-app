@@ -629,7 +629,8 @@ export class VeraLifecycleService {
           const current = await tx.aiExportJob.findUnique({ where: { id: job.id }, include: { operation: true } });
           if (!current) return;
           if (current.state === "ready" && current.downloadExpiresAt && current.downloadExpiresAt <= now) {
-            await tx.aiExportJob.update({ where: { id: current.id }, data: { state: "expired", expiredAt: now, exportAccessGrantState: "expired" } });
+            const terminalRetention = preReadyExportDeadlines(now);
+            await tx.aiExportJob.update({ where: { id: current.id }, data: { state: "expired", expiredAt: now, terminalAt: now, terminalRetentionExpiresAt: terminalRetention.terminalRetentionExpiresAt, exportAccessGrantState: "expired" } });
             await tx.aiLifecycleOperation.update({ where: { id: current.operationId }, data: { state: "expired", resultState: "expired", terminalAt: current.operation.terminalAt ?? now, version: { increment: 1 } } });
             changed += 1;
           } else if ((current.state === "pending" || current.state === "materializing" || current.state === "failed_retryable") && current.recoveryDeadlineAt <= now) {

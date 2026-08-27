@@ -3775,12 +3775,12 @@ model AiExportPart {
 
 model AiRetentionHold {
   id                    String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  subjectType           AiRetentionHoldSubjectType
+  subjectType           AiRetentionHoldSubjectType     @map("subject_type")
   subjectId             String?                     @map("subject_id") @db.Uuid
   subjectState          AiRetentionHoldSubjectState @default(attached) @map("subject_state")
   studentId             String?                     @map("student_id") @db.Uuid
   subjectReferenceDigest String?                    @map("subject_reference_digest") @db.VarChar(128)
-  holdType              AiRetentionHoldType
+  holdType              AiRetentionHoldType            @map("hold_type")
   state                 AiRetentionHoldState        @default(active)
   reasonCode            String                      @map("reason_code") @db.VarChar(100)
   actorId               String                      @map("actor_id") @db.VarChar(160)
