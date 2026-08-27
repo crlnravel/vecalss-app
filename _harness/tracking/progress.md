@@ -1,5 +1,22 @@
 # Session Progress Log
 
+## First mentor dashboard adoption (2026-08-28)
+
+- [x] Selected the unowned `/mentor/dashboard` route as the first bounded
+  non-student adoption surface; no other mentor, Kapten, admin, or student
+  route was changed.
+- [x] Replaced the dashboard content blocks with the extracted
+  `ReferencePageHeader`, stat cards, activity feed, task cards, surface, and
+  empty state while preserving `MentorWorkspaceShell` infrastructure.
+- [x] Kept recent resource links actionable and localized the extracted status
+  map for mentor content states (`Draf`, `Terjadwal`, `Diterbitkan`, and
+  `Diarsipkan`).
+- [x] Updated `test:mentor-dashboard-ia`; focused contract, focused ESLint,
+  Impeccable detector, and production compilation pass.
+- [ ] Authenticated browser visual QA is pending because PostgreSQL at
+  `127.0.0.1:55432` and the Docker daemon are unavailable in this environment.
+- [x] Commit: `3777553` (`feat: adopt dashboard components on mentor home`).
+
 ## Reference dashboard component extraction (2026-08-27)
 
 - [x] Inspected `tmp/reference/res1` custom dashboard components and separated

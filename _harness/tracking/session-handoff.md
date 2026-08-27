@@ -1,5 +1,35 @@
 # Session Handoff
 
+## First mentor dashboard adoption (2026-08-28)
+
+- Objective: adopt the extracted reference dashboard language on one bounded
+  non-student role surface while preserving existing role-shell infrastructure.
+- Target: `/mentor/dashboard` was selected because it is outside the active
+  Bank Soal, Materi, Tryout, and account-switcher work owned by other agents.
+- Commit: `3777553` (`feat: adopt dashboard components on mentor home`).
+- Files: `modules/mentor/MentorDashboardPageModule.tsx`,
+  `components/dashboard/reference-dashboard-primitives.tsx`,
+  `components/dashboard/reference-dashboard-tokens.ts`, and
+  `scripts/test-mentor-dashboard-ia.ts`.
+- Decision: keep `MentorWorkspaceShell` for breadcrumbs, search, account menu,
+  ScrollArea, sidebar, and navigation guards. The extracted layer is used for
+  the dashboard content only: header, stat cards, activity feed, task cards,
+  surface, and empty state.
+- Decision: recent resources remain individually actionable through linked
+  activity titles; scheduled resources remain linked task cards. Content status
+  labels are localized for mentor surfaces.
+- Verification: `pnpm test:mentor-dashboard-ia` passes; focused ESLint,
+  Impeccable detector, and `git diff --check` pass. `pnpm build` compiles the
+  adopted dashboard and stops at the pre-existing `mdx-components.tsx`
+  anchor/ref mismatch. Full lint/typecheck remain blocked by the preserved
+  `tmp/reference/res1` diagnostics.
+- Browser QA blocker: the running app cannot authenticate because PostgreSQL
+  at `127.0.0.1:55432` is unavailable; Docker is also unavailable. The
+  existing server was not stopped or modified.
+- Next: rerun authenticated desktop/mobile visual QA when the local database is
+  available, then consider another bounded role-surface adoption only after
+  review.
+
 ## Reference dashboard component extraction (2026-08-27)
 
 - Objective: extract the reusable design language from `tmp/reference/res1`

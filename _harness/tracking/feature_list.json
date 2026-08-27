@@ -163,10 +163,10 @@
     {
       "id": "feat-021",
       "name": "Reference Dashboard Component Extraction",
-      "description": "Extract the reusable responsive dashboard shell and content primitives from tmp/reference/res1 without wiring role pages",
+      "description": "Extract the reusable responsive dashboard shell and content primitives from tmp/reference/res1, then validate them on one bounded mentor surface",
       "dependencies": [],
       "status": "complete",
-      "evidence": "de0189c + 6881d48; Vecalss-tokenized surfaces, responsive shell, headers, progress/stat/activity/goal/task primitives, RSC-safe rendered navigation icon slots, mobile modal hardening, explicit mobile overflow state, progressbar semantics, localized status labels, focused ESLint, Impeccable detector [], and isolated fixture preview; no student, mentor, Kapten, or admin routes changed"
+      "evidence": "de0189c + 6881d48 + 3777553; Vecalss-tokenized surfaces, responsive shell, headers, progress/stat/activity/goal/task primitives, RSC-safe rendered navigation icon slots, mobile modal hardening, explicit mobile overflow state, progressbar semantics, localized status labels, and first bounded adoption on /mentor/dashboard while preserving MentorWorkspaceShell; focused mentor dashboard contract, focused ESLint, Impeccable detector [], and production compile pass; full repository checks remain blocked by preserved tmp/reference/res1 and mdx-components.tsx diagnostics"
     }
   ]
 }
