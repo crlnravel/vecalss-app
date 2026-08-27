@@ -4,6 +4,7 @@ import {
   ContentStatus,
   TryoutDeliverySessionStatus,
 } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { getMentorMateriCatalogue } from "@/lib/materi/repository";
 import { prisma } from "@/lib/prisma";
 import {
@@ -22,8 +23,89 @@ import type {
 } from "@/modules/mentor/dashboard-projection";
 import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model";
 
-type DashboardQuizRecord = Awaited<ReturnType<typeof readDashboardQuizzes>>[number];
-type DashboardTryoutRecord = Awaited<ReturnType<typeof readDashboardTryouts>>[number];
+type DashboardQuizRecord = {
+  _count: { items: number };
+  closesAt: Date | null;
+  createdByUserId: string;
+  description: string | null;
+  id: string;
+  opensAt: Date | null;
+  status: ContentStatus;
+  subtest: { code: string; name: string };
+  title: string;
+  updatedAt: Date;
+};
+
+type DashboardTryoutRecord = {
+  createdByUserId: string;
+  description: string | null;
+  deliverySessions: Array<{
+    availableFrom: Date;
+    availableUntil: Date;
+    id: string;
+    status: TryoutDeliverySessionStatus;
+  }>;
+  id: string;
+  status: ContentStatus;
+  title: string;
+  updatedAt: Date;
+};
+
+type DashboardPrismaDelegate<Row, Query> = {
+  findMany: (args: Query) => Promise<readonly Row[]>;
+};
+
+/**
+ * The dashboard adapter only needs these two read delegates. Keeping this
+ * seam narrower than PrismaClient lets runtime tests exercise the production
+ * query builder without requiring a database connection.
+ */
+type DashboardPrismaClient = {
+  standaloneQuiz: DashboardPrismaDelegate<DashboardQuizRecord, Prisma.StandaloneQuizFindManyArgs>;
+  tryoutPackage: DashboardPrismaDelegate<DashboardTryoutRecord, Prisma.TryoutPackageFindManyArgs>;
+};
+
+const dashboardQuizSelect = {
+  _count: { select: { items: true } },
+  closesAt: true,
+  createdByUserId: true,
+  description: true,
+  id: true,
+  opensAt: true,
+  status: true,
+  subtest: { select: { code: true, name: true } },
+  title: true,
+  updatedAt: true,
+} satisfies Prisma.StandaloneQuizSelect;
+
+function dashboardTryoutSessionWhere(now: Date) {
+  return {
+    availableFrom: { gt: now },
+    availableUntil: { gt: now },
+    status: TryoutDeliverySessionStatus.active,
+  } satisfies Prisma.TryoutDeliverySessionWhereInput;
+}
+
+function dashboardTryoutSelect(now: Date) {
+  return {
+    createdByUserId: true,
+    description: true,
+    deliverySessions: {
+      orderBy: [{ availableFrom: "asc" }, { id: "asc" }],
+      select: {
+        availableFrom: true,
+        availableUntil: true,
+        id: true,
+        status: true,
+      },
+      where: dashboardTryoutSessionWhere(now),
+    },
+    id: true,
+    status: true,
+    title: true,
+    updatedAt: true,
+  } satisfies Prisma.TryoutPackageSelect;
+}
 
 type DashboardQuizRepositoryQuery = {
   ownerId: string;
@@ -42,6 +124,15 @@ type MentorDashboardRepository = {
   readTryouts: (query: DashboardTryoutRepositoryQuery) => Promise<readonly DashboardTryoutSource[]>;
 };
 
+const productionDashboardPrisma: DashboardPrismaClient = {
+  standaloneQuiz: {
+    findMany: (args) => prisma.standaloneQuiz.findMany(args) as unknown as Promise<readonly DashboardQuizRecord[]>,
+  },
+  tryoutPackage: {
+    findMany: (args) => prisma.tryoutPackage.findMany(args) as unknown as Promise<readonly DashboardTryoutRecord[]>,
+  },
+};
+
 function statusFor(value: ContentStatus) {
   if (value === ContentStatus.archived) return "archived" as const;
   if (value === ContentStatus.scheduled) return "scheduled" as const;
@@ -56,62 +147,35 @@ function sessionStatusFor(value: TryoutDeliverySessionStatus): DashboardTryoutSe
   return "draft";
 }
 
-async function readDashboardQuizzes(tutorId: string) {
-  return prisma.standaloneQuiz.findMany({
+async function readDashboardQuizzes(
+  tutorId: string,
+  client: DashboardPrismaClient = productionDashboardPrisma,
+) {
+  return client.standaloneQuiz.findMany({
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-    select: {
-      _count: { select: { items: true } },
-      closesAt: true,
-      createdByUserId: true,
-      description: true,
-      id: true,
-      opensAt: true,
-      status: true,
-      subtest: { select: { code: true, name: true } },
-      title: true,
-      updatedAt: true,
-    },
+    select: dashboardQuizSelect,
     where: { createdByUserId: tutorId },
-  });
+  } satisfies Prisma.StandaloneQuizFindManyArgs);
 }
 
-async function readDashboardTryouts(tutorId: string, now: Date) {
-  return prisma.tryoutPackage.findMany({
+async function readDashboardTryouts(
+  tutorId: string,
+  now: Date,
+  client: DashboardPrismaClient = productionDashboardPrisma,
+) {
+  const sessionWhere = dashboardTryoutSessionWhere(now);
+
+  return client.tryoutPackage.findMany({
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-    select: {
-      createdByUserId: true,
-      description: true,
-      deliverySessions: {
-        orderBy: [{ availableFrom: "asc" }, { id: "asc" }],
-        select: {
-          availableFrom: true,
-          availableUntil: true,
-          id: true,
-          status: true,
-        },
-        where: {
-          availableFrom: { gt: now },
-          availableUntil: { gt: now },
-          status: TryoutDeliverySessionStatus.active,
-        },
-      },
-      id: true,
-      status: true,
-      title: true,
-      updatedAt: true,
-    },
+    select: dashboardTryoutSelect(now),
     where: {
       createdByUserId: tutorId,
       deliverySessions: {
-        some: {
-          availableFrom: { gt: now },
-          availableUntil: { gt: now },
-          status: TryoutDeliverySessionStatus.active,
-        },
+        some: sessionWhere,
       },
       status: ContentStatus.published,
     },
-  });
+  } satisfies Prisma.TryoutPackageFindManyArgs);
 }
 
 function toMateriSource(
@@ -181,21 +245,33 @@ async function readDashboardMateri(): Promise<readonly DashboardMateriSource[]> 
   return view.lessons.map(toMateriSource);
 }
 
-const productionMentorDashboardRepository: MentorDashboardRepository = {
-  readMateri: readDashboardMateri,
-  readQuizzes: async ({ ownerId }) => {
-    const records = await readDashboardQuizzes(ownerId);
-    return records
-      .map(toQuizSource)
-      .filter((record): record is DashboardQuizSource => Boolean(record));
-  },
-  readTryouts: async ({ now, ownerId }) => {
-    const records = await readDashboardTryouts(ownerId, now);
-    return records
-      .map(toTryoutSource)
-      .filter((record): record is DashboardTryoutSource => Boolean(record));
-  },
+type MentorDashboardRepositoryDependencies = {
+  prismaClient?: DashboardPrismaClient;
+  readMateri?: () => Promise<readonly DashboardMateriSource[]>;
 };
+
+function createMentorDashboardRepository({
+  prismaClient = productionDashboardPrisma,
+  readMateri = readDashboardMateri,
+}: MentorDashboardRepositoryDependencies = {}): MentorDashboardRepository {
+  return {
+    readMateri,
+    readQuizzes: async ({ ownerId }) => {
+      const records = await readDashboardQuizzes(ownerId, prismaClient);
+      return records
+        .map(toQuizSource)
+        .filter((record): record is DashboardQuizSource => Boolean(record));
+    },
+    readTryouts: async ({ now, ownerId }) => {
+      const records = await readDashboardTryouts(ownerId, now, prismaClient);
+      return records
+        .map(toTryoutSource)
+        .filter((record): record is DashboardTryoutSource => Boolean(record));
+    },
+  };
+}
+
+const productionMentorDashboardRepository = createMentorDashboardRepository();
 
 /**
  * Load and serialize the authenticated Dashboard corpus. Materi is the
@@ -246,7 +322,12 @@ async function getMentorDashboardProjection(
 
 export { getMentorDashboardProjection };
 export type {
+  DashboardPrismaClient,
   DashboardQuizRepositoryQuery,
   DashboardTryoutRepositoryQuery,
+  DashboardQuizRecord,
+  DashboardTryoutRecord,
+  MentorDashboardRepositoryDependencies,
   MentorDashboardRepository,
 };
+export { createMentorDashboardRepository };
