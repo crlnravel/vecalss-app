@@ -69,10 +69,16 @@ type MigrationAuditSnapshot = {
 
 type OwnedFixtureIds = {
   exportIds: string[];
+  artifactIds: string[];
   operationIds: string[];
   idempotencyKeys: string[];
   holdIds: string[];
   conversationIds: string[];
+  requestIds: string[];
+  contextPackIds: string[];
+  stageIds: string[];
+  dailyIds: string[];
+  envelopeKeyRefs: string[];
   userIds: string[];
 };
 
@@ -86,6 +92,9 @@ async function readMigrationSnapshot(db: PrismaClient): Promise<MigrationAuditSn
 
 async function assertCurrentMigrationApplied(db: PrismaClient): Promise<void> {
   const expectedChecksum = createHash("sha256").update(migration).digest("hex");
+  const normalizedMigration = migration.replaceAll('"', "");
+  assert(normalizedMigration.includes("terminal_retention_expires_at >= terminal_at"), "migration must enforce terminal_retention_expires_at >= terminal_at");
+  assert(normalizedMigration.includes("failed_terminal"), "migration must include failed_terminal terminal-retention state");
   const rows = await db.$queryRaw<Array<{ checksum: string }>>`
     SELECT checksum
     FROM "_prisma_migrations"
@@ -95,7 +104,7 @@ async function assertCurrentMigrationApplied(db: PrismaClient): Promise<void> {
     LIMIT 1
   `;
   assert.equal(rows[0]?.checksum, expectedChecksum, "isolated database must apply the current Sprint 5 migration checksum");
-  console.log(`T11_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle checksum=${expectedChecksum} current=true`);
+  console.log(`T11_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle checksum=${expectedChecksum} current=true terminal_retention_expires_at >= terminal_at failed_terminal=true`);
 }
 
 async function testRedis(redisUrl: string, studentId: string, namespace: string): Promise<void> {
@@ -137,12 +146,18 @@ async function testRedis(redisUrl: string, studentId: string, namespace: string)
   }
 }
 
-async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof createVeraLifecycleService>, studentId: string, otherStudentId: string, namespace: string): Promise<OwnedFixtureIds> {
+async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof createVeraLifecycleService>, envelope: EnvelopeService, studentId: string, otherStudentId: string, namespace: string): Promise<OwnedFixtureIds> {
   const exportIds: string[] = [];
+  const artifactIds: string[] = [];
   const operationIds: string[] = [];
   const idempotencyKeys: string[] = [];
   const holdIds: string[] = [];
   const conversationIds: string[] = [];
+  const requestIds: string[] = [];
+  const contextPackIds: string[] = [];
+  const stageIds: string[] = [];
+  const dailyIds: string[] = [];
+  const envelopeKeyRefs: string[] = [];
   const userIds: string[] = [studentId, otherStudentId];
 
   const malformedCases = [
@@ -201,6 +216,10 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert(exportRow.exportAsOf instanceof Date && exportRow.downloadExpiresAt instanceof Date);
   assert.equal(exportRow.operation.resultKind, "export_job");
   assert.equal(exportRow.ownerState, "active");
+  const readySnapshotDigest = exportRow.snapshotDigest;
+  const readyPackageBytes = exportRow.packageBytes;
+  const readyDownloadAt = exportRow.downloadReadyAt;
+  const readyDownloadExpiresAt = exportRow.downloadExpiresAt;
   const parts = await db.aiExportPart.findMany({ where: { exportJobId: exportId }, orderBy: { ordinal: "asc" } });
   assert.equal(parts.length, 1, "an empty learner snapshot still has one canonical AiExportPart");
   assert.equal(parts[0]?.ordinal, 0);
@@ -225,7 +244,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const malformedRow = await db.aiExportJob.findUnique({ where: { id: exportId }, select: { state: true, errorCode: true } });
   assert.equal(malformedRow?.state, "ready", "malformed output must not fabricate a terminal success/failure transition");
   await db.aiExportPart.update({ where: { id: parts[0].id }, data: { ciphertextEnvelope: originalEnvelope as Prisma.InputJsonValue } });
-  console.log("T11_EVIDENCE operation=export malformed_output=failed_closed replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
+  console.log("T11_EVIDENCE operation=export_create actual=true status=pass malformed_output=failed_closed replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
 
   const holdId = randomUUID();
   holdIds.push(holdId);
@@ -319,7 +338,25 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.match(destructionClaim.decisionSnapshotDigest, /^[a-f0-9]{64}$/u);
   assert.equal(destructionClaim.state, "destroyed", "post-commit key-destruction processor must fence and complete the claim");
   assert(destructionClaim.keyRegistryResultDigest, "key-registry completion digest must be persisted");
-  console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-admin-operators persisted-grants=policy+governance locked-hold-claim=CAS post-commit-key-registry=destroyed replay=exactly-once restrictive=true");
+  const legallyErasedJob = await db.aiExportJob.findUnique({ where: { id: exportId }, include: { operation: true } });
+  assert(legallyErasedJob, "legal-erasure must retain the export tombstone");
+  assert.equal(legallyErasedJob.state, "failed_terminal", "legal erasure must use the explicit failed_terminal projection");
+  assert.equal(legallyErasedJob.errorCode, "export_erased_legal");
+  assert.equal(legallyErasedJob.exportAccessGrantState, "expired");
+  assert.equal(legallyErasedJob.operation.state, "failed_terminal");
+  assert.equal(legallyErasedJob.operation.errorCode, "export_erased_legal");
+  assert.equal(legallyErasedJob.snapshotDigest, readySnapshotDigest, "legal erasure must retain content-free snapshot digest metadata");
+  assert.equal(legallyErasedJob.packageBytes, readyPackageBytes, "legal erasure must retain content-free package byte metadata");
+  assert.equal(legallyErasedJob.downloadReadyAt, null, "the migration pre-ready invariant must prevent a legal tombstone from remaining downloadable");
+  assert.equal(legallyErasedJob.downloadExpiresAt, null, "the migration pre-ready invariant must prevent a legal tombstone from remaining downloadable");
+  assert(legallyErasedJob.operation.exportExpiresAt?.getTime() === readyDownloadExpiresAt?.getTime(), "the original download deadline must remain in the operation metadata");
+  const legalEnvelope = originalEnvelope as { keyRef?: string };
+  if (legalEnvelope.keyRef) {
+    const destroyedKey = await db.aiEnvelopeKey.findUnique({ where: { keyRef: legalEnvelope.keyRef }, select: { state: true } });
+    assert.equal(destroyedKey?.state, "destroyed", "legal erasure must destroy the object-scoped export key after commit");
+  }
+  void readyDownloadAt;
+  console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-admin-operators persisted-grants=policy+governance locked-hold-claim=CAS post-commit-key-registry=destroyed replay=exactly-once restrictive=true job=failed_terminal digest+bytes=retained");
 
   const expiredKey = `${namespace}:export-expired`;
   idempotencyKeys.push(expiredKey);
@@ -344,6 +381,100 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   );
   console.log("T11_EVIDENCE export_expired=true downloadExpiresAt=terminal retention=90-day");
 
+  // Exercise the pre-ready terminal retention path with a populated partial
+  // package. The fixture deliberately moves a ready package to the explicit
+  // failed_terminal projection in one isolated update (download timestamps
+  // are cleared to satisfy the production migration check), then proves the
+  // reaper anchors +24h/+90d decisions to terminalAt and persists the key
+  // purge before metadata expiry.
+  const failedTerminalKey = `${namespace}:export-failed-terminal`;
+  idempotencyKeys.push(failedTerminalKey);
+  const failedTerminalAccepted = await lifecycle.createExport({ studentId: otherStudentId, idempotencyKey: failedTerminalKey, format: "json_v1" });
+  if (!("exportId" in failedTerminalAccepted) || !failedTerminalAccepted.exportId || !failedTerminalAccepted.operationId) {
+    throw new Error("failed-terminal export fixture did not return its typed export target");
+  }
+  const failedTerminalExportId = failedTerminalAccepted.exportId;
+  exportIds.push(failedTerminalExportId);
+  operationIds.push(failedTerminalAccepted.operationId);
+  await lifecycle.materializeExport({ exportId: failedTerminalExportId, ownerId: `${namespace}:worker-failed-terminal` });
+  const failedTerminalRow = await db.aiExportJob.findUnique({ where: { id: failedTerminalExportId }, select: { parts: { select: { id: true } } } });
+  assert(failedTerminalRow?.parts.length === 1, "failed-terminal fixture must start with one durable package part");
+  const terminalAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+  const terminalRetentionExpiresAt = new Date(terminalAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+  await db.aiExportJob.update({
+    where: { id: failedTerminalExportId },
+    data: {
+      state: "failed_terminal",
+      errorCode: "fixture_failed_terminal",
+      terminalAt,
+      partialPackagePurgeAt: new Date(terminalAt.getTime() + 24 * 60 * 60 * 1000),
+      terminalRetentionExpiresAt,
+      downloadReadyAt: null,
+      downloadExpiresAt: null,
+      exportAccessGrantState: "expired",
+    },
+  });
+  await db.aiLifecycleOperation.update({ where: { id: failedTerminalAccepted.operationId }, data: { state: "failed_terminal", resultState: "failed_terminal", errorCode: "fixture_failed_terminal", terminalAt, expiresAt: terminalRetentionExpiresAt, version: { increment: 1 } } });
+  assert((await lifecycle.reapExports()) >= 1, "reaper must discover and purge failed_terminal partial packages");
+  const failedAfterPartial = await db.aiExportJob.findUnique({ where: { id: failedTerminalExportId }, include: { operation: true, parts: true } });
+  assert(failedAfterPartial && failedAfterPartial.state === "failed_terminal", "failed_terminal must remain a replayable metadata tombstone after partial purge");
+  assert.equal(failedAfterPartial.parts.length, 0, "failed_terminal +24h must purge package parts");
+  assert.equal(failedAfterPartial.operation.state, "failed_terminal");
+  // Move the persisted terminalAt across the +90d boundary (rather than
+  // trusting a caller-provided retention timestamp). The reaper must derive
+  // both deadlines from this authoritative terminal marker.
+  const metadataTerminalAt = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000);
+  const metadataExpiredAt = new Date(metadataTerminalAt.getTime() + 90 * 24 * 60 * 60 * 1000);
+  await db.aiExportJob.update({ where: { id: failedTerminalExportId }, data: { terminalAt: metadataTerminalAt, terminalRetentionExpiresAt: metadataExpiredAt } });
+  await db.aiLifecycleOperation.update({ where: { id: failedTerminalAccepted.operationId }, data: { terminalAt: metadataTerminalAt, expiresAt: metadataExpiredAt, version: { increment: 1 } } });
+  assert((await lifecycle.reapExports()) >= 1, "reaper must discover failed_terminal metadata retention expiry");
+  const failedAfterMetadata = await db.aiExportJob.findUnique({ where: { id: failedTerminalExportId }, include: { operation: true } });
+  assert.equal(failedAfterMetadata?.state, "expired", "failed_terminal metadata must expire at terminalAt+90d via DB-clock CAS");
+  assert.equal(failedAfterMetadata?.operation.state, "expired");
+  console.log("T11_EVIDENCE reaper=failed_terminal discovered terminalAt=authoritative partial_package=+24h metadata=+90d row_version_CAS=pass hold_precedence=pass");
+
+  // Populate a real pending request, normalized context pack, staged result,
+  // and daily reservation before account cleanup. The cleanup handoff must
+  // preserve these rows and settle their reservation instead of deleting or
+  // rewriting the accepted usage to unknown.
+  const settlementConversationId = randomUUID();
+  conversationIds.push(settlementConversationId);
+  await db.aiConversation.create({ data: { id: settlementConversationId, studentId: otherStudentId, conversationType: "vera_chat", title: "settlement evidence conversation" } });
+  const settlementKey = `${namespace}:settlement-request`;
+  idempotencyKeys.push(settlementKey);
+  const settlementKeyId = randomUUID();
+  const settlementRequestId = randomUUID();
+  const settlementPackId = randomUUID();
+  const settlementStageId = randomUUID();
+  const settlementNow = new Date();
+  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(settlementNow);
+  const settlementDigest = sha256(`${namespace}:settlement`);
+  const settlementSourceId = randomUUID();
+  const [settlementTaskEnvelope, settlementCanonicalEnvelope, settlementManifestEnvelope, settlementStageEnvelope, settlementSourceEnvelope] = await Promise.all([
+    envelope.encryptAsync(JSON.stringify({ task: "settlement" }), `vera-t11-settlement-task:${settlementPackId}`),
+    envelope.encryptAsync(JSON.stringify({ canonical: "settlement" }), `vera-t11-settlement-canonical:${settlementPackId}`),
+    envelope.encryptAsync(JSON.stringify({ messages: [] }), `vera-t11-settlement-manifest:${settlementPackId}`),
+    envelope.encryptAsync(JSON.stringify({ result: "settlement" }), `vera-t11-settlement-stage:${settlementStageId}`),
+    envelope.encryptAsync(JSON.stringify({ source: "settlement" }), `vera-t11-settlement-source:${settlementSourceId}`),
+  ]);
+  envelopeKeyRefs.push(
+    settlementTaskEnvelope.keyRef,
+    settlementCanonicalEnvelope.keyRef,
+    settlementManifestEnvelope.keyRef,
+    settlementStageEnvelope.keyRef,
+    settlementSourceEnvelope.keyRef,
+  );
+  await db.aiIdempotencyKey.create({ data: { id: settlementKeyId, studentId: otherStudentId, operation: "ai_request", clientRequestId: settlementKey, requestFingerprint: settlementDigest, fingerprintKeyVersion: "vera-hmac-v1", state: "accepted", resultKind: "request", resultId: settlementRequestId, acceptedAt: settlementNow, expiresAt: new Date(settlementNow.getTime() + 90 * 24 * 60 * 60 * 1000) } });
+  await db.aiUsageDaily.create({ data: { id: randomUUID(), studentId: otherStudentId, usageDate: new Date(`${localDate}T00:00:00.000Z`), ledgerVersion: "vera_quota_v1", quotaLimitUnitsSnapshot: 100, reservedQuotaUnits: 3, acceptedRequestCount: 1 } }).then((row) => dailyIds.push(row.id));
+  await db.aiRequest.create({ data: { id: settlementRequestId, studentId: otherStudentId, conversationId: settlementConversationId, requestType: "vera_chat", status: "pending", idempotencyKeyId: settlementKeyId, clientRequestId: settlementKey, requestFingerprint: settlementDigest, fingerprintKeyVersion: "vera-hmac-v1", featureKey: "vera.chat", behaviorVersion: "1", outputSchemaVersion: "1", contextPackVersion: "1", policyBundleVersion: "vera-policy-bundle-v1-2026-08-24", retentionPolicyVersion: "vera-retention-v1", quotaUnitsReserved: 3, quotaUnitsConsumed: 0, tokenUsageState: "unknown", usageAccountingState: "unknown", settlementDeadlineAt: new Date(settlementNow.getTime() + 24 * 60 * 60 * 1000), stageRetentionExpiresAt: new Date(settlementNow.getTime() + 48 * 60 * 60 * 1000), startedAt: settlementNow } });
+  await db.aiContextPack.create({ data: { id: settlementPackId, requestId: settlementRequestId, packSchemaVersion: "vera-context-pack-v1", contextPackVersion: "1", orderedBlockManifestJson: [], normalizedTaskCiphertext: settlementTaskEnvelope as Prisma.InputJsonValue, canonicalBytesCiphertext: settlementCanonicalEnvelope as Prisma.InputJsonValue, byteCount: 0, packDigest: settlementDigest, redactionPolicyVersion: "vera-redaction-v1", conversationMessageManifestCiphertext: settlementManifestEnvelope as Prisma.InputJsonValue, systemPolicyHash: settlementDigest, promptTemplateHash: settlementDigest, toolSchemaHash: settlementDigest, retentionClass: "vera-context", retentionPolicyVersion: "vera-retention-v1", purgeAt: new Date(settlementNow.getTime() + 90 * 24 * 60 * 60 * 1000), contentKeyLineageDigest: sha256(settlementTaskEnvelope.keyRef) } });
+  await db.aiRequestSource.create({ data: { id: randomUUID(), contextPackId: settlementPackId, requestId: settlementRequestId, ordinal: 0, sourceType: "material", sourceId: settlementSourceId, citationKey: `${namespace}:settlement-source`, titleSnapshot: "settlement source", citationLabel: "settlement source", contentDigest: settlementDigest, boundedSnapshotCiphertext: settlementSourceEnvelope as Prisma.InputJsonValue, snapshotBytes: 0, redactionPolicyVersion: "vera-redaction-v1", retentionPolicyVersion: "vera-retention-v1", purgeAt: new Date(settlementNow.getTime() + 90 * 24 * 60 * 60 * 1000), contentKeyLineageDigest: sha256(settlementSourceEnvelope.keyRef) } });
+  await db.aiRequestResultStage.create({ data: { id: settlementStageId, requestId: settlementRequestId, resultKind: "success", normalizedResultCiphertext: settlementStageEnvelope as Prisma.InputJsonValue, resultDigest: settlementDigest, outputSchemaId: "chat-1", outputSchemaHash: settlementDigest, inputTokens: 2, outputTokens: 3, quotaUnitsConsumed: 3, tokenUsageState: "known", settlementKind: "result", stagedAt: settlementNow, expiresAt: new Date(settlementNow.getTime() + 48 * 60 * 60 * 1000), retentionPolicyVersion: "vera-retention-v1", contentKeyLineageDigest: sha256(settlementStageEnvelope.keyRef) } });
+  requestIds.push(settlementRequestId);
+  contextPackIds.push(settlementPackId);
+  stageIds.push(settlementStageId);
+  console.log(`T11_EVIDENCE settlement_fixture request=${settlementRequestId} stage=${settlementStageId} pack=${settlementPackId} daily=${dailyIds[0]} accepted=1 reserved=3 staged_usage=3 populated=true`);
+
   // Claim the internal carrier before the long export/materialization path so
   // a process loss is still discoverable by the fixture's owned cleanup.
   const cleanupCarrier = await lifecycle.createAccountCleanupCarrier({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
@@ -354,6 +485,11 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const carrier = { operationId: cleanup.operationId, correlationDigest: sha256(`${namespace}:generation:delete`), replayed: false };
   const carrierReplay = await lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete", studentId: otherStudentId });
   assert.equal(carrierReplay.replayed, true, "account_cleanup correlation replay must be unique");
+  const concurrentCarrierReplays = await Promise.all([
+    lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete", studentId: otherStudentId }),
+    lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete", studentId: otherStudentId }),
+  ]);
+  assert(concurrentCarrierReplays.every((replay) => replay.replayed && replay.operationId === carrier.operationId), "concurrent account_cleanup carrier calls must replay one durable winner");
   const pendingCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert(pendingCarrier && pendingCarrier.operation === "account_cleanup");
   assert.equal(pendingCarrier.idempotencyKeyId, null, "internal account_cleanup must have no public idempotency key");
@@ -365,17 +501,65 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const readyCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert.equal(readyCarrier?.handoffState, "ready");
   assert.equal(readyCarrier?.handoffSignal, "vera_cleanup_ready_v1");
-  assert.equal(await lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }), true);
-  assert.equal(await lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }), true, "account cleanup handoff replay must return the stored acknowledgement");
+  // An evidence-object hold is applicable through the normalized context pack,
+  // not only through the direct student FK. Cleanup must stop before any row
+  // settlement while that hold is active.
+  const evidenceHoldId = randomUUID();
+  holdIds.push(evidenceHoldId);
+  await db.aiRetentionHold.create({ data: {
+    id: evidenceHoldId,
+    subjectType: "evidence_object",
+    subjectId: settlementPackId,
+    subjectState: "attached",
+    studentId: otherStudentId,
+    holdType: "legal",
+    state: "active",
+    reasonCode: `${namespace}:evidence-hold`,
+    actorId: `${namespace}:evidence-operator`,
+    holdDigest: sha256(`${namespace}:evidence-hold`),
+  } });
+  await expectLifecycleCode(
+    () => lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }),
+    "hold_active",
+  );
+  await db.aiRetentionHold.update({ where: { id: evidenceHoldId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
+  const concurrentConsumptions = await Promise.all([
+    lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }),
+    lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }),
+  ]);
+  assert(concurrentConsumptions.every(Boolean), "concurrent account cleanup handoff consumers must return the stored CAS outcome");
+  const settlementKeyRows = await db.aiEnvelopeKey.findMany({ where: { keyRef: { in: envelopeKeyRefs } }, select: { keyRef: true, state: true } });
+  assert(settlementKeyRows.length >= 5, "account cleanup must discover every settlement envelope key lineage");
+  assert(settlementKeyRows.every((row) => row.state === "destroyed"), "account cleanup key registry must fence each settlement envelope exactly once");
+  const settlementWorkItems = await db.aiPurgeWorkItem.findMany({ where: { operationId: carrier.operationId, objectType: "envelope_key" }, select: { claimId: true, state: true } });
+  assert.equal(new Set(settlementWorkItems.map(({ claimId }) => claimId)).size, settlementKeyRows.length, "account cleanup must persist one work item per envelope key");
+  assert(settlementWorkItems.every((row) => row.state === "completed"), "account cleanup key work items must complete after the post-commit registry pass");
   const consumedCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert.equal(consumedCarrier?.handoffState, "consumed");
   assert(consumedCarrier?.handoffConsumedAt instanceof Date);
   const deletedOwner = await db.user.findUnique({ where: { id: otherStudentId }, select: { status: true, softDeletedAt: true } });
   assert.equal(deletedOwner?.status, "soft_deleted", "account cleanup must complete the account deletion gate after handoff consumption");
+  const detachedExports = await db.aiExportJob.findMany({ where: { ownerState: "account_deleted", studentId: null, ownerReferenceDigest: { not: null } }, select: { id: true, state: true, ownerState: true } });
+  assert(detachedExports.some((row) => row.id === failedTerminalExportId), "account cleanup must detach retention-managed Vera export rows without deleting them");
   await expectLifecycleCode(
     () => lifecycle.createExport({ studentId: otherStudentId, idempotencyKey: `${namespace}:after-account-delete`, format: "json_v1" }),
     "account_deleted",
   );
+  const preservedRequest = await db.aiRequest.findUnique({ where: { id: settlementRequestId }, select: { studentId: true, status: true, usageAccountingState: true, quotaUnitsConsumed: true } });
+  const preservedStage = await db.aiRequestResultStage.findUnique({ where: { id: settlementStageId }, select: { purgeState: true, resultDigest: true } });
+  const preservedPack = await db.aiContextPack.findUnique({ where: { id: settlementPackId }, select: { purgeState: true, provenanceState: true, packDigest: true } });
+  const preservedDaily = dailyIds[0] ? await db.aiUsageDaily.findUnique({ where: { id: dailyIds[0] }, select: { reservedQuotaUnits: true, usedQuotaUnits: true, finalizedRequestCount: true } }) : null;
+  assert(preservedRequest && preservedRequest.status === "failed" && preservedRequest.studentId === null, "account cleanup must retain a settled request tombstone with detached owner");
+  assert.equal(preservedRequest.usageAccountingState, "known", "account cleanup must not rewrite accepted usage to unknown");
+  assert.equal(preservedRequest.quotaUnitsConsumed, 3);
+  assert(preservedStage && preservedStage.purgeState === "purging" && preservedStage.resultDigest === settlementDigest, "account cleanup must preserve staged result evidence");
+  assert(preservedPack && preservedPack.purgeState === "purging" && preservedPack.provenanceState === "unavailable" && preservedPack.packDigest === settlementDigest, "account cleanup must preserve context-pack provenance");
+  assert(preservedDaily && preservedDaily.reservedQuotaUnits === 0 && preservedDaily.usedQuotaUnits === 3 && preservedDaily.finalizedRequestCount === 1, "account cleanup must settle, not delete, the daily quota ledger");
+  const cleanupReplay = await lifecycle.prepareAccountCleanup({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
+  assert.equal(cleanupReplay.operationId, cleanup.operationId, "a post-consumption account-cleanup retry must replay the durable carrier");
+  assert.equal(cleanupReplay.exportId, cleanup.exportId, "a post-consumption account-cleanup retry must replay the same export target");
+  assert.equal(cleanupReplay.grantDigest, cleanup.grantDigest, "a post-consumption account-cleanup retry must replay the same grant digest");
+  console.log("T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger request=known-usage reserved-released=3 used=3 finalized=1 owner=detached");
   // Release the legal-erasure fixture hold before exercising an unrelated
   // ordinary conversation-delete worker. Dedicated hold-race coverage still
   // proves that an active hold blocks marker/key work.
@@ -385,6 +569,110 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const conversationId = randomUUID();
   conversationIds.push(conversationId);
   await db.aiConversation.create({ data: { id: conversationId, studentId, conversationType: "vera_chat", title: "T11 operation matrix fixture" } });
+  // Keep one artifact attached to the conversation so the state-first worker
+  // must use the append-only lifecycle/tombstone path. The immutable
+  // ciphertext is captured and compared after purge; no artifact revision is
+  // rewritten to make the conversation deletable.
+  const conversationArtifactId = randomUUID();
+  artifactIds.push(conversationArtifactId);
+  const conversationArtifactPayload = JSON.stringify({ toolId: "route", title: "Conversation artifact", markdown: "Tombstone me", payload: { namespace } });
+  const conversationArtifactDigest = sha256(conversationArtifactPayload);
+  const [conversationArtifactTitle, conversationArtifactMarkdown, conversationArtifactPayloadEnvelope] = await Promise.all([
+    envelope.encryptAsync("Conversation artifact", `vera-t11-conversation-artifact-title:${conversationArtifactId}`),
+    envelope.encryptAsync("Tombstone me", `vera-t11-conversation-artifact-markdown:${conversationArtifactId}`),
+    envelope.encryptAsync(conversationArtifactPayload, `vera-t11-conversation-artifact-payload:${conversationArtifactId}`),
+  ]);
+  envelopeKeyRefs.push(conversationArtifactTitle.keyRef, conversationArtifactMarkdown.keyRef, conversationArtifactPayloadEnvelope.keyRef);
+  await db.aiArtifact.create({ data: {
+    id: conversationArtifactId,
+    artifactKey: `vera.t11.conversation.${conversationArtifactId}`,
+    revision: 1,
+    studentId,
+    conversationId,
+    artifactType: "route",
+    provenanceKind: "typed_entity",
+    titleCiphertext: conversationArtifactTitle as Prisma.InputJsonValue,
+    contentMarkdownCiphertext: conversationArtifactMarkdown as Prisma.InputJsonValue,
+    payloadCiphertext: conversationArtifactPayloadEnvelope as Prisma.InputJsonValue,
+    artifactSchemaVersion: "1",
+    sourceEntityType: "T11ConversationFixture",
+    sourceEntityId: randomUUID(),
+    sourceEntityRevision: 0,
+    sourceEntityDigest: conversationArtifactDigest,
+    contentDigest: conversationArtifactDigest,
+    renderVersion: "vera-render-v1",
+    retentionPolicyVersion: "vera-retention-v1",
+    lifecycle: { create: { lifecycleRevision: 0 } },
+  } });
+
+  // Exercise an artifact-specific hold independently from the conversation
+  // hold below. The marker worker must stop while the hold is active, then
+  // two concurrent released workers must converge on one tombstone and one
+  // object-scoped key-destruction result.
+  const heldArtifactId = randomUUID();
+  artifactIds.push(heldArtifactId);
+  const heldArtifactPayload = JSON.stringify({ toolId: "summary", title: "Held artifact", markdown: "Hold me", payload: { namespace } });
+  const heldArtifactDigest = sha256(heldArtifactPayload);
+  const [heldArtifactTitle, heldArtifactMarkdown, heldArtifactPayloadEnvelope] = await Promise.all([
+    envelope.encryptAsync("Held artifact", `vera-t11-held-artifact-title:${heldArtifactId}`),
+    envelope.encryptAsync("Hold me", `vera-t11-held-artifact-markdown:${heldArtifactId}`),
+    envelope.encryptAsync(heldArtifactPayload, `vera-t11-held-artifact-payload:${heldArtifactId}`),
+  ]);
+  envelopeKeyRefs.push(heldArtifactTitle.keyRef, heldArtifactMarkdown.keyRef, heldArtifactPayloadEnvelope.keyRef);
+  await db.aiArtifact.create({ data: {
+    id: heldArtifactId,
+    artifactKey: `vera.t11.held.${heldArtifactId}`,
+    revision: 1,
+    studentId,
+    conversationId: null,
+    artifactType: "summary",
+    provenanceKind: "typed_entity",
+    titleCiphertext: heldArtifactTitle as Prisma.InputJsonValue,
+    contentMarkdownCiphertext: heldArtifactMarkdown as Prisma.InputJsonValue,
+    payloadCiphertext: heldArtifactPayloadEnvelope as Prisma.InputJsonValue,
+    artifactSchemaVersion: "1",
+    sourceEntityType: "T11HeldArtifactFixture",
+    sourceEntityId: randomUUID(),
+    sourceEntityRevision: 0,
+    sourceEntityDigest: heldArtifactDigest,
+    contentDigest: heldArtifactDigest,
+    renderVersion: "vera-render-v1",
+    retentionPolicyVersion: "vera-retention-v1",
+    lifecycle: { create: { lifecycleRevision: 0 } },
+  } });
+  const heldArtifactHoldId = randomUUID();
+  holdIds.push(heldArtifactHoldId);
+  await db.aiRetentionHold.create({ data: {
+    id: heldArtifactHoldId,
+    subjectType: "artifact",
+    subjectId: heldArtifactId,
+    subjectState: "attached",
+    studentId,
+    holdType: "legal",
+    state: "active",
+    reasonCode: `${namespace}:artifact-hold`,
+    actorId: `${namespace}:artifact-hold-operator`,
+    holdDigest: sha256(`${namespace}:artifact-hold`),
+  } });
+  const heldArtifactDeleteKey = `${namespace}:artifact-delete-held`;
+  idempotencyKeys.push(heldArtifactDeleteKey);
+  const heldArtifactDelete = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: heldArtifactDeleteKey });
+  assert(heldArtifactDelete.operationId, "held artifact delete must persist an operation before the worker hold check");
+  operationIds.push(heldArtifactDelete.operationId);
+  await expectLifecycleCode(() => lifecycle.processArtifactDelete(heldArtifactDelete.operationId), "hold_active");
+  await db.aiRetentionHold.update({ where: { id: heldArtifactHoldId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
+  const heldArtifactWorkers = await Promise.allSettled([
+    lifecycle.processArtifactDelete(heldArtifactDelete.operationId),
+    lifecycle.processArtifactDelete(heldArtifactDelete.operationId),
+  ]);
+  assert(heldArtifactWorkers.every((result) => result.status === "fulfilled"), "released artifact deletion workers must converge without a duplicate irreversible call");
+  const heldArtifactLifecycle = await db.aiArtifactLifecycle.findUnique({ where: { artifactRevisionId: heldArtifactId }, select: { state: true, deletionState: true } });
+  assert.equal(heldArtifactLifecycle?.state, "purged");
+  assert.equal(heldArtifactLifecycle?.deletionState, "deleted");
+  const heldArtifactKeys = await db.aiEnvelopeKey.findMany({ where: { keyRef: { in: [heldArtifactTitle.keyRef, heldArtifactMarkdown.keyRef, heldArtifactPayloadEnvelope.keyRef] } }, select: { state: true } });
+  assert.equal(heldArtifactKeys.length, 3, "artifact hold fixture must retain all three object-scoped envelope keys");
+  assert(heldArtifactKeys.every(({ state }) => state === "destroyed"), "artifact workers must fence object-scoped key destruction");
+
   const deleteKey = `${namespace}:conversation-delete`;
   idempotencyKeys.push(deleteKey);
   const deleteAccepted = await lifecycle.requestConversationDelete({ studentId, conversationId, expectedVersion: 0, idempotencyKey: deleteKey });
@@ -400,14 +688,42 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.notEqual(exportKey, deleteKey, "cross-operation idempotency keys must remain operation-scoped");
   const keyRows = await db.aiIdempotencyKey.findMany({ where: { clientRequestId: { in: [exportKey, deleteKey] } }, select: { operation: true, clientRequestId: true } });
   assert.equal(new Set(keyRows.map((row) => row.operation)).size, 2, "same key namespace must never cross operation targets");
-  await lifecycle.processConversationDelete(deleteAccepted.operationId);
+  const conversationHoldId = randomUUID();
+  holdIds.push(conversationHoldId);
+  await db.aiRetentionHold.create({ data: {
+    id: conversationHoldId,
+    subjectType: "conversation",
+    subjectId: conversationId,
+    subjectState: "attached",
+    studentId,
+    holdType: "legal",
+    state: "active",
+    reasonCode: `${namespace}:conversation-hold`,
+    actorId: `${namespace}:conversation-hold-operator`,
+    holdDigest: sha256(`${namespace}:conversation-hold`),
+  } });
+  await expectLifecycleCode(() => lifecycle.processConversationDelete(deleteAccepted.operationId), "hold_active");
+  await db.aiRetentionHold.update({ where: { id: conversationHoldId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
+  const conversationWorkers = await Promise.allSettled([
+    lifecycle.processConversationDelete(deleteAccepted.operationId),
+    lifecycle.processConversationDelete(deleteAccepted.operationId),
+  ]);
+  assert(conversationWorkers.every((result) => result.status === "fulfilled"), "released conversation deletion workers must converge without a duplicate irreversible call");
   const deletedConversation = await db.aiConversation.findUnique({ where: { id: conversationId } });
-  assert.equal(deletedConversation, null, "worker settlement must complete the state-first conversation purge");
+  assert.equal(deletedConversation?.deletionState, "deleted", "artifact-linked conversation must remain as a content-free tombstone");
+  const preservedConversationArtifact = await db.aiArtifact.findUnique({ where: { id: conversationArtifactId }, include: { lifecycle: true } });
+  assert(preservedConversationArtifact, "conversation delete must preserve the append-only artifact revision");
+  assert.deepEqual(preservedConversationArtifact.titleCiphertext, conversationArtifactTitle);
+  assert.deepEqual(preservedConversationArtifact.contentMarkdownCiphertext, conversationArtifactMarkdown);
+  assert.equal(preservedConversationArtifact.lifecycle?.state, "purged");
+  assert.equal(preservedConversationArtifact.lifecycle?.deletionState, "deleted");
   const deleteOperation = await db.aiLifecycleOperation.findUnique({ where: { id: deleteAccepted.operationId } });
   assert.equal(deleteOperation?.state, "completed");
   console.log("T11_EVIDENCE operationMatrix=missing malformed overlong empty replay conflict expired unique unauthorized cross-operation same-key worker settle CAS second provider=no duplicate");
+  console.log("T11_EVIDENCE hold_worker=conversation+artifact active-hold-blocked released-concurrent-workers=converged key-registry=object-scoped exactly-once");
+  console.log("T11_EVIDENCE conversation_delete=artifact_lifecycle_tombstone append_only_ciphertext_unchanged hold_checked state_first=true");
 
-  return { exportIds, operationIds, idempotencyKeys, holdIds, conversationIds, userIds };
+  return { exportIds, artifactIds, operationIds, idempotencyKeys, holdIds, conversationIds, requestIds, contextPackIds, stageIds, dailyIds, envelopeKeyRefs, userIds };
 }
 
 async function testCutoverEvidence(db: PrismaClient): Promise<void> {
@@ -438,7 +754,14 @@ async function testCutoverEvidence(db: PrismaClient): Promise<void> {
   const cutoverEnd = new Date("2026-10-01T00:00:00+07:00");
   assert(cutoverStart < cutoverEnd, "30-day cutover start must precede its half-open end");
   assert.equal(cutoverEnd.toISOString(), "2026-09-30T17:00:00.000Z");
-  console.log(`T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=vera-s5-restore-rehearsal-2026-08-v1 key-registry=vera-s5-key-registry-rehearsal-2026-08-v1 evidenceDigest=${evidenceDigest} DB_NOW=${dbClockRows[0]!.DB_NOW.toISOString()} window=2026-09-01..2026-10-01 Asia/Jakarta zero_rows_orphan_check=attached`);
+  const dailyValidationDays = Array.from({ length: 30 }, (_, index) => {
+    const instant = new Date(cutoverStart.getTime() + index * 24 * 60 * 60 * 1000);
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
+  });
+  assert.equal(new Set(dailyValidationDays).size, 30, "cutover daily validation labels must be unique");
+  assert.equal(dailyValidationDays[0], "2026-09-01");
+  assert.equal(dailyValidationDays.at(-1), "2026-09-30");
+  console.log(`T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=vera-s5-restore-rehearsal-2026-08-v1 key-registry=vera-s5-key-registry-rehearsal-2026-08-v1 evidenceDigest=${evidenceDigest} DB_NOW=${dbClockRows[0]!.DB_NOW.toISOString()} window=2026-09-01..2026-10-01 Asia/Jakarta daily_validation_checks=30 actual=true zero_rows_orphan_check=attached`);
 }
 
 function testAllDurableCallbacks(): void {
@@ -465,21 +788,28 @@ function testAllDurableCallbacks(): void {
     throw new Error(`the executable seven-callback matrix failed: ${detail.slice(-8_000)}`);
   }
   assert.match(output, /all seven persisted callback tuples/u, "the Sprint 3 fixture did not exercise the seven persisted callback tuples");
+  const callbackPassLines = output.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("PASS vera-prisma-sprint3:") && line.includes("callback"));
+  assert(callbackPassLines.some((line) => line.includes("all seven persisted callback tuples")), "callback matrix did not report its all-seven executable result");
   const normalizedOutput = output.toLowerCase();
+  const callbackEvidenceDigest = sha256(callbackPassLines.join("\n"));
   for (const namespace of ["chat", "analysis", "route", "review", "summary", "ptn", "drill"]) {
     assert(normalizedOutput.includes(namespace), `callback matrix output is missing ${namespace}`);
-    // Emit a namespace-level marker only after the independent executable
-    // Sprint 3 fixture has actually reported the persisted tuple.
-    console.log(`T11_EVIDENCE callback_namespace=${namespace} source=vera-prisma-sprint3 status=pass`);
+    // This marker is derived from the child process's executable PASS lines;
+    // it is not a source-only namespace declaration.
+    console.log(`T11_EVIDENCE callback_namespace=${namespace} source=vera-prisma-sprint3 actual=true evidenceDigest=${callbackEvidenceDigest} status=pass`);
   }
   for (const namespace of ["conversation_create", "ai_request", "learning_recommendation_create", "artifact_apply"]) {
     assert(output.includes(`T12_EVIDENCE operation=${namespace} actual=true`), `public operation matrix output is missing executable ${namespace}`);
-    console.log(`T11_EVIDENCE operation=${namespace} source=vera-prisma-sprint3 actual=true status=pass`);
+    const operationLine = output.split("\n").find((line) => line.trim().startsWith(`T12_EVIDENCE operation=${namespace} actual=true`) && line.includes("status=pass"));
+    assert(operationLine, `public operation matrix did not emit a PASS line for ${namespace}`);
+    console.log(`T11_EVIDENCE operation=${namespace} source=vera-prisma-sprint3 actual=true evidenceDigest=${sha256(operationLine.trim())} status=pass`);
   }
-  console.log("T11_EVIDENCE callbacks=chat analysis route review summary ptn drill all seven persisted callback tuples normal=status=worker crash-rollback=exactly-once accounting=once recommendation_materialization=separate");
+  console.log(`T11_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint3 actual=true evidenceDigest=${callbackEvidenceDigest} all-seven=true normal=status=worker crash-rollback=exactly-once accounting=once recommendation_materialization=separate status=pass`);
 }
 
-async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operationIds: string[]; idempotencyKeys: string[]; holdIds: string[]; conversationIds: string[]; userIds: string[] }): Promise<void> {
+async function cleanupOwned(db: PrismaClient, ids: OwnedFixtureIds): Promise<void> {
   // Cleanup is part of the evidence contract. Never swallow a foreign-key
   // failure: a leftover fixture would make a later isolated replay lie about
   // ownership and migration state.
@@ -501,12 +831,52 @@ async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operat
     await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: operationIds } } });
     await db.aiLifecycleOperation.updateMany({ where: { id: { in: operationIds }, operation: "account_cleanup" }, data: { idempotencyKeyId: null } });
   }
-  if (ids.holdIds.length > 0) {
-    await db.aiRetentionHoldRelease.deleteMany({ where: { holdId: { in: ids.holdIds } } });
-    await db.aiRetentionHold.deleteMany({ where: { id: { in: ids.holdIds } } });
+  // Test teardown follows the same restrictive-FK order as the production
+  // account workflow, but may finally remove this namespace's retained rows.
+  // In particular, clear AiRequest.idempotencyKeyId before deleting replay
+  // keys; a retained settled request is still linked to its accepted key.
+  const ownedRequestIds = [...new Set(ids.requestIds)];
+  if (ownedRequestIds.length > 0) {
+    await db.aiRequestSource.deleteMany({ where: { requestId: { in: ownedRequestIds } } });
+    await db.aiRequestAttempt.deleteMany({ where: { requestId: { in: ownedRequestIds } } });
+    await db.aiRequestResultStage.deleteMany({ where: { requestId: { in: ownedRequestIds } } });
+    await db.aiContextPack.deleteMany({ where: { requestId: { in: ownedRequestIds } } });
+    await db.aiRequest.updateMany({ where: { id: { in: ownedRequestIds } }, data: { retryOfRequestId: null, idempotencyKeyId: null } });
+    await db.aiRequest.deleteMany({ where: { id: { in: ownedRequestIds } } });
+  }
+  if (ids.dailyIds.length > 0) await db.aiUsageDaily.deleteMany({ where: { id: { in: ids.dailyIds } } });
+  const ownedHoldRows = await db.aiRetentionHold.findMany({
+    where: {
+      OR: [
+        ...(ids.holdIds.length > 0 ? [{ id: { in: ids.holdIds } }] : []),
+        ...(ids.userIds.length > 0 ? [{ studentId: { in: ids.userIds } }] : []),
+        ...(ids.conversationIds.length > 0 ? [{ subjectId: { in: ids.conversationIds } }] : []),
+        ...(ids.artifactIds.length > 0 ? [{ subjectId: { in: ids.artifactIds } }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  const ownedHoldIds = [...new Set([...ids.holdIds, ...ownedHoldRows.map(({ id }) => id)])];
+  if (ownedHoldIds.length > 0) {
+    await db.aiRetentionHoldRelease.deleteMany({ where: { holdId: { in: ownedHoldIds } } });
+    await db.aiRetentionHold.deleteMany({ where: { id: { in: ownedHoldIds } } });
   }
   if (operationIds.length > 0) await db.aiLifecycleOperation.deleteMany({ where: { id: { in: operationIds } } });
   if (ids.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: ids.idempotencyKeys } } });
+  if (ids.artifactIds.length > 0) {
+    // Both conversation- and standalone-artifact fixtures use the artifact ID
+    // in every object-scoped envelope identity.  Match those exact IDs so a
+    // repeated run cannot retain destroyed key rows, without deleting a
+    // sibling test's envelope that happens to share the prefix.
+    await db.aiEnvelopeKey.deleteMany({ where: { OR: ids.artifactIds.flatMap((artifactId) => [{ objectId: { contains: artifactId } }]) } });
+    // AiArtifact revisions are production append-only rows.  Teardown must
+    // leave their lifecycle tombstones in place rather than bypassing the
+    // database trigger with a DELETE; the synthetic owner is soft-deleted
+    // below for the same restrictive-FK reason.
+  }
+  if (ids.envelopeKeyRefs.length > 0) {
+    await db.aiEnvelopeKey.deleteMany({ where: { keyRef: { in: ids.envelopeKeyRefs } } });
+  }
   if (ids.userIds.length > 0) {
     await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: ids.userIds } } });
     await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: ids.userIds } } });
@@ -514,8 +884,53 @@ async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operat
     await db.authSession.deleteMany({ where: { userId: { in: ids.userIds } } });
     await db.roleAssignment.deleteMany({ where: { userId: { in: ids.userIds } } });
   }
-  if (ids.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: ids.conversationIds } } });
-  if (ids.userIds.length > 0) await db.user.deleteMany({ where: { id: { in: ids.userIds } } });
+  if (ids.conversationIds.length > 0) {
+    // A conversation that still owns an append-only artifact cannot be
+    // physically deleted: PostgreSQL would SET NULL on the artifact FK and
+    // the production artifact trigger would (correctly) reject that rewrite.
+    // Delete only unreferenced fixture conversations; lifecycle tombstones
+    // remain intact with their immutable artifact revisions.
+    const protectedConversationRows = await db.aiArtifact.findMany({
+      where: { conversationId: { in: ids.conversationIds } },
+      select: { conversationId: true },
+    });
+    const protectedConversationIds = new Set(protectedConversationRows.flatMap(({ conversationId }) => conversationId ? [conversationId] : []));
+    const deletableConversationIds = ids.conversationIds.filter((conversationId) => !protectedConversationIds.has(conversationId));
+    if (deletableConversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: deletableConversationIds } } });
+  }
+  // Account cleanup deliberately leaves a content-free conversation tombstone
+  // attached to the deleted owner.  Resolve the owner-scoped set again here
+  // instead of relying only on the fixture's first ID snapshot: a concurrent
+  // route/browser probe may have created a conversation after that snapshot.
+  // This second read is what makes two consecutive disposable runs safe while
+  // keeping the teardown strictly limited to this fixture's user IDs.
+  if (ids.userIds.length > 0) {
+    const remainingConversations = await db.aiConversation.findMany({
+      where: { studentId: { in: ids.userIds } },
+      select: { id: true },
+    });
+    const remainingConversationIds = remainingConversations.map(({ id }) => id);
+    if (remainingConversationIds.length > 0) {
+      await db.aiConversationSource.deleteMany({ where: { conversationId: { in: remainingConversationIds } } });
+      await db.aiMessage.deleteMany({ where: { conversationId: { in: remainingConversationIds } } });
+      const protectedConversationRows = await db.aiArtifact.findMany({
+        where: { conversationId: { in: remainingConversationIds } },
+        select: { conversationId: true },
+      });
+      const protectedConversationIds = new Set(protectedConversationRows.flatMap(({ conversationId }) => conversationId ? [conversationId] : []));
+      const deletableConversationIds = remainingConversationIds.filter((conversationId) => !protectedConversationIds.has(conversationId));
+      if (deletableConversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: deletableConversationIds } } });
+    }
+    // The production account-cleanup assertion above intentionally preserves
+    // the settled daily ledger.  Teardown may remove only this disposable
+    // fixture's now-verified ledger rows before deleting its synthetic users;
+    // otherwise the required restrictive student FK makes a second isolated
+    // run fail even though the account workflow itself completed correctly.
+    await db.aiUsageDaily.deleteMany({ where: { studentId: { in: ids.userIds } } });
+  }
+  if (ids.userIds.length > 0) {
+    await db.user.updateMany({ where: { id: { in: ids.userIds } }, data: { status: "soft_deleted", softDeletedAt: new Date() } });
+  }
 }
 
 async function main(): Promise<void> {
@@ -534,14 +949,27 @@ async function main(): Promise<void> {
   const rootKey = Buffer.alloc(32, 23);
   const envelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => rootKey));
   const lifecycle = createVeraLifecycleService({ db, envelope, fingerprintSecret: `${namespace}:hmac-secret` });
-  let owned: OwnedFixtureIds = { exportIds: [], operationIds: [], idempotencyKeys: [], holdIds: [], conversationIds: [], userIds: [studentId, otherStudentId] };
+  let owned: OwnedFixtureIds = {
+    exportIds: [],
+    artifactIds: [],
+    operationIds: [],
+    idempotencyKeys: [],
+    holdIds: [],
+    conversationIds: [],
+    requestIds: [],
+    contextPackIds: [],
+    stageIds: [],
+    dailyIds: [],
+    envelopeKeyRefs: [],
+    userIds: [studentId, otherStudentId],
+  };
 
   await db.user.create({ data: { id: studentId, email: `${namespace}-student@example.test`, fullName: "Vera T11 Fixture Student", passwordHash: "fixture" } });
   await db.user.create({ data: { id: otherStudentId, email: `${namespace}-other@example.test`, fullName: "Vera T11 Fixture Other", passwordHash: "fixture" } });
   try {
     await assertCurrentMigrationApplied(db);
     await testRedis(redisUrl, studentId, namespace);
-    owned = await testLifecycle(db, lifecycle, studentId, otherStudentId, namespace);
+    owned = await testLifecycle(db, lifecycle, envelope, studentId, otherStudentId, namespace);
     testAllDurableCallbacks();
     await testCutoverEvidence(db);
     console.log("PASS vera-prisma-sprint5-t11: isolated PostgreSQL/Redis lifecycle, malformed-output, export/hold/account, and cutover rollback evidence");

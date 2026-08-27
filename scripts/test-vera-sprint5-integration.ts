@@ -394,11 +394,25 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     const learnerPageText = await learnerPageResponse.text();
     assert.equal(learnerPageResponse.status, 200, `actual learner page route did not authorize the isolated student (${learnerPageResponse.status})`);
     assert(learnerPageText.includes("Studio"), "actual learner page response omitted the Studio surface");
-    console.log("T12_EVIDENCE learner_page actual=true http=GET authenticated=student status=pass");
-    console.log("T12_EVIDENCE operation=export_create actual=true http=POST+status+download+grant status=pass");
-    console.log("T12_EVIDENCE operation=conversation_delete actual=true http=DELETE+status-reconnect worker=state-first status=pass");
-    console.log("T12_EVIDENCE operation=artifact_delete actual=true http=DELETE+status-reconnect worker=state-first status=pass");
-    console.log(`T12_EVIDENCE actual_http=t9-report+t10-metadata+draft+replay lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect status=pass port=${port}`);
+    const httpEvidenceDigest = hashToken(JSON.stringify({
+      learnerPageStatus: learnerPageResponse.status,
+      learnerSurface: learnerPageText.includes("Studio"),
+      policyMetadata: metadataBody.metadata?.capabilities,
+      draftId: draftPayload.result?.id,
+      reportTimezone: reportBody.range?.timezone,
+      reportPartitions: Boolean(reportBody.incidents && reportBody.byFeature),
+      exportState: exportStatus.state,
+      exportDownloadStatus: exportDownloadResponse.status,
+      grantState: grantStatus.exportAccessGrantState,
+      expiredState: expiredStatusResponse.status,
+      conversationDeleteOperation: conversationDelete.operationId,
+      artifactDeleteOperation: artifactDelete.operationId,
+    }));
+    console.log(`T12_EVIDENCE learner_page actual=true http=GET authenticated=student digest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE operation=export_create actual=true http=POST+status+download+grant evidenceDigest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE operation=conversation_delete actual=true http=DELETE+status-reconnect worker=state-first evidenceDigest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE operation=artifact_delete actual=true http=DELETE+status-reconnect worker=state-first evidenceDigest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE actual_http=t9-report+t10-metadata+draft+replay lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect evidenceDigest=${httpEvidenceDigest} status=pass port=${port}`);
 
     const browserTaskName = `vera sprint5 isolated browser evidence ${randomUUID()}`;
     const browserSource = String.raw`
@@ -445,7 +459,11 @@ async function browserJson(path, options = {}) {
   const text = await serverFetch(base + path, { ...options, headers })
   let body = null
   try { body = JSON.parse(text) } catch {}
-  return { status: 200, body }
+  // serverFetch deliberately exposes the actual response body only. HTTP
+  // status assertions are made by the Node handler probes above; the browser
+  // path proves the authenticated, typed DTO/reconnect interaction without a
+  // fabricated status value.
+  return { body }
 }
 async function visibleText(marker) {
   // Accessibility snapshots remain readable while a Next client bundle is
@@ -547,6 +565,16 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, devi
 await assertVisiblePage('/vera-ai', studentToken, ['Studio'])
 await openStudio()
 cliLog('BROWSER_DESKTOP learner=studio six-studio-tools=visible')
+const learnerAccessibility = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const focusable = [...document.querySelectorAll("button,textarea,input,[role=tab]")].find(visible); if (focusable) focusable.focus(); const active = document.activeElement; const statusNodes = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible); return { focusable: Boolean(focusable && active === focusable), statusesHaveLiveRegion: statusNodes.every((node) => node.getAttribute("aria-live") === "polite" || node.getAttribute("aria-live") === "assertive") }; })()')
+if (!learnerAccessibility.focusable || !learnerAccessibility.statusesHaveLiveRegion) throw new Error('learner Studio accessibility evidence failed: ' + JSON.stringify(learnerAccessibility))
+await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
+await assertCurrentPage(['Studio'])
+const learnerMobileOverflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
+if (learnerMobileOverflow.scrollWidth > learnerMobileOverflow.width + 1 || learnerMobileOverflow.bodyWidth > learnerMobileOverflow.width + 1) throw new Error('390px browser evidence has horizontal overflow on learner Studio')
+const learnerMobileControls = await visibleControls()
+if (!learnerMobileControls.some((control) => control.aria || control.text)) throw new Error('learner Studio 390px evidence exposed no usable controls')
+cliLog('BROWSER_MOBILE page=learner-studio width=390 interactive=true accessibility=focus+live-region overflow=false')
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 await assertVisiblePage('/admin/ai-policy', adminToken, ['Vera AI policy console', 'Provider gate: open_blocked'])
 await fillInput('textarea#policy-reason', 'browser policy evidence')
 await click('xpath=//button[contains(normalize-space(.), "Buat complete draft")]', { label: 'create policy draft' })
@@ -570,7 +598,7 @@ if (usageMobileOverflow.scrollWidth > usageMobileOverflow.width + 1 || usageMobi
 cliLog('BROWSER_MOBILE page=usage width=390 interactive=true overflow=false')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 const browserConversationProbe = await browserJson('/api/vera-ai/conversations?limit=50')
-if (browserConversationProbe.status !== 200 || !browserConversationProbe.body?.defaultConversationId || browserConversationProbe.body?.conversations?.length !== 1) throw new Error('browser learner conversation API probe failed: ' + JSON.stringify(browserConversationProbe))
+if (!browserConversationProbe.body?.defaultConversationId || browserConversationProbe.body?.conversations?.length !== 1) throw new Error('browser learner conversation API probe failed: ' + JSON.stringify(browserConversationProbe))
 const browserConversationId = browserConversationProbe.body.defaultConversationId
 const browserHydrationProbe = await Promise.all([
   browserJson('/api/vera-ai/sources?limit=50'),
@@ -580,19 +608,19 @@ const browserHydrationProbe = await Promise.all([
   browserJson('/api/vera-ai/conversations/' + browserConversationId + '/context'),
   browserJson('/api/vera-ai/conversations/' + browserConversationId + '/artifacts?limit=50'),
 ])
-if (browserHydrationProbe.some((probe) => probe.status !== 200)) throw new Error('browser learner hydration API probe failed: ' + JSON.stringify(browserHydrationProbe))
+if (browserHydrationProbe.some((probe) => !probe.body)) throw new Error('browser learner hydration API probe failed: ' + JSON.stringify(browserHydrationProbe))
 const browserReadyStatus = await browserJson('/api/vera-ai/exports/' + readyExportId)
-if (browserReadyStatus.status !== 200 || browserReadyStatus.body?.state !== 'ready') throw new Error('browser export status/reconnect failed: ' + JSON.stringify(browserReadyStatus))
+if (browserReadyStatus.body?.state !== 'ready') throw new Error('browser export status/reconnect failed: ' + JSON.stringify(browserReadyStatus))
 const browserDownload = await browserJson('/api/vera-ai/exports/' + readyExportId + '/download')
-if (browserDownload.status !== 200 || browserDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser export download failed: ' + JSON.stringify(browserDownload))
+if (browserDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser export download failed: ' + JSON.stringify(browserDownload))
 const browserConversationStatus = await browserJson('/api/vera-ai/lifecycle/' + conversationOperationId)
 const browserArtifactStatus = await browserJson('/api/vera-ai/lifecycle/' + artifactOperationId)
-if (browserConversationStatus.status !== 200 || browserConversationStatus.body?.state !== 'completed' || browserArtifactStatus.status !== 200 || browserArtifactStatus.body?.state !== 'completed') throw new Error('browser lifecycle reconnect failed: ' + JSON.stringify({ browserConversationStatus, browserArtifactStatus }))
+if (browserConversationStatus.body?.state !== 'completed' || browserArtifactStatus.body?.state !== 'completed') throw new Error('browser lifecycle reconnect failed: ' + JSON.stringify({ browserConversationStatus, browserArtifactStatus }))
 await cdp('Network.deleteCookies', { name: 'vecalss_session', domain: '127.0.0.1' })
 const browserGrantStatus = await browserJson('/api/vera-ai/exports/' + grantExportId, { headers: { 'x-vera-export-grant': grantToken } })
-if (browserGrantStatus.status !== 200 || browserGrantStatus.body?.accessMode !== 'cleanup_grant') throw new Error('browser cleanup-grant status failed: ' + JSON.stringify(browserGrantStatus))
+if (browserGrantStatus.body?.accessMode !== 'cleanup_grant') throw new Error('browser cleanup-grant status failed: ' + JSON.stringify(browserGrantStatus))
 const browserGrantDownload = await browserJson('/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
-if (browserGrantDownload.status !== 200 || browserGrantDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser cleanup-grant download failed: ' + JSON.stringify(browserGrantDownload))
+if (browserGrantDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser cleanup-grant download failed: ' + JSON.stringify(browserGrantDownload))
 let browserGrantReplayError = ''
 try {
   await serverFetch(base + '/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
@@ -867,7 +895,7 @@ async function main(): Promise<void> {
   await setupDb.$disconnect();
 
   const evidence: Array<[string, readonly string[]]> = [
-    ["test:vera-prisma-sprint5-t11", ["callbacks=chat analysis route review summary ptn drill", "export/hold/account"]],
+    ["test:vera-prisma-sprint5-t11", ["T11_EVIDENCE callback_namespace=chat", "T11_EVIDENCE callback_namespace=drill", "T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger", "T11_EVIDENCE hold_worker=conversation+artifact", "daily_validation_checks=30 actual=true", "T11_EVIDENCE reaper=failed_terminal"]],
     ["test:vera-prisma-sprint3", ["PASS vera-prisma-sprint3", "T12_EVIDENCE operation=conversation_create actual=true"]],
     ["test:vera-prisma-sprint2", ["actual HTTP route auth/body/privacy/replay/expired DTO assertions", "one provider"]],
     ["test:vera-prisma-sprint4-runtime", ["optional include/read gating", "partition faults return privacy-safe"]],
@@ -881,24 +909,42 @@ async function main(): Promise<void> {
   const sprint3Output = outputs.find(([script]) => script === "test:vera-prisma-sprint3")?.[1] ?? "";
   const learnerOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint2")?.[1] ?? "";
   const t9t10Output = outputs.find(([script]) => script === "test:vera-prisma-sprint4-runtime")?.[1] ?? "";
-  assert.match(callbackOutput.toLowerCase(), /all seven persisted callback tuples/u);
+  assert.match(callbackOutput, /all-seven=true/u);
+  const callbackEvidenceLines = callbackOutput.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("T11_EVIDENCE callback_namespace=") && line.includes(" actual=true") && line.includes(" status=pass"));
+  assert.equal(callbackEvidenceLines.length, 7, "T11 callback fixture did not emit seven executable namespace results");
+  const callbackNamespaces = callbackEvidenceLines.map((line) => line.match(/^T11_EVIDENCE callback_namespace=([^ ]+)/u)?.[1]).filter((value): value is string => Boolean(value));
+  assert.deepEqual([...new Set(callbackNamespaces)].sort(), ["analysis", "chat", "drill", "ptn", "review", "route", "summary"]);
   for (const namespace of ["chat", "analysis", "route", "review", "summary", "ptn", "drill"]) {
     assert(callbackOutput.includes(`T11_EVIDENCE callback_namespace=${namespace}`), `T11 callback evidence did not prove ${namespace}`);
   }
+  for (const line of callbackOutput.split("\n").map((candidate) => candidate.trim()).filter((candidate) => (
+    candidate.startsWith("T11_EVIDENCE account_settlement=")
+    || candidate.startsWith("T11_EVIDENCE hold_worker=")
+    || candidate.startsWith("T11_EVIDENCE reaper=")
+    || candidate.includes("daily_validation_checks=30 actual=true")
+  ))) console.log(line);
   assert.match(learnerOutput, /PASS vera-prisma-sprint2/u, "Sprint 2 learner flow did not report an executable pass");
   for (const namespace of ["conversation_create", "ai_request", "learning_recommendation_create", "artifact_apply"]) {
     assert(sprint3Output.includes(`T12_EVIDENCE operation=${namespace} actual=true`), `Sprint 3 public operation evidence did not prove ${namespace}`);
   }
   assert.match(t9t10Output, /PASS vera-prisma-sprint4-runtime/u, "Sprint 4 T9/T10 runtime did not report an executable pass");
-  for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE callback_namespace="))) console.log(line);
-  for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE operation="))) console.log(line);
+  for (const line of callbackEvidenceLines) console.log(line);
+  for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass"))) console.log(line);
   // Forward only the verified public operation rows from the real Sprint 3
   // fixture.  The wrapper consumes these rows as executable evidence rather
   // than inferring operation coverage from source markers.
   for (const line of sprint3Output.split("\n").filter((line) => line.startsWith("T12_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass"))) console.log(line);
-  console.log("T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint5-t11 actual=true status=pass");
-  console.log("T12_EVIDENCE learner_flow=authenticated-http-post-status-usage-replay-cross-student source=test:vera-prisma-sprint2 status=pass");
-  console.log("T12_EVIDENCE t9_t10_runtime=populated-report-policy-preview source=test:vera-prisma-sprint4-runtime status=pass");
+  const callbackSummary = callbackOutput.split("\n").map((line) => line.trim()).find((line) => line.startsWith("T11_EVIDENCE callbacks=") && line.includes(" actual=true") && line.includes(" status=pass"));
+  assert(callbackSummary, "T11 callback summary was not produced by the executable matrix");
+  const learnerPass = learnerOutput.split("\n").map((line) => line.trim()).find((line) => line.startsWith("PASS vera-prisma-sprint2:"));
+  assert(learnerPass, "learner flow did not emit an executable PASS line");
+  const t9t10Pass = t9t10Output.split("\n").map((line) => line.trim()).find((line) => line.startsWith("PASS vera-prisma-sprint4-runtime:"));
+  assert(t9t10Pass, "T9/T10 runtime did not emit an executable PASS line");
+  console.log(`T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint5-t11 actual=true evidenceDigest=${hashToken(callbackSummary)} status=pass`);
+  console.log(`T12_EVIDENCE learner_flow=authenticated-http-post-status-usage-replay-cross-student source=test:vera-prisma-sprint2 actual=true evidenceDigest=${hashToken(learnerPass)} status=pass`);
+  console.log(`T12_EVIDENCE t9_t10_runtime=populated-report-policy-preview source=test:vera-prisma-sprint4-runtime actual=true evidenceDigest=${hashToken(t9t10Pass)} status=pass`);
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
   try {

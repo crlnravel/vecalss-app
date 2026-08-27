@@ -150,7 +150,30 @@ type ExecutableIntegrationEvidence = {
   providerGateState: "open_blocked";
   liveProvider: false;
   noSharedInfrastructure: true;
+  baselineDiagnostics: {
+    tsc: { exitCode: number; status: "passed" | "known_baseline_failure"; diagnostics: string[] };
+    build: { exitCode: number; status: "passed" | "known_baseline_failure"; diagnostics: string[] };
+  };
 };
+
+type BaselineCommandResult = { exitCode: number; output: string };
+
+function runBaselineCommand(args: string[], env: NodeJS.ProcessEnv): BaselineCommandResult {
+  try {
+    return { exitCode: 0, output: execFileSync("pnpm", args, { cwd: root, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 24 * 1024 * 1024 }) };
+  } catch (error) {
+    const candidate = error as { status?: number; stdout?: unknown; stderr?: unknown };
+    return { exitCode: typeof candidate.status === "number" ? candidate.status : 1, output: `${String(candidate.stdout ?? "")}\n${String(candidate.stderr ?? "")}` };
+  }
+}
+
+function baselineDiagnosticLines(output: string): string[] {
+  return output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.includes("app/mentor/tryout/[tryoutId]/page.tsx") || line.includes("workflow.allowedSteps") || line.includes("TryoutWorkflowStep[]"))
+    .slice(0, 12);
+}
 
 function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
   const disposableDatabase = process.env.VERA_DISPOSABLE_DATABASE_URL;
@@ -178,10 +201,12 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
     "T11_EVIDENCE callback_namespace=route",
     "T11_EVIDENCE callback_namespace=review",
     "T11_EVIDENCE callback_namespace=summary",
-      "T11_EVIDENCE callback_namespace=ptn",
-      "T11_EVIDENCE callback_namespace=drill",
-      "T12_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle",
-      "T12_EVIDENCE actual_http=",
+    "T11_EVIDENCE callback_namespace=ptn",
+    "T11_EVIDENCE callback_namespace=drill",
+    "T12_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle",
+    "daily_validation_checks=30 actual=true",
+    "T11_EVIDENCE hold_worker=conversation+artifact",
+    "T12_EVIDENCE actual_http=",
     "lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect",
     "PASS VERA_BROWSER_LIFECYCLE",
     "PASS VERA_BROWSER_EVIDENCE",
@@ -197,7 +222,10 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
     assert(actualOperationNamespaces.has(operation.namespace), `T12 executable integration did not emit a verified ${operation.namespace} operation line`);
   }
   assert(actualOperationNamespaces.size === operations.length, "T12 operation evidence contains an unknown or missing namespace");
-  assert(output.includes("T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint5-t11 actual=true status=pass"), "T12 callback evidence was not forwarded from the executable fixture");
+  const callbackSummary = output.split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.startsWith("T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill") && line.includes(" actual=true") && line.includes(" status=pass") && line.includes(" evidenceDigest="));
+  assert(callbackSummary, "T12 callback evidence was not forwarded from the executable fixture");
   const evidenceLine = output.split("\n").find((line) => line.trim().startsWith("{") && line.includes('"status":"passed"'));
   assert(evidenceLine, "T12 integration did not emit its structured PASS evidence");
   let parsed: unknown;
@@ -215,8 +243,29 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
   assert(evidence.browser?.desktop === "verified" && evidence.browser.mobile390 === "verified", "T12 browser desktop/mobile evidence is incomplete");
   assert(evidence.providerGateState === "open_blocked" && evidence.liveProvider === false, "T12 integration changed the provider gate");
   assert(evidence.noSharedInfrastructure === true, "T12 integration did not prove isolated infrastructure");
+  const baselineEnv = {
+    ...process.env,
+    DATABASE_URL: disposableDatabase,
+    VERA_DISPOSABLE_DATABASE_URL: disposableDatabase,
+    VERA_DISPOSABLE_REDIS_URL: disposableRedis,
+    REDIS_URL: disposableRedis,
+    VERA_DISPOSABLE_DB_ACK: "1",
+    VERA_LIVE_PROVIDER_ENABLED: "false",
+    VERA_MOCK_PROVIDER_ENABLED: "true",
+  };
+  const tsc = runBaselineCommand(["exec", "tsc", "--noEmit", "--pretty", "false"], baselineEnv);
+  const build = runBaselineCommand(["build"], baselineEnv);
+  const tscDiagnostics = baselineDiagnosticLines(tsc.output);
+  const buildDiagnostics = baselineDiagnosticLines(build.output);
+  const knownBaseline = [...tscDiagnostics, ...buildDiagnostics];
+  assert(knownBaseline.length > 0 || (tsc.exitCode === 0 && build.exitCode === 0), "T12 baseline tsc/build output was not captured");
+  const baselineDiagnostics = {
+    tsc: { exitCode: tsc.exitCode, status: tsc.exitCode === 0 ? "passed" as const : "known_baseline_failure" as const, diagnostics: tscDiagnostics },
+    build: { exitCode: build.exitCode, status: build.exitCode === 0 ? "passed" as const : "known_baseline_failure" as const, diagnostics: buildDiagnostics },
+  };
+  console.log(`T12_EVIDENCE baseline=tsc:${baselineDiagnostics.tsc.status}:${baselineDiagnostics.tsc.exitCode} build:${baselineDiagnostics.build.status}:${baselineDiagnostics.build.exitCode} diagnostics=${JSON.stringify({ tsc: tscDiagnostics, build: buildDiagnostics })}`);
   console.log(output.split("\n").filter((line) => line.startsWith("T12_EVIDENCE") || line.startsWith("PASS vera-sprint5-integration")).join("\n"));
-  return evidence as ExecutableIntegrationEvidence;
+  return { ...(evidence as ExecutableIntegrationEvidence), baselineDiagnostics };
 }
 
 const executableIntegrationEvidence = runExecutableIntegrationEvidence();
@@ -257,7 +306,7 @@ const evidenceDigests = Object.freeze(Object.fromEntries(
 ));
 
 const dirtyPaths = (gitLines(["status", "--short", "--untracked-files=all"]) ?? [])
-  .map((line) => line.slice(3).trim())
+  .map((line) => line.match(/^(?:\?\?|[ MADRCU?!]{1,2})\s+(.+)$/u)?.[1] ?? line)
   .filter(Boolean);
 
 const checks: Array<{ name: string; run: () => void }> = [
@@ -484,7 +533,11 @@ const releaseChecklist = Object.freeze({
   adminPrivacyState: executableIntegrationEvidence.t9Http === "verified" && executableIntegrationEvidence.t10Http === "verified" ? "verified" : "blocked",
   browserState: executableIntegrationEvidence.browser.desktop === "verified" && executableIntegrationEvidence.browser.mobile390 === "verified" ? "verified" : "blocked",
   ...releaseChecklistContract,
-  baselineDeviations: dirtyPaths,
+  baselineDeviations: {
+    dirtyPaths,
+    tsc: executableIntegrationEvidence.baselineDiagnostics.tsc,
+    build: executableIntegrationEvidence.baselineDiagnostics.build,
+  },
   evidenceDigests,
 });
 

@@ -281,6 +281,7 @@ function capabilitySnapshotJson(snapshot: CapabilityDecisionSnapshot): Record<st
 async function lockApplicableHolds(
   tx: Tx,
   input: { studentId: string; conversationId?: string | null; artifactIds?: readonly string[] },
+  states: readonly ("active" | "released")[] = ["active"],
 ): Promise<string[]> {
   const artifactIds = [...(input.artifactIds ?? [])];
   const artifactPredicate = artifactIds.length > 0
@@ -289,10 +290,13 @@ async function lockApplicableHolds(
   const conversationPredicate = input.conversationId
     ? Prisma.sql`OR (h.subject_type = 'conversation'::ai_retention_hold_subject_type AND h.subject_id = ${input.conversationId}::uuid)`
     : Prisma.empty;
+  const statePredicate = states.length === 1
+    ? Prisma.sql`h.state = ${states[0]}::ai_retention_hold_state`
+    : Prisma.sql`h.state IN (${Prisma.join(states.map((state) => Prisma.sql`${state}::ai_retention_hold_state`))})`;
   const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT h.id
     FROM ai_retention_holds h
-    WHERE h.state = 'active'::ai_retention_hold_state
+    WHERE ${statePredicate}
       AND h.subject_state = 'attached'::ai_retention_hold_subject_state
       AND (
         h.student_id = ${input.studentId}::uuid
@@ -320,49 +324,179 @@ async function lockApplicableHolds(
  * crash rolls the entire handoff back before the parent account workflow can
  * continue.
  */
-async function settleAccountOwnedRows(tx: Tx, studentId: string, now: Date, ownerReferenceDigest: string): Promise<void> {
+async function settleAccountOwnedRows(tx: Tx, studentId: string, now: Date, ownerReferenceDigest: string): Promise<string[]> {
+  // The account workflow already owns the user-row lock. Lock every request
+  // and its settlement rows in deterministic UUID order before taking a
+  // snapshot; concurrent admission/finalization must either finish first or
+  // observe the same CAS boundary and retry, never overwrite a newer result.
+  await tx.$queryRaw`SELECT id FROM ai_requests WHERE student_id = ${studentId}::uuid ORDER BY id FOR UPDATE`;
   const requests = await tx.aiRequest.findMany({
     where: { studentId },
-    select: { id: true, conversationId: true, userMessageId: true, assistantMessageId: true },
+    select: {
+      id: true,
+      conversationId: true,
+      userMessageId: true,
+      assistantMessageId: true,
+      status: true,
+      createdAt: true,
+      quotaUnitsReserved: true,
+      quotaUnitsConsumed: true,
+      usageAccountingState: true,
+      version: true,
+    },
   });
   const requestIds = requests.map(({ id }) => id);
   const conversationIds = [...new Set(requests.flatMap(({ conversationId }) => conversationId ? [conversationId] : []))];
   const conversations = await tx.aiConversation.findMany({ where: { studentId }, select: { id: true } });
   const allConversationIds = [...new Set([...conversationIds, ...conversations.map(({ id }) => id)])];
-  const artifacts = await tx.aiArtifact.findMany({ where: { studentId }, select: { id: true } });
+  const artifacts = await tx.aiArtifact.findMany({
+    where: { studentId },
+    select: {
+      id: true,
+      conversationId: true,
+      titleCiphertext: true,
+      contentMarkdownCiphertext: true,
+      payloadCiphertext: true,
+      contentDigest: true,
+    },
+  });
   const artifactIds = artifacts.map(({ id }) => id);
-  const analyses = await tx.weaknessAnalysis.findMany({ where: { studentId }, select: { id: true } });
+  const analyses = await tx.weaknessAnalysis.findMany({ where: { studentId }, select: { id: true, resultEnvelope: true } });
   const analysisIds = analyses.map(({ id }) => id);
-  const adaptiveSessions = await tx.adaptivePracticeSession.findMany({ where: { studentId }, select: { id: true } });
+  const adaptiveSessions = await tx.adaptivePracticeSession.findMany({ where: { studentId }, select: { id: true, resultEnvelope: true, appliedPlanEnvelope: true } });
   const adaptiveIds = adaptiveSessions.map(({ id }) => id);
+  const adaptiveItems = adaptiveIds.length > 0
+    ? await tx.adaptivePracticeItem.findMany({ where: { adaptiveSessionId: { in: adaptiveIds } }, select: { id: true, promptSnapshotCiphertext: true, optionSnapshotCiphertext: true, scoringSnapshotCiphertext: true, contentKeyLineageDigest: true } })
+    : [];
 
-  // Domain targets retain no Vera-owned foreign key after this transaction.
-  // Recommendations point at artifacts through restrictive foreign keys, so
-  // remove that target projection before deleting the artifact rows.
-  await tx.learningRecommendation.deleteMany({ where: { studentId } });
+  const ptnSessions = await tx.ptnStrategySession.findMany({ where: { studentId }, select: { id: true, resultEnvelope: true, appliedStrategyEnvelope: true } });
+  const ptnIds = ptnSessions.map(({ id }) => id);
+  const recommendations = await tx.learningRecommendation.findMany({ where: { studentId }, select: { id: true, rationaleEnvelope: true } });
+  const messages = allConversationIds.length > 0
+    ? await tx.aiMessage.findMany({ where: { conversationId: { in: allConversationIds } }, select: { id: true, contentEnvelope: true, metadataEnvelope: true } })
+    : [];
+  const stages = requestIds.length > 0
+    ? await tx.aiRequestResultStage.findMany({ where: { requestId: { in: requestIds } }, select: { requestId: true, quotaUnitsConsumed: true, tokenUsageState: true, normalizedResultCiphertext: true, contentKeyLineageDigest: true } })
+    : [];
+  const packs = requestIds.length > 0
+    ? await tx.aiContextPack.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, normalizedTaskCiphertext: true, canonicalBytesCiphertext: true, conversationMessageManifestCiphertext: true, contentKeyLineageDigest: true } })
+    : [];
+  const sources = requestIds.length > 0
+    ? await tx.aiRequestSource.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, boundedSnapshotCiphertext: true, contentKeyLineageDigest: true } })
+    : [];
+  const exportJobs = await tx.aiExportJob.findMany({ where: { studentId }, select: { id: true, state: true, operationId: true } });
+
+  // Capture every envelope identity before lifecycle markers are written. The
+  // exact keyRef is authoritative; object-id matching is a compatibility
+  // fallback for older rows whose envelope was already retired from the
+  // payload but whose key registry row still carries its object lineage.
+  const envelopeCandidates: unknown[] = [
+    ...artifacts.flatMap(({ titleCiphertext, contentMarkdownCiphertext, payloadCiphertext }) => [titleCiphertext, contentMarkdownCiphertext, payloadCiphertext]),
+    ...analyses.map(({ resultEnvelope }) => resultEnvelope),
+    ...adaptiveSessions.flatMap(({ resultEnvelope, appliedPlanEnvelope }) => [resultEnvelope, appliedPlanEnvelope]),
+    ...adaptiveItems.flatMap(({ promptSnapshotCiphertext, optionSnapshotCiphertext, scoringSnapshotCiphertext }) => [promptSnapshotCiphertext, optionSnapshotCiphertext, scoringSnapshotCiphertext]),
+    ...ptnSessions.flatMap(({ resultEnvelope, appliedStrategyEnvelope }) => [resultEnvelope, appliedStrategyEnvelope]),
+    ...recommendations.map(({ rationaleEnvelope }) => rationaleEnvelope),
+    ...messages.flatMap(({ contentEnvelope, metadataEnvelope }) => [contentEnvelope, metadataEnvelope]),
+    ...stages.map(({ normalizedResultCiphertext }) => normalizedResultCiphertext),
+    ...packs.flatMap(({ normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext }) => [normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext]),
+    ...sources.map(({ boundedSnapshotCiphertext }) => boundedSnapshotCiphertext),
+  ];
+  const exactKeyRefs = envelopeCandidates.flatMap((candidate) => {
+    const envelope = asEnvelope(candidate);
+    return envelope ? [envelope.keyRef] : [];
+  });
+  const lineageDigests = [
+    ...stages.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
+    ...adaptiveItems.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
+    ...packs.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
+    ...sources.map(({ contentKeyLineageDigest }) => contentKeyLineageDigest),
+  ].filter((value): value is string => Boolean(value));
+  const ownershipMarkers = [
+    studentId,
+    ...requestIds,
+    ...allConversationIds,
+    ...artifactIds,
+    ...analysisIds,
+    ...adaptiveIds,
+    ...ptnIds,
+    ...recommendations.map(({ id }) => id),
+    ...messages.map(({ id }) => id),
+    ...packs.map(({ id }) => id),
+    ...sources.map(({ id }) => id),
+  ];
+  const activeKeyRows = await tx.aiEnvelopeKey.findMany({ where: { state: "active" }, select: { keyRef: true, objectId: true } });
+  const keyRefs = [...new Set([
+    ...exactKeyRefs,
+    ...activeKeyRows
+      .filter(({ objectId, keyRef }) => ownershipMarkers.some((marker) => objectId.includes(marker) || keyRef.includes(marker)))
+      .map(({ keyRef }) => keyRef),
+    // A lineage digest is intentionally content-free. It cannot decrypt a
+    // row, but matching it to the durable key registry closes the gap for
+    // legacy envelopes whose payload has already been retired.
+    ...activeKeyRows
+      .filter(({ objectId, keyRef }) => lineageDigests.some((digest) => digest === sha256Hex(keyRef) || objectId.includes(digest)))
+      .map(({ keyRef }) => keyRef),
+  ])].sort(compareCanonical);
+
+  // Preserve every normalized request/stage/pack/source row. Their encrypted
+  // values become unavailable through the key registry, but their immutable
+  // digests, quota provenance and retention metadata remain auditable.
+  if (requestIds.length > 0) {
+    await tx.aiRequestResultStage.updateMany({ where: { requestId: { in: requestIds }, purgeState: "available" }, data: { purgeState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup" } });
+    await tx.aiContextPack.updateMany({ where: { requestId: { in: requestIds }, purgeState: "available" }, data: { provenanceState: "unavailable", purgeState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup" } });
+    await tx.aiRequestSource.updateMany({ where: { requestId: { in: requestIds }, snapshotState: "available" }, data: { snapshotState: "purging", purgeStartedAt: now, purgeReason: "account_cleanup" } });
+    await tx.aiRequestAttempt.updateMany({ where: { requestId: { in: requestIds } }, data: { errorCode: "account_deleted" } });
+  }
   if (artifactIds.length > 0) {
-    await tx.aiArtifactApply.deleteMany({ where: { artifactRevisionId: { in: artifactIds } } });
-    await tx.aiArtifactLifecycle.deleteMany({ where: { artifactRevisionId: { in: artifactIds } } });
-    await tx.aiArtifact.deleteMany({ where: { id: { in: artifactIds } } });
+    await tx.aiArtifactLifecycle.updateMany({
+      where: { artifactRevisionId: { in: artifactIds }, deletionState: "active" },
+      data: { state: "purging", deletionState: "deletion_pending", reason: "account_cleanup", changedAt: now, retentionPolicyVersion: VERA_RETENTION_POLICY_VERSION },
+    });
+    await tx.aiArtifactApply.updateMany({ where: { artifactRevisionId: { in: artifactIds }, applyState: "applied" }, data: { applyState: "purged", purgedAt: now, purgeReason: "account_cleanup" } });
   }
   if (analysisIds.length > 0) {
-    await tx.weaknessAnalysisTopic.deleteMany({ where: { weaknessAnalysisId: { in: analysisIds } } });
-    await tx.weaknessAnalysis.deleteMany({ where: { id: { in: analysisIds } } });
+    await tx.weaknessAnalysis.updateMany({ where: { id: { in: analysisIds } }, data: { summaryMarkdown: null } });
+    await tx.weaknessAnalysisTopic.updateMany({ where: { weaknessAnalysisId: { in: analysisIds } }, data: { recommendationText: null } });
   }
   if (adaptiveIds.length > 0) {
-    await tx.adaptivePracticeAnswer.deleteMany({ where: { adaptiveSessionId: { in: adaptiveIds } } });
-    await tx.adaptivePracticeItem.deleteMany({ where: { adaptiveSessionId: { in: adaptiveIds } } });
-    await tx.adaptivePracticeSession.deleteMany({ where: { id: { in: adaptiveIds } } });
+    await tx.adaptivePracticeAnswer.updateMany({ where: { adaptiveSessionId: { in: adaptiveIds } }, data: { answerText: null } });
+    await tx.adaptivePracticeSession.updateMany({ where: { id: { in: adaptiveIds } }, data: { lifecycleState: "tombstoned", deletionState: "deleted", deletedAt: now } });
   }
-  await tx.ptnStrategySession.deleteMany({ where: { studentId } });
+  if (ptnIds.length > 0) {
+    await tx.ptnStrategySession.updateMany({ where: { id: { in: ptnIds } }, data: { lifecycleState: "tombstoned", deletionState: "deleted", deletedAt: now } });
+  }
+  await tx.learningRecommendation.updateMany({ where: { studentId }, data: { reason: null, lifecycleState: "tombstoned", deletionState: "deleted", deletedAt: now } });
 
-  if (requestIds.length > 0) {
-    await tx.aiRequestSource.deleteMany({ where: { requestId: { in: requestIds } } });
-    await tx.aiRequestAttempt.deleteMany({ where: { requestId: { in: requestIds } } });
-    await tx.aiRequestResultStage.deleteMany({ where: { requestId: { in: requestIds } } });
-    await tx.aiContextPack.deleteMany({ where: { requestId: { in: requestIds } } });
-    await tx.aiRequest.updateMany({
-      where: { id: { in: requestIds } },
+  // Settle pending/staged requests against the same reservation/debt model as
+  // the normal finalizer. A conservative reserved amount is known usage for
+  // account cleanup; this never rewrites an already-terminal result to
+  // `unknown` and never removes the daily ledger row.
+  await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE student_id = ${studentId}::uuid AND ledger_version = 'vera_quota_v1'::ai_usage_ledger_version ORDER BY usage_date, ledger_version FOR UPDATE`;
+  const dailyRows = await tx.aiUsageDaily.findMany({ where: { studentId, ledgerVersion: "vera_quota_v1" }, orderBy: { usageDate: "asc" } });
+  const dailyState = new Map(dailyRows.map((row) => [row.id, { ...row }]));
+  const stageByRequest = new Map(stages.map((stage) => [stage.requestId, stage]));
+  const settledRequestIds = new Set<string>();
+  for (const request of requests) {
+    const terminal = request.status === "succeeded" || request.status === "fallback" || request.status === "failed";
+    if (terminal) continue;
+    const stage = stageByRequest.get(request.id);
+    const actual = stage?.quotaUnitsConsumed ?? request.quotaUnitsConsumed ?? request.quotaUnitsReserved;
+    const daily = dailyRows.find((candidate) => {
+      const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: candidate.quotaTimezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(request.createdAt);
+      return candidate.usageDate.toISOString().slice(0, 10) === localDate;
+    });
+    if (daily) {
+      const currentDaily = dailyState.get(daily.id) ?? daily;
+      const released = Math.max(0, currentDaily.reservedQuotaUnits - request.quotaUnitsReserved);
+      const used = currentDaily.usedQuotaUnits + actual;
+      const debt = Math.max(0, used + released - currentDaily.quotaLimitUnitsSnapshot);
+      const quotaOverrunLockUntil = debt > 0 ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : currentDaily.quotaOverrunLockUntil;
+      await tx.aiUsageDaily.update({ where: { id: daily.id }, data: { reservedQuotaUnits: released, usedQuotaUnits: used, quotaDebtUnits: debt, quotaOverrunLockUntil, finalizedRequestCount: { increment: 1 } } });
+      dailyState.set(daily.id, { ...currentDaily, reservedQuotaUnits: released, usedQuotaUnits: used, quotaDebtUnits: debt, quotaOverrunLockUntil, finalizedRequestCount: currentDaily.finalizedRequestCount + 1 });
+    }
+    const requestUpdate = await tx.aiRequest.updateMany({
+      where: { id: request.id, version: request.version, status: { notIn: ["succeeded", "fallback", "failed"] } },
       data: {
         studentId: null,
         conversationId: null,
@@ -373,32 +507,53 @@ async function settleAccountOwnedRows(tx: Tx, studentId: string, now: Date, owne
         providerTaskDigest: null,
         status: "failed",
         errorCode: "account_deleted",
+        quotaUnitsConsumed: actual,
+        quotaOverrunUnits: Math.max(0, actual - request.quotaUnitsReserved),
+        tokenUsageState: stage?.tokenUsageState ?? "unknown",
+        usageAccountingState: "known",
         idempotencyEvidenceState: "tombstoned",
-        usageAccountingState: "unknown",
         ownerState: "account_deleted",
         ownerReferenceDigest,
         accountDeletedAt: now,
         finalizedAt: now,
+        version: { increment: 1 },
+      },
+    });
+    if (requestUpdate.count !== 1) throw new VeraLifecycleError("target_revision_conflict", "A request changed while account cleanup was settling it.", 409);
+    settledRequestIds.add(request.id);
+  }
+
+  if (allConversationIds.length > 0) {
+    await tx.aiMessage.updateMany({ where: { conversationId: { in: allConversationIds } }, data: { contentMarkdown: null, metadata: Prisma.DbNull, contentState: "purging", metadataState: "purging" } });
+    await tx.aiConversation.updateMany({ where: { id: { in: allConversationIds }, studentId }, data: { title: null, deletionState: "deleted", updatedAt: now } });
+  }
+
+  // Export packages are retention-managed objects and are not part of the
+  // ordinary content-key purge set. Detach their owner FK only after the
+  // export/grant decision was made by the account carrier; the content-free
+  // owner marker keeps status/replay and the grant-bound download auditable.
+  if (exportJobs.length > 0) {
+    await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE student_id = ${studentId}::uuid ORDER BY id FOR UPDATE`;
+    await tx.aiExportJob.updateMany({
+      where: { studentId },
+      data: {
+        studentId: null,
+        ownerState: "account_deleted",
+        ownerReferenceDigest,
+        accountDeletedAt: now,
       },
     });
   }
 
-  // Messages and conversations are learner content, already included in the
-  // exported snapshot. Delete them only after request message FKs are nulled.
-  if (allConversationIds.length > 0) {
-    await tx.aiMessage.deleteMany({ where: { conversationId: { in: allConversationIds } } });
-    await tx.aiConversationSource.deleteMany({ where: { conversationId: { in: allConversationIds } } });
-    await tx.aiConversation.deleteMany({ where: { id: { in: allConversationIds }, studentId } });
-  }
-
-  // Nullable-owner telemetry/replay rows are detached but retain their
-  // terminal evidence. Daily rows are account-scoped quota evidence and are
-  // removed only after aggregate export/readers have no dependency on them.
+  // Nullable-owner telemetry/replay rows are detached but retain terminal
+  // evidence. Daily rows remain intact so report cohorts and settlement audit
+  // can distinguish accepted from finalized requests after account cleanup.
   await tx.aiAdmissionEvent.updateMany({ where: { studentId }, data: { studentId: null } });
   await tx.aiIdempotencyKey.updateMany({ where: { studentId }, data: { studentId: null, ownerState: "account_deleted", ownerReferenceDigest, accountDeletedAt: now } });
   await tx.aiLifecycleOperation.updateMany({ where: { studentId }, data: { studentId: null, ownerState: "account_deleted", ownerReferenceDigest, accountDeletedAt: now, exportConversationId: null } });
-  await tx.aiUsageDaily.deleteMany({ where: { studentId } });
   await tx.studentProfile.updateMany({ where: { userId: studentId }, data: { displayName: null } });
+  void settledRequestIds;
+  return keyRefs;
 }
 
 function exportStateForOperation(state: string): string {
@@ -854,11 +1009,13 @@ export class VeraLifecycleService {
     // retention by supplying a stale/future JavaScript timestamp.
     void _callerNow;
     const jobs = await this.db.aiExportJob.findMany({
-      where: { state: { in: ["materializing", "failed_retryable", "pending", "ready"] } },
+      where: { state: { in: ["materializing", "failed_retryable", "pending", "ready", "failed_terminal", "expired"] } },
       select: { id: true },
     });
     let changed = 0;
     for (const job of jobs) {
+      const postCommitKeyRefs: string[] = [];
+      let postCommitOperationId: string | null = null;
       try {
         await this.db.$transaction(async (tx) => {
           const initial = await tx.aiExportJob.findUnique({ where: { id: job.id }, select: { id: true, studentId: true } });
@@ -922,7 +1079,44 @@ export class VeraLifecycleService {
             : null;
           if (activeHold) return;
 
-          if (locked.state === "ready" && locked.downloadExpiresAt && locked.downloadExpiresAt <= clock) {
+          if (locked.state === "failed_terminal" || (locked.state === "expired" && locked.errorCode === "export_erased_legal")) {
+            // Terminal retention is anchored to the persisted terminalAt, not
+            // recoveryDeadlineAt or a caller-supplied clock. The first pass
+            // removes package parts after +24h; the second pass expires the
+            // content-free metadata tombstone after +90d. Both operations are
+            // row/version CASes under the same owner/hold locks above.
+            const terminalAt = locked.terminalAt ?? locked.operation.terminalAt;
+            if (!terminalAt) return;
+            const deadlines = preReadyExportDeadlines(terminalAt);
+            const legalErasure = locked.errorCode === "export_erased_legal";
+            if (clock >= deadlines.partialPackagePurgeAt && !legalErasure) {
+              postCommitOperationId = locked.operationId;
+              const parts = await tx.aiExportPart.findMany({ where: { exportJobId: locked.id }, select: { id: true, ciphertextEnvelope: true } });
+              for (const part of parts) {
+                const envelope = asEnvelope(part.ciphertextEnvelope);
+                if (!envelope) continue;
+                postCommitKeyRefs.push(envelope.keyRef);
+                await tx.aiPurgeWorkItem.upsert({
+                  where: { operationId_objectType_objectId: { operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef) } },
+                  create: { id: randomUUID(), operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef), state: "pending", claimId: envelope.keyRef, keyLineageDigest: sha256Hex(envelope.keyRef), recoveryDeadlineAt: deadlines.terminalRetentionExpiresAt },
+                  update: { claimId: envelope.keyRef },
+                });
+              }
+              if (parts.length > 0) {
+                await tx.aiExportPart.deleteMany({ where: { exportJobId: locked.id } });
+                await tx.aiExportJob.updateMany({ where: { id: locked.id, state: locked.state, terminalAt }, data: { snapshotDigest: null, packageBytes: null, downloadReadyAt: null, downloadExpiresAt: null } });
+                changed += 1;
+              }
+            }
+            if (clock >= deadlines.terminalRetentionExpiresAt) {
+              const hasReadyMetadata = Boolean(locked.snapshotDigest || locked.packageBytes !== null || locked.downloadReadyAt || locked.downloadExpiresAt);
+              const expired = await tx.aiExportJob.updateMany({ where: { id: locked.id, state: locked.state, terminalAt }, data: { state: "expired", expiredAt: clock, exportAccessGrantState: "expired", ...(hasReadyMetadata ? { snapshotDigest: null, packageBytes: null, downloadReadyAt: null, downloadExpiresAt: null } : {}) } });
+              const operation = expired.count === 1
+                ? await tx.aiLifecycleOperation.updateMany({ where: { id: locked.operationId, state: locked.operation.state, version: locked.operation.version, terminalAt }, data: { state: "expired", resultState: "expired", expiresAt: clock, version: { increment: 1 } } })
+                : { count: 0 };
+              if (expired.count === 1 && operation.count === 1) changed += 1;
+            }
+          } else if (locked.state === "ready" && locked.downloadExpiresAt && locked.downloadExpiresAt <= clock) {
             const retentionBase = new Date(locked.downloadExpiresAt.getTime());
             const terminalRetentionExpiresAt = new Date(retentionBase.getTime() + VERA_RETENTION.exportTerminalMetadataDays * 24 * 60 * 60 * 1000);
             const expired = await tx.aiExportJob.updateMany({
@@ -957,6 +1151,10 @@ export class VeraLifecycleService {
             await tx.aiExportJob.updateMany({ where: { id: locked.id, exportAccessGrantState: "claiming", exportAccessGrantVersion: locked.exportAccessGrantVersion, exportAccessGrantLeaseExpiresAt: locked.exportAccessGrantLeaseExpiresAt }, data: { exportAccessGrantState: "active", exportAccessGrantClaimId: null, exportAccessGrantClaimedAt: null, exportAccessGrantLeaseExpiresAt: null, exportAccessGrantVersion: { increment: 1 } } });
           }
         });
+        if (postCommitKeyRefs.length > 0) {
+          if (!postCommitOperationId) throw new VeraLifecycleError("export_state_mismatch", "Terminal export purge lost its lifecycle operation.", 503);
+          await this.processAccountCleanupKeyRegistry([...new Set(postCommitKeyRefs)].sort(compareCanonical), postCommitOperationId);
+        }
       } catch {
         // A later DB-clock pass retries the same fenced row; no optimistic
         // terminal marker is emitted on a failed reaper transaction.
@@ -1135,6 +1333,21 @@ export class VeraLifecycleService {
       select: { targetEntityType: true, targetEntityId: true, handoffState: true, state: true, resultState: true },
     });
     let exportId = carrierState?.targetEntityType === "AiExportJob" ? carrierState.targetEntityId : null;
+    // A retry after the account workflow has already consumed its handoff is a
+    // replay of the durable carrier, not a new export/materialization attempt.
+    // The raw grant is deterministic from the persisted correlation digest, so
+    // callers can resume the same grant without mutating the detached owner or
+    // creating a second cleanup job.
+    if (exportId && (carrierState?.handoffState === "ready" || carrierState?.handoffState === "consumed")) {
+      const replayGrant = keyedDigest(this.fingerprintSecret, "account-cleanup-grant", carrier.correlationDigest).slice(0, 80);
+      return {
+        operationId: carrier.operationId,
+        exportId,
+        rawGrant: replayGrant,
+        grantDigest: this.issueCleanupGrant(exportId, replayGrant).digest,
+        handoffSignal: "vera_cleanup_ready_v1",
+      };
+    }
     if (!exportId) {
       const existingExportKey = await this.db.aiIdempotencyKey.findUnique({
         where: { studentId_operation_clientRequestId: { studentId: input.studentId, operation: "export_create", clientRequestId: internalExportKey } },
@@ -1240,66 +1453,56 @@ export class VeraLifecycleService {
       }
       if (current.state !== "completed" || current.handoffState !== "ready") return { consumed: false, operationId: input.operationId, keyRefs: [] as string[] };
       const studentId = current.exportConversationId;
-      const requestMarkerIds = studentId
-        ? (await tx.aiRequest.findMany({ where: { studentId }, select: { id: true } })).map(({ id }) => id)
-        : [];
-      const artifactMarkerIds = studentId
-        ? (await tx.aiArtifact.findMany({ where: { studentId }, select: { id: true } })).map(({ id }) => id)
-        : [];
-      const conversationMarkerIds = studentId
-        ? (await tx.aiConversation.findMany({ where: { studentId }, select: { id: true } })).map(({ id }) => id)
-        : [];
-      const keyMarkers = [...requestMarkerIds, ...artifactMarkerIds, ...conversationMarkerIds, input.operationId];
-      const exportKeyPrefix = current.targetEntityType === "AiExportJob" && current.targetEntityId
-        ? `vera-export:${current.targetEntityId}:`
-        : null;
-      const keyRows = keyMarkers.length > 0
-        ? await tx.aiEnvelopeKey.findMany({ where: { state: "active" }, select: { keyRef: true, objectId: true } })
-        : [];
-      const keyRefs = keyRows
-        .filter((row) => !exportKeyPrefix || !row.objectId.startsWith(exportKeyPrefix))
-        .filter((row) => keyMarkers.some((marker) => row.objectId.includes(marker)))
-        .map(({ keyRef }) => keyRef);
-      const distinctKeyRefs = [...new Set(keyRefs)].sort(compareCanonical);
-      // Persist one recovery item per envelope before anonymization and before
-      // committing the consumed carrier. `claimId` carries the exact keyRef;
-      // the synthetic UUID keeps the normalized work-item identity compatible
-      // with its UUID schema. A later process can therefore resume after a
-      // crash without repeating a successful irreversible registry call.
-      for (const keyRef of distinctKeyRefs) {
-        await tx.aiPurgeWorkItem.upsert({
-          where: {
-            operationId_objectType_objectId: {
-              operationId: input.operationId,
-              objectType: "envelope_key",
-              objectId: deterministicWorkItemId(input.operationId, keyRef),
-            },
-          },
-          create: {
-            id: randomUUID(),
-            operationId: input.operationId,
-            objectType: "envelope_key",
-            objectId: deterministicWorkItemId(input.operationId, keyRef),
-            state: "pending",
-            claimId: keyRef,
-            keyLineageDigest: sha256Hex(keyRef),
-            recoveryDeadlineAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000),
-          },
-          update: { claimId: keyRef },
-        });
-      }
+      let distinctKeyRefs: string[] = [];
       if (studentId) {
         await tx.$queryRaw`SELECT id FROM users WHERE id = ${studentId}::uuid FOR UPDATE`;
         const holdIds = await lockApplicableHolds(tx, { studentId });
         if (holdIds.length > 0) throw new VeraLifecycleError("hold_active", "An active Vera retention hold blocks account cleanup.", 409, { holdIds });
+        // Release metadata is part of the same FK ordering boundary. Lock all
+        // attached released holds and their release rows before any Vera row
+        // is anonymized; this prevents a concurrent release/cleanup replay
+        // from detaching a different version of the same subject.
+        const detachedHoldIds = await lockApplicableHolds(tx, { studentId }, ["released"]);
+        if (detachedHoldIds.length > 0) {
+          await tx.$queryRaw`
+            SELECT id
+            FROM ai_retention_hold_releases
+            WHERE hold_id IN (${Prisma.join(detachedHoldIds.map((id) => Prisma.sql`${id}::uuid`))})
+            ORDER BY hold_id, expected_hold_version, id
+            FOR UPDATE
+          `;
+        }
         // Export is ready and the owner row is locked before this helper is
-        // allowed to detach any Vera child.  The helper deletes required-FK
-        // content in dependency order and leaves only nullable, anonymized
-        // replay/telemetry rows for the parent workflow to retain.
+        // allowed to detach any Vera child. The helper preserves normalized
+        // rows, settles pending reservations, and returns the complete
+        // envelope lineage for the durable post-commit key worker.
         const ownerReferenceDigest = current.ownerReferenceDigest ?? keyedDigest(this.fingerprintSecret, "account-owner", studentId);
-        await settleAccountOwnedRows(tx, studentId, now, ownerReferenceDigest);
+        distinctKeyRefs = await settleAccountOwnedRows(tx, studentId, now, ownerReferenceDigest);
+        if (detachedHoldIds.length > 0) {
+          await tx.aiRetentionHold.updateMany({
+            where: { id: { in: detachedHoldIds }, state: "released", subjectState: "attached" },
+            data: {
+              subjectState: "detached",
+              subjectId: null,
+              studentId: null,
+              subjectReferenceDigest: ownerReferenceDigest,
+              updatedAt: now,
+            },
+          });
+        }
         await tx.authSession.updateMany({ where: { userId: studentId, status: "active" }, data: { status: "revoked", revokedAt: now } });
         await tx.user.updateMany({ where: { id: studentId, status: { not: "soft_deleted" } }, data: { status: "soft_deleted", softDeletedAt: now } });
+      }
+      // Persist one recovery item per exact envelope key before committing the
+      // consumed carrier. `claimId` carries keyRef; the synthetic UUID keeps
+      // the normalized work-item identity compatible with its schema. A later
+      // process can resume after a crash without repeating a successful call.
+      for (const keyRef of distinctKeyRefs) {
+        await tx.aiPurgeWorkItem.upsert({
+          where: { operationId_objectType_objectId: { operationId: input.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(input.operationId, keyRef) } },
+          create: { id: randomUUID(), operationId: input.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(input.operationId, keyRef), state: "pending", claimId: keyRef, keyLineageDigest: sha256Hex(keyRef), recoveryDeadlineAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000) },
+          update: { claimId: keyRef },
+        });
       }
       if (current.targetEntityType === "AiExportJob" && current.targetEntityId) {
         await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${current.targetEntityId}::uuid FOR UPDATE`;
@@ -1390,7 +1593,12 @@ export class VeraLifecycleService {
       if (operation.claimedConversationVersion === null || conversation.version !== operation.claimedConversationVersion + 1) throw new VeraLifecycleError("target_revision_conflict", "A newer conversation version cannot be deleted by this claim.");
       const holdIds = await lockApplicableHolds(tx, { studentId: conversation.studentId, conversationId: conversation.id });
       if (holdIds.length > 0) throw new VeraLifecycleError("hold_active", "An active Vera retention hold blocks conversation deletion.", 409, { holdIds });
-      await tx.aiLifecycleOperation.update({ where: { id: operation.id, state: { in: ["pending", "failed_retryable"] } }, data: { state: "processing", resultState: "processing", version: { increment: 1 } } });
+      // Two workers may observe the pending operation before either marker
+      // commits.  The state CAS is intentionally an updateMany so the loser
+      // can return the already-owned result instead of surfacing Prisma
+      // P2025 as a failed deletion.
+      const processing = await tx.aiLifecycleOperation.updateMany({ where: { id: operation.id, state: { in: ["pending", "failed_retryable"] } }, data: { state: "processing", resultState: "processing", version: { increment: 1 } } });
+      if (processing.count !== 1) return null;
       const messages = await tx.aiMessage.findMany({ where: { conversationId: conversation.id }, select: { contentEnvelope: true, metadataEnvelope: true } });
       const artifacts = await tx.aiArtifact.findMany({ where: { conversationId: conversation.id }, select: { id: true, titleCiphertext: true, contentMarkdownCiphertext: true, payloadCiphertext: true } });
       await tx.aiMessage.updateMany({ where: { conversationId: conversation.id }, data: { contentState: "purging", metadataState: "purging" } });
@@ -1498,17 +1706,9 @@ export class VeraLifecycleService {
           },
         });
         // The artifact is retained as a non-readable tombstone because an
-        // AiArtifactApply row has a restrictive FK. Detach it from the
-        // conversation and clear its ciphertext before the parent delete.
-        await tx.aiArtifact.updateMany({
-          where: { id: { in: marker.artifactIds } },
-          data: {
-            conversationId: null,
-            titleCiphertext: Prisma.DbNull,
-            contentMarkdownCiphertext: Prisma.DbNull,
-            payloadCiphertext: Prisma.DbNull,
-          },
-        });
+        // AiArtifactApply row has a restrictive FK. Do not mutate its
+        // append-only revision or ciphertext columns here; the lifecycle row
+        // and post-commit key registry are the deletion authority.
       }
       const weaknessAnalyses = await tx.weaknessAnalysis.findMany({ where: { conversationId: marker.conversationId }, select: { id: true } });
       await tx.weaknessAnalysisTopic.deleteMany({ where: { weaknessAnalysisId: { in: weaknessAnalyses.map(({ id }) => id) } } });
@@ -1528,7 +1728,18 @@ export class VeraLifecycleService {
         // tombstone rather than deleting the identity row under its FK.
         await tx.aiRequest.updateMany({ where: { id: { in: marker.requestIds } }, data: { conversationId: null, status: "failed", errorCode: "conversation_deleted", idempotencyEvidenceState: "tombstoned", finalizedAt: now } });
       }
-      await tx.aiConversation.deleteMany({ where: { id: marker.conversationId, deletionState: "deletion_pending" } });
+      if (marker.artifactIds.length === 0) {
+        await tx.aiConversation.deleteMany({ where: { id: marker.conversationId, deletionState: "deletion_pending" } });
+      } else {
+        // Artifact revisions retain their parent conversation for immutable
+        // provenance. Keep a bounded conversation tombstone instead of
+        // violating the artifact FK or attempting a ciphertext update.
+        // The conversation row is retained only as a content-free tombstone;
+        // do not rewrite any immutable/content-bearing field in the worker.
+        // Artifact provenance remains owned by AiArtifactLifecycle and its
+        // append-only revision rather than by a conversation UPDATE.
+        await tx.aiConversation.updateMany({ where: { id: marker.conversationId, deletionState: "deletion_pending" }, data: { deletionState: "deleted", updatedAt: now } });
+      }
       await tx.aiLifecycleOperation.update({ where: { id: operationId }, data: { state: "completed", resultState: "completed", targetState: "purged", targetTombstoneCode: "target_unavailable", terminalAt: now, version: { increment: 1 } } });
     });
   }
@@ -1547,8 +1758,9 @@ export class VeraLifecycleService {
       if (operation.claimedLifecycleRevision === null || lifecycle.lifecycleRevision !== operation.claimedLifecycleRevision + 1) throw new VeraLifecycleError("target_revision_conflict", "A newer artifact revision cannot be deleted by this claim.");
       const holdIds = await lockApplicableHolds(tx, { studentId: lifecycle.artifact.studentId, conversationId: lifecycle.artifact.conversationId, artifactIds: [lifecycle.artifact.id] });
       if (holdIds.length > 0) throw new VeraLifecycleError("hold_active", "An active Vera retention hold blocks artifact deletion.", 409, { holdIds });
-      await tx.aiLifecycleOperation.update({ where: { id: operation.id, state: { in: ["pending", "failed_retryable"] } }, data: { state: "processing", resultState: "processing", version: { increment: 1 } } });
-      await tx.aiArtifactLifecycle.update({ where: { artifactRevisionId: lifecycle.artifactRevisionId }, data: { state: "purging", deletedAt: now, retentionPolicyVersion: VERA_RETENTION_POLICY_VERSION, changedAt: now } });
+      const processing = await tx.aiLifecycleOperation.updateMany({ where: { id: operation.id, state: { in: ["pending", "failed_retryable"] } }, data: { state: "processing", resultState: "processing", version: { increment: 1 } } });
+      if (processing.count !== 1) return null;
+      await tx.aiArtifactLifecycle.updateMany({ where: { artifactRevisionId: lifecycle.artifactRevisionId, lifecycleRevision: operation.claimedLifecycleRevision + 1, deletionState: "deletion_pending" }, data: { state: "purging", deletedAt: now, retentionPolicyVersion: VERA_RETENTION_POLICY_VERSION, changedAt: now } });
       await tx.aiArtifactApply.updateMany({ where: { artifactRevisionId: lifecycle.artifactRevisionId }, data: { applyState: "purged", purgedAt: now, purgeReason: "artifact_delete" } });
       return {
         artifactId: lifecycle.artifact.id,
@@ -1677,7 +1889,15 @@ export class VeraLifecycleService {
         // applicable hold remains an ordering fence. Locking the complete set
         // here prevents a worker from using a stale marker after a related
         // conversation/artifact/evidence hold was attached.
-        await lockApplicableHolds(tx, { studentId: exportJob.studentId });
+        const applicableHoldIds = await lockApplicableHolds(tx, { studentId: exportJob.studentId });
+        const unexpectedHoldIds = applicableHoldIds.filter((holdId) => holdId !== claim.holdId);
+        if (unexpectedHoldIds.length > 0) {
+          await tx.aiKeyDestructionClaim.updateMany({
+            where: { id: claim.id, state: "executing", claimVersion: claim.claimVersion + 1 },
+            data: { state: "failed_retryable", errorCode: "hold_active", claimVersion: { increment: 1 } },
+          });
+          return null;
+        }
       }
       return {
         claimId: claim.id,
@@ -1771,9 +1991,34 @@ export class VeraLifecycleService {
       if (initial.studentId) await tx.$queryRaw`SELECT id FROM users WHERE id = ${initial.studentId}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_retention_holds WHERE id = ${input.holdId}::uuid FOR UPDATE`;
       const hold = await tx.aiRetentionHold.findUnique({ where: { id: input.holdId } });
-      if (!hold || hold.state !== "active" || hold.subjectType !== "student" || hold.subjectState !== "attached" || hold.studentId !== initial.studentId || !hold.holdDigest) {
-        throw new VeraLifecycleError("hold_active", "A locked active student hold is required before legal erasure.", 409);
+      if (!hold || hold.state !== "active" || hold.subjectState !== "attached" || !hold.holdDigest) throw new VeraLifecycleError("hold_active", "A locked active hold is required before legal erasure.", 409);
+      let holdAppliesToExport = Boolean(initial.studentId && hold.studentId === initial.studentId);
+      if (hold.subjectType === "conversation" && hold.subjectId && initial.studentId) {
+        const conversation = await tx.aiConversation.findFirst({ where: { id: hold.subjectId, studentId: initial.studentId }, select: { id: true } });
+        holdAppliesToExport = Boolean(conversation);
+      } else if (hold.subjectType === "artifact" && hold.subjectId && initial.studentId) {
+        const artifact = await tx.aiArtifact.findFirst({ where: { id: hold.subjectId, studentId: initial.studentId }, select: { id: true } });
+        holdAppliesToExport = Boolean(artifact);
+      } else if (hold.subjectType === "evidence_object" && hold.subjectId && initial.studentId) {
+        const evidence = await tx.aiContextPack.findFirst({ where: { id: hold.subjectId, request: { studentId: initial.studentId } }, select: { id: true } });
+        holdAppliesToExport = Boolean(evidence);
       }
+      if (!holdAppliesToExport) throw new VeraLifecycleError("hold_active", "The locked active hold does not cover this export owner.", 409);
+      const applicableHoldIds = initial.studentId
+        ? await lockApplicableHolds(tx, {
+          studentId: initial.studentId,
+          conversationId: hold.subjectType === "conversation" ? hold.subjectId : null,
+          artifactIds: hold.subjectType === "artifact" && hold.subjectId ? [hold.subjectId] : [],
+        })
+        : [];
+      if (!applicableHoldIds.includes(input.holdId)) throw new VeraLifecycleError("hold_active", "The legal-erasure hold was not in the locked applicable hold set.", 409);
+      await tx.$queryRaw`
+        SELECT id
+        FROM ai_retention_hold_releases
+        WHERE hold_id IN (${Prisma.join(applicableHoldIds.map((id) => Prisma.sql`${id}::uuid`))})
+        ORDER BY hold_id, expected_hold_version, id
+        FOR UPDATE
+      `;
       await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${input.exportId}::uuid FOR UPDATE`;
       const job = await tx.aiExportJob.findUnique({ where: { id: input.exportId } });
       if (!job) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
@@ -1901,19 +2146,20 @@ export class VeraLifecycleService {
       const updatedJob = await tx.aiExportJob.updateMany({
         where: { id: job.id, state: { not: "expired" } },
         data: {
+          // Legal erasure is a terminal failure of the export operation, not
+          // an ordinary download expiry. The current forward migration's
+          // pre-ready constraint requires the two learner-access timestamps
+          // to be null for failed_terminal; retain the content-free digest and
+          // byte count plus the original expiry in the linked operation's
+          // exportExpiresAt field below.
           state: "failed_terminal",
           errorCode: "export_erased_legal",
           terminalAt: now,
           partialPackagePurgeAt: deadlines.partialPackagePurgeAt,
           terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt,
           exportAccessGrantState: "expired",
-          // A failed-terminal export is pre-ready from the download contract's
-          // perspective; package metadata is retained only in its encrypted
-          // parts until the fenced key-destruction processor runs.
           downloadReadyAt: null,
           downloadExpiresAt: null,
-          snapshotDigest: null,
-          packageBytes: null,
         },
       });
       if (updatedJob.count !== 1) throw new VeraLifecycleError("export_state_mismatch", "Export state changed during legal-erasure claim.", 409);
