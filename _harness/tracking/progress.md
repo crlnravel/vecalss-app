@@ -1,5 +1,23 @@
 # Session Progress Log
 
+## Goals-inspired Tryout catalogue adoption (2026-08-28)
+
+- [x] Selected `/mentor/tryout` as the closest non-student analogue to the
+  reference Goals page: a role-owned collection with status filtering, search,
+  creation, list rows, and empty/no-match states.
+- [x] Applied the extracted Vecalss visual language to this route only:
+  reference page header, count-bearing status controls, tokenized raised/inset
+  surfaces, localized status badges, and centered empty-state treatment.
+- [x] Preserved the existing tutor guard, MentorWorkspaceShell breadcrumbs,
+  search/account infrastructure, Tryout links, pagination, search behavior,
+  and create route. The route now opts into the page-scoped reference sidebar
+  appearance; other mentor/Kapten/admin/student pages remain unchanged.
+- [x] Authenticated ego-browser QA passes at desktop and 390px mobile widths,
+  including status filtering, no-match/reset behavior, sidebar collapse, and
+  mobile Sheet body-scroll locking.
+- [x] Focused ESLint and `git diff --check` pass; repository TypeScript remains
+  blocked only by the preserved invalid `tmp/reference/res1` prototype.
+
 ## First mentor dashboard adoption (2026-08-28)
 
 - [x] Selected the unowned `/mentor/dashboard` route as the first bounded

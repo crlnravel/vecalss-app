@@ -1,5 +1,28 @@
 # Session Handoff
 
+## Goals-inspired Tryout catalogue adoption (2026-08-28)
+
+- Objective: apply the reference Goals composition to one structurally similar
+  non-student Vecalss page without widening the rollout.
+- Target: `/mentor/tryout` catalogue. It retains the existing tutor guard,
+  MentorWorkspaceShell breadcrumbs/search/account/ScrollArea infrastructure,
+  server-owned Tryout data, links, pagination, and create route.
+- Implementation: `modules/mentor/KaptenTryoutCataloguePageModule.tsx` now uses
+  the extracted `ReferencePageHeader`, `ReferenceSurface`,
+  `ReferenceEmptyState`, `ReferenceStatusBadge`, and Vecalss token surface
+  contracts for the header, count-bearing status filters, cards, and empty
+  state. The route opts into the page-scoped floating reference sidebar.
+- Interaction: status controls filter published/draft Tryouts with counts;
+  search keeps its existing behavior; no-match state offers `Hapus filter`;
+  create and Tryout links remain unchanged.
+- Verification: authenticated ego-browser QA passes at desktop and 390px mobile
+  widths, including status filtering, search no-match/reset, sidebar collapse,
+  and mobile Sheet body-scroll locking. Focused ESLint and `git diff --check`
+  pass. Repository `tsc` remains blocked only by the preserved invalid
+  `tmp/reference/res1` Base44 prototype.
+- Scope: no student pages or other mentor/Kapten/admin routes were changed;
+  the Tryout builder/editor remains owned by its existing workflow.
+
 ## First mentor dashboard adoption (2026-08-28)
 
 - Objective: adopt the extracted reference dashboard language on one bounded
