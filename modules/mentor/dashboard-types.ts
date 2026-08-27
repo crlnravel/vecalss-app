@@ -34,6 +34,80 @@ type DashboardProjection = {
   scheduledTryout: DashboardResource[];
 };
 
+/**
+ * JavaScript dates use the ECMAScript TimeClip range. Keep this boundary in
+ * one place so untrusted persisted values cannot reach `toISOString()` or a
+ * timestamp comparator with an invalid time value.
+ */
+const maxDashboardTimestamp = 8_640_000_000_000_000;
+
+function getDashboardTimestampMillis(value: unknown): number | null {
+  let candidate: number;
+
+  if (value instanceof Date) {
+    candidate = value.getTime();
+  } else if (typeof value === "number") {
+    candidate = value;
+  } else if (typeof value === "string") {
+    if (!value.trim()) return null;
+    candidate = Date.parse(value);
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(candidate) || Math.abs(candidate) > maxDashboardTimestamp) {
+    return null;
+  }
+
+  // Applying TimeClip explicitly also normalizes fractional epoch values and
+  // guards against an implementation returning an invalid Date object.
+  const clipped = new Date(candidate).getTime();
+  return Number.isFinite(clipped) && Math.abs(clipped) <= maxDashboardTimestamp
+    ? clipped
+    : null;
+}
+
+function isValidDashboardTimestamp(value: unknown): boolean {
+  return getDashboardTimestampMillis(value) !== null;
+}
+
+function normalizeDashboardTimestamp(value: unknown): string | null {
+  const millis = getDashboardTimestampMillis(value);
+  return millis === null ? null : new Date(millis).toISOString();
+}
+
+function compareDashboardTimestamps(
+  leftValue: unknown,
+  rightValue: unknown,
+  direction: "ascending" | "descending",
+) {
+  const left = getDashboardTimestampMillis(leftValue);
+  const right = getDashboardTimestampMillis(rightValue);
+
+  if (left === null) return right === null ? 0 : 1;
+  if (right === null) return -1;
+
+  if (left === right) return 0;
+  if (direction === "descending") return left > right ? -1 : 1;
+  return left < right ? -1 : 1;
+}
+
+function compareDashboardResourcesByUpdatedAt(
+  left: DashboardResource,
+  right: DashboardResource,
+) {
+  return compareDashboardTimestamps(left.updatedAt, right.updatedAt, "descending")
+    || String(left.id).localeCompare(String(right.id));
+}
+
+function compareDashboardResourcesBySchedule(
+  left: DashboardResource,
+  right: DashboardResource,
+) {
+  return compareDashboardTimestamps(left.scheduledAt, right.scheduledAt, "ascending")
+    || String(left.id).localeCompare(String(right.id));
+}
+
 type DashboardQuizDraftLike = {
   quiz: {
     description: string;
@@ -103,7 +177,7 @@ function isDashboardQuizDraftLike(value: unknown): value is DashboardQuizDraftLi
     && quiz.progress >= 0
     && quiz.progress <= 100
     && typeof candidate.savedAt === "number"
-    && Number.isFinite(candidate.savedAt);
+    && isValidDashboardTimestamp(candidate.savedAt);
 }
 
 function overlayDashboardQuizDrafts(
@@ -131,7 +205,8 @@ function overlayDashboardQuizDrafts(
     if (!draft) return resource;
 
     const href = canonicalDashboardHref("quiz", resource.id);
-    if (!href) return resource;
+    const updatedAt = normalizeDashboardTimestamp(draft.savedAt);
+    if (!href || !updatedAt) return resource;
 
     return {
       ...resource,
@@ -144,12 +219,14 @@ function overlayDashboardQuizDrafts(
       // only contributes editing metadata after the server row has proven
       // ownership and existence.
       title: resource.title,
-      updatedAt: new Date(draft.savedAt).toISOString(),
+      updatedAt,
     };
   };
 
   return {
-    recentKuis: projection.recentKuis.map(overlay),
+    recentKuis: projection.recentKuis
+      .map(overlay)
+      .sort(compareDashboardResourcesByUpdatedAt),
     recentMateri: projection.recentMateri,
     scheduledKuis: projection.scheduledKuis.map(overlay),
     scheduledTryout: projection.scheduledTryout,
@@ -158,9 +235,15 @@ function overlayDashboardQuizDrafts(
 
 export {
   canonicalDashboardHref,
+  compareDashboardResourcesBySchedule,
+  compareDashboardResourcesByUpdatedAt,
+  compareDashboardTimestamps,
   createEmptyDashboardProjection,
+  getDashboardTimestampMillis,
   isDashboardQuizDraftLike,
+  isValidDashboardTimestamp,
   isUuidLike,
+  normalizeDashboardTimestamp,
   overlayDashboardQuizDrafts,
 };
 export type {

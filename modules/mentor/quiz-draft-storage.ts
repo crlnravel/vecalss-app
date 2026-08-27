@@ -2,7 +2,12 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 
-import { canonicalDashboardHref, isUuidLike } from "@/modules/mentor/dashboard-types";
+import {
+  canonicalDashboardHref,
+  isUuidLike,
+  isValidDashboardTimestamp,
+  normalizeDashboardTimestamp,
+} from "@/modules/mentor/dashboard-types";
 import type { KaptenQuiz, KaptenResource } from "@/modules/mentor/mock-data";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 
@@ -87,7 +92,7 @@ function isStoredQuizDraft(value: unknown, scopeId?: string): value is StoredQui
     && value.questions.every(isQuizQuestionSnapshot)
     && typeof value.sourceBankId === "string"
     && typeof value.savedAt === "number"
-    && Number.isFinite(value.savedAt)
+    && isValidDashboardTimestamp(value.savedAt)
   );
 }
 
@@ -95,6 +100,27 @@ function storageKeyForTutor(tutorId: string) {
   return isUuidLike(tutorId)
     ? `${storageKeyPrefix}:${encodeURIComponent(tutorId)}`
     : null;
+}
+
+function readStorageItem(key: string): string | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageItem(key: string, value: string): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function parseDrafts(value: string | null, scopeId: string): StoredQuizDraft[] {
@@ -116,16 +142,37 @@ function readDrafts(tutorId: string) {
   const key = storageKeyForTutor(tutorId);
   if (!key) return [];
 
-  return parseDrafts(window.localStorage.getItem(key), tutorId);
+  return parseDrafts(readStorageItem(key), tutorId);
 }
 
 function writeDrafts(tutorId: string, drafts: StoredQuizDraft[]) {
   const key = storageKeyForTutor(tutorId);
   if (!key) return false;
 
-  window.localStorage.setItem(key, JSON.stringify(drafts));
-  window.dispatchEvent(new Event(changeEvent));
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(drafts);
+  } catch {
+    return false;
+  }
+
+  if (!writeStorageItem(key, serialized)) return false;
+
+  try {
+    window.dispatchEvent(new Event(changeEvent));
+  } catch {
+    // A storage write is still successful when event delivery is unavailable.
+  }
   return true;
+}
+
+function getQuizDraftStorageSnapshot(tutorId: string) {
+  const key = storageKeyForTutor(tutorId);
+  return key ? readStorageItem(key) ?? serverStorageSnapshot : serverStorageSnapshot;
+}
+
+function isQuizDraftServerStorageSnapshot(value: string) {
+  return value === serverStorageSnapshot;
 }
 
 function getStoredQuizDraft(tutorId: string, id: string | undefined) {
@@ -135,19 +182,29 @@ function getStoredQuizDraft(tutorId: string, id: string | undefined) {
 }
 
 function subscribeToDraftChanges(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener(changeEvent, onStoreChange);
+  if (typeof window === "undefined") return () => undefined;
+
+  try {
+    window.addEventListener("storage", onStoreChange);
+    window.addEventListener(changeEvent, onStoreChange);
+  } catch {
+    return () => undefined;
+  }
+
   return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(changeEvent, onStoreChange);
+    try {
+      window.removeEventListener("storage", onStoreChange);
+      window.removeEventListener(changeEvent, onStoreChange);
+    } catch {
+      // Listener cleanup is best effort when the browser surface is blocked.
+    }
   };
 }
 
 function useStoredQuizDraft(tutorId: string, id: string) {
-  const storageKey = storageKeyForTutor(tutorId);
   const serializedDrafts = useSyncExternalStore(
     subscribeToDraftChanges,
-    () => storageKey ? window.localStorage.getItem(storageKey) ?? serverStorageSnapshot : serverStorageSnapshot,
+    () => getQuizDraftStorageSnapshot(tutorId),
     () => serverStorageSnapshot,
   );
 
@@ -158,10 +215,9 @@ function useStoredQuizDraft(tutorId: string, id: string) {
 }
 
 function useStoredQuizDrafts(tutorId: string) {
-  const storageKey = storageKeyForTutor(tutorId);
   const serializedDrafts = useSyncExternalStore(
     subscribeToDraftChanges,
-    () => storageKey ? window.localStorage.getItem(storageKey) ?? serverStorageSnapshot : serverStorageSnapshot,
+    () => getQuizDraftStorageSnapshot(tutorId),
     () => serverStorageSnapshot,
   );
 
@@ -205,7 +261,8 @@ function saveQuizDraft(tutorId: string, draft: StoredQuizDraftInput) {
 
 function overlayQuizDraft(baseQuiz: KaptenQuiz, draft: StoredQuizDraft) {
   const href = canonicalDashboardHref("quiz", baseQuiz.id);
-  if (!href) return baseQuiz;
+  const updatedAt = normalizeDashboardTimestamp(draft.savedAt);
+  if (!href || !updatedAt) return baseQuiz;
 
   return {
     ...baseQuiz,
@@ -217,7 +274,7 @@ function overlayQuizDraft(baseQuiz: KaptenQuiz, draft: StoredQuizDraft) {
     primaryMetric: draft.quiz.primaryMetric,
     progress: draft.quiz.progress,
     title: baseQuiz.title,
-    updatedAt: new Date(draft.savedAt).toISOString(),
+    updatedAt,
   };
 }
 
@@ -247,9 +304,11 @@ function getStoredQuizDrafts(tutorId: string) {
 
 export {
   getQuizWithStoredDrafts,
+  getQuizDraftStorageSnapshot,
   getRecentlyEditedQuizzes,
   getStoredQuizDrafts,
   getStoredQuizDraft,
+  isQuizDraftServerStorageSnapshot,
   isStoredQuizDraft,
   parseDrafts,
   saveQuizDraft,

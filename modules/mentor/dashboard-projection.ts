@@ -1,6 +1,10 @@
 import {
   canonicalDashboardHref,
+  compareDashboardResourcesBySchedule,
+  compareDashboardResourcesByUpdatedAt,
   createEmptyDashboardProjection,
+  getDashboardTimestampMillis,
+  normalizeDashboardTimestamp,
 } from "@/modules/mentor/dashboard-types";
 import type {
   DashboardProjection,
@@ -65,18 +69,10 @@ function statusToDashboard(value: DashboardProjectionStatus): DashboardResourceS
   return value;
 }
 
-function sortByUpdatedAt(left: DashboardResource, right: DashboardResource) {
-  return right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id);
-}
-
-function sortBySchedule(left: DashboardResource, right: DashboardResource) {
-  return (left.scheduledAt ?? "9999-12-31T23:59:59.999Z").localeCompare(right.scheduledAt ?? "9999-12-31T23:59:59.999Z")
-    || left.id.localeCompare(right.id);
-}
-
 function toDashboardMateriResource(resource: DashboardMateriSource): DashboardResource | null {
   const href = canonicalDashboardHref("materi", resource.id);
-  if (!href || !Number.isFinite(resource.updatedAtEpoch)) return null;
+  const updatedAt = normalizeDashboardTimestamp(resource.updatedAtEpoch);
+  if (!href || !updatedAt) return null;
 
   return {
     description: resource.description,
@@ -92,7 +88,7 @@ function toDashboardMateriResource(resource: DashboardMateriSource): DashboardRe
     subjectCode: resource.subjectCode,
     subjectName: resource.subjectName,
     title: resource.title,
-    updatedAt: new Date(resource.updatedAtEpoch).toISOString(),
+    updatedAt,
   };
 }
 
@@ -101,10 +97,18 @@ function toDashboardQuizResource(
   now: Date,
 ): DashboardResource | null {
   const href = canonicalDashboardHref("quiz", record.id);
-  if (!href) return null;
+  const updatedAt = normalizeDashboardTimestamp(record.updatedAt);
+  if (!href || !updatedAt) return null;
 
-  const opensAt = record.opensAt && new Date(record.opensAt) > now ? record.opensAt : null;
-  const closesAt = record.closesAt && new Date(record.closesAt) > now ? record.closesAt : null;
+  const nowMillis = getDashboardTimestampMillis(now);
+  const opensAtMillis = getDashboardTimestampMillis(record.opensAt);
+  const closesAtMillis = getDashboardTimestampMillis(record.closesAt);
+  const opensAt = opensAtMillis !== null && nowMillis !== null && opensAtMillis > nowMillis
+    ? normalizeDashboardTimestamp(opensAtMillis)
+    : null;
+  const closesAt = closesAtMillis !== null && nowMillis !== null && closesAtMillis > nowMillis
+    ? normalizeDashboardTimestamp(closesAtMillis)
+    : null;
   const status = opensAt && record.status !== "archived" ? "scheduled" : statusToDashboard(record.status);
   const questionCount = Number.isFinite(record.questionCount) ? record.questionCount : 0;
 
@@ -125,7 +129,7 @@ function toDashboardQuizResource(
     subjectCode: record.subjectCode,
     subjectName: record.subjectName,
     title: record.title,
-    updatedAt: record.updatedAt,
+    updatedAt,
   };
 }
 
@@ -134,9 +138,13 @@ function toDashboardTryoutResource(
   session: DashboardTryoutSessionSource,
 ): DashboardResource | null {
   const href = canonicalDashboardHref("tryout", record.id);
-  if (!href) return null;
+  const updatedAt = normalizeDashboardTimestamp(record.updatedAt);
+  const scheduledAt = normalizeDashboardTimestamp(session.availableFrom);
+  const closesAt = normalizeDashboardTimestamp(session.availableUntil);
+  if (!href || !updatedAt || !scheduledAt || !closesAt) return null;
 
   return {
+    closesAt,
     description: record.description ?? "",
     href,
     id: record.id,
@@ -144,19 +152,26 @@ function toDashboardTryoutResource(
     primaryMetric: "Tryout",
     progress: record.status === "published" ? 100 : 0,
     resourceType: "tryout",
-    scheduledAt: session.availableFrom,
-    scheduledFor: `Mulai ${session.availableFrom}`,
+    scheduledAt,
+    scheduledFor: `Mulai ${scheduledAt}`,
     source: "persisted",
     status: "scheduled",
     title: record.title,
-    updatedAt: record.updatedAt,
+    updatedAt,
   };
 }
 
 function isFutureActiveSession(session: DashboardTryoutSessionSource, now: Date) {
+  const nowMillis = getDashboardTimestampMillis(now);
+  const availableFrom = getDashboardTimestampMillis(session.availableFrom);
+  const availableUntil = getDashboardTimestampMillis(session.availableUntil);
+
   return session.status === "active"
-    && new Date(session.availableFrom) > now
-    && new Date(session.availableUntil) > now;
+    && nowMillis !== null
+    && availableFrom !== null
+    && availableUntil !== null
+    && availableFrom > nowMillis
+    && availableUntil > nowMillis;
 }
 
 /**
@@ -168,25 +183,32 @@ function projectMentorDashboardProjection({ materi, now, quizzes, tryouts, tutor
   const recentMateri = materi
     .map(toDashboardMateriResource)
     .filter((resource): resource is DashboardResource => Boolean(resource))
-    .sort(sortByUpdatedAt);
+    .sort(compareDashboardResourcesByUpdatedAt);
   const ownedQuizzes = quizzes.filter((record) => record.ownerId === tutorId);
   const recentKuis = ownedQuizzes
     .map((record) => toDashboardQuizResource(record, now))
     .filter((resource): resource is DashboardResource => Boolean(resource))
-    .sort(sortByUpdatedAt);
+    .sort(compareDashboardResourcesByUpdatedAt);
   const scheduledKuis = recentKuis
     .filter((resource) => resource.scheduledAt !== null && resource.status !== "archived")
-    .sort(sortBySchedule);
+    .sort(compareDashboardResourcesBySchedule);
   const scheduledTryout = tryouts
     .filter((record) => record.ownerId === tutorId && record.status === "published")
     .flatMap((record) => {
       const session = record.deliverySessions
         .filter((candidate) => isFutureActiveSession(candidate, now))
-        .sort((left, right) => left.availableFrom.localeCompare(right.availableFrom) || left.id.localeCompare(right.id))[0];
+        .sort((left, right) => {
+          const leftAvailableFrom = getDashboardTimestampMillis(left.availableFrom);
+          const rightAvailableFrom = getDashboardTimestampMillis(right.availableFrom);
+          if (leftAvailableFrom === null) return rightAvailableFrom === null ? left.id.localeCompare(right.id) : 1;
+          if (rightAvailableFrom === null) return -1;
+          if (leftAvailableFrom !== rightAvailableFrom) return leftAvailableFrom < rightAvailableFrom ? -1 : 1;
+          return left.id.localeCompare(right.id);
+        })[0];
       const resource = session ? toDashboardTryoutResource(record, session) : null;
       return resource ? [resource] : [];
     })
-    .sort(sortBySchedule);
+    .sort(compareDashboardResourcesBySchedule);
 
   return {
     ...createEmptyDashboardProjection(),

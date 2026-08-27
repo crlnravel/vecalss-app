@@ -6,6 +6,7 @@ import {
   canonicalDashboardHref,
   createEmptyDashboardProjection,
   overlayDashboardQuizDrafts,
+  isDashboardQuizDraftLike,
   type DashboardProjection,
   type DashboardQuizDraftLike,
   type DashboardResource,
@@ -18,8 +19,10 @@ import type {
 } from "@/modules/mentor/dashboard-projection";
 import {
   getQuizWithStoredDrafts,
+  getQuizDraftStorageSnapshot,
   getStoredQuizDraft,
   getStoredQuizDrafts,
+  isQuizDraftServerStorageSnapshot,
   saveQuizDraft,
   storageKeyForTutor,
 } from "@/modules/mentor/quiz-draft-storage";
@@ -102,13 +105,14 @@ function storedQuiz(id: string, title: string, href: string): StoredQuizDraftInp
 }
 
 const memory = new Map<string, string>();
+const healthyStorage = {
+  getItem: (key: string) => memory.get(key) ?? null,
+  setItem: (key: string, value: string) => { memory.set(key, value); },
+};
 const fakeWindow = {
   addEventListener: () => undefined,
   dispatchEvent: () => true,
-  localStorage: {
-    getItem: (key: string) => memory.get(key) ?? null,
-    setItem: (key: string, value: string) => { memory.set(key, value); },
-  },
+  localStorage: healthyStorage,
   removeEventListener: () => undefined,
 };
 Object.defineProperty(globalThis, "window", {
@@ -230,6 +234,35 @@ assert.deepEqual(projectedGroups.scheduledTryout.map((resource) => resource.id),
 assert.equal(projectedGroups.scheduledTryout[0]?.status, "scheduled");
 assert.equal(projectedGroups.scheduledTryout[0]?.scheduledAt, futureFrom);
 
+const outOfRangeProjection = projectMentorDashboardProjection({
+  materi: [{ ...projectionMateri, updatedAtEpoch: Number.MAX_VALUE }],
+  now: projectionNow,
+  quizzes: projectionQuizzes,
+  tryouts: projectionTryouts,
+  tutorId: tutorA,
+});
+assert.deepEqual(outOfRangeProjection.recentMateri, [], "out-of-range Materi epochs are dropped");
+
+const malformedOpenProjection = projectMentorDashboardProjection({
+  materi: [],
+  now: projectionNow,
+  quizzes: [{ ...projectionQuizzes[0]!, closesAt: "not-a-date", opensAt: "not-a-date" }],
+  tryouts: [],
+  tutorId: tutorA,
+});
+assert.equal(malformedOpenProjection.recentKuis.length, 1, "a malformed open boundary remains a safe unscheduled row");
+assert.equal(malformedOpenProjection.scheduledKuis.length, 0, "a malformed open boundary cannot create a schedule");
+assert.equal(malformedOpenProjection.recentKuis[0]?.scheduledAt, null);
+
+const malformedUpdatedProjection = projectMentorDashboardProjection({
+  materi: [],
+  now: projectionNow,
+  quizzes: [{ ...projectionQuizzes[0]!, updatedAt: "not-a-date" }],
+  tryouts: [],
+  tutorId: tutorA,
+});
+assert.deepEqual(malformedUpdatedProjection.recentKuis, [], "malformed updatedAt rows are dropped");
+
 const projection: DashboardProjection = {
   recentKuis: [dashboardQuiz()],
   recentMateri: [{
@@ -271,6 +304,36 @@ assert.equal(overlaid.recentKuis[0]?.description, "Deskripsi dari browser");
 assert.equal(overlaid.recentKuis[0]?.source, "tutor_scoped_local_draft");
 assert.equal(overlaid.recentMateri[0]?.source, "persisted");
 
+const poisonedDraft = quizDraft({ savedAt: Number.MAX_VALUE });
+assert.equal(isDashboardQuizDraftLike(poisonedDraft), false, "TimeClip rejects an out-of-range draft timestamp");
+assert.doesNotThrow(() => overlayDashboardQuizDrafts(projection, [poisonedDraft]));
+assert.equal(
+  overlayDashboardQuizDrafts(projection, [poisonedDraft]).recentKuis[0]?.source,
+  "persisted",
+  "an out-of-range draft timestamp cannot enter the overlay",
+);
+
+const fourRecentProjection: DashboardProjection = {
+  ...projection,
+  recentKuis: [
+    dashboardQuiz({ updatedAt: "2026-08-27T11:00:00.000Z" }),
+    dashboardQuiz({ id: scheduledQuizId, href: canonicalDashboardHref("quiz", scheduledQuizId)!, updatedAt: "2026-08-27T10:00:00.000Z" }),
+    dashboardQuiz({ id: foreignQuizId, href: canonicalDashboardHref("quiz", foreignQuizId)!, updatedAt: "2026-08-27T09:00:00.000Z" }),
+    dashboardQuiz({ id: deletedQuizId, href: canonicalDashboardHref("quiz", deletedQuizId)!, updatedAt: "2026-08-27T08:00:00.000Z" }),
+  ],
+  scheduledKuis: [],
+};
+const newestFourthRowDraft = quizDraft({
+  quiz: { ...validDraft.quiz, id: deletedQuizId },
+  savedAt: Date.parse("2026-08-27T12:00:00.000Z"),
+});
+const sortedOverlay = overlayDashboardQuizDrafts(fourRecentProjection, [newestFourthRowDraft]);
+assert.deepEqual(
+  sortedOverlay.recentKuis.map((resource) => resource.id),
+  [deletedQuizId, quizId, scheduledQuizId, foreignQuizId],
+  "a newer fourth-row local draft is re-sorted into the visible recent slice",
+);
+
 const scheduledProjection: DashboardProjection = {
   ...projection,
   recentKuis: [],
@@ -298,6 +361,40 @@ assert.equal(memory.has(storageKeyForTutor(tutorA)!), true, "the tutor id must b
 assert.equal(getStoredQuizDrafts(tutorA).length, 1);
 assert.equal(getStoredQuizDraft(tutorA, quizId)?.scopeId, tutorA);
 assert.equal(getStoredQuizDrafts(tutorB).length, 0, "a second tutor cannot read the first tutor's browser draft");
+
+Object.defineProperty(fakeWindow, "localStorage", {
+  configurable: true,
+  get() {
+    throw new Error("localStorage access blocked");
+  },
+});
+assert.deepEqual(getStoredQuizDrafts(tutorA), [], "a throwing localStorage getter falls back to an empty read");
+const blockedGetterSnapshot = getQuizDraftStorageSnapshot(tutorA);
+assert.equal(isQuizDraftServerStorageSnapshot(blockedGetterSnapshot), true, "snapshot failures use the server sentinel");
+assert.equal(getQuizDraftStorageSnapshot(tutorA), blockedGetterSnapshot, "snapshot fallback remains stable");
+assert.doesNotThrow(() => saveQuizDraft(tutorA, {
+  quiz: storedQuiz(quizId, "Blocked getter", "/unsafe/stored-href"),
+  questions: [question],
+  sourceBankId: "bank-1",
+}));
+
+Object.defineProperty(fakeWindow, "localStorage", {
+  configurable: true,
+  value: {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: () => { throw new Error("localStorage writes blocked"); },
+  },
+});
+assert.doesNotThrow(() => saveQuizDraft(tutorA, {
+  quiz: storedQuiz(quizId, "Blocked write", "/unsafe/stored-href"),
+  questions: [question],
+  sourceBankId: "bank-1",
+}), "a throwing setItem is a recoverable no-op for callers");
+
+Object.defineProperty(fakeWindow, "localStorage", {
+  configurable: true,
+  value: healthyStorage,
+});
 
 const serverQuiz = storedQuiz(quizId, "Server title", "/server-href-is-not-used");
 const merged = getQuizWithStoredDrafts(tutorA, [serverQuiz])[0];
