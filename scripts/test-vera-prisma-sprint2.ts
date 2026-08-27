@@ -10,7 +10,7 @@ import { PrismaClient, Prisma } from "@/generated/prisma/client";
 import { VeraPrismaAdmissionService } from "../lib/vera-ai/admission-service";
 import { readPrismaVeraRequestStatus } from "../lib/vera-ai/prisma-chat-orchestrator";
 import { VeraPrismaChatOrchestrator } from "../lib/vera-ai/prisma-chat-orchestrator";
-import { InMemoryVeraLeaseStore } from "../lib/vera-ai/redis-lease";
+import { IORedisVeraLeaseStore, type VeraLeaseStore } from "../lib/vera-ai/redis-lease";
 import { PrismaKmsEnvelopeKeyRegistry, EnvelopeService } from "../lib/vera-ai/envelope";
 import { MockProviderAdapter } from "../lib/vera-ai/provider";
 import { prepareContextPack } from "../lib/vera-ai/context-pack";
@@ -64,6 +64,12 @@ const connectionString = process.env.VERA_DISPOSABLE_DATABASE_URL;
 if (!connectionString) throw new Error("Set VERA_DISPOSABLE_DATABASE_URL to an isolated localhost vera_test database.");
 assertLocalDisposable(connectionString);
 process.env.DATABASE_URL = connectionString;
+const redisConnectionString = process.env.VERA_DISPOSABLE_REDIS_URL ?? process.env.REDIS_URL;
+if (!redisConnectionString) throw new Error("Set VERA_DISPOSABLE_REDIS_URL or REDIS_URL to isolated Redis 56379/15.");
+const redisLocation = new URL(redisConnectionString);
+assert(["127.0.0.1", "localhost"].includes(redisLocation.hostname), "fixture runner refuses non-local Redis");
+assert.equal(redisLocation.port, "56379", "fixture runner requires isolated Redis port 56379");
+assert.equal(redisLocation.pathname.replace(/\/$/u, ""), "/15", "fixture runner requires Redis database 15");
 
 const adapter = new PrismaPg({ connectionString });
 const db = new PrismaClient({ adapter });
@@ -75,7 +81,7 @@ const raceDb = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 const raceEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(raceDb, () => rootKey));
 const raceAdmission = new VeraPrismaAdmissionService(raceDb, raceEnvelope);
 const provider = new MockProviderAdapter();
-const leaseStore = new InMemoryVeraLeaseStore();
+const leaseStore: VeraLeaseStore = new IORedisVeraLeaseStore(redisConnectionString);
 const resolver = {
   async resolve(selection: { sourceType: "practice" | "material"; sourceId: string }) {
     return {
@@ -205,7 +211,8 @@ try {
       DATABASE_URL: connectionString,
       NODE_ENV: "development",
       NEXT_TELEMETRY_DISABLED: "1",
-      REDIS_URL: "",
+      REDIS_URL: redisConnectionString,
+      VERA_DISPOSABLE_REDIS_URL: redisConnectionString,
       VERA_DISPOSABLE_DB_ACK: "1",
       VERA_ENVELOPE_MASTER_KEY: rootKey.toString("base64url"),
       VERA_HTTP_ROUTE_TEST_MODE: "1",
@@ -381,7 +388,8 @@ try {
 } finally {
   if (routeServer) await stopServer(routeServer).catch(() => undefined);
   await db.$executeRaw`DELETE FROM auth_sessions WHERE user_id IN (${studentId}::uuid, ${otherStudentId}::uuid)`;
-  await db.$executeRaw`DELETE FROM ai_envelope_keys`;
+  const ownedEnvelopeMarkers = [conversationId, studentId];
+  await db.aiEnvelopeKey.deleteMany({ where: { OR: ownedEnvelopeMarkers.map((marker) => ({ objectId: { contains: marker } })) } });
   await db.$executeRaw`DELETE FROM ai_requests WHERE student_id = ${studentId}::uuid`;
   await db.$executeRaw`DELETE FROM ai_idempotency_keys WHERE student_id = ${studentId}::uuid`;
   await db.$executeRaw`DELETE FROM ai_usage_daily WHERE student_id = ${studentId}::uuid`;
@@ -395,5 +403,6 @@ try {
   await db.aiPolicyBundle.update({ where: { id: policyRow.id }, data: { state: "scheduled", effectiveAt: new Date("2026-09-01T00:00:00+07:00"), quotaConfig: policyRow.quotaConfig as unknown as Prisma.InputJsonValue } });
   await policyWriter.$disconnect();
   await raceDb.$disconnect();
+  await leaseStore.close?.();
   await db.$disconnect();
 }

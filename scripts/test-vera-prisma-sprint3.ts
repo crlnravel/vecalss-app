@@ -10,7 +10,7 @@ import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry } from "@/lib/vera-ai/env
 import { VeraLearnerService } from "@/lib/vera-ai/learner-service";
 import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "@/lib/vera-ai/prisma-chat-orchestrator";
 import { MockProviderAdapter, type PreparedProviderTask, type ProviderResult } from "@/lib/vera-ai/provider";
-import { InMemoryVeraLeaseStore } from "@/lib/vera-ai/redis-lease";
+import { IORedisVeraLeaseStore, type VeraLeaseStore } from "@/lib/vera-ai/redis-lease";
 import { canonicalJson, sha256Hex, type VeraContextSelection } from "@/lib/vera-ai/contracts";
 import type { ResolvedContextBlock, VeraContextResolver } from "@/lib/vera-ai/context-pack";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
@@ -86,14 +86,21 @@ const connectionString = process.env.VERA_DISPOSABLE_DATABASE_URL;
 if (!connectionString) throw new Error("VERA_DISPOSABLE_DATABASE_URL is required.");
 assertDisposable(connectionString);
 process.env.DATABASE_URL = connectionString;
+const redisConnectionString = process.env.VERA_DISPOSABLE_REDIS_URL ?? process.env.REDIS_URL;
+if (!redisConnectionString) throw new Error("VERA_DISPOSABLE_REDIS_URL or REDIS_URL is required for the real Redis callback matrix.");
+const redisLocation = new URL(redisConnectionString);
+assert.ok(["127.0.0.1", "localhost"].includes(redisLocation.hostname));
+assert.equal(redisLocation.port, "56379");
+assert.equal(redisLocation.pathname.replace(/\/$/u, ""), "/15");
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 const rootKey = Buffer.alloc(32, 11);
 const envelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => rootKey));
 const admission = new VeraPrismaAdmissionService(db, envelope);
+const leaseStore: VeraLeaseStore = new IORedisVeraLeaseStore(redisConnectionString);
 const studentId = randomUUID();
 const otherStudentId = randomUUID();
-const conversationId = randomUUID();
+let conversationId: string = randomUUID();
 const topicId = randomUUID();
 const moduleId = randomUUID();
 const secondModuleId = randomUUID();
@@ -144,7 +151,25 @@ try {
   const drillPolicySnapshot = { reviewTiming: "immediate", correctAnswerVisibility: "show", formBehavior: "same", scorePolicy: "latest", attemptsAllowed: 1, retryDelaySeconds: null };
   await db.standaloneQuizParticipation.create({ data: { id: drillParticipationId, quizId: drillQuizId, studentId, policySnapshot: drillPolicySnapshot } });
   await db.standaloneQuizAttempt.create({ data: { id: standaloneAttemptId, participationId: drillParticipationId, attemptNo: 1, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", releaseAt: now, score: 100, policySnapshot: drillPolicySnapshot, formItemOrder: [drillQuizItemId], formSnapshot: { version: 1, items: [{ id: drillQuizItemId, prompt: "Berapa 2 + 2?", explanation: "Dua ditambah dua adalah empat.", options: [{ choiceKey: "A", content: "4", isCorrect: true }, { choiceKey: "B", content: "5", isCorrect: false }] }] } } });
-  await db.aiConversation.create({ data: { id: conversationId, studentId, conversationType: "vera_chat", title: "Sprint 3 durable" } });
+  // Use the persisted learner command (rather than a fixture-only insert) so
+  // the T12 operation matrix proves the public conversation_create replay
+  // contract and its durable idempotency target.
+  const conversationCreateKey = `sprint3-conversation-create-${conversationId}`;
+  const conversationCreate = await new VeraLearnerService(db, envelope, "sprint3-conversation-cursor", "sprint3-conversation-hmac").createConversation({
+    studentId,
+    clientRequestId: conversationCreateKey,
+    conversationType: "vera_chat",
+    title: "Sprint 3 durable",
+  });
+  conversationId = conversationCreate.conversation.id;
+  const conversationReplay = await new VeraLearnerService(db, envelope, "sprint3-conversation-cursor", "sprint3-conversation-hmac").createConversation({
+    studentId,
+    clientRequestId: conversationCreateKey,
+    conversationType: "vera_chat",
+    title: "Sprint 3 durable",
+  });
+  assert.equal(conversationReplay.replayed, true);
+  assert.equal(conversationReplay.conversation.id, conversationId);
 
   const contextResolver: VeraContextResolver = {
     resolve: async (selection: VeraContextSelection): Promise<ResolvedContextBlock> => {
@@ -165,7 +190,7 @@ try {
     contextResolver,
     provider: new RouteStudioProvider(topicId, moduleId),
     envelope,
-    leaseStore: new InMemoryVeraLeaseStore(),
+    leaseStore,
     hmacSecret: "sprint3-fixture-hmac",
   });
   const clientRequestId = randomUUID();
@@ -214,7 +239,7 @@ try {
       contextResolver,
       provider: crashProvider,
       envelope,
-      leaseStore: new InMemoryVeraLeaseStore(),
+      leaseStore,
       hmacSecret: `sprint3-crash-${entry.toolId}-${entry.table}`,
     });
     try {
@@ -273,7 +298,7 @@ try {
       contextResolver,
       provider: chatProvider,
       envelope,
-      leaseStore: new InMemoryVeraLeaseStore(),
+      leaseStore,
       hmacSecret: `sprint3-chat-crash-${recoveryMode}`,
     });
     const chatTrigger = "vera_fixture_crash_chat_ai_messages";
@@ -346,7 +371,7 @@ try {
     contextResolver,
     provider: recoveryProvider,
     envelope,
-    leaseStore: new InMemoryVeraLeaseStore(),
+    leaseStore,
     hmacSecret: "sprint3-recovery-hmac",
   });
   const recoveryResponse = await recoveryOrchestrator.sse({ studentId, conversationId, clientRequestId: recoveryKey, kind: "studio", toolId: "route", text: "Uji pemulihan.", selection });
@@ -382,7 +407,7 @@ try {
     contextResolver,
     provider: unauthorizedProvider,
     envelope,
-    leaseStore: new InMemoryVeraLeaseStore(),
+    leaseStore,
     hmacSecret: "sprint3-fixture-hmac",
   });
   const unauthorizedResponse = await unauthorizedOrchestrator.sse({ studentId, conversationId, clientRequestId: unauthorizedKey, kind: "studio", toolId: "route", text: "Gunakan modul lain.", selection });
@@ -551,6 +576,13 @@ try {
   console.log("PASS vera-prisma-sprint3: all seven persisted callback tuples (chat, analysis, route, review, summary, PTN, drill) roll back under normal/status/worker crash recovery, then exactly-once assistant/result/accounting recovery; recommendation materialization remains a separate crash/replay test");
   console.log("PASS vera-prisma-sprint3: recovery retry waits for terminal failure, preserves exact user-message digest and rejects edited text before provider");
   console.log("PASS vera-prisma-sprint3: all three Apply projections cover populated replay/conflict and two-client adaptive CAS race");
+  // These markers are emitted only after the corresponding persisted command
+  // and replay assertions above complete. T12 consumes them as executable
+  // operation evidence; they are not source-shape claims.
+  console.log("T12_EVIDENCE operation=conversation_create actual=true replay=durable target=AiConversation status=pass");
+  console.log("T12_EVIDENCE operation=ai_request actual=true sse=status=usage provider_calls=1 status=pass");
+  console.log("T12_EVIDENCE operation=learning_recommendation_create actual=true materialization=replay-safe encrypted-rationale status=pass");
+  console.log("T12_EVIDENCE operation=artifact_apply actual=true targets=adaptivePracticeSession+learningRecommendation+ptnStrategySession CAS=replay-conflict status=pass");
 } finally {
   for (const [trigger, table] of [
     ["vera_fixture_crash_analysis_weakness_analyses", "weakness_analyses"],
@@ -620,4 +652,5 @@ try {
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: "draft" } });
   await db.aiPolicyBundle.update({ where: { id: policy.id }, data: { state: policy.state, effectiveAt: policy.effectiveAt } });
   await db.$disconnect();
+  await leaseStore.close?.();
 }

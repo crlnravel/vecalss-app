@@ -178,13 +178,26 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
     "T11_EVIDENCE callback_namespace=route",
     "T11_EVIDENCE callback_namespace=review",
     "T11_EVIDENCE callback_namespace=summary",
-    "T11_EVIDENCE callback_namespace=ptn",
-    "T11_EVIDENCE callback_namespace=drill",
-    "T12_EVIDENCE actual_http=",
+      "T11_EVIDENCE callback_namespace=ptn",
+      "T11_EVIDENCE callback_namespace=drill",
+      "T12_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle",
+      "T12_EVIDENCE actual_http=",
     "lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect",
     "PASS VERA_BROWSER_LIFECYCLE",
     "PASS VERA_BROWSER_EVIDENCE",
   ]) assert(output.includes(marker), `T12 executable integration output is missing ${marker}`);
+  const actualOperationLines = output.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("T12_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass"));
+  const actualOperationNamespaces = new Set(actualOperationLines.flatMap((line) => {
+    const match = line.match(/^T12_EVIDENCE operation=([^ ]+)/u);
+    return match?.[1] ? [match[1]] : [];
+  }));
+  for (const operation of operations) {
+    assert(actualOperationNamespaces.has(operation.namespace), `T12 executable integration did not emit a verified ${operation.namespace} operation line`);
+  }
+  assert(actualOperationNamespaces.size === operations.length, "T12 operation evidence contains an unknown or missing namespace");
+  assert(output.includes("T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint5-t11 actual=true status=pass"), "T12 callback evidence was not forwarded from the executable fixture");
   const evidenceLine = output.split("\n").find((line) => line.trim().startsWith("{") && line.includes('"status":"passed"'));
   assert(evidenceLine, "T12 integration did not emit its structured PASS evidence");
   let parsed: unknown;

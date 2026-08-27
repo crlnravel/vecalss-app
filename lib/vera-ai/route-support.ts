@@ -8,7 +8,7 @@ import { VeraPrismaAdmissionService } from "./admission-service";
 import { createPrismaVeraContextResolver } from "./prisma-context-resolver";
 import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "./prisma-chat-orchestrator";
 import { createDefaultProviderAdapter, MockProviderAdapter } from "./provider";
-import { InMemoryVeraLeaseStore } from "./redis-lease";
+import { IORedisVeraLeaseStore } from "./redis-lease";
 import type { VeraRequestStatusDto } from "./admission";
 import { VeraLearnerService } from "./learner-service";
 import { VeraArtifactCommandService } from "./artifact-commands";
@@ -63,10 +63,11 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
   const provider = process.env.VERA_MOCK_PROVIDER_ENABLED === "true"
     ? new MockProviderAdapter()
     : createDefaultProviderAdapter();
+  const disposableRedisUrl = process.env.VERA_DISPOSABLE_REDIS_URL?.trim() || process.env.REDIS_URL?.trim();
   const disposableRouteLease = process.env.NODE_ENV !== "production"
     && process.env.VERA_DISPOSABLE_DB_ACK === "1"
     && process.env.VERA_HTTP_ROUTE_TEST_MODE === "1"
-    ? new InMemoryVeraLeaseStore()
+    ? disposableRedisUrl ? new IORedisVeraLeaseStore(disposableRedisUrl) : undefined
     : undefined;
   cachedOrchestrator = new VeraPrismaChatOrchestrator({
     db: prisma,

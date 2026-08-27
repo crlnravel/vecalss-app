@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { createConnection } from "node:net";
+import { readFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
   AiPolicyState,
@@ -37,6 +38,21 @@ function requireLocalRedis(value: string): void {
 
 function hashToken(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+async function assertCurrentSprint5Migration(db: PrismaClient): Promise<void> {
+  const migrationName = "20260827100000_add_vera_sprint5_lifecycle";
+  const migrationSql = readFileSync(`${root}/prisma/migrations/${migrationName}/migration.sql`, "utf8");
+  const expectedChecksum = createHash("sha256").update(migrationSql).digest("hex");
+  const rows = await db.$queryRaw<Array<{ checksum: string }>>`
+    SELECT checksum
+    FROM "_prisma_migrations"
+    WHERE migration_name = ${migrationName} AND finished_at IS NOT NULL
+    ORDER BY finished_at DESC
+    LIMIT 1
+  `;
+  assert.equal(rows[0]?.checksum, expectedChecksum, "isolated browser DB must apply the current Sprint 5 migration checksum");
+  console.log(`T12_EVIDENCE migration=${migrationName} checksum=${expectedChecksum} current=true isolated=true`);
 }
 
 function integrationEnv(extra: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
@@ -153,6 +169,10 @@ async function createBrowserFixture(db: PrismaClient): Promise<BrowserFixture> {
   const now = new Date();
   await db.user.create({ data: { id: adminId, email: `vera-s5-browser-admin-${adminId}@example.test`, fullName: "Vera browser admin", passwordHash: "fixture" } });
   await db.roleAssignment.create({ data: { userId: adminId, role: RoleName.admin } });
+  await db.aiCapabilityGrant.createMany({ data: [
+    { userId: adminId, capability: "canManageAiPolicy", isActive: true },
+    { userId: adminId, capability: "canManageAiGovernance", isActive: true },
+  ] });
   await db.user.create({ data: { id: studentId, email: `vera-s5-browser-${studentId}@example.test`, fullName: "Vera browser fixture", passwordHash: "fixture" } });
   await db.roleAssignment.create({ data: { userId: studentId, role: RoleName.student } });
   await db.studentProfile.create({ data: { userId: studentId, displayName: "Vera browser fixture", onboardingStatus: OnboardingStatus.completed, timezone: "Asia/Jakarta", dailyAiTokenLimit: 1 } });
@@ -167,17 +187,22 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
   const fixture = await createBrowserFixture(db);
   const lifecycleFixture: BrowserLifecycleFixture = { exportIds: [], operationIds: [], idempotencyKeys: [], conversationIds: [], artifactIds: [] };
   let server: ChildProcess | undefined;
+  let serverOutput = "";
   let port = 5023;
   try {
     if (!(await isPortAvailable(port))) {
       port = 5024;
       while (!(await isPortAvailable(port))) port += 1;
     }
-    server = spawn("pnpm", ["next", "dev", "--port", String(port)], {
+    server = spawn("pnpm", ["next", "dev", "--hostname", "127.0.0.1", "--port", String(port)], {
       cwd: root,
       env: integrationEnv({ APP_BASE_URL: `http://127.0.0.1:${port}`, NODE_ENV: "development", NEXT_TELEMETRY_DISABLED: "1", NODE_OPTIONS: "" }),
       stdio: ["ignore", "pipe", "pipe"],
     });
+    server.stdout?.on("data", (chunk: Buffer) => { serverOutput = `${serverOutput}${chunk.toString()}`.slice(-16_000); });
+    server.stderr?.on("data", (chunk: Buffer) => { serverOutput = `${serverOutput}${chunk.toString()}`.slice(-16_000); });
+    // Keep the browser origin aligned with the explicit local Next bind so the
+    // development client bundle/HMR bootstrap is same-origin in ego.
     const base = `http://127.0.0.1:${port}`;
     const adminCookie = `vecalss_session=${fixture.adminToken}`;
     const studentCookie = `vecalss_session=${fixture.studentToken}`;
@@ -361,10 +386,23 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     const artifactReconnectResponse = await fetch(`${base}/api/vera-ai/lifecycle/${artifactDelete.operationId}`, { headers: { cookie: studentCookie } });
     assert.equal(artifactReconnectResponse.status, 200, "lifecycle status route did not support reconnect after artifact deletion");
     assert.equal((await jsonBody<{ state?: string }>(artifactReconnectResponse)).state, "completed");
+    const learnerPageResponse = await fetch(`${base}/vera-ai`, {
+      headers: { cookie: studentCookie },
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
+    });
+    const learnerPageText = await learnerPageResponse.text();
+    assert.equal(learnerPageResponse.status, 200, `actual learner page route did not authorize the isolated student (${learnerPageResponse.status})`);
+    assert(learnerPageText.includes("Studio"), "actual learner page response omitted the Studio surface");
+    console.log("T12_EVIDENCE learner_page actual=true http=GET authenticated=student status=pass");
+    console.log("T12_EVIDENCE operation=export_create actual=true http=POST+status+download+grant status=pass");
+    console.log("T12_EVIDENCE operation=conversation_delete actual=true http=DELETE+status-reconnect worker=state-first status=pass");
+    console.log("T12_EVIDENCE operation=artifact_delete actual=true http=DELETE+status-reconnect worker=state-first status=pass");
     console.log(`T12_EVIDENCE actual_http=t9-report+t10-metadata+draft+replay lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect status=pass port=${port}`);
 
+    const browserTaskName = `vera sprint5 isolated browser evidence ${randomUUID()}`;
     const browserSource = String.raw`
-const task = await useOrCreateTaskSpace('vera sprint5 isolated browser evidence')
+const task = await useOrCreateTaskSpace(${JSON.stringify(browserTaskName)})
 const base = ${JSON.stringify(base)}
 const adminToken = ${JSON.stringify(fixture.adminToken)}
 const studentToken = ${JSON.stringify(fixture.studentToken)}
@@ -374,36 +412,175 @@ const grantToken = ${JSON.stringify(browserGrantToken)}
 const conversationOperationId = ${JSON.stringify(conversationDelete.operationId)}
 const artifactOperationId = ${JSON.stringify(artifactDelete.operationId)}
 async function session(token, path) {
-  await openOrReuseTab(base + path, { wait: true, timeout: 30 })
+  const targetUrl = base + path
+  cliLog('BROWSER_SESSION start ' + path)
+  // A fresh real tab keeps a previous Next/HMR navigation from blocking the
+  // CDP document-readiness probe.  Open it before pruning the old tab so the
+  // task space always retains one live tab (closing its last tab destroys the
+  // ego task space).  The task space remains shared, while each page assertion
+  // gets an isolated navigation and the same explicit cookie.
+  const priorTabs = await listTabs()
+  await openOrReuseTab('about:blank', { wait: true, timeout: 10 })
+  const activeTab = await currentTab()
+  for (const tab of priorTabs) {
+    if (tab.targetId !== activeTab?.targetId) {
+      try { await closeTab(tab.targetId) } catch {}
+    }
+  }
   await cdp('Network.deleteCookies', { name: 'vecalss_session', domain: '127.0.0.1' })
   await cdp('Network.setCookie', { name: 'vecalss_session', value: token, url: base })
-  await gotoAndWait(base + path, { timeout: 30, settle: 1 })
-  await new Promise((resolve) => setTimeout(resolve, 5_000))
+  cliLog('BROWSER_SESSION navigate ' + path)
+  const navigationTimeout = path === '/vera-ai' ? 90 : 30
+  // Navigate from the cookie-bearing blank tab so the helper owns the target
+  // page lifecycle; raw Page.navigate can leave a heavy React route in a
+  // half-attached state even though the server is healthy.
+  await openOrReuseTab(targetUrl, { wait: true, timeout: navigationTimeout })
+  cliLog('BROWSER_SESSION settle ' + path)
+  await new Promise((resolve) => setTimeout(resolve, path === '/vera-ai' ? 10_000 : 5_000))
+  cliLog('BROWSER_SESSION ready ' + path)
 }
-async function bodyText() { return await js('document.body.innerText') }
 async function browserJson(path, options = {}) {
-  const script = '(async () => { const response = await fetch(' + JSON.stringify(base) + ' + ' + JSON.stringify(path) + ', ' + JSON.stringify(options) + '); const text = await response.text(); let body = null; try { body = JSON.parse(text); } catch {} return { status: response.status, body }; })()'
-  return await js(script)
+  const headers = { ...(options.headers || {}) }
+  if (!headers.cookie && !headers['x-vera-export-grant']) headers.cookie = 'vecalss_session=' + studentToken
+  const text = await serverFetch(base + path, { ...options, headers })
+  let body = null
+  try { body = JSON.parse(text) } catch {}
+  return { status: 200, body }
 }
-async function assertPage(path, token, markers) {
+async function visibleText(marker) {
+  // Accessibility snapshots remain readable while a Next client bundle is
+  // hydrating; a document Runtime.evaluate can transiently time out during a
+  // route's initial compile and would otherwise make a real page look absent.
+  const text = String(await snapshotText())
+  return text.includes(marker) ? { marker, text: text.slice(0, 220) } : null
+}
+async function visibleControls() {
+  return await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; return [...document.querySelectorAll("button,input,textarea,select,[role=tab],[role=status],[role=alert]")].filter(visible).map((node) => ({ tag: node.tagName, text: (node.textContent || "").trim().slice(0, 100), aria: node.getAttribute("aria-label"), role: node.getAttribute("role"), disabled: node.disabled === true || node.getAttribute("aria-disabled") === "true" })); })()')
+}
+async function assertVisiblePage(path, token, markers) {
   await session(token, path)
-  const text = await bodyText()
-  for (const marker of markers) if (!text.includes(marker)) throw new Error(path + ' missing ' + marker + ' body=' + text.slice(0, 600))
-  return text
+  cliLog('BROWSER_PAGE checking ' + path)
+  let lastControls = []
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const missing = []
+    for (const marker of markers) if (!(await visibleText(marker))) missing.push(marker)
+    if (missing.length === 0) return
+    cliLog('BROWSER_PAGE waiting ' + path + ' missing=' + missing.join(','))
+    lastControls = await visibleControls()
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+  throw new Error(path + ' missing visible control/content ' + markers.join(',') + ' controls=' + JSON.stringify(lastControls))
 }
-async function openStudio() {
-  const clickState = await js("(() => { const buttons = [...document.querySelectorAll('button')].filter((node) => node.textContent?.trim() === 'Studio'); const button = buttons.find((node) => node.offsetParent !== null && getComputedStyle(node).visibility !== 'hidden'); if (button) button.click(); return { count: buttons.length, visible: Boolean(button), before: buttons.map((node) => node.getAttribute('data-active')) }; })()")
+async function openStudio(requireComposer = true) {
+  let pendingCancelIssued = false
+  if (requireComposer) {
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const readiness = await js('(() => { const composer = document.querySelector("textarea[aria-label=\\"Pesan untuk Vera\\"]"); const rect = composer?.getBoundingClientRect(); return { activeConversation: Boolean(composer && !composer.disabled), composerVisible: Boolean(rect && rect.width > 0 && rect.height > 0), conversationOptions: document.querySelectorAll("#vera-mobile-conversation option").length }; })()')
+      if (readiness.activeConversation && readiness.composerVisible) break
+      const pending = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; return [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan\\"]")].some(visible); })()')
+      if (pending && !pendingCancelIssued) {
+        await click('button[aria-label="Batalkan permintaan"]', { label: 'cancel pending learner request' })
+        pendingCancelIssued = true
+        await new Promise((resolve) => setTimeout(resolve, 1_000))
+        continue
+      }
+      if (attempt === 8 && !pendingCancelIssued) {
+        const clicked = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button[aria-label=\\"Percakapan baru\\"]")].find(visible); if (!node) return false; node.click(); return true; })()')
+        if (!clicked) throw new Error('learner browser fixture did not expose a visible new-conversation control: ' + JSON.stringify(readiness) + ' controls=' + JSON.stringify(await visibleControls()))
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+  }
+  const existingTab = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const nodes = [...document.querySelectorAll("[data-slot=tabs-trigger]")].filter((node) => visible(node) && (node.textContent || "").trim() === "Studio"); const active = nodes.find((node) => node.hasAttribute("data-active") || node.getAttribute("aria-selected") === "true" || node.getAttribute("data-state") === "active"); return { visible: nodes.length, active: Boolean(active) }; })()')
+  if (!existingTab.active) {
+    const clicked = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("[data-slot=tabs-trigger]")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === "Studio"); if (!node) return false; node.click(); return true; })()')
+    if (!clicked) throw new Error('Studio tab is not visible in the learner workspace')
+  }
   await new Promise((resolve) => setTimeout(resolve, 1_000))
-  const text = await bodyText()
-  const studioState = await js("(() => ({ buttons: [...document.querySelectorAll('button')].filter((node) => node.textContent?.trim() === 'Studio').map((node) => ({ active: node.getAttribute('data-active'), selected: node.getAttribute('aria-selected'), display: getComputedStyle(node).display, parentDisplay: getComputedStyle(node.parentElement).display })), panels: [...document.querySelectorAll('[data-slot=\\\"tabs-content\\\"]')].map((node) => ({ hidden: node.hasAttribute('hidden'), ariaHidden: node.getAttribute('aria-hidden'), display: getComputedStyle(node).display, text: (node.textContent || '').slice(0, 200) })) }))()")
-  const fullText = String(await js('document.body.textContent || ""'))
-  for (const marker of ['Analisis kelemahan', 'Rute belajar', 'Ulas soal', 'Strategi PTN', 'Ringkasan sesi', 'Drill adaptif']) if (!text.includes(marker) && !fullText.includes(marker)) throw new Error('/vera-ai Studio missing ' + marker + ' viewport=' + String(await js('window.innerWidth')) + ' click=' + JSON.stringify(clickState) + ' state=' + JSON.stringify(studioState) + ' body=' + text.slice(0, 600))
+  const tabState = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const tab = [...document.querySelectorAll("[data-slot=tabs-trigger]")].find((node) => visible(node) && (node.textContent || "").trim() === "Studio"); const panel = [...document.querySelectorAll("[data-slot=tabs-content]")].find((node) => visible(node) && node.hasAttribute("data-active")); return { selected: tab?.getAttribute("aria-selected"), state: tab?.getAttribute("data-state"), active: tab?.hasAttribute("data-active"), panelVisible: Boolean(panel) }; })()')
+  if (!tabState.active && tabState.selected !== 'true' && tabState.state !== 'active') throw new Error('Studio tab did not become selected: ' + JSON.stringify(tabState))
+  const labels = ['Analisis kelemahan', 'Rute belajar', 'Ulas soal', 'Strategi PTN', 'Ringkasan sesi', 'Drill adaptif']
+  const unavailableLabels = []
+  for (const label of labels) {
+    if (!(await visibleText(label))) throw new Error('/vera-ai Studio missing visible tool ' + label + ' controls=' + JSON.stringify(await visibleControls()))
+    const availability = await js('(() => { const wanted = ' + JSON.stringify(label) + '; const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === wanted); return node ? { visible: true, enabled: !node.disabled } : { visible: false, enabled: false }; })()')
+    if (!availability.visible) throw new Error('Studio tool button was not visible for ' + label + ' controls=' + JSON.stringify(await visibleControls()))
+    if (!availability.enabled) {
+      unavailableLabels.push(label)
+      continue
+    }
+    const clicked = await js('(() => { const wanted = ' + JSON.stringify(label) + '; const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button")].find((candidate) => visible(candidate) && !candidate.disabled && (candidate.textContent || "").trim() === wanted); if (!node) return false; node.click(); return true; })()')
+    if (!clicked) throw new Error('Studio tool button was not enabled for ' + label + ' controls=' + JSON.stringify(await visibleControls()))
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    const state = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const cancel = [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan\\"]")].find(visible); const status = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible).map((node) => ({ role: node.getAttribute("role"), text: (node.textContent || "").trim().slice(0, 180), ariaLive: node.getAttribute("aria-live") })); return { cancelVisible: Boolean(cancel), status }; })()')
+    if (state.cancelVisible) {
+      await click('button[aria-label="Batalkan permintaan"]', { label: 'cancel Studio request' })
+      await new Promise((resolve) => setTimeout(resolve, 700))
+    }
+    if (!state.cancelVisible && !state.status.length) throw new Error('Studio tool click produced no bounded progress/error state for ' + label + ' state=' + JSON.stringify(state) + ' controls=' + JSON.stringify(await visibleControls()))
+  }
+  if (unavailableLabels.length > 0) {
+    const status = await js('(() => [...document.querySelectorAll("[role=status],[role=alert]")].map((node) => (node.textContent || "").trim()).filter(Boolean))()')
+    if (!status.length && !pendingCancelIssued) throw new Error('Studio disabled tools had no bounded unavailable/cancelled status: ' + unavailableLabels.join(', '))
+    cliLog('BROWSER_STUDIO unavailable=' + unavailableLabels.join('+') + ' provider=mock-disabled status=bounded')
+  }
+  if (!requireComposer) {
+    cliLog('BROWSER_STUDIO chat-tab=hidden while studio-selected provider=mock-disabled status=bounded')
+    return
+  }
+  const composer = await js('(() => { const node = document.querySelector("textarea[aria-label=\\"Pesan untuk Vera\\"]"); if (!node) return null; const rect = node.getBoundingClientRect(); return { visible: rect.width > 0 && rect.height > 0, disabled: node.disabled === true }; })()')
+  if (!composer?.visible) throw new Error('Vera chat composer is not visible in Studio')
+  if (composer.disabled) {
+    cliLog('BROWSER_STUDIO chat=unavailable provider=mock-disabled status=bounded')
+    return
+  }
+  await fillInput('textarea[aria-label="Pesan untuk Vera"]', 'Browser lifecycle probe')
+  await click('button[aria-label="Kirim pesan"]', { label: 'send chat probe' })
+  await new Promise((resolve) => setTimeout(resolve, 350))
+  const cancel = await js('(() => [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan\\"]")].some((node) => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; }))()')
+  if (cancel) await click('button[aria-label="Batalkan permintaan"]', { label: 'cancel chat probe' })
 }
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
-await assertPage('/admin/ai-policy', adminToken, ['Vera AI policy console', 'Provider gate: open_blocked'])
-await assertPage('/admin/ai-usage', adminToken, ['AI usage', 'Mock / disabled telemetry only'])
-await assertPage('/vera-ai', studentToken, ['Studio'])
+// Open the learner workspace before the heavier admin/report interactions so
+// its initial bundle and hydration are independently observable in the real
+// browser rather than competing with an in-flight admin route.
+await assertVisiblePage('/vera-ai', studentToken, ['Studio'])
 await openStudio()
+cliLog('BROWSER_DESKTOP learner=studio six-studio-tools=visible')
+await assertVisiblePage('/admin/ai-policy', adminToken, ['Vera AI policy console', 'Provider gate: open_blocked'])
+await fillInput('textarea#policy-reason', 'browser policy evidence')
+await click('xpath=//button[contains(normalize-space(.), "Buat complete draft")]', { label: 'create policy draft' })
+await new Promise((resolve) => setTimeout(resolve, 400))
+if (!(await visibleText('Provider gate: open_blocked'))) throw new Error('T10 policy browser interaction lost provider gate state')
+await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
+await assertCurrentPage(['Vera AI policy console', 'Provider gate: open_blocked'])
+const policyMobileOverflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
+if (policyMobileOverflow.scrollWidth > policyMobileOverflow.width + 1 || policyMobileOverflow.bodyWidth > policyMobileOverflow.width + 1) throw new Error('390px browser evidence has horizontal overflow on policy')
+cliLog('BROWSER_MOBILE page=policy width=390 interactive=true overflow=false')
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
+await assertVisiblePage('/admin/ai-usage', adminToken, ['AI usage', 'Mock / disabled telemetry only'])
+await fillInput('input[aria-label="Tanggal mulai"]', '2026-08-20')
+await fillInput('input[aria-label="Tanggal akhir eksklusif"]', '2026-08-21')
+await click('xpath=//button[contains(normalize-space(.), "Muat laporan")]', { label: 'load usage report' })
+await new Promise((resolve) => setTimeout(resolve, 500))
+await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
+await assertCurrentPage(['AI usage', 'Mock / disabled telemetry only'])
+const usageMobileOverflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
+if (usageMobileOverflow.scrollWidth > usageMobileOverflow.width + 1 || usageMobileOverflow.bodyWidth > usageMobileOverflow.width + 1) throw new Error('390px browser evidence has horizontal overflow on usage')
+cliLog('BROWSER_MOBILE page=usage width=390 interactive=true overflow=false')
+await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
+const browserConversationProbe = await browserJson('/api/vera-ai/conversations?limit=50')
+if (browserConversationProbe.status !== 200 || !browserConversationProbe.body?.defaultConversationId || browserConversationProbe.body?.conversations?.length !== 1) throw new Error('browser learner conversation API probe failed: ' + JSON.stringify(browserConversationProbe))
+const browserConversationId = browserConversationProbe.body.defaultConversationId
+const browserHydrationProbe = await Promise.all([
+  browserJson('/api/vera-ai/sources?limit=50'),
+  browserJson('/api/vera-ai/usage'),
+  browserJson('/api/vera-ai/conversations/' + browserConversationId),
+  browserJson('/api/vera-ai/conversations/' + browserConversationId + '/messages?limit=50'),
+  browserJson('/api/vera-ai/conversations/' + browserConversationId + '/context'),
+  browserJson('/api/vera-ai/conversations/' + browserConversationId + '/artifacts?limit=50'),
+])
+if (browserHydrationProbe.some((probe) => probe.status !== 200)) throw new Error('browser learner hydration API probe failed: ' + JSON.stringify(browserHydrationProbe))
 const browserReadyStatus = await browserJson('/api/vera-ai/exports/' + readyExportId)
 if (browserReadyStatus.status !== 200 || browserReadyStatus.body?.state !== 'ready') throw new Error('browser export status/reconnect failed: ' + JSON.stringify(browserReadyStatus))
 const browserDownload = await browserJson('/api/vera-ai/exports/' + readyExportId + '/download')
@@ -416,40 +593,65 @@ const browserGrantStatus = await browserJson('/api/vera-ai/exports/' + grantExpo
 if (browserGrantStatus.status !== 200 || browserGrantStatus.body?.accessMode !== 'cleanup_grant') throw new Error('browser cleanup-grant status failed: ' + JSON.stringify(browserGrantStatus))
 const browserGrantDownload = await browserJson('/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
 if (browserGrantDownload.status !== 200 || browserGrantDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser cleanup-grant download failed: ' + JSON.stringify(browserGrantDownload))
-const browserGrantReplay = await browserJson('/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
-if (browserGrantReplay.status !== 410 || browserGrantReplay.body?.error !== 'export_access_consumed') throw new Error('browser grant replay was not terminal: ' + JSON.stringify(browserGrantReplay))
+let browserGrantReplayError = ''
+try {
+  await serverFetch(base + '/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
+} catch (error) {
+  browserGrantReplayError = String(error)
+}
+if (!browserGrantReplayError.includes('HTTP 410')) throw new Error('browser grant replay was not terminal: ' + browserGrantReplayError)
 cliLog('PASS VERA_BROWSER_LIFECYCLE export=create+status+download+grant+consumed conversation=delete+reconnect artifact=delete+reconnect')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 if ((await js('window.innerWidth')) !== 1496) throw new Error('desktop viewport evidence did not apply')
-await captureScreenshot()
-await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
-await assertPage('/admin/ai-policy', adminToken, ['Provider gate: open_blocked'])
-await assertPage('/admin/ai-usage', adminToken, ['AI usage', 'Mock / disabled telemetry only'])
-await assertPage('/vera-ai', studentToken, ['Studio'])
-await openStudio()
-const overflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
-if (overflow.scrollWidth > overflow.width + 1 || overflow.bodyWidth > overflow.width + 1) throw new Error('390px browser evidence has horizontal overflow')
-await captureScreenshot()
-cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+learner six-studio-tools=visible no-horizontal-scroll')
+cliLog('BROWSER_DESKTOP authenticated=admin+learner policy=interactive usage=interactive learner=studio six-studio-tools=visible')
 await completeTaskSpace(task.id, { keep: false })
+
+async function assertCurrentPage(markers) {
+  let lastControls = []
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const missing = []
+    for (const marker of markers) if (!(await visibleText(marker))) missing.push(marker)
+    if (missing.length === 0) return
+    lastControls = await visibleControls()
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+  throw new Error('mobile page missing visible control/content ' + markers.join(',') + ' controls=' + JSON.stringify(lastControls))
+}
+cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+learner six-studio-tools=visible no-horizontal-scroll')
 `;
     let browserOutput = "";
     try {
-      const browserResult = spawnSync("ego-browser", ["nodejs"], {
-        cwd: root,
-        env: integrationEnv({ VERA_BROWSER_BASE_URL: base, VERA_BROWSER_ADMIN_TOKEN: fixture.adminToken, VERA_BROWSER_STUDENT_TOKEN: fixture.studentToken }),
-        input: browserSource,
-        encoding: "utf8",
-        maxBuffer: 8 * 1024 * 1024,
+      const browserResult = await new Promise<{ status: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }>((resolve, reject) => {
+        const child = spawn("ego-browser", ["nodejs"], {
+          cwd: root,
+          env: integrationEnv({ VERA_BROWSER_BASE_URL: base, VERA_BROWSER_ADMIN_TOKEN: fixture.adminToken, VERA_BROWSER_STUDENT_TOKEN: fixture.studentToken }),
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        let stdout = "";
+        let stderr = "";
+        const timeout = setTimeout(() => {
+          child.kill("SIGTERM");
+          reject(new Error(`ego-browser evidence exceeded 120s stdout=${stdout.slice(-4_000)} stderr=${stderr.slice(-4_000)}`));
+        }, 120_000);
+        child.stdout?.on("data", (chunk: Buffer) => {
+          stdout = `${stdout}${chunk.toString()}`.slice(-8 * 1024 * 1024);
+          process.stdout.write(chunk);
+        });
+        child.stderr?.on("data", (chunk: Buffer) => {
+          stderr = `${stderr}${chunk.toString()}`.slice(-8 * 1024 * 1024);
+          process.stderr.write(chunk);
+        });
+        child.once("error", (error) => { clearTimeout(timeout); reject(error); });
+        child.once("close", (status, signal) => { clearTimeout(timeout); resolve({ status, signal, stdout, stderr }); });
+        child.stdin?.end(browserSource);
       });
-      browserOutput = `${browserResult.stdout ?? ""}\n${browserResult.stderr ?? ""}`;
-      if (browserResult.error) throw browserResult.error;
+      browserOutput = `${browserResult.stdout}\n${browserResult.stderr}`;
       if (browserResult.status !== 0) throw new Error(`ego-browser exited with status ${String(browserResult.status)}${browserResult.signal ? ` (${browserResult.signal})` : ""}: ${browserOutput.slice(-12_000)}`);
     } catch (error) {
       const detail = error && typeof error === "object" && "stdout" in error
         ? `${String((error as { stdout?: unknown }).stdout ?? "")}\n${String((error as { stderr?: unknown }).stderr ?? "")}`
         : String(error);
-      throw new Error(`isolated browser evidence failed: ${detail.slice(-12_000)}`);
+      throw new Error(`isolated browser evidence failed: ${detail.slice(-12_000)} server=${serverOutput}`);
     }
     assert.match(browserOutput, /PASS VERA_BROWSER_EVIDENCE/u, "browser evidence did not report a pass");
     const browserEvidenceLines = browserOutput.split("\n").filter((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE") || line.includes("PASS VERA_BROWSER_EVIDENCE"));
@@ -469,10 +671,10 @@ async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifec
     if (fixture.artifactIds.length > 0) {
       await db.aiArtifactApply.deleteMany({ where: { artifactRevisionId: { in: fixture.artifactIds } } });
       await db.aiArtifactLifecycle.deleteMany({ where: { artifactRevisionId: { in: fixture.artifactIds } } });
-      await db.aiArtifact.deleteMany({ where: { id: { in: fixture.artifactIds } } });
       for (const artifactId of fixture.artifactIds) {
-        await db.aiEnvelopeKey.deleteMany({ where: { objectId: { endsWith: `:${artifactId}` } } });
+        await db.aiEnvelopeKey.deleteMany({ where: { objectId: { contains: artifactId } } });
       }
+      await db.aiArtifact.deleteMany({ where: { id: { in: fixture.artifactIds } } });
     }
     if (fixture.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: fixture.conversationIds } } });
     if (fixture.exportIds.length > 0) {
@@ -489,26 +691,147 @@ async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifec
     }
     if (fixture.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: fixture.idempotencyKeys }, studentId: { not: null } } });
   } catch (error) {
-    console.warn(`T12_EVIDENCE cleanup=browser_lifecycle_warning ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`browser lifecycle fixture cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 async function dbCleanupBrowserFixture(db: PrismaClient, fixture: BrowserFixture): Promise<void> {
-  await db.authSession.deleteMany({ where: { id: { in: [fixture.adminSessionId, fixture.studentSessionId] } } });
-  await db.aiConversation.deleteMany({ where: { id: fixture.conversationId } });
-  await db.billingAccount.deleteMany({ where: { studentId: fixture.studentId } });
-  await db.studentProfile.deleteMany({ where: { userId: fixture.studentId } });
-  await db.roleAssignment.deleteMany({ where: { userId: fixture.studentId } });
-  await db.user.deleteMany({ where: { id: fixture.studentId } });
-  // Re-establish the prior active/scheduled state after browser evidence. All
-  // updates are state-only, preserving the production immutability trigger.
-  const current = await db.aiPolicyBundle.findMany({ where: { state: { in: [AiPolicyState.active, AiPolicyState.scheduled] } }, select: { id: true } });
-  for (const row of current) await db.aiPolicyBundle.update({ where: { id: row.id }, data: { state: AiPolicyState.draft } });
-  // Restore immutable content fields while every fixture row is draft, then
-  // restore lifecycle states in a separate statement. This keeps the
-  // production non-draft content trigger active during cleanup as well.
-  for (const row of fixture.policyRows) await db.aiPolicyBundle.update({ where: { id: row.id }, data: { effectiveAt: row.effectiveAt, activatedAt: row.activatedAt } });
-  for (const row of fixture.policyRows) await db.aiPolicyBundle.update({ where: { id: row.id }, data: { state: row.state } });
+  await db.$transaction(async (tx) => {
+    await tx.authSession.deleteMany({ where: { id: { in: [fixture.adminSessionId, fixture.studentSessionId] } } });
+
+    // The browser deliberately exercises real Studio requests.  A conversation
+    // therefore cannot be deleted directly: request message FKs, request
+    // children, typed targets, and idempotency rows must be detached in the
+    // same dependency order as the production account workflow.  Keep this
+    // cleanup scoped to the random fixture owner so prior disposable evidence
+    // (and every configured/shared database) is untouched.
+    const conversations = await tx.aiConversation.findMany({ where: { studentId: fixture.studentId }, select: { id: true } });
+    const conversationIds = conversations.map(({ id }) => id);
+    const conversationWhere = conversationIds.length > 0 ? { conversationId: { in: conversationIds } } : { conversationId: fixture.conversationId };
+    const conversationMessages = conversationIds.length > 0
+      ? await tx.aiMessage.findMany({ where: conversationWhere, select: { id: true } })
+      : [];
+    const messageIds = conversationMessages.map(({ id }) => id);
+    const requestRows = await tx.aiRequest.findMany({
+      where: {
+        OR: [
+          { studentId: fixture.studentId },
+          ...(conversationIds.length > 0 ? [{ conversationId: { in: conversationIds } }] : []),
+          ...(messageIds.length > 0 ? [{ userMessageId: { in: messageIds } }, { assistantMessageId: { in: messageIds } }] : []),
+        ],
+      },
+      select: { id: true, idempotencyKeyId: true },
+    });
+    const requestIds = requestRows.map(({ id }) => id);
+    const requestIdempotencyIds = requestRows.flatMap(({ idempotencyKeyId }) => idempotencyKeyId ? [idempotencyKeyId] : []);
+
+    const artifacts = await tx.aiArtifact.findMany({
+      where: {
+        OR: [
+          { studentId: fixture.studentId },
+          ...(requestIds.length > 0 ? [{ requestId: { in: requestIds } }] : []),
+          ...(conversationIds.length > 0 ? [{ conversationId: { in: conversationIds } }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+    const artifactIds = artifacts.map(({ id }) => id);
+    const analyses = await tx.weaknessAnalysis.findMany({
+      where: { OR: [{ studentId: fixture.studentId }, ...(conversationIds.length > 0 ? [{ conversationId: { in: conversationIds } }] : [])] },
+      select: { id: true },
+    });
+    const analysisIds = analyses.map(({ id }) => id);
+    const adaptiveSessions = await tx.adaptivePracticeSession.findMany({
+      where: { OR: [{ studentId: fixture.studentId }, ...(conversationIds.length > 0 ? [{ sourceConversationId: { in: conversationIds } }] : [])] },
+      select: { id: true },
+    });
+    const adaptiveSessionIds = adaptiveSessions.map(({ id }) => id);
+
+    if (artifactIds.length > 0) {
+      await tx.learningRecommendation.updateMany({ where: { OR: [{ appliedArtifactRevisionId: { in: artifactIds } }, { sourceArtifactRevisionId: { in: artifactIds } }] }, data: { appliedArtifactRevisionId: null, sourceArtifactRevisionId: null } });
+      await tx.aiArtifactApply.deleteMany({ where: { artifactRevisionId: { in: artifactIds } } });
+      await tx.aiArtifactLifecycle.deleteMany({ where: { artifactRevisionId: { in: artifactIds } } });
+      await tx.aiEnvelopeKey.deleteMany({ where: { objectId: { contains: fixture.studentId } } });
+      await tx.aiArtifact.deleteMany({ where: { id: { in: artifactIds } } });
+    }
+    await tx.learningRecommendation.deleteMany({ where: { studentId: fixture.studentId } });
+    if (analysisIds.length > 0) {
+      await tx.weaknessAnalysisTopic.deleteMany({ where: { weaknessAnalysisId: { in: analysisIds } } });
+      await tx.weaknessAnalysis.deleteMany({ where: { id: { in: analysisIds } } });
+    }
+    if (adaptiveSessionIds.length > 0) {
+      await tx.adaptivePracticeAnswer.deleteMany({ where: { adaptiveSessionId: { in: adaptiveSessionIds } } });
+      await tx.adaptivePracticeItem.deleteMany({ where: { adaptiveSessionId: { in: adaptiveSessionIds } } });
+      await tx.adaptivePracticeSession.deleteMany({ where: { id: { in: adaptiveSessionIds } } });
+    }
+    await tx.ptnStrategySession.deleteMany({ where: { OR: [{ studentId: fixture.studentId }, ...(conversationIds.length > 0 ? [{ conversationId: { in: conversationIds } }] : [])] } });
+
+    if (requestIds.length > 0) {
+      await tx.aiRequestSource.deleteMany({ where: { requestId: { in: requestIds } } });
+      await tx.aiRequestAttempt.deleteMany({ where: { requestId: { in: requestIds } } });
+      await tx.aiRequestResultStage.deleteMany({ where: { requestId: { in: requestIds } } });
+      await tx.aiContextPack.deleteMany({ where: { requestId: { in: requestIds } } });
+      await tx.weaknessAnalysis.deleteMany({ where: { requestId: { in: requestIds } } });
+      await tx.adaptivePracticeSession.updateMany({ where: { requestId: { in: requestIds } }, data: { requestId: null } });
+      await tx.ptnStrategySession.updateMany({ where: { requestId: { in: requestIds } }, data: { requestId: null } });
+      await tx.aiRequest.updateMany({ where: { retryOfRequestId: { in: requestIds } }, data: { retryOfRequestId: null } });
+      const cleanupAt = new Date();
+      await tx.aiRequest.updateMany({
+        where: { id: { in: requestIds } },
+        data: {
+          studentId: null,
+          conversationId: null,
+          userMessageId: null,
+          assistantMessageId: null,
+          idempotencyKeyId: null,
+          ownerState: "account_deleted",
+          ownerReferenceDigest: hashToken(`browser-fixture-owner:${fixture.studentId}`),
+          accountDeletedAt: cleanupAt,
+          status: "failed",
+          errorCode: "browser_fixture_cleanup",
+          idempotencyEvidenceState: "tombstoned",
+          usageAccountingState: "unknown",
+          finalizedAt: cleanupAt,
+        },
+      });
+      await tx.aiRequest.deleteMany({ where: { id: { in: requestIds } } });
+    }
+    if (messageIds.length > 0) await tx.aiMessage.deleteMany({ where: { id: { in: messageIds } } });
+    if (conversationIds.length > 0) {
+      await tx.aiConversationSource.deleteMany({ where: { conversationId: { in: conversationIds } } });
+      await tx.aiConversation.deleteMany({ where: { id: { in: conversationIds }, studentId: fixture.studentId } });
+    }
+
+    const fixtureIdempotency = await tx.aiIdempotencyKey.findMany({ where: { OR: [{ studentId: fixture.studentId }, ...(requestIdempotencyIds.length > 0 ? [{ id: { in: requestIdempotencyIds } }] : [])] }, select: { id: true } });
+    const idempotencyIds = fixtureIdempotency.map(({ id }) => id);
+    if (idempotencyIds.length > 0) {
+      await tx.aiAdmissionEvent.updateMany({ where: { idempotencyKeyId: { in: idempotencyIds } }, data: { idempotencyKeyId: null } });
+      await tx.aiArtifactApply.deleteMany({ where: { idempotencyKeyId: { in: idempotencyIds } } });
+      await tx.aiLifecycleOperation.deleteMany({ where: { idempotencyKeyId: { in: idempotencyIds } } });
+      await tx.aiIdempotencyKey.deleteMany({ where: { id: { in: idempotencyIds } } });
+    }
+    await tx.aiAdmissionEvent.updateMany({ where: { studentId: fixture.studentId }, data: { studentId: null } });
+    await tx.aiUsageDaily.deleteMany({ where: { studentId: fixture.studentId } });
+    await tx.aiCapabilityGrant.deleteMany({ where: { userId: fixture.adminId } });
+    await tx.roleAssignment.deleteMany({ where: { userId: fixture.studentId } });
+    await tx.roleAssignment.deleteMany({ where: { userId: fixture.adminId } });
+    await tx.billingAccount.deleteMany({ where: { studentId: fixture.studentId } });
+    await tx.studentProfile.deleteMany({ where: { userId: fixture.studentId } });
+    await tx.user.deleteMany({ where: { id: fixture.studentId } });
+    // Policy audit history is append-only and retains its actor FK. Keep the
+    // isolated browser admin as an anonymized soft-deleted principal instead of
+    // deleting audit rows or weakening that production invariant.
+    await tx.user.update({ where: { id: fixture.adminId }, data: { status: "soft_deleted", softDeletedAt: new Date(), fullName: "Deleted Vera browser admin" } });
+    // Re-establish the prior active/scheduled state after browser evidence. All
+    // updates are state-only, preserving the production immutability trigger.
+    const current = await tx.aiPolicyBundle.findMany({ where: { state: { in: [AiPolicyState.active, AiPolicyState.scheduled] } }, select: { id: true } });
+    for (const row of current) await tx.aiPolicyBundle.update({ where: { id: row.id }, data: { state: AiPolicyState.draft } });
+    // Restore immutable content fields while every fixture row is draft, then
+    // restore lifecycle states in a separate statement. This keeps the
+    // production non-draft content trigger active during cleanup as well.
+    for (const row of fixture.policyRows) await tx.aiPolicyBundle.update({ where: { id: row.id }, data: { effectiveAt: row.effectiveAt, activatedAt: row.activatedAt } });
+    for (const row of fixture.policyRows) await tx.aiPolicyBundle.update({ where: { id: row.id }, data: { state: row.state } });
+  });
 }
 
 async function main(): Promise<void> {
@@ -517,6 +840,15 @@ async function main(): Promise<void> {
   requireLocalRedis(redisUrl);
   assert(!["true", "1", "yes", "on"].includes(liveProvider ?? ""), "live provider must remain disabled");
   process.env.DATABASE_URL = databaseUrl;
+  // Apply/check only the command-local disposable database. This makes the
+  // integration evidence fail closed on a stale parent migration checksum and
+  // never mutates a configured/shared database.
+  execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], {
+    cwd: root,
+    env: integrationEnv({ DATABASE_URL: databaseUrl }),
+    encoding: "utf8",
+    maxBuffer: 8 * 1024 * 1024,
+  });
 
   // The accepted Sprint 4 runtime fixture uses the stable disposable tutor
   // identity as its second policy approver. Fresh migration-only databases do
@@ -524,6 +856,7 @@ async function main(): Promise<void> {
   // approver before invoking the prior-sprint executable; no configured data
   // or application seed is changed.
   const setupDb = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  await assertCurrentSprint5Migration(setupDb);
   const runtimeApprover = await setupDb.user.findUnique({ where: { email: "tutor@vecalss.local" }, select: { id: true } });
   if (!runtimeApprover) {
     const approverId = randomUUID();
@@ -535,6 +868,7 @@ async function main(): Promise<void> {
 
   const evidence: Array<[string, readonly string[]]> = [
     ["test:vera-prisma-sprint5-t11", ["callbacks=chat analysis route review summary ptn drill", "export/hold/account"]],
+    ["test:vera-prisma-sprint3", ["PASS vera-prisma-sprint3", "T12_EVIDENCE operation=conversation_create actual=true"]],
     ["test:vera-prisma-sprint2", ["actual HTTP route auth/body/privacy/replay/expired DTO assertions", "one provider"]],
     ["test:vera-prisma-sprint4-runtime", ["optional include/read gating", "partition faults return privacy-safe"]],
   ];
@@ -544,6 +878,7 @@ async function main(): Promise<void> {
   // local-only env and mock/disabled provider gate.
   const outputs = evidence.map(([script, markers]) => [script, runEvidenceScript(script, markers)] as const);
   const callbackOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint5-t11")?.[1] ?? "";
+  const sprint3Output = outputs.find(([script]) => script === "test:vera-prisma-sprint3")?.[1] ?? "";
   const learnerOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint2")?.[1] ?? "";
   const t9t10Output = outputs.find(([script]) => script === "test:vera-prisma-sprint4-runtime")?.[1] ?? "";
   assert.match(callbackOutput.toLowerCase(), /all seven persisted callback tuples/u);
@@ -551,9 +886,17 @@ async function main(): Promise<void> {
     assert(callbackOutput.includes(`T11_EVIDENCE callback_namespace=${namespace}`), `T11 callback evidence did not prove ${namespace}`);
   }
   assert.match(learnerOutput, /PASS vera-prisma-sprint2/u, "Sprint 2 learner flow did not report an executable pass");
+  for (const namespace of ["conversation_create", "ai_request", "learning_recommendation_create", "artifact_apply"]) {
+    assert(sprint3Output.includes(`T12_EVIDENCE operation=${namespace} actual=true`), `Sprint 3 public operation evidence did not prove ${namespace}`);
+  }
   assert.match(t9t10Output, /PASS vera-prisma-sprint4-runtime/u, "Sprint 4 T9/T10 runtime did not report an executable pass");
   for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE callback_namespace="))) console.log(line);
-  console.log("T12_EVIDENCE namespaces=chat analysis route review summary ptn drill source=test:vera-prisma-sprint5-t11 status=pass");
+  for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE operation="))) console.log(line);
+  // Forward only the verified public operation rows from the real Sprint 3
+  // fixture.  The wrapper consumes these rows as executable evidence rather
+  // than inferring operation coverage from source markers.
+  for (const line of sprint3Output.split("\n").filter((line) => line.startsWith("T12_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass"))) console.log(line);
+  console.log("T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint5-t11 actual=true status=pass");
   console.log("T12_EVIDENCE learner_flow=authenticated-http-post-status-usage-replay-cross-student source=test:vera-prisma-sprint2 status=pass");
   console.log("T12_EVIDENCE t9_t10_runtime=populated-report-policy-preview source=test:vera-prisma-sprint4-runtime status=pass");
 

@@ -344,8 +344,12 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   );
   console.log("T11_EVIDENCE export_expired=true downloadExpiresAt=terminal retention=90-day");
 
+  // Claim the internal carrier before the long export/materialization path so
+  // a process loss is still discoverable by the fixture's owned cleanup.
+  const cleanupCarrier = await lifecycle.createAccountCleanupCarrier({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
+  operationIds.push(cleanupCarrier.operationId);
   const cleanup = await lifecycle.prepareAccountCleanup({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
-  operationIds.push(cleanup.operationId);
+  assert.equal(cleanup.operationId, cleanupCarrier.operationId, "account cleanup must resume the durable carrier it claimed");
   exportIds.push(cleanup.exportId);
   const carrier = { operationId: cleanup.operationId, correlationDigest: sha256(`${namespace}:generation:delete`), replayed: false };
   const carrierReplay = await lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete", studentId: otherStudentId });
@@ -362,7 +366,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(readyCarrier?.handoffState, "ready");
   assert.equal(readyCarrier?.handoffSignal, "vera_cleanup_ready_v1");
   assert.equal(await lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }), true);
-  assert.equal(await lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }), false, "account cleanup handoff consumption must be exactly once");
+  assert.equal(await lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }), true, "account cleanup handoff replay must return the stored acknowledgement");
   const consumedCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert.equal(consumedCarrier?.handoffState, "consumed");
   assert(consumedCarrier?.handoffConsumedAt instanceof Date);
@@ -372,6 +376,10 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     () => lifecycle.createExport({ studentId: otherStudentId, idempotencyKey: `${namespace}:after-account-delete`, format: "json_v1" }),
     "account_deleted",
   );
+  // Release the legal-erasure fixture hold before exercising an unrelated
+  // ordinary conversation-delete worker. Dedicated hold-race coverage still
+  // proves that an active hold blocks marker/key work.
+  await db.aiRetentionHold.update({ where: { id: holdId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
   console.log("T11_EVIDENCE account_cleanup=populated export-before-purge grant=active handoffState=consumed handoffConsumedAt=DB_NOW sessions=revoked account=soft_deleted createExport=account_deleted vera_cleanup_ready_v1 restrictive-fk=true");
 
   const conversationId = randomUUID();
@@ -439,7 +447,12 @@ function testAllDurableCallbacks(): void {
   const environment = {
     ...process.env,
     VERA_DISPOSABLE_DATABASE_URL: connectionString,
+    VERA_DISPOSABLE_REDIS_URL: process.env.VERA_DISPOSABLE_REDIS_URL ?? process.env.REDIS_URL,
+    REDIS_URL: process.env.VERA_DISPOSABLE_REDIS_URL ?? process.env.REDIS_URL,
     VERA_DISPOSABLE_DB_ACK: "1",
+    VERA_ENVELOPE_MASTER_KEY: Buffer.alloc(32, 11).toString("base64url"),
+    VERA_IDEMPOTENCY_HMAC_SECRET: "vera-sprint5-t11-callback-matrix",
+    VERA_MOCK_PROVIDER_ENABLED: "true",
     VERA_LIVE_PROVIDER_ENABLED: "false",
   };
   let output = "";
@@ -459,52 +472,50 @@ function testAllDurableCallbacks(): void {
     // Sprint 3 fixture has actually reported the persisted tuple.
     console.log(`T11_EVIDENCE callback_namespace=${namespace} source=vera-prisma-sprint3 status=pass`);
   }
+  for (const namespace of ["conversation_create", "ai_request", "learning_recommendation_create", "artifact_apply"]) {
+    assert(output.includes(`T12_EVIDENCE operation=${namespace} actual=true`), `public operation matrix output is missing executable ${namespace}`);
+    console.log(`T11_EVIDENCE operation=${namespace} source=vera-prisma-sprint3 actual=true status=pass`);
+  }
   console.log("T11_EVIDENCE callbacks=chat analysis route review summary ptn drill all seven persisted callback tuples normal=status=worker crash-rollback=exactly-once accounting=once recommendation_materialization=separate");
 }
 
 async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operationIds: string[]; idempotencyKeys: string[]; holdIds: string[]; conversationIds: string[]; userIds: string[] }): Promise<void> {
-  try {
-    if (ids.exportIds.length > 0) {
-      await db.aiExportPart.deleteMany({ where: { exportJobId: { in: ids.exportIds } } });
-      await db.aiExportJob.deleteMany({ where: { id: { in: ids.exportIds } } });
-      await db.aiEnvelopeKey.deleteMany({ where: { OR: ids.exportIds.map((id) => ({ objectId: { startsWith: `vera-export:${id}:` } })) } });
-    }
-    if (ids.operationIds.length > 0) {
-      await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: ids.operationIds } } });
-      await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: ids.operationIds } } });
-    }
-    if (ids.holdIds.length > 0) {
-      await db.aiRetentionHoldRelease.deleteMany({ where: { holdId: { in: ids.holdIds } } });
-      await db.aiRetentionHold.deleteMany({ where: { id: { in: ids.holdIds } } });
-    }
-    if (ids.operationIds.length > 0) {
-      // The lifecycle->idempotency FK is intentionally restrictive. Null the
-      // owned nullable carrier link before removing the test rows, then the
-      // key rows can be removed without touching unrelated operations.
-      await db.aiLifecycleOperation.updateMany({ where: { id: { in: ids.operationIds }, operation: "account_cleanup" }, data: { idempotencyKeyId: null } });
-      await db.aiLifecycleOperation.deleteMany({ where: { id: { in: ids.operationIds } } });
-    }
-    if (ids.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: ids.idempotencyKeys } } });
-    if (ids.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: ids.conversationIds } } });
-    if (ids.userIds.length > 0) {
-      const orphanedOperations = await db.aiLifecycleOperation.findMany({ where: { studentId: { in: ids.userIds } }, select: { id: true } });
-      if (orphanedOperations.length > 0) {
-        const orphanedOperationIds = orphanedOperations.map(({ id }) => id);
-        await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: orphanedOperationIds } } });
-        await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: orphanedOperationIds } } });
-        await db.aiLifecycleOperation.deleteMany({ where: { id: { in: orphanedOperationIds } } });
-      }
-      await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: ids.userIds } } });
-      await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: ids.userIds } } });
-      await db.aiCapabilityGrant.deleteMany({ where: { userId: { in: ids.userIds } } });
-      await db.roleAssignment.deleteMany({ where: { userId: { in: ids.userIds } } });
-    }
-    if (ids.userIds.length > 0) await db.user.deleteMany({ where: { id: { in: ids.userIds } } });
-  } catch (error) {
-    // A fixture cleanup failure never deletes outside its UUID namespace; keep
-    // the evidence failure visible while leaving unrelated disposable rows.
-    console.warn(`T11_EVIDENCE cleanup=owned_namespace_warning ${error instanceof Error ? error.message : String(error)}`);
+  // Cleanup is part of the evidence contract. Never swallow a foreign-key
+  // failure: a leftover fixture would make a later isolated replay lie about
+  // ownership and migration state.
+  const operationRows = ids.userIds.length > 0
+    ? await db.aiLifecycleOperation.findMany({ where: { OR: [{ id: { in: ids.operationIds } }, { studentId: { in: ids.userIds } }] }, select: { id: true } })
+    : await db.aiLifecycleOperation.findMany({ where: { id: { in: ids.operationIds } }, select: { id: true } });
+  const operationIds = [...new Set([...ids.operationIds, ...operationRows.map(({ id }) => id)])];
+  const exportRows = operationIds.length > 0
+    ? await db.aiExportJob.findMany({ where: { OR: [{ id: { in: ids.exportIds } }, { operationId: { in: operationIds } }] }, select: { id: true } })
+    : await db.aiExportJob.findMany({ where: { id: { in: ids.exportIds } }, select: { id: true } });
+  const exportIds = [...new Set([...ids.exportIds, ...exportRows.map(({ id }) => id)])];
+  if (exportIds.length > 0) {
+    await db.aiExportPart.deleteMany({ where: { exportJobId: { in: exportIds } } });
+    await db.aiEnvelopeKey.deleteMany({ where: { OR: exportIds.map((id) => ({ objectId: { startsWith: `vera-export:${id}:` } })) } });
+    await db.aiExportJob.deleteMany({ where: { id: { in: exportIds } } });
   }
+  if (operationIds.length > 0) {
+    await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: operationIds } } });
+    await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: operationIds } } });
+    await db.aiLifecycleOperation.updateMany({ where: { id: { in: operationIds }, operation: "account_cleanup" }, data: { idempotencyKeyId: null } });
+  }
+  if (ids.holdIds.length > 0) {
+    await db.aiRetentionHoldRelease.deleteMany({ where: { holdId: { in: ids.holdIds } } });
+    await db.aiRetentionHold.deleteMany({ where: { id: { in: ids.holdIds } } });
+  }
+  if (operationIds.length > 0) await db.aiLifecycleOperation.deleteMany({ where: { id: { in: operationIds } } });
+  if (ids.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: ids.idempotencyKeys } } });
+  if (ids.userIds.length > 0) {
+    await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: ids.userIds } } });
+    await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: ids.userIds } } });
+    await db.aiCapabilityGrant.deleteMany({ where: { userId: { in: ids.userIds } } });
+    await db.authSession.deleteMany({ where: { userId: { in: ids.userIds } } });
+    await db.roleAssignment.deleteMany({ where: { userId: { in: ids.userIds } } });
+  }
+  if (ids.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: ids.conversationIds } } });
+  if (ids.userIds.length > 0) await db.user.deleteMany({ where: { id: { in: ids.userIds } } });
 }
 
 async function main(): Promise<void> {
