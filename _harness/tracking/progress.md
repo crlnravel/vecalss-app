@@ -1,5 +1,19 @@
 # Session Progress Log
 
+## Reference dashboard component extraction (2026-08-27)
+
+- [x] Inspected `tmp/reference/res1` custom dashboard components and separated
+  reusable visual patterns from its Base44/auth/data/page contracts.
+- [x] Added the isolated `components/dashboard/` layer: Vecalss-tokenized
+  raised/inset surfaces, responsive shell, headers, progress/stat blocks,
+  statuses, activity/goals/tasks, and a fixture-only preview composition.
+- [x] Kept student pages and all mentor/Kapten/admin route wiring untouched.
+- [x] Navigation icons use rendered `ReactNode` slots so server routes can
+  safely pass them through the client shell boundary.
+- [x] Focused ESLint and Impeccable detector pass; commit is `8e7ded6`.
+- [ ] Next: preview the isolated layer, then choose one bounded non-student
+  mentor/Kapten/admin adoption after confirmation.
+
 ## Tryout direct-only question authoring simplification (2026-08-25)
 
 - [x] Simplified `KaptenTryoutBuilderPageModule` to one visible question-source

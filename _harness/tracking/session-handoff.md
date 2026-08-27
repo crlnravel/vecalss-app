@@ -1,5 +1,23 @@
 # Session Handoff
 
+## Reference dashboard component extraction (2026-08-27)
+
+- Objective: extract the reusable design language from `tmp/reference/res1`
+  before any role-page rollout; student dashboard/pages remain out of scope.
+- Branch/commit: `main` / `8e7ded6` (`feat: extract reference dashboard components`).
+- Files: `components/dashboard/index.ts`, token contracts, responsive shell,
+  primitives, and fixture-only preview composition.
+- Decision: translate the reference's soft raised/inset geometry into existing
+  Vecalss tokens and Phosphor icons. The shell accepts rendered icon nodes to
+  preserve a safe server-to-client RSC boundary.
+- Verification: focused ESLint passes; Impeccable detector returns `[]`;
+  production compilation reaches TypeScript then stops on the pre-existing
+  `mdx-components.tsx` anchor/ref mismatch; repository lint/type checks also
+  report the preserved invalid Base44 prototype under `tmp/reference/res1`.
+- Review boundary: no existing student, mentor, Kapten, or admin page was
+  changed. Next action is a route-specific preview and explicit selection of
+  one bounded non-student adoption.
+
 ## Current Tryout direct-only question authoring (2026-08-25)
 
 - `f21d058` simplifies the Tryout Build surface to one source path:

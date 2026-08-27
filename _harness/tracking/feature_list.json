@@ -159,6 +159,14 @@
       "dependencies": ["feat-019"],
       "status": "complete",
       "evidence": "1001677 + 697d360 + 9b6f37a; draft Overview → Configure Sections → Readiness & Publish and published Delivery → Operations → Results navigation, pure workflow projection with monotonic legacy gates, sticky contextual actions and dirty navigation guard, published metadata allowlist, draft lineage, ?session normalization, selected-session Live/Results projections, focused workflow/authoring/live-result contracts, focused ESLint, and TypeScript; authenticated browser QA and full verify remain follow-up due unrelated concurrent admin-preview edits"
+    },
+    {
+      "id": "feat-021",
+      "name": "Reference Dashboard Component Extraction",
+      "description": "Extract the reusable responsive dashboard shell and content primitives from tmp/reference/res1 without wiring role pages",
+      "dependencies": [],
+      "status": "complete",
+      "evidence": "8e7ded6; Vecalss-tokenized surfaces, responsive shell, headers, progress/stat/activity/goal/task primitives, RSC-safe rendered navigation icon slots, focused ESLint, Impeccable detector [], and isolated fixture preview; no student, mentor, Kapten, or admin routes changed"
     }
   ]
 }
