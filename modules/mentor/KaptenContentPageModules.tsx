@@ -45,12 +45,12 @@ function KaptenQuizPageModule({ persistedQuizzes, session }: { persistedQuizzes:
   const [displayQuizzes, setDisplayQuizzes] = useState(baseQuizzes);
 
   useEffect(() => {
-    const syncStoredDrafts = () => setDisplayQuizzes(getQuizWithStoredDrafts(baseQuizzes));
+    const syncStoredDrafts = () => setDisplayQuizzes(getQuizWithStoredDrafts(session.user.id, baseQuizzes));
 
     syncStoredDrafts();
     window.addEventListener("storage", syncStoredDrafts);
     return () => window.removeEventListener("storage", syncStoredDrafts);
-  }, [baseQuizzes]);
+  }, [baseQuizzes, session.user.id]);
 
   return (
     <MentorWorkspaceShell
