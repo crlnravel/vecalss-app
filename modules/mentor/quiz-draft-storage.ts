@@ -188,6 +188,12 @@ function subscribeToDraftChanges(onStoreChange: () => void) {
     window.addEventListener("storage", onStoreChange);
     window.addEventListener(changeEvent, onStoreChange);
   } catch {
+    try {
+      window.removeEventListener("storage", onStoreChange);
+      window.removeEventListener(changeEvent, onStoreChange);
+    } catch {
+      // A partially registered listener is also best effort to remove.
+    }
     return () => undefined;
   }
 
@@ -201,11 +207,42 @@ function subscribeToDraftChanges(onStoreChange: () => void) {
   };
 }
 
+function getClientQuizDraftStorageSnapshot(tutorId: string) {
+  return getQuizDraftStorageSnapshot(tutorId);
+}
+
+function getServerQuizDraftStorageSnapshot() {
+  return serverStorageSnapshot;
+}
+
+type QuizDraftStorageHookHarness = {
+  getClientSnapshot: () => string;
+  getServerSnapshot: () => string;
+  subscribe: (onStoreChange: () => void) => () => void;
+};
+
+/**
+ * Exposes the exact useSyncExternalStore callbacks for focused storage
+ * resilience tests without adding a browser-renderer dependency.
+ */
+function createQuizDraftStorageHookCallbacks(tutorId: string): QuizDraftStorageHookHarness {
+  return {
+    getClientSnapshot: () => getClientQuizDraftStorageSnapshot(tutorId),
+    getServerSnapshot: getServerQuizDraftStorageSnapshot,
+    subscribe: subscribeToDraftChanges,
+  };
+}
+
+function createQuizDraftStorageHookHarness(tutorId: string): QuizDraftStorageHookHarness {
+  return createQuizDraftStorageHookCallbacks(tutorId);
+}
+
 function useStoredQuizDraft(tutorId: string, id: string) {
+  const callbacks = createQuizDraftStorageHookCallbacks(tutorId);
   const serializedDrafts = useSyncExternalStore(
-    subscribeToDraftChanges,
-    () => getQuizDraftStorageSnapshot(tutorId),
-    () => serverStorageSnapshot,
+    callbacks.subscribe,
+    callbacks.getClientSnapshot,
+    callbacks.getServerSnapshot,
   );
 
   return useMemo(() => {
@@ -215,10 +252,11 @@ function useStoredQuizDraft(tutorId: string, id: string) {
 }
 
 function useStoredQuizDrafts(tutorId: string) {
+  const callbacks = createQuizDraftStorageHookCallbacks(tutorId);
   const serializedDrafts = useSyncExternalStore(
-    subscribeToDraftChanges,
-    () => getQuizDraftStorageSnapshot(tutorId),
-    () => serverStorageSnapshot,
+    callbacks.subscribe,
+    callbacks.getClientSnapshot,
+    callbacks.getServerSnapshot,
   );
 
   return useMemo(
@@ -303,6 +341,7 @@ function getStoredQuizDrafts(tutorId: string) {
 }
 
 export {
+  createQuizDraftStorageHookHarness,
   getQuizWithStoredDrafts,
   getQuizDraftStorageSnapshot,
   getRecentlyEditedQuizzes,
@@ -317,4 +356,8 @@ export {
   useStoredQuizDrafts,
 };
 
-export type { StoredQuizDraft, StoredQuizDraftInput };
+export type {
+  QuizDraftStorageHookHarness,
+  StoredQuizDraft,
+  StoredQuizDraftInput,
+};

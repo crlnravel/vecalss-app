@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
 import {
   canonicalDashboardHref,
   createEmptyDashboardProjection,
@@ -18,6 +21,7 @@ import type {
   DashboardTryoutSource,
 } from "@/modules/mentor/dashboard-projection";
 import {
+  createQuizDraftStorageHookHarness,
   getQuizWithStoredDrafts,
   getQuizDraftStorageSnapshot,
   getStoredQuizDraft,
@@ -25,6 +29,8 @@ import {
   isQuizDraftServerStorageSnapshot,
   saveQuizDraft,
   storageKeyForTutor,
+  useStoredQuizDraft,
+  useStoredQuizDrafts,
 } from "@/modules/mentor/quiz-draft-storage";
 import type { StoredQuizDraftInput } from "@/modules/mentor/quiz-draft-storage";
 import type { QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
@@ -39,6 +45,16 @@ const scheduledQuizId = "77777777-7777-4777-8777-777777777777";
 const ownedTryoutId = "88888888-8888-4888-8888-888888888888";
 const draftTryoutId = "99999999-9999-4999-8999-999999999999";
 const foreignTryoutId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+function StoredDraftHookProbe() {
+  const draft = useStoredQuizDraft(tutorA, quizId);
+  const drafts = useStoredQuizDrafts(tutorA);
+
+  return createElement("output", {
+    "data-draft": draft === undefined ? "server-sentinel" : "client-value",
+    "data-drafts": drafts === undefined ? "server-sentinel" : String(drafts.length),
+  });
+}
 
 function dashboardQuiz(overrides: Partial<DashboardResource> = {}): DashboardResource {
   return {
@@ -109,11 +125,23 @@ const healthyStorage = {
   getItem: (key: string) => memory.get(key) ?? null,
   setItem: (key: string, value: string) => { memory.set(key, value); },
 };
+const listeners = new Map<string, Set<() => void>>();
+let blockListenerRegistration = false;
 const fakeWindow = {
-  addEventListener: () => undefined,
-  dispatchEvent: () => true,
+  addEventListener: (type: string, listener: () => void) => {
+    if (blockListenerRegistration) throw new Error("event listeners blocked");
+    const typeListeners = listeners.get(type) ?? new Set<() => void>();
+    typeListeners.add(listener);
+    listeners.set(type, typeListeners);
+  },
+  dispatchEvent: (event: Event) => {
+    listeners.get(event.type)?.forEach((listener) => listener());
+    return true;
+  },
   localStorage: healthyStorage,
-  removeEventListener: () => undefined,
+  removeEventListener: (type: string, listener: () => void) => {
+    listeners.get(type)?.delete(listener);
+  },
 };
 Object.defineProperty(globalThis, "window", {
   configurable: true,
@@ -379,11 +407,30 @@ assert.deepEqual(getStoredQuizDrafts(tutorA), [], "a throwing localStorage gette
 const blockedGetterSnapshot = getQuizDraftStorageSnapshot(tutorA);
 assert.equal(isQuizDraftServerStorageSnapshot(blockedGetterSnapshot), true, "snapshot failures use the server sentinel");
 assert.equal(getQuizDraftStorageSnapshot(tutorA), blockedGetterSnapshot, "snapshot fallback remains stable");
+const storageHookHarness = createQuizDraftStorageHookHarness(tutorA);
+assert.equal(storageHookHarness.getServerSnapshot(), blockedGetterSnapshot, "hook server snapshot is the stable sentinel");
+assert.equal(isQuizDraftServerStorageSnapshot(storageHookHarness.getClientSnapshot()), true, "hook client snapshot catches a throwing getter");
+let blockedStorageMarkup = "";
+assert.doesNotThrow(() => {
+  blockedStorageMarkup = renderToStaticMarkup(createElement(StoredDraftHookProbe));
+}, "both storage hooks must mount through the SSR server snapshot when storage is blocked");
+assert.match(blockedStorageMarkup, /data-draft="server-sentinel"/);
+assert.match(blockedStorageMarkup, /data-drafts="server-sentinel"/);
 assert.doesNotThrow(() => saveQuizDraft(tutorA, {
   quiz: storedQuiz(quizId, "Blocked getter", "/unsafe/stored-href"),
   questions: [question],
   sourceBankId: "bank-1",
 }));
+
+Object.defineProperty(fakeWindow, "localStorage", {
+  configurable: true,
+  value: {
+    getItem: () => { throw new Error("localStorage reads blocked"); },
+    setItem: () => undefined,
+  },
+});
+assert.deepEqual(getStoredQuizDrafts(tutorA), [], "a throwing getItem falls back to an empty read");
+assert.equal(isQuizDraftServerStorageSnapshot(storageHookHarness.getClientSnapshot()), true, "hook snapshots catch a throwing getItem");
 
 Object.defineProperty(fakeWindow, "localStorage", {
   configurable: true,
@@ -402,6 +449,18 @@ Object.defineProperty(fakeWindow, "localStorage", {
   configurable: true,
   value: healthyStorage,
 });
+
+let changeNotifications = 0;
+const unsubscribeFromDraftChanges = storageHookHarness.subscribe(() => { changeNotifications += 1; });
+window.dispatchEvent(new Event("vecalss-quiz-drafts-change"));
+assert.equal(changeNotifications, 1, "a successful custom change event reaches hook subscribers");
+unsubscribeFromDraftChanges();
+window.dispatchEvent(new Event("vecalss-quiz-drafts-change"));
+assert.equal(changeNotifications, 1, "hook unsubscribe removes custom change listeners");
+
+blockListenerRegistration = true;
+assert.doesNotThrow(() => storageHookHarness.subscribe(() => { changeNotifications += 1; }), "blocked listener registration is recoverable");
+blockListenerRegistration = false;
 
 const serverQuiz = storedQuiz(quizId, "Server title", "/server-href-is-not-used");
 const merged = getQuizWithStoredDrafts(tutorA, [serverQuiz])[0];
