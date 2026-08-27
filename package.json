@@ -30,7 +30,7 @@
     "test:materi-progress-server": "tsx scripts/test-materi-progress-server.ts",
     "test:materi-lock-boundary": "tsx scripts/test-materi-lock-boundary.ts",
     "test:materi-builder-validation": "tsx scripts/test-materi-builder-validation.ts",
-    "test:mentor-dashboard-ia": "tsx scripts/test-mentor-dashboard-ia.ts",
+    "test:mentor-dashboard-ia": "tsx scripts/test-mentor-dashboard-ia.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/test-mentor-dashboard-ia-repository.ts",
     "test:media-domain": "tsx scripts/test-media-domain.ts",
     "test:student-banner-validation": "tsx scripts/test-student-banner-validation.ts",
     "test:admin-student-preview-banners": "tsx scripts/test-admin-student-preview-banners.ts",

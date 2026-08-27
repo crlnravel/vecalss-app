@@ -6,7 +6,10 @@ import {
 } from "@/generated/prisma/client";
 import { getMentorMateriCatalogue } from "@/lib/materi/repository";
 import { prisma } from "@/lib/prisma";
-import { isUuidLike } from "@/modules/mentor/dashboard-types";
+import {
+  isUuidLike,
+  normalizeDashboardTimestamp,
+} from "@/modules/mentor/dashboard-types";
 import {
   projectMentorDashboardProjection,
 } from "@/modules/mentor/dashboard-projection";
@@ -21,6 +24,23 @@ import { toKaptenMateriCatalogueView } from "@/modules/mentor/materi-view-model"
 
 type DashboardQuizRecord = Awaited<ReturnType<typeof readDashboardQuizzes>>[number];
 type DashboardTryoutRecord = Awaited<ReturnType<typeof readDashboardTryouts>>[number];
+
+type DashboardQuizRepositoryQuery = {
+  ownerId: string;
+};
+
+type DashboardTryoutRepositoryQuery = {
+  now: Date;
+  ownerId: string;
+  packageStatus: "published";
+  sessionStatus: "active";
+};
+
+type MentorDashboardRepository = {
+  readMateri: () => Promise<readonly DashboardMateriSource[]>;
+  readQuizzes: (query: DashboardQuizRepositoryQuery) => Promise<readonly DashboardQuizSource[]>;
+  readTryouts: (query: DashboardTryoutRepositoryQuery) => Promise<readonly DashboardTryoutSource[]>;
+};
 
 function statusFor(value: ContentStatus) {
   if (value === ContentStatus.archived) return "archived" as const;
@@ -110,38 +130,72 @@ function toMateriSource(
   };
 }
 
-function toQuizSource(record: DashboardQuizRecord): DashboardQuizSource {
+function toQuizSource(record: DashboardQuizRecord): DashboardQuizSource | null {
+  const updatedAt = normalizeDashboardTimestamp(record.updatedAt);
+  if (!updatedAt) return null;
+
   return {
-    closesAt: record.closesAt?.toISOString() ?? null,
+    closesAt: normalizeDashboardTimestamp(record.closesAt),
     description: record.description,
     id: record.id,
     ownerId: record.createdByUserId,
-    opensAt: record.opensAt?.toISOString() ?? null,
+    opensAt: normalizeDashboardTimestamp(record.opensAt),
     questionCount: record._count.items,
     status: statusFor(record.status),
     subjectCode: record.subtest.code,
     subjectName: record.subtest.name,
     title: record.title,
-    updatedAt: record.updatedAt.toISOString(),
+    updatedAt,
   };
 }
 
-function toTryoutSource(record: DashboardTryoutRecord): DashboardTryoutSource {
+function toTryoutSource(record: DashboardTryoutRecord): DashboardTryoutSource | null {
+  const updatedAt = normalizeDashboardTimestamp(record.updatedAt);
+  if (!updatedAt) return null;
+
   return {
-    deliverySessions: record.deliverySessions.map((session) => ({
-      availableFrom: session.availableFrom.toISOString(),
-      availableUntil: session.availableUntil.toISOString(),
-      id: session.id,
-      status: sessionStatusFor(session.status),
-    })),
+    deliverySessions: record.deliverySessions.flatMap((session) => {
+      const availableFrom = normalizeDashboardTimestamp(session.availableFrom);
+      const availableUntil = normalizeDashboardTimestamp(session.availableUntil);
+      return availableFrom && availableUntil
+        ? [{
+          availableFrom,
+          availableUntil,
+          id: session.id,
+          status: sessionStatusFor(session.status),
+        }]
+        : [];
+    }),
     description: record.description,
     id: record.id,
     ownerId: record.createdByUserId,
     status: statusFor(record.status),
     title: record.title,
-    updatedAt: record.updatedAt.toISOString(),
+    updatedAt,
   };
 }
+
+async function readDashboardMateri(): Promise<readonly DashboardMateriSource[]> {
+  const catalogue = await getMentorMateriCatalogue();
+  const view = toKaptenMateriCatalogueView(catalogue);
+  return view.lessons.map(toMateriSource);
+}
+
+const productionMentorDashboardRepository: MentorDashboardRepository = {
+  readMateri: readDashboardMateri,
+  readQuizzes: async ({ ownerId }) => {
+    const records = await readDashboardQuizzes(ownerId);
+    return records
+      .map(toQuizSource)
+      .filter((record): record is DashboardQuizSource => Boolean(record));
+  },
+  readTryouts: async ({ now, ownerId }) => {
+    const records = await readDashboardTryouts(ownerId, now);
+    return records
+      .map(toTryoutSource)
+      .filter((record): record is DashboardTryoutSource => Boolean(record));
+  },
+};
 
 /**
  * Load and serialize the authenticated Dashboard corpus. Materi is the
@@ -151,13 +205,12 @@ function toTryoutSource(record: DashboardTryoutRecord): DashboardTryoutSource {
 async function getMentorDashboardProjection(
   tutorId: string,
   now = new Date(),
+  repository: MentorDashboardRepository = productionMentorDashboardRepository,
 ) {
-  const materiResult = await Promise.allSettled([getMentorMateriCatalogue()]);
-  const catalogue = materiResult[0]?.status === "fulfilled" ? materiResult[0].value : [];
-  const view = toKaptenMateriCatalogueView(catalogue);
+  const materiResult = await Promise.allSettled([repository.readMateri()]);
 
   const source: Omit<DashboardProjectionInput, "now" | "tutorId"> = {
-    materi: view.lessons.map(toMateriSource),
+    materi: materiResult[0]?.status === "fulfilled" ? materiResult[0].value : [],
     quizzes: [],
     tryouts: [],
   };
@@ -171,8 +224,13 @@ async function getMentorDashboardProjection(
   }
 
   const [quizResult, tryoutResult] = await Promise.allSettled([
-    readDashboardQuizzes(tutorId),
-    readDashboardTryouts(tutorId, now),
+    repository.readQuizzes({ ownerId: tutorId }),
+    repository.readTryouts({
+      now,
+      ownerId: tutorId,
+      packageStatus: "published",
+      sessionStatus: "active",
+    }),
   ]);
   const quizzes = quizResult.status === "fulfilled" ? quizResult.value : [];
   const tryouts = tryoutResult.status === "fulfilled" ? tryoutResult.value : [];
@@ -180,10 +238,15 @@ async function getMentorDashboardProjection(
   return projectMentorDashboardProjection({
     ...source,
     now,
-    quizzes: quizzes.map(toQuizSource),
-    tryouts: tryouts.map(toTryoutSource),
+    quizzes,
+    tryouts,
     tutorId,
   });
 }
 
 export { getMentorDashboardProjection };
+export type {
+  DashboardQuizRepositoryQuery,
+  DashboardTryoutRepositoryQuery,
+  MentorDashboardRepository,
+};
