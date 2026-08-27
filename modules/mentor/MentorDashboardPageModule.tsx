@@ -3,64 +3,98 @@
 import Link from "next/link";
 import { useMemo } from "react";
 
+import {
+  ReferenceActivityFeed,
+  ReferenceEmptyState,
+  ReferencePageHeader,
+  ReferenceSectionHeading,
+  ReferenceStatCard,
+  ReferenceStatGrid,
+  ReferenceSurface,
+  ReferenceTaskCard,
+  type ReferenceActivity,
+} from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  BookOpenText,
+  CalendarDays,
+  Gauge,
+  ListChecks,
+} from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
-import {
-  PageIntro,
-  QuickCreateMenu,
-  ResourceRow,
-  SectionHeading,
-} from "@/modules/mentor/components/kapten-ui";
+import { QuickCreateMenu } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
+import { contentTypeMeta } from "@/modules/mentor/resource-types";
 import {
+  compareDashboardResourcesBySchedule,
+  compareDashboardResourcesByUpdatedAt,
   overlayDashboardQuizDrafts,
   type DashboardProjection,
   type DashboardResource,
 } from "@/modules/mentor/dashboard-types";
 import { useStoredQuizDrafts } from "@/modules/mentor/quiz-draft-storage";
 
-type DashboardGroup = {
-  actionHref: string;
-  actionLabel: string;
-  description: string;
-  key: keyof DashboardProjection;
-  title: string;
-};
-
-const dashboardGroups: DashboardGroup[] = [
-  {
-    actionHref: "/mentor/materi",
-    actionLabel: "Lihat Materi",
-    description: "Kurikulum bersama yang paling baru diperbarui.",
-    key: "recentMateri",
-    title: "Materi Terakhir Diedit",
-  },
-  {
-    actionHref: "/mentor/quiz",
-    actionLabel: "Lihat Kuis",
-    description: "Kuis milikmu yang terakhir diperbarui.",
-    key: "recentKuis",
-    title: "Kuis Terakhir Diedit",
-  },
-  {
-    actionHref: "/mentor/quiz",
-    actionLabel: "Kelola Kuis",
-    description: "Kuis milikmu dengan waktu buka yang akan datang.",
-    key: "scheduledKuis",
-    title: "Kuis Terjadwal",
-  },
-  {
-    actionHref: "/mentor/tryout",
-    actionLabel: "Review Tryout",
-    description: "Tryout milikmu dengan sesi aktif yang akan datang.",
-    key: "scheduledTryout",
-    title: "Tryout Terjadwal",
-  },
-];
+const dashboardTimestampFormatter = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Jakarta",
+});
 
 function getFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] ?? "Kapten";
+}
+
+function formatDashboardTimestamp(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : dashboardTimestampFormatter.format(date);
+}
+
+function getResourceSummary(resource: DashboardResource) {
+  const typeLabel = contentTypeMeta[resource.resourceType].label;
+  const context = resource.subjectName ? `${resource.subjectName} · ${typeLabel}` : typeLabel;
+  const description = resource.description.trim();
+
+  return description ? `${context} · ${description}` : `${context} · ${resource.primaryMetric}`;
+}
+
+function getActivityTone(resource: DashboardResource): NonNullable<ReferenceActivity["tone"]> {
+  if (resource.status === "draft") return "attention";
+  if (resource.status === "published") return "success";
+  if (resource.status === "archived") return "neutral";
+  return "info";
+}
+
+function toDashboardActivities(resources: readonly DashboardResource[]): ReferenceActivity[] {
+  return resources.slice(0, 6).map((resource) => ({
+    description: getResourceSummary(resource),
+    icon: contentTypeMeta[resource.resourceType].icon,
+    id: `${resource.kind}:${resource.id}`,
+    href: resource.href,
+    label: resource.subjectName ?? contentTypeMeta[resource.resourceType].label,
+    timestamp: formatDashboardTimestamp(resource.updatedAt),
+    title: resource.title,
+    tone: getActivityTone(resource),
+  }));
+}
+
+function DashboardResourceTask({ resource }: { resource: DashboardResource }) {
+  return (
+    <ReferenceTaskCard
+      deadline={resource.scheduledFor}
+      description={
+        <span>
+          <span className="line-clamp-2">{getResourceSummary(resource)}</span>
+          <span className="mt-1 block text-ui-xs leading-4 text-secondary-400">
+            Diperbarui {formatDashboardTimestamp(resource.updatedAt)}
+          </span>
+        </span>
+      }
+      href={resource.href}
+      status={resource.status}
+      title={resource.title}
+    />
+  );
 }
 
 function MentorDashboardPageModule({
@@ -76,6 +110,19 @@ function MentorDashboardPageModule({
     () => overlayDashboardQuizDrafts(serverProjection, storedDrafts ?? []),
     [serverProjection, storedDrafts],
   );
+  const recentResources = useMemo(
+    () => [...dashboard.recentMateri, ...dashboard.recentKuis].sort(compareDashboardResourcesByUpdatedAt),
+    [dashboard.recentKuis, dashboard.recentMateri],
+  );
+  const scheduledResources = useMemo(
+    () => [...dashboard.scheduledKuis, ...dashboard.scheduledTryout].sort(compareDashboardResourcesBySchedule),
+    [dashboard.scheduledKuis, dashboard.scheduledTryout],
+  );
+  const recentActivities = useMemo(
+    () => toDashboardActivities(recentResources),
+    [recentResources],
+  );
+  const nextScheduledResource = scheduledResources[0];
 
   return (
     <MentorWorkspaceShell
@@ -85,77 +132,103 @@ function MentorDashboardPageModule({
       searchPlaceholder="Cari konten, draft, jadwal, atau asset..."
       session={session}
     >
-      <PageIntro
-        action={<QuickCreateMenu label="Buat konten" />}
+      <ReferencePageHeader
+        actions={<QuickCreateMenu label="Buat konten" />}
         description="Lanjutkan pekerjaan yang terakhir dibuka, atau siapkan rilis berikutnya."
         title={`Selamat bekerja, ${firstName}.`}
       />
 
-      <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-12">
-        {dashboardGroups.map((group) => (
-          <DashboardGroupSection
-            group={group}
-            key={group.key}
-            resources={dashboard[group.key]}
+      <ReferenceStatGrid>
+        <ReferenceStatCard
+          href="/mentor/materi"
+          icon={BookOpenText}
+          label="Materi terbaru"
+          supportingText="Ruang kerja materi"
+          value={dashboard.recentMateri.length}
+        />
+        <ReferenceStatCard
+          href="/mentor/quiz"
+          icon={ListChecks}
+          label="Kuis terbaru"
+          supportingText="Ruang kerja kuis"
+          value={dashboard.recentKuis.length}
+        />
+        <ReferenceStatCard
+          href="/mentor/tryout"
+          icon={Gauge}
+          label="Jadwal aktif"
+          supportingText="Kuis dan tryout"
+          value={scheduledResources.length}
+        />
+      </ReferenceStatGrid>
+
+      <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
+        <ReferenceActivityFeed
+          activities={recentActivities}
+          className="min-h-[28rem]"
+          nextAction={
+            nextScheduledResource ? (
+              <Link
+                className="font-semibold text-primary-800 underline-offset-4 hover:underline"
+                href={nextScheduledResource.href}
+              >
+                Buka {nextScheduledResource.title}
+              </Link>
+            ) : undefined
+          }
+          title="Aktivitas terbaru"
+        />
+
+        <section aria-label="Jadwal berikutnya" className="min-w-0 space-y-4">
+          <ReferenceSectionHeading
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/mentor/quiz" />}
+                  size="sm"
+                  variant="brandOutline"
+                >
+                  Kuis
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/mentor/tryout" />}
+                  size="sm"
+                  variant="brandOutline"
+                >
+                  Tryout
+                </Button>
+              </div>
+            }
+            description="Sesi terdekat yang perlu kamu siapkan."
+            title="Jadwal berikutnya"
           />
-        ))}
+          {scheduledResources.length > 0 ? (
+            <div className="space-y-3">
+              {scheduledResources.slice(0, 4).map((resource) => (
+                <DashboardResourceTask key={`${resource.kind}:${resource.id}`} resource={resource} />
+              ))}
+            </div>
+          ) : (
+            <ReferenceSurface>
+              <ReferenceEmptyState
+                description="Belum ada kuis atau tryout dengan sesi mendatang."
+                icon={CalendarDays}
+                title="Jadwal masih kosong"
+              />
+            </ReferenceSurface>
+          )}
+        </section>
       </div>
     </MentorWorkspaceShell>
   );
 }
 
-function DashboardGroupSection({
-  group,
-  resources,
-}: {
-  group: DashboardGroup;
-  resources: DashboardResource[];
-}) {
-  return (
-    <section aria-label={group.title} className="min-w-0 space-y-5">
-      <SectionHeading
-        action={
-          <Button
-            nativeButton={false}
-            render={<Link href={group.actionHref} />}
-            size="sm"
-            variant="brandOutline"
-          >
-            {group.actionLabel}
-          </Button>
-        }
-        description={group.description}
-        title={group.title}
-      />
-      <div className="space-y-3">
-        {resources.length > 0 ? (
-          resources.slice(0, 3).map((resource, index) => (
-            <ResourceRow
-              emphasis={index === 0 && group.key.startsWith("recent")}
-              key={`${resource.kind}:${resource.id}`}
-              resource={resource}
-            />
-          ))
-        ) : (
-          <EmptyWorkspaceState label={group.title.toLocaleLowerCase("id-ID")} />
-        )}
-      </div>
-    </section>
-  );
-}
-
-function EmptyWorkspaceState({ label }: { label: string }) {
-  return (
-    <div className="rounded-3xl border border-dashed border-primary-200 bg-white/70 px-5 py-8 text-sm leading-6 text-secondary-500">
-      Belum ada {label} untuk ditampilkan.
-    </div>
-  );
-}
-
 function MentorDashboardLoadingState() {
   return (
-    <div className="min-h-svh bg-[#f7faf8] px-4 py-8 md:px-8 lg:px-10">
-      <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-10 lg:gap-12">
+    <div className="min-h-svh bg-secondary-50 px-4 py-8 md:px-8 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 lg:gap-10">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-3">
             <Skeleton className="h-12 w-80 rounded-3xl bg-primary-100/80" />
@@ -164,19 +237,22 @@ function MentorDashboardLoadingState() {
           <Skeleton className="h-10 w-32 rounded-xl bg-primary-100/80" />
         </div>
 
-        <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-12">
-          {dashboardGroups.map((group) => (
-            <div className="space-y-5" key={group.key}>
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-64 rounded-2xl bg-primary-100/80" />
-                <Skeleton className="h-5 w-72 rounded-xl bg-primary-100/70" />
-              </div>
-              <div className="space-y-3">
-                <Skeleton className="h-28 rounded-3xl bg-primary-100/80" />
-                <Skeleton className="h-24 rounded-3xl bg-primary-100/70" />
-              </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-40 rounded-4xl bg-primary-100/70" />
+          <Skeleton className="h-40 rounded-4xl bg-primary-100/70" />
+          <Skeleton className="h-40 rounded-4xl bg-primary-100/70" />
+        </div>
+
+        <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
+          <Skeleton className="min-h-[28rem] rounded-4xl bg-primary-100/70" />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-56 rounded-2xl bg-primary-100/80" />
+              <Skeleton className="h-5 w-72 rounded-xl bg-primary-100/70" />
             </div>
-          ))}
+            <Skeleton className="h-32 rounded-4xl bg-primary-100/70" />
+            <Skeleton className="h-32 rounded-4xl bg-primary-100/60" />
+          </div>
         </div>
       </div>
     </div>

@@ -331,6 +331,7 @@ function ReferenceStatusBadge({
 
 type ReferenceActivity = {
   description?: ReactNode;
+  href?: string;
   icon?: AppIcon;
   id: string;
   label?: ReactNode;
@@ -368,7 +369,16 @@ function ReferenceActivityItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <p className="min-w-0 truncate text-sm font-semibold text-secondary-900">
-            {activity.title}
+            {activity.href ? (
+              <Link
+                className="rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                href={activity.href}
+              >
+                {activity.title}
+              </Link>
+            ) : (
+              activity.title
+            )}
           </p>
           {activity.timestamp ? (
             <span className="shrink-0 text-xs text-secondary-500">

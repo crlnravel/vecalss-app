@@ -30,6 +30,7 @@ const REFERENCE_ICON_TONE_CLASS_NAMES = {
 } as const;
 
 const REFERENCE_STATUS_TONE_CLASS_NAMES = {
+  archived: "neutral",
   active: "active",
   blocked: "danger",
   completed: "success",
@@ -43,10 +44,12 @@ const REFERENCE_STATUS_TONE_CLASS_NAMES = {
   on_track: "success",
   paused: "attention",
   pending: "neutral",
+  published: "success",
   scheduled: "info",
 } as const;
 
 const REFERENCE_STATUS_LABELS = {
+  archived: "Diarsipkan",
   active: "Aktif",
   blocked: "Terblokir",
   completed: "Selesai",
@@ -60,6 +63,7 @@ const REFERENCE_STATUS_LABELS = {
   on_track: "Sesuai target",
   paused: "Dijeda",
   pending: "Menunggu",
+  published: "Diterbitkan",
   scheduled: "Terjadwal",
 } as const;
 
