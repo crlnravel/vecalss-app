@@ -13,6 +13,7 @@ import type { VeraRequestStatusDto } from "./admission";
 import { VeraLearnerService } from "./learner-service";
 import { VeraArtifactCommandService } from "./artifact-commands";
 import { VeraDrillService } from "./drill-service";
+import { VeraLifecycleService } from "./lifecycle-service";
 
 let cachedOrchestrator: VeraPrismaChatOrchestrator | null = null;
 const routeEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(prisma, environmentEnvelopeRootKeyProvider()));
@@ -20,6 +21,15 @@ const routeAdmission = new VeraPrismaAdmissionService(prisma, routeEnvelope);
 let cachedLearnerService: VeraLearnerService | null = null;
 let cachedArtifactCommandService: VeraArtifactCommandService | null = null;
 let cachedDrillService: VeraDrillService | null = null;
+let cachedLifecycleService: VeraLifecycleService | null = null;
+
+export function getVeraLifecycleService(): VeraLifecycleService {
+  if (cachedLifecycleService) return cachedLifecycleService;
+  const fingerprintSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
+  if (!fingerprintSecret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
+  cachedLifecycleService = new VeraLifecycleService(prisma, routeEnvelope, fingerprintSecret);
+  return cachedLifecycleService;
+}
 
 export function getVeraDrillService(): VeraDrillService {
   if (cachedDrillService) return cachedDrillService;

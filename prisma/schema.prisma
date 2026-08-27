@@ -468,6 +468,9 @@ enum AiIdempotencyOperation {
   export_create
   conversation_delete
   artifact_delete
+  /// Internal account-workflow carrier. This value is never accepted by a
+  /// public idempotency row or learner route.
+  account_cleanup
 
   @@map("ai_idempotency_operation")
 }
@@ -496,6 +499,7 @@ enum AiIdempotencyResultKind {
   export_job
   conversation_delete
   artifact_delete
+  account_cleanup
 
   @@map("ai_idempotency_result_kind")
 }
@@ -650,11 +654,146 @@ enum AiDeletionState {
 
 enum AiLifecycleOperationState {
   pending
+  processing
+  awaiting_dependency
+  ready
   completed
   conflict
+  failed_retryable
+  failed_terminal
   expired
 
   @@map("ai_lifecycle_operation_state")
+}
+
+enum AiOwnerState {
+  active
+  account_deleted
+
+  @@map("ai_owner_state")
+}
+
+enum AiLifecycleTargetState {
+  available
+  deletion_pending
+  deleted
+  purged
+  account_deleted
+  target_unavailable
+
+  @@map("ai_lifecycle_target_state")
+}
+
+enum AiExportState {
+  pending
+  materializing
+  ready
+  failed_retryable
+  failed_terminal
+  expired
+
+  @@map("ai_export_state")
+}
+
+enum AiExportAccessGrantState {
+  none
+  active
+  claiming
+  consumed
+  expired
+
+  @@map("ai_export_access_grant_state")
+}
+
+enum AiRetentionHoldSubjectType {
+  student
+  conversation
+  artifact
+  evidence_object
+
+  @@map("ai_retention_hold_subject_type")
+}
+
+enum AiRetentionHoldSubjectState {
+  attached
+  detached
+  account_deleted
+  purged
+
+  @@map("ai_retention_hold_subject_state")
+}
+
+enum AiRetentionHoldType {
+  legal
+  safety
+
+  @@map("ai_retention_hold_type")
+}
+
+enum AiRetentionHoldState {
+  active
+  released
+
+  @@map("ai_retention_hold_state")
+}
+
+enum AiRetentionHoldReleaseState {
+  pending
+  approved
+  applied
+  rejected
+
+  @@map("ai_retention_hold_release_state")
+}
+
+enum AiKeyDestructionClaimState {
+  pending
+  approved
+  executing
+  destroyed
+  failed_retryable
+  blocked
+
+  @@map("ai_key_destruction_claim_state")
+}
+
+enum AiPurgeWorkItemState {
+  pending
+  claimed
+  completed
+  failed_retryable
+  blocked
+
+  @@map("ai_purge_work_item_state")
+}
+
+enum AiMigrationClassification {
+  envelope_backfilled
+  digest_only
+  zero_rows
+  review_required
+  retired
+
+  @@map("ai_migration_classification")
+}
+
+enum AiMigrationAction {
+  preserve_read_only
+  backfill_envelope
+  clear_after_cutover
+  none
+
+  @@map("ai_migration_action")
+}
+
+enum AiMigrationAuditStatus {
+  discovered
+  converted
+  validated
+  blocked
+  retired
+
+  @@map("ai_migration_audit_status")
 }
 
 enum AiArtifactApplyState {
@@ -676,6 +815,7 @@ enum AiTargetLifecycleState {
 enum AiContentLifecycleState {
   encrypted
   legacy_plaintext
+  purging
   retired
   purged
 
@@ -1080,6 +1220,8 @@ model User {
   aiReportReservations                   AiReportReservation[]
   aiCapabilityGrants                     AiCapabilityGrant[]
   aiArtifactLifecycleChanges             AiArtifactLifecycle[]
+  aiExportJobs                            AiExportJob[]
+  aiRetentionHolds                        AiRetentionHold[]             @relation("AiRetentionHoldStudent")
   uploadedAssets                         Asset[]                          @relation("UploadedBy")
   createdMediaFolders                    MediaFolder[]                    @relation("MediaFolderCreatedBy")
   createdAnnouncements                   Announcement[]                   @relation("AnnouncementCreatedBy")
@@ -3017,6 +3159,11 @@ model AiMessage {
   contentMarkdown String?                 @map("content_markdown") @db.Text
   tokenCount      Int                     @default(0) @map("token_count")
   metadata        Json?                   @db.JsonB
+  /// Legacy metadata remains available only as migration evidence. New reads
+  /// use the envelope/digest pair and fail closed when it is unavailable.
+  metadataEnvelope Json?                  @map("metadata_envelope") @db.JsonB
+  metadataDigest   String?                @map("metadata_digest") @db.VarChar(128)
+  metadataState    AiContentLifecycleState @default(encrypted) @map("metadata_state")
   contentEnvelope Json?                   @map("content_envelope") @db.JsonB
   contentDigest   String?                 @map("content_digest") @db.VarChar(128)
   contentState    AiContentLifecycleState @default(encrypted) @map("content_state")
@@ -3035,7 +3182,7 @@ model AiRequest {
   /// Structural compatibility marker: idempotencyKeyId String remains the
   /// required request replay identity even when Prisma aligns model columns.
   id                           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId                    String                  @map("student_id") @db.Uuid
+  studentId                    String?                 @map("student_id") @db.Uuid
   conversationId               String?                 @map("conversation_id") @db.Uuid
   requestType                  AiConversationType      @map("request_type")
   promptTemplate               String?                 @map("prompt_template") @db.VarChar(120)
@@ -3045,7 +3192,7 @@ model AiRequest {
   status                       AiRequestLifecycleState @default(pending)
   latencyMs                    Int?                    @map("latency_ms")
   errorCode                    String?                 @map("error_code") @db.VarChar(80)
-  idempotencyKeyId             String                  @unique @map("idempotency_key_id") @db.Uuid
+  idempotencyKeyId             String?                 @unique @map("idempotency_key_id") @db.Uuid
   clientRequestId              String                  @map("client_request_id") @db.VarChar(160)
   requestFingerprint           String                  @map("request_fingerprint") @db.VarChar(128)
   fingerprintKeyVersion        String                  @map("fingerprint_key_version") @db.VarChar(40)
@@ -3089,11 +3236,14 @@ model AiRequest {
   version                      Int                     @default(0)
   idempotencyEvidenceState     String                  @default("active") @map("idempotency_evidence_state") @db.VarChar(30)
   legacyUsageState             AiLegacyUsageState      @default(not_applicable) @map("legacy_usage_state")
+  ownerState                   AiOwnerState            @default(active) @map("owner_state")
+  ownerReferenceDigest         String?                 @map("owner_reference_digest") @db.VarChar(128)
+  accountDeletedAt             DateTime?               @map("account_deleted_at") @db.Timestamptz
   createdAt                    DateTime                @default(now()) @map("created_at") @db.Timestamptz
 
-  student          User                  @relation(fields: [studentId], references: [id])
+  student          User?                 @relation(fields: [studentId], references: [id])
   conversation     AiConversation?       @relation(fields: [conversationId], references: [id])
-  idempotencyKey   AiIdempotencyKey      @relation(fields: [idempotencyKeyId], references: [id])
+  idempotencyKey   AiIdempotencyKey?     @relation(fields: [idempotencyKeyId], references: [id])
   retryOfRequest   AiRequest?            @relation("AiRequestRetry", fields: [retryOfRequestId], references: [id])
   retryRequests    AiRequest[]           @relation("AiRequestRetry")
   userMessage      AiMessage?            @relation("AiRequestUserMessage", fields: [userMessageId], references: [id])
@@ -3431,6 +3581,14 @@ model AiContentMigrationAudit {
   migrationVersion  String                  @map("migration_version") @db.VarChar(80)
   state             AiMigrationState
   details           Json?                   @db.JsonB
+  /// T11 inventory vocabulary is additive to the Sprint 1-4 audit columns.
+  tableName         String                  @map("table_name") @db.VarChar(120)
+  columnName        String                  @map("column_name") @db.VarChar(120)
+  rowCount          Int                     @default(0) @map("row_count")
+  classification    AiMigrationClassification @default(review_required)
+  action            AiMigrationAction      @default(none)
+  status            AiMigrationAuditStatus @default(discovered)
+  rollbackBoundary  String                  @default("pre-retirement") @map("rollback_boundary") @db.VarChar(120)
   createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -3460,7 +3618,7 @@ model AiEnvelopeKey {
 
 model AiIdempotencyKey {
   id                     String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId              String                      @map("student_id") @db.Uuid
+  studentId              String?                     @map("student_id") @db.Uuid
   operation              AiIdempotencyOperation
   clientRequestId        String                      @map("client_request_id") @db.VarChar(160)
   requestFingerprint     String                      @map("request_fingerprint") @db.VarChar(128)
@@ -3480,8 +3638,11 @@ model AiIdempotencyKey {
   settlementDeadlineAt   DateTime?                   @map("settlement_deadline_at") @db.Timestamptz
   expiresAt              DateTime                    @map("expires_at") @db.Timestamptz
   version                Int                         @default(0)
+  ownerState             AiOwnerState                @default(active) @map("owner_state")
+  ownerReferenceDigest   String?                     @map("owner_reference_digest") @db.VarChar(128)
+  accountDeletedAt       DateTime?                   @map("account_deleted_at") @db.Timestamptz
 
-  student            User                  @relation(fields: [studentId], references: [id])
+  student            User?                 @relation(fields: [studentId], references: [id])
   request            AiRequest?
   admissionEvents    AiAdmissionEvent[]
   artifactApply      AiArtifactApply?
@@ -3494,13 +3655,17 @@ model AiIdempotencyKey {
 
 model AiLifecycleOperation {
   id                          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId                   String                    @map("student_id") @db.Uuid
-  idempotencyKeyId            String                    @unique @map("idempotency_key_id") @db.Uuid
+  studentId                   String?                   @map("student_id") @db.Uuid
+  idempotencyKeyId            String?                   @unique @map("idempotency_key_id") @db.Uuid
   operation                   AiIdempotencyOperation
   resultKind                  AiIdempotencyResultKind   @map("result_kind")
   state                       AiLifecycleOperationState @default(pending)
+  ownerState                  AiOwnerState              @default(active) @map("owner_state")
+  ownerReferenceDigest        String?                   @map("owner_reference_digest") @db.VarChar(128)
+  accountDeletedAt            DateTime?                 @map("account_deleted_at") @db.Timestamptz
   targetEntityType            String?                   @map("target_entity_type") @db.VarChar(100)
   targetEntityId              String?                   @map("target_entity_id") @db.Uuid
+  targetState                 AiLifecycleTargetState?   @map("target_state")
   expectedConversationVersion Int?                      @map("expected_conversation_version")
   claimedConversationVersion  Int?                      @map("claimed_conversation_version")
   expectedLifecycleRevision   Int?                      @map("expected_lifecycle_revision")
@@ -3515,16 +3680,260 @@ model AiLifecycleOperation {
   exportExpiresAt             DateTime?                 @map("export_expires_at") @db.Timestamptz
   statusCode                  String?                   @map("status_code") @db.VarChar(80)
   resultState                 String?                   @map("result_state") @db.VarChar(40)
+  recoveryDeadlineAt          DateTime?                 @map("recovery_deadline_at") @db.Timestamptz
+  terminalAt                  DateTime?                 @map("terminal_at") @db.Timestamptz
+  errorCode                   String?                   @map("error_code") @db.VarChar(100)
+  errorDigest                 String?                   @map("error_digest") @db.VarChar(128)
+  targetTombstoneCode         String?                   @map("target_tombstone_code") @db.VarChar(100)
+  handoffSignal               String?                   @map("handoff_signal") @db.VarChar(120)
+  handoffAt                   DateTime?                 @map("handoff_at") @db.Timestamptz
+  handoffState                String?                   @map("handoff_state") @db.VarChar(40)
+  handoffConsumedAt           DateTime?                 @map("handoff_consumed_at") @db.Timestamptz
+  handoffConsumerId           String?                   @map("handoff_consumer_id") @db.VarChar(160)
+  handoffDigest               String?                   @map("handoff_digest") @db.VarChar(128)
+  handoffAckDigest            String?                   @map("handoff_ack_digest") @db.VarChar(128)
+  accountCleanupCorrelationDigest String?               @unique @map("account_cleanup_correlation_digest") @db.VarChar(128)
+  version                     Int                       @default(0)
   createdAt                   DateTime                  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                   DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   expiresAt                   DateTime?                 @map("expires_at") @db.Timestamptz
 
-  student        User             @relation(fields: [studentId], references: [id])
-  idempotencyKey AiIdempotencyKey @relation(fields: [idempotencyKeyId], references: [id])
+  student        User?             @relation(fields: [studentId], references: [id])
+  idempotencyKey AiIdempotencyKey? @relation(fields: [idempotencyKeyId], references: [id])
+  exportJob      AiExportJob?
+  keyDestructionClaims AiKeyDestructionClaim[]
+  purgeWorkItems       AiPurgeWorkItem[]
 
   @@index([studentId, operation, state])
   @@index([state, expiresAt])
+  @@index([operation, accountCleanupCorrelationDigest])
   @@map("ai_lifecycle_operations")
+}
+
+/// Durable learner export package. The operation row is the lifecycle source
+/// of truth; this row stores materialization and one-time access state.
+model AiExportJob {
+  id                            String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operationId                   String                   @unique @map("operation_id") @db.Uuid
+  studentId                    String?                  @map("student_id") @db.Uuid
+  ownerState                   AiOwnerState              @default(active) @map("owner_state")
+  ownerReferenceDigest         String?                  @map("owner_reference_digest") @db.VarChar(128)
+  accountDeletedAt             DateTime?                @map("account_deleted_at") @db.Timestamptz
+  format                       String                   @default("json_v1") @db.VarChar(40)
+  state                        AiExportState             @default(pending)
+  exportAsOf                   DateTime                 @map("export_as_of") @db.Timestamptz
+  snapshotDigest               String?                  @map("snapshot_digest") @db.VarChar(128)
+  packageBytes                 Int?                     @map("package_bytes")
+  downloadReadyAt              DateTime?                @map("download_ready_at") @db.Timestamptz
+  downloadExpiresAt            DateTime?                @map("download_expires_at") @db.Timestamptz
+  exportAccessGrantDigest      String?                  @map("export_access_grant_digest") @db.VarChar(128)
+  exportAccessGrantState       AiExportAccessGrantState @default(none) @map("export_access_grant_state")
+  exportAccessGrantVersion     Int                      @default(0) @map("export_access_grant_version")
+  exportAccessGrantClaimId     String?                  @map("export_access_grant_claim_id") @db.VarChar(160)
+  exportAccessGrantClaimedAt   DateTime?                @map("export_access_grant_claimed_at") @db.Timestamptz
+  exportAccessGrantLeaseExpiresAt DateTime?              @map("export_access_grant_lease_expires_at") @db.Timestamptz
+  materializationClaimId       String?                  @map("materialization_claim_id") @db.VarChar(160)
+  materializationOwnerId       String?                  @map("materialization_owner_id") @db.VarChar(160)
+  materializationClaimedAt     DateTime?                @map("materialization_claimed_at") @db.Timestamptz
+  materializationLeaseExpiresAt DateTime?               @map("materialization_lease_expires_at") @db.Timestamptz
+  materializationFence          Int                      @default(0) @map("materialization_fence")
+  recoveryDeadlineAt           DateTime                 @map("recovery_deadline_at") @db.Timestamptz
+  partialPackagePurgeAt        DateTime?                @map("partial_package_purge_at") @db.Timestamptz
+  terminalRetentionExpiresAt   DateTime?                @map("terminal_retention_expires_at") @db.Timestamptz
+  errorCode                    String?                  @map("error_code") @db.VarChar(100)
+  retentionPolicyVersion       String                   @map("retention_policy_version") @db.VarChar(80)
+  contentEnvelopeKeyId         String?                  @map("content_envelope_key_id") @db.VarChar(240)
+  createdAt                    DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  completedAt                  DateTime?                @map("completed_at") @db.Timestamptz
+  terminalAt                   DateTime?                @map("terminal_at") @db.Timestamptz
+  expiredAt                    DateTime?                @map("expired_at") @db.Timestamptz
+
+  operation AiLifecycleOperation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  student   User?               @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  parts     AiExportPart[]
+
+  @@index([state, recoveryDeadlineAt])
+  @@index([ownerState, downloadExpiresAt])
+  @@map("ai_export_jobs")
+}
+
+model AiExportPart {
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exportJobId          String      @map("export_job_id") @db.Uuid
+  ordinal              Int
+  ciphertextEnvelope   Json        @map("ciphertext_envelope") @db.JsonB
+  plaintextBytes       Int         @map("plaintext_bytes")
+  partDigest           String      @map("part_digest") @db.VarChar(128)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  exportJob AiExportJob @relation(fields: [exportJobId], references: [id], onDelete: Restrict)
+
+  @@unique([exportJobId, ordinal])
+  @@index([exportJobId, ordinal])
+  @@map("ai_export_parts")
+}
+
+model AiRetentionHold {
+  id                    String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectType           AiRetentionHoldSubjectType
+  subjectId             String?                     @map("subject_id") @db.Uuid
+  subjectState          AiRetentionHoldSubjectState @default(attached) @map("subject_state")
+  studentId             String?                     @map("student_id") @db.Uuid
+  subjectReferenceDigest String?                    @map("subject_reference_digest") @db.VarChar(128)
+  holdType              AiRetentionHoldType
+  state                 AiRetentionHoldState        @default(active)
+  reasonCode            String                      @map("reason_code") @db.VarChar(100)
+  actorId               String                      @map("actor_id") @db.VarChar(160)
+  occurredAt            DateTime                    @default(now()) @map("occurred_at") @db.Timestamptz
+  releasedAt            DateTime?                   @map("released_at") @db.Timestamptz
+  holdDigest            String                      @map("hold_digest") @db.VarChar(128)
+  version               Int                         @default(0)
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  student  User?                    @relation("AiRetentionHoldStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  releases AiRetentionHoldRelease[]
+  claims   AiKeyDestructionClaim[]
+
+  @@index([subjectType, subjectId, holdType, state])
+  @@index([studentId, state])
+  @@map("ai_retention_holds")
+}
+
+model AiRetentionHoldRelease {
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  holdId                     String                    @map("hold_id") @db.Uuid
+  expectedHoldVersion        Int                       @map("expected_hold_version")
+  state                      AiRetentionHoldReleaseState @default(pending)
+  requestedByOperatorId      String                    @map("requested_by_operator_id") @db.VarChar(160)
+  requestedCapability        String                    @map("requested_capability") @db.VarChar(100)
+  requestedCapabilityDigest  String                    @map("requested_capability_digest") @db.VarChar(128)
+  operatorAId                String                    @map("operator_a_id") @db.VarChar(160)
+  operatorAApprovedAt        DateTime?                 @map("operator_a_approved_at") @db.Timestamptz
+  operatorADigest            String?                   @map("operator_a_digest") @db.VarChar(128)
+  operatorBId                String?                   @map("operator_b_id") @db.VarChar(160)
+  operatorBApprovedAt        DateTime?                 @map("operator_b_approved_at") @db.Timestamptz
+  operatorBDigest            String?                   @map("operator_b_digest") @db.VarChar(128)
+  approvedByOperatorId       String?                   @map("approved_by_operator_id") @db.VarChar(160)
+  approvedCapability         String?                   @map("approved_capability") @db.VarChar(100)
+  approvedCapabilityDigest   String?                   @map("approved_capability_digest") @db.VarChar(128)
+  operatorACapabilityDecisionId String?                @map("operator_a_capability_decision_id") @db.VarChar(160)
+  operatorACapabilitySnapshotVersion Int?              @map("operator_a_capability_snapshot_version")
+  operatorACapabilityPolicyVersion String?             @map("operator_a_capability_policy_version") @db.VarChar(120)
+  operatorARequiredCapabilityUnionDigest String?       @map("operator_a_required_capability_union_digest") @db.VarChar(128)
+  operatorAGrantedCapabilitySetDigest String?          @map("operator_a_granted_capability_set_digest") @db.VarChar(128)
+  operatorACapabilityDecision String?                  @map("operator_a_capability_decision") @db.VarChar(20)
+  operatorACapabilityEvaluatedAt DateTime?             @map("operator_a_capability_evaluated_at") @db.Timestamptz
+  operatorACapabilitySnapshotDigest String?             @map("operator_a_capability_snapshot_digest") @db.VarChar(128)
+  operatorBCapabilityDecisionId String?                 @map("operator_b_capability_decision_id") @db.VarChar(160)
+  operatorBCapabilitySnapshotVersion Int?               @map("operator_b_capability_snapshot_version")
+  operatorBCapabilityPolicyVersion String?              @map("operator_b_capability_policy_version") @db.VarChar(120)
+  operatorBRequiredCapabilityUnionDigest String?        @map("operator_b_required_capability_union_digest") @db.VarChar(128)
+  operatorBGrantedCapabilitySetDigest String?           @map("operator_b_granted_capability_set_digest") @db.VarChar(128)
+  operatorBCapabilityDecision String?                   @map("operator_b_capability_decision") @db.VarChar(20)
+  operatorBCapabilityEvaluatedAt DateTime?              @map("operator_b_capability_evaluated_at") @db.Timestamptz
+  operatorBCapabilitySnapshotDigest String?             @map("operator_b_capability_snapshot_digest") @db.VarChar(128)
+  reasonDigest               String?                   @map("reason_digest") @db.VarChar(128)
+  rejectionCode              String?                   @map("rejection_code") @db.VarChar(100)
+  version                    Int                       @default(0)
+  decisionSnapshot           Json                      @map("decision_snapshot") @db.JsonB
+  decisionSnapshotDigest     String                    @map("decision_snapshot_digest") @db.VarChar(128)
+  appliedAt                  DateTime?                 @map("applied_at") @db.Timestamptz
+  rejectedAt                 DateTime?                 @map("rejected_at") @db.Timestamptz
+  createdAt                  DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  hold AiRetentionHold @relation(fields: [holdId], references: [id], onDelete: Restrict)
+
+  @@unique([holdId, expectedHoldVersion])
+  @@index([state, createdAt])
+  @@map("ai_retention_hold_releases")
+}
+
+model AiKeyDestructionClaim {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operationId               String                    @map("operation_id") @db.Uuid
+  holdId                    String?                   @map("hold_id") @db.Uuid
+  objectType                String                    @map("object_type") @db.VarChar(100)
+  objectId                  String                    @map("object_id") @db.Uuid
+  keyLineageDigest          String                    @map("key_lineage_digest") @db.VarChar(128)
+  state                     AiKeyDestructionClaimState @default(pending)
+  claimVersion              Int                       @default(0) @map("claim_version")
+  requestedByOperatorId     String                    @map("requested_by_operator_id") @db.VarChar(160)
+  requestedCapability       String                    @map("requested_capability") @db.VarChar(100)
+  requestedCapabilityDigest String                    @map("requested_capability_digest") @db.VarChar(128)
+  operatorAId               String                    @map("operator_a_id") @db.VarChar(160)
+  operatorAApprovedAt       DateTime?                 @map("operator_a_approved_at") @db.Timestamptz
+  operatorADigest           String?                   @map("operator_a_digest") @db.VarChar(128)
+  operatorBId               String?                   @map("operator_b_id") @db.VarChar(160)
+  operatorBApprovedAt       DateTime?                 @map("operator_b_approved_at") @db.Timestamptz
+  operatorBDigest           String?                   @map("operator_b_digest") @db.VarChar(128)
+  operatorACapabilityDecisionId String?                @map("operator_a_capability_decision_id") @db.VarChar(160)
+  operatorACapabilitySnapshotVersion Int?              @map("operator_a_capability_snapshot_version")
+  operatorACapabilityPolicyVersion String?             @map("operator_a_capability_policy_version") @db.VarChar(120)
+  operatorARequiredCapabilityUnionDigest String?       @map("operator_a_required_capability_union_digest") @db.VarChar(128)
+  operatorAGrantedCapabilitySetDigest String?          @map("operator_a_granted_capability_set_digest") @db.VarChar(128)
+  operatorACapabilityDecision String?                  @map("operator_a_capability_decision") @db.VarChar(20)
+  operatorACapabilityEvaluatedAt DateTime?             @map("operator_a_capability_evaluated_at") @db.Timestamptz
+  operatorACapabilitySnapshotDigest String?             @map("operator_a_capability_snapshot_digest") @db.VarChar(128)
+  operatorBCapabilityDecisionId String?                 @map("operator_b_capability_decision_id") @db.VarChar(160)
+  operatorBCapabilitySnapshotVersion Int?               @map("operator_b_capability_snapshot_version")
+  operatorBCapabilityPolicyVersion String?              @map("operator_b_capability_policy_version") @db.VarChar(120)
+  operatorBRequiredCapabilityUnionDigest String?        @map("operator_b_required_capability_union_digest") @db.VarChar(128)
+  operatorBGrantedCapabilitySetDigest String?           @map("operator_b_granted_capability_set_digest") @db.VarChar(128)
+  operatorBCapabilityDecision String?                   @map("operator_b_capability_decision") @db.VarChar(20)
+  operatorBCapabilityEvaluatedAt DateTime?              @map("operator_b_capability_evaluated_at") @db.Timestamptz
+  operatorBCapabilitySnapshotDigest String?             @map("operator_b_capability_snapshot_digest") @db.VarChar(128)
+  approvedByOperatorId      String?                   @map("approved_by_operator_id") @db.VarChar(160)
+  approvedCapability        String?                   @map("approved_capability") @db.VarChar(100)
+  approvedCapabilityDigest  String?                   @map("approved_capability_digest") @db.VarChar(128)
+  decisionSnapshot          Json                      @map("decision_snapshot") @db.JsonB
+  decisionSnapshotDigest    String                    @map("decision_snapshot_digest") @db.VarChar(128)
+  erasureOverride           Boolean                   @default(false) @map("erasure_override")
+  erasureOverrideCode       String?                   @map("erasure_override_code") @db.VarChar(100)
+  overrideHoldId             String?                  @map("override_hold_id") @db.Uuid
+  overrideAuthorityDigest    String?                  @map("override_authority_digest") @db.VarChar(128)
+  overrideReasonDigest       String?                  @map("override_reason_digest") @db.VarChar(128)
+  keyRegistryResultDigest    String?                  @map("key_registry_result_digest") @db.VarChar(128)
+  recoveryDeadlineAt         DateTime?                @map("recovery_deadline_at") @db.Timestamptz
+  startedAt                 DateTime?                 @map("started_at") @db.Timestamptz
+  destroyedAt               DateTime?                 @map("destroyed_at") @db.Timestamptz
+  errorCode                 String?                   @map("error_code") @db.VarChar(100)
+  createdAt                 DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  operation AiLifecycleOperation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  hold      AiRetentionHold?    @relation(fields: [holdId], references: [id], onDelete: Restrict)
+
+  @@unique([objectType, objectId, keyLineageDigest])
+  @@index([operationId, state])
+  @@index([state, createdAt])
+  @@map("ai_key_destruction_claims")
+}
+
+model AiPurgeWorkItem {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operationId   String               @map("operation_id") @db.Uuid
+  objectType    String               @map("object_type") @db.VarChar(100)
+  objectId      String               @map("object_id") @db.Uuid
+  state         AiPurgeWorkItemState @default(pending)
+  claimId       String?              @map("claim_id") @db.VarChar(160)
+  claimedAt     DateTime?            @map("claimed_at") @db.Timestamptz
+  leaseExpiresAt DateTime?           @map("lease_expires_at") @db.Timestamptz
+  fence         Int                  @default(0)
+  attemptCount  Int                  @default(0) @map("attempt_count")
+  keyLineageDigest String?           @map("key_lineage_digest") @db.VarChar(128)
+  errorCode     String?              @map("error_code") @db.VarChar(100)
+  errorDigest   String?              @map("error_digest") @db.VarChar(128)
+  recoveryDeadlineAt DateTime?       @map("recovery_deadline_at") @db.Timestamptz
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  operation AiLifecycleOperation @relation(fields: [operationId], references: [id], onDelete: Restrict)
+
+  @@unique([operationId, objectType, objectId])
+  @@index([state, leaseExpiresAt])
+  @@map("ai_purge_work_items")
 }
 
 model AiConversationSource {
@@ -3572,6 +3981,7 @@ model AiContextPack {
   purgeStartedAt                        DateTime?                @map("purge_started_at") @db.Timestamptz
   purgedAt                              DateTime?                @map("purged_at") @db.Timestamptz
   purgeReason                           String?                  @map("purge_reason") @db.VarChar(160)
+  contentKeyLineageDigest               String?                  @map("content_key_lineage_digest") @db.VarChar(128)
   createdAt                             DateTime                 @default(now()) @map("created_at") @db.Timestamptz
 
   request AiRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
@@ -3603,6 +4013,7 @@ model AiRequestSource {
   purgeStartedAt            DateTime?              @map("purge_started_at") @db.Timestamptz
   purgedAt                  DateTime?              @map("purged_at") @db.Timestamptz
   purgeReason               String?                @map("purge_reason") @db.VarChar(160)
+  contentKeyLineageDigest   String?                @map("content_key_lineage_digest") @db.VarChar(128)
   createdAt                 DateTime               @default(now()) @map("created_at") @db.Timestamptz
 
   contextPack AiContextPack @relation(fields: [contextPackId], references: [id], onDelete: Cascade)
@@ -3666,6 +4077,12 @@ model AiRequestResultStage {
   consumedAt                 DateTime?          @map("consumed_at") @db.Timestamptz
   expiresAt                  DateTime           @map("expires_at") @db.Timestamptz
   retentionPolicyVersion     String             @map("retention_policy_version") @db.VarChar(80)
+  purgeState                 AiPurgeState       @default(available) @map("purge_state")
+  purgeAt                    DateTime?          @map("purge_at") @db.Timestamptz
+  purgeStartedAt             DateTime?          @map("purge_started_at") @db.Timestamptz
+  purgedAt                   DateTime?          @map("purged_at") @db.Timestamptz
+  purgeReason                String?            @map("purge_reason") @db.VarChar(160)
+  contentKeyLineageDigest    String?            @map("content_key_lineage_digest") @db.VarChar(128)
   version                    Int                @default(0)
 
   request AiRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
@@ -3749,6 +4166,8 @@ model AiArtifactLifecycle {
   changedAt               DateTime                 @default(now()) @map("changed_at") @db.Timestamptz
   changedBy               String?                  @map("changed_by") @db.Uuid
   purgeDigest             String?                  @map("purge_digest") @db.VarChar(128)
+  deletedAt               DateTime?                @map("deleted_at") @db.Timestamptz
+  retentionPolicyVersion  String?                  @map("retention_policy_version") @db.VarChar(80)
 
   artifact AiArtifact @relation(fields: [artifactRevisionId], references: [id], onDelete: Cascade)
   actor    User?      @relation(fields: [changedBy], references: [id])
@@ -3798,6 +4217,12 @@ model AdaptivePracticeItem {
   renderReleaseState        String?  @map("render_release_state") @db.VarChar(24)
   answerReleaseState        String?  @map("answer_release_state") @db.VarChar(24)
   explanationReleaseState   String?  @map("explanation_release_state") @db.VarChar(24)
+  purgeState                AiPurgeState @default(available) @map("purge_state")
+  purgeAt                   DateTime? @map("purge_at") @db.Timestamptz
+  purgeStartedAt            DateTime? @map("purge_started_at") @db.Timestamptz
+  purgedAt                  DateTime? @map("purged_at") @db.Timestamptz
+  purgeReason               String? @map("purge_reason") @db.VarChar(160)
+  contentKeyLineageDigest   String? @map("content_key_lineage_digest") @db.VarChar(128)
   createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   session AdaptivePracticeSession  @relation(fields: [adaptiveSessionId], references: [id], onDelete: Cascade)

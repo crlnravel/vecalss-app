@@ -634,7 +634,7 @@ export class VeraPrismaAdmissionService {
           outputSchemaHash: true,
         },
       });
-      if (!initial) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (!initial || !initial.idempotencyKeyId) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${input.requestId}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({
@@ -711,14 +711,14 @@ export class VeraPrismaAdmissionService {
     request: {
       id: string;
       conversationId: string | null;
-      idempotencyKeyId: string;
+      idempotencyKeyId: string | null;
       createdAt: Date;
       status: AiRequestLifecycleState;
       version: number;
       settlementDeadlineAt: Date | null;
       quotaUnitsReserved: number;
       assistantMessageId: string | null;
-      idempotencyKey: { version: number; state: AiIdempotencyState; resultId: string | null };
+      idempotencyKey: { version: number; state: AiIdempotencyState; resultId: string | null } | null;
     };
     daily: {
       id: string;
@@ -742,6 +742,7 @@ export class VeraPrismaAdmissionService {
     persistDurableResult: (tx: Prisma.TransactionClient, normalizedResult: NormalizedVeraResult) => Promise<VeraDurableCallbackResult>;
   }): Promise<{ requestId: string; assistantMessageId: string | null; usageAccountingState: AiUsageAccountingState }> {
     const { tx, request, daily, stage, normalizedResult, now } = input;
+    if (!request.idempotencyKeyId || !request.idempotencyKey) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
     const durable = await input.persistDurableResult(tx, normalizedResult);
     const reserved = request.quotaUnitsReserved;
     const actual = stage.quotaUnitsConsumed ?? reserved;
@@ -807,7 +808,7 @@ export class VeraPrismaAdmissionService {
         where: { id: input.requestId },
         select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
       });
-      if (!initial) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (!initial || !initial.studentId || !initial.idempotencyKeyId) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
 
       // Lock order: idempotency -> frozen daily row -> request -> stage.
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
@@ -817,7 +818,7 @@ export class VeraPrismaAdmissionService {
       await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
-      if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (!request || !request.studentId || !request.idempotencyKeyId || !request.idempotencyKey) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) {
         return { requestId: request.id, assistantMessageId: request.assistantMessageId, usageAccountingState: request.usageAccountingState };
       }
@@ -858,7 +859,7 @@ export class VeraPrismaAdmissionService {
         where: { id: input.requestId },
         select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
       });
-      if (!initial) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (!initial || !initial.studentId || !initial.idempotencyKeyId) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${initial.idempotencyKeyId}::uuid FOR UPDATE`;
       const dailyCandidates = await tx.aiUsageDaily.findMany({
         where: { studentId: initial.studentId, ledgerVersion: AiUsageLedgerVersion.vera_quota_v1 },
@@ -871,7 +872,7 @@ export class VeraPrismaAdmissionService {
       await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
-      if (!request) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
+      if (!request || !request.studentId || !request.idempotencyKeyId || !request.idempotencyKey) throw new VeraAdmissionError({ code: "request_not_found", status: 404 });
       if (request.status === AiRequestLifecycleState.succeeded
         || request.status === AiRequestLifecycleState.fallback
         || request.status === AiRequestLifecycleState.failed) return;
@@ -939,7 +940,7 @@ export class VeraPrismaAdmissionService {
         where: { id: input.requestId },
         select: { id: true, studentId: true, idempotencyKeyId: true, createdAt: true },
       });
-      if (!initial) return;
+      if (!initial || !initial.studentId || !initial.idempotencyKeyId) return;
 
       // The worker follows the same global lock order as admission/finalizer:
       // idempotency -> frozen daily row -> request -> stage.
@@ -955,7 +956,7 @@ export class VeraPrismaAdmissionService {
       await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${daily.id}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM ai_requests WHERE id = ${initial.id}::uuid FOR UPDATE`;
       const request = await tx.aiRequest.findUnique({ where: { id: initial.id }, include: { idempotencyKey: true } });
-      if (!request) return;
+      if (!request || !request.studentId || !request.idempotencyKeyId || !request.idempotencyKey) return;
       if (request.status === AiRequestLifecycleState.succeeded || request.status === AiRequestLifecycleState.fallback || request.status === AiRequestLifecycleState.failed) return;
       if (request.settlementDeadlineAt && request.settlementDeadlineAt > now && !input.missingStage && !input.forceUnknown) return;
 

@@ -395,6 +395,7 @@ export function createVeraDurableResultCallback(input: {
       select: {
         id: true,
         studentId: true,
+        idempotencyKeyId: true,
         conversationId: true,
         requestType: true,
         featureKey: true,
@@ -409,11 +410,13 @@ export function createVeraDurableResultCallback(input: {
       },
     });
     if (!request) throw new VeraDurableResultError("request_not_found");
-    const entry = callbackForRequest(request);
+    if (!request.studentId || !request.idempotencyKeyId) throw new VeraDurableResultError("request_not_found");
+    const requestForCallback = request as LockedRequestTuple;
+    const entry = callbackForRequest(requestForCallback);
     if (entry.toolId === null) return { assistantMessageId: randomUUID() };
     const payload = assertNormalizedStudioPayload(result.structured);
     if (payload.toolId !== entry.toolId) throw new VeraDurableResultError("durable_callback_mismatch");
-    assertFeatureTuple(request, payload);
+    assertFeatureTuple(requestForCallback, payload);
     let task: {
       blocks?: Array<{ sourceType?: unknown; sourceId?: unknown }>;
       authority?: { studio?: VeraStudioIdentityAuthority; drill?: FrozenDrillAuthority | null };
@@ -427,7 +430,7 @@ export function createVeraDurableResultCallback(input: {
     }
     let identity: VeraStudioIdentityAuthority;
     try {
-      identity = assertStudioIdentityAuthority(task.authority?.studio, request.studentId);
+      identity = assertStudioIdentityAuthority(task.authority?.studio, requestForCallback.studentId);
     } catch {
       throw new VeraDurableResultError("durable_callback_mismatch");
     }
@@ -437,7 +440,7 @@ export function createVeraDurableResultCallback(input: {
         : []);
     try {
       await lockAndRevalidateStudioAuthority(tx, {
-        studentId: request.studentId,
+        studentId: requestForCallback.studentId,
         selection,
         frozen: identity,
         drill: task.authority?.drill ?? null,
@@ -452,18 +455,18 @@ export function createVeraDurableResultCallback(input: {
       if (!drillAuthority) throw new VeraDurableResultError("drill_candidate_unavailable");
     }
     const source = entry.toolId === "analysis"
-      ? await persistAnalysis({ tx, envelope: input.envelope, request, result, payload })
+      ? await persistAnalysis({ tx, envelope: input.envelope, request: requestForCallback, result, payload })
       : entry.toolId === "ptn"
-        ? await persistPtn({ tx, envelope: input.envelope, request, payload })
+        ? await persistPtn({ tx, envelope: input.envelope, request: requestForCallback, payload })
         : entry.toolId === "drill"
-          ? await persistDrill({ tx, envelope: input.envelope, request, payload, authority: drillAuthority! })
+          ? await persistDrill({ tx, envelope: input.envelope, request: requestForCallback, payload, authority: drillAuthority! })
           : {
             sourceEntityType: "AiRequest",
             sourceEntityId: request.id,
             sourceEntityRevision: request.version,
             sourceEntityDigest: payload.digest,
           };
-    const artifact = await createArtifact({ tx, envelope: input.envelope, request, payload, ...source });
+    const artifact = await createArtifact({ tx, envelope: input.envelope, request: requestForCallback, payload, ...source });
     return { artifactRevisionId: artifact.id, sourceEntityId: source.sourceEntityId };
   };
 }

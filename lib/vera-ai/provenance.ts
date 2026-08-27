@@ -38,6 +38,49 @@ export const VERA_LEGACY_CONTENT_FIELDS = [
   { sourceTable: "adaptive_practice_items", sourceField: "scoring_snapshot_ciphertext", contentClass: "hidden_system" as const },
 ];
 
+/** Sprint 5 inventory adds every legacy scalar/token source named by the
+ * cutover contract. The older list above remains stable for Sprint 1-4
+ * callers; T11 workers use this complete list. */
+export const VERA_T11_LEGACY_INVENTORY_FIELDS = [
+  ...VERA_LEGACY_CONTENT_FIELDS,
+  { sourceTable: "ai_messages", sourceField: "content_markdown:role=system", contentClass: "hidden_system" as const },
+  { sourceTable: "ai_conversations", sourceField: "context_entity_type", contentClass: "content_free" as const },
+  { sourceTable: "ai_conversations", sourceField: "context_entity_id", contentClass: "content_free" as const },
+  { sourceTable: "adaptive_practice_answers", sourceField: "generated_item_ref", contentClass: "content_free" as const },
+  { sourceTable: "ai_requests", sourceField: "model", contentClass: "content_free" as const },
+  { sourceTable: "ai_requests", sourceField: "input_tokens", contentClass: "content_free" as const },
+  { sourceTable: "ai_requests", sourceField: "output_tokens", contentClass: "content_free" as const },
+  { sourceTable: "ai_usage_daily", sourceField: "prompt_tokens", contentClass: "content_free" as const },
+  { sourceTable: "ai_usage_daily", sourceField: "completion_tokens", contentClass: "content_free" as const },
+];
+
+export function assertT11MigrationInventoryComplete(entries: MigrationInventoryEntry[]): void {
+  const expected = new Map(VERA_T11_LEGACY_INVENTORY_FIELDS.map((field) => [
+    `${field.sourceTable}:${field.sourceField}`,
+    field.contentClass,
+  ]));
+  const actual = new Map(entries.map((entry) => [
+    `${entry.sourceTable}:${entry.sourceField}`,
+    entry,
+  ]));
+  const missing = [...expected.keys()].filter((key) => !actual.has(key));
+  const wrongClass = [...actual.values()]
+    .filter((entry) => expected.has(`${entry.sourceTable}:${entry.sourceField}`))
+    .filter((entry) => expected.get(`${entry.sourceTable}:${entry.sourceField}`) !== entry.contentClass)
+    .map((entry) => `${entry.sourceTable}:${entry.sourceField}`);
+  const unclassified = [...actual.values()]
+    .filter((entry) => expected.has(`${entry.sourceTable}:${entry.sourceField}`) && entry.unclassifiedPlaintext > 0)
+    .map((entry) => `${entry.sourceTable}:${entry.sourceField}`);
+  if (missing.length || wrongClass.length || unclassified.length) {
+    throw new VeraContractError(
+      "legacy_context_rejected",
+      "The complete T11 legacy inventory is not classified.",
+      409,
+      { missing, wrongClass, unclassified },
+    );
+  }
+}
+
 export function assertMigrationInventoryComplete(entries: MigrationInventoryEntry[]): void {
   const expected = new Map(VERA_LEGACY_CONTENT_FIELDS.map((field) => [
     `${field.sourceTable}:${field.sourceField}`,
