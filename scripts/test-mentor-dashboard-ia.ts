@@ -491,6 +491,7 @@ assert.match(dashboardModuleSource, /recentKuis/u);
 assert.match(dashboardModuleSource, /scheduledKuis/u);
 assert.match(dashboardModuleSource, /scheduledTryout/u);
 assert.match(dashboardModuleSource, /MentorWorkspaceShell/u);
+assert.match(dashboardModuleSource, /sidebarAppearance="reference"/u);
 assert.match(dashboardModuleSource, /ReferenceActivityFeed/u);
 assert.match(dashboardModuleSource, /ReferenceEmptyState/u);
 assert.match(dashboardModuleSource, /ReferenceTaskCard/u);

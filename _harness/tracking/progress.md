@@ -11,10 +11,14 @@
 - [x] Kept recent resource links actionable and localized the extracted status
   map for mentor content states (`Draf`, `Terjadwal`, `Diterbitkan`, and
   `Diarsipkan`).
+- [x] Applied the reference sidebar appearance only on `/mentor/dashboard`:
+  floating Vecalss-tokenized rail, mint active navigation, 44px targets, and
+  a desktop collapse affordance while preserving the existing Sidebar/Sheet
+  behavior. Other Kapten pages remain unchanged.
 - [x] Updated `test:mentor-dashboard-ia`; focused contract, focused ESLint,
   Impeccable detector, and production compilation pass.
-- [ ] Authenticated browser visual QA is pending because PostgreSQL at
-  `127.0.0.1:55432` and the Docker daemon are unavailable in this environment.
+- [x] Authenticated ego-browser visual QA passes at desktop and 390px mobile
+  widths, including sidebar collapse and mobile Sheet open/close.
 - [x] Commit: `3777553` (`feat: adopt dashboard components on mentor home`).
 
 ## Reference dashboard component extraction (2026-08-27)

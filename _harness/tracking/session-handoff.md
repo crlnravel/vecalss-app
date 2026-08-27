@@ -18,17 +18,22 @@
 - Decision: recent resources remain individually actionable through linked
   activity titles; scheduled resources remain linked task cards. Content status
   labels are localized for mentor surfaces.
+- Decision: `/mentor/dashboard` opts into a page-scoped reference sidebar
+  appearance—floating Vecalss-tokenized rail, mint active navigation, 44px
+  targets, and a desktop collapse affordance—while preserving the existing
+  Sidebar/Sheet primitives. Other Kapten pages remain on the default shell.
+- Files for the sidebar adoption: `modules/mentor/MentorDashboardPageModule.tsx`,
+  `modules/mentor/components/mentor-sidebar.tsx`, and
+  `modules/mentor/components/mentor-workspace-shell.tsx`.
 - Verification: `pnpm test:mentor-dashboard-ia` passes; focused ESLint,
-  Impeccable detector, and `git diff --check` pass. `pnpm build` compiles the
-  adopted dashboard and stops at the pre-existing `mdx-components.tsx`
-  anchor/ref mismatch. Full lint/typecheck remain blocked by the preserved
-  `tmp/reference/res1` diagnostics.
-- Browser QA blocker: the running app cannot authenticate because PostgreSQL
-  at `127.0.0.1:55432` is unavailable; Docker is also unavailable. The
-  existing server was not stopped or modified.
-- Next: rerun authenticated desktop/mobile visual QA when the local database is
-  available, then consider another bounded role-surface adoption only after
-  review.
+  Impeccable detector, and `git diff --check` pass. Authenticated ego-browser
+  visual QA passes at desktop and 390px mobile widths, including collapse,
+  mobile Sheet open/close, active navigation, and dashboard data states.
+  `pnpm build` compiles the adopted dashboard and stops at the pre-existing
+  `mdx-components.tsx` anchor/ref mismatch. Full lint/typecheck remain blocked
+  by preserved `tmp/reference/res1` diagnostics.
+- Next: review this bounded sidebar adoption before approving another
+  mentor/Kapten/admin surface; keep student pages out of scope.
 
 ## Reference dashboard component extraction (2026-08-27)
 

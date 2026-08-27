@@ -93,6 +93,7 @@ function MentorNavigationConfirmDialog({
 
 function MentorWorkspaceShell({
   activeLabel,
+  sidebarAppearance = "default",
   breadcrumbLabel,
   breadcrumbParent,
   children,
@@ -114,6 +115,7 @@ function MentorWorkspaceShell({
   onNavigateAway?: () => boolean;
   searchPlaceholder?: string;
   session: SessionContext;
+  sidebarAppearance?: "default" | "reference";
   showBreadcrumb?: boolean;
   showSearch?: boolean;
   shouldGuardNavigation?: boolean;
@@ -293,16 +295,38 @@ function MentorWorkspaceShell({
 
   return (
     <>
-      <SidebarProvider>
-        <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
-          <MentorSidebar
-            activeLabel={activeLabel}
-          />
+      <SidebarProvider
+        className={sidebarAppearance === "reference" ? "lg:gap-2 lg:p-6" : undefined}
+      >
+        <div
+          className={cn(
+            "flex min-h-svh w-full bg-[#f7faf8] text-secondary-900",
+            sidebarAppearance === "reference" && "lg:gap-2",
+            sidebarAppearance === "reference" && "bg-secondary-50",
+          )}
+        >
+          <MentorSidebar activeLabel={activeLabel} appearance={sidebarAppearance} />
 
-          <SidebarInset className="min-w-0 bg-transparent">
-            <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+          <SidebarInset
+            className={cn(
+              "min-w-0 bg-transparent",
+              sidebarAppearance === "reference" && "lg:rounded-3xl",
+            )}
+          >
+            <header
+              className={cn(
+                "sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl",
+                sidebarAppearance === "reference" &&
+                  "bg-secondary-50/90 lg:rounded-3xl lg:border",
+              )}
+            >
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-                <SidebarTrigger className="shrink-0" />
+                <SidebarTrigger
+                  className={cn(
+                    "shrink-0",
+                    sidebarAppearance === "reference" && "lg:hidden",
+                  )}
+                />
 
                 {showBreadcrumb ? (
                   <div className="hidden min-w-0 flex-1 md:block">

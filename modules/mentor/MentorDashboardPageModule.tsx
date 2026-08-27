@@ -131,6 +131,7 @@ function MentorDashboardPageModule({
       mainClassName="gap-10 lg:gap-12"
       searchPlaceholder="Cari konten, draft, jadwal, atau asset..."
       session={session}
+      sidebarAppearance="reference"
     >
       <ReferencePageHeader
         actions={<QuickCreateMenu label="Buat konten" />}
