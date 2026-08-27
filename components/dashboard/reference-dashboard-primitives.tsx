@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 import {
   REFERENCE_ICON_TONE_CLASS_NAMES,
+  REFERENCE_STATUS_LABELS,
   REFERENCE_STATUS_TONE_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
   type ReferenceIconTone,
@@ -185,8 +186,11 @@ function ReferenceProgressRing({
   return (
     <div
       aria-label={ariaLabel ?? `${Math.round(normalizedValue)}%`}
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={Math.round(normalizedValue)}
       className={cn("relative shrink-0", className)}
-      role="img"
+      role="progressbar"
       style={{ height: size, width: size }}
     >
       <svg
@@ -205,7 +209,7 @@ function ReferenceProgressRing({
           strokeWidth={strokeWidth}
         />
         <circle
-          className="transition-[stroke-dashoffset] duration-700 ease-out"
+          className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
           cx={size / 2}
           cy={size / 2}
           fill="none"
@@ -283,7 +287,7 @@ function ReferenceStatCard({
 
   const classes = cn(
     REFERENCE_SURFACE_CLASS_NAMES.raised,
-    REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+    href && REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
     "flex min-w-0 flex-col items-center p-4 text-center",
     className,
   );
@@ -407,7 +411,6 @@ function ReferenceActivityFeed({
   return (
     <ReferenceSurface
       className={cn("flex min-h-0 flex-col overflow-hidden", className)}
-      interactive
     >
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-5 md:px-5">
         <div className="flex items-center gap-2">
@@ -493,8 +496,11 @@ function ReferenceGoalProgressRow({
     </>
   );
 
+  const isInteractive = Boolean(href);
   const classes = cn(
-    "flex min-w-0 items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3.5 py-3 transition-[transform,border-color,box-shadow,background-color] duration-200 hover:border-primary-200 hover:bg-primary-50 motion-safe:hover:-translate-y-0.5 focus-visible:border-primary-400 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+    "flex min-w-0 items-center gap-3 rounded-2xl border border-primary-100 bg-primary-50/70 px-3.5 py-3",
+    isInteractive &&
+      "transition-[transform,border-color,box-shadow,background-color] duration-200 hover:border-primary-200 hover:bg-primary-50 motion-safe:hover:-translate-y-0.5 focus-visible:border-primary-400 focus-visible:ring-3 focus-visible:ring-primary-300/35",
     className,
   );
 
@@ -576,7 +582,7 @@ function ReferenceTaskCard({
 
   const classes = cn(
     REFERENCE_SURFACE_CLASS_NAMES.raised,
-    REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+    (href || onClick) && REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
     "block w-full p-4 text-left",
     className,
   );
@@ -601,15 +607,20 @@ function ReferenceTaskCard({
 }
 
 function formatStatusLabel(status: string) {
-  return status
+  const statusKey = status.trim().toLowerCase().replace(/-+/g, "_");
+  const fallbackLabel = status
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+
+  return REFERENCE_STATUS_LABELS[statusKey as keyof typeof REFERENCE_STATUS_LABELS] ?? fallbackLabel;
 }
 
 function resolveStatusTone(status: string): ReferenceStatusTone {
+  const statusKey = status.trim().toLowerCase().replace(/-+/g, "_");
+
   return (
     REFERENCE_STATUS_TONE_CLASS_NAMES[
-      status as keyof typeof REFERENCE_STATUS_TONE_CLASS_NAMES
+      statusKey as keyof typeof REFERENCE_STATUS_TONE_CLASS_NAMES
     ] ?? "neutral"
   );
 }

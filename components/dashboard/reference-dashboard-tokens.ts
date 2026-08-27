@@ -30,13 +30,13 @@ const REFERENCE_ICON_TONE_CLASS_NAMES = {
 } as const;
 
 const REFERENCE_STATUS_TONE_CLASS_NAMES = {
-  active: "success",
+  active: "active",
   blocked: "danger",
   completed: "success",
   danger: "danger",
   done: "success",
   draft: "neutral",
-  in_progress: "info",
+  in_progress: "active",
   info: "info",
   need_help: "attention",
   neutral: "neutral",
@@ -46,6 +46,23 @@ const REFERENCE_STATUS_TONE_CLASS_NAMES = {
   scheduled: "info",
 } as const;
 
+const REFERENCE_STATUS_LABELS = {
+  active: "Aktif",
+  blocked: "Terblokir",
+  completed: "Selesai",
+  danger: "Bermasalah",
+  done: "Selesai",
+  draft: "Draf",
+  in_progress: "Berlangsung",
+  info: "Info",
+  need_help: "Perlu bantuan",
+  neutral: "Netral",
+  on_track: "Sesuai target",
+  paused: "Dijeda",
+  pending: "Menunggu",
+  scheduled: "Terjadwal",
+} as const;
+
 type ReferenceIconTone = keyof typeof REFERENCE_ICON_TONE_CLASS_NAMES;
 type ReferenceStatus = keyof typeof REFERENCE_STATUS_TONE_CLASS_NAMES;
 type ReferenceStatusTone = (typeof REFERENCE_STATUS_TONE_CLASS_NAMES)[ReferenceStatus];
@@ -53,6 +70,7 @@ type ReferenceStatusTone = (typeof REFERENCE_STATUS_TONE_CLASS_NAMES)[ReferenceS
 export {
   REFERENCE_ICON_TONE_CLASS_NAMES,
   REFERENCE_NAV_CLASS_NAMES,
+  REFERENCE_STATUS_LABELS,
   REFERENCE_STATUS_TONE_CLASS_NAMES,
   REFERENCE_SURFACE_CLASS_NAMES,
 };

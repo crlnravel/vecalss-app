@@ -64,6 +64,7 @@ function ReferenceDashboardComponentPreview() {
       brand={<span className="font-heading text-base font-semibold">Vecalss</span>}
       brandMark={<span className="size-3 rounded-full bg-primary-700" />}
       header={<span className="truncate text-sm font-medium text-secondary-500">Pratinjau komponen</span>}
+      mobilePrimaryNavigation={previewNavigation[0].items}
       navigation={previewNavigation}
     >
       <ReferencePageHeader

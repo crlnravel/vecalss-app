@@ -47,6 +47,7 @@ type ReferenceDashboardShellProps = {
   footer?: ReactNode;
   header?: ReactNode;
   mainClassName?: string;
+  mobilePrimaryNavigation?: readonly ReferenceDashboardNavItem[];
   navigation: readonly ReferenceDashboardNavGroup[];
 };
 
@@ -59,6 +60,7 @@ function ReferenceDashboardShell({
   footer,
   header,
   mainClassName,
+  mobilePrimaryNavigation,
   navigation,
 }: ReferenceDashboardShellProps) {
   const pathname = usePathname();
@@ -67,7 +69,10 @@ function ReferenceDashboardShell({
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const wasMobileMenuOpen = useRef(false);
   const items = useMemo(() => navigation.flatMap((group) => group.items), [navigation]);
+  const mobileItems = mobilePrimaryNavigation ?? items.slice(0, 4);
   const activeHref = resolveActiveHref(pathname, items);
+  const hasHiddenActiveMobileItem =
+    activeHref !== null && !mobileItems.some((item) => item.href === activeHref);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -81,6 +86,29 @@ function ReferenceDashboardShell({
   }, [mobileMenuOpen]);
 
   useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const closeForLargerViewport = () => {
+      if (mediaQuery.matches) setMobileMenuOpen(false);
+    };
+
+    closeForLargerViewport();
+    mediaQuery.addEventListener("change", closeForLargerViewport);
+    return () => mediaQuery.removeEventListener("change", closeForLargerViewport);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
     if (!mobileMenuOpen && wasMobileMenuOpen.current) {
       mobileMenuButtonRef.current?.focus();
     }
@@ -88,67 +116,71 @@ function ReferenceDashboardShell({
   }, [mobileMenuOpen]);
 
   return (
-    <div className={cn("min-h-svh bg-background text-secondary-900", className)}>
-      <div className="lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-6 lg:p-6">
-        <ReferenceDesktopSidebar
+    <div className={cn("min-h-svh bg-secondary-50 text-secondary-900", className)}>
+      <div inert={mobileMenuOpen || undefined}>
+        <div className="lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-6 lg:p-6">
+          <ReferenceDesktopSidebar
+            activeHref={activeHref}
+            brand={brand}
+            brandMark={brandMark}
+            brandHref={brandHref}
+            collapsed={collapsed}
+            footer={footer}
+            navigation={navigation}
+            onToggle={() => setCollapsed((value) => !value)}
+          />
+
+          <div className="min-w-0">
+            <header className="sticky top-0 z-30 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl lg:rounded-3xl lg:border">
+              <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-6">
+                <div className="md:hidden">
+                  <ReferenceMenuButton
+                    buttonRef={mobileMenuButtonRef}
+                    controls="reference-dashboard-mobile-nav"
+                    expanded={mobileMenuOpen}
+                    onClick={() => setMobileMenuOpen(true)}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">{header}</div>
+                <div className="hidden shrink-0 items-center gap-2 md:flex lg:hidden">
+                  {brand ? (
+                    <Link
+                      aria-label="Kembali ke beranda ruang kerja"
+                      className="truncate text-sm font-semibold text-secondary-900"
+                      href={brandHref}
+                    >
+                      {brand}
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            </header>
+
+            <main
+              className={cn(
+                "mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[1420px] flex-col gap-7 px-4 py-8 pb-28 md:px-8 lg:px-10 lg:py-10",
+                mainClassName,
+              )}
+            >
+              {children}
+            </main>
+          </div>
+        </div>
+
+        <ReferenceTabletNav
           activeHref={activeHref}
           brand={brand}
-          brandMark={brandMark}
           brandHref={brandHref}
-          collapsed={collapsed}
-          footer={footer}
-          navigation={navigation}
-          onToggle={() => setCollapsed((value) => !value)}
+          items={items}
         />
-
-        <div className="min-w-0">
-          <header className="sticky top-0 z-30 border-b border-primary-100/80 bg-background/90 backdrop-blur-xl lg:rounded-3xl lg:border">
-            <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-6">
-              <div className="md:hidden">
-                <ReferenceMenuButton
-                  buttonRef={mobileMenuButtonRef}
-                  controls="reference-dashboard-mobile-nav"
-                  expanded={mobileMenuOpen}
-                  onClick={() => setMobileMenuOpen(true)}
-                />
-              </div>
-              <div className="min-w-0 flex-1">{header}</div>
-              <div className="hidden shrink-0 items-center gap-2 md:flex lg:hidden">
-                {brand ? (
-                  <Link
-                    aria-label="Kembali ke beranda ruang kerja"
-                    className="truncate text-sm font-semibold text-secondary-900"
-                    href={brandHref}
-                  >
-                    {brand}
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          </header>
-
-          <main
-            className={cn(
-              "mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[1420px] flex-col gap-7 px-4 py-8 pb-28 md:px-8 lg:px-10 lg:py-10",
-              mainClassName,
-            )}
-          >
-            {children}
-          </main>
-        </div>
+        <ReferenceMobileNav
+          activeHref={activeHref}
+          hasHiddenActive={hasHiddenActiveMobileItem}
+          items={mobileItems}
+          menuOpen={mobileMenuOpen}
+          onMore={() => setMobileMenuOpen(true)}
+        />
       </div>
-
-      <ReferenceTabletNav
-        activeHref={activeHref}
-        brand={brand}
-        brandHref={brandHref}
-        items={items}
-      />
-      <ReferenceMobileNav
-        activeHref={activeHref}
-        items={items}
-        onMore={() => setMobileMenuOpen(true)}
-      />
       <ReferenceMobileDrawer
         activeHref={activeHref}
         brand={brand}
@@ -337,28 +369,32 @@ function ReferenceTabletNav({
 
 function ReferenceMobileNav({
   activeHref,
+  hasHiddenActive,
   items,
+  menuOpen,
   onMore,
 }: {
   activeHref: string | null;
+  hasHiddenActive: boolean;
   items: readonly ReferenceDashboardNavItem[];
+  menuOpen: boolean;
   onMore: () => void;
 }) {
-  const visibleItems = items.slice(0, 4);
-
   return (
     <nav
       aria-label="Navigasi ruang kerja"
       className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-1 border-t border-primary-100 bg-white/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_42px_-34px_rgba(23,107,77,0.55)] backdrop-blur md:hidden"
     >
-      {visibleItems.map((item) => (
+      {items.map((item) => (
         <ReferenceCompactNavLink active={activeHref === item.href} item={item} key={item.href} />
       ))}
       <button
-        aria-label="Buka navigasi lainnya"
+        aria-controls="reference-dashboard-mobile-nav"
+        aria-expanded={menuOpen}
+        aria-label={hasHiddenActive ? "Buka navigasi lainnya (halaman aktif)" : "Buka navigasi lainnya"}
         className={cn(
           "flex min-h-11 min-w-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-ui-xs font-medium transition-colors focus-visible:ring-3 focus-visible:ring-primary-300/35",
-          REFERENCE_NAV_CLASS_NAMES.base,
+          hasHiddenActive ? REFERENCE_NAV_CLASS_NAMES.active : REFERENCE_NAV_CLASS_NAMES.base,
         )}
         onClick={onMore}
         type="button"
