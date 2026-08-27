@@ -10,6 +10,8 @@ import {
   RoleName,
   SessionStatus,
 } from "@/generated/prisma/client";
+import { EnvelopeService, PrismaKmsEnvelopeKeyRegistry } from "../lib/vera-ai/envelope";
+import { createVeraLifecycleService } from "../lib/vera-ai/lifecycle-service";
 
 const root = process.cwd();
 const databaseUrl = process.env.VERA_DISPOSABLE_DATABASE_URL;
@@ -122,6 +124,14 @@ type BrowserFixture = {
   policyRows: Array<{ id: string; state: AiPolicyState; effectiveAt: Date; activatedAt: Date | null }>;
 };
 
+type BrowserLifecycleFixture = {
+  exportIds: string[];
+  operationIds: string[];
+  idempotencyKeys: string[];
+  conversationIds: string[];
+  artifactIds: string[];
+};
+
 async function createBrowserFixture(db: PrismaClient): Promise<BrowserFixture> {
   const seed = await db.aiPolicyBundle.findFirstOrThrow({ where: { bundleVersion: "vera-policy-bundle-v1-2026-08-24" }, select: { id: true, state: true, effectiveAt: true, activatedAt: true } });
   const policyRows = await db.aiPolicyBundle.findMany({ where: { state: { in: [AiPolicyState.active, AiPolicyState.scheduled] } }, select: { id: true, state: true, effectiveAt: true, activatedAt: true } });
@@ -155,6 +165,7 @@ async function createBrowserFixture(db: PrismaClient): Promise<BrowserFixture> {
 
 async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number; browserOutput: string }> {
   const fixture = await createBrowserFixture(db);
+  const lifecycleFixture: BrowserLifecycleFixture = { exportIds: [], operationIds: [], idempotencyKeys: [], conversationIds: [], artifactIds: [] };
   let server: ChildProcess | undefined;
   let port = 5023;
   try {
@@ -202,13 +213,166 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     const learnerConversationBody = JSON.parse(learnerConversationText) as { defaultConversationId?: string | null; conversations?: Array<{ id?: string }> };
     assert.equal(learnerConversationBody.defaultConversationId, fixture.conversationId, "browser learner fixture did not expose its owned conversation");
     assert(learnerConversationBody.conversations?.some((row) => row.id === fixture.conversationId), "browser learner fixture conversation is missing from the actual route");
-    console.log(`T12_EVIDENCE actual_http=t9-report+t10-metadata+draft+replay status=pass port=${port}`);
+
+    const lifecycleEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => Buffer.from(rootKey, "base64url")));
+    const lifecycle = createVeraLifecycleService({ db, envelope: lifecycleEnvelope, fingerprintSecret: hmacSecret });
+    const jsonBody = async <T>(response: Response): Promise<T> => JSON.parse(await response.text()) as T;
+    const createHttpExport = async (idempotencyKey: string): Promise<{ exportId: string; operationId: string }> => {
+      lifecycleFixture.idempotencyKeys.push(idempotencyKey);
+      const response = await fetch(`${base}/api/vera-ai/exports`, {
+        method: "POST",
+        headers: { cookie: studentCookie, "content-type": "application/json", "idempotency-key": idempotencyKey },
+        body: JSON.stringify({ format: "json_v1" }),
+      });
+      const bodyText = await response.text();
+      assert.equal(response.status, 202, `actual export create route rejected the isolated student (${bodyText})`);
+      const body = JSON.parse(bodyText) as { exportId?: string; operationId?: string; state?: string };
+      assert.equal(body.state, "pending", "export create route must return pending before materialization");
+      assert(body.exportId && body.operationId, "export create route omitted durable IDs");
+      lifecycleFixture.exportIds.push(body.exportId);
+      lifecycleFixture.operationIds.push(body.operationId);
+      return { exportId: body.exportId, operationId: body.operationId };
+    };
+
+    const exportKey = `vera-s5-http-export-${randomUUID()}`;
+    const exportTarget = await createHttpExport(exportKey);
+    await lifecycle.materializeExport({ exportId: exportTarget.exportId, ownerId: "vera-s5-http-evidence-worker" });
+    const exportStatusResponse = await fetch(`${base}/api/vera-ai/exports/${exportTarget.exportId}`, { headers: { cookie: studentCookie } });
+    assert.equal(exportStatusResponse.status, 200, "actual export status route did not return the ready package");
+    const exportStatus = await jsonBody<{ state?: string; accessMode?: string }>(exportStatusResponse);
+    assert.equal(exportStatus.state, "ready");
+    assert.equal(exportStatus.accessMode, "session");
+    const exportDownloadResponse = await fetch(`${base}/api/vera-ai/exports/${exportTarget.exportId}/download`, { headers: { cookie: studentCookie } });
+    assert.equal(exportDownloadResponse.status, 200, "actual export download route did not return the ready package");
+    const exportPackage = JSON.parse(await exportDownloadResponse.text()) as { schemaVersion?: string; exportAsOf?: string };
+    assert.equal(exportPackage.schemaVersion, "vera.export.v1");
+    assert(typeof exportPackage.exportAsOf === "string", "export download omitted the frozen exportAsOf");
+
+    const grantKey = `vera-s5-http-grant-${randomUUID()}`;
+    const grantTarget = await createHttpExport(grantKey);
+    await lifecycle.materializeExport({ exportId: grantTarget.exportId, ownerId: "vera-s5-http-grant-worker" });
+    const rawGrant = `vera-s5-http-grant-token-${randomUUID()}`;
+    const grantDigest = lifecycle.issueCleanupGrant(grantTarget.exportId, rawGrant).digest;
+    await db.aiExportJob.update({ where: { id: grantTarget.exportId }, data: { exportAccessGrantDigest: grantDigest, exportAccessGrantState: "active", exportAccessGrantVersion: { increment: 1 } } });
+    const grantStatusResponse = await fetch(`${base}/api/vera-ai/exports/${grantTarget.exportId}`, { headers: { "x-vera-export-grant": rawGrant } });
+    assert.equal(grantStatusResponse.status, 200, "cleanup-grant status route did not authorize the isolated grant");
+    const grantStatus = await jsonBody<{ accessMode?: string; exportAccessGrantState?: string }>(grantStatusResponse);
+    assert.equal(grantStatus.accessMode, "cleanup_grant");
+    assert.equal(grantStatus.exportAccessGrantState, "active");
+    const grantDownloadResponse = await fetch(`${base}/api/vera-ai/exports/${grantTarget.exportId}/download`, { headers: { "x-vera-export-grant": rawGrant } });
+    assert.equal(grantDownloadResponse.status, 200, "cleanup-grant download route did not return the package");
+    const grantReplayResponse = await fetch(`${base}/api/vera-ai/exports/${grantTarget.exportId}/download`, { headers: { "x-vera-export-grant": rawGrant } });
+    assert.equal(grantReplayResponse.status, 410, "a consumed cleanup grant must not be reusable");
+    assert.equal((await jsonBody<{ error?: string }>(grantReplayResponse)).error, "export_access_consumed");
+
+    // Keep a second isolated grant for the browser flow. The direct HTTP
+    // assertion above intentionally consumes its grant to prove the one-shot
+    // fence; reusing that same token would make the browser check observe the
+    // already-terminal response instead of exercising the browser path.
+    const browserGrantKey = `vera-s5-http-browser-grant-${randomUUID()}`;
+    const browserGrantTarget = await createHttpExport(browserGrantKey);
+    await lifecycle.materializeExport({ exportId: browserGrantTarget.exportId, ownerId: "vera-s5-http-browser-grant-worker" });
+    const browserGrantToken = `vera-s5-http-browser-grant-token-${randomUUID()}`;
+    const browserGrantDigest = lifecycle.issueCleanupGrant(browserGrantTarget.exportId, browserGrantToken).digest;
+    await db.aiExportJob.update({ where: { id: browserGrantTarget.exportId }, data: { exportAccessGrantDigest: browserGrantDigest, exportAccessGrantState: "active", exportAccessGrantVersion: { increment: 1 } } });
+
+    const expiredKey = `vera-s5-http-expired-${randomUUID()}`;
+    const expiredTarget = await createHttpExport(expiredKey);
+    await lifecycle.materializeExport({ exportId: expiredTarget.exportId, ownerId: "vera-s5-http-expiry-worker" });
+    await db.aiExportJob.update({ where: { id: expiredTarget.exportId }, data: { downloadExpiresAt: new Date(Date.now() - 60_000) } });
+    assert((await lifecycle.reapExports()) >= 1, "DB-clock reaper did not expire the disposable HTTP export");
+    const expiredStatusResponse = await fetch(`${base}/api/vera-ai/exports/${expiredTarget.exportId}`, { headers: { cookie: studentCookie } });
+    assert.equal(expiredStatusResponse.status, 200);
+    assert.equal((await jsonBody<{ state?: string }>(expiredStatusResponse)).state, "expired");
+    const expiredDownloadResponse = await fetch(`${base}/api/vera-ai/exports/${expiredTarget.exportId}/download`, { headers: { cookie: studentCookie } });
+    assert.equal(expiredDownloadResponse.status, 410, "expired export download must return a typed terminal response");
+    assert.equal((await jsonBody<{ error?: string }>(expiredDownloadResponse)).error, "export_expired");
+
+    const deleteConversationId = randomUUID();
+    lifecycleFixture.conversationIds.push(deleteConversationId);
+    await db.aiConversation.create({ data: { id: deleteConversationId, studentId: fixture.studentId, conversationType: "vera_chat", title: "HTTP lifecycle delete fixture" } });
+    const conversationDeleteKey = `vera-s5-http-conversation-delete-${randomUUID()}`;
+    lifecycleFixture.idempotencyKeys.push(conversationDeleteKey);
+    const conversationDeleteBody = JSON.stringify({ expectedVersion: 0 });
+    const conversationDeleteResponse = await fetch(`${base}/api/vera-ai/conversations/${deleteConversationId}`, {
+      method: "DELETE",
+      headers: { cookie: studentCookie, "content-type": "application/json", "idempotency-key": conversationDeleteKey },
+      body: conversationDeleteBody,
+    });
+    assert.equal(conversationDeleteResponse.status, 202, "actual conversation delete route did not accept the owner request");
+    const conversationDelete = await jsonBody<{ operationId?: string; targetState?: string }>(conversationDeleteResponse);
+    assert(conversationDelete.operationId, "conversation delete route omitted operationId");
+    lifecycleFixture.operationIds.push(conversationDelete.operationId);
+    assert.equal(conversationDelete.targetState, "deletion_pending");
+    const conversationDeleteReplay = await fetch(`${base}/api/vera-ai/conversations/${deleteConversationId}`, {
+      method: "DELETE",
+      headers: { cookie: studentCookie, "content-type": "application/json", "idempotency-key": conversationDeleteKey },
+      body: conversationDeleteBody,
+    });
+    assert.equal(conversationDeleteReplay.status, 200, "same-key conversation delete must replay JSON without a second worker");
+    await lifecycle.processConversationDelete(conversationDelete.operationId);
+    const conversationReconnectResponse = await fetch(`${base}/api/vera-ai/lifecycle/${conversationDelete.operationId}`, { headers: { cookie: studentCookie } });
+    assert.equal(conversationReconnectResponse.status, 200, "lifecycle status route did not support reconnect after conversation deletion");
+    assert.equal((await jsonBody<{ state?: string }>(conversationReconnectResponse)).state, "completed");
+
+    const artifactId = randomUUID();
+    lifecycleFixture.artifactIds.push(artifactId);
+    const artifactPayload = JSON.stringify({ toolId: "route", title: "Lifecycle artifact", markdown: "Delete me", payload: { fixture: true } });
+    const artifactDigest = hashToken(artifactPayload);
+    const artifactTitle = await lifecycleEnvelope.encryptAsync("Lifecycle artifact", `vera-s5-http-artifact-title:${artifactId}`);
+    const artifactMarkdown = await lifecycleEnvelope.encryptAsync("Delete me", `vera-s5-http-artifact-markdown:${artifactId}`);
+    const artifactPayloadEnvelope = await lifecycleEnvelope.encryptAsync(artifactPayload, `vera-s5-http-artifact-payload:${artifactId}`);
+    await db.aiArtifact.create({
+      data: {
+        id: artifactId,
+        artifactKey: `vera.s5.http.lifecycle.${artifactId}`,
+        revision: 1,
+        studentId: fixture.studentId,
+        conversationId: null,
+        artifactType: "route",
+        provenanceKind: "typed_entity",
+        titleCiphertext: artifactTitle,
+        contentMarkdownCiphertext: artifactMarkdown,
+        payloadCiphertext: artifactPayloadEnvelope,
+        artifactSchemaVersion: "1",
+        sourceEntityType: "HttpLifecycleFixture",
+        sourceEntityId: randomUUID(),
+        sourceEntityRevision: 0,
+        sourceEntityDigest: artifactDigest,
+        contentDigest: artifactDigest,
+        renderVersion: "vera-render-v1",
+        retentionPolicyVersion: "vera-retention-v1",
+        lifecycle: { create: { lifecycleRevision: 0 } },
+      },
+    });
+    const artifactDeleteKey = `vera-s5-http-artifact-delete-${randomUUID()}`;
+    lifecycleFixture.idempotencyKeys.push(artifactDeleteKey);
+    const artifactDeleteResponse = await fetch(`${base}/api/vera-ai/artifacts/${artifactId}`, {
+      method: "DELETE",
+      headers: { cookie: studentCookie, "content-type": "application/json", "idempotency-key": artifactDeleteKey },
+      body: JSON.stringify({ expectedLifecycleRevision: 0 }),
+    });
+    assert.equal(artifactDeleteResponse.status, 202, "actual artifact delete route did not accept the owner request");
+    const artifactDelete = await jsonBody<{ operationId?: string; targetState?: string }>(artifactDeleteResponse);
+    assert(artifactDelete.operationId, "artifact delete route omitted operationId");
+    lifecycleFixture.operationIds.push(artifactDelete.operationId);
+    assert.equal(artifactDelete.targetState, "deletion_pending");
+    await lifecycle.processArtifactDelete(artifactDelete.operationId);
+    const artifactReconnectResponse = await fetch(`${base}/api/vera-ai/lifecycle/${artifactDelete.operationId}`, { headers: { cookie: studentCookie } });
+    assert.equal(artifactReconnectResponse.status, 200, "lifecycle status route did not support reconnect after artifact deletion");
+    assert.equal((await jsonBody<{ state?: string }>(artifactReconnectResponse)).state, "completed");
+    console.log(`T12_EVIDENCE actual_http=t9-report+t10-metadata+draft+replay lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect status=pass port=${port}`);
 
     const browserSource = String.raw`
 const task = await useOrCreateTaskSpace('vera sprint5 isolated browser evidence')
 const base = ${JSON.stringify(base)}
 const adminToken = ${JSON.stringify(fixture.adminToken)}
 const studentToken = ${JSON.stringify(fixture.studentToken)}
+const readyExportId = ${JSON.stringify(exportTarget.exportId)}
+const grantExportId = ${JSON.stringify(browserGrantTarget.exportId)}
+const grantToken = ${JSON.stringify(browserGrantToken)}
+const conversationOperationId = ${JSON.stringify(conversationDelete.operationId)}
+const artifactOperationId = ${JSON.stringify(artifactDelete.operationId)}
 async function session(token, path) {
   await openOrReuseTab(base + path, { wait: true, timeout: 30 })
   await cdp('Network.deleteCookies', { name: 'vecalss_session', domain: '127.0.0.1' })
@@ -217,6 +381,10 @@ async function session(token, path) {
   await new Promise((resolve) => setTimeout(resolve, 5_000))
 }
 async function bodyText() { return await js('document.body.innerText') }
+async function browserJson(path, options = {}) {
+  const script = '(async () => { const response = await fetch(' + JSON.stringify(base) + ' + ' + JSON.stringify(path) + ', ' + JSON.stringify(options) + '); const text = await response.text(); let body = null; try { body = JSON.parse(text); } catch {} return { status: response.status, body }; })()'
+  return await js(script)
+}
 async function assertPage(path, token, markers) {
   await session(token, path)
   const text = await bodyText()
@@ -236,6 +404,21 @@ await assertPage('/admin/ai-policy', adminToken, ['Vera AI policy console', 'Pro
 await assertPage('/admin/ai-usage', adminToken, ['AI usage', 'Mock / disabled telemetry only'])
 await assertPage('/vera-ai', studentToken, ['Studio'])
 await openStudio()
+const browserReadyStatus = await browserJson('/api/vera-ai/exports/' + readyExportId)
+if (browserReadyStatus.status !== 200 || browserReadyStatus.body?.state !== 'ready') throw new Error('browser export status/reconnect failed: ' + JSON.stringify(browserReadyStatus))
+const browserDownload = await browserJson('/api/vera-ai/exports/' + readyExportId + '/download')
+if (browserDownload.status !== 200 || browserDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser export download failed: ' + JSON.stringify(browserDownload))
+const browserConversationStatus = await browserJson('/api/vera-ai/lifecycle/' + conversationOperationId)
+const browserArtifactStatus = await browserJson('/api/vera-ai/lifecycle/' + artifactOperationId)
+if (browserConversationStatus.status !== 200 || browserConversationStatus.body?.state !== 'completed' || browserArtifactStatus.status !== 200 || browserArtifactStatus.body?.state !== 'completed') throw new Error('browser lifecycle reconnect failed: ' + JSON.stringify({ browserConversationStatus, browserArtifactStatus }))
+await cdp('Network.deleteCookies', { name: 'vecalss_session', domain: '127.0.0.1' })
+const browserGrantStatus = await browserJson('/api/vera-ai/exports/' + grantExportId, { headers: { 'x-vera-export-grant': grantToken } })
+if (browserGrantStatus.status !== 200 || browserGrantStatus.body?.accessMode !== 'cleanup_grant') throw new Error('browser cleanup-grant status failed: ' + JSON.stringify(browserGrantStatus))
+const browserGrantDownload = await browserJson('/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
+if (browserGrantDownload.status !== 200 || browserGrantDownload.body?.schemaVersion !== 'vera.export.v1') throw new Error('browser cleanup-grant download failed: ' + JSON.stringify(browserGrantDownload))
+const browserGrantReplay = await browserJson('/api/vera-ai/exports/' + grantExportId + '/download', { headers: { 'x-vera-export-grant': grantToken } })
+if (browserGrantReplay.status !== 410 || browserGrantReplay.body?.error !== 'export_access_consumed') throw new Error('browser grant replay was not terminal: ' + JSON.stringify(browserGrantReplay))
+cliLog('PASS VERA_BROWSER_LIFECYCLE export=create+status+download+grant+consumed conversation=delete+reconnect artifact=delete+reconnect')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 if ((await js('window.innerWidth')) !== 1496) throw new Error('desktop viewport evidence did not apply')
 await captureScreenshot()
@@ -261,7 +444,7 @@ await completeTaskSpace(task.id, { keep: false })
       });
       browserOutput = `${browserResult.stdout ?? ""}\n${browserResult.stderr ?? ""}`;
       if (browserResult.error) throw browserResult.error;
-      if (browserResult.status !== 0) throw new Error(`ego-browser exited with status ${String(browserResult.status)}${browserResult.signal ? ` (${browserResult.signal})` : ""}`);
+      if (browserResult.status !== 0) throw new Error(`ego-browser exited with status ${String(browserResult.status)}${browserResult.signal ? ` (${browserResult.signal})` : ""}: ${browserOutput.slice(-12_000)}`);
     } catch (error) {
       const detail = error && typeof error === "object" && "stdout" in error
         ? `${String((error as { stdout?: unknown }).stdout ?? "")}\n${String((error as { stderr?: unknown }).stderr ?? "")}`
@@ -269,11 +452,44 @@ await completeTaskSpace(task.id, { keep: false })
       throw new Error(`isolated browser evidence failed: ${detail.slice(-12_000)}`);
     }
     assert.match(browserOutput, /PASS VERA_BROWSER_EVIDENCE/u, "browser evidence did not report a pass");
+    const browserEvidenceLines = browserOutput.split("\n").filter((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE") || line.includes("PASS VERA_BROWSER_EVIDENCE"));
+    assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE")), "browser lifecycle evidence did not report a pass");
+    console.log(browserEvidenceLines.join("\n"));
     console.log(`T12_EVIDENCE browser=pass desktop=1496 mobile=390 port=${port}`);
     return { port, browserOutput };
   } finally {
     await stopServer(server);
+    await dbCleanupBrowserLifecycle(db, lifecycleFixture);
     await dbCleanupBrowserFixture(db, fixture);
+  }
+}
+
+async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifecycleFixture): Promise<void> {
+  try {
+    if (fixture.artifactIds.length > 0) {
+      await db.aiArtifactApply.deleteMany({ where: { artifactRevisionId: { in: fixture.artifactIds } } });
+      await db.aiArtifactLifecycle.deleteMany({ where: { artifactRevisionId: { in: fixture.artifactIds } } });
+      await db.aiArtifact.deleteMany({ where: { id: { in: fixture.artifactIds } } });
+      for (const artifactId of fixture.artifactIds) {
+        await db.aiEnvelopeKey.deleteMany({ where: { objectId: { endsWith: `:${artifactId}` } } });
+      }
+    }
+    if (fixture.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: fixture.conversationIds } } });
+    if (fixture.exportIds.length > 0) {
+      await db.aiExportPart.deleteMany({ where: { exportJobId: { in: fixture.exportIds } } });
+      await db.aiExportJob.deleteMany({ where: { id: { in: fixture.exportIds } } });
+      for (const exportId of fixture.exportIds) {
+        await db.aiEnvelopeKey.deleteMany({ where: { objectId: { startsWith: `vera-export:${exportId}:` } } });
+      }
+    }
+    if (fixture.operationIds.length > 0) {
+      await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: fixture.operationIds } } });
+      await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: fixture.operationIds } } });
+      await db.aiLifecycleOperation.deleteMany({ where: { id: { in: fixture.operationIds } } });
+    }
+    if (fixture.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: fixture.idempotencyKeys }, studentId: { not: null } } });
+  } catch (error) {
+    console.warn(`T12_EVIDENCE cleanup=browser_lifecycle_warning ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -302,6 +518,21 @@ async function main(): Promise<void> {
   assert(!["true", "1", "yes", "on"].includes(liveProvider ?? ""), "live provider must remain disabled");
   process.env.DATABASE_URL = databaseUrl;
 
+  // The accepted Sprint 4 runtime fixture uses the stable disposable tutor
+  // identity as its second policy approver. Fresh migration-only databases do
+  // not contain application seed users, so provision that one isolated
+  // approver before invoking the prior-sprint executable; no configured data
+  // or application seed is changed.
+  const setupDb = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  const runtimeApprover = await setupDb.user.findUnique({ where: { email: "tutor@vecalss.local" }, select: { id: true } });
+  if (!runtimeApprover) {
+    const approverId = randomUUID();
+    await setupDb.user.create({ data: { id: approverId, email: "tutor@vecalss.local", fullName: "Vera isolated policy approver", passwordHash: "fixture" } });
+    await setupDb.roleAssignment.create({ data: { userId: approverId, role: RoleName.admin } });
+    console.log("T12_EVIDENCE fixture=isolated-sprint4-approver provisioned=true");
+  }
+  await setupDb.$disconnect();
+
   const evidence: Array<[string, readonly string[]]> = [
     ["test:vera-prisma-sprint5-t11", ["callbacks=chat analysis route review summary ptn drill", "export/hold/account"]],
     ["test:vera-prisma-sprint2", ["actual HTTP route auth/body/privacy/replay/expired DTO assertions", "one provider"]],
@@ -313,10 +544,18 @@ async function main(): Promise<void> {
   // local-only env and mock/disabled provider gate.
   const outputs = evidence.map(([script, markers]) => [script, runEvidenceScript(script, markers)] as const);
   const callbackOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint5-t11")?.[1] ?? "";
+  const learnerOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint2")?.[1] ?? "";
+  const t9t10Output = outputs.find(([script]) => script === "test:vera-prisma-sprint4-runtime")?.[1] ?? "";
   assert.match(callbackOutput.toLowerCase(), /all seven persisted callback tuples/u);
-  console.log("T12_EVIDENCE namespaces=conversation_create ai_request learning_recommendation_create artifact_apply export_create conversation_delete artifact_delete status=pass");
-  console.log("T12_EVIDENCE learner_flow=authenticated-http-post-status-usage-replay-cross-student status=pass");
-  console.log("T12_EVIDENCE t9_t10_runtime=populated-report-policy-preview status=pass");
+  for (const namespace of ["chat", "analysis", "route", "review", "summary", "ptn", "drill"]) {
+    assert(callbackOutput.includes(`T11_EVIDENCE callback_namespace=${namespace}`), `T11 callback evidence did not prove ${namespace}`);
+  }
+  assert.match(learnerOutput, /PASS vera-prisma-sprint2/u, "Sprint 2 learner flow did not report an executable pass");
+  assert.match(t9t10Output, /PASS vera-prisma-sprint4-runtime/u, "Sprint 4 T9/T10 runtime did not report an executable pass");
+  for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE callback_namespace="))) console.log(line);
+  console.log("T12_EVIDENCE namespaces=chat analysis route review summary ptn drill source=test:vera-prisma-sprint5-t11 status=pass");
+  console.log("T12_EVIDENCE learner_flow=authenticated-http-post-status-usage-replay-cross-student source=test:vera-prisma-sprint2 status=pass");
+  console.log("T12_EVIDENCE t9_t10_runtime=populated-report-policy-preview source=test:vera-prisma-sprint4-runtime status=pass");
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
   try {

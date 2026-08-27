@@ -172,6 +172,19 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
   });
+  for (const marker of [
+    "T11_EVIDENCE callback_namespace=chat",
+    "T11_EVIDENCE callback_namespace=analysis",
+    "T11_EVIDENCE callback_namespace=route",
+    "T11_EVIDENCE callback_namespace=review",
+    "T11_EVIDENCE callback_namespace=summary",
+    "T11_EVIDENCE callback_namespace=ptn",
+    "T11_EVIDENCE callback_namespace=drill",
+    "T12_EVIDENCE actual_http=",
+    "lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect",
+    "PASS VERA_BROWSER_LIFECYCLE",
+    "PASS VERA_BROWSER_EVIDENCE",
+  ]) assert(output.includes(marker), `T12 executable integration output is missing ${marker}`);
   const evidenceLine = output.split("\n").find((line) => line.trim().startsWith("{") && line.includes('"status":"passed"'));
   assert(evidenceLine, "T12 integration did not emit its structured PASS evidence");
   let parsed: unknown;

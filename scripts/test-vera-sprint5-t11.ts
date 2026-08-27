@@ -182,8 +182,11 @@ function testStaticBoundary(): void {
     "ai_retention_holds_digest_state_ck",
     "operator_a_capability_snapshot_digest",
     "operator_b_capability_snapshot_digest",
-    "terminal_retention_expires_at >=",
   ]) assert(migration.includes(marker), `migration is missing ${marker} invariants`);
+  // PostgreSQL migrations quote identifiers; assert the semantic comparison
+  // rather than a fragile unquoted source spelling.
+  assert(/"?terminal_retention_expires_at"?\s*>=\s*"?terminal_at"?/u.test(migration), "migration is missing terminal retention ordering invariant");
+  assert(/'failed_terminal'[\s\S]*download_ready_at/u.test(migration), "pre-ready contract must cover failed_terminal");
   assert(!migration.includes("'plaintext'"), "migration must never insert a plaintext marker");
   for (const field of VERA_T11_LEGACY_INVENTORY_FIELDS) {
     assert(migration.includes(`'${field.sourceTable}'`) && migration.includes(`'${field.sourceField}'`), `missing inventory ${field.sourceTable}:${field.sourceField}`);

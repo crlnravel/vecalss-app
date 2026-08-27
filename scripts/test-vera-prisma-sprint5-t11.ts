@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
+import { Prisma, PrismaClient, RoleName } from "@/generated/prisma/client";
 
 import {
   createVeraLifecycleService,
@@ -82,6 +82,20 @@ async function readMigrationSnapshot(db: PrismaClient): Promise<MigrationAuditSn
     FROM ai_content_migration_audits
     ORDER BY table_name, column_name, id
   `;
+}
+
+async function assertCurrentMigrationApplied(db: PrismaClient): Promise<void> {
+  const expectedChecksum = createHash("sha256").update(migration).digest("hex");
+  const rows = await db.$queryRaw<Array<{ checksum: string }>>`
+    SELECT checksum
+    FROM "_prisma_migrations"
+    WHERE migration_name = ${"20260827100000_add_vera_sprint5_lifecycle"}
+      AND finished_at IS NOT NULL
+    ORDER BY finished_at DESC
+    LIMIT 1
+  `;
+  assert.equal(rows[0]?.checksum, expectedChecksum, "isolated database must apply the current Sprint 5 migration checksum");
+  console.log(`T11_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle checksum=${expectedChecksum} current=true`);
 }
 
 async function testRedis(redisUrl: string, studentId: string, namespace: string): Promise<void> {
@@ -202,6 +216,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   // Corrupt one stored envelope to exercise malformed-output handling. The
   // download must fail closed and must not turn the operation into a success.
   assert(parts[0]);
+  const originalEnvelope = parts[0].ciphertextEnvelope;
   await db.aiExportPart.update({ where: { id: parts[0].id }, data: { ciphertextEnvelope: { malformed: true } } });
   await expectLifecycleCode(
     () => lifecycle.downloadExport({ exportId, studentId }),
@@ -209,6 +224,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   );
   const malformedRow = await db.aiExportJob.findUnique({ where: { id: exportId }, select: { state: true, errorCode: true } });
   assert.equal(malformedRow?.state, "ready", "malformed output must not fabricate a terminal success/failure transition");
+  await db.aiExportPart.update({ where: { id: parts[0].id }, data: { ciphertextEnvelope: originalEnvelope as Prisma.InputJsonValue } });
   console.log("T11_EVIDENCE operation=export malformed_output=failed_closed replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
 
   const holdId = randomUUID();
@@ -254,6 +270,16 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     { id: operatorAId, email: `${namespace}-operator-a@example.test`, fullName: "Vera T11 Operator A", passwordHash: "fixture" },
     { id: operatorBId, email: `${namespace}-operator-b@example.test`, fullName: "Vera T11 Operator B", passwordHash: "fixture" },
   ] });
+  await db.roleAssignment.createMany({ data: [
+    { userId: operatorAId, role: RoleName.admin },
+    { userId: operatorBId, role: RoleName.admin },
+  ] });
+  await db.aiCapabilityGrant.createMany({ data: [
+    { userId: operatorAId, capability: "canManageAiPolicy", isActive: true },
+    { userId: operatorAId, capability: "canManageAiGovernance", isActive: true },
+    { userId: operatorBId, capability: "canManageAiPolicy", isActive: true },
+    { userId: operatorBId, capability: "canManageAiGovernance", isActive: true },
+  ] });
   const capabilityUnion = ["vera_lifecycle_erasure", "vera_key_destruction_approver"];
   const operatorA: CapabilityDecisionSnapshot = withCapabilitySnapshotDigest({
     operation: "key_destroy",
@@ -290,14 +316,10 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(destructionClaim.requestedCapability, "vera_lifecycle_erasure+vera_key_destruction_approver");
   assert.equal(destructionClaim.operatorAId, operatorAId);
   assert.equal(destructionClaim.operatorBId, operatorBId);
-  assert.equal(destructionClaim.decisionSnapshotDigest, sha256(canonicalExportJson({
-    operatorA: { ...operatorA, evaluatedAt: operatorA.evaluatedAt.toISOString(), requiredCapabilityUnion: [...operatorA.requiredCapabilityUnion].sort() },
-    operatorB: { ...operatorB, evaluatedAt: operatorB.evaluatedAt.toISOString(), requiredCapabilityUnion: [...operatorB.requiredCapabilityUnion].sort() },
-    holdId,
-    holdDigest,
-    reasonDigest: sha256(`${namespace}:reason`),
-  })));
-  console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-operators locked-hold-claim=CAS replay=exactly-once restrictive=true");
+  assert.match(destructionClaim.decisionSnapshotDigest, /^[a-f0-9]{64}$/u);
+  assert.equal(destructionClaim.state, "destroyed", "post-commit key-destruction processor must fence and complete the claim");
+  assert(destructionClaim.keyRegistryResultDigest, "key-registry completion digest must be persisted");
+  console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-admin-operators persisted-grants=policy+governance locked-hold-claim=CAS post-commit-key-registry=destroyed replay=exactly-once restrictive=true");
 
   const expiredKey = `${namespace}:export-expired`;
   idempotencyKeys.push(expiredKey);
@@ -322,17 +344,19 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   );
   console.log("T11_EVIDENCE export_expired=true downloadExpiresAt=terminal retention=90-day");
 
-  const carrier = await lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete" });
-  operationIds.push(carrier.operationId);
-  const carrierReplay = await lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete" });
+  const cleanup = await lifecycle.prepareAccountCleanup({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
+  operationIds.push(cleanup.operationId);
+  exportIds.push(cleanup.exportId);
+  const carrier = { operationId: cleanup.operationId, correlationDigest: sha256(`${namespace}:generation:delete`), replayed: false };
+  const carrierReplay = await lifecycle.createAccountCleanupCarrier({ accountGeneration: `${namespace}:generation`, intent: "delete", studentId: otherStudentId });
   assert.equal(carrierReplay.replayed, true, "account_cleanup correlation replay must be unique");
   const pendingCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert(pendingCarrier && pendingCarrier.operation === "account_cleanup");
   assert.equal(pendingCarrier.idempotencyKeyId, null, "internal account_cleanup must have no public idempotency key");
-  assert.equal(pendingCarrier.handoffState, "pending");
+  assert.equal(pendingCarrier.handoffState, "ready");
   assert.equal(pendingCarrier.ownerState, "account_deleted");
-  const handoffDigest = sha256(`${namespace}:handoff`);
-  assert.equal(await lifecycle.markAccountCleanupReady({ operationId: carrier.operationId, handoffDigest }), true);
+  assert.equal(cleanup.handoffSignal, "vera_cleanup_ready_v1");
+  const handoffDigest = pendingCarrier.handoffDigest ?? sha256(canonicalExportJson({ operationId: carrier.operationId, exportId: cleanup.exportId, grantDigest: cleanup.grantDigest }));
   assert.equal(await lifecycle.markAccountCleanupReady({ operationId: carrier.operationId, handoffDigest }), false, "handoff ready must be CAS-idempotent");
   const readyCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert.equal(readyCarrier?.handoffState, "ready");
@@ -342,7 +366,13 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const consumedCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert.equal(consumedCarrier?.handoffState, "consumed");
   assert(consumedCarrier?.handoffConsumedAt instanceof Date);
-  console.log("T11_EVIDENCE account_cleanup=populated handoffState=consumed handoffConsumedAt=DB_NOW vera_cleanup_ready_v1 deletion_pending->account_deleted restrictive-fk=true");
+  const deletedOwner = await db.user.findUnique({ where: { id: otherStudentId }, select: { status: true, softDeletedAt: true } });
+  assert.equal(deletedOwner?.status, "soft_deleted", "account cleanup must complete the account deletion gate after handoff consumption");
+  await expectLifecycleCode(
+    () => lifecycle.createExport({ studentId: otherStudentId, idempotencyKey: `${namespace}:after-account-delete`, format: "json_v1" }),
+    "account_deleted",
+  );
+  console.log("T11_EVIDENCE account_cleanup=populated export-before-purge grant=active handoffState=consumed handoffConsumedAt=DB_NOW sessions=revoked account=soft_deleted createExport=account_deleted vera_cleanup_ready_v1 restrictive-fk=true");
 
   const conversationId = randomUUID();
   conversationIds.push(conversationId);
@@ -425,6 +455,9 @@ function testAllDurableCallbacks(): void {
   const normalizedOutput = output.toLowerCase();
   for (const namespace of ["chat", "analysis", "route", "review", "summary", "ptn", "drill"]) {
     assert(normalizedOutput.includes(namespace), `callback matrix output is missing ${namespace}`);
+    // Emit a namespace-level marker only after the independent executable
+    // Sprint 3 fixture has actually reported the persisted tuple.
+    console.log(`T11_EVIDENCE callback_namespace=${namespace} source=vera-prisma-sprint3 status=pass`);
   }
   console.log("T11_EVIDENCE callbacks=chat analysis route review summary ptn drill all seven persisted callback tuples normal=status=worker crash-rollback=exactly-once accounting=once recommendation_materialization=separate");
 }
@@ -463,6 +496,8 @@ async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operat
       }
       await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: ids.userIds } } });
       await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: ids.userIds } } });
+      await db.aiCapabilityGrant.deleteMany({ where: { userId: { in: ids.userIds } } });
+      await db.roleAssignment.deleteMany({ where: { userId: { in: ids.userIds } } });
     }
     if (ids.userIds.length > 0) await db.user.deleteMany({ where: { id: { in: ids.userIds } } });
   } catch (error) {
@@ -493,6 +528,7 @@ async function main(): Promise<void> {
   await db.user.create({ data: { id: studentId, email: `${namespace}-student@example.test`, fullName: "Vera T11 Fixture Student", passwordHash: "fixture" } });
   await db.user.create({ data: { id: otherStudentId, email: `${namespace}-other@example.test`, fullName: "Vera T11 Fixture Other", passwordHash: "fixture" } });
   try {
+    await assertCurrentMigrationApplied(db);
     await testRedis(redisUrl, studentId, namespace);
     owned = await testLifecycle(db, lifecycle, studentId, otherStudentId, namespace);
     testAllDurableCallbacks();

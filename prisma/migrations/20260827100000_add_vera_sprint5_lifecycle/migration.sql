@@ -449,7 +449,7 @@ ALTER TABLE "ai_export_jobs"
         AND "terminal_retention_expires_at" >= "terminal_at")
   ),
   ADD CONSTRAINT "ai_export_jobs_pre_ready_contract_ck" CHECK (
-    "state" NOT IN ('pending', 'materializing', 'failed_retryable')
+    "state" NOT IN ('pending', 'materializing', 'failed_retryable', 'failed_terminal')
     OR ("download_ready_at" IS NULL AND "download_expires_at" IS NULL)
   );
 
