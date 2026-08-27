@@ -15,6 +15,9 @@
 - [x] Authenticated ego-browser QA passes at desktop and 390px mobile widths,
   including status filtering, no-match/reset behavior, sidebar collapse, and
   mobile Sheet body-scroll locking.
+- [x] Follow-up overflow fix keeps the reference sidebar's collapsed brand mark
+  inside the icon rail while preserving the full lockup in expanded and mobile
+  states; live geometry reports no child overflow.
 - [x] Focused ESLint and `git diff --check` pass; repository TypeScript remains
   blocked only by the preserved invalid `tmp/reference/res1` prototype.
 

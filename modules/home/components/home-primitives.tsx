@@ -63,14 +63,14 @@ function BrandLogo({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function BrandMark() {
+function BrandMark({ compact = false }: { compact?: boolean } = {}) {
   return (
-    <div className="relative h-14 w-14 shrink-0">
+    <div className={cn("relative shrink-0", compact ? "h-7 w-7" : "h-14 w-14")}>
       <Image
         alt="Vecalss Learning Academy"
         fill
         className="object-contain"
-        sizes="56px"
+        sizes={compact ? "28px" : "56px"}
         src="/brand/logo-mark-cropped.png"
       />
     </div>

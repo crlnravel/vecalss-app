@@ -20,6 +20,10 @@
   and mobile Sheet body-scroll locking. Focused ESLint and `git diff --check`
   pass. Repository `tsc` remains blocked only by the preserved invalid
   `tmp/reference/res1` Base44 prototype.
+- Follow-up overflow fix: the reference-styled collapsed rail now renders an
+  opt-in compact `BrandMark` that fits its 30px content slot; expanded desktop
+  and mobile Sheet states keep the full lockup. Live geometry reports zero
+  sidebar child overflow.
 - Scope: no student pages or other mentor/Kapten/admin routes were changed;
   the Tryout builder/editor remains owned by its existing workflow.
 

@@ -29,7 +29,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { BrandLockup } from "@/modules/home/components/home-primitives";
+import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 
 type KaptenNavigationItem = {
   href: string;
@@ -117,8 +117,9 @@ function MentorSidebar({
   activeLabel: string;
   appearance?: MentorSidebarAppearance;
 }) {
-  const { state } = useSidebar();
+  const { isMobile, state } = useSidebar();
   const isReference = appearance === "reference";
+  const isCompactReferenceMark = isReference && !isMobile && state === "collapsed";
 
   return (
     <Sidebar
@@ -139,11 +140,12 @@ function MentorSidebar({
         <Link
           href="/mentor/dashboard"
           className={cn(
-            "flex w-full origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-[background-color,transform] duration-300 ease-out hover:bg-primary-50",
+            "flex w-full origin-center scale-100 items-center justify-center rounded-2xl transition-[background-color,transform] duration-300 ease-out hover:bg-primary-50",
+            isCompactReferenceMark ? "px-0 py-0" : "px-1 py-1",
             !isReference && "group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50",
           )}
         >
-          <BrandLockup />
+          {isCompactReferenceMark ? <BrandMark compact /> : <BrandLockup />}
         </Link>
       </SidebarHeader>
 
