@@ -1,5 +1,32 @@
 # Session Handoff
 
+## Tryout detail reference composition adoption (2026-08-28)
+
+- Objective: apply the extracted Goals-like composition to the existing
+  `/mentor/tryout/[tryoutId]` detail route without changing the Tryout builder
+  workflow or widening the student-page rollout.
+- Implementation: the route opts into `sidebarAppearance="reference"`.
+  `KaptenTryoutBuilderPageModule` now uses `ReferencePageHeader`, a localized
+  `ReferenceStatusBadge`, and `ReferenceSurface` for the outer header and
+  neutral notices. The visual adapter is intentionally limited to outer
+  composition.
+- Preserved boundaries: SectionRail, Identitas Tryout, lifecycle tab/phase
+  behavior, delivery area tabs, direct-only source/question flow, save and
+  publish/unpublish/duplicate actions, dirty navigation guard, and the
+  MentorWorkspaceShell breadcrumb/search/account/ScrollArea infrastructure.
+- QA: authenticated ego-browser checks pass for published Delivery and draft
+  Overview at desktop and 390px mobile widths. Lifecycle tab switching,
+  reference sidebar collapse/mobile drawer, and no horizontal overflow pass.
+  Focused ESLint, `git diff --check`, `test:tryout-authoring-workspace`, and
+  `test:mentor-dashboard-ia` pass.
+- Known baselines: repository `tsc` still reports only preserved invalid syntax
+  in `tmp/reference/res1`; `pnpm build` compiles before the pre-existing
+  `mdx-components.tsx` anchor/ref mismatch; `test:tryout-live-result-workspaces`
+  still has its unrelated stale regex assertion.
+- Scope: no student pages, admin pages, or other mentor/Kapten routes changed;
+  the existing untracked `.agents/skills/information-architecture/` directory
+  remains untouched.
+
 ## Goals-inspired Tryout catalogue adoption (2026-08-28)
 
 - Objective: apply the reference Goals composition to one structurally similar

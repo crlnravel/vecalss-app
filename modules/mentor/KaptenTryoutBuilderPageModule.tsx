@@ -38,6 +38,11 @@ import {
 } from "@/components/ui/full-width-line-tabs";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ReferencePageHeader,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
 import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
@@ -1588,23 +1593,30 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3 pb-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button aria-label="Kembali ke semua Tryout" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
-            <ChevronLeft aria-hidden="true" className="size-5" />
-          </Button>
-          <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-secondary-900">{mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}</h1>
-        </div>
-        {mode === "published" ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
-              <FilePenLine />Jadikan draf
-            </Button>
-            <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
-              <Copy />Duplikat draf baru
-            </Button>
-          </div>
-        ) : null}
+      <div className="flex min-w-0 items-start gap-3 border-b border-primary-100/80 pb-6">
+        <Button aria-label="Kembali ke semua Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </Button>
+        <ReferencePageHeader
+          className="min-w-0 flex-1"
+          description={(
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>{mode === "published" ? "Kelola akses, sesi, dan hasil untuk Tryout ini." : "Susun konfigurasi Tryout sebelum diterbitkan."}</span>
+              <ReferenceStatusBadge size="xs" status={mode === "published" ? "published" : "draft"} />
+            </span>
+          )}
+          title={mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}
+          actions={mode === "published" ? (
+            <>
+              <Button disabled={saving || hasActiveAttempt} onClick={() => dispatch({ open: true, type: "setUnpublishOpen" })} title={hasActiveAttempt ? "Tunggu sampai semua peserta selesai sebelum menjadikan Tryout draf." : "Jadikan Tryout draf"} variant="outline">
+                <FilePenLine />Jadikan draf
+              </Button>
+              <Button disabled={saving} onClick={() => dispatch({ open: true, type: "setDuplicateOpen" })} variant="brandOutline">
+                <Copy />Duplikat draf baru
+              </Button>
+            </>
+          ) : undefined}
+        />
       </div>
 
       {error ? (
@@ -1614,22 +1626,22 @@ function KaptenTryoutBuilderPageModule({
         </p>
       ) : null}
       {routeNormalizationNotice ? (
-        <p className="mt-4 flex items-start gap-2 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+        <ReferenceSurface className="mt-4 flex items-start gap-2 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
           <CircleHelp className="mt-1 size-4 shrink-0 text-primary-800" />
           {routeNormalizationNotice}
-        </p>
+        </ReferenceSurface>
       ) : null}
       {draft.locked ? (
-        <section className="mt-4 flex items-start gap-3 rounded-2xl border border-secondary-900/10 bg-secondary-50 px-4 py-3 text-sm leading-6 text-secondary-700" role="status">
+        <ReferenceSurface className="mt-4 flex items-start gap-3 px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">
           <Lock className="mt-1 size-4 shrink-0" />
           <p><strong>Mode baca saja.</strong> Peserta sudah memulai Tryout ini; buat salinan untuk mengubah konfigurasi tanpa mengubah riwayat.</p>
-        </section>
+        </ReferenceSurface>
       ) : null}
       {initialParent && mode === "draft" ? (
-        <section className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-primary-100 bg-primary-50/55 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status">
+        <ReferenceSurface className="mt-4 flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 text-sm leading-6 text-secondary-700" role="status" variant="inset">
           <div><p className="font-semibold text-secondary-900">Draf perubahan</p><p className="mt-1">Berdasarkan “{initialParent.title}”{initialParent.publishedAt ? ` · diterbitkan ${formatTryoutDateTime(initialParent.publishedAt)}` : ""}. Perubahan di sini tidak memengaruhi versi terbit, sesi, atau hasil sebelumnya.</p></div>
           <Button nativeButton={false} onClick={(event) => guardExternalNavigation(`/mentor/tryout/${initialParent.id}?workspace=schedule`, event)} render={<Link href={`/mentor/tryout/${initialParent.id}?workspace=schedule`} />} size="sm" variant="brandOutline">Lihat versi terbit</Button>
-        </section>
+        </ReferenceSurface>
       ) : null}
 
       <TryoutPhaseNavigation

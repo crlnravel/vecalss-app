@@ -1,5 +1,28 @@
 # Session Progress Log
 
+## Tryout detail reference composition adoption (2026-08-28)
+
+- [x] Applied the extracted reference page composition to
+  `/mentor/tryout/[tryoutId]` while keeping the rollout bounded to this
+  existing mentor/Kapten detail route.
+- [x] Opted the route into the floating Vecalss-tokenized reference sidebar;
+  replaced the outer title/action row with `ReferencePageHeader`, added a
+  localized draft/published `ReferenceStatusBadge`, and used
+  `ReferenceSurface` for neutral route/read-only/lineage notices.
+- [x] Preserved the SectionRail, Identitas Tryout form, lifecycle tabs and
+  delivery sub-navigation, direct-only question picker, save/lifecycle
+  actions, navigation guard, and existing role-shell breadcrumbs/search/
+  account/ScrollArea infrastructure.
+- [x] Authenticated ego-browser QA passes for published Delivery and draft
+  Overview states at desktop and 390px mobile widths; lifecycle tab switching,
+  reference drawer/collapse behavior, and no-horizontal-overflow checks pass.
+- [x] Focused ESLint, `git diff --check`,
+  `pnpm test:tryout-authoring-workspace`, and
+  `pnpm test:mentor-dashboard-ia` pass. Repository TypeScript and production
+  build remain blocked by the preserved `tmp/reference/res1` syntax errors and
+  existing `mdx-components.tsx` anchor/ref mismatch; the unrelated
+  `test:tryout-live-result-workspaces` stale-regex assertion remains failing.
+
 ## Goals-inspired Tryout catalogue adoption (2026-08-28)
 
 - [x] Selected `/mentor/tryout` as the closest non-student analogue to the
