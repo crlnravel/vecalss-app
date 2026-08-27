@@ -4,7 +4,8 @@
 
 - Objective: extract the reusable design language from `tmp/reference/res1`
   before any role-page rollout; student dashboard/pages remain out of scope.
-- Branch/commit: `main` / `de0189c` (`feat: extract reference dashboard components`).
+- Branch/commit: `main` / `de0189c` + `6881d48` (reference dashboard
+  extraction and follow-up hardening).
 - Files: `components/dashboard/index.ts`, token contracts, responsive shell,
   primitives, and fixture-only preview composition.
 - Decision: translate the reference's soft raised/inset geometry into existing
