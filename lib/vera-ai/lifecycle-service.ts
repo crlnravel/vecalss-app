@@ -19,7 +19,10 @@ import {
   VERA_EXPORT_PART_BYTES,
   VERA_MATERIALIZATION_LEASE_MS,
   VERA_EXPORT_GRANT_LEASE_MS,
+  VERA_RETENTION,
   VERA_RETENTION_POLICY_VERSION,
+  assertDualCapabilityApproval,
+  type CapabilityDecisionSnapshot,
 } from "./retention";
 import { canonicalOperationPayload, sha256Hex, VERA_FINGERPRINT_KEY_VERSION } from "./contracts";
 import { EnvelopeService, type AiEncryptedPayload } from "./envelope";
@@ -165,7 +168,7 @@ function asEnvelope(value: unknown): AiEncryptedPayload | null {
 }
 
 async function dbNow(tx: Tx): Promise<Date> {
-  const rows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+  const rows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT CURRENT_TIMESTAMP AS now`;
   return rows[0]?.now ?? new Date();
 }
 
@@ -205,6 +208,28 @@ function opaqueReference(secret: string, type: string, id: string): string {
 
 function asIso(value: Date | null | undefined): string | null {
   return value ? new Date(value).toISOString() : null;
+}
+
+/** Compare canonical UTF-8 bytes, never locale-dependent collation. */
+function compareCanonical(left: string, right: string): number {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
+const LEGAL_ERASURE_CAPABILITIES = ["vera_lifecycle_erasure", "vera_key_destruction_approver"] as const;
+
+function capabilitySnapshotJson(snapshot: CapabilityDecisionSnapshot): Record<string, unknown> {
+  return {
+    operation: snapshot.operation,
+    subjectId: snapshot.subjectId,
+    operatorId: snapshot.operatorId,
+    requiredCapabilityUnion: [...snapshot.requiredCapabilityUnion].sort(compareCanonical),
+    grantedCapabilitySetDigest: snapshot.grantedCapabilitySetDigest,
+    capabilityPolicyVersion: snapshot.capabilityPolicyVersion,
+    decision: snapshot.decision,
+    evaluatedAt: snapshot.evaluatedAt.toISOString(),
+    capabilityDecisionId: snapshot.capabilityDecisionId,
+    snapshotDigest: snapshot.snapshotDigest,
+  };
 }
 
 function exportStateForOperation(state: string): string {
@@ -574,6 +599,11 @@ export class VeraLifecycleService {
         await this.db.$transaction(async (tx) => {
           const current = await tx.aiExportJob.findUnique({ where: { id: input.exportId }, select: { state: true, materializationClaimId: true, materializationFence: true } });
           if (!current || current.state !== "materializing" || current.materializationClaimId !== claim.claimId || current.materializationFence !== claim.fence) throw new VeraLifecycleError("export_payload_unavailable", "The materialization claim was fenced.");
+          // A takeover starts a fresh canonical part set. The unique ordinal
+          // constraint prevents duplicate rows, while this first-ordinal CAS
+          // removes stale parts left by the fenced worker before any new part
+          // is committed.
+          if (ordinal === 0) await tx.aiExportPart.deleteMany({ where: { exportJobId: input.exportId } });
           await tx.aiExportPart.create({ data: { exportJobId: input.exportId, ordinal, ciphertextEnvelope: asJson(encrypted), plaintextBytes: part.byteLength, partDigest: sha256Hex(part) } });
         });
       }
@@ -581,7 +611,7 @@ export class VeraLifecycleService {
       return this.exportStatusFromRows(finalized.job, finalized.operation, false, new Date(), "session");
     } catch (error) {
       const lifecycleError = error instanceof VeraLifecycleError ? error : new VeraLifecycleError("export_payload_unavailable", "Export payload could not be materialized.");
-      await this.markExportFailure(input.exportId, lifecycleError.code, lifecycleError.code === "export_size_limit");
+      await this.markExportFailure(input.exportId, lifecycleError.code, lifecycleError.code === "export_size_limit", claim.claimId, claim.fence);
       throw lifecycleError;
     }
   }
@@ -597,54 +627,117 @@ export class VeraLifecycleService {
         || parts.reduce((sum, part) => sum + part.plaintextBytes, 0) !== input.packageBytes) {
         throw new VeraLifecycleError("export_payload_unavailable", "Export part set is incomplete.");
       }
+      // The worker's input digest/size are only a hint. Decrypt and digest the
+      // locked persisted parts inside the finalizer transaction so a stale or
+      // replayed worker cannot finalize a different package.
+      const scoped = this.envelope.forClient(tx);
+      const plaintext = [] as Buffer[];
+      for (const part of parts) {
+        const envelope = asEnvelope(part.ciphertextEnvelope);
+        if (!envelope) throw new VeraLifecycleError("export_payload_unavailable", "Export part envelope is malformed.");
+        const bytes = await scoped.decryptAsync(envelope);
+        if (bytes.byteLength !== part.plaintextBytes || sha256Hex(bytes) !== part.partDigest) {
+          throw new VeraLifecycleError("export_payload_unavailable", "Export part digest does not match its envelope.");
+        }
+        plaintext.push(bytes);
+      }
+      const packageBytes = Buffer.concat(plaintext);
+      const snapshotDigest = exportSnapshotDigest(packageBytes);
+      if (snapshotDigest !== input.snapshotDigest || packageBytes.byteLength !== input.packageBytes) {
+        throw new VeraLifecycleError("export_payload_unavailable", "Export package digest does not match the claimed snapshot.");
+      }
       const downloadExpiresAt = exportDownloadDeadline(now);
-      const updatedJob = await tx.aiExportJob.update({ where: { id: input.exportId }, data: { state: "ready", snapshotDigest: input.snapshotDigest, packageBytes: input.packageBytes, downloadReadyAt: now, downloadExpiresAt, completedAt: now, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
+      const updatedJob = await tx.aiExportJob.update({ where: { id: input.exportId }, data: { state: "ready", snapshotDigest, packageBytes: packageBytes.byteLength, downloadReadyAt: now, downloadExpiresAt, completedAt: now, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
       const operation = await tx.aiLifecycleOperation.update({ where: { id: input.operationId, state: "processing" }, data: { state: "ready", resultState: "ready", exportExpiresAt: downloadExpiresAt, expiresAt: new Date(downloadExpiresAt.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
       return { job: updatedJob, operation };
     });
   }
 
-  private async markExportFailure(exportId: string, errorCode: string, terminal: boolean): Promise<void> {
+  private async markExportFailure(exportId: string, errorCode: string, terminal: boolean, claimId?: string, fence?: number): Promise<void> {
     await this.db.$transaction(async (tx) => {
       const now = await dbNow(tx);
       const job = await tx.aiExportJob.findUnique({ where: { id: exportId } });
       if (!job || job.state === "ready" || job.state === "expired") return;
+      if (claimId !== undefined && (job.materializationClaimId !== claimId || job.materializationFence !== fence)) return;
       if (!terminal && now < job.recoveryDeadlineAt) {
-        await tx.aiExportJob.update({ where: { id: exportId }, data: { state: "failed_retryable", errorCode, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
-        await tx.aiLifecycleOperation.update({ where: { id: job.operationId }, data: { state: "failed_retryable", resultState: "failed_retryable", errorCode, errorDigest: sha256Hex(errorCode), version: { increment: 1 } } });
+        const updated = await tx.aiExportJob.updateMany({ where: { id: exportId, state: "materializing", ...(claimId === undefined ? {} : { materializationClaimId: claimId, materializationFence: fence }) }, data: { state: "failed_retryable", errorCode, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
+        if (updated.count !== 1) return;
+        await tx.aiLifecycleOperation.updateMany({ where: { id: job.operationId, state: "processing" }, data: { state: "failed_retryable", resultState: "failed_retryable", errorCode, errorDigest: sha256Hex(errorCode), version: { increment: 1 } } });
         return;
       }
       const deadlines = preReadyExportDeadlines(now);
-      await tx.aiExportJob.update({ where: { id: exportId }, data: { state: "failed_terminal", errorCode: terminal ? errorCode : "recovery_expired", terminalAt: now, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
-      await tx.aiLifecycleOperation.update({ where: { id: job.operationId }, data: { state: "failed_terminal", resultState: "failed_terminal", errorCode: terminal ? errorCode : "recovery_expired", terminalAt: now, expiresAt: deadlines.terminalRetentionExpiresAt, version: { increment: 1 } } });
+      const updated = await tx.aiExportJob.updateMany({ where: { id: exportId, state: "materializing", ...(claimId === undefined ? {} : { materializationClaimId: claimId, materializationFence: fence }) }, data: { state: "failed_terminal", errorCode: terminal ? errorCode : "recovery_expired", terminalAt: now, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
+      if (updated.count !== 1) return;
+      await tx.aiLifecycleOperation.updateMany({ where: { id: job.operationId, state: "processing" }, data: { state: "failed_terminal", resultState: "failed_terminal", errorCode: terminal ? errorCode : "recovery_expired", terminalAt: now, expiresAt: deadlines.terminalRetentionExpiresAt, version: { increment: 1 } } });
     });
   }
 
-  async reapExports(now = new Date()): Promise<number> {
-    const jobs = await this.db.aiExportJob.findMany({ where: { OR: [{ state: "materializing", materializationLeaseExpiresAt: { lte: now } }, { state: "failed_retryable", recoveryDeadlineAt: { lte: now } }, { state: "pending", recoveryDeadlineAt: { lte: now } }, { state: "ready", downloadExpiresAt: { lte: now } }] }, select: { id: true } });
+  async reapExports(_callerNow?: Date): Promise<number> {
+    // Candidate discovery is deliberately broad. The authoritative clock is
+    // read inside each locked transaction so a caller cannot advance or delay
+    // retention by supplying a stale/future JavaScript timestamp.
+    void _callerNow;
+    const jobs = await this.db.aiExportJob.findMany({
+      where: { state: { in: ["materializing", "failed_retryable", "pending", "ready"] } },
+      select: { id: true },
+    });
     let changed = 0;
     for (const job of jobs) {
       try {
         await this.db.$transaction(async (tx) => {
+          const initial = await tx.aiExportJob.findUnique({ where: { id: job.id }, select: { id: true, studentId: true } });
+          if (!initial) return;
+          // Lock order: owner -> active holds -> export object -> lifecycle
+          // operation. A hold is checked after its row is locked, so it wins
+          // over every expiry/takeover decision in this pass.
+          if (initial.studentId) {
+            await tx.$queryRaw`SELECT id FROM users WHERE id = ${initial.studentId}::uuid FOR UPDATE`;
+            await tx.$queryRaw`SELECT id FROM ai_retention_holds WHERE student_id = ${initial.studentId}::uuid AND state = 'active'::ai_retention_hold_state AND subject_state = 'attached'::ai_retention_hold_subject_state FOR UPDATE`;
+          }
+          await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${job.id}::uuid FOR UPDATE`;
           const current = await tx.aiExportJob.findUnique({ where: { id: job.id }, include: { operation: true } });
           if (!current) return;
-          if (current.state === "ready" && current.downloadExpiresAt && current.downloadExpiresAt <= now) {
-            const terminalRetention = preReadyExportDeadlines(now);
-            await tx.aiExportJob.update({ where: { id: current.id }, data: { state: "expired", expiredAt: now, terminalAt: now, terminalRetentionExpiresAt: terminalRetention.terminalRetentionExpiresAt, exportAccessGrantState: "expired" } });
-            await tx.aiLifecycleOperation.update({ where: { id: current.operationId }, data: { state: "expired", resultState: "expired", terminalAt: current.operation.terminalAt ?? now, version: { increment: 1 } } });
-            changed += 1;
-          } else if ((current.state === "pending" || current.state === "materializing" || current.state === "failed_retryable") && current.recoveryDeadlineAt <= now) {
-            const deadlines = preReadyExportDeadlines(now);
-            await tx.aiExportJob.update({ where: { id: current.id }, data: { state: "failed_terminal", errorCode: "recovery_expired", terminalAt: now, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
-            await tx.aiLifecycleOperation.update({ where: { id: current.operationId }, data: { state: "failed_terminal", errorCode: "recovery_expired", terminalAt: now, expiresAt: deadlines.terminalRetentionExpiresAt, resultState: "failed_terminal", version: { increment: 1 } } });
-            changed += 1;
-          } else if (current.state === "materializing" && current.materializationLeaseExpiresAt && current.materializationLeaseExpiresAt <= now) {
-            await tx.aiExportJob.update({ where: { id: current.id }, data: { state: "pending", materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null, materializationFence: { increment: 1 } } });
-            await tx.aiLifecycleOperation.update({ where: { id: current.operationId, state: "processing" }, data: { state: "pending", resultState: "pending", version: { increment: 1 } } });
-            changed += 1;
+          await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${current.operationId}::uuid FOR UPDATE`;
+          const locked = await tx.aiExportJob.findUnique({ where: { id: job.id }, include: { operation: true } });
+          if (!locked) return;
+          const clock = await dbNow(tx);
+          const activeHold = locked.studentId
+            ? await tx.aiRetentionHold.findFirst({ where: { studentId: locked.studentId, state: "active", subjectState: "attached" }, select: { id: true } })
+            : null;
+          if (activeHold) return;
+
+          if (locked.state === "ready" && locked.downloadExpiresAt && locked.downloadExpiresAt <= clock) {
+            const retentionBase = new Date(locked.downloadExpiresAt.getTime());
+            const terminalRetentionExpiresAt = new Date(retentionBase.getTime() + VERA_RETENTION.exportTerminalMetadataDays * 24 * 60 * 60 * 1000);
+            const expired = await tx.aiExportJob.updateMany({
+              where: { id: locked.id, state: "ready", downloadExpiresAt: locked.downloadExpiresAt },
+              data: { state: "expired", expiredAt: clock, terminalAt: clock, terminalRetentionExpiresAt, exportAccessGrantState: "expired" },
+            });
+            const operation = expired.count === 1
+              ? await tx.aiLifecycleOperation.updateMany({ where: { id: locked.operationId, state: locked.operation.state, version: locked.operation.version }, data: { state: "expired", resultState: "expired", terminalAt: clock, expiresAt: terminalRetentionExpiresAt, version: { increment: 1 } } })
+              : { count: 0 };
+            if (expired.count === 1 && operation.count === 1) changed += 1;
+          } else if ((locked.state === "pending" || locked.state === "materializing" || locked.state === "failed_retryable") && locked.recoveryDeadlineAt <= clock) {
+            // The policy snapshot's recovery deadline is authoritative; the
+            // reaper only supplies DB-clock terminalAt.
+            const deadlines = preReadyExportDeadlines(locked.recoveryDeadlineAt);
+            const terminal = await tx.aiExportJob.updateMany({
+              where: { id: locked.id, state: locked.state, recoveryDeadlineAt: locked.recoveryDeadlineAt },
+              data: { state: "failed_terminal", errorCode: "recovery_expired", terminalAt: clock, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null },
+            });
+            const operation = terminal.count === 1
+              ? await tx.aiLifecycleOperation.updateMany({ where: { id: locked.operationId, state: locked.operation.state, version: locked.operation.version }, data: { state: "failed_terminal", errorCode: "recovery_expired", terminalAt: clock, expiresAt: deadlines.terminalRetentionExpiresAt, resultState: "failed_terminal", version: { increment: 1 } } })
+              : { count: 0 };
+            if (terminal.count === 1 && operation.count === 1) changed += 1;
+          } else if (locked.state === "materializing" && locked.materializationLeaseExpiresAt && locked.materializationLeaseExpiresAt <= clock) {
+            const reset = await tx.aiExportJob.updateMany({ where: { id: locked.id, state: "materializing", materializationLeaseExpiresAt: locked.materializationLeaseExpiresAt, materializationFence: locked.materializationFence }, data: { state: "pending", materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null, materializationFence: { increment: 1 } } });
+            const operation = reset.count === 1
+              ? await tx.aiLifecycleOperation.updateMany({ where: { id: locked.operationId, state: "processing", version: locked.operation.version }, data: { state: "pending", resultState: "pending", version: { increment: 1 } } })
+              : { count: 0 };
+            if (reset.count === 1 && operation.count === 1) changed += 1;
           }
-          if (current.exportAccessGrantState === "claiming" && current.exportAccessGrantLeaseExpiresAt && current.exportAccessGrantLeaseExpiresAt <= now) {
-            await tx.aiExportJob.updateMany({ where: { id: current.id, exportAccessGrantState: "claiming", exportAccessGrantVersion: current.exportAccessGrantVersion }, data: { exportAccessGrantState: "active", exportAccessGrantClaimId: null, exportAccessGrantClaimedAt: null, exportAccessGrantLeaseExpiresAt: null, exportAccessGrantVersion: { increment: 1 } } });
+          if (locked.exportAccessGrantState === "claiming" && locked.exportAccessGrantLeaseExpiresAt && locked.exportAccessGrantLeaseExpiresAt <= clock) {
+            await tx.aiExportJob.updateMany({ where: { id: locked.id, exportAccessGrantState: "claiming", exportAccessGrantVersion: locked.exportAccessGrantVersion, exportAccessGrantLeaseExpiresAt: locked.exportAccessGrantLeaseExpiresAt }, data: { exportAccessGrantState: "active", exportAccessGrantClaimId: null, exportAccessGrantClaimedAt: null, exportAccessGrantLeaseExpiresAt: null, exportAccessGrantVersion: { increment: 1 } } });
           }
         });
       } catch {
@@ -726,12 +819,12 @@ export class VeraLifecycleService {
         }
         messages.push(projection);
       }
-      messages.sort((left, right) => `${String(left.createdAt)}:${String(left.publicReference)}`.localeCompare(`${String(right.createdAt)}:${String(right.publicReference)}`));
+      messages.sort((left, right) => compareCanonical(`${String(left.createdAt)}:${String(left.publicReference)}`, `${String(right.createdAt)}:${String(right.publicReference)}`));
       const projection: Record<string, unknown> = { publicReference: opaqueReference(this.fingerprintSecret, "conversation", conversation.id), createdAt: formatExportInstant(conversation.createdAt), messages };
       if (conversation.title !== null) projection.title = conversation.title.normalize("NFC");
       resultConversations.push(projection);
     }
-    resultConversations.sort((left, right) => String(left.publicReference).localeCompare(String(right.publicReference)));
+    resultConversations.sort((left, right) => compareCanonical(String(left.publicReference), String(right.publicReference)));
     const resultArtifacts = [] as Array<Record<string, unknown>>;
     for (const artifact of artifacts) {
       const contentEnvelope = asEnvelope(artifact.contentMarkdownCiphertext);
@@ -748,26 +841,43 @@ export class VeraLifecycleService {
       }
       resultArtifacts.push(projection);
     }
-    resultArtifacts.sort((left, right) => String(left.publicReference).localeCompare(String(right.publicReference)));
+    resultArtifacts.sort((left, right) => compareCanonical(String(left.publicReference), String(right.publicReference)));
     return { schemaVersion: "vera.export.v1", product: "Vera AI", exportAsOf: formatExportInstant(exportAsOf), conversations: resultConversations, artifacts: resultArtifacts };
   }
 
   /** Internal account-workflow carrier. It has no public idempotency row. */
   async createAccountCleanupCarrier(input: { accountGeneration: string; intent: string }): Promise<{ operationId: string; correlationDigest: string; replayed: boolean }> {
     const correlationDigest = keyedDigest(this.fingerprintSecret, "account-cleanup", `${input.accountGeneration}:${input.intent}`);
-    return this.db.$transaction(async (tx) => {
-      const existing = await tx.aiLifecycleOperation.findFirst({ where: { operation: "account_cleanup", accountCleanupCorrelationDigest: correlationDigest } });
-      if (existing) return { operationId: existing.id, correlationDigest, replayed: true };
-      const now = await dbNow(tx);
-      const operation = await tx.aiLifecycleOperation.create({ data: { id: randomUUID(), studentId: null, idempotencyKeyId: null, operation: "account_cleanup", resultKind: "account_cleanup", state: "pending", ownerState: "account_deleted", ownerReferenceDigest: keyedDigest(this.fingerprintSecret, "account-owner", input.accountGeneration), accountCleanupCorrelationDigest: correlationDigest, handoffState: "pending", resultState: "pending", recoveryDeadlineAt: new Date(now.getTime() + 24 * 60 * 60 * 1000), version: 0 } });
-      return { operationId: operation.id, correlationDigest, replayed: false };
-    });
+    try {
+      return await this.db.$transaction(async (tx) => {
+        // The correlation digest is the sole carrier identity. An advisory
+        // transaction lock makes the read/create path deterministic while the
+        // unique index remains the last-line race guard for another process.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${correlationDigest}, 0))`;
+        const existing = await tx.aiLifecycleOperation.findUnique({ where: { accountCleanupCorrelationDigest: correlationDigest } });
+        if (existing) return { operationId: existing.id, correlationDigest, replayed: true };
+        const now = await dbNow(tx);
+        const operation = await tx.aiLifecycleOperation.create({ data: { id: randomUUID(), studentId: null, idempotencyKeyId: null, operation: "account_cleanup", resultKind: "account_cleanup", state: "pending", ownerState: "account_deleted", ownerReferenceDigest: keyedDigest(this.fingerprintSecret, "account-owner", input.accountGeneration), accountCleanupCorrelationDigest: correlationDigest, handoffState: "pending", resultState: "pending", recoveryDeadlineAt: new Date(now.getTime() + 24 * 60 * 60 * 1000), version: 0 } });
+        return { operationId: operation.id, correlationDigest, replayed: false };
+      });
+    } catch (error) {
+      // Interactive Prisma transactions are aborted after P2002. Re-read in a
+      // fresh transaction/client path so a unique loser returns the durable
+      // carrier winner instead of a generic failure.
+      if ((error as { code?: string }).code !== "P2002") throw error;
+      const winner = await this.db.aiLifecycleOperation.findUnique({ where: { accountCleanupCorrelationDigest: correlationDigest } });
+      if (winner) return { operationId: winner.id, correlationDigest, replayed: true };
+      throw error;
+    }
   }
 
-  async markAccountCleanupReady(input: { operationId: string; handoffDigest: string; signal?: string }): Promise<boolean> {
+  async markAccountCleanupReady(input: { operationId: string; handoffDigest: string }): Promise<boolean> {
     return this.db.$transaction(async (tx) => {
       const now = await dbNow(tx);
-      const result = await tx.aiLifecycleOperation.updateMany({ where: { id: input.operationId, operation: "account_cleanup", state: { in: ["pending", "processing", "awaiting_dependency"] }, handoffState: "pending" }, data: { state: "completed", resultState: "completed", handoffSignal: input.signal ?? "vera_cleanup_ready_v1", handoffAt: now, handoffState: "ready", handoffDigest: input.handoffDigest, version: { increment: 1 } } });
+      await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${input.operationId}::uuid FOR UPDATE`;
+      const current = await tx.aiLifecycleOperation.findUnique({ where: { id: input.operationId }, select: { version: true, state: true, handoffState: true, operation: true } });
+      if (!current || current.operation !== "account_cleanup" || !["pending", "processing", "awaiting_dependency"].includes(current.state) || current.handoffState !== "pending") return false;
+      const result = await tx.aiLifecycleOperation.updateMany({ where: { id: input.operationId, operation: "account_cleanup", version: current.version, state: { in: ["pending", "processing", "awaiting_dependency"] }, handoffState: "pending" }, data: { state: "completed", resultState: "completed", handoffSignal: "vera_cleanup_ready_v1", handoffAt: now, handoffState: "ready", handoffDigest: input.handoffDigest, version: { increment: 1 } } });
       return result.count === 1;
     });
   }
@@ -775,7 +885,10 @@ export class VeraLifecycleService {
   async consumeAccountCleanupHandoff(input: { operationId: string; consumerId: string; acknowledgementDigest: string }): Promise<boolean> {
     return this.db.$transaction(async (tx) => {
       const now = await dbNow(tx);
-      const result = await tx.aiLifecycleOperation.updateMany({ where: { id: input.operationId, operation: "account_cleanup", state: "completed", handoffState: "ready" }, data: { handoffState: "consumed", handoffConsumedAt: now, handoffConsumerId: input.consumerId, handoffAckDigest: input.acknowledgementDigest, version: { increment: 1 } } });
+      await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${input.operationId}::uuid FOR UPDATE`;
+      const current = await tx.aiLifecycleOperation.findUnique({ where: { id: input.operationId }, select: { version: true, state: true, handoffState: true, operation: true } });
+      if (!current || current.operation !== "account_cleanup" || current.state !== "completed" || current.handoffState !== "ready") return false;
+      const result = await tx.aiLifecycleOperation.updateMany({ where: { id: input.operationId, operation: "account_cleanup", version: current.version, state: "completed", handoffState: "ready" }, data: { handoffState: "consumed", handoffConsumedAt: now, handoffConsumerId: input.consumerId, handoffAckDigest: input.acknowledgementDigest, version: { increment: 1 } } });
       return result.count === 1;
     });
   }
@@ -971,16 +1084,129 @@ export class VeraLifecycleService {
     });
   }
 
-  async markLegalErasure(input: { exportId: string; holdId: string; authorityDigest: string; reasonDigest: string }): Promise<void> {
+  async markLegalErasure(input: {
+    exportId: string;
+    holdId: string;
+    reasonDigest: string;
+    approvals: readonly [CapabilityDecisionSnapshot, CapabilityDecisionSnapshot];
+  }): Promise<void> {
     await this.db.$transaction(async (tx) => {
       const now = await dbNow(tx);
+      try {
+        assertDualCapabilityApproval(input.approvals, [...LEGAL_ERASURE_CAPABILITIES]);
+      } catch (error) {
+        throw new VeraLifecycleError("capability_denied", error instanceof Error ? error.message : "Two current approvals are required.", 403);
+      }
+      const [operatorA, operatorB] = input.approvals;
+      if (operatorA.operation !== "key_destroy" || operatorB.operation !== "key_destroy"
+        || operatorA.subjectId !== input.exportId || operatorB.subjectId !== input.exportId
+        // Permit only a small DB/application clock skew; a materially future
+        // snapshot is never considered a current authorization.
+        || operatorA.evaluatedAt.getTime() > now.getTime() + 5_000
+        || operatorB.evaluatedAt.getTime() > now.getTime() + 5_000) {
+        throw new VeraLifecycleError("capability_denied", "The approval snapshots do not authorize this export.", 403);
+      }
+
+      // Lock order is owner -> hold -> export object -> lifecycle operation ->
+      // destruction claim. No one-operator shortcut or caller-provided
+      // authority digest can bypass these current, persisted checks.
+      const initial = await tx.aiExportJob.findUnique({ where: { id: input.exportId }, select: { id: true, studentId: true } });
+      if (!initial) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
+      if (initial.studentId) await tx.$queryRaw`SELECT id FROM users WHERE id = ${initial.studentId}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM ai_retention_holds WHERE id = ${input.holdId}::uuid FOR UPDATE`;
+      const hold = await tx.aiRetentionHold.findUnique({ where: { id: input.holdId } });
+      if (!hold || hold.state !== "active" || hold.subjectType !== "student" || hold.subjectState !== "attached" || hold.studentId !== initial.studentId || !hold.holdDigest) {
+        throw new VeraLifecycleError("hold_active", "A locked active student hold is required before legal erasure.", 409);
+      }
+      await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${input.exportId}::uuid FOR UPDATE`;
       const job = await tx.aiExportJob.findUnique({ where: { id: input.exportId } });
       if (!job) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
+      await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${job.operationId}::uuid FOR UPDATE`;
       const operation = await tx.aiLifecycleOperation.findUnique({ where: { id: job.operationId } });
       if (!operation) throw new VeraLifecycleError("export_state_mismatch", "Export lifecycle operation is unavailable.");
-      await tx.aiExportJob.update({ where: { id: job.id }, data: { state: "failed_terminal", errorCode: "export_erased_legal", terminalAt: now, exportAccessGrantState: "expired" } });
-      await tx.aiLifecycleOperation.update({ where: { id: operation.id }, data: { state: "failed_terminal", errorCode: "export_erased_legal", errorDigest: input.reasonDigest, terminalAt: now, resultState: "failed_terminal", version: { increment: 1 } } });
-      await tx.aiKeyDestructionClaim.upsert({ where: { objectType_objectId_keyLineageDigest: { objectType: "AiExportJob", objectId: job.id, keyLineageDigest: job.contentEnvelopeKeyId ? sha256Hex(job.contentEnvelopeKeyId) : sha256Hex(job.id) } }, create: { operationId: operation.id, holdId: input.holdId, objectType: "AiExportJob", objectId: job.id, keyLineageDigest: job.contentEnvelopeKeyId ? sha256Hex(job.contentEnvelopeKeyId) : sha256Hex(job.id), state: "pending", requestedByOperatorId: "runbook", requestedCapability: "vera_key_destruction_approver", requestedCapabilityDigest: input.authorityDigest, operatorAId: "runbook", decisionSnapshot: asJson({ authorityDigest: input.authorityDigest, reasonDigest: input.reasonDigest }), decisionSnapshotDigest: input.authorityDigest, erasureOverride: true, erasureOverrideCode: "export_erased_legal", overrideHoldId: input.holdId, overrideAuthorityDigest: input.authorityDigest, overrideReasonDigest: input.reasonDigest }, update: { erasureOverride: true, erasureOverrideCode: "export_erased_legal", overrideHoldId: input.holdId, overrideAuthorityDigest: input.authorityDigest, overrideReasonDigest: input.reasonDigest, claimVersion: { increment: 1 } } });
+
+      const authorizedRows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id::text AS id
+        FROM users
+        WHERE id IN (${operatorA.operatorId}::uuid, ${operatorB.operatorId}::uuid)
+          AND status = 'active'::user_status
+          AND soft_deleted_at IS NULL
+        FOR UPDATE
+      `;
+      if (authorizedRows.length !== 2) throw new VeraLifecycleError("capability_denied", "Both operators must remain currently authorized.", 403);
+
+      const keyLineageDigest = job.contentEnvelopeKeyId ? sha256Hex(job.contentEnvelopeKeyId) : sha256Hex(job.id);
+      await tx.$queryRaw`SELECT id FROM ai_key_destruction_claims WHERE object_type = 'AiExportJob' AND object_id = ${job.id}::uuid AND key_lineage_digest = ${keyLineageDigest} FOR UPDATE`;
+      const existingClaim = await tx.aiKeyDestructionClaim.findUnique({ where: { objectType_objectId_keyLineageDigest: { objectType: "AiExportJob", objectId: job.id, keyLineageDigest } } });
+      const decisionSnapshot = {
+        operatorA: capabilitySnapshotJson(operatorA),
+        operatorB: capabilitySnapshotJson(operatorB),
+        holdId: input.holdId,
+        holdDigest: hold.holdDigest,
+        reasonDigest: input.reasonDigest,
+      };
+      const decisionSnapshotDigest = sha256Hex(canonicalExportJson(decisionSnapshot));
+      if (existingClaim) {
+        if (existingClaim.decisionSnapshotDigest !== decisionSnapshotDigest || existingClaim.overrideHoldId !== input.holdId) {
+          throw new VeraLifecycleError("idempotency_conflict", "A different legal-erasure decision already owns this key claim.", 409);
+        }
+        // An identical claim is a durable replay. It must not repeat state or
+        // key-destruction work.
+        return;
+      }
+
+      const claim = await tx.aiKeyDestructionClaim.create({
+        data: {
+          operationId: operation.id,
+          holdId: input.holdId,
+          objectType: "AiExportJob",
+          objectId: job.id,
+          keyLineageDigest,
+          state: "approved",
+          requestedByOperatorId: operatorA.operatorId,
+          requestedCapability: LEGAL_ERASURE_CAPABILITIES.join("+"),
+          requestedCapabilityDigest: operatorA.snapshotDigest,
+          operatorAId: operatorA.operatorId,
+          operatorAApprovedAt: operatorA.evaluatedAt,
+          operatorADigest: operatorA.snapshotDigest,
+          operatorBId: operatorB.operatorId,
+          operatorBApprovedAt: operatorB.evaluatedAt,
+          operatorBDigest: operatorB.snapshotDigest,
+          approvedByOperatorId: operatorB.operatorId,
+          approvedCapability: LEGAL_ERASURE_CAPABILITIES.join("+"),
+          approvedCapabilityDigest: operatorB.snapshotDigest,
+          operatorACapabilityDecisionId: operatorA.capabilityDecisionId,
+          operatorACapabilityPolicyVersion: operatorA.capabilityPolicyVersion,
+          operatorAGrantedCapabilitySetDigest: operatorA.grantedCapabilitySetDigest,
+          operatorACapabilityDecision: operatorA.decision,
+          operatorACapabilityEvaluatedAt: operatorA.evaluatedAt,
+          operatorACapabilitySnapshotDigest: operatorA.snapshotDigest,
+          operatorBCapabilityDecisionId: operatorB.capabilityDecisionId,
+          operatorBCapabilityPolicyVersion: operatorB.capabilityPolicyVersion,
+          operatorBGrantedCapabilitySetDigest: operatorB.grantedCapabilitySetDigest,
+          operatorBCapabilityDecision: operatorB.decision,
+          operatorBCapabilityEvaluatedAt: operatorB.evaluatedAt,
+          operatorBCapabilitySnapshotDigest: operatorB.snapshotDigest,
+          decisionSnapshot: asJson(decisionSnapshot),
+          decisionSnapshotDigest,
+          erasureOverride: true,
+          erasureOverrideCode: "export_erased_legal",
+          overrideHoldId: input.holdId,
+          overrideAuthorityDigest: operatorA.snapshotDigest,
+          overrideReasonDigest: input.reasonDigest,
+          recoveryDeadlineAt: new Date(now.getTime() + VERA_RETENTION.recoveryGraceHours * 60 * 60 * 1000),
+        },
+      });
+      if (!claim) throw new VeraLifecycleError("target_unavailable", "Legal-erasure claim could not be persisted.", 503);
+
+      const deadlines = preReadyExportDeadlines(now);
+      const updatedJob = await tx.aiExportJob.updateMany({
+        where: { id: job.id, state: { not: "expired" } },
+        data: { state: "failed_terminal", errorCode: "export_erased_legal", terminalAt: now, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, exportAccessGrantState: "expired" },
+      });
+      if (updatedJob.count !== 1) throw new VeraLifecycleError("export_state_mismatch", "Export state changed during legal-erasure claim.", 409);
+      const updatedOperation = await tx.aiLifecycleOperation.updateMany({ where: { id: operation.id, version: operation.version, state: { not: "expired" } }, data: { state: "failed_terminal", errorCode: "export_erased_legal", errorDigest: input.reasonDigest, terminalAt: now, resultState: "failed_terminal", expiresAt: deadlines.terminalRetentionExpiresAt, version: { increment: 1 } } });
+      if (updatedOperation.count !== 1) throw new VeraLifecycleError("target_revision_conflict", "Export lifecycle changed during legal-erasure claim.", 409);
     });
   }
 }

@@ -140,6 +140,61 @@ function sameSet(actual: readonly string[], expected: readonly string[]): boolea
   return actual.length === expected.length && expected.every((value) => actual.includes(value));
 }
 
+type ExecutableIntegrationEvidence = {
+  status: "passed";
+  operationNamespaces: "verified";
+  learnerFlow: "verified";
+  t9Http: "verified";
+  t10Http: "verified";
+  browser: { desktop: "verified"; mobile390: "verified"; port: number };
+  providerGateState: "open_blocked";
+  liveProvider: false;
+  noSharedInfrastructure: true;
+};
+
+function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
+  const disposableDatabase = process.env.VERA_DISPOSABLE_DATABASE_URL;
+  const disposableRedis = process.env.VERA_DISPOSABLE_REDIS_URL ?? process.env.REDIS_URL;
+  assert(disposableDatabase, "T12 requires VERA_DISPOSABLE_DATABASE_URL for executable evidence");
+  assert(disposableRedis, "T12 requires VERA_DISPOSABLE_REDIS_URL or REDIS_URL for executable evidence");
+  const output = execFileSync("pnpm", ["test:vera-sprint5-integration"], {
+    cwd: root,
+    env: {
+      ...process.env,
+      DATABASE_URL: disposableDatabase,
+      VERA_DISPOSABLE_DATABASE_URL: disposableDatabase,
+      VERA_DISPOSABLE_REDIS_URL: disposableRedis,
+      REDIS_URL: disposableRedis,
+      VERA_DISPOSABLE_DB_ACK: "1",
+      VERA_LIVE_PROVIDER_ENABLED: "false",
+      VERA_MOCK_PROVIDER_ENABLED: "true",
+    },
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  const evidenceLine = output.split("\n").find((line) => line.trim().startsWith("{") && line.includes('"status":"passed"'));
+  assert(evidenceLine, "T12 integration did not emit its structured PASS evidence");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(evidenceLine);
+  } catch {
+    throw new Error("T12 integration emitted malformed structured evidence");
+  }
+  assert(parsed && typeof parsed === "object", "T12 integration evidence is not an object");
+  const evidence = parsed as Partial<ExecutableIntegrationEvidence>;
+  assert(evidence.status === "passed", "T12 integration did not pass");
+  assert(evidence.operationNamespaces === "verified", "T12 operation namespace evidence is incomplete");
+  assert(evidence.learnerFlow === "verified", "T12 learner flow evidence is incomplete");
+  assert(evidence.t9Http === "verified" && evidence.t10Http === "verified", "T12 T9/T10 HTTP evidence is incomplete");
+  assert(evidence.browser?.desktop === "verified" && evidence.browser.mobile390 === "verified", "T12 browser desktop/mobile evidence is incomplete");
+  assert(evidence.providerGateState === "open_blocked" && evidence.liveProvider === false, "T12 integration changed the provider gate");
+  assert(evidence.noSharedInfrastructure === true, "T12 integration did not prove isolated infrastructure");
+  console.log(output.split("\n").filter((line) => line.startsWith("T12_EVIDENCE") || line.startsWith("PASS vera-sprint5-integration")).join("\n"));
+  return evidence as ExecutableIntegrationEvidence;
+}
+
+const executableIntegrationEvidence = runExecutableIntegrationEvidence();
+
 const schema = readProjectFile("prisma/schema.prisma") ?? "";
 const providerSource = readProjectFile("lib/vera-ai/provider.ts") ?? "";
 const contractsSource = readProjectFile("lib/vera-ai/contracts.ts") ?? "";
@@ -399,9 +454,9 @@ const releaseChecklist = Object.freeze({
   retentionPurgeState: "evidence_attached",
   exportState: "evidence_attached",
   deletionAndFkState: "evidence_attached",
-  quotaSettlementState: "regression_attached",
-  adminPrivacyState: "regression_attached",
-  browserState: "regression_attached",
+  quotaSettlementState: executableIntegrationEvidence.learnerFlow,
+  adminPrivacyState: executableIntegrationEvidence.t9Http === "verified" && executableIntegrationEvidence.t10Http === "verified" ? "verified" : "blocked",
+  browserState: executableIntegrationEvidence.browser.desktop === "verified" && executableIntegrationEvidence.browser.mobile390 === "verified" ? "verified" : "blocked",
   ...releaseChecklistContract,
   baselineDeviations: dirtyPaths,
   evidenceDigests,

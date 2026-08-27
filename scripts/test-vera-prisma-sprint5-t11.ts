@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -15,6 +16,7 @@ import {
   IORedisVeraLeaseStore,
   VeraRedisUnavailableError,
 } from "../lib/vera-ai/redis-lease";
+import { canonicalExportJson, withCapabilitySnapshotDigest, type CapabilityDecisionSnapshot } from "../lib/vera-ai/retention";
 
 const root = process.cwd();
 const migrationPath = join(root, "prisma/migrations/20260827100000_add_vera_sprint5_lifecycle/migration.sql");
@@ -71,6 +73,7 @@ type OwnedFixtureIds = {
   idempotencyKeys: string[];
   holdIds: string[];
   conversationIds: string[];
+  userIds: string[];
 };
 
 async function readMigrationSnapshot(db: PrismaClient): Promise<MigrationAuditSnapshot[]> {
@@ -126,6 +129,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const idempotencyKeys: string[] = [];
   const holdIds: string[] = [];
   const conversationIds: string[] = [];
+  const userIds: string[] = [studentId, otherStudentId];
 
   const malformedCases = [
     { label: "empty", key: "" },
@@ -243,22 +247,64 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert(populatedHold && populatedHold.state === "active");
   assert.equal(populatedHold.releases.length, 1, "retention hold release must retain the dual/two-operator decision snapshot");
 
-  await lifecycle.markLegalErasure({
-    exportId,
-    holdId,
-    authorityDigest: sha256(`${namespace}:authority`),
-    reasonDigest: sha256(`${namespace}:reason`),
+  const operatorAId = randomUUID();
+  const operatorBId = randomUUID();
+  userIds.push(operatorAId, operatorBId);
+  await db.user.createMany({ data: [
+    { id: operatorAId, email: `${namespace}-operator-a@example.test`, fullName: "Vera T11 Operator A", passwordHash: "fixture" },
+    { id: operatorBId, email: `${namespace}-operator-b@example.test`, fullName: "Vera T11 Operator B", passwordHash: "fixture" },
+  ] });
+  const capabilityUnion = ["vera_lifecycle_erasure", "vera_key_destruction_approver"];
+  const operatorA: CapabilityDecisionSnapshot = withCapabilitySnapshotDigest({
+    operation: "key_destroy",
+    subjectId: exportId,
+    operatorId: operatorAId,
+    requiredCapabilityUnion: capabilityUnion,
+    grantedCapabilitySetDigest: sha256(`${namespace}:operator-a-grants`),
+    capabilityPolicyVersion: "vera-capability-v1",
+    decision: "allow",
+    evaluatedAt: new Date(),
+    capabilityDecisionId: `${namespace}:operator-a-decision`,
   });
+  const operatorB: CapabilityDecisionSnapshot = withCapabilitySnapshotDigest({
+    operation: "key_destroy",
+    subjectId: exportId,
+    operatorId: operatorBId,
+    requiredCapabilityUnion: capabilityUnion,
+    grantedCapabilitySetDigest: sha256(`${namespace}:operator-b-grants`),
+    capabilityPolicyVersion: "vera-capability-v1",
+    decision: "allow",
+    evaluatedAt: new Date(),
+    capabilityDecisionId: `${namespace}:operator-b-decision`,
+  });
+  await expectLifecycleCode(
+    () => lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:reason`), approvals: [operatorA, operatorA] }),
+    "capability_denied",
+  );
+  await lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:reason`), approvals: [operatorA, operatorB] });
+  await lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:reason`), approvals: [operatorA, operatorB] });
   const destructionClaim = await db.aiKeyDestructionClaim.findFirst({ where: { objectId: exportId, holdId } });
   assert(destructionClaim, "legal erasure must populate the key-destruction claim");
   assert.equal(destructionClaim.erasureOverride, true);
   assert.equal(destructionClaim.overrideHoldId, holdId);
-  assert.equal(destructionClaim.requestedCapability, "vera_key_destruction_approver");
-  console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-operator restrictive=true");
+  assert.equal(destructionClaim.requestedCapability, "vera_lifecycle_erasure+vera_key_destruction_approver");
+  assert.equal(destructionClaim.operatorAId, operatorAId);
+  assert.equal(destructionClaim.operatorBId, operatorBId);
+  assert.equal(destructionClaim.decisionSnapshotDigest, sha256(canonicalExportJson({
+    operatorA: { ...operatorA, evaluatedAt: operatorA.evaluatedAt.toISOString(), requiredCapabilityUnion: [...operatorA.requiredCapabilityUnion].sort() },
+    operatorB: { ...operatorB, evaluatedAt: operatorB.evaluatedAt.toISOString(), requiredCapabilityUnion: [...operatorB.requiredCapabilityUnion].sort() },
+    holdId,
+    holdDigest,
+    reasonDigest: sha256(`${namespace}:reason`),
+  })));
+  console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-operators locked-hold-claim=CAS replay=exactly-once restrictive=true");
 
   const expiredKey = `${namespace}:export-expired`;
   idempotencyKeys.push(expiredKey);
-  const expiredAccepted = await lifecycle.createExport({ studentId, idempotencyKey: expiredKey, format: "json_v1" });
+  // The legal hold above intentionally supersedes expiry for its student. Use
+  // the isolated sibling subject to prove normal pre-ready/ready reaping while
+  // retaining the hold-precedence assertion on the original export.
+  const expiredAccepted = await lifecycle.createExport({ studentId: otherStudentId, idempotencyKey: expiredKey, format: "json_v1" });
   if (!("exportId" in expiredAccepted) || !expiredAccepted.exportId || !expiredAccepted.operationId) {
     throw new Error("expired export fixture did not return its typed export target");
   }
@@ -268,10 +314,10 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   await lifecycle.materializeExport({ exportId: expiredExportId, ownerId: `${namespace}:worker-expiry` });
   await db.aiExportJob.update({ where: { id: expiredExportId }, data: { downloadExpiresAt: new Date(Date.now() - 1_000) } });
   assert((await lifecycle.reapExports(new Date())) >= 1, "worker reaper must settle expired exports");
-  const expiredStatus = await lifecycle.readExportStatus({ exportId: expiredExportId, studentId });
+  const expiredStatus = await lifecycle.readExportStatus({ exportId: expiredExportId, studentId: otherStudentId });
   assert.equal(expiredStatus.state, "expired");
   await expectLifecycleCode(
-    () => lifecycle.downloadExport({ exportId: expiredExportId, studentId }),
+    () => lifecycle.downloadExport({ exportId: expiredExportId, studentId: otherStudentId }),
     "export_expired",
   );
   console.log("T11_EVIDENCE export_expired=true downloadExpiresAt=terminal retention=90-day");
@@ -323,7 +369,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(deleteOperation?.state, "completed");
   console.log("T11_EVIDENCE operationMatrix=missing malformed overlong empty replay conflict expired unique unauthorized cross-operation same-key worker settle CAS second provider=no duplicate");
 
-  return { exportIds, operationIds, idempotencyKeys, holdIds, conversationIds };
+  return { exportIds, operationIds, idempotencyKeys, holdIds, conversationIds, userIds };
 }
 
 async function testCutoverEvidence(db: PrismaClient): Promise<void> {
@@ -357,7 +403,33 @@ async function testCutoverEvidence(db: PrismaClient): Promise<void> {
   console.log(`T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=vera-s5-restore-rehearsal-2026-08-v1 key-registry=vera-s5-key-registry-rehearsal-2026-08-v1 evidenceDigest=${evidenceDigest} DB_NOW=${dbClockRows[0]!.DB_NOW.toISOString()} window=2026-09-01..2026-10-01 Asia/Jakarta zero_rows_orphan_check=attached`);
 }
 
-async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operationIds: string[]; idempotencyKeys: string[]; holdIds: string[]; conversationIds: string[] }): Promise<void> {
+function testAllDurableCallbacks(): void {
+  const connectionString = process.env.VERA_DISPOSABLE_DATABASE_URL;
+  assert(connectionString, "the callback matrix requires the isolated disposable database");
+  const environment = {
+    ...process.env,
+    VERA_DISPOSABLE_DATABASE_URL: connectionString,
+    VERA_DISPOSABLE_DB_ACK: "1",
+    VERA_LIVE_PROVIDER_ENABLED: "false",
+  };
+  let output = "";
+  try {
+    output = execFileSync("pnpm", ["test:vera-prisma-sprint3"], { cwd: root, env: environment, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    const detail = error && typeof error === "object" && "stdout" in error
+      ? `${String((error as { stdout?: unknown }).stdout ?? "")}\n${String((error as { stderr?: unknown }).stderr ?? "")}`
+      : String(error);
+    throw new Error(`the executable seven-callback matrix failed: ${detail.slice(-8_000)}`);
+  }
+  assert.match(output, /all seven persisted callback tuples/u, "the Sprint 3 fixture did not exercise the seven persisted callback tuples");
+  const normalizedOutput = output.toLowerCase();
+  for (const namespace of ["chat", "analysis", "route", "review", "summary", "ptn", "drill"]) {
+    assert(normalizedOutput.includes(namespace), `callback matrix output is missing ${namespace}`);
+  }
+  console.log("T11_EVIDENCE callbacks=chat analysis route review summary ptn drill all seven persisted callback tuples normal=status=worker crash-rollback=exactly-once accounting=once recommendation_materialization=separate");
+}
+
+async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operationIds: string[]; idempotencyKeys: string[]; holdIds: string[]; conversationIds: string[]; userIds: string[] }): Promise<void> {
   try {
     if (ids.exportIds.length > 0) {
       await db.aiExportPart.deleteMany({ where: { exportJobId: { in: ids.exportIds } } });
@@ -372,9 +444,27 @@ async function cleanupOwned(db: PrismaClient, ids: { exportIds: string[]; operat
       await db.aiRetentionHoldRelease.deleteMany({ where: { holdId: { in: ids.holdIds } } });
       await db.aiRetentionHold.deleteMany({ where: { id: { in: ids.holdIds } } });
     }
-    if (ids.operationIds.length > 0) await db.aiLifecycleOperation.deleteMany({ where: { id: { in: ids.operationIds } } });
+    if (ids.operationIds.length > 0) {
+      // The lifecycle->idempotency FK is intentionally restrictive. Null the
+      // owned nullable carrier link before removing the test rows, then the
+      // key rows can be removed without touching unrelated operations.
+      await db.aiLifecycleOperation.updateMany({ where: { id: { in: ids.operationIds }, operation: "account_cleanup" }, data: { idempotencyKeyId: null } });
+      await db.aiLifecycleOperation.deleteMany({ where: { id: { in: ids.operationIds } } });
+    }
     if (ids.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: ids.idempotencyKeys } } });
     if (ids.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: ids.conversationIds } } });
+    if (ids.userIds.length > 0) {
+      const orphanedOperations = await db.aiLifecycleOperation.findMany({ where: { studentId: { in: ids.userIds } }, select: { id: true } });
+      if (orphanedOperations.length > 0) {
+        const orphanedOperationIds = orphanedOperations.map(({ id }) => id);
+        await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: orphanedOperationIds } } });
+        await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: orphanedOperationIds } } });
+        await db.aiLifecycleOperation.deleteMany({ where: { id: { in: orphanedOperationIds } } });
+      }
+      await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: ids.userIds } } });
+      await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: ids.userIds } } });
+    }
+    if (ids.userIds.length > 0) await db.user.deleteMany({ where: { id: { in: ids.userIds } } });
   } catch (error) {
     // A fixture cleanup failure never deletes outside its UUID namespace; keep
     // the evidence failure visible while leaving unrelated disposable rows.
@@ -398,13 +488,14 @@ async function main(): Promise<void> {
   const rootKey = Buffer.alloc(32, 23);
   const envelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => rootKey));
   const lifecycle = createVeraLifecycleService({ db, envelope, fingerprintSecret: `${namespace}:hmac-secret` });
-  let owned: OwnedFixtureIds = { exportIds: [], operationIds: [], idempotencyKeys: [], holdIds: [], conversationIds: [] };
+  let owned: OwnedFixtureIds = { exportIds: [], operationIds: [], idempotencyKeys: [], holdIds: [], conversationIds: [], userIds: [studentId, otherStudentId] };
 
   await db.user.create({ data: { id: studentId, email: `${namespace}-student@example.test`, fullName: "Vera T11 Fixture Student", passwordHash: "fixture" } });
   await db.user.create({ data: { id: otherStudentId, email: `${namespace}-other@example.test`, fullName: "Vera T11 Fixture Other", passwordHash: "fixture" } });
   try {
     await testRedis(redisUrl, studentId, namespace);
     owned = await testLifecycle(db, lifecycle, studentId, otherStudentId, namespace);
+    testAllDurableCallbacks();
     await testCutoverEvidence(db);
     console.log("PASS vera-prisma-sprint5-t11: isolated PostgreSQL/Redis lifecycle, malformed-output, export/hold/account, and cutover rollback evidence");
   } finally {

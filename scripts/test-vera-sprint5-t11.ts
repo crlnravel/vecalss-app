@@ -176,6 +176,14 @@ function testStaticBoundary(): void {
   assert(migration.includes('ALTER COLUMN "metadata_state" SET DEFAULT \'encrypted\''));
   assert(migration.includes("account_cleanup") && migration.includes("awaiting_dependency"));
   assert(migration.includes("zero_rows") && migration.includes("pre-retirement"));
+  for (const marker of [
+    "ai_export_jobs_terminal_retention_ck",
+    "ai_export_jobs_pre_ready_contract_ck",
+    "ai_retention_holds_digest_state_ck",
+    "operator_a_capability_snapshot_digest",
+    "operator_b_capability_snapshot_digest",
+    "terminal_retention_expires_at >=",
+  ]) assert(migration.includes(marker), `migration is missing ${marker} invariants`);
   assert(!migration.includes("'plaintext'"), "migration must never insert a plaintext marker");
   for (const field of VERA_T11_LEGACY_INVENTORY_FIELDS) {
     assert(migration.includes(`'${field.sourceTable}'`) && migration.includes(`'${field.sourceField}'`), `missing inventory ${field.sourceTable}:${field.sourceField}`);

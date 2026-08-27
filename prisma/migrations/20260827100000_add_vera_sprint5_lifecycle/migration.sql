@@ -444,7 +444,13 @@ ALTER TABLE "ai_export_jobs"
   ),
   ADD CONSTRAINT "ai_export_jobs_terminal_retention_ck" CHECK (
     "state" NOT IN ('failed_terminal', 'expired')
-    OR "terminal_at" IS NOT NULL
+    OR ("terminal_at" IS NOT NULL
+        AND "terminal_retention_expires_at" IS NOT NULL
+        AND "terminal_retention_expires_at" >= "terminal_at")
+  ),
+  ADD CONSTRAINT "ai_export_jobs_pre_ready_contract_ck" CHECK (
+    "state" NOT IN ('pending', 'materializing', 'failed_retryable')
+    OR ("download_ready_at" IS NULL AND "download_expires_at" IS NULL)
   );
 
 ALTER TABLE "ai_export_parts"
@@ -460,6 +466,10 @@ ALTER TABLE "ai_retention_holds"
   ADD CONSTRAINT "ai_retention_holds_release_time_ck" CHECK (
     ("state" = 'active' AND "released_at" IS NULL)
     OR ("state" = 'released' AND "released_at" IS NOT NULL)
+  ),
+  ADD CONSTRAINT "ai_retention_holds_digest_state_ck" CHECK (
+    ("state" = 'active' AND length(trim("hold_digest")) >= 32)
+    OR ("state" = 'released' AND length(trim("hold_digest")) >= 32)
   );
 
 ALTER TABLE "ai_retention_hold_releases"
@@ -475,7 +485,12 @@ ALTER TABLE "ai_key_destruction_claims"
   ADD CONSTRAINT "ai_key_destruction_claims_version_ck" CHECK ("claim_version" >= 0),
   ADD CONSTRAINT "ai_key_destruction_claims_override_ck" CHECK (
     (NOT "erasure_override" AND "erasure_override_code" IS NULL)
-    OR ("erasure_override" AND "erasure_override_code" IS NOT NULL)
+    OR ("erasure_override" AND "erasure_override_code" IS NOT NULL
+        AND "override_hold_id" IS NOT NULL
+        AND "operator_b_id" IS NOT NULL
+        AND "operator_a_id" <> "operator_b_id"
+        AND "operator_a_capability_snapshot_digest" IS NOT NULL
+        AND "operator_b_capability_snapshot_digest" IS NOT NULL)
   );
 
 ALTER TABLE "ai_purge_work_items"

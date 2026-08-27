@@ -471,6 +471,7 @@ export class VeraPrismaAdmissionService {
             contentEnvelope: envelope ? json(envelope) : undefined,
             contentState: AiContentLifecycleState.encrypted,
             contentDigest: envelope?.plaintextDigest,
+            metadataState: AiContentLifecycleState.legacy_plaintext,
           },
         });
       }
@@ -767,6 +768,7 @@ export class VeraPrismaAdmissionService {
           contentEnvelope: envelope ? json(envelope) : undefined,
           contentState: AiContentLifecycleState.encrypted,
           contentDigest: envelope?.plaintextDigest,
+          metadataState: AiContentLifecycleState.legacy_plaintext,
         },
       });
     }
