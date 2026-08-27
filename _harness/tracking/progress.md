@@ -10,7 +10,7 @@
 - [x] Kept student pages and all mentor/Kapten/admin route wiring untouched.
 - [x] Navigation icons use rendered `ReactNode` slots so server routes can
   safely pass them through the client shell boundary.
-- [x] Focused ESLint and Impeccable detector pass; commit is `8e7ded6`.
+- [x] Focused ESLint and Impeccable detector pass; commit is `de0189c`.
 - [ ] Next: preview the isolated layer, then choose one bounded non-student
   mentor/Kapten/admin adoption after confirmation.
 

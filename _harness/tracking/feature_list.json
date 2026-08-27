@@ -166,7 +166,7 @@
       "description": "Extract the reusable responsive dashboard shell and content primitives from tmp/reference/res1 without wiring role pages",
       "dependencies": [],
       "status": "complete",
-      "evidence": "8e7ded6; Vecalss-tokenized surfaces, responsive shell, headers, progress/stat/activity/goal/task primitives, RSC-safe rendered navigation icon slots, focused ESLint, Impeccable detector [], and isolated fixture preview; no student, mentor, Kapten, or admin routes changed"
+      "evidence": "de0189c; Vecalss-tokenized surfaces, responsive shell, headers, progress/stat/activity/goal/task primitives, RSC-safe rendered navigation icon slots, focused ESLint, Impeccable detector [], and isolated fixture preview; no student, mentor, Kapten, or admin routes changed"
     }
   ]
 }
