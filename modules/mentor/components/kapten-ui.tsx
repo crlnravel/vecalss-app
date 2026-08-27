@@ -23,11 +23,10 @@ import {
 import { cn } from "@/lib/utils";
 import {
   contentTypeMeta,
-  quickCreateItems,
   statusLabels,
-  type KaptenContentStatus,
-  type KaptenResource,
-} from "@/modules/mentor/mock-data";
+} from "@/modules/mentor/resource-types";
+import { quickCreateItems } from "@/modules/mentor/quick-create-items";
+import type { KaptenContentStatus, KaptenResource } from "@/modules/mentor/resource-types";
 
 const statusClasses: Record<KaptenContentStatus, string> = {
   archived: "border-secondary-200 bg-secondary-50 text-secondary-600",
