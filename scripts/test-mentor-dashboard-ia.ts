@@ -362,6 +362,13 @@ assert.equal(getStoredQuizDrafts(tutorA).length, 1);
 assert.equal(getStoredQuizDraft(tutorA, quizId)?.scopeId, tutorA);
 assert.equal(getStoredQuizDrafts(tutorB).length, 0, "a second tutor cannot read the first tutor's browser draft");
 
+memory.set(storageKeyForTutor(tutorA)!, JSON.stringify([
+  { ...savedDraft, savedAt: Number.MAX_VALUE },
+  { ...savedDraft, savedAt: "not-a-date" },
+]));
+assert.deepEqual(getStoredQuizDrafts(tutorA), [], "poisoned stored timestamps are dropped before overlay");
+memory.set(storageKeyForTutor(tutorA)!, JSON.stringify([savedDraft]));
+
 Object.defineProperty(fakeWindow, "localStorage", {
   configurable: true,
   get() {
