@@ -3,7 +3,10 @@
 import { useRef, useState } from "react";
 import { ArrowDownToLine, ChevronDown, CircleHelp, FileUp, Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -13,7 +16,6 @@ import {
   resetImportFileSelection,
 } from "./import-ui-contract";
 import {
-  ADMIN_CARD_CLASS_NAME,
   ADMIN_STATUS_CLASS_NAMES,
 } from "../admin-ui-contract";
 
@@ -192,61 +194,72 @@ function ImportsIntakeModule({
   }
 
   return (
-    <section aria-labelledby={embedded ? undefined : "import-siswa-heading"} className={embedded ? "" : `${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+    <ReferenceSurface
+      as="section"
+      aria-labelledby={embedded ? undefined : "import-siswa-heading"}
+      className={embedded ? "space-y-5 border-0 bg-transparent p-0 shadow-none" : "overflow-hidden p-0"}
+    >
       {!embedded ? (
-        <div className="border-b border-primary-100 px-5 py-6 sm:px-8 sm:py-7">
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Import Siswa</h2>
+        <div className="border-b border-primary-100/80 px-5 py-6 sm:px-7 sm:py-7">
+          <h2 className="font-heading text-2xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-siswa-heading">Import Siswa</h2>
+          <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-500">Upload a CSV, review each row, then confirm the import when it is ready.</p>
         </div>
       ) : null}
 
-      <form className={embedded ? "" : "px-5 py-6 sm:px-8 sm:py-8"} onSubmit={handleUpload}>
-        <div className={showRoleSelect ? "grid gap-8 lg:grid-cols-2 lg:gap-x-16" : "grid gap-5"}>
+      <form className={embedded ? "grid gap-5" : "grid gap-5 p-5 sm:p-7"} onSubmit={handleUpload}>
+        <div className={showRoleSelect ? "grid gap-5 lg:grid-cols-2 lg:gap-6" : "grid gap-5"}>
           {showRoleSelect ? (
-            <div className="lg:pr-8">
-            <div className="flex items-center gap-1.5">
-              <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Choose a role</label>
-              <Tooltip>
-                <TooltipTrigger render={<Button aria-label="Role import guidance" size="icon-xs" type="button" variant="ghost" />}>
-                  <CircleHelp aria-hidden="true" size={15} />
-                </TooltipTrigger>
-                <TooltipContent>Each file can contain one role only.</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="relative mt-3">
-              <select
-                className="min-h-12 w-full appearance-none rounded-xl border border-primary-200 bg-white px-4 pr-11 text-sm font-semibold text-secondary-900 transition-colors hover:border-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300"
-                disabled={busy}
-                id="import-role"
-                onChange={(event) => handleRoleChange(event.target.value as ImportRole)}
-                value={role}
-              >
-                <option value="student">Students</option>
-                <option value="tutor">Kapten</option>
-              </select>
-              <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-primary-700" size={18} />
-            </div>
-            </div>
+            <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
+              <div className="flex items-center gap-1.5">
+                <label className="block text-sm font-semibold text-secondary-900" htmlFor="import-role">1. Choose a role</label>
+                <Tooltip>
+                  <TooltipTrigger render={<Button aria-label="Role import guidance" size="icon-xs" type="button" variant="ghost" />}>
+                    <CircleHelp aria-hidden="true" size={15} />
+                  </TooltipTrigger>
+                  <TooltipContent>Each file can contain one role only.</TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="relative mt-3">
+                <select
+                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "appearance-none pr-11 font-medium")}
+                  disabled={busy}
+                  id="import-role"
+                  onChange={(event) => handleRoleChange(event.target.value as ImportRole)}
+                  value={role}
+                >
+                  <option value="student">Students</option>
+                  <option value="tutor">Kapten</option>
+                </select>
+                <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-primary-700" size={18} />
+              </div>
+            </ReferenceSurface>
           ) : null}
 
-          <div>
+          <ReferenceSurface as="div" className="min-w-0 p-4 sm:p-5" variant="inset">
             <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "2. Get the CSV template" : "1. Download the CSV template"}</p>
+            <p className="mt-1 text-xs leading-5 text-secondary-500">Use the matching columns for {template.label}.</p>
             <Button
               className="mt-4"
               nativeButton={false}
               render={<a aria-label="Download template" download={template.fileName} href={`/api/admin/imports/templates/${template.version}`} />}
               size="default"
-              variant="brandOutline"
+              variant="reference"
             >
               <ArrowDownToLine aria-hidden="true" size={16} />
               Download template
             </Button>
-          </div>
+          </ReferenceSurface>
 
-          <div className={showRoleSelect ? "pt-4 lg:col-span-2" : "pt-2"}>
+          <ReferenceSurface as="div" className={showRoleSelect ? "min-w-0 p-4 lg:col-span-2 sm:p-5" : "min-w-0 p-4 sm:p-5"} variant="inset">
             <p className="text-sm font-semibold text-secondary-900">{showRoleSelect ? "3. Upload the file" : "2. Upload the file"}</p>
-            <p className="mt-2 text-xs leading-5 text-secondary-600">CSV only, up to 2 MiB and 500 data rows.</p>
+            <p className="mt-2 text-xs leading-5 text-secondary-500">CSV only, up to 2 MiB and 500 data rows.</p>
             <label
-              className={`mt-4 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${isDragging ? "border-primary-400 bg-primary-100" : "border-primary-200 bg-primary-50/50 hover:border-primary-300 hover:bg-primary-50"} ${busy ? "cursor-not-allowed opacity-70" : ""}`}
+              className={cn(
+                "mt-4 flex min-h-36 w-full cursor-pointer rounded-3xl border border-dashed px-6 py-8 text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300",
+                "flex-col items-center justify-center",
+                isDragging ? "border-primary-400 bg-primary-100" : "border-primary-200 bg-primary-50/50 hover:border-primary-300 hover:bg-primary-50",
+                busy ? "cursor-not-allowed opacity-70" : "",
+              )}
               htmlFor="roster-upload"
               onDragEnter={(event) => {
                 event.preventDefault();
@@ -275,7 +288,7 @@ function ImportsIntakeModule({
               />
               <Upload aria-hidden="true" className="text-primary-700" size={26} />
               <span className="mt-3 text-sm font-semibold text-secondary-900">{file ? file.name : "Drop a CSV file here or browse"}</span>
-              <span className="mt-1 text-xs leading-5 text-secondary-600">{file ? "Ready to upload" : "CSV only · up to 2 MiB · 500 data rows"}</span>
+              <span className="mt-1 text-xs leading-5 text-secondary-500">{file ? "Ready to upload" : "CSV only · up to 2 MiB · 500 data rows"}</span>
             </label>
             <p className="sr-only" id="roster-upload-help">Drop a CSV file here or browse for one. A preview will explain each row before confirmation.</p>
             <Button className="mt-4 w-full" disabled={busy || !file} size="lg" type="submit" variant="brand">
@@ -283,11 +296,11 @@ function ImportsIntakeModule({
               {busy ? "Uploading…" : "Upload"}
             </Button>
             <p aria-live="polite" className={`mt-3 min-h-5 text-xs leading-5 ${feedback.tone === "error" ? "text-student-status-danger-fg" : "text-secondary-600"}`} role={feedback.tone === "error" ? "alert" : undefined}>{feedback.message}</p>
-          </div>
+          </ReferenceSurface>
         </div>
 
         {sessionIssue ? (
-          <div className={`mt-6 flex flex-col gap-3 border-t border-primary-100 pt-5 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert">
+          <ReferenceSurface as="div" className={`flex flex-col gap-3 p-4 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert" variant="inset">
             <div>
               <p className="font-semibold">{sessionIssue === "expired" ? "Admin session expired" : "Admin permission required"}</p>
               <p className="mt-1">{sessionIssue === "expired" ? "Sign in again to return to the imports workspace." : "Use an active admin account or return to the admin home."}</p>
@@ -303,10 +316,10 @@ function ImportsIntakeModule({
               </Button>
               <Button onClick={() => window.location.reload()} size="default" variant="dangerOutline">Refresh page</Button>
             </div>
-          </div>
+          </ReferenceSurface>
         ) : null}
       </form>
-    </section>
+    </ReferenceSurface>
   );
 }
 

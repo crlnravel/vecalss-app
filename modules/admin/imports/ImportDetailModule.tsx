@@ -20,6 +20,12 @@ import {
   X,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import {
+  ReferencePageHeader,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { StudentBadge } from "@/components/ui/student-badge";
 import {
   Table,
@@ -30,12 +36,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+// The shared bottom-center Sonner surface is mounted by components/ui/sonner.tsx.
 import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 import type { ImportStatusDto } from "@/lib/admin/imports/service";
 import {
-  ADMIN_CARD_CLASS_NAME,
-  ADMIN_INSET_CLASS_NAME,
   ADMIN_STATUS_CLASS_NAMES,
 } from "../admin-ui-contract";
 import {
@@ -120,6 +126,10 @@ function toneClasses(tone: ReturnType<typeof statusCopy>["tone"]) {
   if (tone === "success") return ADMIN_STATUS_CLASS_NAMES.success;
   if (tone === "warning") return ADMIN_STATUS_CLASS_NAMES.warning;
   return ADMIN_STATUS_CLASS_NAMES.neutral;
+}
+
+function referenceBadgeTone(tone: ReturnType<typeof statusCopy>["tone"]): "danger" | "info" | "neutral" | "success" | "attention" {
+  return tone === "warning" ? "attention" : tone;
 }
 
 function rowStatusCopy(status: RowStatus): { icon: React.ReactNode; label: string; tone: RowStatusTone } {
@@ -215,7 +225,7 @@ function ImportSessionRecoveryNotice({
   onRefresh: () => void;
 }) {
   return (
-    <section aria-labelledby="import-session-recovery-heading" className={`flex flex-col gap-3 rounded-4xl border p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert">
+    <ReferenceSurface as="section" aria-labelledby="import-session-recovery-heading" className={`flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert" variant="inset">
       <div>
         <p className="text-base font-semibold" id="import-session-recovery-heading">{kind === "expired" ? "Admin session expired" : "Admin permission required"}</p>
         <p className="mt-1 max-w-[68ch] text-sm leading-6">{kind === "expired" ? "Sign in again to return to this import review. The import ID stays in this page context; credentials are never included in the recovery link." : "This admin account can no longer review the import. Sign in with an active admin account or return to the admin home."}</p>
@@ -231,7 +241,7 @@ function ImportSessionRecoveryNotice({
         </Button>
         <Button onClick={onRefresh} size="default" variant="dangerOutline">Refresh page</Button>
       </div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -254,10 +264,10 @@ function CountStrip({ counts, mode }: { counts: ImportStatusDto["counts"]; mode:
   return (
     <dl className={`grid grid-cols-2 gap-2 ${items.length === 5 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
       {items.map(([label, value]) => (
-        <div className="rounded-2xl border border-primary-100 bg-secondary-50 px-3 py-3" key={label}>
+        <ReferenceSurface as="div" className="px-3 py-3" key={label} variant="inset">
           <dt className="text-xs font-semibold text-secondary-600">{label}</dt>
           <dd className="mt-1 text-xl font-semibold tabular-nums tracking-[-0.03em] text-secondary-900">{value.toLocaleString("en-US")}</dd>
-        </div>
+        </ReferenceSurface>
       ))}
     </dl>
   );
@@ -269,7 +279,7 @@ function ImportProgressPanel({ importStatus }: { importStatus: ImportStatusDto }
   const progressMax = Math.max(progress.total, 1);
 
   return (
-    <section aria-labelledby="import-progress-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-primary-50/70 p-5 sm:p-6`}>
+    <ReferenceSurface as="section" aria-labelledby="import-progress-heading" className="p-5 sm:p-6" variant="inset">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-progress-heading">Import progress</h2>
@@ -288,20 +298,20 @@ function ImportProgressPanel({ importStatus }: { importStatus: ImportStatusDto }
           ["Remaining", progress.remaining],
           ["Rows with outcomes", progress.processed],
         ].map(([label, value]) => (
-          <div className="rounded-2xl border border-primary-100 bg-white px-3 py-3" key={label}>
+          <ReferenceSurface as="div" className="px-3 py-3" key={label}>
             <dt className="text-xs font-semibold text-secondary-600">{label}</dt>
             <dd className="mt-1 text-lg font-semibold tabular-nums text-secondary-900">{value.toLocaleString("en-US")}</dd>
-          </div>
+          </ReferenceSurface>
         ))}
       </dl>
-    </section>
+    </ReferenceSurface>
   );
 }
 
 function ImportStatusBanner({ importStatus }: { importStatus: ImportStatusDto }) {
   const copy = statusCopy(importStatus.status);
   return (
-    <section aria-live="polite" className={`rounded-4xl border p-5 shadow-[0_20px_52px_-42px_rgba(1,76,56,0.42)] sm:p-6 ${toneClasses(copy.tone)}`}>
+    <ReferenceSurface as="section" aria-live="polite" className={`p-5 ${toneClasses(copy.tone)} sm:p-6`} variant="inset">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-white/70">{statusIcon(importStatus.status)}</span>
@@ -315,17 +325,17 @@ function ImportStatusBanner({ importStatus }: { importStatus: ImportStatusDto })
           <time className="mt-1 block opacity-80" dateTime={importStatus.updatedAt}>{formatDate(importStatus.updatedAt)}</time>
         </div>
       </div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
 function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
   return (
-    <section aria-labelledby="import-rows-heading" className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
-      <div className="flex flex-col gap-3 border-b border-primary-100 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+    <ReferenceSurface as="section" aria-labelledby="import-rows-heading" className="overflow-hidden p-0">
+      <div className="flex flex-col gap-3 border-b border-primary-100/80 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-rows-heading">Preview rows</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-600">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
+          <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="import-rows-heading">Preview rows</h2>
+          <p className="mt-1 text-sm leading-6 text-secondary-500">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
         </div>
       </div>
       <Table className="min-w-[760px] text-left text-sm">
@@ -375,7 +385,7 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
           )}
         </TableBody>
       </Table>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -405,7 +415,7 @@ function WorkerHealthNotice({
   const statusReadOnly = noticeState === "status_read_stale";
   const workerOnly = noticeState === "worker_stale";
   return (
-    <div className={`flex items-start gap-3 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="status">
+    <ReferenceSurface as="div" className={`flex items-start gap-3 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="status" variant="inset">
       <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} />
       <div>
         <p className="font-semibold">
@@ -422,7 +432,7 @@ function WorkerHealthNotice({
         )}
         {!statusReadOnly ? <p className="mt-1 text-xs opacity-80">Last row heartbeat: {formatDate(importStatus.lastHeartbeatAt)}</p> : null}
       </div>
-    </div>
+    </ReferenceSurface>
   );
 }
 
@@ -671,7 +681,7 @@ function HandoffDeliveryPanel({
 
   if (handoffState === "all_acknowledged") {
     return (
-      <section aria-labelledby="handoff-file-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-primary-50/70 p-5 sm:p-6`}>
+      <ReferenceSurface as="section" aria-labelledby="handoff-file-heading" className="p-5 sm:p-6" variant="inset">
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-student-status-success-bg text-student-status-success-fg"><CheckCircle2 size={19} /></span>
           <div>
@@ -679,13 +689,13 @@ function HandoffDeliveryPanel({
             <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Every released credential file for this import has been confirmed as transferred. No handoff file remains available to download.</p>
           </div>
         </div>
-      </section>
+      </ReferenceSurface>
     );
   }
 
   if (handoffState === "terminal") {
     return (
-      <section aria-labelledby="handoff-file-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-secondary-50 p-5 sm:p-6`}>
+      <ReferenceSurface as="section" aria-labelledby="handoff-file-heading" className="bg-secondary-50 p-5 sm:p-6" variant="inset">
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary-100 text-secondary-700"><FileClock size={19} /></span>
           <div>
@@ -693,12 +703,12 @@ function HandoffDeliveryPanel({
             <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Every new-account handoff for this import is terminal. Completed or revoked handoffs cannot be downloaded, reissued, or acknowledged here.</p>
           </div>
         </div>
-      </section>
+      </ReferenceSurface>
     );
   }
 
   return (
-    <section aria-labelledby="handoff-file-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+    <ReferenceSurface as="section" aria-labelledby="handoff-file-heading" className="p-5 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">One-time handoff file</h2>
@@ -710,17 +720,17 @@ function HandoffDeliveryPanel({
         </p>
       </div>
 
-      <div className={`${ADMIN_INSET_CLASS_NAME} mt-4 px-4 py-3 text-sm leading-6 text-secondary-600`}>
+      <ReferenceSurface as="div" className="mt-4 px-4 py-3 text-sm leading-6 text-secondary-600" variant="inset">
         {method === "invite_link"
           ? "Invite links expire after 24 hours and are used once. Share the link manually; no email delivery is implied. The recipient follows it to set a password."
           : "Temporary passwords work for the first login only and require a password change. Share the file securely; no email delivery is implied."}
-      </div>
+      </ReferenceSurface>
 
       {pendingRows.length > 0 ? (
         <div className="mt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-secondary-900">Pending new-account handoffs</p>
-            <Button className="text-xs" onClick={() => dispatch({ ids: pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id)), type: "selectPending" })} size="default" variant="ghost">
+            <Button className="text-xs" onClick={() => dispatch({ ids: pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id)), type: "selectPending" })} size="default" variant="reference">
               {selectedRows.size === pendingRows.length ? "Clear selection" : "Select all pending"}
             </Button>
           </div>
@@ -733,7 +743,7 @@ function HandoffDeliveryPanel({
               </label>
             ))}
           </div>
-          <label className="mt-4 flex items-start gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3 text-xs leading-5 text-secondary-600">
+          <label className={cn(REFERENCE_SURFACE_CLASS_NAMES.inset, "mt-4 flex items-start gap-3 px-4 py-3 text-xs leading-5 text-secondary-600")}>
             <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "acknowledgeIntent", value: event.target.checked })} type="checkbox" />
             <span>I will share this file through a secure channel and understand the selected credentials cannot be recovered after release.</span>
           </label>
@@ -745,7 +755,7 @@ function HandoffDeliveryPanel({
       ) : null}
 
       {releasedRows.length > 0 ? (
-        <div className={`mt-5 rounded-3xl border px-4 py-4 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`}>
+        <ReferenceSurface as="div" className={`mt-5 px-4 py-4 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} variant="inset">
           <p className="font-semibold">Some credentials are already released</p>
           <p className="mt-1 text-xs leading-5">The response cannot be downloaded again. If the file was lost, start a new preview/import for those accounts; do not expect the old credentials to reappear. Once you have transferred the file, acknowledge the released rows below.</p>
           <div className="mt-3 space-y-2">
@@ -768,11 +778,11 @@ function HandoffDeliveryPanel({
             <Check aria-hidden="true" size={16} />
             {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
           </Button>
-        </div>
+        </ReferenceSurface>
       ) : null}
 
       {expiredRows.length > 0 ? (
-        <div className={`mt-4 rounded-3xl border px-4 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`}>
+        <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset">
           <p className="font-semibold">Expired handoffs need a new preview</p>
           <p className="mt-1">Expired invite secrets are no longer releasable. Reissue a sealed replacement here, then select the new pending row for download. If the source data is wrong, create a new preview instead.</p>
           <div className="mt-3 space-y-2">
@@ -783,11 +793,11 @@ function HandoffDeliveryPanel({
               </div>
             ))}
           </div>
-        </div>
+        </ReferenceSurface>
       ) : null}
 
       {downloadedIds.size > 0 && releasedRows.length === 0 ? (
-        <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.success}`}>
+        <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.success}`} variant="inset">
           <p className="font-semibold">File downloaded</p>
           <p className="mt-1 text-xs leading-5">Confirm that the file reached the recipient. The acknowledgement records the handoff; it does not expose the credentials again.</p>
           <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-success-fg">
@@ -798,11 +808,11 @@ function HandoffDeliveryPanel({
             <Check aria-hidden="true" size={16} />
             {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
           </Button>
-        </div>
+        </ReferenceSurface>
       ) : null}
 
       {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -862,13 +872,13 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
   }
 
   return (
-    <section aria-labelledby="retry-heading" className={`${ADMIN_CARD_CLASS_NAME} bg-student-status-danger-bg p-5 sm:p-6`}>
+    <ReferenceSurface as="section" aria-labelledby="retry-heading" className={`p-5 sm:p-6 ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="retry-heading">Review failed rows</h2>
           <p className="mt-1 text-sm leading-6 text-secondary-600">Retry is for transient or operational failures. Data corrections require a new preview/import.</p>
         </div>
-        <span className="rounded-full bg-student-status-danger-bg px-3 py-1.5 text-xs font-semibold text-student-status-danger-fg">{failedRows.length} failed</span>
+        <StudentBadge size="sm" tone="danger">{failedRows.length} failed</StudentBadge>
       </div>
       <div className="mt-4 divide-y divide-student-status-danger-border rounded-2xl border border-student-status-danger-border bg-white">
         {failedRows.map((row) => (
@@ -886,7 +896,7 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
         </Button>
       </div>
       {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -940,10 +950,11 @@ function ImportDetailView({
   const copy = statusCopy(importStatus.status);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-7">
+      <div className="flex min-w-0 items-start gap-3">
         <Button
           aria-label="Back to enrollment"
+          className="mt-1 shrink-0"
           nativeButton={false}
           render={<Link href="/admin/enrollment" />}
           size="icon"
@@ -952,42 +963,49 @@ function ImportDetailView({
         >
           <ChevronLeft aria-hidden="true" size={18} />
         </Button>
-        <div className="flex items-center gap-2">
-          <Button aria-label="Refresh import status" disabled={refreshing} onClick={() => void loadStatus()} size="default" variant="brandOutline">
-            <RefreshCw aria-hidden="true" size={15} />
-            {refreshing ? "Refreshing…" : "Refresh status"}
-          </Button>
-          <span className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${toneClasses(copy.tone)}`}><span aria-hidden="true">{statusIcon(importStatus.status)}</span>{copy.label}</span>
-        </div>
+        <ReferencePageHeader
+          actions={(
+            <div className="flex flex-wrap items-center gap-2">
+              <Button aria-label="Refresh import status" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="reference">
+                <RefreshCw aria-hidden="true" size={15} />
+                {refreshing ? "Refreshing…" : "Refresh status"}
+              </Button>
+              <ReferenceStatusBadge label={copy.label} status={importStatus.status} tone={referenceBadgeTone(copy.tone)} />
+            </div>
+          )}
+          className="min-w-0 flex-1"
+          description="Review rows and release the next handoff."
+          title="Import review"
+        />
       </div>
 
       {sessionIssue ? <ImportSessionRecoveryNotice importId={importStatus.importId} kind={sessionIssue} onRefresh={() => window.location.reload()} /> : null}
-      {pollError && !sessionIssue && !readIsStale ? <div className={`flex items-start gap-3 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></div> : null}
+      {pollError && !sessionIssue && !readIsStale ? <ReferenceSurface as="div" className={`flex items-start gap-3 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert" variant="inset"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></ReferenceSurface> : null}
       <WorkerHealthNotice importStatus={importStatus} lastFetchedAt={lastFetchedAt} heartbeatStale={heartbeatIsStale} statusReadStale={readIsStale} />
 
       <ImportStatusBanner importStatus={importStatus} />
       <ImportProgressPanel importStatus={importStatus} />
 
-      <section aria-labelledby="import-summary-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+      <ReferenceSurface as="section" aria-labelledby="import-summary-heading" className="p-5 sm:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900" id="import-summary-heading">Import review</h1>
+            <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="import-summary-heading">Import details</h2>
             <p className="mt-2 text-base font-semibold text-secondary-900">{importStatus.sourceFilename}</p>
-            <p className="mt-1 text-sm text-secondary-600">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
+            <p className="mt-1 text-sm text-secondary-500">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
           </div>
-          <p className="text-xs text-secondary-600">Preview created {formatDate(importStatus.createdAt)}</p>
+          <p className="text-xs text-secondary-500">Preview created {formatDate(importStatus.createdAt)}</p>
         </div>
         <div className="mt-5"><CountStrip counts={importStatus.counts} mode={importStatus.status === "draft" ? "preview" : "result"} /></div>
-      </section>
+      </ReferenceSurface>
 
       {importStatus.status === "draft" ? (
         <>
           <ImportRowTable importStatus={importStatus} />
-          <section aria-labelledby="confirm-import-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
+          <ReferenceSurface as="section" aria-labelledby="confirm-import-heading" className="p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
-                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
+                <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
+                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
               </div>
               <div
                 className={`flex max-w-sm items-start gap-2 text-sm leading-5 ${importStatus.counts.invalid ? "text-student-status-attention-fg" : "text-student-status-success-fg"}`}
@@ -1004,27 +1022,35 @@ function ImportDetailView({
             </div>
 
             {invalidRows.length > 0 ? (
-              <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="alert">
+              <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="alert" variant="inset">
                 <p className="font-semibold">Bulk import blocked</p>
                 <p className="mt-1 text-xs leading-5">This CSV contains {importStatus.counts.invalid} invalid row{importStatus.counts.invalid === 1 ? "" : "s"}. No rows will be imported. Correct the highlighted data, upload a new CSV, and start a fresh preview.</p>
-              </div>
+              </ReferenceSurface>
             ) : null}
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "invite_link" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
+              <label className={cn(
+                REFERENCE_SURFACE_CLASS_NAMES.inset,
+                "flex min-h-20 cursor-pointer items-start gap-3 px-4 py-3 transition-[background-color,border-color,box-shadow] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300",
+                handoffMethod === "invite_link" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "hover:bg-primary-50/90",
+              )}>
                 <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("invite_link")} type="radio" value="invite_link" />
                 <span><span className="block text-sm font-semibold text-secondary-900">Invite link</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · expires after 24 hours · recipient sets a password</span></span>
               </label>
-              <label className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300 ${handoffMethod === "temporary_password" ? "border-primary-300 bg-primary-50" : "border-primary-100 bg-white hover:bg-secondary-50"}`}>
+              <label className={cn(
+                REFERENCE_SURFACE_CLASS_NAMES.inset,
+                "flex min-h-20 cursor-pointer items-start gap-3 px-4 py-3 transition-[background-color,border-color,box-shadow] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-300",
+                handoffMethod === "temporary_password" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "hover:bg-primary-50/90",
+              )}>
                 <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("temporary_password")} type="radio" value="temporary_password" />
                 <span><span className="block text-sm font-semibold text-secondary-900">Temporary password</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · shown once · recipient must change it on first login</span></span>
               </label>
             </div>
 
-            <div className={`${ADMIN_INSET_CLASS_NAME} mt-5 px-4 py-4`}>
+            <ReferenceSurface as="div" className="mt-5 px-4 py-4" variant="inset">
               <p className="text-sm font-semibold text-secondary-900">Confirmation counts</p>
               <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-secondary-600">New <strong className="text-secondary-900">{importStatus.counts.create}</strong></span><span className="text-secondary-600">Updates <strong className="text-secondary-900">{importStatus.counts.update}</strong></span><span className="text-secondary-600">Failed <strong className={importStatus.counts.failed ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.failed}</strong></span><span className="text-secondary-600">Skipped <strong className="text-secondary-900">{importStatus.counts.skipped}</strong></span><span className="text-secondary-600">Unresolved <strong className={importStatus.counts.invalid ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.invalid}</strong></span></div>
-            </div>
+            </ReferenceSurface>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1035,15 +1061,15 @@ function ImportDetailView({
               <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="brand"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</Button>
             </div>
             {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
-          </section>
+          </ReferenceSurface>
         </>
       ) : (
         <>
-          <section aria-labelledby="result-heading" className={`${ADMIN_CARD_CLASS_NAME} p-5 sm:p-6`}>
-            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">{copy.detail}</p></div></div>
+          <ReferenceSurface as="section" aria-labelledby="result-heading" className="p-5 sm:p-6">
+            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-2xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">{copy.detail}</p></div></div>
             <div className="mt-5"><CountStrip counts={importStatus.counts} mode="result" /></div>
-            {importStatus.lastErrorMessage ? <div className={`mt-4 rounded-3xl border px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`}><p className="font-semibold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></div> : null}
-          </section>
+            {importStatus.lastErrorMessage ? <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset"><p className="font-semibold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></ReferenceSurface> : null}
+          </ReferenceSurface>
           {importStatus.status === "completed" || importStatus.status === "partial" || importStatus.status === "failed" ? <HandoffDeliveryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} /> : null}
           <RetryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} />
           <ImportRowTable importStatus={importStatus} />
