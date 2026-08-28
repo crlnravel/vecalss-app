@@ -1,18 +1,16 @@
 # Session Handoff
 
-## Reference workspace background split refinement (2026-08-28)
+## Reference workspace canvas continuity refinement (2026-08-28)
 
-- Objective: make the reference-styled mentor workspace background fill the
-  viewport while clearly separating the outside workspace from the inner
-  route content surface.
-- Implementation: `MentorWorkspaceShell` now gives only
-  `sidebarAppearance="reference"` a white full wrapper and a full-height
-  `bg-voyage-canvas` `SidebarInset` with rounded desktop edges. The default
-  shell branch remains unchanged; the header follows the inner canvas.
+- Objective: make the green-tinted reference workspace canvas fill the whole
+  viewport without an outside/inside background split.
+- Implementation: only the `sidebarAppearance="reference"` branch of
+  `MentorWorkspaceShell` uses `bg-voyage-canvas` on the full wrapper,
+  `SidebarInset`, and header. White sidebar and card surfaces remain surfaces;
+  the default shell branch remains unchanged.
 - QA: live DOM geometry confirms `/mentor/dashboard`, `/mentor/tryout`, and
-  `/mentor/tryout/[tryoutId]` have a full-width white wrapper plus pale inner
-  canvas at desktop, and the mobile canvas spans the viewport without
-  horizontal overflow.
+  `/mentor/tryout/[tryoutId]` use the same canvas background across wrapper and
+  route surface at desktop and mobile widths, without horizontal overflow.
 - Verification: focused ESLint, Impeccable layout detector, and
   `git diff --check` pass. Browser screenshot capture intermittently timed out
   after the local server restart, but computed backgrounds, bounds, and route

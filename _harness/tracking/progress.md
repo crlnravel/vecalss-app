@@ -1,17 +1,16 @@
 # Session Progress Log
 
-## Reference workspace background split refinement (2026-08-28)
+## Reference workspace canvas continuity refinement (2026-08-28)
 
 - [x] Updated only the `sidebarAppearance="reference"` branch of
-  `MentorWorkspaceShell`: the full workspace wrapper is now white while the
-  inner `SidebarInset` route surface uses the `voyage-canvas` token and
-  rounded desktop edges.
+  `MentorWorkspaceShell`: the full workspace wrapper and inner `SidebarInset`
+  route surface now use the green-tinted `voyage-canvas` token continuously;
+  white sidebar and card surfaces remain distinct surfaces.
 - [x] Kept the default mentor shell unchanged and preserved the adopted
   routes' sidebar, header, content, and mobile drawer behavior.
 - [x] Live geometry checks confirm the adopted dashboard, Tryout catalogue,
-  and Tryout detail routes fill the viewport; desktop colors are distinct
-  (white outside / pale canvas inside), mobile canvas fills the width, and no
-  horizontal overflow is present.
+  and Tryout detail routes fill the viewport with one continuous canvas color
+  on desktop and mobile; no horizontal overflow is present.
 - [x] Focused ESLint, layout detector, and `git diff --check` pass.
 
 ## Tryout detail reference composition adoption (2026-08-28)

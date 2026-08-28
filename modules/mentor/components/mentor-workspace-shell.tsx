@@ -296,13 +296,13 @@ function MentorWorkspaceShell({
   return (
     <>
       <SidebarProvider
-        className={sidebarAppearance === "reference" ? "bg-white lg:gap-2 lg:p-6" : undefined}
+        className={sidebarAppearance === "reference" ? "!bg-voyage-canvas lg:gap-2 lg:p-6" : undefined}
       >
         <div
           className={cn(
             "flex min-h-svh w-full text-secondary-900",
             sidebarAppearance === "reference"
-              ? "bg-white lg:gap-2"
+              ? "bg-voyage-canvas lg:gap-2"
               : "bg-[#f7faf8]",
           )}
         >
