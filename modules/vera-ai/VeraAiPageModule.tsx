@@ -162,6 +162,15 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   const [titleDraft, setTitleDraft] = useState("");
   const [provisionalText, setProvisionalText] = useState<string | null>(null);
   const [lastFailed, setLastFailed] = useState<RequestAttempt | null>(null);
+  const [learnerExportId, setLearnerExportId] = useState<string | null>(null);
+  const [learnerExportOperationId, setLearnerExportOperationId] = useState<string | null>(null);
+  const [learnerExportState, setLearnerExportState] = useState<string | null>(null);
+  const [learnerDeleteOperationId, setLearnerDeleteOperationId] = useState<string | null>(null);
+  const [learnerDeleteState, setLearnerDeleteState] = useState<string | null>(null);
+  const [lifecycleExportReference, setLifecycleExportReference] = useState("");
+  const [lifecycleGrant, setLifecycleGrant] = useState("");
+  const [lifecycleGrantState, setLifecycleGrantState] = useState<string | null>(null);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const activeConversation = conversations.find((item) => item.id === activeConversationId) ?? null;
@@ -397,6 +406,77 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
     } finally { setBusy(false); }
   }
 
+  async function createLearnerExport() {
+    try {
+      setLifecycleBusy(true);
+      setError(null);
+      const result = await requestJson<{ exportId: string; operationId: string; state: string }>("/api/vera-ai/exports", {
+        method: "POST",
+        headers: { "Idempotency-Key": `vera-learner-export-${crypto.randomUUID()}` },
+        body: JSON.stringify({ format: "json_v1" }),
+      });
+      setLearnerExportId(result.exportId);
+      setLearnerExportOperationId(result.operationId);
+      setLearnerExportState(result.state);
+      setLifecycleExportReference(result.exportId);
+      setNotice("Ekspor data Vera sedang disiapkan. Kamu dapat memeriksa statusnya kapan saja.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "export_unavailable");
+    } finally { setLifecycleBusy(false); }
+  }
+
+  async function refreshLearnerLifecycle() {
+    try {
+      setLifecycleBusy(true);
+      setError(null);
+      if (learnerExportId) {
+        const exportStatus = await requestJson<{ state: string }>(`/api/vera-ai/exports/${learnerExportId}`);
+        setLearnerExportState(exportStatus.state);
+      }
+      if (learnerDeleteOperationId) {
+        const deleteStatus = await requestJson<{ state: string }>(`/api/vera-ai/lifecycle/${learnerDeleteOperationId}`);
+        setLearnerDeleteState(deleteStatus.state);
+      }
+      setNotice("Status tersimpan sudah diperbarui.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "lifecycle_unavailable");
+    } finally { setLifecycleBusy(false); }
+  }
+
+  async function deleteActiveConversation() {
+    if (!activeConversation) return;
+    try {
+      setLifecycleBusy(true);
+      setError(null);
+      const result = await requestJson<{ operationId: string; state: string }>(`/api/vera-ai/conversations/${activeConversation.id}`, {
+        method: "DELETE",
+        headers: { "Idempotency-Key": `vera-learner-delete-${crypto.randomUUID()}` },
+        body: JSON.stringify({ expectedVersion: activeConversation.version }),
+      });
+      setLearnerDeleteOperationId(result.operationId);
+      setLearnerDeleteState(result.state);
+      setNotice("Penghapusan percakapan tercatat. Status dapat dipulihkan setelah koneksi terputus.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "deletion_pending");
+    } finally { setLifecycleBusy(false); }
+  }
+
+  async function checkCleanupGrant() {
+    const exportId = lifecycleExportReference.trim();
+    const grant = lifecycleGrant.trim();
+    if (!exportId || !grant) return setError("export_grant_required");
+    try {
+      setLifecycleBusy(true);
+      setError(null);
+      const result = await requestJson<{ accessMode: string; exportAccessGrantState: string }>(`/api/vera-ai/exports/${exportId}`, { headers: { "x-vera-export-grant": grant } });
+      setLifecycleGrantState(`${result.accessMode}:${result.exportAccessGrantState}`);
+      setNotice("Akses cleanup grant tervalidasi untuk sesi ini.");
+    } catch (caught) {
+      setLifecycleGrantState(null);
+      setError(caught instanceof Error ? caught.message : "target_unavailable");
+    } finally { setLifecycleBusy(false); }
+  }
+
   const usagePercent = usage ? Math.min(100, Math.round(((usage.usedQuotaUnits + usage.reservedQuotaUnits) / Math.max(1, usage.quotaLimitUnits)) * 100)) : 0;
   const usageState = !usage ? "Memuat penggunaan…"
     : !usage.redisAvailable ? "Pembatas permintaan tidak tersedia"
@@ -480,6 +560,23 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
           </Tabs>
         </aside>
       </main>
+      <section aria-label="Data dan privasi" className="mx-auto mb-3 w-full max-w-[1680px] rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-sm md:mb-4 md:p-4" data-vera-lifecycle-panel>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Data &amp; privasi</p><p className="mt-1 max-w-2xl text-xs leading-5 text-secondary-500">Ekspor, penghapusan, dan akses pemulihan tetap tercatat sebagai operasi Vera yang bisa diperiksa ulang.</p></div>
+          <div aria-live="polite" className="min-w-0 text-right text-xs text-secondary-600" role="status">{learnerExportState ? `Ekspor: ${learnerExportState}` : "Ekspor belum dimulai"}{learnerDeleteState ? ` · Hapus: ${learnerDeleteState}` : ""}{lifecycleGrantState ? ` · Grant: ${lifecycleGrantState}` : ""}</div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button disabled={lifecycleBusy || !activeConversation} onClick={() => void createLearnerExport()} size="sm" variant="outline">Buat ekspor data</Button>
+          <Button disabled={lifecycleBusy || !learnerExportOperationId && !learnerDeleteOperationId} onClick={() => void refreshLearnerLifecycle()} size="sm" variant="outline">Periksa status tersimpan</Button>
+          <Button disabled={lifecycleBusy || !activeConversation || Boolean(learnerDeleteOperationId)} onClick={() => void deleteActiveConversation()} size="sm" variant="outline">Hapus percakapan ini</Button>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <Input aria-label="ID ekspor" className="min-w-0" maxLength={64} onChange={(event) => setLifecycleExportReference(event.target.value)} placeholder="ID ekspor untuk akses grant" value={lifecycleExportReference} />
+          <Input aria-label="Token akses cleanup" className="min-w-0" maxLength={240} onChange={(event) => setLifecycleGrant(event.target.value)} placeholder="Token akses cleanup (opsional)" type="password" value={lifecycleGrant} />
+          <Button disabled={lifecycleBusy} onClick={() => void checkCleanupGrant()} size="sm" variant="outline">Periksa grant</Button>
+        </div>
+        {learnerExportId || learnerDeleteOperationId ? <p className="mt-2 break-all text-xs text-secondary-400">{learnerExportId ? `Ekspor tersimpan: ${learnerExportId}` : ""}{learnerExportOperationId ? ` · operasi ${learnerExportOperationId}` : ""}{learnerDeleteOperationId ? ` · operasi hapus ${learnerDeleteOperationId}` : ""}</p> : null}
+      </section>
     </div>
   );
 }

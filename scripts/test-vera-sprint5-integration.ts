@@ -52,7 +52,18 @@ async function assertCurrentSprint5Migration(db: PrismaClient): Promise<void> {
     LIMIT 1
   `;
   assert.equal(rows[0]?.checksum, expectedChecksum, "isolated browser DB must apply the current Sprint 5 migration checksum");
-  console.log(`T12_EVIDENCE migration=${migrationName} checksum=${expectedChecksum} current=true isolated=true`);
+  const correctionName = "20260828100000_retain_legal_export_metadata";
+  const correctionSql = readFileSync(`${root}/prisma/migrations/${correctionName}/migration.sql`, "utf8");
+  const expectedCorrectionChecksum = createHash("sha256").update(correctionSql).digest("hex");
+  const correctionRows = await db.$queryRaw<Array<{ checksum: string }>>`
+    SELECT checksum
+    FROM "_prisma_migrations"
+    WHERE migration_name = ${correctionName} AND finished_at IS NOT NULL
+    ORDER BY finished_at DESC
+    LIMIT 1
+  `;
+  assert.equal(correctionRows[0]?.checksum, expectedCorrectionChecksum, "isolated browser DB must apply the current legal-export metadata correction checksum");
+  console.log(`T12_EVIDENCE migration=${migrationName} checksum=${expectedChecksum} correction=${correctionName} correctionChecksum=${expectedCorrectionChecksum} current=true isolated=true`);
 }
 
 function integrationEnv(extra: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
@@ -565,6 +576,47 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, devi
 await assertVisiblePage('/vera-ai', studentToken, ['Studio'])
 await openStudio()
 cliLog('BROWSER_DESKTOP learner=studio six-studio-tools=visible')
+await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
+const lifecyclePanel = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const status = panel?.querySelector("[role=status]"); return { panelVisible: Boolean(panel && panel.getBoundingClientRect().width > 0), statusLive: status?.getAttribute("aria-live"), statusText: (status?.textContent || "").trim() }; })()')
+if (!lifecyclePanel.panelVisible || lifecyclePanel.statusLive !== 'polite') throw new Error('learner lifecycle panel did not expose a visible polite live region: ' + JSON.stringify(lifecyclePanel))
+await js('document.querySelector("[data-vera-lifecycle-panel]")?.scrollIntoView({ block: "center", behavior: "auto" })')
+for (let attempt = 0; attempt < 8; attempt += 1) {
+  const panelViewport = await js('(() => { const node = document.querySelector("[data-vera-lifecycle-panel]"); const rect = node?.getBoundingClientRect(); return { top: rect?.top ?? -1, bottom: rect?.bottom ?? -1, height: window.innerHeight }; })()')
+  if (panelViewport.top >= 0 && panelViewport.bottom <= panelViewport.height) break
+  // The lifecycle panel lives below the flex workspace.  DOM scrolling keeps
+  // the probe deterministic when the page is busy with Studio hydration;
+  // the control interaction below is still a real viewport pointer click.
+  await scrollBy(900)
+}
+const createExportButton = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const node = [...(panel?.querySelectorAll("button") || [])].find((candidate) => (candidate.textContent || "").trim() === "Buat ekspor data"); if (!node) return null; const rect = node.getBoundingClientRect(); return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, hit: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.textContent?.trim() || null }; })()')
+if (!createExportButton || createExportButton.width <= 0 || createExportButton.height <= 0) throw new Error('learner export create control was not pointer-visible: ' + JSON.stringify(createExportButton))
+cliLog('BROWSER_LIFECYCLE_UI pointer-target=' + JSON.stringify(createExportButton))
+await click([createExportButton.x + createExportButton.width / 2, createExportButton.y + createExportButton.height / 2], { label: 'create learner export from lifecycle panel' })
+let exportUiState = null
+for (let attempt = 0; attempt < 12; attempt += 1) {
+  exportUiState = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const status = panel?.querySelector("[role=status]"); const error = [...(panel?.parentElement?.querySelectorAll("[role=alert]") || [])].map((node) => (node.textContent || "").trim()).filter(Boolean); const buttons = [...(panel?.querySelectorAll("button") || [])].map((node) => ({ text: (node.textContent || "").trim(), disabled: node.disabled })); return { text: (status?.textContent || "").trim(), error, buttons }; })()')
+  if (exportUiState.text.includes('Ekspor:')) break
+  await new Promise((resolve) => setTimeout(resolve, 1_000))
+}
+if (!exportUiState?.text.includes('Ekspor:')) throw new Error('learner export UI did not expose a persisted state: ' + JSON.stringify(exportUiState))
+await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconnect learner lifecycle status' })
+await new Promise((resolve) => setTimeout(resolve, 800))
+if (!(await visibleText('Status tersimpan sudah diperbarui.'))) throw new Error('learner lifecycle reconnect control did not announce its stored status')
+await fillInput('input[aria-label="ID ekspor"]', grantExportId)
+await fillInput('input[aria-label="Token akses cleanup"]', grantToken)
+await click('xpath=//button[contains(normalize-space(.), "Periksa grant")]', { label: 'check learner cleanup grant' })
+await new Promise((resolve) => setTimeout(resolve, 1_000))
+const grantUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
+if (!grantUiState.includes('Grant: cleanup_grant:active')) throw new Error('learner lifecycle grant control did not expose the active cleanup grant: ' + grantUiState)
+await click('xpath=//button[contains(normalize-space(.), "Hapus percakapan ini")]', { label: 'delete learner conversation from lifecycle panel' })
+await new Promise((resolve) => setTimeout(resolve, 1_000))
+const deleteUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
+if (!deleteUiState.includes('Hapus:')) throw new Error('learner delete UI did not expose a durable operation state: ' + deleteUiState)
+await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconcile learner delete status' })
+await new Promise((resolve) => setTimeout(resolve, 800))
+const reducedMotionState = await js('({ reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches, panelVisible: Boolean(document.querySelector("[data-vera-lifecycle-panel]")), liveRegion: document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.getAttribute("aria-live") })')
+if (!reducedMotionState.reducedMotion || !reducedMotionState.panelVisible || reducedMotionState.liveRegion !== 'polite') throw new Error('learner lifecycle reduced-motion/accessibility evidence failed: ' + JSON.stringify(reducedMotionState))
+cliLog('PASS VERA_BROWSER_LIFECYCLE_UI export=create+status conversation=delete reconnect=checked grant=active reduced-motion=checked accessibility=live-region')
 const learnerAccessibility = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const focusable = [...document.querySelectorAll("button,textarea,input,[role=tab]")].find(visible); if (focusable) focusable.focus(); const active = document.activeElement; const statusNodes = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible); return { focusable: Boolean(focusable && active === focusable), statusesHaveLiveRegion: statusNodes.every((node) => node.getAttribute("aria-live") === "polite" || node.getAttribute("aria-live") === "assertive") }; })()')
 if (!learnerAccessibility.focusable || !learnerAccessibility.statusesHaveLiveRegion) throw new Error('learner Studio accessibility evidence failed: ' + JSON.stringify(learnerAccessibility))
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
@@ -598,17 +650,20 @@ if (usageMobileOverflow.scrollWidth > usageMobileOverflow.width + 1 || usageMobi
 cliLog('BROWSER_MOBILE page=usage width=390 interactive=true overflow=false')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 const browserConversationProbe = await browserJson('/api/vera-ai/conversations?limit=50')
-if (!browserConversationProbe.body?.defaultConversationId || browserConversationProbe.body?.conversations?.length !== 1) throw new Error('browser learner conversation API probe failed: ' + JSON.stringify(browserConversationProbe))
+if (browserConversationProbe.body?.defaultConversationId && browserConversationProbe.body?.conversations?.length !== 1) throw new Error('browser learner conversation API probe returned an inconsistent owner list: ' + JSON.stringify(browserConversationProbe))
 const browserConversationId = browserConversationProbe.body.defaultConversationId
 const browserHydrationProbe = await Promise.all([
   browserJson('/api/vera-ai/sources?limit=50'),
   browserJson('/api/vera-ai/usage'),
-  browserJson('/api/vera-ai/conversations/' + browserConversationId),
-  browserJson('/api/vera-ai/conversations/' + browserConversationId + '/messages?limit=50'),
-  browserJson('/api/vera-ai/conversations/' + browserConversationId + '/context'),
-  browserJson('/api/vera-ai/conversations/' + browserConversationId + '/artifacts?limit=50'),
+  ...(browserConversationId ? [
+    browserJson('/api/vera-ai/conversations/' + browserConversationId),
+    browserJson('/api/vera-ai/conversations/' + browserConversationId + '/messages?limit=50'),
+    browserJson('/api/vera-ai/conversations/' + browserConversationId + '/context'),
+    browserJson('/api/vera-ai/conversations/' + browserConversationId + '/artifacts?limit=50'),
+  ] : []),
 ])
 if (browserHydrationProbe.some((probe) => !probe.body)) throw new Error('browser learner hydration API probe failed: ' + JSON.stringify(browserHydrationProbe))
+if (!browserConversationId && browserConversationProbe.body?.conversations?.length !== 0) throw new Error('browser learner delete did not return an empty owner-scoped list: ' + JSON.stringify(browserConversationProbe))
 const browserReadyStatus = await browserJson('/api/vera-ai/exports/' + readyExportId)
 if (browserReadyStatus.body?.state !== 'ready') throw new Error('browser export status/reconnect failed: ' + JSON.stringify(browserReadyStatus))
 const browserDownload = await browserJson('/api/vera-ai/exports/' + readyExportId + '/download')
@@ -683,19 +738,32 @@ cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+l
     }
     assert.match(browserOutput, /PASS VERA_BROWSER_EVIDENCE/u, "browser evidence did not report a pass");
     const browserEvidenceLines = browserOutput.split("\n").filter((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE") || line.includes("PASS VERA_BROWSER_EVIDENCE"));
+    assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE_UI")), "browser learner lifecycle controls did not report a pass");
     assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE")), "browser lifecycle evidence did not report a pass");
     console.log(browserEvidenceLines.join("\n"));
     console.log(`T12_EVIDENCE browser=pass desktop=1496 mobile=390 port=${port}`);
     return { port, browserOutput };
   } finally {
     await stopServer(server);
-    await dbCleanupBrowserLifecycle(db, lifecycleFixture);
+    await dbCleanupBrowserLifecycle(db, lifecycleFixture, [fixture.studentId, fixture.adminId]);
     await dbCleanupBrowserFixture(db, fixture);
   }
 }
 
-async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifecycleFixture): Promise<void> {
+async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifecycleFixture, ownerIds: string[]): Promise<void> {
   try {
+    const ownerExports = await db.aiExportJob.findMany({ where: { studentId: { in: ownerIds } }, select: { id: true, operationId: true } });
+    const exportIds = [...new Set([...fixture.exportIds, ...ownerExports.map(({ id }) => id)])];
+    const operationIds = [...new Set([...fixture.operationIds, ...ownerExports.map(({ operationId }) => operationId)])];
+    const ownerKeys = await db.aiIdempotencyKey.findMany({ where: { studentId: { in: ownerIds } }, select: { id: true } });
+    const fixtureKeys = fixture.idempotencyKeys.length > 0
+      ? await db.aiIdempotencyKey.findMany({ where: { clientRequestId: { in: fixture.idempotencyKeys } }, select: { id: true } })
+      : [];
+    const idempotencyIds = [...new Set([...ownerKeys.map(({ id }) => id), ...fixtureKeys.map(({ id }) => id)])];
+    const linkedOperations = idempotencyIds.length > 0
+      ? await db.aiLifecycleOperation.findMany({ where: { idempotencyKeyId: { in: idempotencyIds } }, select: { id: true } })
+      : [];
+    for (const { id } of linkedOperations) if (!operationIds.includes(id)) operationIds.push(id);
     if (fixture.artifactIds.length > 0) {
       await db.aiArtifactApply.deleteMany({ where: { artifactRevisionId: { in: fixture.artifactIds } } });
       await db.aiArtifactLifecycle.deleteMany({ where: { artifactRevisionId: { in: fixture.artifactIds } } });
@@ -705,19 +773,24 @@ async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifec
       await db.aiArtifact.deleteMany({ where: { id: { in: fixture.artifactIds } } });
     }
     if (fixture.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: fixture.conversationIds } } });
-    if (fixture.exportIds.length > 0) {
-      await db.aiExportPart.deleteMany({ where: { exportJobId: { in: fixture.exportIds } } });
-      await db.aiExportJob.deleteMany({ where: { id: { in: fixture.exportIds } } });
-      for (const exportId of fixture.exportIds) {
+    if (exportIds.length > 0) {
+      await db.aiExportPart.deleteMany({ where: { exportJobId: { in: exportIds } } });
+      await db.aiExportJob.deleteMany({ where: { id: { in: exportIds } } });
+      for (const exportId of exportIds) {
         await db.aiEnvelopeKey.deleteMany({ where: { objectId: { startsWith: `vera-export:${exportId}:` } } });
       }
     }
-    if (fixture.operationIds.length > 0) {
-      await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: fixture.operationIds } } });
-      await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: fixture.operationIds } } });
-      await db.aiLifecycleOperation.deleteMany({ where: { id: { in: fixture.operationIds } } });
+    if (operationIds.length > 0) {
+      await db.aiKeyDestructionClaim.deleteMany({ where: { operationId: { in: operationIds } } });
+      await db.aiPurgeWorkItem.deleteMany({ where: { operationId: { in: operationIds } } });
+      await db.aiLifecycleOperation.deleteMany({ where: { id: { in: operationIds } } });
     }
-    if (fixture.idempotencyKeys.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { clientRequestId: { in: fixture.idempotencyKeys }, studentId: { not: null } } });
+    if (idempotencyIds.length > 0) {
+      await db.aiAdmissionEvent.updateMany({ where: { idempotencyKeyId: { in: idempotencyIds } }, data: { idempotencyKeyId: null } });
+      await db.aiArtifactApply.deleteMany({ where: { idempotencyKeyId: { in: idempotencyIds } } });
+      await db.aiRequest.updateMany({ where: { idempotencyKeyId: { in: idempotencyIds } }, data: { idempotencyKeyId: null } });
+      await db.aiIdempotencyKey.deleteMany({ where: { OR: [{ id: { in: idempotencyIds } }, { studentId: { in: ownerIds } }] } });
+    }
   } catch (error) {
     throw new Error(`browser lifecycle fixture cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
   }

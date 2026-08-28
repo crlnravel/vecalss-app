@@ -108,6 +108,10 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function canonicalPathCompare(left: string, right: string): number {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
 function migrationDigest(paths: string[], reader: (path: string) => string | null): string {
   return digest(paths.map((path) => `${path}\0${reader(path) ?? "<missing>"}`).join("\n"));
 }
@@ -282,7 +286,14 @@ const baselineMigrationPaths = gitLines(["ls-tree", "-r", "--name-only", baseCom
 const baselineSqlMigrationPaths = baselineMigrationPaths.filter((path) => path.endsWith("/migration.sql"));
 const currentMigrationPaths = walk("prisma/migrations").filter((path) => path.endsWith("/migration.sql"));
 const newMigrationPaths = currentMigrationPaths.filter((path) => !baselineSqlMigrationPaths.includes(path));
-const newMigration = newMigrationPaths.length === 1 ? readProjectFile(newMigrationPaths[0]!) ?? "" : "";
+const newMigration = newMigrationPaths
+  .sort(canonicalPathCompare)
+  .map((path) => readProjectFile(path) ?? "")
+  .join("\n");
+const expectedSprint5Migrations = [
+  "prisma/migrations/20260827100000_add_vera_sprint5_lifecycle/migration.sql",
+  "prisma/migrations/20260828100000_retain_legal_export_metadata/migration.sql",
+];
 
 const implementationPaths = [
   "prisma/schema.prisma",
@@ -330,19 +341,19 @@ const checks: Array<{ name: string; run: () => void }> = [
       assert(readProjectFile("DESIGN.md") === readGitFile(baseCommit, "DESIGN.md"), "DESIGN.md changed from the accepted baseline");
       assert(readProjectFile("PRODUCT.md") === readGitFile(baseCommit, "PRODUCT.md"), "PRODUCT.md changed from the accepted baseline");
       assert(baselineSqlMigrationPaths.length === 43, `accepted baseline migration count is ${baselineSqlMigrationPaths.length}, expected 43`);
-      assert(currentMigrationPaths.length === baselineSqlMigrationPaths.length + 1, `expected one additive Sprint 5 migration, found ${currentMigrationPaths.length - baselineSqlMigrationPaths.length}`);
-      assert(newMigrationPaths.length === 1, `expected one new Sprint 5 migration, found ${newMigrationPaths.length}`);
+      assert(currentMigrationPaths.length === baselineSqlMigrationPaths.length + expectedSprint5Migrations.length, `expected ${expectedSprint5Migrations.length} additive Sprint 5 migrations, found ${currentMigrationPaths.length - baselineSqlMigrationPaths.length}`);
+      assert(JSON.stringify([...newMigrationPaths].sort()) === JSON.stringify(expectedSprint5Migrations), "Sprint 5 migration set drifted from the authorized two-migration boundary");
       for (const path of baselineSqlMigrationPaths) {
        assert(readProjectFile(path) === readGitFile(baseCommit, path), `protected prior migration changed: ${path}`);
      }
       assert(migrationDigest(baselineSqlMigrationPaths, (path) => readProjectFile(path)) === migrationDigest(baselineSqlMigrationPaths, (path) => readGitFile(baseCommit, path)), "prior migration-history digest changed");
-      assert(!dirtyPaths.some((path) => path === "DESIGN.md" || path === "PRODUCT.md" || path.startsWith("prisma/migrations/")), "protected files are dirty in the worktree");
+      assert(!dirtyPaths.some((path) => path === "DESIGN.md" || path === "PRODUCT.md" || (path.startsWith("prisma/migrations/") && !expectedSprint5Migrations.includes(path))), "protected files are dirty in the worktree");
     },
   },
   {
     name: "Sprint 5 migration is additive and contains the authorized authority checks",
     run: () => {
-      assert(newMigration.length > 0, "Sprint 5 migration is missing; T11 must land before release verification");
+      assert(newMigrationPaths.length === expectedSprint5Migrations.length && newMigration.length > 0, "Sprint 5 migrations are missing; T11 must land before release verification");
       assert(!forbiddenMigrationPattern.test(newMigration), "Sprint 5 migration contains a destructive table/column/data operation");
       const sql = newMigration.toLowerCase();
       for (const marker of ["account_cleanup", "ai_lifecycle_operations", "ai_idempotency_keys", "ai_export_jobs", "ai_retention_holds"]) {

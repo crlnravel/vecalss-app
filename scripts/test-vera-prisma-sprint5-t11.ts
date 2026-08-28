@@ -21,6 +21,8 @@ import { canonicalExportJson, withCapabilitySnapshotDigest, type CapabilityDecis
 const root = process.cwd();
 const migrationPath = join(root, "prisma/migrations/20260827100000_add_vera_sprint5_lifecycle/migration.sql");
 const migration = readFileSync(migrationPath, "utf8");
+const legalMetadataMigrationPath = join(root, "prisma/migrations/20260828100000_retain_legal_export_metadata/migration.sql");
+const legalMetadataMigration = readFileSync(legalMetadataMigrationPath, "utf8");
 const legacyCutoverSource = readFileSync(join(root, "lib/vera-ai/legacy-cutover.ts"), "utf8");
 
 function sha256(value: string): string {
@@ -92,9 +94,12 @@ async function readMigrationSnapshot(db: PrismaClient): Promise<MigrationAuditSn
 
 async function assertCurrentMigrationApplied(db: PrismaClient): Promise<void> {
   const expectedChecksum = createHash("sha256").update(migration).digest("hex");
+  const expectedLegalMetadataChecksum = createHash("sha256").update(legalMetadataMigration).digest("hex");
   const normalizedMigration = migration.replaceAll('"', "");
   assert(normalizedMigration.includes("terminal_retention_expires_at >= terminal_at"), "migration must enforce terminal_retention_expires_at >= terminal_at");
   assert(normalizedMigration.includes("failed_terminal"), "migration must include failed_terminal terminal-retention state");
+  assert(legalMetadataMigration.includes("ai_export_jobs_pre_ready_contract_ck"), "legal metadata migration must explicitly replace the pre-ready check");
+  assert(legalMetadataMigration.includes("failed_retryable"), "legal metadata migration must preserve retryable pre-ready invariant");
   const rows = await db.$queryRaw<Array<{ checksum: string }>>`
     SELECT checksum
     FROM "_prisma_migrations"
@@ -104,7 +109,16 @@ async function assertCurrentMigrationApplied(db: PrismaClient): Promise<void> {
     LIMIT 1
   `;
   assert.equal(rows[0]?.checksum, expectedChecksum, "isolated database must apply the current Sprint 5 migration checksum");
-  console.log(`T11_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle checksum=${expectedChecksum} current=true terminal_retention_expires_at >= terminal_at failed_terminal=true`);
+  const legalRows = await db.$queryRaw<Array<{ checksum: string }>>`
+    SELECT checksum
+    FROM "_prisma_migrations"
+    WHERE migration_name = ${"20260828100000_retain_legal_export_metadata"}
+      AND finished_at IS NOT NULL
+    ORDER BY finished_at DESC
+    LIMIT 1
+  `;
+  assert.equal(legalRows[0]?.checksum, expectedLegalMetadataChecksum, "isolated database must apply the legal-export metadata correction checksum");
+  console.log(`T11_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle checksum=${expectedChecksum} correction=20260828100000_retain_legal_export_metadata correctionChecksum=${expectedLegalMetadataChecksum} current=true terminal_retention_expires_at >= terminal_at failed_terminal=true`);
 }
 
 async function testRedis(redisUrl: string, studentId: string, namespace: string): Promise<void> {
@@ -244,7 +258,29 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const malformedRow = await db.aiExportJob.findUnique({ where: { id: exportId }, select: { state: true, errorCode: true } });
   assert.equal(malformedRow?.state, "ready", "malformed output must not fabricate a terminal success/failure transition");
   await db.aiExportPart.update({ where: { id: parts[0].id }, data: { ciphertextEnvelope: originalEnvelope as Prisma.InputJsonValue } });
-  console.log("T11_EVIDENCE operation=export_create actual=true status=pass malformed_output=failed_closed replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
+
+  // A missing package part is a distinct integrity failure from a malformed
+  // envelope.  It must fail closed without changing the ready/terminal state
+  // or manufacturing a replacement part on replay.
+  const missingPartKey = `${namespace}:export-missing-part`;
+  idempotencyKeys.push(missingPartKey);
+  const missingPartAccepted = await lifecycle.createExport({ studentId, idempotencyKey: missingPartKey, format: "json_v1" });
+  if (!("exportId" in missingPartAccepted) || !missingPartAccepted.exportId || !missingPartAccepted.operationId) throw new Error("missing-part export fixture was not accepted");
+  exportIds.push(missingPartAccepted.exportId);
+  operationIds.push(missingPartAccepted.operationId);
+  await lifecycle.materializeExport({ exportId: missingPartAccepted.exportId, ownerId: `${namespace}:missing-part-worker` });
+  const missingParts = await db.aiExportPart.findMany({ where: { exportJobId: missingPartAccepted.exportId }, select: { id: true } });
+  assert(missingParts.length > 0, "missing-part fixture must materialize at least one export part");
+  await db.aiExportPart.delete({ where: { id: missingParts[0]!.id } });
+  await expectLifecycleCode(
+    () => lifecycle.downloadExport({ exportId: missingPartAccepted.exportId!, studentId }),
+    "export_unavailable",
+  );
+  const missingPartRow = await db.aiExportJob.findUnique({ where: { id: missingPartAccepted.exportId }, select: { state: true, errorCode: true } });
+  assert.equal(missingPartRow?.state, "ready", "missing export parts must not mutate the durable ready state");
+  const remainingMissingParts = await db.aiExportPart.count({ where: { exportJobId: missingPartAccepted.exportId } });
+  assert.equal(remainingMissingParts, 0, "missing-part replay must not create replacement package parts");
+  console.log("T11_EVIDENCE operation=export_create actual=true status=pass malformed_output=failed_closed missing_part=failed_closed replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
 
   const holdId = randomUUID();
   holdIds.push(holdId);
@@ -347,15 +383,14 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(legallyErasedJob.operation.errorCode, "export_erased_legal");
   assert.equal(legallyErasedJob.snapshotDigest, readySnapshotDigest, "legal erasure must retain content-free snapshot digest metadata");
   assert.equal(legallyErasedJob.packageBytes, readyPackageBytes, "legal erasure must retain content-free package byte metadata");
-  assert.equal(legallyErasedJob.downloadReadyAt, null, "the migration pre-ready invariant must prevent a legal tombstone from remaining downloadable");
-  assert.equal(legallyErasedJob.downloadExpiresAt, null, "the migration pre-ready invariant must prevent a legal tombstone from remaining downloadable");
+  assert.equal(legallyErasedJob.downloadReadyAt?.getTime(), readyDownloadAt?.getTime(), "legal erasure must retain the original ready timestamp as audit metadata");
+  assert.equal(legallyErasedJob.downloadExpiresAt?.getTime(), readyDownloadExpiresAt?.getTime(), "legal erasure must retain the original download deadline as audit metadata");
   assert(legallyErasedJob.operation.exportExpiresAt?.getTime() === readyDownloadExpiresAt?.getTime(), "the original download deadline must remain in the operation metadata");
   const legalEnvelope = originalEnvelope as { keyRef?: string };
   if (legalEnvelope.keyRef) {
     const destroyedKey = await db.aiEnvelopeKey.findUnique({ where: { keyRef: legalEnvelope.keyRef }, select: { state: true } });
     assert.equal(destroyedKey?.state, "destroyed", "legal erasure must destroy the object-scoped export key after commit");
   }
-  void readyDownloadAt;
   console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-admin-operators persisted-grants=policy+governance locked-hold-claim=CAS post-commit-key-registry=destroyed replay=exactly-once restrictive=true job=failed_terminal digest+bytes=retained");
 
   const expiredKey = `${namespace}:export-expired`;
@@ -475,6 +510,68 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   stageIds.push(settlementStageId);
   console.log(`T11_EVIDENCE settlement_fixture request=${settlementRequestId} stage=${settlementStageId} pack=${settlementPackId} daily=${dailyIds[0]} accepted=1 reserved=3 staged_usage=3 populated=true`);
 
+  // Keep a second pending request with an explicitly unknown provider usage
+  // state.  Account cleanup must settle its conservative reservation while
+  // retaining unknown accounting metadata; this proves that a missing token
+  // result is never coerced into numeric zero or a known settlement.
+  const unknownSettlementNow = new Date(settlementNow.getTime() + 24 * 60 * 60 * 1000);
+  const unknownLocalDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(unknownSettlementNow);
+  const unknownSettlementKey = `${namespace}:settlement-unknown-request`;
+  const unknownSettlementKeyId = randomUUID();
+  const unknownSettlementRequestId = randomUUID();
+  const unknownSettlementDigest = sha256(`${namespace}:settlement-unknown`);
+  idempotencyKeys.push(unknownSettlementKey);
+  requestIds.push(unknownSettlementRequestId);
+  const unknownDaily = await db.aiUsageDaily.create({ data: {
+    id: randomUUID(),
+    studentId: otherStudentId,
+    usageDate: new Date(`${unknownLocalDate}T00:00:00.000Z`),
+    ledgerVersion: "vera_quota_v1",
+    quotaLimitUnitsSnapshot: 100,
+    reservedQuotaUnits: 2,
+    acceptedRequestCount: 1,
+  } });
+  dailyIds.push(unknownDaily.id);
+  await db.aiIdempotencyKey.create({ data: {
+    id: unknownSettlementKeyId,
+    studentId: otherStudentId,
+    operation: "ai_request",
+    clientRequestId: unknownSettlementKey,
+    requestFingerprint: unknownSettlementDigest,
+    fingerprintKeyVersion: "vera-hmac-v1",
+    state: "accepted",
+    resultKind: "request",
+    resultId: unknownSettlementRequestId,
+    acceptedAt: unknownSettlementNow,
+    expiresAt: new Date(unknownSettlementNow.getTime() + 90 * 24 * 60 * 60 * 1000),
+  } });
+  await db.aiRequest.create({ data: {
+    id: unknownSettlementRequestId,
+    studentId: otherStudentId,
+    conversationId: settlementConversationId,
+    requestType: "vera_chat",
+    status: "pending",
+    idempotencyKeyId: unknownSettlementKeyId,
+    clientRequestId: unknownSettlementKey,
+    requestFingerprint: unknownSettlementDigest,
+    fingerprintKeyVersion: "vera-hmac-v1",
+    featureKey: "vera.chat",
+    behaviorVersion: "1",
+    outputSchemaVersion: "1",
+    contextPackVersion: "1",
+    policyBundleVersion: "vera-policy-bundle-v1-2026-08-24",
+    retentionPolicyVersion: "vera-retention-v1",
+    quotaUnitsReserved: 2,
+    quotaUnitsConsumed: 0,
+    tokenUsageState: "unknown",
+    usageAccountingState: "unknown",
+    settlementDeadlineAt: new Date(unknownSettlementNow.getTime() + 24 * 60 * 60 * 1000),
+    stageRetentionExpiresAt: new Date(unknownSettlementNow.getTime() + 48 * 60 * 60 * 1000),
+    startedAt: unknownSettlementNow,
+    createdAt: unknownSettlementNow,
+  } });
+  console.log(`T11_EVIDENCE settlement_unknown request=${unknownSettlementRequestId} reserved=2 tokenUsageState=unknown usageAccountingState=unknown populated=true`);
+
   // Claim the internal carrier before the long export/materialization path so
   // a process loss is still discoverable by the fixture's owned cleanup.
   const cleanupCarrier = await lifecycle.createAccountCleanupCarrier({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
@@ -534,6 +631,21 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const settlementWorkItems = await db.aiPurgeWorkItem.findMany({ where: { operationId: carrier.operationId, objectType: "envelope_key" }, select: { claimId: true, state: true } });
   assert.equal(new Set(settlementWorkItems.map(({ claimId }) => claimId)).size, settlementKeyRows.length, "account cleanup must persist one work item per envelope key");
   assert(settlementWorkItems.every((row) => row.state === "completed"), "account cleanup key work items must complete after the post-commit registry pass");
+  const settlementLineage = await db.aiPurgeWorkItem.findMany({
+    where: { operationId: carrier.operationId, objectType: { not: "envelope_key" } },
+    select: { objectType: true, objectId: true, state: true, keyLineageDigest: true },
+    orderBy: [{ objectType: "asc" }, { objectId: "asc" }],
+  });
+  const lineageByType = new Map<string, typeof settlementLineage>();
+  for (const item of settlementLineage) lineageByType.set(item.objectType, [...(lineageByType.get(item.objectType) ?? []), item]);
+  for (const expectedType of ["ai_request", "ai_request_result_stage", "ai_context_pack", "ai_request_source"]) {
+    const items = lineageByType.get(expectedType) ?? [];
+    assert(items.length > 0, `account cleanup must persist durable ${expectedType} lineage`);
+    assert(items.every((item) => item.state === "completed"), `${expectedType} lineage must be completed after key acknowledgement`);
+    assert(items.every((item) => /^[a-f0-9]{64}$/u.test(item.keyLineageDigest ?? "")), `${expectedType} lineage must retain a content-free key digest`);
+  }
+  assert(settlementLineage.every((item) => item.state === "completed"), "all account cleanup object lineage must be reclaimably completed");
+  console.log(`T11_EVIDENCE cleanup_lineage=durable object_types=${[...lineageByType.keys()].sort().join("+")} rows=${settlementLineage.length} key_digest=content-free state=completed reclaimable=true`);
   const consumedCarrier = await db.aiLifecycleOperation.findUnique({ where: { id: carrier.operationId } });
   assert.equal(consumedCarrier?.handoffState, "consumed");
   assert(consumedCarrier?.handoffConsumedAt instanceof Date);
@@ -549,21 +661,88 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const preservedStage = await db.aiRequestResultStage.findUnique({ where: { id: settlementStageId }, select: { purgeState: true, resultDigest: true } });
   const preservedPack = await db.aiContextPack.findUnique({ where: { id: settlementPackId }, select: { purgeState: true, provenanceState: true, packDigest: true } });
   const preservedDaily = dailyIds[0] ? await db.aiUsageDaily.findUnique({ where: { id: dailyIds[0] }, select: { reservedQuotaUnits: true, usedQuotaUnits: true, finalizedRequestCount: true } }) : null;
+  const preservedUnknownRequest = await db.aiRequest.findUnique({ where: { id: unknownSettlementRequestId }, select: { status: true, tokenUsageState: true, usageAccountingState: true, quotaUnitsConsumed: true, quotaOverrunUnits: true } });
+  const preservedUnknownDaily = await db.aiUsageDaily.findUnique({ where: { id: unknownDaily.id }, select: { reservedQuotaUnits: true, usedQuotaUnits: true, finalizedRequestCount: true } });
   assert(preservedRequest && preservedRequest.status === "failed" && preservedRequest.studentId === null, "account cleanup must retain a settled request tombstone with detached owner");
   assert.equal(preservedRequest.usageAccountingState, "known", "account cleanup must not rewrite accepted usage to unknown");
   assert.equal(preservedRequest.quotaUnitsConsumed, 3);
   assert(preservedStage && preservedStage.purgeState === "purging" && preservedStage.resultDigest === settlementDigest, "account cleanup must preserve staged result evidence");
   assert(preservedPack && preservedPack.purgeState === "purging" && preservedPack.provenanceState === "unavailable" && preservedPack.packDigest === settlementDigest, "account cleanup must preserve context-pack provenance");
   assert(preservedDaily && preservedDaily.reservedQuotaUnits === 0 && preservedDaily.usedQuotaUnits === 3 && preservedDaily.finalizedRequestCount === 1, "account cleanup must settle, not delete, the daily quota ledger");
+  assert(preservedUnknownRequest && preservedUnknownRequest.status === "failed", "unknown-usage request must still reach a terminal cleanup state");
+  assert.equal(preservedUnknownRequest.tokenUsageState, "unknown", "unknown provider usage must remain unknown after account cleanup");
+  assert.equal(preservedUnknownRequest.usageAccountingState, "unknown", "unknown provider usage must not become known accounting");
+  assert.equal(preservedUnknownRequest.quotaUnitsConsumed, 2, "unknown settlement must retain its conservative reservation amount");
+  assert.equal(preservedUnknownRequest.quotaOverrunUnits, 0, "unknown settlement must not invent overrun debt");
+  assert(preservedUnknownDaily && preservedUnknownDaily.reservedQuotaUnits === 0 && preservedUnknownDaily.usedQuotaUnits === 2 && preservedUnknownDaily.finalizedRequestCount === 1, "unknown settlement must preserve a settled daily reservation without deleting the ledger row");
   const cleanupReplay = await lifecycle.prepareAccountCleanup({ studentId: otherStudentId, accountGeneration: `${namespace}:generation`, intent: "delete" });
   assert.equal(cleanupReplay.operationId, cleanup.operationId, "a post-consumption account-cleanup retry must replay the durable carrier");
   assert.equal(cleanupReplay.exportId, cleanup.exportId, "a post-consumption account-cleanup retry must replay the same export target");
   assert.equal(cleanupReplay.grantDigest, cleanup.grantDigest, "a post-consumption account-cleanup retry must replay the same grant digest");
-  console.log("T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger request=known-usage reserved-released=3 used=3 finalized=1 owner=detached");
+  // Reclaim a simulated crashed grant claim with the DB-clock reaper, then
+  // race two real cleanup-grant downloads. Exactly one caller may consume the
+  // fenced grant; the other receives a typed in-progress/consumed result and
+  // never downloads a second package.
+  await db.aiExportJob.update({ where: { id: cleanup.exportId }, data: {
+    exportAccessGrantState: "claiming",
+    exportAccessGrantClaimId: `${namespace}:crashed-grant-claim`,
+    exportAccessGrantClaimedAt: new Date(Date.now() - 120_000),
+    exportAccessGrantLeaseExpiresAt: new Date(Date.now() - 60_000),
+    exportAccessGrantVersion: { increment: 1 },
+  } });
+  assert((await lifecycle.reapExports()) >= 0, "grant-claim reaper did not execute its DB-clock pass");
+  const reclaimedGrant = await db.aiExportJob.findUnique({ where: { id: cleanup.exportId }, select: { exportAccessGrantState: true } });
+  assert.equal(reclaimedGrant?.exportAccessGrantState, "active", "an expired cleanup-grant claim must be reclaimable");
+  const concurrentGrantDownloads = await Promise.allSettled([
+    lifecycle.downloadExport({ exportId: cleanup.exportId, grant: cleanup.rawGrant }),
+    lifecycle.downloadExport({ exportId: cleanup.exportId, grant: cleanup.rawGrant }),
+  ]);
+  assert.equal(concurrentGrantDownloads.filter((result) => result.status === "fulfilled").length, 1, "concurrent cleanup-grant downloads must have one durable winner");
+  const rejectedGrantDownloads = concurrentGrantDownloads.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+  assert.equal(rejectedGrantDownloads.length, 1);
+  assert(rejectedGrantDownloads[0]?.reason instanceof VeraLifecycleError, "grant race loser must receive a typed lifecycle error");
+  assert(["export_download_in_progress", "export_access_consumed"].includes((rejectedGrantDownloads[0]!.reason as VeraLifecycleError).code), "grant race loser must be in-progress/consumed, not a second success");
+  const consumedGrant = await db.aiExportJob.findUnique({ where: { id: cleanup.exportId }, select: { exportAccessGrantState: true, ownerState: true, studentId: true } });
+  assert.equal(consumedGrant?.exportAccessGrantState, "consumed");
+  assert.equal(consumedGrant?.ownerState, "account_deleted");
+  assert.equal(consumedGrant?.studentId, null, "post-parent grant download must use the detached export owner marker");
+  console.log("T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger request=known-usage reserved-released=3 used=3 finalized=1 owner=detached unknown=preserved-unknown-accounting reservation=2");
   // Release the legal-erasure fixture hold before exercising an unrelated
   // ordinary conversation-delete worker. Dedicated hold-race coverage still
   // proves that an active hold blocks marker/key work.
-  await db.aiRetentionHold.update({ where: { id: holdId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
+  const holdReleaseA: CapabilityDecisionSnapshot = withCapabilitySnapshotDigest({
+    ...operatorA,
+    operation: "hold_release",
+    subjectId: holdId,
+    capabilityDecisionId: `${namespace}:hold-release-a-decision`,
+  });
+  const holdReleaseB: CapabilityDecisionSnapshot = withCapabilitySnapshotDigest({
+    ...operatorB,
+    operation: "hold_release",
+    subjectId: holdId,
+    capabilityDecisionId: `${namespace}:hold-release-b-decision`,
+  });
+  const holdRelease = await lifecycle.releaseRetentionHold({
+    holdId,
+    reasonDigest: sha256(`${namespace}:ordinary-hold-release`),
+    approvals: [holdReleaseA, holdReleaseB],
+  });
+  const holdReleaseReplay = await lifecycle.releaseRetentionHold({
+    holdId,
+    reasonDigest: sha256(`${namespace}:ordinary-hold-release`),
+    approvals: [holdReleaseA, holdReleaseB],
+  });
+  assert.equal(holdReleaseReplay.releaseId, holdRelease.releaseId, "ordinary hold release replay must return the durable winner");
+  assert.equal(holdReleaseReplay.replayed, true, "ordinary hold release replay must be marked as replay");
+  const releasedHold = await db.aiRetentionHold.findUnique({ where: { id: holdId }, select: { state: true, subjectState: true, version: true } });
+  assert.equal(releasedHold?.state, "released");
+  assert.equal(releasedHold?.subjectState, "attached", "ordinary hold release must preserve the attached subject until its worker detaches it");
+  const appliedHoldRelease = await db.aiRetentionHoldRelease.findUnique({ where: { id: holdRelease.releaseId }, select: { state: true, operatorAId: true, operatorBId: true, decisionSnapshotDigest: true } });
+  assert.equal(appliedHoldRelease?.state, "applied");
+  assert.equal(appliedHoldRelease?.operatorAId, operatorAId);
+  assert.equal(appliedHoldRelease?.operatorBId, operatorBId);
+  assert.match(appliedHoldRelease?.decisionSnapshotDigest ?? "", /^[a-f0-9]{64}$/u);
+  console.log("T11_EVIDENCE hold_release=ordinary active-hold-lock dual-current-operators replay=exactly-once state=released release=applied");
   console.log("T11_EVIDENCE account_cleanup=populated export-before-purge grant=active handoffState=consumed handoffConsumedAt=DB_NOW sessions=revoked account=soft_deleted createExport=account_deleted vera_cleanup_ready_v1 restrictive-fk=true");
 
   const conversationId = randomUUID();
@@ -761,6 +940,51 @@ async function testCutoverEvidence(db: PrismaClient): Promise<void> {
   assert.equal(new Set(dailyValidationDays).size, 30, "cutover daily validation labels must be unique");
   assert.equal(dailyValidationDays[0], "2026-09-01");
   assert.equal(dailyValidationDays.at(-1), "2026-09-30");
+  // Exercise each validation day against real persisted ledger rows.  Labels
+  // alone can pass while a cutover script silently drops a day, duplicates a
+  // row, or reads the legacy daily-token fields.  This disposable fixture is
+  // owner-scoped and is removed only after all thirty database assertions.
+  const validationUserId = randomUUID();
+  let validationUserCreated = false;
+  try {
+    await db.user.create({ data: { id: validationUserId, email: `${validationUserId}@vera-s5-cutover.test`, fullName: "Vera cutover validation fixture", passwordHash: "fixture" } });
+    validationUserCreated = true;
+    await db.aiUsageDaily.createMany({
+      data: dailyValidationDays.map((label, index) => ({
+        id: randomUUID(),
+        studentId: validationUserId,
+        usageDate: new Date(`${label}T00:00:00.000Z`),
+        ledgerVersion: "vera_quota_v1" as const,
+        quotaLimitUnitsSnapshot: 60,
+        acceptedRequestCount: index % 4,
+        finalizedRequestCount: index % 3,
+        reservedQuotaUnits: index % 5,
+        usedQuotaUnits: index % 7,
+        quotaDebtUnits: index === 29 ? 1 : 0,
+        quotaTimezone: "Asia/Jakarta",
+        policyBundleVersion: "vera-policy-bundle-v1-2026-08-24",
+      })),
+    });
+    const persistedDays = await db.aiUsageDaily.findMany({
+      where: { studentId: validationUserId, ledgerVersion: "vera_quota_v1" },
+      orderBy: { usageDate: "asc" },
+      select: { usageDate: true, quotaTimezone: true, acceptedRequestCount: true, finalizedRequestCount: true, legacyUsageState: true },
+    });
+    assert.equal(persistedDays.length, 30, "cutover fixture must persist every one of the thirty local days");
+    dailyValidationDays.forEach((label, index) => {
+      const row = persistedDays[index];
+      assert(row, `missing persisted cutover day ${label}`);
+      assert.equal(row.usageDate.toISOString().slice(0, 10), label, `cutover day ${label} was not persisted at its UTC date boundary`);
+      assert.equal(row.quotaTimezone, "Asia/Jakarta", `cutover day ${label} lost its frozen profile timezone`);
+      assert.equal(row.legacyUsageState, "not_applicable", `cutover day ${label} must not read legacy token accounting`);
+      assert.equal(row.acceptedRequestCount, index % 4, `accepted count drifted for cutover day ${label}`);
+      assert.equal(row.finalizedRequestCount, index % 3, `finalized count drifted for cutover day ${label}`);
+    });
+    console.log(`T11_EVIDENCE daily_fixture=postgresql rows=${persistedDays.length} local_days=${dailyValidationDays.length} profile_timezone=Asia/Jakarta accepted_vs_finalized=separate legacy_limit=ignored actual=true`);
+  } finally {
+    await db.aiUsageDaily.deleteMany({ where: { studentId: validationUserId } });
+    if (validationUserCreated) await db.user.delete({ where: { id: validationUserId } });
+  }
   console.log(`T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=vera-s5-restore-rehearsal-2026-08-v1 key-registry=vera-s5-key-registry-rehearsal-2026-08-v1 evidenceDigest=${evidenceDigest} DB_NOW=${dbClockRows[0]!.DB_NOW.toISOString()} window=2026-09-01..2026-10-01 Asia/Jakarta daily_validation_checks=30 actual=true zero_rows_orphan_check=attached`);
 }
 
