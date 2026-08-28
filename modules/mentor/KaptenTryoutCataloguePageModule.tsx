@@ -94,23 +94,20 @@ function TryoutCard({ item }: { item: TryoutItem }) {
           <ClipboardList aria-hidden="true" className="size-5" />
         </span>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="truncate text-base font-semibold text-secondary-900">{item.title}</h2>
+          <h2 className="truncate text-base font-semibold text-secondary-900">{item.title}</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <ReferenceStatusBadge size="xs" status={item.status} />
-            {item.locked ? (
-              <span
-                aria-label="Tryout terkunci"
-                className="inline-flex items-center gap-1 text-xs text-secondary-500"
-                title="Tryout terkunci"
-              >
-                <Lock aria-hidden="true" className="size-3.5" />
-                Terkunci
-              </span>
-            ) : null}
+            <ReferenceStatusBadge
+              label={item.locked ? (
+                <span aria-label="Tryout terkunci" className="inline-flex items-center gap-1" title="Tryout terkunci">
+                  <Lock aria-hidden="true" className="size-3" />
+                  Terkunci
+                </span>
+              ) : "Terbuka"}
+              size="xs"
+              status={item.locked ? "blocked" : "active"}
+            />
           </div>
-          {item.description ? (
-            <p className="mt-1 line-clamp-2 text-sm leading-6 text-secondary-500">{item.description}</p>
-          ) : null}
         </div>
       </div>
       <ChevronRight
