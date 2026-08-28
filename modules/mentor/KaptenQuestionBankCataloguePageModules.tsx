@@ -22,6 +22,7 @@ import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -255,10 +256,10 @@ function QuestionBankCatalogueFilterPanel({
   return (
     <div className="space-y-4 p-1">
       <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold tracking-[0.02em] text-secondary-500">Subject</legend>
+        <legend className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Subject</legend>
         <div className="space-y-1">
           {kaptenSubjects.map((subject) => (
-            <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-secondary-700 hover:bg-primary-50/60" key={subject.code}>
+            <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "min-h-9 rounded-lg px-2 py-2 text-sm text-secondary-700 hover:bg-primary-50/60 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50")} key={subject.code}>
               <input checked={selectedSubjectsSet.has(subject.code)} className="size-4 accent-primary-700" onChange={(event) => { const next = event.target.checked ? [...selectedSubjects, subject.code] : selectedSubjects.filter((code) => code !== subject.code); setSelectedSubjects(next); resetPage(); navigateCatalogue({ page: 1, subjects: next }); }} type="checkbox" />
               <span>{subject.code} · {subject.name}</span>
             </label>
@@ -266,19 +267,19 @@ function QuestionBankCatalogueFilterPanel({
         </div>
       </fieldset>
       <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold tracking-[0.02em] text-secondary-500">Kategori</legend>
+        <legend className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Kategori</legend>
         <div className="space-y-1">
           {categories.length ? categories.map((category) => (
-            <label className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}>
+            <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "min-h-9 rounded-lg px-2 py-2 text-sm text-secondary-700 hover:bg-primary-50/60 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50")} key={category.id}>
               <input checked={selectedCategoriesSet.has(category.id)} className="size-4 accent-primary-700" onChange={(event) => { const next = event.target.checked ? [...selectedCategories, category.id] : selectedCategories.filter((id) => id !== category.id); setSelectedCategories(next); resetPage(); navigateCatalogue({ categories: next, page: 1 }); }} type="checkbox" />
               <span>{category.name}</span>
             </label>
           )) : <p className="px-2 text-sm text-secondary-500">Belum ada kategori bersama.</p>}
         </div>
       </fieldset>
-      <label className="block space-y-2 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="question-bank-status-filter">
+      <label className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block space-y-2")} htmlFor="question-bank-status-filter">
         <span>Status</span>
-        <select className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "appearance-auto font-normal tracking-normal")} id="question-bank-status-filter" onChange={(event) => { const next = event.target.value; setStatusFilter(next); resetPage(); navigateCatalogue({ page: 1, status: next }); }} value={statusFilter}>
+        <select className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "appearance-auto font-normal tracking-normal")} id="question-bank-status-filter" onChange={(event) => { const next = event.target.value; setStatusFilter(next); resetPage(); navigateCatalogue({ page: 1, status: next }); }} value={statusFilter}>
           <option value="">Semua status</option>
           <option value="draft">Draf</option>
           <option value="published">Diterbitkan</option>
@@ -323,8 +324,8 @@ function QuestionBankFolderDialog({
         </DialogHeader>
         {folderDialog?.kind === "move" ? (
           <Field>
-            <FieldLabel htmlFor="folder-parent">Folder induk</FieldLabel>
-            <select aria-label="Folder induk" className="min-h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="folder-parent" onChange={(event) => onFolderParentIdChange(event.target.value || null)} value={folderParentId ?? ""}>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="folder-parent">Folder induk</FieldLabel>
+            <select aria-label="Folder induk" className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "appearance-auto px-3 font-normal")} id="folder-parent" onChange={(event) => onFolderParentIdChange(event.target.value || null)} value={folderParentId ?? ""}>
               <option value="">Tidak ada · root</option>
               {flatFolders.flatMap(({ depth, folder }) => {
                 if (folder.id === null || folder.id === folderDialog.folderId || folderPath(folders, folder.id).some((item) => item.id === folderDialog.folderId)) return [];
@@ -334,8 +335,8 @@ function QuestionBankFolderDialog({
           </Field>
         ) : (
           <Field>
-            <FieldLabel htmlFor="folder-name">Nama folder</FieldLabel>
-            <FieldInput autoFocus id="folder-name" maxLength={160} onChange={(event) => onFolderNameChange(event.target.value)} value={folderName} />
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="folder-name">Nama folder</FieldLabel>
+            <FieldInput autoFocus className={REFERENCE_CONTROL_CLASS_NAMES.input} id="folder-name" maxLength={160} onChange={(event) => onFolderNameChange(event.target.value)} value={folderName} />
           </Field>
         )}
         {folderError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{folderError}</p> : null}
@@ -376,8 +377,8 @@ function QuestionBankMoveDialog({
           <DialogTitle>Pindahkan bank</DialogTitle>
         </DialogHeader>
         <Field>
-          <FieldLabel htmlFor="bank-folder">Folder tujuan</FieldLabel>
-          <select aria-label="Folder tujuan" className="min-h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="bank-folder" onChange={(event) => onFolderParentIdChange(event.target.value || null)} value={folderParentId ?? selectedBank?.folderId ?? ""}>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="bank-folder">Folder tujuan</FieldLabel>
+          <select aria-label="Folder tujuan" className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "appearance-auto px-3 font-normal")} id="bank-folder" onChange={(event) => onFolderParentIdChange(event.target.value || null)} value={folderParentId ?? selectedBank?.folderId ?? ""}>
             <option value="">Belum ditempatkan</option>
             {flatFolders.flatMap(({ depth, folder }) => folder.id !== null ? [<option key={folder.id} value={folder.id ?? ""}>{"— ".repeat(depth)}{folder.name}</option>] : [])}
           </select>
@@ -421,7 +422,7 @@ function QuestionBankCategorySelectionDialog({
         </DialogHeader>
         <div className="grid gap-2">
           {categories.length ? categories.map((category) => (
-            <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-primary-100 px-3 text-sm text-secondary-700 hover:bg-primary-50/60" key={category.id}>
+            <label className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "px-3 text-sm text-secondary-700 hover:bg-primary-50/60 has-[:checked]:border-primary-500/65 has-[:checked]:bg-primary-50")} key={category.id}>
               <input checked={selectionSet.has(category.id)} className="size-4 accent-primary-700" onChange={(event) => onSelectionChange(event.target.checked ? [...bankCategorySelection, category.id] : bankCategorySelection.filter((id) => id !== category.id))} type="checkbox" />
               {category.name}
             </label>
@@ -483,7 +484,7 @@ function QuestionBankCategoryManagementDialog({
             <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1">
               <Field className="min-w-0 flex-1">
                 <FieldLabel className="sr-only" htmlFor="category-name">Nama kategori baru</FieldLabel>
-                <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id="category-name" maxLength={120} onChange={(event) => onCategoryNameChange(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
+                <FieldInput autoFocus className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-0 h-10 rounded-xl px-3 py-2 text-sm")} id="category-name" maxLength={120} onChange={(event) => onCategoryNameChange(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} placeholder="Nama kategori" value={categoryName} />
               </Field>
               <div className="flex shrink-0 items-center justify-end gap-2">
                 <Button disabled={isApplying} onClick={onCancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
@@ -495,7 +496,7 @@ function QuestionBankCategoryManagementDialog({
             <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/40 p-1" key={category.id}>
               <Field className="min-w-0 flex-1">
                 <FieldLabel className="sr-only" htmlFor={`category-name-${category.id}`}>Nama kategori</FieldLabel>
-                <FieldInput autoFocus className="h-10 rounded-xl px-3 py-2 text-sm" id={`category-name-${category.id}`} maxLength={120} onChange={(event) => onCategoryNameChange(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
+                <FieldInput autoFocus className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-0 h-10 rounded-xl px-3 py-2 text-sm")} id={`category-name-${category.id}`} maxLength={120} onChange={(event) => onCategoryNameChange(event.target.value)} onKeyDown={handleCategoryEditorKeyDown} value={categoryName} />
               </Field>
               <div className="flex shrink-0 items-center justify-end gap-2">
                 <Button disabled={isApplying} onClick={onCancelCategoryEditor} size="sm" type="button" variant="brandOutline">Batal</Button>
