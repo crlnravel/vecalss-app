@@ -11,7 +11,7 @@ const editRoute = fs.readFileSync(
 );
 
 const workspace = builder.match(
-  /function QuestionBankQuestionWorkspace\([\s\S]*?\n\}\n\nfunction QuestionBankTabs/u,
+  /function QuestionBankBuilderScreen\([\s\S]*?\n\}\n\nfunction useQuestionBankNavigationGuards/u,
 )?.[0] ?? "";
 const editorForm = builder.match(
   /function QuestionBankEditorForm\([\s\S]*?\n\}\n\nfunction QuestionBankPreview/u,
@@ -29,6 +29,9 @@ assert.match(workspace, /value="edit"/u);
 assert.match(workspace, /value="preview"/u);
 assert.match(workspace, /<QuestionBankEditorForm/u);
 assert.match(workspace, /<QuestionBankPreview/u);
+assert.match(workspace, /builderState\.questions\.length === 0/u);
+assert.match(workspace, /Tambah soal pertama/u);
+assert.match(workspace, /Bank soal dapat disimpan tanpa soal/u);
 
 assert.match(openQuestionBlock, /hasSubmittedPreview: false/u);
 assert.match(openQuestionBlock, /previewChoiceId: null/u);

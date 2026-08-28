@@ -355,8 +355,8 @@ function validate(input: SaveBankInput) {
   const subjectCodes = [...new Set(input.questions.map((question) => question.subjectCode))];
   const questionIds = input.questions.flatMap((question) => question.id ? [question.id] : []);
   if (!input.title.trim()) throw new QuestionBankError("Judul Bank Soal wajib diisi.");
-  if (!subjectCodes.length || subjectCodes.some((subject) => !SUBJECT_CODES.includes(subject as (typeof SUBJECT_CODES)[number]))) {
-    throw new QuestionBankError("Tambahkan minimal satu soal dengan subject yang valid.");
+  if (subjectCodes.some((subject) => !SUBJECT_CODES.includes(subject as (typeof SUBJECT_CODES)[number]))) {
+    throw new QuestionBankError("Tambahkan soal dengan subject yang valid.");
   }
   if (new Set(questionIds).size !== questionIds.length) {
     throw new QuestionBankError("Setiap soal hanya boleh muncul satu kali.", { code: "invalid_input" });

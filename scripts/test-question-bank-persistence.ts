@@ -16,6 +16,9 @@ assert.match(repository, /sameCanonicalQuestionContent\(canonicalQuestionFromRec
 assert.match(repository, /function isTemporaryQuestionId\(id: string \| undefined\)/u);
 assert.match(repository, /const isTemporary = isTemporaryQuestionId\(question\.id\)/u);
 assert.match(repository, /!isTemporary && !current/u);
+assert.match(repository, /const subjectCodes = \[\.\.\.new Set\(input\.questions\.map\(\(question\) => question\.subjectCode\)\)\]/u);
+assert.match(repository, /if \(subjectCodes\.some\(\(subject\) => !SUBJECT_CODES\.includes/u);
+assert.doesNotMatch(repository, /if \(!subjectCodes\.length \|\| subjectCodes\.some/u, "empty Bank Soal drafts should pass persistence validation");
 assert.match(repository, /getQuestionBankReadinessFromRevisions\(activeQuestions\.map/u);
 assert.match(repository, /getQuestionReadinessFromRevision\(/u);
 assert.match(repository, /bank\.status === ContentStatus\.archived/u);

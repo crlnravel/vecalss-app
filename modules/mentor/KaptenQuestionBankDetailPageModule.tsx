@@ -104,14 +104,12 @@ function QuestionBankDetailHeaderBar({
   handleLifecycle,
   isSavingLifecycle,
   publishDisabledReason,
-  readiness,
   requestArchive,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "publish" | "unpublish" | "archive" | "restore") => Promise<void>;
   isSavingLifecycle: boolean;
   publishDisabledReason?: string;
-  readiness: QuestionBankReadiness;
   requestArchive: () => void;
 }) {
   return (
@@ -159,7 +157,7 @@ function QuestionBankDetailHeaderBar({
           <Button
             aria-busy={isSavingLifecycle}
             aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-            disabled={isSavingLifecycle || readiness.incompleteCount > 0}
+            disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
             onClick={() => void handleLifecycle("publish")}
             size="sm"
             type="button"
@@ -918,7 +916,9 @@ function KaptenQuestionBankDetailPageModule({
   }
 
   const publishDisabledReason =
-    readiness.incompleteCount > 0
+    questions.length === 0
+      ? "Tambahkan minimal satu soal sebelum diterbitkan"
+      : readiness.incompleteCount > 0
       ? `${readiness.incompleteCount} soal perlu diperbaiki sebelum diterbitkan`
       : undefined;
 
@@ -938,7 +938,6 @@ function KaptenQuestionBankDetailPageModule({
           handleLifecycle={handleLifecycle}
           isSavingLifecycle={isSavingLifecycle}
           publishDisabledReason={publishDisabledReason}
-          readiness={readiness}
           requestArchive={requestArchive}
         />
 

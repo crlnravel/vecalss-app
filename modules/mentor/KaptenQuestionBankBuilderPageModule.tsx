@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import {
   Archive,
   AlertTriangle,
+  Check,
   ChevronDown,
   ChevronLeft,
   CircleHelp,
   Ellipsis,
   ImagePlus,
+  LibraryBig,
   Plus,
   Save,
   Trash2,
@@ -22,9 +24,13 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent,
 } from "react";
 
-import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import {
+  ReferenceEmptyState,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
@@ -45,10 +51,10 @@ import {
   FieldLabel,
   FieldTextarea,
 } from "@/components/ui/field";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { showToast } from "@/components/ui/toast";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -85,8 +91,6 @@ import {
   updateQuestionBankLifecycleAction,
 } from "@/modules/mentor/question-bank-actions";
 
-type QuestionBankEditorTab = "questions" | "details";
-
 type QuestionRowRefs = {
   current: Record<string, HTMLLIElement | null>;
 };
@@ -105,7 +109,6 @@ type MediaPickerTarget =
 
 type QuestionBankEditorState = {
   activeQuestionId: string | null;
-  activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
   questionDraft: BankQuestion;
   hasUnsavedChanges: boolean;
@@ -134,7 +137,7 @@ type QuestionBankCategoryOption = {
   name: string;
 };
 
-type QuestionBankOrganizationPatch = {
+type QuestionBankCategoryPatch = {
   categoryIds?: string[];
 };
 
@@ -556,7 +559,6 @@ function QuestionBankInventory({
               const isActive = activeQuestionId === question.id;
               const issueCount = readiness.issues.filter((issue) => issue.questionId === question.id).length;
               const hasIssues = !ready;
-              const deleteHelpId = `question-bank-delete-help-${question.id}`;
               return (
                 <li
                   className={cn(
@@ -597,20 +599,17 @@ function QuestionBankInventory({
                     </span>
                   </button>
                   <Button
-                    aria-describedby={builderState.questions.length <= 1 ? deleteHelpId : undefined}
                     aria-label={`Hapus soal ${questionNumber}`}
-                    disabled={isDisabled || builderState.questions.length <= 1}
+                    disabled={isDisabled}
                     onClick={() => onRemoveQuestion(question.id)}
                     onKeyDown={(event) => handleQuestionKeyDown(event, question.id)}
                     size="icon-sm"
                     tabIndex={isActive ? 0 : -1}
-                    title={builderState.questions.length <= 1 ? "Soal terakhir tidak dapat dihapus" : undefined}
                     type="button"
                     variant="ghost"
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
-                  {builderState.questions.length <= 1 ? <span className="sr-only" id={deleteHelpId}>Soal terakhir tidak dapat dihapus.</span> : null}
                 </li>
               );
             }) : (
@@ -721,79 +720,140 @@ function QuestionBankMobileInventory({
   );
 }
 
-function QuestionBankOrganizationPanel({
-  builderState,
+function QuestionBankCategoryPicker({
   categories,
-  collapsedByDefault = false,
-  isDisabled,
-  onUpdate,
+  disabled,
+  selectedCategoryIds,
+  onChange,
 }: {
-  builderState: QuestionBankBuilderFormState;
   categories: QuestionBankCategoryOption[];
-  collapsedByDefault?: boolean;
-  isDisabled: boolean;
-  onUpdate: (patch: QuestionBankOrganizationPatch) => void;
+  disabled: boolean;
+  onChange: (categoryIds: string[]) => void;
+  selectedCategoryIds: string[];
 }) {
-  const [isOpen, setIsOpen] = useState(!collapsedByDefault);
-  const categoryIdSet = new Set(builderState.categoryIds);
-  const selectedCategories = categories.filter((category) => categoryIdSet.has(category.id));
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selectedIdSet = new Set(selectedCategoryIds);
+  const selectedCategories = categories.filter((category) => selectedIdSet.has(category.id));
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLocaleLowerCase().includes(normalizedSearch),
+  );
+
+  function closePicker(nextOpen: boolean) {
+    setIsOpen(nextOpen);
+    if (!nextOpen) setSearch("");
+  }
+
+  function toggleCategory(categoryId: string) {
+    onChange(
+      selectedIdSet.has(categoryId)
+        ? selectedCategoryIds.filter((id) => id !== categoryId)
+        : [...selectedCategoryIds, categoryId],
+    );
+    setSearch("");
+  }
+
+  function removeCategory(categoryId: string, event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    onChange(selectedCategoryIds.filter((id) => id !== categoryId));
+  }
 
   return (
-    <ReferenceSurface as="section" className="p-5 md:p-6" variant="inset">
-      <div className="flex items-start justify-between gap-3">
-        <button
-          aria-controls="bank-organization-fields"
-          aria-expanded={isOpen}
-          className="min-w-0 flex-1 text-left"
-          onClick={() => setIsOpen((open) => !open)}
-          type="button"
+    <Field>
+      <FieldLabel htmlFor="bank-categories">Kategori</FieldLabel>
+      <Popover onOpenChange={closePicker} open={isOpen}>
+        <PopoverTrigger
+          disabled={disabled}
+          nativeButton={false}
+          render={<div className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "flex min-h-11 cursor-text flex-wrap items-center gap-2 px-3 py-2")} />}
         >
-          <p className="text-xs font-bold tracking-[0.14em] text-primary-700 uppercase">Organisasi</p>
-          <h2 className="mt-1 text-xl font-semibold text-secondary-900">Organisasi (opsional)</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-600">Atur kategori tanpa mengubah isi soal.</p>
-        </button>
-        <Button
-          aria-controls="bank-organization-fields"
-          aria-expanded={isOpen}
-          aria-label={isOpen ? "Sembunyikan organisasi" : "Tampilkan organisasi"}
-          className="mt-0.5 shrink-0"
-          onClick={() => setIsOpen((open) => !open)}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <ChevronDown className={cn("transition-transform", isOpen ? "rotate-180" : undefined)} />
-        </Button>
-      </div>
-      {isOpen ? <div className="mt-5 grid gap-5" id="bank-organization-fields">
-        <Field>
-          <FieldLabel htmlFor="bank-categories">Kategori</FieldLabel>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={isDisabled}
-              render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "w-full")} id="bank-categories" type="button" variant="reference" />}
+          {selectedCategories.map((category) => (
+            <span
+              className="inline-flex max-w-full items-center gap-1 rounded-lg bg-secondary-100 px-2.5 py-1 text-xs font-medium text-secondary-800"
+              key={category.id}
             >
-              <span className="truncate">{selectedCategories.length ? `${selectedCategories.length} kategori dipilih` : "Belum ada kategori"}</span>
-              <ChevronDown className="size-4 text-secondary-400" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-(--anchor-width)">
-              <DropdownMenuLabel>Pilih satu atau beberapa kategori</DropdownMenuLabel>
-              {categories.length ? categories.map((category) => (
-                <DropdownMenuCheckboxItem
-                  checked={categoryIdSet.has(category.id)}
-                  disabled={isDisabled}
+              <span className="max-w-48 truncate">{category.name}</span>
+              <button
+                aria-label={`Hapus kategori ${category.name}`}
+                className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-secondary-500 outline-none hover:bg-secondary-200 hover:text-secondary-900 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                disabled={disabled}
+                onClick={(event) => removeCategory(category.id, event)}
+                type="button"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+          <input
+            aria-autocomplete="list"
+            aria-controls="bank-category-options"
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
+            className="min-w-[8rem] flex-1 bg-transparent py-1 text-sm text-secondary-900 outline-none placeholder:text-secondary-400"
+            disabled={disabled}
+            id="bank-categories"
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setIsOpen(true);
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setIsOpen(false);
+              } else if (event.key === "Backspace" && !search && selectedCategoryIds.length) {
+                onChange(selectedCategoryIds.slice(0, -1));
+              } else if (event.key === "Enter" && filteredCategories[0]) {
+                event.preventDefault();
+                toggleCategory(filteredCategories[0].id);
+              } else if (event.key === "ArrowDown") {
+                setIsOpen(true);
+              }
+            }}
+            placeholder={selectedCategories.length ? "Tambah kategori" : "Pilih kategori"}
+            role="combobox"
+            value={search}
+          />
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-[min(30rem,calc(100vw-2rem))] gap-2 p-2"
+          id="bank-category-options"
+        >
+          <p className="px-2 py-1 text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">
+            Tambah kategori
+          </p>
+          <div className="grid max-h-60 gap-1 overflow-y-auto" role="listbox" aria-label="Pilihan kategori">
+            {filteredCategories.length ? filteredCategories.map((category) => {
+              const selected = selectedIdSet.has(category.id);
+              return (
+                <button
+                  aria-selected={selected}
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left text-sm font-medium text-secondary-900 outline-none hover:bg-primary-50 hover:text-primary-900 focus-visible:bg-primary-50 focus-visible:text-primary-900"
                   key={category.id}
-                  onCheckedChange={(checked) => onUpdate({ categoryIds: checked ? [...builderState.categoryIds, category.id] : builderState.categoryIds.filter((id) => id !== category.id) })}
+                  onClick={() => toggleCategory(category.id)}
+                  role="option"
+                  type="button"
                 >
-                  {category.name}
-                </DropdownMenuCheckboxItem>
-              )) : <div className="px-3 py-2 text-sm text-secondary-500">Belum ada kategori bersama.</div>}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {selectedCategories.length ? <div className="mt-3 flex flex-wrap gap-2">{selectedCategories.map((category) => <Badge key={category.id} size="ui" variant="mint">{category.name}</Badge>)}</div> : null}
-        </Field>
-      </div> : <p className="mt-3 text-sm text-secondary-600">Kategori bersifat opsional.</p>}
-    </ReferenceSurface>
+                  <span className="truncate">{category.name}</span>
+                  {selected ? <Check aria-hidden="true" className="size-4 shrink-0 text-primary-700" /> : null}
+                </button>
+              );
+            }) : (
+              <p className="px-3 py-3 text-sm text-secondary-500">
+                {categories.length ? "Tidak ada kategori yang cocok." : "Belum ada kategori bersama."}
+              </p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </Field>
   );
 }
 
@@ -806,7 +866,6 @@ type QuestionBankBuilderFormState = {
 };
 type QuestionBankBuilderViewState = {
   activeQuestionId: string | null;
-  activeTab: QuestionBankEditorTab;
   confirmationRequest: ConfirmationRequest | null;
   hasSubmittedPreview: boolean;
   hasUnsavedChanges: boolean;
@@ -831,7 +890,6 @@ type QuestionBankBuilderActions = {
   addQuestion: () => void;
   closeConfirmation: () => void;
   confirmPendingAction: () => void;
-  onChangeTab: (value: string) => void;
   onChoiceChange: (value: string) => void;
   onCloseMedia: () => void;
   onEditorTabChange: (value: string) => void;
@@ -847,16 +905,18 @@ type QuestionBankBuilderActions = {
   requestArchive: () => void;
   saveDraft: () => void;
   updateMetadata: (field: "title" | "description", value: string) => void;
-  updateOrganization: (patch: QuestionBankOrganizationPatch) => void;
+  updateCategories: (patch: QuestionBankCategoryPatch) => void;
   updateLifecycle: (operation: "archive" | "publish" | "unpublish" | "restore") => void;
 };
 
 function QuestionBankEditorHeader({ actions, builderState, mode, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; mode: "create" | "edit"; state: QuestionBankBuilderViewState }) {
   const titleMissing = mode === "create" && !builderState.title.trim();
-  const saveLabel = mode === "create" ? "Buat dan mulai menulis" : "Simpan perubahan";
+  const saveLabel = mode === "create" ? "Buat bank soal" : "Simpan perubahan";
   const publishDisabledReason = state.hasUnsavedChanges
     ? "Simpan dulu untuk menerbitkan"
-    : state.readiness.incompleteCount > 0
+    : builderState.questions.length === 0
+      ? "Tambahkan minimal satu soal sebelum menerbitkan"
+      : state.readiness.incompleteCount > 0
       ? `${state.readiness.incompleteCount} soal belum lengkap`
       : undefined;
   const lifecycleDisabledReason = state.hasUnsavedChanges ? "Simpan dulu untuk mengubah status" : undefined;
@@ -865,91 +925,47 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
     <section className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <span className="inline-flex items-center gap-2 text-sm font-medium text-[#856300]"><span aria-hidden="true" className="size-2 rounded-full bg-[#d29b18]" />Belum disimpan</span> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button aria-describedby={titleMissing ? "create-bank-title-help" : undefined} aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
-        {titleMissing ? <p className="text-xs text-secondary-600" id="create-bank-title-help">Isi judul untuk membuat bank soal.</p> : null}
-        {mode === "edit" && state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0} id="question-bank-lifecycle-publish" onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : null}
+        <Button aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
+        {mode === "edit" && state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0} id="question-bank-lifecycle-publish" onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : null}
         {mode === "edit" && state.isDraftLifecycle ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label="Aksi destruktif Bank Soal" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem disabled={state.isSaving || Boolean(lifecycleDisabledReason)} onClick={actions.requestArchive} variant="destructive"><Archive />Arsipkan</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu> : null}
       </div>
     </section>
   );
 }
 
-function QuestionBankQuestionWorkspace({
-  actions,
-  builderState,
-  state,
-  workspaceRef,
-}: {
-  actions: QuestionBankBuilderActions;
-  builderState: QuestionBankBuilderFormState;
-  state: QuestionBankBuilderViewState;
-  workspaceRef: { current: HTMLDivElement | null };
-}) {
-  const questionIssues = state.readiness.issues.filter(
-    (issue) => issue.questionId === state.activeQuestionId,
-  );
-
+function QuestionBankMetadataForm({ actions, builderState, categories, state }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; state: QuestionBankBuilderViewState }) {
   return (
-    <section className="grid items-start gap-6 xl:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] xl:gap-6">
-      <div className="order-2 min-w-0 scroll-mt-24 xl:col-start-2 xl:row-start-1 xl:order-none" data-question-workspace="current" id="question-bank-question-workspace" ref={workspaceRef}>
-        <div className="flex min-h-11 flex-wrap items-center gap-3"><h2 className="text-2xl font-semibold text-secondary-900" id="question-bank-question-workspace-title">Edit soal</h2></div>
-        {questionIssues.length ? <p aria-live="polite" className="mt-3 flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950" role="status"><AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><span>Soal ini memiliki {questionIssues.length} masalah. Perbaiki bidang yang ditandai sebelum menerbitkan.</span></p> : null}
-        <Tabs className="mt-4 gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
-          <TabsList><TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger><TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger></TabsList>
-          <TabsContent className="m-0" value="edit"><QuestionBankEditorForm activeQuestionId={state.activeQuestionId} isQuestionContentLocked={state.isQuestionContentLocked} onAddChoice={actions.addChoice} onOpenMedia={actions.onOpenMedia} onRemoveChoice={actions.onRemoveChoice} onRemoveChoiceMedia={actions.onRemoveChoiceMedia} onUpdate={actions.onUpdateDraft} questionDraft={state.questionDraft} readinessIssues={questionIssues} /></TabsContent>
-          <TabsContent className="m-0" value="preview"><QuestionBankPreview hasSubmittedPreview={state.hasSubmittedPreview} onChoiceChange={actions.onChoiceChange} onSubmit={actions.onSubmitPreview} previewChoiceId={state.previewChoiceId} questionDraft={state.questionDraft} /></TabsContent>
-        </Tabs>
-      </div>
-      <QuestionBankInventory
-        activeQuestionId={state.activeQuestionId}
-        builderState={builderState}
-        isDisabled={state.isQuestionContentLocked}
-        onAddQuestion={actions.addQuestion}
-        onOpenQuestion={actions.onOpenQuestion}
-        onRemoveQuestion={actions.onRemoveQuestion}
-        questionRowRefs={state.questionRowRefs}
-        readiness={state.readiness}
+    <ReferenceSurface as="section" className="grid max-w-4xl gap-5 p-5 md:p-7">
+      <Field>
+        <FieldLabel htmlFor="bank-title">Judul bank</FieldLabel>
+        <FieldInput
+          aria-required="true"
+          className={REFERENCE_CONTROL_CLASS_NAMES.input}
+          disabled={state.isMetadataLocked}
+          id="bank-title"
+          onChange={(event) => actions.updateMetadata("title", event.target.value)}
+          required
+          value={builderState.title}
+        />
+      </Field>
+      <QuestionBankCategoryPicker
+        categories={categories}
+        disabled={state.isMetadataLocked}
+        onChange={(categoryIds) => actions.updateCategories({ categoryIds })}
+        selectedCategoryIds={builderState.categoryIds}
       />
-    </section>
+      <Field>
+        <FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel>
+        <FieldTextarea
+          className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
+          disabled={state.isMetadataLocked}
+          id="bank-description"
+          onChange={(event) => actions.updateMetadata("description", event.target.value)}
+          value={builderState.description}
+        />
+      </Field>
+    </ReferenceSurface>
   );
-}
-
-function QuestionBankTabs({ actions, builderState, categories, mode, state, workspaceRef }: { actions: QuestionBankBuilderActions; builderState: QuestionBankBuilderFormState; categories: QuestionBankCategoryOption[]; mode: "create" | "edit"; state: QuestionBankBuilderViewState; workspaceRef: { current: HTMLDivElement | null } }) {
-  return <Tabs className="gap-8" onValueChange={actions.onChangeTab} value={state.activeTab}>
-    <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max min-w-full sm:min-w-0"><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="questions">Soal <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-800">{builderState.questions.length}</span></TabsTrigger><TabsTrigger className="h-11 rounded-full px-4 text-sm" value="details">Detail bank</TabsTrigger></TabsList></div>
-    <TabsContent className="m-0" value="details">
-      <ReferenceSurface as="section" className="grid max-w-6xl gap-5 p-5 md:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start">
-        <div className="grid gap-5">
-          <Field>
-            <FieldLabel htmlFor="bank-title">Judul bank</FieldLabel>
-            <FieldInput
-              aria-describedby={mode === "create" && !builderState.title.trim() ? "bank-title-help" : undefined}
-              aria-required={mode === "create"}
-              className={REFERENCE_CONTROL_CLASS_NAMES.input}
-              disabled={state.isMetadataLocked}
-              id="bank-title"
-              onChange={(event) => actions.updateMetadata("title", event.target.value)}
-              required={mode === "create"}
-              value={builderState.title}
-            />
-            {mode === "create" && !builderState.title.trim() ? <p className="text-xs text-secondary-600" id="bank-title-help">Isi judul untuk membuat bank soal.</p> : null}
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="bank-description">Deskripsi</FieldLabel>
-            <FieldTextarea
-              className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[100px]")}
-              disabled={state.isMetadataLocked}
-              id="bank-description"
-              onChange={(event) => actions.updateMetadata("description", event.target.value)}
-              value={builderState.description}
-            />
-          </Field>
-        </div>
-        <QuestionBankOrganizationPanel builderState={builderState} categories={categories} collapsedByDefault={mode === "create"} isDisabled={state.isMetadataLocked} onUpdate={actions.updateOrganization} />
-      </ReferenceSurface>
-    </TabsContent>
-    <TabsContent className="m-0" value="questions"><QuestionBankQuestionWorkspace actions={actions} builderState={builderState} state={state} workspaceRef={workspaceRef} /></TabsContent>
-  </Tabs>;
 }
 
 function QuestionBankBuilderScreen({
@@ -977,8 +993,10 @@ function QuestionBankBuilderScreen({
 
   const publishDisabledReason = state.hasUnsavedChanges
     ? "Simpan dulu untuk menerbitkan"
-    : state.readiness.incompleteCount > 0
-      ? `${state.readiness.incompleteCount} soal belum lengkap`
+    : builderState.questions.length === 0
+      ? "Tambahkan minimal satu soal sebelum menerbitkan"
+      : state.readiness.incompleteCount > 0
+        ? `${state.readiness.incompleteCount} soal belum lengkap`
       : undefined;
   const lifecycleDisabledReason = state.hasUnsavedChanges ? "Simpan dulu untuk mengubah status" : undefined;
   const questionIssues = state.readiness.issues.filter(
@@ -1002,7 +1020,7 @@ function QuestionBankBuilderScreen({
         <QuestionBankEditorHeader actions={actions} builderState={builderState} mode={mode} state={state} />
         <p aria-live="polite" className="sr-only" role="status">{state.readinessAnnouncement}</p>
         {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
-        <QuestionBankTabs actions={actions} builderState={builderState} categories={categories} mode={mode} state={state} workspaceRef={workspaceRef} />
+        <QuestionBankMetadataForm actions={actions} builderState={builderState} categories={categories} state={state} />
         <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
         <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       </MentorWorkspaceShell>
@@ -1070,7 +1088,7 @@ function QuestionBankBuilderScreen({
                 aria-busy={state.isSaving}
                 data-question-bank-lifecycle-action="publish"
                 aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-                disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0}
+                disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0}
                 id="question-bank-lifecycle-publish"
                 onClick={() => actions.updateLifecycle("publish")}
                 size="sm"
@@ -1162,41 +1180,54 @@ function QuestionBankBuilderScreen({
               </h2>
             </div>
 
-            {questionIssues.length ? (
-              <p aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950" role="status">
-                <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-                <span>Soal ini memiliki {questionIssues.length} masalah. Perbaiki bidang yang ditandai sebelum menerbitkan.</span>
-              </p>
-            ) : null}
+            {builderState.questions.length === 0 ? (
+              <ReferenceSurface className="min-h-72" variant="inset">
+                <ReferenceEmptyState
+                  action={<Button disabled={state.isQuestionContentLocked} onClick={actions.addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal pertama</Button>}
+                  description="Bank soal dapat disimpan tanpa soal. Tambahkan soal kapan saja sebelum diterbitkan."
+                  icon={LibraryBig}
+                  title="Belum ada soal"
+                />
+              </ReferenceSurface>
+            ) : (
+              <>
+                {questionIssues.length ? (
+                  <p aria-live="polite" className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950" role="status">
+                    <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    <span>Soal ini memiliki {questionIssues.length} masalah. Perbaiki bidang yang ditandai sebelum menerbitkan.</span>
+                  </p>
+                ) : null}
 
-            <Tabs className="gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
-              <TabsList>
-                <TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger>
-                <TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger>
-              </TabsList>
-              <TabsContent className="m-0" value="edit">
-                <QuestionBankEditorForm
-                  activeQuestionId={state.activeQuestionId}
-                  isQuestionContentLocked={state.isQuestionContentLocked}
-                  onAddChoice={actions.addChoice}
-                  onOpenMedia={actions.onOpenMedia}
-                  onRemoveChoice={actions.onRemoveChoice}
-                  onRemoveChoiceMedia={actions.onRemoveChoiceMedia}
-                  onUpdate={actions.onUpdateDraft}
-                  questionDraft={state.questionDraft}
-                  readinessIssues={questionIssues}
-                />
-              </TabsContent>
-              <TabsContent className="m-0" value="preview">
-                <QuestionBankPreview
-                  hasSubmittedPreview={state.hasSubmittedPreview}
-                  onChoiceChange={actions.onChoiceChange}
-                  onSubmit={actions.onSubmitPreview}
-                  previewChoiceId={state.previewChoiceId}
-                  questionDraft={state.questionDraft}
-                />
-              </TabsContent>
-            </Tabs>
+                <Tabs className="gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
+                  <TabsList>
+                    <TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger>
+                    <TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger>
+                  </TabsList>
+                  <TabsContent className="m-0" value="edit">
+                    <QuestionBankEditorForm
+                      activeQuestionId={state.activeQuestionId}
+                      isQuestionContentLocked={state.isQuestionContentLocked}
+                      onAddChoice={actions.addChoice}
+                      onOpenMedia={actions.onOpenMedia}
+                      onRemoveChoice={actions.onRemoveChoice}
+                      onRemoveChoiceMedia={actions.onRemoveChoiceMedia}
+                      onUpdate={actions.onUpdateDraft}
+                      questionDraft={state.questionDraft}
+                      readinessIssues={questionIssues}
+                    />
+                  </TabsContent>
+                  <TabsContent className="m-0" value="preview">
+                    <QuestionBankPreview
+                      hasSubmittedPreview={state.hasSubmittedPreview}
+                      onChoiceChange={actions.onChoiceChange}
+                      onSubmit={actions.onSubmitPreview}
+                      previewChoiceId={state.previewChoiceId}
+                      questionDraft={state.questionDraft}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
           </div>
         </main>
       </div>
@@ -1350,15 +1381,11 @@ function useQuestionBankBuilderState({
   const router = useRouter();
   const [localBuilderState, setLocalBuilderState] = useState(() => {
     const subjectCode = initialBank?.subjectCode ?? "PU";
-    const fallbackQuestionId = `${subjectCode.toLowerCase()}-question-${Date.now()}`;
-    const questions = initialQuestions.length
-      ? initialQuestions
-      : [{ ...emptyQuestion(bankId ?? initialBank?.id ?? fallbackQuestionId, subjectCode), id: fallbackQuestionId }];
 
     return {
       categoryIds: initialBank?.categoryIds ?? [],
       description: initialBank?.description ?? "",
-      questions,
+      questions: initialQuestions,
       subjectCode,
       title: initialBank?.title ?? "",
     };
@@ -1366,10 +1393,13 @@ function useQuestionBankBuilderState({
   const initialQuestion =
     (initialActiveQuestionId
       ? localBuilderState.questions.find((q) => q.id === initialActiveQuestionId)
-      : null) ?? localBuilderState.questions[0]!;
+      : null) ?? localBuilderState.questions[0] ?? null;
+  const fallbackQuestionDraft = emptyQuestion(
+    bankId ?? initialBank?.id ?? "question-bank-draft",
+    initialBank?.subjectCode ?? "PU",
+  );
   const [editorState, dispatch] = useReducer(questionBankEditorReducer, {
-    activeQuestionId: initialQuestion.id,
-    activeTab: mode === "create" ? "details" : "questions",
+    activeQuestionId: initialQuestion?.id ?? null,
     confirmationRequest: null,
     hasSubmittedPreview: false,
     hasUnsavedChanges: mode === "create",
@@ -1379,26 +1409,19 @@ function useQuestionBankBuilderState({
     mediaPickerTarget: null,
     pendingRouteReplacement: null,
     previewChoiceId: null,
-    questionDraft: toQuestionDraft(initialQuestion),
+    questionDraft: initialQuestion ? toQuestionDraft(initialQuestion) : fallbackQuestionDraft,
     questionEditorTab: "edit",
     readinessAnnouncement: "",
     serverReadiness: mode === "edit" ? initialReadiness : null,
   });
   const {
     activeQuestionId,
-    activeTab,
     confirmationRequest,
-    hasSubmittedPreview,
     hasUnsavedChanges,
-    isSaving,
-    lifecycleError,
     lifecycleStatus,
     mediaPickerTarget,
     pendingRouteReplacement,
-    previewChoiceId,
     questionDraft,
-    questionEditorTab,
-    readinessAnnouncement,
     serverReadiness,
   } = editorState;
   const updateEditor = (patch: Partial<QuestionBankEditorState>) => dispatch({ patch, type: "patch" });
@@ -1489,7 +1512,6 @@ function useQuestionBankBuilderState({
     const issue = readiness.issues[index];
     if (!issue) return;
     pendingIssueFocusRef.current = issue;
-    updateEditor({ activeTab: "questions" });
     openQuestion(issue.questionId);
     announceIssue(issue, index, readiness.issues.length);
   }
@@ -1557,7 +1579,7 @@ function useQuestionBankBuilderState({
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeQuestion, activeQuestionId, activeTab, focusIssueTarget, lifecycleStatus, questionNumber, readiness.issues]);
+  }, [activeQuestion, activeQuestionId, focusIssueTarget, lifecycleStatus, questionNumber, readiness.issues]);
 
   function markChanged(nextState: typeof builderState) {
     setLocalBuilderState(nextState);
@@ -1575,7 +1597,7 @@ function useQuestionBankBuilderState({
     markChanged({ ...builderState, [field]: value });
   }
 
-  function updateOrganization(patch: QuestionBankOrganizationPatch) {
+  function updateCategories(patch: QuestionBankCategoryPatch) {
     if (isMetadataLocked) return;
     markChanged({
       ...builderState,
@@ -1700,24 +1722,24 @@ function useQuestionBankBuilderState({
   }
 
   function removeQuestion(id: string) {
-    if (isQuestionContentLocked || builderState.questions.length <= 1) return;
+    if (isQuestionContentLocked) return;
     const questions = builderState.questions.filter(
       (question) => question.id !== id,
     );
-    const nextActiveQuestion = questions[0]!;
-    questionFocusAfterDeleteRef.current = nextActiveQuestion.id;
+    if (questions.length === builderState.questions.length) return;
+    const nextActiveQuestion = questions[0] ?? null;
+    questionFocusAfterDeleteRef.current = nextActiveQuestion?.id ?? null;
     markChanged({ ...builderState, questions });
     updateEditor({
-      activeQuestionId: nextActiveQuestion.id,
+      activeQuestionId: nextActiveQuestion?.id ?? null,
       hasSubmittedPreview: false,
       previewChoiceId: null,
-      questionDraft: toQuestionDraft(nextActiveQuestion),
-      readinessAnnouncement: "Soal dihapus.",
+      questionDraft: nextActiveQuestion ? toQuestionDraft(nextActiveQuestion) : fallbackQuestionDraft,
+      readinessAnnouncement: nextActiveQuestion ? "Soal dihapus." : "Soal terakhir dihapus. Bank soal tetap dapat disimpan tanpa soal.",
     });
   }
 
   function requestQuestionRemoval(id: string) {
-    if (builderState.questions.length <= 1) return;
     const question = builderState.questions.find((item) => item.id === id);
     const questionLabel = question?.prompt || "Soal tanpa pertanyaan";
 
@@ -1760,9 +1782,6 @@ function useQuestionBankBuilderState({
       closeConfirmation,
       confirmPendingAction,
       focusFirstIssue,
-      onChangeTab: (value: string) => {
-        if (value === "questions" || value === "details") updateEditor({ activeTab: value });
-      },
       onChoiceChange: (value: string) => updateEditor({ hasSubmittedPreview: false, previewChoiceId: value }),
       onCloseMedia: () => updateEditor({ mediaPickerTarget: null }),
       onEditorTabChange: (value: string) => updateEditor({ questionEditorTab: value as "edit" | "preview" }),
@@ -1778,7 +1797,7 @@ function useQuestionBankBuilderState({
       saveDraft,
       updateLifecycle,
       updateMetadata,
-      updateOrganization,
+      updateCategories,
     },
     bankIdValue: bankId ?? initialBank?.id,
     builderState,
@@ -1843,7 +1862,6 @@ function KaptenQuestionBankBuilderPageModule({
       session={session}
       state={{
         activeQuestionId: editorState.activeQuestionId,
-        activeTab: editorState.activeTab,
         confirmationRequest: editorState.confirmationRequest,
         hasSubmittedPreview: editorState.hasSubmittedPreview,
         hasUnsavedChanges: editorState.hasUnsavedChanges,
