@@ -242,13 +242,7 @@ function MateriBulkActions({
   );
 }
 
-function SubjectCard({
-  lessonCount,
-  subject,
-}: {
-  lessonCount: number;
-  subject: KaptenMateriSubjectView;
-}) {
+function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
   const subjectCategory = getSubjectCategory(subject.code);
 
   return (
@@ -260,26 +254,19 @@ function SubjectCard({
       )}
       href={`/mentor/materi/subject/${subject.slug}`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <span className="inline-flex rounded-xl bg-primary-100 px-3 py-1.5 text-sm font-bold text-primary-900">
+      <div className="flex items-start gap-4">
+        <span className="inline-flex rounded-xl bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] px-3 py-1.5 text-sm font-bold text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]">
           {subjectCategory}
-        </span>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
-          <FileText aria-hidden="true" className="size-5" />
         </span>
       </div>
       <h2 className="mt-5 text-xl font-semibold text-secondary-900">
         {subject.name}
       </h2>
-      <p className="mt-1 text-sm leading-6 text-secondary-500">
-        {lessonCount ? `${lessonCount} lesson` : "Belum ada lesson"}
-      </p>
     </Link>
   );
 }
 
 function KaptenMateriPageModule({
-  catalogue,
   session,
   subjects,
 }: {
@@ -287,14 +274,6 @@ function KaptenMateriPageModule({
   session: SessionContext;
   subjects: KaptenMateriSubjectView[];
 }) {
-  const lessonCountBySubject = new Map<string, number>();
-  catalogue.forEach((lesson) => {
-    lessonCountBySubject.set(
-      lesson.subjectSlug,
-      (lessonCountBySubject.get(lesson.subjectSlug) ?? 0) + 1,
-    );
-  });
-
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
@@ -305,18 +284,6 @@ function KaptenMateriPageModule({
     >
       <div className="space-y-8">
         <ReferencePageHeader
-          actions={
-            <Button
-              aria-label="Buat Materi"
-              nativeButton={false}
-              render={<Link href="/mentor/materi/create" />}
-              size="sm"
-              variant="brand"
-            >
-              <Plus />
-              Buat Materi
-            </Button>
-          }
           description="Kelola bacaan dan video pendamping siswa berdasarkan subject."
           title="Materi"
         />
@@ -326,7 +293,6 @@ function KaptenMateriPageModule({
             {subjects.map((subject) => (
               <SubjectCard
                 key={subject.slug}
-                lessonCount={lessonCountBySubject.get(subject.slug) ?? 0}
                 subject={subject}
               />
             ))}
@@ -879,7 +845,7 @@ function MateriSubjectCatalogueScreen({
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
-      breadcrumbLabel={`${subject.code} · Materi`}
+      breadcrumbLabel={subject.code}
       searchPlaceholder="Cari lesson..."
       session={session}
       sidebarAppearance="reference"
