@@ -72,14 +72,14 @@ function toDashboardActivities(resources: readonly DashboardResource[]): Referen
 const mentorActivityFeedClassName = [
   "[&>div:first-child]:hidden",
   "[&_[data-activity-id]]:py-2",
-  "[&_[data-activity-id]>div:last-child>div:first-child]:items-start",
+  "[&>div:last-child]:pt-0",
   "[&_[data-activity-id]>div:first-child]:bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)]",
   "[&_[data-activity-id]>div:first-child]:text-[#176b4d]",
   "[&_[data-activity-id]>div:first-child]:shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]",
-  "[&_[data-activity-id]>div:last-child>span:last-child]:font-medium",
-  "[&_[data-activity-id]>div:last-child>span:last-child]:tracking-normal",
-  "[&_[data-activity-id]>div:last-child>span:last-child]:normal-case",
-  "[&_[data-activity-id]>div:last-child>span:last-child]:text-secondary-500",
+  "[&_[data-activity-id]>div:nth-of-type(2)>span:last-child]:font-medium",
+  "[&_[data-activity-id]>div:nth-of-type(2)>span:last-child]:tracking-normal",
+  "[&_[data-activity-id]>div:nth-of-type(2)>span:last-child]:normal-case",
+  "[&_[data-activity-id]>div:nth-of-type(2)>span:last-child]:text-secondary-500",
 ].join(" ");
 
 function DashboardResourceTask({ resource }: { resource: DashboardResource }) {

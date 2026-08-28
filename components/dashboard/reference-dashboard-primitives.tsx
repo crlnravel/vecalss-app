@@ -369,7 +369,7 @@ function ReferenceActivityItem({
         <Icon aria-hidden={true} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
           <p className="min-w-0 truncate text-sm font-semibold text-secondary-900">
             {activity.href ? (
               <Link
@@ -382,11 +382,6 @@ function ReferenceActivityItem({
               activity.title
             )}
           </p>
-          {activity.timestamp ? (
-            <span className="shrink-0 text-xs text-secondary-500">
-              {activity.timestamp}
-            </span>
-          ) : null}
         </div>
         {activity.description ? (
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-secondary-500">
@@ -399,6 +394,11 @@ function ReferenceActivityItem({
           </span>
         ) : null}
       </div>
+      {activity.timestamp ? (
+        <span className="shrink-0 self-start text-xs text-secondary-500">
+          {activity.timestamp}
+        </span>
+      ) : null}
     </div>
   );
 }
