@@ -132,6 +132,17 @@ type LocalQuestionBankState = {
   title: string;
 };
 
+function hasQuestionBankDraftContent(
+  state: Pick<LocalQuestionBankState, "categoryIds" | "description" | "questions" | "title">,
+) {
+  return Boolean(
+    state.title.trim()
+      || state.description.trim()
+      || state.categoryIds.length
+      || state.questions.length,
+  );
+}
+
 type QuestionBankCategoryOption = {
   id: string;
   name: string;
@@ -1379,17 +1390,14 @@ function useQuestionBankBuilderState({
   mode: "create" | "edit";
 }) {
   const router = useRouter();
-  const [localBuilderState, setLocalBuilderState] = useState(() => {
-    const subjectCode = initialBank?.subjectCode ?? "PU";
-
-    return {
-      categoryIds: initialBank?.categoryIds ?? [],
-      description: initialBank?.description ?? "",
-      questions: initialQuestions,
-      subjectCode,
-      title: initialBank?.title ?? "",
-    };
-  });
+  const initialBuilderState: LocalQuestionBankState = {
+    categoryIds: initialBank?.categoryIds ?? [],
+    description: initialBank?.description ?? "",
+    questions: initialQuestions,
+    subjectCode: initialBank?.subjectCode ?? "PU",
+    title: initialBank?.title ?? "",
+  };
+  const [localBuilderState, setLocalBuilderState] = useState(() => initialBuilderState);
   const initialQuestion =
     (initialActiveQuestionId
       ? localBuilderState.questions.find((q) => q.id === initialActiveQuestionId)
@@ -1402,7 +1410,7 @@ function useQuestionBankBuilderState({
     activeQuestionId: initialQuestion?.id ?? null,
     confirmationRequest: null,
     hasSubmittedPreview: false,
-    hasUnsavedChanges: mode === "create",
+    hasUnsavedChanges: mode === "create" && hasQuestionBankDraftContent(initialBuilderState),
     isSaving: false,
     lifecycleError: null,
     lifecycleStatus: initialBank?.status ?? "draft",
@@ -1584,7 +1592,7 @@ function useQuestionBankBuilderState({
   function markChanged(nextState: typeof builderState) {
     setLocalBuilderState(nextState);
     updateEditor({
-      hasUnsavedChanges: true,
+      hasUnsavedChanges: mode === "create" ? hasQuestionBankDraftContent(nextState) : true,
       serverReadiness: pruneServerReadinessForDraftChange(serverReadiness, builderState.questions, nextState.questions),
     });
   }
