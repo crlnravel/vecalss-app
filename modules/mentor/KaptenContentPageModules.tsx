@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Plus } from "@/lib/icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { getQuizWithStoredDrafts } from "@/modules/mentor/quiz-draft-storage";
 import { getQuestionBankCatalog } from "@/modules/mentor/question-bank-draft-storage";
@@ -12,6 +13,7 @@ import {
   FieldInput,
   FieldLabel,
 } from "@/components/ui/field";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   DropdownField,
@@ -231,19 +233,26 @@ function SettingsSection({
   id: string;
   title: string;
 }) {
+  const titleId = `${id}-title`;
+
   return (
-    <section
-      className="grid gap-6 border-t border-primary-100 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10"
+    <ReferenceSurface
+      aria-labelledby={titleId}
+      as="section"
+      className="grid gap-6 p-5 sm:p-6"
       id={id}
     >
-      <div>
-        <h2 className="text-xl leading-tight font-semibold text-secondary-900">
+      <div className="max-w-xl">
+        <h2
+          className="font-heading text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900 md:text-2xl"
+          id={titleId}
+        >
           {title}
         </h2>
         <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p>
       </div>
       <div>{children}</div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -255,108 +264,143 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
     <MentorWorkspaceShell
       activeLabel="Pengaturan"
       breadcrumbLabel="Pengaturan"
-      mainClassName="max-w-[1460px] gap-6 px-3 py-6 md:px-6 lg:px-8"
+      mainClassName="max-w-[1200px] gap-8 px-4 py-6 md:px-6 lg:py-8"
       searchPlaceholder="Cari pengaturan workspace..."
       session={session}
+      sidebarAppearance="reference"
     >
-      <div>
-        <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">
-          Pengaturan
-        </h1>
-      </div>
+      <ReferencePageHeader
+        description="Kelola profil, workspace konten, dan default publikasi Kapten."
+        title="Pengaturan"
+      />
 
-      <div className="mt-10">
-        <SettingsSection
-          description="Atur detail akun Kapten."
-          id="akun"
-          title="Profil"
-        >
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_180px]">
-            <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+        <div className="grid min-w-0 gap-6">
+          <SettingsSection
+            description="Atur detail akun Kapten."
+            id="akun"
+            title="Profil"
+          >
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_9rem]">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-first-name">
+                    Nama depan
+                  </FieldLabel>
+                  <FieldInput
+                    className={REFERENCE_CONTROL_CLASS_NAMES.input}
+                    defaultValue={firstName}
+                    id="kapten-first-name"
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-last-name">
+                    Nama belakang
+                  </FieldLabel>
+                  <FieldInput
+                    className={REFERENCE_CONTROL_CLASS_NAMES.input}
+                    defaultValue={lastName}
+                    id="kapten-last-name"
+                  />
+                </Field>
+
+                <Field className="sm:col-span-2">
+                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-email">
+                    Email
+                  </FieldLabel>
+                  <FieldInput
+                    className={REFERENCE_CONTROL_CLASS_NAMES.input}
+                    defaultValue={session.user.email}
+                    id="kapten-email"
+                    type="email"
+                  />
+                </Field>
+              </div>
+
+              <div className="flex min-w-0 justify-center rounded-3xl border border-primary-100/80 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] xl:justify-start">
+                <ProfilePhotoEditor initials={initials} />
+              </div>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            description="Sesuaikan area kerja konten."
+            id="workspace"
+            title="Workspace"
+          >
+            <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="kapten-first-name">Nama depan</FieldLabel>
-                <FieldInput defaultValue={firstName} id="kapten-first-name" />
+                <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-default-subject">
+                  Subjek utama
+                </FieldLabel>
+                <DropdownField
+                  className={REFERENCE_CONTROL_CLASS_NAMES.select}
+                  id="kapten-default-subject"
+                  onValueChange={() => undefined}
+                  options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))}
+                  placeholder="Pilih subjek"
+                  value="PU"
+                />
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="kapten-last-name">Nama belakang</FieldLabel>
-                <FieldInput defaultValue={lastName} id="kapten-last-name" />
-              </Field>
-
-              <Field className="md:col-span-2">
-                <FieldLabel htmlFor="kapten-email">Email</FieldLabel>
-                <FieldInput
-                  className="border-primary-300/60 shadow-[0_0_0_2px_rgba(122,189,168,0.16)]"
-                  defaultValue={session.user.email}
-                  id="kapten-email"
-                  type="email"
+                <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-language">
+                  Bahasa konten
+                </FieldLabel>
+                <DropdownField
+                  className={REFERENCE_CONTROL_CLASS_NAMES.select}
+                  id="kapten-language"
+                  onValueChange={() => undefined}
+                  options={[{ label: "Indonesia", value: "id" }, { label: "Inggris", value: "en" }]}
+                  placeholder="Pilih bahasa"
+                  value="id"
                 />
               </Field>
             </div>
-
-            <ProfilePhotoEditor initials={initials} />
-          </div>
-        </SettingsSection>
-
-        <SettingsSection
-          description="Sesuaikan area kerja konten."
-          id="workspace"
-          title="Workspace"
-        >
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="kapten-default-subject">Subjek utama</FieldLabel>
-              <DropdownField id="kapten-default-subject" onValueChange={() => undefined} options={kaptenSubjects.map((subject) => ({ label: `${subject.code} - ${subject.name}`, value: subject.code }))} placeholder="Pilih subjek" value="PU" />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="kapten-language">Bahasa konten</FieldLabel>
-              <DropdownField id="kapten-language" onValueChange={() => undefined} options={[{ label: "Indonesia", value: "id" }, { label: "Inggris", value: "en" }]} placeholder="Pilih bahasa" value="id" />
-            </Field>
-          </div>
-        </SettingsSection>
+          </SettingsSection>
+        </div>
 
         <SettingsSection
           description="Default saat resource siap rilis."
           id="publikasi"
           title="Publikasi"
         >
-          <div className="grid gap-5 md:grid-cols-2">
-            <label className="flex items-center justify-between gap-4 px-1 py-2 text-sm font-medium text-secondary-900">
-              Preview sebelum publish
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
+              <span className="min-w-0">Preview sebelum publish</span>
               <input
-                className="size-4 accent-[#075f46]"
+                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 defaultChecked
                 type="checkbox"
               />
             </label>
-            <label className="flex items-center justify-between gap-4 px-1 py-2 text-sm font-medium text-secondary-900">
-              Jadwalkan dalam WIB
+            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
+              <span className="min-w-0">Jadwalkan dalam WIB</span>
               <input
-                className="size-4 accent-[#075f46]"
+                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 defaultChecked
                 type="checkbox"
               />
             </label>
-            <label className="flex items-center justify-between gap-4 px-1 py-2 text-sm font-medium text-secondary-900">
-              Gunakan Question Bank
+            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
+              <span className="min-w-0">Gunakan Question Bank</span>
               <input
-                className="size-4 accent-[#075f46]"
+                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 defaultChecked
                 type="checkbox"
               />
             </label>
-            <label className="flex items-center justify-between gap-4 px-1 py-2 text-sm font-medium text-secondary-900">
-              Review sebelum rilis
+            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
+              <span className="min-w-0">Review sebelum rilis</span>
               <input
-                className="size-4 accent-[#075f46]"
+                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 defaultChecked
                 type="checkbox"
               />
             </label>
           </div>
         </SettingsSection>
-
       </div>
     </MentorWorkspaceShell>
   );
