@@ -27,7 +27,11 @@ import {
   ReferencePageHeader,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import {
   Dialog,
   DialogClose,
@@ -45,7 +49,7 @@ import type { SessionContext } from "@/lib/auth/types";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
-  CatalogueFilter,
+  DropdownField,
   PaginationLinks,
   StatusPill,
 } from "@/modules/mentor/components/kapten-ui";
@@ -590,41 +594,76 @@ function MateriSubjectCatalogueFilterPanel({
   statusFilter: string;
   videoFilter: string;
 }) {
+  const allFilterOptionValue = "__all__";
+
   return (
     <div className="space-y-3 p-1">
-      <p className="px-2 text-xs font-semibold tracking-[0.02em] text-secondary-500">Filter lesson</p>
-      <CatalogueFilter
-        label="Filter status"
-        onValueChange={onStatusFilterChange}
-        options={[
-          { label: "Semua status", value: "" },
-          { label: "Draf", value: "draft" },
-          { label: "Diterbitkan", value: "published" },
-          { label: "Diarsipkan", value: "archived" },
-          { label: "Terjadwal", value: "scheduled" },
-        ]}
-        value={statusFilter}
-      />
-      <CatalogueFilter
-        label="Filter kesiapan PDF"
-        onValueChange={onReadinessFilterChange}
-        options={[
-          { label: "Semua kesiapan PDF", value: "" },
-          { label: "PDF siap", value: "ready" },
-          { label: "PDF belum siap", value: "incomplete" },
-        ]}
-        value={readinessFilter}
-      />
-      <CatalogueFilter
-        label="Filter video opsional"
-        onValueChange={onVideoFilterChange}
-        options={[
-          { label: "Semua video", value: "" },
-          { label: "Dengan video opsional", value: "with-video" },
-          { label: "Tanpa video", value: "without-video" },
-        ]}
-        value={videoFilter}
-      />
+      <p className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "px-2")}>Filter lesson</p>
+      <div className="space-y-1.5">
+        <label
+          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
+          htmlFor="materi-subject-status-filter"
+        >
+          Status
+        </label>
+        <DropdownField
+          ariaLabel="Filter status"
+          className={REFERENCE_CONTROL_CLASS_NAMES.select}
+          id="materi-subject-status-filter"
+          onValueChange={(value) => onStatusFilterChange(value === allFilterOptionValue ? "" : value)}
+          options={[
+            { label: "Semua status", value: allFilterOptionValue },
+            { label: "Draf", value: "draft" },
+            { label: "Diterbitkan", value: "published" },
+            { label: "Diarsipkan", value: "archived" },
+            { label: "Terjadwal", value: "scheduled" },
+          ]}
+          placeholder="Semua status"
+          value={statusFilter || allFilterOptionValue}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label
+          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
+          htmlFor="materi-subject-readiness-filter"
+        >
+          Kesiapan PDF
+        </label>
+        <DropdownField
+          ariaLabel="Filter kesiapan PDF"
+          className={REFERENCE_CONTROL_CLASS_NAMES.select}
+          id="materi-subject-readiness-filter"
+          onValueChange={(value) => onReadinessFilterChange(value === allFilterOptionValue ? "" : value)}
+          options={[
+            { label: "Semua kesiapan PDF", value: allFilterOptionValue },
+            { label: "PDF siap", value: "ready" },
+            { label: "PDF belum siap", value: "incomplete" },
+          ]}
+          placeholder="Semua kesiapan PDF"
+          value={readinessFilter || allFilterOptionValue}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label
+          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
+          htmlFor="materi-subject-video-filter"
+        >
+          Video opsional
+        </label>
+        <DropdownField
+          ariaLabel="Filter video opsional"
+          className={REFERENCE_CONTROL_CLASS_NAMES.select}
+          id="materi-subject-video-filter"
+          onValueChange={(value) => onVideoFilterChange(value === allFilterOptionValue ? "" : value)}
+          options={[
+            { label: "Semua video", value: allFilterOptionValue },
+            { label: "Dengan video opsional", value: "with-video" },
+            { label: "Tanpa video", value: "without-video" },
+          ]}
+          placeholder="Semua video"
+          value={videoFilter || allFilterOptionValue}
+        />
+      </div>
     </div>
   );
 }
