@@ -1,5 +1,24 @@
 # Session Handoff
 
+## Tryout detail reference control treatment (2026-08-28)
+
+- Objective: bring the remaining Tryout detail inputs, dropdowns, and actions
+  in line with the extracted reference Settings treatment.
+- Implementation: `a6c8be9` adds shared `REFERENCE_CONTROL_CLASS_NAMES`, a
+  `reference` Button variant, and client `ReferenceSelect`; these are applied
+  within the Tryout detail builder and embedded Delivery/Results/Participants
+  surfaces. The Results grid/table now constrains intrinsic content at mobile
+  widths.
+- QA: authenticated ego-browser checks at 1440px and 390px cover Basics and
+  Results. At 390px, selector width is 298px with right edge 344px, popup right
+  edge is 337.4px, and page/body scroll width remain 390px.
+- Verification: focused ESLint (only prior unused-prop warnings), TypeScript
+  remains blocked only by preserved `tmp/reference/res1` syntax diagnostics,
+  Impeccable layout detector `[]`, focused authoring/dashboard contracts, and
+  `git diff --check`.
+- Scope: no student/admin/unrelated pages changed; existing untracked
+  `.agents/skills/information-architecture/` remains untouched.
+
 ## Tryout detail divider and surface alignment (2026-08-28)
 
 - Objective: finish the reference treatment on `/mentor/tryout/[tryoutId]`

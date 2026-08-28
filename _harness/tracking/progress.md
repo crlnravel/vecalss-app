@@ -1,5 +1,25 @@
 # Session Progress Log
 
+## Tryout detail reference control treatment (2026-08-28)
+
+- [x] Added Vecalss-tokenized reference control contracts: recessed pale-mint
+  inputs and listbox triggers with soft inset depth, plus a quiet white
+  reference action button.
+- [x] Applied the controls to Tryout detail Overview fields, bank/question
+  search, bank picker, Results session selector, invitation picker, metadata/
+  step/policy/session actions, and relevant save/submit controls without
+  changing workflow behavior.
+- [x] Replaced the Results and invitation raw native selects with the shared
+  Base UI `ReferenceSelect`; keyboard/listbox selection, placeholder handling,
+  disabled state, and selected indicators remain accessible.
+- [x] Added mobile containment for the Results control/table layout; browser
+  metrics at 390px show the selector and popup inside the viewport with no
+  horizontal page overflow.
+- [x] Focused ESLint, TypeScript diagnostics (baseline-only prototype errors),
+  Impeccable layout detector, `test:tryout-authoring-workspace`,
+  `test:mentor-dashboard-ia`, and `git diff --check` pass.
+- [x] Commit: `a6c8be9` (`feat: align tryout detail controls with reference`).
+
 ## Tryout detail divider and surface alignment (2026-08-28)
 
 - [x] Removed structural divider lines from the reference Tryout detail
