@@ -1,9 +1,10 @@
 import "server-only";
 
-import { AssessmentAttemptState, AttemptStatus, ContentStatus, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
+import { AssessmentAttemptState, AttemptStatus, ContentStatus, MediaAssetState, MediaLibraryScope, Prisma, QuestionRevisionProvenance, QuestionRevisionStatus, TryoutAttemptTestRunStatus, TryoutDeliverySessionStatus, TryoutTestType } from "@/generated/prisma/client";
 import { createOrReuseAssessmentRelease } from "@/lib/tryout/assessment-release";
 import { CANONICAL_2PL_MODEL_VERSION } from "@/lib/tryout/cat-profile";
 import { distinctTryoutUsageCounts, summarizePackageLifecycle, type PackageLifecycleItem } from "@/lib/tryout/package-lifecycle";
+import { isImageMimeType } from "@/lib/media/domain";
 import { prisma } from "@/lib/prisma";
 import { packageReleaseTitle } from "@/lib/tryout/version-label";
 
@@ -13,7 +14,7 @@ type PackageSaveIntent = "draft" | "ready";
 type PackageItemInput = { pointValue: number; sourceQuestionId: string; sourceQuestionRevisionId?: string };
 type PackageInput = { completionIntent?: PackageSaveIntent; description: string; expectedRevision?: number; id?: string; items: PackageItemInput[]; sourceBankId: string; subtest: SubjectCode; title: string };
 type PackageMetadataInput = { description: string; id: string; title: string };
-type TryoutMetadataInput = { description: string; id: string; title: string };
+type TryoutMetadataInput = { bannerMediaId?: string | null; description: string; id: string; title: string };
 type DirectQuestionInput = { sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string };
 type TestInput = { catItemCount?: number; directQuestions?: DirectQuestionInput[]; durationMinutes: number; instructions: string; scoringConfig?: Record<string, unknown>; shuffleItems: boolean; subtest: SubjectCode; testType: "cbt" | "cat" };
 type PackageVersionReadiness = {
@@ -24,7 +25,7 @@ type PackageVersionReadiness = {
   itemCount: number;
   sourceQuestionIds: string[];
 };
-type SaveTryoutInput = { description: string; id?: string; publicationIntentKey?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
+type SaveTryoutInput = { bannerMediaId?: string | null; description: string; id?: string; publicationIntentKey?: string; sections: TestInput[]; status: "draft" | "published"; title: string };
 class TryoutValidationError extends Error {}
 type PackageConflictCode = "package_conflict";
 class PackageConflictError extends TryoutValidationError {
@@ -43,6 +44,15 @@ class PackageConflictError extends TryoutValidationError {
 }
 
 function json(value: unknown): Prisma.InputJsonValue { return value as Prisma.InputJsonValue; }
+
+async function resolveBannerMediaId(tx: Prisma.TransactionClient, bannerMediaId: string | null | undefined) {
+  if (!bannerMediaId) return null;
+  const asset = await tx.asset.findUnique({ where: { id: bannerMediaId }, select: { libraryScope: true, mimeType: true, state: true } });
+  if (!asset || asset.libraryScope !== MediaLibraryScope.kapten || asset.state !== MediaAssetState.ready || !isImageMimeType(asset.mimeType)) {
+    throw new TryoutValidationError("Banner Tryout harus berupa gambar Ready dari library media Kapten.");
+  }
+  return bannerMediaId;
+}
 
 const sourceInclude = {
   currentRevision: { include: { explanationAsset: true, options: { include: { asset: true }, orderBy: { sortOrder: "asc" as const } }, promptAsset: true } },
@@ -265,6 +275,7 @@ function toTryoutDto(record: TryoutReadRecord) {
   const release = record.assessmentReleases[0] ?? null;
   return {
     assessmentRelease: release ? { digest: release.contentDigest, id: release.id, number: release.releaseNumber, payload: release.payload, publishedAt: release.publishedAt.toISOString() } : null,
+    bannerMediaId: record.bannerMediaId,
     description: record.description ?? "",
     id: record.id,
     locked: record.attempts.length > 0,
@@ -566,9 +577,11 @@ async function updateTryoutMetadata(input: TryoutMetadataInput, actorId: string)
     });
     if (!current) throw new TryoutValidationError("Tryout tidak ditemukan.");
     if (hasArchivedPackageBinding(current)) throw new TryoutValidationError("Tryout berbasis Paket Soal sudah diarsipkan dan tidak dapat diubah.");
+    const bannerMediaId = await resolveBannerMediaId(tx, input.bannerMediaId);
     return toTryoutDto(await tx.tryoutPackage.update({
       where: { id: input.id },
       data: {
+        bannerMediaId,
         description: input.description.trim() || null,
         title: input.title.trim(),
       },
@@ -665,6 +678,7 @@ async function assertCatDirectReadiness(tx: Prisma.TransactionClient, sources: P
 async function saveTryout(input: SaveTryoutInput, actorId: string) {
   validateTryoutInput(input);
   return prisma.$transaction(async (tx) => {
+    const bannerMediaId = await resolveBannerMediaId(tx, input.bannerMediaId);
     let id = input.id;
     if (id) {
       await tx.$queryRaw`SELECT id FROM tryout_packages WHERE id = ${id}::uuid FOR UPDATE`;
@@ -683,9 +697,9 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       if (participantAccessibleRelease) throw new TryoutValidationError("Tryout memiliki sesi aktif yang telah mengikat AssessmentRelease. Tutup atau arsipkan sesi sebelum mengganti baris fisik.");
       await tx.tryoutItem.deleteMany({ where: { tryoutId: id } });
       await tx.tryoutSection.deleteMany({ where: { tryoutId: id } });
-      await tx.tryoutPackage.update({ where: { id }, data: { description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, revision: { increment: 1 }, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } });
+      await tx.tryoutPackage.update({ where: { id }, data: { bannerMediaId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, revision: { increment: 1 }, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } });
     } else {
-      const created = await tx.tryoutPackage.create({ data: { code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
+      const created = await tx.tryoutPackage.create({ data: { bannerMediaId, code: codeFromTitle(input.title, "tryout"), createdByUserId: actorId, description: input.description.trim() || null, publishedAt: input.status === "published" ? new Date() : null, status: input.status === "published" ? ContentStatus.published : ContentStatus.draft, title: input.title.trim() } }); id = created.id;
     }
     const sectionBySubtest = new Map(input.sections.map((section) => [section.subtest, section]));
     const subtests = await tx.subtest.findMany({ where: { code: { in: [...SUBJECTS] } } });
@@ -735,7 +749,7 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
     return toTryoutDto(await tx.tryoutPackage.findUniqueOrThrow({ where: { id }, include: tryoutInclude }));
   });
 }
-async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })), durationMinutes: section.durationMinutes, instructions: section.instructions, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
+async function duplicateTryout(id: string, actorId: string) { const current = await getTryoutForEdit(id, actorId); if (!current) throw new TryoutValidationError("Tryout tidak ditemukan."); return saveTryout({ bannerMediaId: current.bannerMediaId, description: current.description, sections: current.sections.map((section) => ({ catItemCount: section.catItemCount, directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })), durationMinutes: section.durationMinutes, instructions: section.instructions, scoringConfig: section.scoringConfig, shuffleItems: section.shuffleItems, subtest: section.subtest, testType: section.testType })), status: "draft", title: `${current.title} (Salinan)` }, actorId); }
 
 export { duplicateTryout, getReusableQuestionPackageForEdit, getReusableQuestionPackageVersionDetail, getReusableQuestionPackageVersionHub, getTryoutForEdit, listReadyPackageVersions, listReusableQuestionPackages, listTryouts, readyReusableQuestionPackageVersion, saveReusableQuestionPackage, saveReusableQuestionPackageMetadata, saveTryout, PackageConflictError, TryoutValidationError, unpublishTryout, updateTryoutMetadata };
 export type { DirectQuestionInput, PackageConflictCode, PackageDto, PackageInput, PackageItemInput, PackageMetadataInput, PackageSaveIntent, PackageVersionReadiness, ReleasedPackageVersion, SaveReusableQuestionPackageResult, SaveTryoutInput, TestInput, TryoutMetadataInput };

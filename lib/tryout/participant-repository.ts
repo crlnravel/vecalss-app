@@ -2,9 +2,12 @@ import "server-only";
 
 import {
   ContentStatus,
+  MediaAssetState,
   Prisma,
   TryoutAssignmentStatus,
 } from "@/generated/prisma/client";
+import { isImageMimeType } from "@/lib/media/domain";
+import { createMediaPreviewUrl, R2ConfigurationError } from "@/lib/media/r2";
 import { toParticipantAssessmentReleaseMetadata, type ParticipantAssessmentReleaseMetadata } from "@/lib/tryout/assessment-release";
 import { prisma } from "@/lib/prisma";
 
@@ -47,6 +50,7 @@ type ParticipantTryout = {
   admissionStatus: "active" | "pending" | "rejected" | "revoked" | null;
   assessmentType: "tryout" | "diagnostic";
   assignments: ParticipantTryoutAssignment[];
+  bannerUrl: string | null;
   description: string | null;
   examEvent: { id: string; name: string } | null;
   id: string;
@@ -85,6 +89,7 @@ const tryoutInclude = {
     },
   },
   createdBy: { select: { fullName: true } },
+  bannerMedia: { select: { mimeType: true, objectKey: true, state: true, url: true } },
   assessmentReleases: { orderBy: { releaseNumber: "desc" as const }, take: 1 },
   deliverySessions: {
     orderBy: { availableFrom: "asc" as const },
@@ -155,9 +160,30 @@ function releaseSections(
   });
 }
 
+async function resolveTryoutBannerUrl(
+  asset: { mimeType: string; objectKey: string | null; state: MediaAssetState; url: string | null } | null,
+) {
+  if (
+    !asset
+    || (asset.state !== MediaAssetState.ready && asset.state !== MediaAssetState.trashed)
+    || !isImageMimeType(asset.mimeType)
+  ) {
+    return null;
+  }
+  if (asset.url) return asset.url;
+  if (!asset.objectKey) return null;
+  try {
+    return await createMediaPreviewUrl(asset.objectKey);
+  } catch (bannerError) {
+    if (bannerError instanceof R2ConfigurationError) return null;
+    throw bannerError;
+  }
+}
+
 function serializeTryout(
   tryout: ParticipantTryoutRecord,
   studentId: string,
+  bannerUrl: string | null,
 ): ParticipantTryout {
   const admission = tryout.admissions[0];
   const now = new Date();
@@ -213,6 +239,7 @@ function serializeTryout(
         status: deliverySession.status,
       };
     }),
+    bannerUrl,
     description: tryout.description,
     examEvent: tryout.examEvent,
     id: tryout.id,
@@ -268,12 +295,14 @@ async function queryParticipantTryouts(studentId: string, tryoutId?: string) {
 
 async function participantTryoutCatalogue(studentId: string): Promise<ParticipantTryout[]> {
   const tryouts = await queryParticipantTryouts(studentId);
-  return tryouts.map((tryout) => serializeTryout(tryout, studentId));
+  const bannerUrls = await Promise.all(tryouts.map((tryout) => resolveTryoutBannerUrl(tryout.bannerMedia)));
+  return tryouts.map((tryout, index) => serializeTryout(tryout, studentId, bannerUrls[index] ?? null));
 }
 
 async function participantTryoutDetail(tryoutId: string, studentId: string) {
   const [tryout] = await queryParticipantTryouts(studentId, tryoutId);
-  return tryout ? serializeTryout(tryout, studentId) : null;
+  if (!tryout) return null;
+  return serializeTryout(tryout, studentId, await resolveTryoutBannerUrl(tryout.bannerMedia));
 }
 
 async function participantTargetProfile(studentId: string): Promise<ParticipantTargetProfile> {
