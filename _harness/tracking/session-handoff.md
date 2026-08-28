@@ -1,5 +1,25 @@
 # Session Handoff
 
+## Mentor dashboard schedule and activity alignment (2026-08-28)
+
+- Objective: align activity entries with their icons and simplify the
+  `Jadwal berikutnya` heading to a title-only treatment.
+- Implementation: `e1d2fbf` applies a dashboard-local `items-start` override
+  to the activity title/type row so it aligns with the leading icon, removes
+  the schedule subtitle and `Kuis`/`Tryout` actions, and updates both loading
+  columns to reserve matching heading rows.
+- Verification: focused ESLint, `test:mentor-dashboard-ia`,
+  `git diff --check`, and Impeccable layout detection (`[]`) pass. The latest
+  production build remains blocked by the unrelated concurrent TypeScript
+  error at `modules/mentor/KaptenMateriCataloguePageModules.tsx:291`.
+- Browser QA: intentionally skipped because the active harness requires
+  explicit permission before ego-browser verification and the coordinating
+  agent requested no browser check.
+- Scope: only `modules/mentor/MentorDashboardPageModule.tsx` changed in this
+  commit; shared reference primitives and the Materi agent-owned page group
+  remain untouched. Existing unrelated dirty files and the untracked
+  `.agents/skills/information-architecture/` directory remain preserved.
+
 ## Mentor dashboard activity navigation alignment (2026-08-28)
 
 - Objective: make the mentor dashboard activity column parallel with

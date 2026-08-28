@@ -1,5 +1,19 @@
 # Session Progress Log
 
+## Mentor dashboard schedule and activity alignment (2026-08-28)
+
+- [x] Aligned the activity title/type block with its leading icon by
+  dashboard-scopedly overriding the shared row's baseline alignment after the
+  date affordance became a 44px chevron link.
+- [x] Removed the `Jadwal berikutnya` subtitle and `Kuis`/`Tryout` filters,
+  and updated the loading state to reserve matching heading rows without the
+  removed subtitle.
+- [x] Focused ESLint, `test:mentor-dashboard-ia`, `git diff --check`, and the
+  Impeccable layout detector (`[]`) pass.
+- [x] Browser QA was skipped because the active harness requires explicit
+  permission and the coordinating agent requested no browser check.
+- [x] Commit: `e1d2fbf` (`fix: refine mentor dashboard schedule`).
+
 ## Mentor dashboard activity navigation alignment (2026-08-28)
 
 - [x] Moved `Aktivitas terbaru` into the same `ReferenceSectionHeading`
