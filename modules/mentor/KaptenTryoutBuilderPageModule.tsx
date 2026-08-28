@@ -10,11 +10,15 @@ import {
   CircleHelp,
   Copy,
   FilePenLine,
+  ImagePlus,
   Lock,
   Save,
   Search,
+  Trash2,
 } from "@/lib/icons";
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { imageMediaMimeTypes } from "@/lib/media/domain";
+import type { MediaAssetDto } from "@/lib/media/types";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
 
 import {
@@ -46,7 +50,9 @@ import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-
 import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
+import { HelpFieldLabel } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
+import { MediaAssetPreview, MediaPickerDialog } from "@/modules/media/media-library";
 import { KaptenTryoutParticipantsPageModule } from "@/modules/mentor/KaptenTryoutParticipantsPageModule";
 import { KaptenTryoutAttemptsPageModule } from "@/modules/mentor/KaptenTryoutAttemptsPageModule";
 import { KaptenTryoutLivePageModule } from "@/modules/mentor/KaptenTryoutLivePageModule";
@@ -89,6 +95,7 @@ type ReleaseMeta = {
 };
 type TryoutDraft = {
   assessmentRelease?: ReleaseMeta | null;
+  bannerMediaId?: string | null;
   description: string;
   id: string;
   locked: boolean;
@@ -537,10 +544,66 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
   }
 }
 
+function TryoutBannerField({
+  bannerMediaId,
+  disabled,
+  onChange,
+}: {
+  bannerMediaId?: string | null;
+  disabled: boolean;
+  onChange: (bannerMediaId: string | null) => void;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <Field>
+      <HelpFieldLabel
+        htmlFor="tryout-banner-choose"
+        label="Banner Tryout"
+        tooltip="Banner tampil di halaman dan kartu Tryout peserta. Gunakan gambar lanskap rasio 16:9, disarankan 1280×720. Tanpa banner, gambar bawaan tetap dipakai."
+      />
+      {bannerMediaId ? (
+        <div className="grid gap-3">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-primary-100 bg-primary-50 [&_img]:object-cover">
+            <MediaAssetPreview alt="Preview banner Tryout" assetId={bannerMediaId} className="absolute inset-0 min-h-0 w-full" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={disabled} id="tryout-banner-choose" onClick={() => setPickerOpen(true)} size="sm" variant="brandOutline">
+              <ImagePlus />Ganti gambar
+            </Button>
+            <Button disabled={disabled} onClick={() => onChange(null)} size="sm" variant="ghost">
+              <Trash2 />Hapus banner
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          <div aria-hidden="true" className="grid aspect-[16/9] place-items-center rounded-2xl border border-dashed border-primary-200 bg-primary-50/60 text-sm text-secondary-500">
+            Belum ada banner — peserta melihat gambar bawaan.
+          </div>
+          <div>
+            <Button disabled={disabled} id="tryout-banner-choose" onClick={() => setPickerOpen(true)} size="sm" variant="brandOutline">
+              <ImagePlus />Pilih gambar
+            </Button>
+          </div>
+        </div>
+      )}
+      <MediaPickerDialog
+        allowedMimeTypes={imageMediaMimeTypes}
+        onOpenChange={setPickerOpen}
+        onSelect={(asset: MediaAssetDto) => onChange(asset.id)}
+        open={pickerOpen}
+        selectedAssetId={bannerMediaId ?? null}
+        title="Pilih banner Tryout"
+      />
+    </Field>
+  );
+}
+
 function TryoutBasicsTab({
   draft,
   metadataSaving,
   mode,
+  onBannerChange,
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
@@ -548,10 +611,12 @@ function TryoutBasicsTab({
   draft: TryoutDraft;
   metadataSaving: boolean;
   mode: WorkflowMode;
+  onBannerChange: (bannerMediaId: string | null) => void;
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
 }) {
+  const identityDisabled = mode === "draft" && draft.locked;
   return (
     <TabsContent className="mt-0 w-full" value="basics">
       <ReferenceSurface as="section" className="grid w-full gap-6 p-5 sm:p-7">
@@ -559,12 +624,13 @@ function TryoutBasicsTab({
         <div className="grid gap-5">
           <Field>
             <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-            <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`} disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => onTitleChange(event.target.value)} required value={draft.title} />
+            <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`} disabled={identityDisabled} id="tryout-title" onChange={(event) => onTitleChange(event.target.value)} required value={draft.title} />
           </Field>
           <Field>
             <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
-            <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`} disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => onDescriptionChange(event.target.value)} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
+            <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`} disabled={identityDisabled} id="tryout-description" onChange={(event) => onDescriptionChange(event.target.value)} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
           </Field>
+          <TryoutBannerField bannerMediaId={draft.bannerMediaId} disabled={identityDisabled} onChange={onBannerChange} />
         </div>
         {mode === "published" ? (
           <div className="flex justify-end pt-1">
@@ -848,6 +914,7 @@ function useTryoutBuilderState({
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
 }) {
   const initialFormDraft = useMemo<TryoutDraft>(() => normalize(initialDraft ?? {
+    bannerMediaId: null,
     description: "",
     id: id ?? "baru",
     locked: false,
@@ -1037,6 +1104,7 @@ function useTryoutBuilderState({
     dispatch({ error: null, type: "setError" });
     try {
       const result = await saveTryoutAction({
+        bannerMediaId: draft.bannerMediaId ?? null,
         description: draft.description,
         id,
         sections: draft.sections.map((section) => ({
@@ -1157,7 +1225,7 @@ function useTryoutBuilderState({
     dispatch({ saving: true, type: "setMetadataSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await updateTryoutMetadataAction({ description: draft.description, id, title: draft.title });
+      const result = await updateTryoutMetadataAction({ bannerMediaId: draft.bannerMediaId ?? null, description: draft.description, id, title: draft.title });
       if (!result.ok) {
         dispatch({ error: result.message, type: "setError" });
         return;
@@ -1670,6 +1738,7 @@ function KaptenTryoutBuilderPageModule({
               draft={draft}
               metadataSaving={metadataSaving}
               mode={mode}
+              onBannerChange={(bannerMediaId) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, bannerMediaId }, type: "setDraft" }); }}
               onDescriptionChange={(desc) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, description: desc }, type: "setDraft" }); }}
               onSaveMetadata={() => void saveMetadata()}
               onTitleChange={(title) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, title }, type: "setDraft" }); }}

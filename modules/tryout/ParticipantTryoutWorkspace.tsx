@@ -38,22 +38,19 @@ const filters = [
 
 type CatalogueFilter = (typeof filters)[number]["id"];
 
-function TryoutCardArtwork() {
+function TryoutCardArtwork({ bannerUrl }: { bannerUrl: string | null }) {
   return (
     <div
       aria-hidden="true"
-      className="relative aspect-[16/9] overflow-hidden bg-[linear-gradient(180deg,#eef4ee_0%,#3a5e48_100%)]"
+      className="relative aspect-[16/9] overflow-hidden border-b border-primary-100 bg-primary-50"
     >
       <Image
         alt=""
-        className="object-cover object-center mix-blend-multiply saturate-[0.88]"
+        className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
         fill
         sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
-        src="/brand/tryout-placeholder-banner.jpg"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.2)_0%,rgba(1,76,56,0.03)_58%,rgba(1,76,56,0.22)_100%)]"
+        src={bannerUrl ?? "/brand/tryout-placeholder-banner.jpg"}
+        unoptimized={Boolean(bannerUrl)}
       />
     </div>
   );
@@ -208,54 +205,44 @@ function ParticipantTryoutWorkspace({
 
               return (
                 <StudentCatalogueCardFrame key={tryout.id} variant="tryout">
-                  <TryoutCardArtwork />
+                  <TryoutCardArtwork bannerUrl={tryout.bannerUrl} />
 
-                  <div className="relative flex min-h-[16rem] flex-1 flex-col overflow-hidden bg-[#14241d] p-3 sm:p-4 md:p-5">
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-[-18%] top-0 h-36 rounded-[50%] bg-[#3a5e48]/55 blur-3xl"
-                    />
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#3a5e48_0%,#244632_22%,#142b20_58%,#091710_100%)]"
-                    />
-                    <div className="relative z-10 flex min-h-[16rem] flex-1 flex-col">
-                      <div>
-                        <h3 className="line-clamp-2 font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em] text-white">
-                          {tryout.title}
-                        </h3>
-                        <p className="mt-2 line-clamp-3 max-w-[40ch] text-xs leading-5 text-white/75">
-                          {tryout.description ??
-                            "Simulasi terstruktur untuk mengukur kesiapanmu."}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3.5 py-2 text-xs font-medium text-white/85 backdrop-blur-md">
-                            <Clock className="size-4" />
-                            {formatDuration(totalDuration)}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/15 px-3.5 py-2 text-xs font-medium text-white/85 backdrop-blur-md">
-                            <BookOpenText className="size-4" />
-                            {totalQuestions || "—"} soal
-                          </span>
-                        </div>
-                        <p className="mt-2 flex items-start gap-2 text-xs leading-5 text-white/65">
-                          <CalendarBlank className="mt-0.5 size-4 shrink-0" />
-                          {formatSchedule(primarySession?.availableFrom)}
-                        </p>
+                  <div className="flex min-h-[16rem] flex-1 flex-col p-4 sm:p-5">
+                    <div>
+                      <h3 className="line-clamp-2 font-heading text-xl leading-[1.2] font-extrabold tracking-[-0.03em] text-secondary-900">
+                        {tryout.title}
+                      </h3>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-secondary-600">
+                        {tryout.description ??
+                          "Simulasi terstruktur untuk mengukur kesiapanmu."}
+                      </p>
+                      <div className="mt-3.5 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/60 px-3 py-1.5 text-xs font-semibold text-primary-800">
+                          <Clock className="size-3.5 text-primary-600" />
+                          {formatDuration(totalDuration)}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50/60 px-3 py-1.5 text-xs font-semibold text-primary-800">
+                          <BookOpenText className="size-3.5 text-primary-600" />
+                          {totalQuestions || "—"} soal
+                        </span>
                       </div>
-                      <div className="mt-auto pt-3">
-                        <Link
-                          className={buttonVariants({
-                            className:
-                              "h-10 w-full rounded-full border-white bg-white text-secondary-900 shadow-[0_12px_26px_-18px_rgba(0,0,0,0.7)] hover:bg-primary-50 hover:text-secondary-900 sm:h-11",
-                            size: "default",
-                            variant: "brandOutline",
-                          })}
-                          href={href}
-                        >
-                          {actionLabel}
-                        </Link>
-                      </div>
+                      <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-secondary-600">
+                        <CalendarBlank className="mt-0.5 size-4 shrink-0 text-secondary-400" />
+                        {formatSchedule(primarySession?.availableFrom)}
+                      </p>
+                    </div>
+                    <div className="mt-auto pt-4">
+                      <Link
+                        className={buttonVariants({
+                          className:
+                            "h-10 w-full rounded-full shadow-[0_12px_24px_-16px_rgba(1,76,56,0.35)] sm:h-11",
+                          size: "default",
+                          variant: "brand",
+                        })}
+                        href={href}
+                      >
+                        {actionLabel}
+                      </Link>
                     </div>
                   </div>
                 </StudentCatalogueCardFrame>

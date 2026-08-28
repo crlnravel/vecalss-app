@@ -387,7 +387,8 @@ function ParticipantTryoutDetailModule({
             fill
             priority
             sizes="100vw"
-            src="/brand/tryout-placeholder-banner.jpg"
+            src={tryout.bannerUrl ?? "/brand/tryout-placeholder-banner.jpg"}
+            unoptimized={Boolean(tryout.bannerUrl)}
           />
           <div
             aria-hidden="true"
