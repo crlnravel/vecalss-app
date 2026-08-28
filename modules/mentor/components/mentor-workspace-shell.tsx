@@ -23,7 +23,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   SidebarInset,
   SidebarProvider,
@@ -385,16 +384,14 @@ function MentorWorkspaceShell({
               </div>
             </header>
 
-            <ScrollArea className="h-[calc(100svh-4rem)]">
-              <ContentElement
-                className={cn(
-                  "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
-                  mainClassName,
-                )}
-              >
-                {children}
-              </ContentElement>
-            </ScrollArea>
+            <ContentElement
+              className={cn(
+                "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
+                mainClassName,
+              )}
+            >
+              {children}
+            </ContentElement>
           </SidebarInset>
         </div>
       </SidebarProvider>
