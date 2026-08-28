@@ -15,11 +15,12 @@ export default async function MentorMediaPage() {
     <MentorWorkspaceShell
       activeLabel="Media"
       breadcrumbLabel="Media"
-      mainClassName="max-w-[1500px] gap-5 min-h-[calc(100svh-4rem)]"
+      mainClassName="max-w-[1500px] gap-7 min-h-[calc(100svh-4rem)]"
       session={session}
       showSearch={false}
+      sidebarAppearance="reference"
     >
-      <MediaLibrary appearance="drive" scope="kapten" />
+      <MediaLibrary appearance="reference" scope="kapten" />
     </MentorWorkspaceShell>
   );
 }
