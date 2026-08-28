@@ -51,25 +51,27 @@ function getResourceSummary(resource: DashboardResource) {
   return description ? `${context} · ${description}` : `${context} · ${resource.primaryMetric}`;
 }
 
-function getActivityTone(resource: DashboardResource): NonNullable<ReferenceActivity["tone"]> {
-  if (resource.status === "draft") return "attention";
-  if (resource.status === "published") return "success";
-  if (resource.status === "archived") return "neutral";
-  return "info";
-}
-
 function toDashboardActivities(resources: readonly DashboardResource[]): ReferenceActivity[] {
   return resources.slice(0, 6).map((resource) => ({
-    description: getResourceSummary(resource),
     icon: contentTypeMeta[resource.resourceType].icon,
     id: `${resource.kind}:${resource.id}`,
     href: resource.href,
-    label: resource.subjectName ?? contentTypeMeta[resource.resourceType].label,
+    label: contentTypeMeta[resource.resourceType].label,
     timestamp: formatDashboardTimestamp(resource.updatedAt),
     title: resource.title,
-    tone: getActivityTone(resource),
   }));
 }
+
+const mentorActivityFeedClassName = [
+  "[&>div:first-child>div:first-child>span]:hidden",
+  "[&_[data-activity-id]>div:first-child]:bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)]",
+  "[&_[data-activity-id]>div:first-child]:text-[#176b4d]",
+  "[&_[data-activity-id]>div:first-child]:shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]",
+  "[&_[data-activity-id]>div:last-child>span:last-child]:font-medium",
+  "[&_[data-activity-id]>div:last-child>span:last-child]:tracking-normal",
+  "[&_[data-activity-id]>div:last-child>span:last-child]:normal-case",
+  "[&_[data-activity-id]>div:last-child>span:last-child]:text-secondary-500",
+].join(" ");
 
 function DashboardResourceTask({ resource }: { resource: DashboardResource }) {
   return (
@@ -135,7 +137,7 @@ function MentorDashboardPageModule({
       <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
         <ReferenceActivityFeed
           activities={recentActivities}
-          className="min-h-[28rem]"
+          className={`min-h-[28rem] ${mentorActivityFeedClassName}`}
           nextAction={
             nextScheduledResource ? (
               <Link
