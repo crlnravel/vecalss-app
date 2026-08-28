@@ -264,7 +264,7 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
     finally { dispatch({ patch: { isPending: false }, type: "patch" }); }
   };
   return (
-    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`Kuis > ${subject.code}`} searchPlaceholder="Cari kuis..." session={session} sidebarAppearance="reference">
+    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={subject.code} searchPlaceholder="Cari kuis..." session={session} sidebarAppearance="reference">
       <div className="space-y-8">
         <div className="flex min-w-0 items-start gap-3">
           <Button aria-label="Kembali ke semua quiz" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/mentor/quiz" />} size="icon" title="Kembali ke semua quiz" variant="ghost"><ChevronLeft /></Button>
