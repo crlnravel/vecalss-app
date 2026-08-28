@@ -132,6 +132,39 @@ function questionIssues(question: QuizQuestionSnapshot) {
   return issues;
 }
 
+function hasQuizQuestionDraftContent(question: QuizQuestionSnapshot) {
+  return Boolean(
+    question.prompt.trim()
+      || question.explanation.trim()
+      || question.promptMediaAssetId
+      || question.explanationMediaAssetId
+      || question.choices.length !== 2
+      || question.correctChoiceId !== "a"
+      || question.choices.some((choice) => choice.text.trim() || choice.mediaAssetId),
+  );
+}
+
+function hasQuizDraftContent(form: QuizEditorForm) {
+  const defaultSubjectCode = kaptenSubjects[0]?.code ?? "PU";
+  const title = form.title.trim();
+
+  return Boolean(
+    (title && title !== "Kuis baru")
+      || form.description.trim()
+      || (form.subjectCode && form.subjectCode !== defaultSubjectCode)
+      || form.opensAt.trim()
+      || form.closesAt.trim()
+      || form.attemptsAllowed !== 1
+      || form.correctAnswerVisibility !== "show"
+      || form.formBehavior !== "same"
+      || form.retryDelaySeconds !== null
+      || form.reviewTiming !== "immediate"
+      || form.scorePolicy !== "latest"
+      || form.questions.length !== 1
+      || form.questions.some(hasQuizQuestionDraftContent),
+  );
+}
+
 function cloneForSave(questions: QuizQuestionSnapshot[]) {
   return questions.map((question) => ({
     ...asLocalQuestion(question),
@@ -337,7 +370,7 @@ function KaptenQuizEditorPageModule({
   const [savedQuiz, setSavedQuiz] = useState<KaptenQuiz | null>(initialQuiz);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(initialForm.questions[0]?.id ?? null);
   const [questionEditorTab, setQuestionEditorTab] = useState("edit");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(mode === "create");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(mode === "create" && hasQuizDraftContent(initialForm));
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [mediaPickerTarget, setMediaPickerTarget] = useState<MediaPickerTarget | null>(null);
@@ -364,41 +397,48 @@ function KaptenQuizEditorPageModule({
     return () => window.cancelAnimationFrame(frame);
   }, [hasUnsavedChanges, pendingRouteReplacement, router]);
 
-  function markChanged() {
-    setHasUnsavedChanges(true);
+  function markChanged(nextForm: QuizEditorForm = form) {
+    setHasUnsavedChanges(mode === "create" ? hasQuizDraftContent(nextForm) : true);
     setSaveError(null);
   }
 
   function patchForm(patch: Partial<QuizEditorForm>) {
-    setForm((current) => ({ ...current, ...patch }));
-    markChanged();
+    const nextForm = { ...form, ...patch };
+    setForm(nextForm);
+    markChanged(nextForm);
   }
 
   function updateActiveQuestion(patch: Partial<QuizQuestionSnapshot>) {
     if (!activeQuestionId || editorDisabled) return;
-    setForm((current) => ({ ...current, questions: current.questions.map((question) => question.id === activeQuestionId ? { ...question, ...patch } : question) }));
-    markChanged();
+    const nextForm = {
+      ...form,
+      questions: form.questions.map((question) => question.id === activeQuestionId ? { ...question, ...patch } : question),
+    };
+    setForm(nextForm);
+    markChanged(nextForm);
   }
 
   function addQuestion() {
     if (editorDisabled) return;
     const question = createEmptyQuestion();
-    setForm((current) => ({ ...current, questions: [...current.questions, question] }));
+    const nextForm = { ...form, questions: [...form.questions, question] };
+    setForm(nextForm);
     setActiveQuestionId(question.id);
     setQuestionEditorTab("edit");
-    markChanged();
+    markChanged(nextForm);
   }
 
   function removeQuestion(questionId: string) {
     if (editorDisabled) return;
     const nextQuestions = form.questions.filter((question) => question.id !== questionId);
-    setForm((current) => ({ ...current, questions: nextQuestions }));
+    const nextForm = { ...form, questions: nextQuestions };
+    setForm(nextForm);
     if (activeQuestionId === questionId) {
       const next = nextQuestions[Math.max(0, form.questions.findIndex((question) => question.id === questionId) - 1)] ?? nextQuestions[0] ?? null;
       setActiveQuestionId(next?.id ?? null);
     }
     setPendingDeleteId(null);
-    markChanged();
+    markChanged(nextForm);
   }
 
   function moveQuestion(questionId: string, direction: "up" | "down") {
@@ -410,8 +450,9 @@ function KaptenQuizEditorPageModule({
     const [moved] = questions.splice(index, 1);
     if (!moved) return;
     questions.splice(nextIndex, 0, moved);
-    setForm((current) => ({ ...current, questions }));
-    markChanged();
+    const nextForm = { ...form, questions };
+    setForm(nextForm);
+    markChanged(nextForm);
   }
 
   function addChoice() {
