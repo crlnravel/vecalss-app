@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
 import { ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
@@ -312,7 +312,6 @@ function QuestionBankFolderDialog({
       <DialogContent className="sm:max-w-sm" pending={isApplying}>
         <DialogHeader>
           <DialogTitle>{folderDialog?.kind === "create" ? "Buat folder" : folderDialog?.kind === "rename" ? "Ubah nama folder" : "Pindahkan folder"}</DialogTitle>
-          <DialogDescription>{folderDialog?.kind === "move" ? "Pilih tingkat induk baru. Folder tidak dapat dipindahkan ke dalam turunannya sendiri." : "Folder membantu tim menemukan bank tanpa mengubah isi soal."}</DialogDescription>
         </DialogHeader>
         {folderDialog?.kind === "move" ? (
           <Field>
@@ -367,7 +366,6 @@ function QuestionBankMoveDialog({
       <DialogContent className="sm:max-w-sm" pending={isApplying}>
         <DialogHeader>
           <DialogTitle>Pindahkan bank</DialogTitle>
-          <DialogDescription>{selectedBank ? `“${selectedBank.title}” tetap dapat dipakai di Quiz dan Tryout setelah dipindahkan.` : "Pilih folder tujuan untuk bank ini."}</DialogDescription>
         </DialogHeader>
         <Field>
           <FieldLabel htmlFor="bank-folder">Folder tujuan</FieldLabel>
@@ -390,7 +388,6 @@ function QuestionBankCategorySelectionDialog({
   bankCategoryId,
   bankCategorySelection,
   categories,
-  categoryBank,
   folderError,
   isApplying,
   onClose,
@@ -400,7 +397,6 @@ function QuestionBankCategorySelectionDialog({
   bankCategoryId: string | null;
   bankCategorySelection: string[];
   categories: CategoryNode[];
-  categoryBank: BankEntry["bank"] | null;
   folderError: string | null;
   isApplying: boolean;
   onClose: () => void;
@@ -414,7 +410,6 @@ function QuestionBankCategorySelectionDialog({
       <DialogContent className="sm:max-w-sm" pending={isApplying}>
         <DialogHeader>
           <DialogTitle>Kelola kategori</DialogTitle>
-          <DialogDescription>{categoryBank ? `Pilih label untuk “${categoryBank.title}”. Kategori hanya mengatur penemuan, bukan isi soal.` : "Pilih kategori untuk bank ini."}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
           {categories.length ? categories.map((category) => (
@@ -470,7 +465,6 @@ function QuestionBankCategoryManagementDialog({
       <DialogContent className="sm:max-w-lg" pending={isApplying}>
         <DialogHeader>
           <DialogTitle>Kelola kategori bersama</DialogTitle>
-          <DialogDescription>Buat kosakata bersama agar semua tutor dapat menemukan bank dengan cepat.</DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary-500">Kategori</p>
@@ -908,7 +902,6 @@ function useQuestionBankCatalogueState({
     catalogueRowContextMenu,
     catalogueRows,
     categories,
-    categoryBank,
     categoryEditor,
     categoryManagementOpen,
     categoryName,
@@ -1011,7 +1004,6 @@ function KaptenQuestionBankPageModule({
     catalogueRowContextMenu,
     catalogueRows,
     categories,
-    categoryBank,
     categoryEditor,
     categoryManagementOpen,
     categoryName,
@@ -1093,8 +1085,8 @@ function KaptenQuestionBankPageModule({
           actions={(
             <>
               <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
-              <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="icon-sm" title="Buat bank soal baru" type="button" variant="brand"><Plus /></Button>
               <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
+              <Button aria-label="Tambah Soal" render={<Link href="/mentor/quiz/question-bank/create" />} size="sm" title="Tambah Soal" type="button" variant="brand"><Plus />Tambah Soal</Button>
             </>
           )}
           title="Bank Soal"
@@ -1166,7 +1158,6 @@ function KaptenQuestionBankPageModule({
         bankCategoryId={bankCategoryId}
         bankCategorySelection={bankCategorySelection}
         categories={categories}
-        categoryBank={categoryBank}
         folderError={folderError}
         isApplying={isApplying}
         onClose={() => { setBankCategoryId(null); setFolderError(null); }}
