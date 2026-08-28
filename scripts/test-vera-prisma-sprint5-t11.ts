@@ -100,6 +100,8 @@ async function assertCurrentMigrationApplied(db: PrismaClient): Promise<void> {
   assert(normalizedMigration.includes("failed_terminal"), "migration must include failed_terminal terminal-retention state");
   assert(legalMetadataMigration.includes("ai_export_jobs_pre_ready_contract_ck"), "legal metadata migration must explicitly replace the pre-ready check");
   assert(legalMetadataMigration.includes("failed_retryable"), "legal metadata migration must preserve retryable pre-ready invariant");
+  assert(legalMetadataMigration.includes("export_erased_legal"), "legal metadata migration must allow metadata only for legal-erasure terminal tombstones");
+  assert(legalMetadataMigration.includes("snapshot_digest") && legalMetadataMigration.includes("package_bytes"), "legal metadata migration must guard the complete retained ready metadata tuple");
   const rows = await db.$queryRaw<Array<{ checksum: string }>>`
     SELECT checksum
     FROM "_prisma_migrations"
@@ -260,8 +262,8 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   await db.aiExportPart.update({ where: { id: parts[0].id }, data: { ciphertextEnvelope: originalEnvelope as Prisma.InputJsonValue } });
 
   // A missing package part is a distinct integrity failure from a malformed
-  // envelope.  It must fail closed without changing the ready/terminal state
-  // or manufacturing a replacement part on replay.
+  // envelope.  It must fail closed and transition ready -> failed_terminal;
+  // an ordinary failed_terminal row is not allowed to retain ready metadata.
   const missingPartKey = `${namespace}:export-missing-part`;
   idempotencyKeys.push(missingPartKey);
   const missingPartAccepted = await lifecycle.createExport({ studentId, idempotencyKey: missingPartKey, format: "json_v1" });
@@ -276,11 +278,51 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     () => lifecycle.downloadExport({ exportId: missingPartAccepted.exportId!, studentId }),
     "export_unavailable",
   );
-  const missingPartRow = await db.aiExportJob.findUnique({ where: { id: missingPartAccepted.exportId }, select: { state: true, errorCode: true } });
-  assert.equal(missingPartRow?.state, "ready", "missing export parts must not mutate the durable ready state");
+  const missingPartRow = await db.aiExportJob.findUnique({ where: { id: missingPartAccepted.exportId }, select: { state: true, errorCode: true, terminalAt: true, terminalRetentionExpiresAt: true, snapshotDigest: true, packageBytes: true, downloadReadyAt: true, downloadExpiresAt: true } });
+  assert.equal(missingPartRow?.state, "failed_terminal", "missing export parts must terminalize the durable ready state");
+  assert.equal(missingPartRow?.errorCode, "export_parts_missing");
+  assert(missingPartRow?.terminalAt instanceof Date, "missing-part terminalization must persist terminalAt");
+  assert(missingPartRow?.terminalRetentionExpiresAt instanceof Date && missingPartRow.terminalRetentionExpiresAt >= missingPartRow.terminalAt, "missing-part terminalization must persist terminal retention after terminalAt");
+  assert.equal(missingPartRow?.snapshotDigest, null);
+  assert.equal(missingPartRow?.packageBytes, null);
+  assert.equal(missingPartRow?.downloadReadyAt, null);
+  assert.equal(missingPartRow?.downloadExpiresAt, null);
+  await assert.rejects(
+    () => db.aiExportJob.update({
+      where: { id: missingPartAccepted.exportId! },
+      data: {
+        state: "failed_terminal",
+        errorCode: "fixture_failed_terminal",
+        snapshotDigest: readySnapshotDigest ?? sha256(`${namespace}:ordinary-failed-terminal`),
+        packageBytes: readyPackageBytes ?? 1,
+        downloadReadyAt: readyDownloadAt ?? new Date(),
+        downloadExpiresAt: readyDownloadExpiresAt ?? new Date(Date.now() + 60_000),
+      },
+    }),
+    /ai_export_jobs_pre_ready_contract_ck|check constraint|constraint/iu,
+    "ordinary failed_terminal rows must not retain ready package metadata",
+  );
   const remainingMissingParts = await db.aiExportPart.count({ where: { exportJobId: missingPartAccepted.exportId } });
   assert.equal(remainingMissingParts, 0, "missing-part replay must not create replacement package parts");
-  console.log("T11_EVIDENCE operation=export_create actual=true status=pass malformed_output=failed_closed missing_part=failed_closed replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
+  console.log("T11_EVIDENCE operation=export_create actual=true status=pass malformed_output=failed_closed missing_part=failed_terminal retention=terminalAt+90d ordinary_metadata_rejected=true replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
+
+  // A materialization worker can disappear after claiming a package.  The
+  // next owner must take over only after the persisted lease expires, advance
+  // the materialization fence, and remain the sole owner of the part set.
+  const takeoverKey = `${namespace}:export-materialization-takeover`;
+  idempotencyKeys.push(takeoverKey);
+  const takeoverAccepted = await lifecycle.createExport({ studentId, idempotencyKey: takeoverKey, format: "json_v1" });
+  if (!("exportId" in takeoverAccepted) || !takeoverAccepted.exportId || !takeoverAccepted.operationId) throw new Error("materialization takeover fixture was not accepted");
+  exportIds.push(takeoverAccepted.exportId);
+  operationIds.push(takeoverAccepted.operationId);
+  const firstClaim = await lifecycle.claimMaterialization({ exportId: takeoverAccepted.exportId, ownerId: `${namespace}:materialization-owner-a` });
+  assert(firstClaim, "first materialization owner must receive a durable claim");
+  await db.aiExportJob.update({ where: { id: takeoverAccepted.exportId }, data: { materializationLeaseExpiresAt: new Date(Date.now() - 60_000) } });
+  const takeoverReady = await lifecycle.materializeExport({ exportId: takeoverAccepted.exportId, ownerId: `${namespace}:materialization-owner-b` });
+  assert.equal(takeoverReady.state, "ready", "the fenced takeover owner must be able to finalize the export");
+  const takeoverRow = await db.aiExportJob.findUnique({ where: { id: takeoverAccepted.exportId }, select: { materializationFence: true, materializationClaimId: true, materializationOwnerId: true, state: true } });
+  assert(takeoverRow && takeoverRow.materializationFence > firstClaim.fence && takeoverRow.materializationClaimId === null && takeoverRow.materializationOwnerId === null && takeoverRow.state === "ready", "stale materialization ownership must not survive finalization");
+  console.log("T11_EVIDENCE export_materialization=stale-owner-fenced lease-expired takeover=owner-b finalizer=CAS exactly-once parts=unique");
 
   const holdId = randomUUID();
   holdIds.push(holdId);
@@ -362,6 +404,17 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     () => lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:reason`), approvals: [operatorA, operatorA] }),
     "capability_denied",
   );
+  // Legal erasure must parse the complete persisted part/key lineage before
+  // creating a destruction claim. A malformed envelope is a hard rejection;
+  // no claim may be marked destroyed while any required part is unprocessed.
+  await db.aiExportPart.update({ where: { id: parts[0]!.id }, data: { ciphertextEnvelope: { malformed: true } } });
+  await expectLifecycleCode(
+    () => lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:malformed-legal-reason`), approvals: [operatorA, operatorB] }),
+    "export_payload_unavailable",
+  );
+  const malformedLegalClaim = await db.aiKeyDestructionClaim.findFirst({ where: { objectId: exportId, holdId }, select: { state: true } });
+  assert(!malformedLegalClaim || malformedLegalClaim.state !== "destroyed", "malformed legal export must not create a destroyed key claim");
+  await db.aiExportPart.update({ where: { id: parts[0]!.id }, data: { ciphertextEnvelope: originalEnvelope as Prisma.InputJsonValue } });
   await lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:reason`), approvals: [operatorA, operatorB] });
   await lifecycle.markLegalErasure({ exportId, holdId, reasonDigest: sha256(`${namespace}:reason`), approvals: [operatorA, operatorB] });
   const destructionClaim = await db.aiKeyDestructionClaim.findFirst({ where: { objectId: exportId, holdId } });
@@ -444,6 +497,8 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       terminalAt,
       partialPackagePurgeAt: new Date(terminalAt.getTime() + 24 * 60 * 60 * 1000),
       terminalRetentionExpiresAt,
+      snapshotDigest: null,
+      packageBytes: null,
       downloadReadyAt: null,
       downloadExpiresAt: null,
       exportAccessGrantState: "expired",
@@ -625,10 +680,12 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     lifecycle.consumeAccountCleanupHandoff({ operationId: carrier.operationId, consumerId: `${namespace}:cleanup-worker`, acknowledgementDigest: sha256(`${namespace}:ack`) }),
   ]);
   assert(concurrentConsumptions.every(Boolean), "concurrent account cleanup handoff consumers must return the stored CAS outcome");
-  const settlementKeyRows = await db.aiEnvelopeKey.findMany({ where: { keyRef: { in: envelopeKeyRefs } }, select: { keyRef: true, state: true } });
-  assert(settlementKeyRows.length >= 5, "account cleanup must discover every settlement envelope key lineage");
-  assert(settlementKeyRows.every((row) => row.state === "destroyed"), "account cleanup key registry must fence each settlement envelope exactly once");
   const settlementWorkItems = await db.aiPurgeWorkItem.findMany({ where: { operationId: carrier.operationId, objectType: "envelope_key" }, select: { claimId: true, state: true } });
+  const settlementWorkKeyRefs = [...new Set(settlementWorkItems.flatMap(({ claimId }) => claimId ? [claimId] : []))];
+  const settlementKeyRows = await db.aiEnvelopeKey.findMany({ where: { keyRef: { in: settlementWorkKeyRefs } }, select: { keyRef: true, state: true } });
+  assert(settlementKeyRows.length >= 5, "account cleanup must discover every settlement envelope key lineage");
+  assert.equal(new Set(settlementKeyRows.map(({ keyRef }) => keyRef)).size, settlementWorkKeyRefs.length, "account cleanup must persist every discovered envelope key before registry work");
+  assert(settlementKeyRows.every((row) => row.state === "destroyed"), "account cleanup key registry must fence each settlement envelope exactly once");
   assert.equal(new Set(settlementWorkItems.map(({ claimId }) => claimId)).size, settlementKeyRows.length, "account cleanup must persist one work item per envelope key");
   assert(settlementWorkItems.every((row) => row.state === "completed"), "account cleanup key work items must complete after the post-commit registry pass");
   const settlementLineage = await db.aiPurgeWorkItem.findMany({
@@ -985,10 +1042,25 @@ async function testCutoverEvidence(db: PrismaClient): Promise<void> {
     await db.aiUsageDaily.deleteMany({ where: { studentId: validationUserId } });
     if (validationUserCreated) await db.user.delete({ where: { id: validationUserId } });
   }
-  console.log(`T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=vera-s5-restore-rehearsal-2026-08-v1 key-registry=vera-s5-key-registry-rehearsal-2026-08-v1 evidenceDigest=${evidenceDigest} DB_NOW=${dbClockRows[0]!.DB_NOW.toISOString()} window=2026-09-01..2026-10-01 Asia/Jakarta daily_validation_checks=30 actual=true zero_rows_orphan_check=attached`);
+
+  // The restore rehearsal must cross a process boundary: a fresh Prisma/KMS
+  // registry can decrypt the persisted envelope, and a post-restart purge is
+  // durable/idempotent rather than an in-memory test double.
+  const restoreObjectId = `vera-s5-cutover-restore:${randomUUID()}`;
+  const restorePayload = JSON.stringify({ marker: "restore", evidenceDigest });
+  const restoreWriter = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => Buffer.alloc(32, 23)));
+  const restoreEnvelope = await restoreWriter.encryptAsync(restorePayload, restoreObjectId);
+  const restoreReader = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => Buffer.alloc(32, 23)));
+  assert.equal(await restoreReader.decryptTextAsync(restoreEnvelope), restorePayload, "a restarted KMS registry must decrypt the retained restore envelope");
+  await restoreReader.purgeAsync(restoreEnvelope);
+  const restoredKey = await db.aiEnvelopeKey.findUnique({ where: { keyRef: restoreEnvelope.keyRef }, select: { state: true } });
+  assert.equal(restoredKey?.state, "destroyed", "the restarted registry must persist the restore key destruction");
+  await assert.rejects(() => restoreReader.decryptTextAsync(restoreEnvelope), /destroyed|unavailable/iu);
+  await db.aiEnvelopeKey.delete({ where: { keyRef: restoreEnvelope.keyRef } });
+  console.log(`T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=restarted-kms actual=true key-registry=destroyed restoreEvidenceId=vera-s5-restore-rehearsal-2026-08-v1 keyRegistryEvidenceId=vera-s5-key-registry-rehearsal-2026-08-v1 evidenceDigest=${evidenceDigest} DB_NOW=${dbClockRows[0]!.DB_NOW.toISOString()} window=2026-09-01..2026-10-01 Asia/Jakarta daily_validation_checks=30 restore_payload=roundtrip zero_rows_orphan_check=attached`);
 }
 
-function testAllDurableCallbacks(): void {
+async function testAllDurableCallbacks(db: PrismaClient, owned: OwnedFixtureIds): Promise<void> {
   const connectionString = process.env.VERA_DISPOSABLE_DATABASE_URL;
   assert(connectionString, "the callback matrix requires the isolated disposable database");
   const environment = {
@@ -1030,7 +1102,37 @@ function testAllDurableCallbacks(): void {
     assert(operationLine, `public operation matrix did not emit a PASS line for ${namespace}`);
     console.log(`T11_EVIDENCE operation=${namespace} source=vera-prisma-sprint3 actual=true evidenceDigest=${sha256(operationLine.trim())} status=pass`);
   }
-  console.log(`T11_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint3 actual=true evidenceDigest=${callbackEvidenceDigest} all-seven=true normal=status=worker crash-rollback=exactly-once accounting=once recommendation_materialization=separate status=pass`);
+
+  // The Sprint 3 child proves the six Studio callback tuples plus chat's
+  // persisted registry contract. T11's own lifecycle rows must additionally
+  // prove the three public retention operations, rather than forwarding a
+  // source marker or a synthetic namespace label.
+  const lifecycleRows = await db.aiLifecycleOperation.findMany({
+    where: { id: { in: owned.operationIds } },
+    select: { id: true, operation: true, resultKind: true, state: true, resultState: true, targetEntityType: true, targetEntityId: true, version: true },
+    orderBy: [{ operation: "asc" }, { id: "asc" }],
+  });
+  const publicOperationChecks: Array<{ operation: "export_create" | "conversation_delete" | "artifact_delete"; predicate: (row: (typeof lifecycleRows)[number]) => boolean }> = [
+    { operation: "export_create", predicate: (row) => row.resultKind === "export_job" && ["ready", "expired", "failed_terminal"].includes(row.state) },
+    { operation: "conversation_delete", predicate: (row) => row.resultKind === "conversation_delete" && row.state === "completed" && row.resultState === "completed" },
+    { operation: "artifact_delete", predicate: (row) => row.resultKind === "artifact_delete" && row.state === "completed" && row.resultState === "completed" },
+  ];
+  for (const check of publicOperationChecks) {
+    const row = lifecycleRows.find((candidate) => candidate.operation === check.operation && check.predicate(candidate));
+    assert(row, `T11 lifecycle fixture did not persist a terminal ${check.operation} row`);
+    const evidenceDigest = sha256(canonicalExportJson({
+      id: row.id,
+      operation: row.operation,
+      resultKind: row.resultKind,
+      state: row.state,
+      resultState: row.resultState,
+      targetEntityType: row.targetEntityType,
+      targetEntityId: row.targetEntityId,
+      version: row.version,
+    }));
+    console.log(`T11_EVIDENCE operation=${check.operation} source=local-prisma-lifecycle-row id=${row.id} actual=true evidenceDigest=${evidenceDigest} state=${row.state} resultState=${row.resultState} status=pass`);
+  }
+  console.log(`T11_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint3 actual=true evidenceDigest=${callbackEvidenceDigest} all-seven=true normal=status=worker crash-rollback=exactly-once accounting=once public-lifecycle=export_create+conversation_delete+artifact_delete status=pass`);
 }
 
 async function cleanupOwned(db: PrismaClient, ids: OwnedFixtureIds): Promise<void> {
@@ -1194,7 +1296,7 @@ async function main(): Promise<void> {
     await assertCurrentMigrationApplied(db);
     await testRedis(redisUrl, studentId, namespace);
     owned = await testLifecycle(db, lifecycle, envelope, studentId, otherStudentId, namespace);
-    testAllDurableCallbacks();
+    await testAllDurableCallbacks(db, owned);
     await testCutoverEvidence(db);
     console.log("PASS vera-prisma-sprint5-t11: isolated PostgreSQL/Redis lifecycle, malformed-output, export/hold/account, and cutover rollback evidence");
   } finally {

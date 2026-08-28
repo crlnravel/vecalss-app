@@ -49,6 +49,7 @@ export type LifecycleErrorCode =
   | "export_payload_unavailable"
   | "export_size_limit"
   | "export_state_mismatch"
+  | "purge_dependency_unavailable"
   | "recovery_expired"
   | "account_deleted"
   | "hold_active"
@@ -92,6 +93,8 @@ function lifecycleStatus(code: LifecycleErrorCode): number {
       return 409;
     case "export_size_limit":
       return 422;
+    case "purge_dependency_unavailable":
+      return 503;
     case "invalid_request":
       return 400;
     default:
@@ -168,11 +171,55 @@ function asEnvelope(value: unknown): AiEncryptedPayload | null {
   return candidate as unknown as AiEncryptedPayload;
 }
 
-function envelopeKeyRefs(values: readonly unknown[]): string[] {
+function envelopeKeyRefs(values: readonly unknown[], message = "A required Vera encrypted object is malformed."): string[] {
   return [...new Set(values.flatMap((value) => {
+    if (value === null || value === undefined) return [];
     const envelope = asEnvelope(value);
-    return envelope ? [envelope.keyRef] : [];
+    if (!envelope) throw new VeraLifecycleError("purge_dependency_unavailable", message, 503);
+    return [envelope.keyRef];
   }))].sort(compareCanonical);
+}
+
+type PersistedExportPartLineage = {
+  ordinal: number;
+  plaintextBytes: number;
+  partDigest: string;
+  ciphertextEnvelope: unknown;
+};
+
+/**
+ * The legal-erasure claim is bound to the exact persisted package parts, not
+ * to the job id or the optional legacy contentEnvelopeKeyId.  Parsing every
+ * part before claiming its key lineage also makes malformed/corrupt package
+ * state fail closed instead of being recorded as a successful destruction.
+ */
+function exportPartKeyLineage(
+  exportId: string,
+  parts: readonly PersistedExportPartLineage[],
+): { digest: string; keyRefs: string[]; envelopes: AiEncryptedPayload[] } {
+  const envelopes: AiEncryptedPayload[] = [];
+  const lineage = parts.map((part, index) => {
+    if (!Number.isSafeInteger(part.ordinal) || part.ordinal !== index
+      || !Number.isSafeInteger(part.plaintextBytes) || part.plaintextBytes < 0
+      || part.plaintextBytes > VERA_EXPORT_PART_BYTES
+      || typeof part.partDigest !== "string" || !/^[a-f0-9]{64}$/u.test(part.partDigest)) {
+      throw new VeraLifecycleError("export_payload_unavailable", "An export part lineage record is malformed.", 409);
+    }
+    const envelope = asEnvelope(part.ciphertextEnvelope);
+    if (!envelope) throw new VeraLifecycleError("export_payload_unavailable", "An export part envelope is malformed.", 409);
+    envelopes.push(envelope);
+    return {
+      ordinal: part.ordinal,
+      plaintextBytes: part.plaintextBytes,
+      partDigest: part.partDigest,
+      keyRef: envelope.keyRef,
+    };
+  });
+  return {
+    digest: sha256Hex(canonicalExportJson({ objectType: "AiExportJob", objectId: exportId, parts: lineage })),
+    keyRefs: [...new Set(lineage.map(({ keyRef }) => keyRef))].sort(compareCanonical),
+    envelopes,
+  };
 }
 
 async function dbNow(tx: Tx): Promise<Date> {
@@ -332,15 +379,29 @@ async function enqueueObjectPurgeWorkItems(
   }
 }
 
-async function completeObjectPurgeWorkItems(db: LifecycleDb, operationId: string): Promise<void> {
-  await db.aiPurgeWorkItem.updateMany({
+/**
+ * Object lineage is acknowledged only after every irreversible envelope-key
+ * item has completed.  Keeping this check in the same transaction as the
+ * object CAS prevents a lifecycle operation from becoming terminal while a
+ * crash-reclaimable key item is still pending.
+ */
+async function completeObjectPurgeWorkItemsTx(tx: Tx, operationId: string): Promise<boolean> {
+  const incompleteKeys = await tx.aiPurgeWorkItem.count({
+    where: { operationId, objectType: "envelope_key", state: { not: "completed" } },
+  });
+  if (incompleteKeys > 0) return false;
+  await tx.aiPurgeWorkItem.updateMany({
     where: {
       operationId,
       objectType: { not: "envelope_key" },
       state: { in: ["pending", "claimed"] },
     },
-    data: { state: "completed", leaseExpiresAt: null, updatedAt: new Date() },
+    data: { state: "completed", leaseExpiresAt: null },
   });
+  const incomplete = await tx.aiPurgeWorkItem.count({
+    where: { operationId, state: { not: "completed" } },
+  });
+  return incomplete === 0;
 }
 
 const LEGAL_ERASURE_CAPABILITIES = ["vera_lifecycle_erasure", "vera_key_destruction_approver"] as const;
@@ -505,7 +566,18 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
   const sources = requestIds.length > 0
     ? await tx.aiRequestSource.findMany({ where: { requestId: { in: requestIds } }, select: { id: true, boundedSnapshotCiphertext: true, contentKeyLineageDigest: true } })
     : [];
-  const exportJobs = await tx.aiExportJob.findMany({ where: { studentId }, select: { id: true, state: true, operationId: true } });
+  const exportJobs = await tx.aiExportJob.findMany({
+    where: { studentId },
+    select: {
+      id: true,
+      state: true,
+      operationId: true,
+      parts: {
+        orderBy: { ordinal: "asc" },
+        select: { ordinal: true, plaintextBytes: true, partDigest: true, ciphertextEnvelope: true },
+      },
+    },
+  });
 
   // Capture every envelope identity before lifecycle markers are written. The
   // exact keyRef is authoritative; object-id matching is a compatibility
@@ -522,6 +594,10 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...stages.map(({ normalizedResultCiphertext }) => normalizedResultCiphertext),
     ...packs.flatMap(({ normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext }) => [normalizedTaskCiphertext, canonicalBytesCiphertext, conversationMessageManifestCiphertext]),
     ...sources.map(({ boundedSnapshotCiphertext }) => boundedSnapshotCiphertext),
+    // A ready export is the account-cleanup handoff's one-time grant target.
+    // Its parts and object-scoped keys remain retention-managed until the
+    // seven-day download boundary (or an explicit legal-erasure override),
+    // so ordinary account cleanup must not enqueue them for destruction.
   ];
   const exactKeyRefs = envelopeCandidates.flatMap((candidate) => {
     const envelope = asEnvelope(candidate);
@@ -572,7 +648,6 @@ async function settleAccountOwnedRows(tx: Tx, operationId: string, studentId: st
     ...messages.map(({ id, contentEnvelope, metadataEnvelope }) => ({ objectType: "ai_message", objectId: id, keyRefs: envelopeKeyRefs([contentEnvelope, metadataEnvelope]) })),
     ...artifacts.map(({ id, titleCiphertext, contentMarkdownCiphertext, payloadCiphertext }) => ({ objectType: "ai_artifact", objectId: id, keyRefs: envelopeKeyRefs([titleCiphertext, contentMarkdownCiphertext, payloadCiphertext]) })),
     ...recommendations.map(({ id, rationaleEnvelope }) => ({ objectType: "learning_recommendation", objectId: id, keyRefs: envelopeKeyRefs([rationaleEnvelope]) })),
-    ...exportJobs.map(({ id }) => ({ objectType: "ai_export_job", objectId: id })),
   ], new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000));
 
   // Preserve every normalized request/stage/pack/source row. Their encrypted
@@ -1053,7 +1128,15 @@ export class VeraLifecycleService {
       const claimId = randomUUID();
       const fence = job.materializationFence + 1;
       await tx.aiExportJob.update({ where: { id: job.id }, data: { state: "materializing", materializationClaimId: claimId, materializationOwnerId: input.ownerId, materializationClaimedAt: now, materializationLeaseExpiresAt: new Date(now.getTime() + VERA_MATERIALIZATION_LEASE_MS), materializationFence: fence } });
-      await tx.aiLifecycleOperation.update({ where: { id: job.operationId, state: { in: ["pending", "failed_retryable"] } }, data: { state: "processing", resultState: "materializing", version: { increment: 1 } } });
+      const operationClaim = await tx.aiLifecycleOperation.updateMany({
+        where: {
+          id: job.operationId,
+          version: job.operation.version,
+          state: { in: ["pending", "failed_retryable", "processing"] },
+        },
+        data: { state: "processing", resultState: "materializing", version: { increment: 1 } },
+      });
+      if (operationClaim.count !== 1) throw new VeraLifecycleError("export_payload_unavailable", "The export lifecycle operation was fenced before materialization takeover.");
       return { claimId, fence, studentId: job.studentId, exportAsOf: job.exportAsOf, recoveryDeadlineAt: job.recoveryDeadlineAt };
     });
   }
@@ -1097,8 +1180,10 @@ export class VeraLifecycleService {
   private async finalizeExport(input: { exportId: string; operationId: string; claimId: string; fence: number; snapshotDigest: string; packageBytes: number; partCount: number }) {
     return this.db.$transaction(async (tx) => {
       const now = await dbNow(tx);
-      const job = await tx.aiExportJob.findUnique({ where: { id: input.exportId } });
-      if (!job || job.state !== "materializing" || job.materializationClaimId !== input.claimId || job.materializationFence !== input.fence) throw new VeraLifecycleError("export_payload_unavailable", "The materialization claim was fenced.");
+      await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${input.exportId}::uuid FOR UPDATE`;
+      const job = await tx.aiExportJob.findUnique({ where: { id: input.exportId }, include: { operation: true } });
+      if (!job || job.operationId !== input.operationId || job.state !== "materializing" || job.materializationClaimId !== input.claimId || job.materializationFence !== input.fence) throw new VeraLifecycleError("export_payload_unavailable", "The materialization claim was fenced.");
+      if (job.operation.state !== "processing") throw new VeraLifecycleError("export_payload_unavailable", "The export lifecycle operation is no longer processing.");
       const parts = await tx.aiExportPart.findMany({ where: { exportJobId: input.exportId }, orderBy: { ordinal: "asc" } });
       if (parts.length !== input.partCount || parts.some((part, index) => part.ordinal !== index)
         || parts.some((part) => part.plaintextBytes > VERA_EXPORT_PART_BYTES)
@@ -1125,9 +1210,20 @@ export class VeraLifecycleService {
         throw new VeraLifecycleError("export_payload_unavailable", "Export package digest does not match the claimed snapshot.");
       }
       const downloadExpiresAt = exportDownloadDeadline(now);
-      const updatedJob = await tx.aiExportJob.update({ where: { id: input.exportId }, data: { state: "ready", snapshotDigest, packageBytes: packageBytes.byteLength, downloadReadyAt: now, downloadExpiresAt, completedAt: now, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
-      const operation = await tx.aiLifecycleOperation.update({ where: { id: input.operationId, state: "processing" }, data: { state: "ready", resultState: "ready", exportExpiresAt: downloadExpiresAt, expiresAt: new Date(downloadExpiresAt.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
-      return { job: updatedJob, operation };
+      // The materialization fence is the export-row CAS and the lifecycle
+      // version is the operation CAS.  Both predicates are required so a
+      // stale worker cannot finalize after a lease takeover or process-loss
+      // recovery has advanced either owner.
+      const updatedJob = await tx.aiExportJob.updateMany({
+        where: { id: input.exportId, operationId: input.operationId, state: "materializing", materializationClaimId: input.claimId, materializationFence: input.fence },
+        data: { state: "ready", snapshotDigest, packageBytes: packageBytes.byteLength, downloadReadyAt: now, downloadExpiresAt, completedAt: now, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null },
+      });
+      if (updatedJob.count !== 1) throw new VeraLifecycleError("export_payload_unavailable", "The materialization claim was fenced during finalization.");
+      const operationUpdate = await tx.aiLifecycleOperation.updateMany({ where: { id: input.operationId, state: "processing", version: job.operation.version }, data: { state: "ready", resultState: "ready", exportExpiresAt: downloadExpiresAt, expiresAt: new Date(downloadExpiresAt.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
+      if (operationUpdate.count !== 1) throw new VeraLifecycleError("export_payload_unavailable", "The export lifecycle version was fenced during finalization.");
+      const operation = await tx.aiLifecycleOperation.findUniqueOrThrow({ where: { id: input.operationId } });
+      const readyJob = await tx.aiExportJob.findUniqueOrThrow({ where: { id: input.exportId } });
+      return { job: readyJob, operation };
     });
   }
 
@@ -1239,9 +1335,12 @@ export class VeraLifecycleService {
             if (clock >= deadlines.partialPackagePurgeAt) {
               postCommitOperationId = locked.operationId;
               const parts = await tx.aiExportPart.findMany({ where: { exportJobId: locked.id }, select: { id: true, ciphertextEnvelope: true } });
-              for (const part of parts) {
+              const parsedParts = parts.map((part) => {
                 const envelope = asEnvelope(part.ciphertextEnvelope);
-                if (!envelope) continue;
+                if (!envelope) throw new VeraLifecycleError("export_payload_unavailable", "A terminal export part envelope is malformed; purge remains retryable.", 409);
+                return envelope;
+              });
+              for (const envelope of parsedParts) {
                 postCommitKeyRefs.push(envelope.keyRef);
                 await tx.aiPurgeWorkItem.upsert({
                   where: { operationId_objectType_objectId: { operationId: locked.operationId, objectType: "envelope_key", objectId: deterministicWorkItemId(locked.operationId, envelope.keyRef) } },
@@ -1249,6 +1348,15 @@ export class VeraLifecycleService {
                   update: { claimId: envelope.keyRef },
                 });
               }
+              // The package parts may have been deleted by a committed reaper
+              // transaction immediately before a worker crashed.  Rediscover
+              // the durable key work from the operation row so the next pass
+              // can reclaim every key even when no part payload remains.
+              const persistedKeyWork = await tx.aiPurgeWorkItem.findMany({
+                where: { operationId: locked.operationId, objectType: "envelope_key", claimId: { not: null } },
+                select: { claimId: true },
+              });
+              postCommitKeyRefs.push(...persistedKeyWork.flatMap(({ claimId }) => claimId ? [claimId] : []));
               if (parts.length > 0) {
                 await tx.aiExportPart.deleteMany({ where: { exportJobId: locked.id } });
                 // Legal-erasure packages still follow the +24h part purge,
@@ -1321,7 +1429,14 @@ export class VeraLifecycleService {
   async downloadExport(input: { exportId: string; studentId?: string; grant?: string }): Promise<ExportDownload> {
     const claim = await this.claimDownload(input);
     const parts = await this.db.aiExportPart.findMany({ where: { exportJobId: input.exportId }, orderBy: { ordinal: "asc" } });
-    if (parts.length === 0 || parts.some((part, index) => part.ordinal !== index)) throw new VeraLifecycleError("export_unavailable", "Export parts are unavailable.");
+    if (parts.length === 0 || parts.some((part, index) => part.ordinal !== index)) {
+      // A ready export without its complete part set is no longer a valid
+      // ready transition.  Persist a terminal integrity failure with the
+      // normal +24h/+90d retention deadlines so repeated downloads cannot
+      // leave a permanently ready, undownloadable package.
+      await this.terminalizeCorruptReadyExport(input.exportId, "export_parts_missing");
+      throw new VeraLifecycleError("export_unavailable", "Export parts are unavailable.");
+    }
     const plaintext: Buffer[] = [];
     try {
       for (const part of parts) plaintext.push(await this.envelope.decryptAsync(asEnvelope(part.ciphertextEnvelope) as AiEncryptedPayload));
@@ -1341,9 +1456,52 @@ export class VeraLifecycleService {
     return { bytes, snapshotDigest: claim.snapshotDigest, packageBytes: claim.packageBytes };
   }
 
+  private async terminalizeCorruptReadyExport(exportId: string, errorCode: string): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      const now = await dbNow(tx);
+      await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${exportId}::uuid FOR UPDATE`;
+      const current = await tx.aiExportJob.findUnique({ where: { id: exportId }, include: { operation: true } });
+      if (!current || current.state !== "ready") return;
+      const deadlines = preReadyExportDeadlines(now);
+      const terminal = await tx.aiExportJob.updateMany({
+        where: { id: exportId, state: "ready", operationId: current.operationId },
+        data: {
+          state: "failed_terminal",
+          errorCode,
+          terminalAt: now,
+          partialPackagePurgeAt: deadlines.partialPackagePurgeAt,
+          terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt,
+          snapshotDigest: null,
+          packageBytes: null,
+          downloadReadyAt: null,
+          downloadExpiresAt: null,
+          exportAccessGrantState: "expired",
+          exportAccessGrantClaimId: null,
+          exportAccessGrantLeaseExpiresAt: null,
+        },
+      });
+      if (terminal.count !== 1) return;
+      const operation = await tx.aiLifecycleOperation.updateMany({
+        where: { id: current.operationId, state: current.operation.state, version: current.operation.version },
+        data: {
+          state: "failed_terminal",
+          resultState: "failed_terminal",
+          errorCode,
+          terminalAt: now,
+          expiresAt: deadlines.terminalRetentionExpiresAt,
+          version: { increment: 1 },
+        },
+      });
+      if (operation.count !== 1) throw new VeraLifecycleError("export_state_mismatch", "The export lifecycle version was fenced during integrity failure.", 409);
+    });
+  }
+
   private async claimDownload(input: { exportId: string; studentId?: string; grant?: string }): Promise<{ snapshotDigest: string; packageBytes: number; grantClaimId: string | null; grantVersion: number }> {
     return this.db.$transaction(async (tx) => {
-      const job = await tx.aiExportJob.findUnique({ where: { id: input.exportId } });
+      const job = await tx.aiExportJob.findUnique({
+        where: { id: input.exportId },
+        include: { parts: { orderBy: { ordinal: "asc" } } },
+      });
       if (!job) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
       if (input.studentId && job.studentId !== input.studentId) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
       if (!input.studentId && !input.grant) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
@@ -1816,7 +1974,6 @@ export class VeraLifecycleService {
       // has completed every work item.  A crash before this point is therefore
       // discoverable and reclaimable rather than an already-consumed handoff.
       await this.processAccountCleanupKeyRegistry(outcome.keyRefs, outcome.operationId);
-      await completeObjectPurgeWorkItems(this.db, outcome.operationId);
       // A concurrent delivery can observe the processing handoff while the
       // first worker is completing its post-commit registry acknowledgements.
       // Re-read with a bounded retry so that the loser returns the durable
@@ -1858,10 +2015,8 @@ export class VeraLifecycleService {
         throw new VeraLifecycleError("idempotency_conflict", "Account-cleanup acknowledgement differs from the stored outcome.", 409);
       }
       if (operation.state !== "awaiting_dependency" || operation.handoffState !== "processing") return false;
-      const incomplete = await tx.aiPurgeWorkItem.count({
-        where: { operationId: input.operationId, state: { not: "completed" } },
-      });
-      if (incomplete !== 0) return false;
+      const workComplete = await completeObjectPurgeWorkItemsTx(tx, input.operationId);
+      if (!workComplete) return false;
       const acknowledged = await tx.aiLifecycleOperation.updateMany({
         where: { id: input.operationId, version: operation.version, state: "awaiting_dependency", handoffState: "processing" },
         data: {
@@ -1898,7 +2053,13 @@ export class VeraLifecycleService {
           }
           return null;
         }
-        if (!workItem) return { workItemId: null as string | null, fence: 0 };
+        // A registry call is never allowed without its durable work item.
+        // This is the crash/reclaim fence: if a previous process lost the
+        // enqueue transaction, fail closed instead of destroying a key that
+        // cannot later be acknowledged by the lifecycle operation.
+        if (!workItem) {
+          throw new VeraLifecycleError("purge_dependency_unavailable", "The account-cleanup key work item is missing.", 503, { keyRef });
+        }
         const leaseActive = workItem.state === "claimed" && workItem.leaseExpiresAt !== null && workItem.leaseExpiresAt > now;
         if (workItem.state === "completed" || leaseActive) return null;
         const claimed = await tx.aiPurgeWorkItem.updateMany({
@@ -1907,6 +2068,7 @@ export class VeraLifecycleService {
             fence: workItem.fence,
             OR: [
               { state: "pending" },
+              { state: "failed_retryable" },
               { state: "claimed", leaseExpiresAt: { lte: now } },
             ],
           },
@@ -1963,7 +2125,15 @@ export class VeraLifecycleService {
       }
       const conversation = await tx.aiConversation.findUnique({ where: { id: operation.targetEntityId ?? "" }, select: { id: true, studentId: true, version: true, deletionState: true } });
       if (!conversation) {
-        await tx.aiLifecycleOperation.update({ where: { id: operation.id }, data: { state: "completed", resultState: "completed", targetState: "purged", terminalAt: now, version: { increment: 1 } } });
+        const workComplete = await completeObjectPurgeWorkItemsTx(tx, operation.id);
+        if (!workComplete) {
+          await tx.aiLifecycleOperation.updateMany({
+            where: { id: operation.id, version: operation.version, state: { in: ["pending", "failed_retryable", "processing"] } },
+            data: { state: "failed_retryable", resultState: "failed_retryable", errorCode: "purge_dependency_unavailable", errorDigest: sha256Hex("purge_dependency_unavailable"), version: { increment: 1 } },
+          });
+          throw new VeraLifecycleError("purge_dependency_unavailable", "Conversation purge work is still pending.", 503);
+        }
+        await tx.aiLifecycleOperation.updateMany({ where: { id: operation.id, version: operation.version }, data: { state: "completed", resultState: "completed", targetState: "purged", terminalAt: now, version: { increment: 1 } } });
         return null;
       }
       if (operation.claimedConversationVersion === null || conversation.version !== operation.claimedConversationVersion + 1) throw new VeraLifecycleError("target_revision_conflict", "A newer conversation version cannot be deleted by this claim.");
@@ -2152,12 +2322,29 @@ export class VeraLifecycleService {
         // append-only revision rather than by a conversation UPDATE.
         await tx.aiConversation.updateMany({ where: { id: marker.conversationId, deletionState: "deletion_pending" }, data: { deletionState: "deleted", updatedAt: now } });
       }
-      await tx.aiLifecycleOperation.update({ where: { id: operationId }, data: { state: "completed", resultState: "completed", targetState: "purged", targetTombstoneCode: "target_unavailable", terminalAt: now, version: { increment: 1 } } });
+      await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${operationId}::uuid FOR UPDATE`;
+      const currentOperation = await tx.aiLifecycleOperation.findUnique({ where: { id: operationId }, select: { version: true, state: true } });
+      if (!currentOperation || currentOperation.state !== "processing") throw new VeraLifecycleError("target_revision_conflict", "Conversation deletion changed before finalization.", 409);
+      const workComplete = await completeObjectPurgeWorkItemsTx(tx, operationId);
+      if (!workComplete) {
+        await tx.aiLifecycleOperation.updateMany({
+          where: { id: operationId, version: currentOperation.version, state: "processing" },
+          data: {
+            state: "failed_retryable",
+            resultState: "failed_retryable",
+            errorCode: "purge_dependency_unavailable",
+            errorDigest: sha256Hex("purge_dependency_unavailable"),
+            version: { increment: 1 },
+          },
+        });
+        throw new VeraLifecycleError("purge_dependency_unavailable", "Conversation purge key work is still pending.", 503);
+      }
+      const finalized = await tx.aiLifecycleOperation.updateMany({
+        where: { id: operationId, version: currentOperation.version, state: "processing" },
+        data: { state: "completed", resultState: "completed", targetState: "purged", targetTombstoneCode: "target_unavailable", terminalAt: now, version: { increment: 1 } },
+      });
+      if (finalized.count !== 1) throw new VeraLifecycleError("target_revision_conflict", "Conversation deletion was fenced during finalization.", 409);
     });
-    // Object lineage is complete only after the hold-aware finalization CAS
-    // commits. A late hold or transaction failure must leave these rows
-    // reclaimable rather than falsely marking them complete after key purge.
-    await completeObjectPurgeWorkItems(this.db, operationId);
   }
 
   async processArtifactDelete(operationId: string): Promise<void> {
@@ -2178,7 +2365,15 @@ export class VeraLifecycleService {
       }
       const lifecycle = await tx.aiArtifactLifecycle.findUnique({ where: { artifactRevisionId: operation.targetEntityId ?? "" }, include: { artifact: { select: { id: true, studentId: true, conversationId: true, contentMarkdownCiphertext: true, titleCiphertext: true, payloadCiphertext: true } } } });
       if (!lifecycle) {
-        await tx.aiLifecycleOperation.update({ where: { id: operation.id }, data: { state: "completed", resultState: "completed", targetState: "purged", terminalAt: now, version: { increment: 1 } } });
+        const workComplete = await completeObjectPurgeWorkItemsTx(tx, operation.id);
+        if (!workComplete) {
+          await tx.aiLifecycleOperation.updateMany({
+            where: { id: operation.id, version: operation.version, state: { in: ["pending", "failed_retryable", "processing"] } },
+            data: { state: "failed_retryable", resultState: "failed_retryable", errorCode: "purge_dependency_unavailable", errorDigest: sha256Hex("purge_dependency_unavailable"), version: { increment: 1 } },
+          });
+          throw new VeraLifecycleError("purge_dependency_unavailable", "Artifact purge work is still pending.", 503);
+        }
+        await tx.aiLifecycleOperation.updateMany({ where: { id: operation.id, version: operation.version }, data: { state: "completed", resultState: "completed", targetState: "purged", terminalAt: now, version: { increment: 1 } } });
         return null;
       }
       if (operation.claimedLifecycleRevision === null || lifecycle.lifecycleRevision !== operation.claimedLifecycleRevision + 1) throw new VeraLifecycleError("target_revision_conflict", "A newer artifact revision cannot be deleted by this claim.");
@@ -2266,12 +2461,29 @@ export class VeraLifecycleService {
       // post-commit key destruction make every encrypted value unavailable;
       // mutating the immutable ciphertext columns here would violate the
       // production append-only trigger and would erase provenance evidence.
-      await tx.aiLifecycleOperation.update({ where: { id: operationId }, data: { state: "completed", resultState: "completed", targetState: "purged", targetTombstoneCode: "artifact_unavailable", terminalAt: now, version: { increment: 1 } } });
+      await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${operationId}::uuid FOR UPDATE`;
+      const currentOperation = await tx.aiLifecycleOperation.findUnique({ where: { id: operationId }, select: { version: true, state: true } });
+      if (!currentOperation || currentOperation.state !== "processing") throw new VeraLifecycleError("target_revision_conflict", "Artifact deletion changed before finalization.", 409);
+      const workComplete = await completeObjectPurgeWorkItemsTx(tx, operationId);
+      if (!workComplete) {
+        await tx.aiLifecycleOperation.updateMany({
+          where: { id: operationId, version: currentOperation.version, state: "processing" },
+          data: {
+            state: "failed_retryable",
+            resultState: "failed_retryable",
+            errorCode: "purge_dependency_unavailable",
+            errorDigest: sha256Hex("purge_dependency_unavailable"),
+            version: { increment: 1 },
+          },
+        });
+        throw new VeraLifecycleError("purge_dependency_unavailable", "Artifact purge key work is still pending.", 503);
+      }
+      const finalized = await tx.aiLifecycleOperation.updateMany({
+        where: { id: operationId, version: currentOperation.version, state: "processing" },
+        data: { state: "completed", resultState: "completed", targetState: "purged", targetTombstoneCode: "artifact_unavailable", terminalAt: now, version: { increment: 1 } },
+      });
+      if (finalized.count !== 1) throw new VeraLifecycleError("target_revision_conflict", "Artifact deletion was fenced during finalization.", 409);
     });
-    // Do not acknowledge object lineage until the final hold-aware lifecycle
-    // tombstone transaction has committed; failed finalization stays
-    // reclaimable for the next worker.
-    await completeObjectPurgeWorkItems(this.db, operationId);
   }
 
   /**
@@ -2317,7 +2529,17 @@ export class VeraLifecycleService {
       });
       if (claimed.count !== 1) return null;
       if (claim.objectType !== "AiExportJob") throw new VeraLifecycleError("target_unavailable", "Unsupported key-destruction object.", 409);
-      const exportJob = await tx.aiExportJob.findUnique({ where: { id: claim.objectId }, select: { id: true, studentId: true, parts: { select: { ciphertextEnvelope: true } } } });
+      const exportJob = await tx.aiExportJob.findUnique({
+        where: { id: claim.objectId },
+        select: {
+          id: true,
+          studentId: true,
+          parts: {
+            orderBy: { ordinal: "asc" },
+            select: { ordinal: true, plaintextBytes: true, partDigest: true, ciphertextEnvelope: true },
+          },
+        },
+      });
       if (!exportJob) throw new VeraLifecycleError("target_unavailable", "Export key-destruction target is unavailable.", 409);
       if (exportJob.studentId) {
         // Legal-erasure is an explicit dual-control override, but every other
@@ -2338,23 +2560,42 @@ export class VeraLifecycleService {
         claimId: claim.id,
         claimVersion: claim.claimVersion + 1,
         keyLineageDigest: claim.keyLineageDigest,
-        envelopes: exportJob.parts.map((part) => part.ciphertextEnvelope),
+        exportId: exportJob.id,
+        parts: exportJob.parts,
       };
     });
     if (!marker) return false;
 
     try {
+      // Parse and verify the complete persisted lineage only after the marker
+      // transaction commits. Any malformed part/key evidence is therefore
+      // caught by the recovery handler below, which fences the claim back to
+      // retryable instead of leaving an executing claim that can be mistaken
+      // for successful destruction.
+      const lineage = exportPartKeyLineage(marker.exportId, marker.parts);
+      if (lineage.digest !== marker.keyLineageDigest) {
+        throw new VeraLifecycleError("export_payload_unavailable", "The persisted export key lineage no longer matches its legal-erasure claim.", 409);
+      }
+      const keyRows = await this.db.aiEnvelopeKey.findMany({
+        where: { keyRef: { in: lineage.keyRefs } },
+        select: { keyRef: true, state: true },
+      });
+      const keyStates = new Map(keyRows.map((row) => [row.keyRef, row.state]));
+      if (keyRows.length !== lineage.keyRefs.length || lineage.keyRefs.some((keyRef) => !["active", "destroyed"].includes(keyStates.get(keyRef) ?? ""))) {
+        throw new VeraLifecycleError("export_payload_unavailable", "The persisted export key registry lineage is incomplete.", 409);
+      }
       const registry = this.envelope.forClient(this.db);
-      const keyRefs = new Set<string>();
-      for (const candidate of marker.envelopes) {
-        const envelope = asEnvelope(candidate);
-        if (!envelope || keyRefs.has(envelope.keyRef)) continue;
-        keyRefs.add(envelope.keyRef);
+      const keyRefs = new Set(lineage.keyRefs);
+      const processedKeyRefs = new Set<string>();
+      for (const envelope of lineage.envelopes) {
+        if (processedKeyRefs.has(envelope.keyRef)) continue;
+        processedKeyRefs.add(envelope.keyRef);
         // The durable registry row is the per-key irreversible-call fence.
         // A takeover after a process loss observes `destroyed` and skips the
         // registry call, so a crash between the external call and the claim
         // final CAS cannot repeat key destruction.
         const keyState = await this.db.aiEnvelopeKey.findUnique({ where: { keyRef: envelope.keyRef }, select: { state: true } });
+        if (!keyState) throw new VeraLifecycleError("export_payload_unavailable", "A required export key registry row is missing.", 409);
         if (keyState?.state === "destroyed") continue;
         await registry.purgeAsync(envelope);
         const checkpointDigest = sha256Hex(canonicalExportJson({
@@ -2455,7 +2696,10 @@ export class VeraLifecycleService {
         FOR UPDATE
       `;
       await tx.$queryRaw`SELECT id FROM ai_export_jobs WHERE id = ${input.exportId}::uuid FOR UPDATE`;
-      const job = await tx.aiExportJob.findUnique({ where: { id: input.exportId } });
+      const job = await tx.aiExportJob.findUnique({
+        where: { id: input.exportId },
+        include: { parts: { orderBy: { ordinal: "asc" } } },
+      });
       if (!job) throw new VeraLifecycleError("target_unavailable", "Export not found.", 404);
       await tx.$queryRaw`SELECT id FROM ai_lifecycle_operations WHERE id = ${job.operationId}::uuid FOR UPDATE`;
       const operation = await tx.aiLifecycleOperation.findUnique({ where: { id: job.operationId } });
@@ -2512,7 +2756,11 @@ export class VeraLifecycleService {
         throw new VeraLifecycleError("capability_denied", error instanceof Error ? error.message : "Two current approvals are required.", 403);
       }
 
-      const keyLineageDigest = job.contentEnvelopeKeyId ? sha256Hex(job.contentEnvelopeKeyId) : sha256Hex(job.id);
+      // Bind the legal-erasure decision to the exact persisted part/key
+      // lineage.  The legacy contentEnvelopeKeyId is not authoritative and a
+      // job id alone cannot prove which package keys were actually retained.
+      const partLineage = exportPartKeyLineage(job.id, job.parts);
+      const keyLineageDigest = partLineage.digest;
       await tx.$queryRaw`SELECT id FROM ai_key_destruction_claims WHERE object_type = 'AiExportJob' AND object_id = ${job.id}::uuid AND key_lineage_digest = ${keyLineageDigest} FOR UPDATE`;
       const existingClaim = await tx.aiKeyDestructionClaim.findUnique({ where: { objectType_objectId_keyLineageDigest: { objectType: "AiExportJob", objectId: job.id, keyLineageDigest } } });
       const decisionSnapshot = {

@@ -432,6 +432,7 @@ const base = ${JSON.stringify(base)}
 const adminToken = ${JSON.stringify(fixture.adminToken)}
 const studentToken = ${JSON.stringify(fixture.studentToken)}
 const readyExportId = ${JSON.stringify(exportTarget.exportId)}
+const expiredExportId = ${JSON.stringify(expiredTarget.exportId)}
 const grantExportId = ${JSON.stringify(browserGrantTarget.exportId)}
 const grantToken = ${JSON.stringify(browserGrantToken)}
 const conversationOperationId = ${JSON.stringify(conversationDelete.operationId)}
@@ -602,6 +603,29 @@ if (!exportUiState?.text.includes('Ekspor:')) throw new Error('learner export UI
 await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconnect learner lifecycle status' })
 await new Promise((resolve) => setTimeout(resolve, 800))
 if (!(await visibleText('Status tersimpan sudah diperbarui.'))) throw new Error('learner lifecycle reconnect control did not announce its stored status')
+// Bind the learner page to a real ready export from the HTTP fixture, then
+// exercise the page download control (not only the raw download endpoint).
+await fillInput('input[aria-label="ID ekspor"]', readyExportId)
+await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'load ready export in learner lifecycle panel' })
+await new Promise((resolve) => setTimeout(resolve, 800))
+const readyUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
+if (!readyUiState.includes('Ekspor: ready')) throw new Error('learner lifecycle panel did not load the ready export state: ' + readyUiState)
+await click('[data-vera-export-download]', { label: 'download learner export from page' })
+await new Promise((resolve) => setTimeout(resolve, 800))
+const downloadedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
+if (!downloadedUiState.includes('Unduh: downloaded')) throw new Error('learner page download control did not report a completed download: ' + downloadedUiState)
+// The same page must surface terminal lifecycle states and a typed stale/
+// already-purged target without exposing whether another student owns it.
+await fillInput('input[aria-label="ID ekspor"]', expiredExportId)
+await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'show expired learner export' })
+await new Promise((resolve) => setTimeout(resolve, 800))
+const expiredUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
+if (!expiredUiState.includes('Ekspor: expired')) throw new Error('learner page did not surface expired export state: ' + expiredUiState)
+await fillInput('input[aria-label="ID ekspor"]', crypto.randomUUID())
+await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'show stale learner export target' })
+await new Promise((resolve) => setTimeout(resolve, 800))
+const staleUiState = await js('(() => ({ status: (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim(), alerts: [...document.querySelectorAll("[role=alert]")].map((node) => (node.textContent || "").trim()).filter(Boolean) }))()')
+if (!staleUiState.alerts.some((message) => message.includes('target unavailable') || message.includes('target_unavailable'))) throw new Error('learner page did not surface a privacy-safe stale/already-purged error: ' + JSON.stringify(staleUiState))
 await fillInput('input[aria-label="ID ekspor"]', grantExportId)
 await fillInput('input[aria-label="Token akses cleanup"]', grantToken)
 await click('xpath=//button[contains(normalize-space(.), "Periksa grant")]', { label: 'check learner cleanup grant' })
@@ -610,13 +634,16 @@ const grantUiState = await js('(() => { const status = document.querySelector("[
 if (!grantUiState.includes('Grant: cleanup_grant:active')) throw new Error('learner lifecycle grant control did not expose the active cleanup grant: ' + grantUiState)
 await click('xpath=//button[contains(normalize-space(.), "Hapus percakapan ini")]', { label: 'delete learner conversation from lifecycle panel' })
 await new Promise((resolve) => setTimeout(resolve, 1_000))
+if (!(await visibleText('Konfirmasi penghapusan percakapan?'))) throw new Error('learner delete UI did not require an explicit confirmation')
+await click('[data-vera-delete-confirm] button', { label: 'confirm learner conversation deletion' })
+await new Promise((resolve) => setTimeout(resolve, 1_000))
 const deleteUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
 if (!deleteUiState.includes('Hapus:')) throw new Error('learner delete UI did not expose a durable operation state: ' + deleteUiState)
 await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconcile learner delete status' })
 await new Promise((resolve) => setTimeout(resolve, 800))
-const reducedMotionState = await js('({ reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches, panelVisible: Boolean(document.querySelector("[data-vera-lifecycle-panel]")), liveRegion: document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.getAttribute("aria-live") })')
+const reducedMotionState = await js('({ reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches, panelVisible: Boolean(document.querySelector("[data-vera-lifecycle-panel]")), liveRegion: document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.getAttribute("aria-live"), download: (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").includes("Unduh:") })')
 if (!reducedMotionState.reducedMotion || !reducedMotionState.panelVisible || reducedMotionState.liveRegion !== 'polite') throw new Error('learner lifecycle reduced-motion/accessibility evidence failed: ' + JSON.stringify(reducedMotionState))
-cliLog('PASS VERA_BROWSER_LIFECYCLE_UI export=create+status conversation=delete reconnect=checked grant=active reduced-motion=checked accessibility=live-region')
+cliLog('PASS VERA_BROWSER_LIFECYCLE_UI export=create+status+download+expired+stale conversation=delete+confirmation+already-purged reconnect=checked grant=active reduced-motion=checked accessibility=live-region')
 const learnerAccessibility = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const focusable = [...document.querySelectorAll("button,textarea,input,[role=tab]")].find(visible); if (focusable) focusable.focus(); const active = document.activeElement; const statusNodes = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible); return { focusable: Boolean(focusable && active === focusable), statusesHaveLiveRegion: statusNodes.every((node) => node.getAttribute("aria-live") === "polite" || node.getAttribute("aria-live") === "assertive") }; })()')
 if (!learnerAccessibility.focusable || !learnerAccessibility.statusesHaveLiveRegion) throw new Error('learner Studio accessibility evidence failed: ' + JSON.stringify(learnerAccessibility))
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
@@ -968,7 +995,7 @@ async function main(): Promise<void> {
   await setupDb.$disconnect();
 
   const evidence: Array<[string, readonly string[]]> = [
-    ["test:vera-prisma-sprint5-t11", ["T11_EVIDENCE callback_namespace=chat", "T11_EVIDENCE callback_namespace=drill", "T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger", "T11_EVIDENCE hold_worker=conversation+artifact", "daily_validation_checks=30 actual=true", "T11_EVIDENCE reaper=failed_terminal"]],
+    ["test:vera-prisma-sprint5-t11", ["T11_EVIDENCE callback_namespace=chat", "T11_EVIDENCE callback_namespace=drill", "T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger", "T11_EVIDENCE hold_worker=conversation+artifact", "daily_validation_checks=30", "T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=restarted-kms actual=true", "T11_EVIDENCE reaper=failed_terminal"]],
     ["test:vera-prisma-sprint3", ["PASS vera-prisma-sprint3", "T12_EVIDENCE operation=conversation_create actual=true"]],
     ["test:vera-prisma-sprint2", ["actual HTTP route auth/body/privacy/replay/expired DTO assertions", "one provider"]],
     ["test:vera-prisma-sprint4-runtime", ["optional include/read gating", "partition faults return privacy-safe"]],
@@ -996,19 +1023,23 @@ async function main(): Promise<void> {
     candidate.startsWith("T11_EVIDENCE account_settlement=")
     || candidate.startsWith("T11_EVIDENCE hold_worker=")
     || candidate.startsWith("T11_EVIDENCE reaper=")
-    || candidate.includes("daily_validation_checks=30 actual=true")
+    || candidate.includes("daily_validation_checks=30")
   ))) console.log(line);
   assert.match(learnerOutput, /PASS vera-prisma-sprint2/u, "Sprint 2 learner flow did not report an executable pass");
-  for (const namespace of ["conversation_create", "ai_request", "learning_recommendation_create", "artifact_apply"]) {
-    assert(sprint3Output.includes(`T12_EVIDENCE operation=${namespace} actual=true`), `Sprint 3 public operation evidence did not prove ${namespace}`);
-  }
+  assert.match(sprint3Output, /PASS vera-prisma-sprint3/u, "Sprint 3 callback/read evidence did not report an executable pass");
+  const operationEvidenceLines = callbackOutput.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("T11_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass") && line.includes(" evidenceDigest="));
+  const operationNamespaces = operationEvidenceLines
+    .map((line) => line.match(/^T11_EVIDENCE operation=([^ ]+)/u)?.[1])
+    .filter((value): value is string => Boolean(value));
+  assert.deepEqual([...new Set(operationNamespaces)].sort(), ["ai_request", "artifact_apply", "artifact_delete", "conversation_create", "conversation_delete", "export_create", "learning_recommendation_create"], "T11/T12 operation evidence must cover exactly the seven persisted operation namespaces");
+  assert.equal(new Set(operationNamespaces).size, 7, "T11/T12 operation evidence contained a duplicate or unknown namespace");
   assert.match(t9t10Output, /PASS vera-prisma-sprint4-runtime/u, "Sprint 4 T9/T10 runtime did not report an executable pass");
   for (const line of callbackEvidenceLines) console.log(line);
-  for (const line of callbackOutput.split("\n").filter((line) => line.startsWith("T11_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass"))) console.log(line);
-  // Forward only the verified public operation rows from the real Sprint 3
-  // fixture.  The wrapper consumes these rows as executable evidence rather
-  // than inferring operation coverage from source markers.
-  for (const line of sprint3Output.split("\n").filter((line) => line.startsWith("T12_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass"))) console.log(line);
+  // Forward only the seven verified operation rows emitted by the executable
+  // T11/T12 fixtures. The wrapper never infers coverage from source markers.
+  for (const line of operationEvidenceLines) console.log(line);
   const callbackSummary = callbackOutput.split("\n").map((line) => line.trim()).find((line) => line.startsWith("T11_EVIDENCE callbacks=") && line.includes(" actual=true") && line.includes(" status=pass"));
   assert(callbackSummary, "T11 callback summary was not produced by the executable matrix");
   const learnerPass = learnerOutput.split("\n").map((line) => line.trim()).find((line) => line.startsWith("PASS vera-prisma-sprint2:"));

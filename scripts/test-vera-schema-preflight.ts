@@ -63,7 +63,8 @@ await runChecks("vera-schema-preflight", [
       const changed = execFileSync("git", ["diff", "--name-only", "--", "prisma/migrations"], { encoding: "utf8" })
         .split("\n").map((line) => line.trim()).filter(Boolean);
       const allowedBaseline = "prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql";
-      const unexpected = changed.filter((file) => file !== allowedBaseline);
+      const allowedSprint5Correction = "prisma/migrations/20260828100000_retain_legal_export_metadata/migration.sql";
+      const unexpected = changed.filter((file) => file !== allowedBaseline && file !== allowedSprint5Correction);
       assert(unexpected.length === 0, `unexpected existing migration changes: ${unexpected.join(", ")}`);
       assert(migration.includes("ai_policy_bundles"), "policy migration missing");
       assert(migration.includes("ai_content_migration_audits"), "inventory migration missing");
