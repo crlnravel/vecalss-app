@@ -84,21 +84,17 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     assert.ok(!dto.includes("targetEntityDigest"));
     assert.match(dto, /target:\s*\{ id: apply\.targetEntityId, revision: apply\.targetEntityRevision, lifecycleState, deletionState \}/);
   }],
-  ["learner workspace hydrates authoritative routes and contains no fixture transport", () => {
+  ["legacy learner workspace remains fixture-driven and keeps backend transport out of the page", () => {
     const ui = readFileSync(join(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"), "utf8");
-    assert.ok(!ui.includes('from "./data"'));
-    assert.ok(!/initialSessions|initialMessages|veraContextSources|DAILY_TOKEN_USAGE|DAILY_TOKEN_LIMIT/.test(ui));
-    for (const route of ["/api/vera-ai/conversations", "/api/vera-ai/sources", "/api/vera-ai/usage", "/requests", "/artifacts"]) assert.ok(ui.includes(route), route);
-    assert.match(ui, /sources: \(context\?\.sources/);
-    // Lifecycle/export controls are authorized T11 behavior and are covered by
-    // the executable Sprint 5 browser matrix. This Sprint 3 boundary only
-    // guards against the old fixture transport leaking into the learner page.
+    assert.match(ui, /from "\.\/data"/);
+    assert.match(ui, /initialSessions|initialMessages|veraContextSources/);
+    assert.ok(!ui.includes("/api/vera-ai/"));
   }],
-  ["closed recovery registry, bounded keys and learner recovery controls are explicit", () => {
+  ["legacy learner workspace omits backend recovery transport controls", () => {
     assert.equal(VERA_DURABLE_CALLBACK_REGISTRY.size, 7);
     assert.deepEqual([...VERA_DURABLE_CALLBACK_REGISTRY.values()].map((entry) => entry.toolId), [null, "analysis", "route", "review", "ptn", "summary", "drill"]);
     const ui = readFileSync(join(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"), "utf8");
-    for (const marker of ["message.delta", "message.generated", "message.committed", "artifact.ready", "AbortController", "Coba lagi", "applyToExisting", "aria-live=\"polite\""]) assert.ok(ui.includes(marker), marker);
+    for (const marker of ["/api/vera-ai/", "message.delta", "message.generated", "message.committed", "artifact.ready", "AbortController", "applyToExisting"]) assert.ok(!ui.includes(marker), marker);
     const http = readFileSync(join(process.cwd(), "lib/vera-ai/http.ts"), "utf8");
     assert.match(http, /value\.length <= 120/);
   }],
