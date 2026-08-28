@@ -381,8 +381,8 @@ function MateriBuilderEditor({
         </div>
 
         <ReferenceSurface className="space-y-4 p-4 sm:p-5" variant="inset">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3">
+          <div className={cn("flex flex-wrap justify-between gap-4", hasDocumentName ? "items-center" : "items-start")}>
+            <div className={cn("flex min-w-0 gap-3", hasDocumentName ? "items-center" : "items-start")}>
               <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-white text-primary-800 ring-1 ring-primary-100">
                 <FileText className="size-5" />
               </span>

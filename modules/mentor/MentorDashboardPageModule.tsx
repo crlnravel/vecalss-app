@@ -71,6 +71,7 @@ function toDashboardActivities(resources: readonly DashboardResource[]): Referen
 
 const mentorActivityFeedClassName = [
   "[&>div:first-child]:hidden",
+  "[&_[data-activity-id]]:py-2",
   "[&_[data-activity-id]>div:last-child>div:first-child]:items-start",
   "[&_[data-activity-id]>div:first-child]:bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)]",
   "[&_[data-activity-id]>div:first-child]:text-[#176b4d]",
@@ -147,7 +148,7 @@ function MentorDashboardPageModule({
           <ReferenceSectionHeading title="Aktivitas terbaru" />
           <ReferenceActivityFeed
             activities={recentActivities}
-            className={`min-h-[28rem] ${mentorActivityFeedClassName}`}
+            className={`min-h-0 ${mentorActivityFeedClassName}`}
             nextAction={
               nextScheduledResource ? (
                 <Link
@@ -200,7 +201,7 @@ function MentorDashboardLoadingState() {
         <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
           <div className="space-y-4">
             <Skeleton className="h-8 w-64 rounded-2xl bg-primary-100/80" />
-            <Skeleton className="min-h-[28rem] rounded-4xl bg-primary-100/70" />
+            <Skeleton className="h-56 rounded-4xl bg-primary-100/70" />
           </div>
           <div className="space-y-4">
             <Skeleton className="h-8 w-56 rounded-2xl bg-primary-100/80" />

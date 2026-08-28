@@ -79,6 +79,8 @@ function TryoutStatusTabs({
 }
 
 function TryoutCard({ item }: { item: TryoutItem }) {
+  const tryoutBadgeClassName = "border-0 px-3 py-1.5 shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]";
+
   return (
     <Link
       aria-label={`Buka ${item.title}`}
@@ -96,17 +98,18 @@ function TryoutCard({ item }: { item: TryoutItem }) {
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold text-secondary-900">{item.title}</h2>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <ReferenceStatusBadge size="xs" status={item.status} />
-            <ReferenceStatusBadge
-              label={item.locked ? (
+            <ReferenceStatusBadge className={tryoutBadgeClassName} size="sm" status={item.status} />
+            {item.locked ? <ReferenceStatusBadge
+              className={tryoutBadgeClassName}
+              label={(
                 <span aria-label="Tryout terkunci" className="inline-flex items-center gap-1" title="Tryout terkunci">
                   <Lock aria-hidden="true" className="size-3" />
                   Terkunci
                 </span>
-              ) : "Terbuka"}
-              size="xs"
-              status={item.locked ? "blocked" : "active"}
-            />
+              )}
+              size="sm"
+              status="blocked"
+            /> : null}
           </div>
         </div>
       </div>

@@ -270,12 +270,11 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
       sidebarAppearance="reference"
     >
       <ReferencePageHeader
-        description="Kelola profil, workspace konten, dan default publikasi Kapten."
+        description="Kelola profil dan workspace konten Kapten."
         title="Pengaturan"
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
-        <div className="grid min-w-0 gap-6">
+      <div className="grid min-w-0 gap-6">
           <SettingsSection
             description="Atur detail akun Kapten."
             id="akun"
@@ -318,7 +317,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
                 </Field>
               </div>
 
-              <div className="flex min-w-0 justify-center rounded-3xl border border-primary-100/80 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] xl:justify-start">
+              <div className="flex w-fit max-w-full min-w-0 justify-start rounded-3xl border border-primary-100/80 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] [&>div>p]:text-xs [&>div>p]:font-semibold [&>div>p]:leading-5 [&>div>p]:tracking-[0.04em] [&>div>p]:text-secondary-600">
                 <ProfilePhotoEditor initials={initials} />
               </div>
             </div>
@@ -359,48 +358,6 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
               </Field>
             </div>
           </SettingsSection>
-        </div>
-
-        <SettingsSection
-          description="Default saat resource siap rilis."
-          id="publikasi"
-          title="Publikasi"
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
-              <span className="min-w-0">Preview sebelum publish</span>
-              <input
-                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                defaultChecked
-                type="checkbox"
-              />
-            </label>
-            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
-              <span className="min-w-0">Jadwalkan dalam WIB</span>
-              <input
-                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                defaultChecked
-                type="checkbox"
-              />
-            </label>
-            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
-              <span className="min-w-0">Gunakan Question Bank</span>
-              <input
-                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                defaultChecked
-                type="checkbox"
-              />
-            </label>
-            <label className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-primary-100/80 bg-primary-50/70 px-4 py-3 text-sm font-medium leading-5 text-secondary-800 shadow-[inset_-3px_-3px_8px_rgba(255,255,255,0.76),inset_3px_3px_8px_rgba(23,107,77,0.1)]">
-              <span className="min-w-0">Review sebelum rilis</span>
-              <input
-                className="size-4 shrink-0 accent-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                defaultChecked
-                type="checkbox"
-              />
-            </label>
-          </div>
-        </SettingsSection>
       </div>
     </MentorWorkspaceShell>
   );

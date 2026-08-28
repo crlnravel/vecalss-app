@@ -138,7 +138,7 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
       className={cn(
         REFERENCE_SURFACE_CLASS_NAMES.raised,
         REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
-        "group flex min-h-36 min-w-0 flex-col p-5",
+        "group flex min-w-0 flex-col p-4",
       )}
       href={`/mentor/quiz/subject/${subject.slug}`}
     >
@@ -147,7 +147,7 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
           {subjectCategory}
         </span>
       </div>
-      <h2 className="mt-5 text-xl font-semibold text-secondary-900">{subject.name}</h2>
+      <h2 className="mt-4 text-xl font-semibold text-secondary-900">{subject.name}</h2>
     </Link>
   );
 }
