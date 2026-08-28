@@ -1603,11 +1603,11 @@ function TryoutFooterActions({
   if (mode !== "draft" || workspace === "review") return null;
 
   return (
-    <footer aria-label="Tindakan langkah Tryout" className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4">
+    <footer aria-label="Tindakan langkah Tryout" className="mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4">
       <div className="flex flex-wrap justify-end gap-2">
         {draft.locked ? <Button disabled={saving} onClick={onDuplicateClick} variant="brand"><Copy />Duplikat draf baru</Button> : null}
-        {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="reference">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-        {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="reference">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+        {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+        {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
       </div>
     </footer>
   );
