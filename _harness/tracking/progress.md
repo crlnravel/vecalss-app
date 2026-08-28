@@ -1,5 +1,20 @@
 # Session Progress Log
 
+## Mentor dashboard summary cleanup (2026-08-28)
+
+- [x] Removed the three top summary cards (`Materi terbaru`, `Kuis terbaru`,
+  and `Jadwal aktif`) from the mentor dashboard while preserving the activity
+  feed and upcoming-schedule workspace.
+- [x] Removed the matching three-card skeleton from the dashboard loading
+  state; `app/mentor/dashboard/loading.tsx` continues to delegate to the same
+  updated loading component.
+- [x] Focused ESLint, `test:mentor-dashboard-ia`, `git diff --check`, and
+  `pnpm build` pass. Repository-wide lint remains blocked by the preserved
+  unrelated `tmp/reference/res1` diagnostics.
+- [x] Browser QA was intentionally skipped after the updated harness required
+  explicit permission; no browser verification is included for this change.
+- [x] Commit: `84384bd` (`fix: remove mentor dashboard summary cards`).
+
 ## Tryout Policy and session authoring refinement (2026-08-28)
 
 - [x] Removed the `Terpilih` badge from checked questions in the draft

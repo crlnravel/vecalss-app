@@ -1,5 +1,23 @@
 # Session Handoff
 
+## Mentor dashboard summary cleanup (2026-08-28)
+
+- Objective: remove the top summary-card section from the mentor dashboard.
+- Implementation: `84384bd` removes the live `ReferenceStatGrid` cards and the
+  matching three-card loading skeleton from
+  `modules/mentor/MentorDashboardPageModule.tsx`; activity, schedule, quick
+  create, navigation, and data projections remain unchanged.
+- Verification: focused ESLint, `test:mentor-dashboard-ia`,
+  `git diff --check`, and `pnpm build` pass. The repository-wide lint and the
+  commit hook remain blocked by unrelated diagnostics under
+  `tmp/reference/res1`.
+- Browser QA: intentionally skipped because the updated harness requires
+  explicit permission before ego-browser verification and none was granted.
+- Scope: only the mentor dashboard module changed; the route loading entry
+  point delegates to the updated loading component. Existing
+  `.agents/skills/information-architecture/` remains untouched, as do the
+  Bank Soal and Materi agent-owned page groups.
+
 ## Tryout Policy and session authoring refinement (2026-08-28)
 
 - Objective: finish the reference treatment for the scoped Tryout draft
