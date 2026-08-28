@@ -317,8 +317,13 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
                 </Field>
               </div>
 
-              <div className="flex w-fit max-w-full min-w-0 justify-start rounded-3xl border border-primary-100/80 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] [&>div>p]:text-xs [&>div>p]:font-semibold [&>div>p]:leading-5 [&>div>p]:tracking-[0.04em] [&>div>p]:text-secondary-600">
-                <ProfilePhotoEditor initials={initials} />
+              <div className="grid w-fit max-w-full min-w-0 gap-2">
+                <p className="text-xs font-semibold leading-5 tracking-[0.04em] text-secondary-600">
+                  Profile picture
+                </p>
+                <div className="flex w-fit max-w-full min-w-0 justify-start rounded-3xl border border-primary-100/80 bg-primary-50/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)]">
+                  <ProfilePhotoEditor initials={initials} showLabel={false} />
+                </div>
               </div>
             </div>
           </SettingsSection>

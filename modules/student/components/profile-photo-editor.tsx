@@ -21,6 +21,7 @@ import {
 
 type ProfilePhotoEditorProps = {
   initials: string;
+  showLabel?: boolean;
 };
 
 function readFileAsDataUrl(file: File) {
@@ -44,7 +45,7 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-function ProfilePhotoEditor({ initials }: ProfilePhotoEditorProps) {
+function ProfilePhotoEditor({ initials, showLabel = true }: ProfilePhotoEditorProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [draftPhotoSrc, setDraftPhotoSrc] = useState<string | null>(null);
@@ -93,8 +94,8 @@ function ProfilePhotoEditor({ initials }: ProfilePhotoEditorProps) {
   }
 
   return (
-    <div className="flex flex-col items-start gap-3 pt-2">
-      <p className="text-base leading-7 text-primary-900">Profile picture</p>
+    <div className={showLabel ? "flex flex-col items-start gap-3 pt-2" : "flex flex-col items-start gap-3"}>
+      {showLabel ? <p className="text-base leading-7 text-primary-900">Profile picture</p> : null}
       <div className="group/photo relative">
         <Avatar className="size-32 overflow-hidden border border-primary-100 shadow-[0_18px_44px_-24px_rgba(1,76,56,0.32)]">
           {committedPhotoSrc ? (
