@@ -1,5 +1,21 @@
 # Session Progress Log
 
+## Mentor dashboard activity navigation alignment (2026-08-28)
+
+- [x] Moved `Aktivitas terbaru` into the same `ReferenceSectionHeading`
+  treatment as `Jadwal berikutnya`, with the feed's nested heading and marker
+  hidden through dashboard-local styling to avoid duplicate headings.
+- [x] Replaced each activity date with an accessible 44px right-chevron link
+  to the resource's existing detail route while retaining the title link,
+  stacked resource type, and student Materi gradient icon tile.
+- [x] Focused ESLint, `test:mentor-dashboard-ia`, and `git diff --check` pass.
+  `pnpm build` compiles the app but stops on an unrelated concurrent
+  TypeScript error at `modules/mentor/KaptenMateriCataloguePageModules.tsx:291`
+  (`catalogue` is undefined); that file was not modified.
+- [x] Browser QA was skipped because the active harness requires explicit
+  permission and the coordinating agent requested no browser check.
+- [x] Commit: `0d2dcda` (`fix: align mentor activity navigation`).
+
 ## Mentor dashboard activity feed refinement (2026-08-28)
 
 - [x] Removed the decorative green marker before `Aktivitas terbaru` on the

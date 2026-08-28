@@ -1,5 +1,28 @@
 # Session Handoff
 
+## Mentor dashboard activity navigation alignment (2026-08-28)
+
+- Objective: make the mentor dashboard activity column parallel with
+  `Jadwal berikutnya` and make each entry's trailing affordance navigate to
+  its detail page.
+- Implementation: `0d2dcda` wraps the activity feed in a dashboard-local
+  `ReferenceSectionHeading`, hides the feed primitive's duplicate heading and
+  marker, and replaces formatted timestamps with accessible 44px chevron links
+  targeting each resource's existing `href`. The title/type rows and student
+  Materi gradient icon treatment remain intact.
+- Verification: focused ESLint, `test:mentor-dashboard-ia`, and
+  `git diff --check` pass. Production compilation succeeds, but TypeScript
+  stops on the unrelated concurrent `catalogue` error at
+  `modules/mentor/KaptenMateriCataloguePageModules.tsx:291`; that file was not
+  modified.
+- Browser QA: intentionally skipped because the active harness requires
+  explicit permission before ego-browser verification and the coordinating
+  agent requested no browser check.
+- Scope: only `modules/mentor/MentorDashboardPageModule.tsx` changed in this
+  commit; shared reference primitives and the Materi agent-owned page group
+  remain untouched. Existing unrelated dirty files and the untracked
+  `.agents/skills/information-architecture/` directory remain preserved.
+
 ## Mentor dashboard activity feed refinement (2026-08-28)
 
 - Objective: make the mentor dashboard's `Aktivitas terbaru` feed quieter and
