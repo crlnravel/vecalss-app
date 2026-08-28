@@ -14,7 +14,7 @@ const organization = read("lib/question-bank/organization.ts");
 const labels = read("lib/question-bank/labels.ts");
 const shell = read("modules/mentor/components/mentor-workspace-shell.tsx");
 const packageBuilder = read("modules/mentor/KaptenPackageBuilderPageModule.tsx");
-const quizBuilder = read("modules/mentor/KaptenQuizBuilderPageModule.tsx");
+const quizBuilder = read("modules/mentor/KaptenQuizEditorPageModule.tsx");
 const tryoutBuilder = read("modules/mentor/KaptenTryoutBuilderPageModule.tsx");
 const packageJson = JSON.parse(read("package.json")) as {
   scripts?: Record<string, string>;
@@ -99,7 +99,7 @@ assert.match(builder, /aria-live="assertive"/u);
 assert.match(builder, /<RadioGroup key=\{questionDraft\.id\}/u);
 assert.match(builder, /hasSubmittedPreview: false/u);
 assert.match(builder, /previewChoiceId: null/u);
-assert.match(builder, /onChoiceChange: \(value\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u);
+assert.match(builder, /onChoiceChange: \(value(?:: string)?\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u);
 const saveCall = builder.match(/saveQuestionBankAction\(\{[\s\S]*?\}\)/u)?.[0] ?? "";
 assert.doesNotMatch(saveCall, /previewChoiceId|hasSubmittedPreview/u);
 
@@ -145,9 +145,9 @@ assert.match(actions, /questionBankActionFailure\(error, "Status Bank Soal tidak
 // not import the editor's legacy catalogue vocabulary.
 assert.match(packageBuilder, /<FieldLabel htmlFor="package-source-bank-picker">Bank Soal<\/FieldLabel>/u);
 assert.match(packageBuilder, /Pilih Bank Soal/u);
-assert.match(quizBuilder, /<FieldLabel htmlFor="quiz-bank">Bank Soal<\/FieldLabel>/u);
-assert.match(quizBuilder, /Pilih bank soal/u);
-assert.match(tryoutBuilder, /<FieldLabel>Bank Soal untuk ditelusuri<\/FieldLabel>/u);
+assert.match(quizBuilder, /<FieldLabel htmlFor="quiz-editor-subject">Subjek<\/FieldLabel>/u);
+assert.match(quizBuilder, /ReferenceSelect/u);
+assert.match(tryoutBuilder, /<FieldLabel>Bank Soal untuk ditelusuri(?:\s*<RequiredMark\s*\/>)?\s*<\/FieldLabel>/u);
 assert.match(tryoutBuilder, /role="listbox"/u);
 for (const [name, source] of [["Paket Soal", packageBuilder], ["Kuis", quizBuilder], ["Tryout", tryoutBuilder]] as const) {
   assert.doesNotMatch(source, /\bUnfiled\b|\bunfiled\b/u, `${name} source picker must not expose legacy catalogue vocabulary`);

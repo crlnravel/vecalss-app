@@ -62,7 +62,7 @@ assert.match(builder, /aria-invalid=\{hasSubtestIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasChoiceCountIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasCorrectChoiceIssue\}/u);
 assert.match(builder, /aria-invalid=\{hasPromptMediaIssue\}/u);
-assert.match(builder, /<input[^>]*className="[^"]*focus-visible:ring-3 focus-visible:ring-primary-200[^"]*"[^>]*data-question-anchor="choice"/u);
+assert.match(builder, /className=\{cn\(REFERENCE_CONTROL_CLASS_NAMES\.input, "min-w-0 flex-1 bg-transparent py-2"\)\}[^>]*data-question-anchor="choice"/u);
 assert.match(builder, /onBankNoLongerEditable/u);
 assert.match(builder, /pendingRouteReplacement: `\/mentor\/quiz\/question-bank\/\$\{id\}`/u);
 assert.match(builder, /question-choice-count-error/u);
