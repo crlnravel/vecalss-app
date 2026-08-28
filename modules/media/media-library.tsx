@@ -478,8 +478,8 @@ function MediaLibraryScreen({
             <button
               aria-pressed={isActive}
               className={cn(
-                "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold text-secondary-500 transition-[background-color,color,box-shadow] duration-200 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
-                isActive && "bg-white text-secondary-900 shadow-[0_12px_28px_-22px_rgba(23,107,77,0.72)]",
+                "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold text-secondary-700 transition-[background-color,color,box-shadow] duration-200 hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
+                isActive && "bg-primary-700 text-white shadow-[0_12px_28px_-22px_rgba(23,107,77,0.72)]",
               )}
               key={option.value}
               onClick={() => {
