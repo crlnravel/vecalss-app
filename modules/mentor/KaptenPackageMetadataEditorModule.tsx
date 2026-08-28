@@ -14,6 +14,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { saveReusableQuestionPackageMetadataAction } from "@/modules/mentor/tryout-actions";
 
 type PackageMetadata = { description: string; id: string; sourceBankName: string; subtest: string; title: string };
@@ -58,7 +59,7 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
         <ReferenceSurface className="p-4" variant="inset">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <div><dt className="text-secondary-500">Bank</dt><dd className="mt-1 font-semibold text-secondary-900">{initialMetadata.sourceBankName}</dd></div>
-            <div><dt className="text-secondary-500">Subtest</dt><dd className="mt-1"><span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800">{initialMetadata.subtest}</span></dd></div>
+            <div><dt className="text-secondary-500">Subtest</dt><dd className="mt-1"><MentorBadge size="sm" tone="category">{initialMetadata.subtest}</MentorBadge></dd></div>
           </dl>
         </ReferenceSurface>
       </ReferenceSurface>

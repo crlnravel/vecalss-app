@@ -7,6 +7,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { ChevronLeft, ChevronRight, Pencil } from "@/lib/icons";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
 
@@ -113,7 +114,7 @@ function PackageVersionHistory({ hub }: { hub: Hub }) {
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2 font-semibold text-secondary-900">
                       <span>{packageReleaseLabel(version.versionNo)}</span>
-                      {isActive ? <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-800">Versi aktif</span> : null}
+                      {isActive ? <MentorBadge size="xs" tone="active">Versi aktif</MentorBadge> : null}
                     </span>
                     <span className="mt-1 block text-xs text-secondary-500">{packageDateFormatter.format(new Date(versionDate))} · {version.itemCount} soal</span>
                   </span>

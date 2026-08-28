@@ -8,6 +8,7 @@ import {
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 
 type Detail = {
   items: Array<{ difficulty: string; options: Array<{ choiceKey: string; content: string; isCorrect: boolean }>; pointValue: number; prompt: string; sortOrder: number }>;
@@ -23,7 +24,7 @@ function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
     <div className="space-y-5">
       <Button aria-label="Kembali ke versi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${detail.packageId}`} />} size="icon" title="Kembali ke versi Paket" variant="ghost"><ChevronLeft /></Button>
       <ReferencePageHeader
-        actions={<span className="inline-flex rounded-full border border-primary-100 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-800">{packageReleaseLabel(detail.versionNo)}</span>}
+        actions={<MentorBadge size="sm" tone="category">{packageReleaseLabel(detail.versionNo)}</MentorBadge>}
         description="Snapshot tersimpan yang dapat ditinjau tanpa mengubah versi aktif."
         title={detail.packageTitle}
       />
@@ -36,7 +37,7 @@ function KaptenPackageVersionDetailModule({ detail }: { detail: Detail }) {
       </ReferenceSurface>
       <ReferenceSurface as="section" aria-labelledby="package-version-questions-heading" className="p-5 sm:p-7">
         <ReferenceSectionHeading
-          action={<span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800">{detail.items.length} soal</span>}
+          action={<MentorBadge aria-label={`${detail.items.length} soal`} size="xs" tone="category">{detail.items.length} soal</MentorBadge>}
           id="package-version-questions-heading"
           title="Soal"
         />
