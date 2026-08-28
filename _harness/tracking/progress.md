@@ -21,10 +21,10 @@
 - [x] Refreshed the affected Bank Soal source contracts in `17fa021` and
   `3a67d8e` so static checks describe the current reference controls and
   callback signatures.
-- [x] Focused mentor contracts, TypeScript, focused ESLint, `git diff
-  --check`, and the Impeccable layout detector pass. A later full-hook attempt
-  was blocked only by unrelated admin `BarChart3` export diagnostics; the
-  earlier Bank Soal loading hook and current-tree TypeScript checks pass.
+- [x] Focused mentor contracts, focused ESLint, `git diff --check`, and the
+  Impeccable layout detector pass. Mentor-target TypeScript checks are clean;
+  repository-wide `tsc` and a later full-hook attempt are blocked only by
+  unrelated admin `BarChart3` export diagnostics.
 - [x] Browser verification was intentionally deferred per request. The
   Packages subtree remains archived by its existing `notFound()` layout and
   tryout package aliases remain redirect/archived-only; those are not visible

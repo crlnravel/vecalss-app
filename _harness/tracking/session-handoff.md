@@ -20,10 +20,11 @@
   `a6eac8b`, `b204d10`, `dbb18d9`, `6d9e14d`, `8011146`, `1ccbca3`, plus the
   dashboard refinements `84384bd`, `f4e786d`, `0d2dcda`, and `e1d2fbf`.
   Bank Soal contract refreshes are `17fa021` and `3a67d8e`.
-- Verification: focused mentor contracts, `pnpm exec tsc --noEmit
-  --pretty false`, focused ESLint, `git diff --check`, and the Impeccable
-  layout detector (`[]`) pass. A later full-hook run is blocked by unrelated
-  admin `BarChart3` export diagnostics; no in-scope diagnostics remain.
+- Verification: focused mentor contracts, mentor-target TypeScript checks,
+  focused ESLint, `git diff --check`, and the Impeccable layout detector (`[]`)
+  pass. Repository-wide `pnpm exec tsc --noEmit --pretty false` and a later
+  full-hook run are blocked by unrelated admin `BarChart3` export diagnostics;
+  no in-scope diagnostics remain.
 - Browser QA: intentionally deferred per request. Student/admin surfaces and
   untracked `.agents/skills/information-architecture/` remain untouched.
 
