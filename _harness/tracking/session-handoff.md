@@ -1,5 +1,27 @@
 # Session Handoff
 
+## Tryout Delivery alignment follow-up (2026-08-28)
+
+- Objective: resolve the remaining Policy radio and Sessions alignment issues
+  and remove the repeated inner Attempts heading on the scoped Tryout detail
+  route.
+- Implementation: `151b390` centers one-line Policy radio rows (while keeping
+  description rows top-aligned), replaces the Sessions card header grid with a
+  responsive metadata/action layout, and removes only the module-level
+  `Attempts` heading while retaining its refresh toolbar and table.
+- QA: authenticated ego-browser checks at 1496px and 390px show Policy radio
+  label center deltas of 0px, Sessions title/date/release metadata free of
+  action-column squeezing, action/arrow controls inside each card, and no
+  horizontal overflow. Attempts has no inner `h2`, while the lifecycle tab
+  remains present.
+- Verification: focused ESLint, `test:tryout-authoring-workspace`,
+  `test:mentor-dashboard-ia`, Impeccable layout detector `[]`, and
+  `git diff --check` pass. The full verify hook still reaches the preserved
+  `tmp/reference/res1` diagnostics and is not a signal from these files.
+- Scope: only the Tryout detail Delivery/Attempts modules changed; no student,
+  admin, or unrelated mentor/Kapten pages changed; existing untracked
+  `.agents/skills/information-architecture/` remains untouched.
+
 ## Tryout detail Results/sidebar follow-up (2026-08-28)
 
 - Objective: address the last visual issues in the reference-styled Tryout

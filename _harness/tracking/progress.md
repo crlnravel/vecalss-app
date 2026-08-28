@@ -1,5 +1,24 @@
 # Session Progress Log
 
+## Tryout Delivery alignment follow-up (2026-08-28)
+
+- [x] Aligned Delivery/Policy radio rows and their help affordances with the
+  label text while preserving disabled states, descriptions, and save wiring.
+- [x] Rebuilt the embedded Sessions card layout as a responsive two-part
+  composition: title/date/release metadata stays together, while status,
+  primary-session action, and the detail arrow remain aligned at desktop and
+  mobile widths.
+- [x] Removed only the repeated inner `Attempts` heading; the lifecycle tab
+  remains labeled `Attempts` and the refresh/table content is unchanged.
+- [x] Authenticated browser QA at 1496px and 390px confirms zero Policy radio
+  center delta, no Sessions/Attempts horizontal overflow, stable Sessions
+  action geometry, and no visible inner Attempts heading.
+- [x] Focused ESLint, `test:tryout-authoring-workspace`,
+  `test:mentor-dashboard-ia`, Impeccable layout detector, and
+  `git diff --check` pass. The repository-wide verify hook remains blocked by
+  preserved `tmp/reference/res1` prototype diagnostics.
+- [x] Commit: `151b390` (`fix: align tryout delivery surfaces`).
+
 ## Tryout detail Results/sidebar follow-up (2026-08-28)
 
 - [x] Kept the reference sidebar collapse toggle inside the minimized rail by
