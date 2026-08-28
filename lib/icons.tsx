@@ -124,6 +124,7 @@ export const ArrowRight = PhosphorArrowRight;
 export const ArrowUp = PhosphorArrowUp;
 export const ArrowUpRight = PhosphorArrowUpRight;
 export const AtSign = PhosphorAtSign;
+export const BarChart3 = PhosphorChartBar;
 export const Bell = PhosphorBell;
 export const BookOpen = PhosphorBookOpen;
 export const BookOpenCheck = PhosphorBookOpenText;
