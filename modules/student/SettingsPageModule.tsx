@@ -6,6 +6,14 @@ import { AlertCircle, ChevronDown } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
+  ReferencePageHeader,
+  ReferenceSurface,
+} from "@/components/dashboard";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -31,6 +39,7 @@ import { saveProfileAction } from "@/modules/student/actions";
 import { ProfilePhotoEditor } from "@/modules/student/components/profile-photo-editor";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
+import { cn } from "@/lib/utils";
 
 type ProfileData = StudentProfile & {
   targetExamEvent: ExamEvent | null;
@@ -67,11 +76,11 @@ function ProfileSection({
 }) {
   return (
     <section
-      className="grid gap-6 border-t border-primary-100 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10"
+      className="grid gap-5 py-2 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8"
       id={id}
     >
       <div>
-        <h2 className="text-xl leading-tight font-semibold text-secondary-900">{title}</h2>
+        <h2 className="text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900">{title}</h2>
         {description ? <p className="mt-2 text-sm leading-6 text-secondary-500">{description}</p> : null}
       </div>
       <div>{children}</div>
@@ -98,12 +107,12 @@ function SelectField({
 
   return (
     <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={id}>{label}</FieldLabel>
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={label}
           id={id}
-          render={<Button className="w-full justify-between rounded-2xl border-secondary-900/14 bg-white px-5 text-left text-[15px] font-normal text-secondary-900 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
+          render={<Button className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "font-normal")} variant="context" />}
         >
           <span className="truncate">{selectedLabel}</span>
           <ChevronDown aria-hidden className="size-4 shrink-0 text-secondary-500" />
@@ -202,14 +211,10 @@ function SettingsPageModule({
     >
       <form action={formAction} className="space-y-8">
         <ProfileFormContent>
-        <header className="flex flex-col gap-5 pb-6 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">Profil</h1>
-          </div>
-          <SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">
-            Simpan
-          </SubmitButton>
-        </header>
+        <ReferencePageHeader
+          actions={<SubmitButton pendingLabel="Menyimpan..." size="lg" type="submit" variant="brand">Simpan</SubmitButton>}
+          title="Profil"
+        />
 
         {state.message ? (
           <FormNotice tone={state.status === "error" ? "danger" : "success"}>{state.message}</FormNotice>
@@ -219,11 +224,12 @@ function SettingsPageModule({
           id="profil"
           title="Data diri"
         >
-          <div className="grid gap-6 rounded-4xl border border-primary-100 bg-white p-5 shadow-[0_18px_54px_-42px_rgba(1,76,56,0.45)] md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
+          <ReferenceSurface className="grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_170px]">
             <div className="grid gap-5">
               <Field>
-                <FieldLabel htmlFor="profile-full-name">Nama lengkap</FieldLabel>
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="profile-full-name">Nama lengkap</FieldLabel>
                 <FieldInput
+                  className={REFERENCE_CONTROL_CLASS_NAMES.input}
                   aria-describedby={state.fieldErrors?.fullName ? "profile-full-name-error" : undefined}
                   aria-invalid={Boolean(state.fieldErrors?.fullName)}
                   onChange={(event) => setFullName(event.target.value)}
@@ -240,9 +246,9 @@ function SettingsPageModule({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="profile-email">Email</FieldLabel>
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="profile-email">Email</FieldLabel>
                 <FieldInput
-                  className="bg-secondary-50 text-secondary-500"
+                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "bg-secondary-50 text-secondary-500")}
                   defaultValue={session.user.email}
                   id="profile-email"
                   readOnly
@@ -251,14 +257,14 @@ function SettingsPageModule({
               </Field>
             </div>
             <ProfilePhotoEditor initials={initials} />
-          </div>
+          </ReferenceSurface>
         </ProfileSection>
 
         <ProfileSection
           id="target-belajar"
           title="Target belajar"
         >
-          <div className="rounded-4xl border border-primary-100 bg-white p-5 shadow-[0_18px_54px_-42px_rgba(1,76,56,0.45)] md:p-6">
+          <ReferenceSurface className="p-5 md:p-6">
             <div className="grid gap-5 md:grid-cols-2">
               <SelectField
                 id="profile-target-exam"
@@ -303,7 +309,7 @@ function SettingsPageModule({
               />
             </div>
 
-          </div>
+          </ReferenceSurface>
         </ProfileSection>
 
         {hasUnsavedChanges ? (

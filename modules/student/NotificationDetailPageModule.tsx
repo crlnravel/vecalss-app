@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 
 import { ArrowLeft, ArrowUpRight } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
+import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationDetail } from "@/lib/notifications/service";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
@@ -123,21 +124,21 @@ function NotificationDetailPageModule({
       session={session}
     >
       <section className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            className="inline-flex items-center gap-2 text-sm font-semibold text-primary-800 transition-colors hover:text-primary-950"
-            href="/notifications"
-          >
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            Kembali ke notifikasi
-          </Link>
-        </div>
+        <ReferencePageHeader
+          actions={
+            <Link
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-primary-100 bg-white px-4 text-sm font-semibold text-primary-800 transition-[background-color,border-color] hover:border-primary-200 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
+              href="/notifications"
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              Kembali ke notifikasi
+            </Link>
+          }
+          title={notification.title}
+        />
 
-        <article className="rounded-3xl border border-primary-100 bg-white px-5 py-7 shadow-[0_24px_55px_-42px_rgba(1,76,56,0.5)] sm:px-8 sm:py-9">
+        <ReferenceSurface as="article" className="px-5 py-7 sm:px-8 sm:py-9">
           <header>
-            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl">
-              {notification.title}
-            </h1>
             <p className="mt-3 text-sm text-secondary-500">{notification.time}</p>
           </header>
 
@@ -171,7 +172,7 @@ function NotificationDetailPageModule({
               Buka ruang tunggu
             </Button>
           ) : null}
-        </article>
+        </ReferenceSurface>
       </section>
     </StudentWorkspaceShell>
   );

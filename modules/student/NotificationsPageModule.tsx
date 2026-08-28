@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { ChevronRight } from "@/lib/icons";
+import { Bell, ChevronRight } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
+import {
+  ReferenceEmptyState,
+  ReferencePageHeader,
+} from "@/components/dashboard";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import { cn } from "@/lib/utils";
 import type { StudentNotificationItem } from "@/lib/notifications/types";
 import type { SessionContext } from "@/lib/auth/types";
 import { markAllNotificationsReadAction } from "@/modules/student/actions";
@@ -31,7 +37,11 @@ function NotificationEntry({ item }: { item: StudentNotificationItem }) {
 
   return (
     <Link
-      className="flex items-start gap-4 rounded-2xl border border-primary-100 bg-white px-5 py-4 transition-colors hover:bg-primary-50/40"
+      className={cn(
+        REFERENCE_SURFACE_CLASS_NAMES.raised,
+        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+        "group flex items-start gap-4 px-5 py-4 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+      )}
       href={`/notifications/${item.id}`}
       prefetch={false}
     >
@@ -61,28 +71,28 @@ function NotificationsPageModule({
       session={session}
     >
       <section className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">
-              Notifikasi
-            </h1>
-          </div>
-          <form action={markAllNotificationsReadAction}>
-            <Button disabled={!hasUnread} size="sm" type="submit" variant="ghost">
-              Tandai sudah dibaca
-            </Button>
-          </form>
-        </div>
+        <ReferencePageHeader
+          actions={
+            <form action={markAllNotificationsReadAction}>
+              <Button disabled={!hasUnread} size="sm" type="submit" variant="ghost">
+                Tandai sudah dibaca
+              </Button>
+            </form>
+          }
+          title="Notifikasi"
+        />
 
         {items.length > 0 ? (
           <div className="grid gap-4">
             {items.map((item) => <NotificationEntry item={item} key={item.id} />)}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-primary-200 bg-white/70 px-5 py-10 text-center">
-            <p className="text-sm font-semibold text-secondary-900">Belum ada notifikasi</p>
-            <p className="mt-1 text-sm leading-6 text-secondary-600">Update dari kelas dan aktivitas belajar akan muncul di sini.</p>
-          </div>
+          <ReferenceEmptyState
+            className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "overflow-hidden")}
+            description="Update dari kelas dan aktivitas belajar akan muncul di sini."
+            icon={Bell}
+            title="Belum ada notifikasi"
+          />
         )}
       </section>
     </StudentWorkspaceShell>

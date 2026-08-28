@@ -27,6 +27,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -51,6 +52,7 @@ import {
   type StudentBannerContent,
 } from "@/lib/student/banner-content";
 import { StudentWorkspaceShell } from "@/modules/student/components/student-workspace-shell";
+import { cn } from "@/lib/utils";
 
 const Bar = dynamic(() => import("recharts").then((module) => module.Bar));
 const BarChart = dynamic(() => import("recharts").then((module) => module.BarChart));
@@ -283,7 +285,11 @@ function QuickAccessSection() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {quickAccessItems.map((item) => (
           <Link className="group block min-w-0" href={item.href} key={item.label}>
-            <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0 transition-colors hover:border-primary-300 hover:bg-primary-50/35">
+            <Card className={cn(
+              REFERENCE_SURFACE_CLASS_NAMES.raised,
+              REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+              "gap-0 py-0 ring-0",
+            )}>
               <CardContent className="flex min-h-20 items-center gap-4 px-4 py-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-transparent text-primary-700">
                   <item.icon className="size-5" />
@@ -310,7 +316,7 @@ function DailyMissionSection() {
   return (
     <section className="flex flex-col gap-4" id="daily-mission">
       <DashboardSectionHeading icon={Target} title="Misi Harian Day 1" />
-      <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
         <CardHeader className="flex flex-row items-center justify-between gap-4 px-5 pb-4 pt-5">
           <CardDescription className="text-sm text-secondary-500">
             Yuk, selesaikan tugas harian kamu!
@@ -348,7 +354,7 @@ function AnalyticsSection() {
 
 function AnalyticsCard({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
   return (
-    <Card className="gap-0 min-h-[310px] rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
+    <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-h-[310px] gap-0 py-0 ring-0")}>
       <CardHeader className="gap-1 px-5 pb-0 pt-5">
         <CardTitle className="text-[15px] font-semibold text-secondary-900">{title}</CardTitle>
         <CardDescription className="text-xs text-secondary-500">{description}</CardDescription>
@@ -408,7 +414,7 @@ function ChapterSkillsSection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={Gauge} title="Keahlian per Bab" />
-      <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
         <CardContent className="px-4 pb-4 pt-4 md:px-5 md:pb-5">
           <Tabs defaultValue="PU">
             <TabsList className="flex w-full gap-2 overflow-x-auto bg-transparent p-0">
@@ -453,7 +459,7 @@ function RecentActivitySection() {
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionHeading icon={History} title="Aktivitas Terakhir" />
-      <Card className="gap-0 rounded-3xl border border-secondary-300 bg-white py-0 shadow-none ring-0">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "gap-0 py-0 ring-0")}>
         <CardContent className="p-4 md:p-5">
           <Empty className="min-h-[250px] rounded-3xl border border-dashed border-secondary-300 bg-transparent p-5">
             <EmptyMedia className="mb-1" variant="default">

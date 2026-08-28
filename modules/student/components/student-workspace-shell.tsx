@@ -11,7 +11,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   SidebarInset,
   SidebarProvider,
@@ -20,6 +19,7 @@ import {
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed, StudentNotificationItem } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { useStudentNotifications } from "@/modules/student/use-student-notifications";
 import {
   StudentAccountMenu,
@@ -74,8 +74,8 @@ function StudentWorkspaceShell({
   const isRootPage = breadcrumbLabel === activeLabel;
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
+    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
+      <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
         <StudentSidebar
           activeLabel={activeLabel}
           notificationBadge={
@@ -85,10 +85,10 @@ function StudentWorkspaceShell({
           }
         />
 
-        <SidebarInset className="bg-transparent">
-          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+        <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
+          <header className="sticky top-0 z-20 border-primary-100/80 bg-voyage-canvas/90 backdrop-blur-xl lg:rounded-3xl lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-              <SidebarTrigger className="shrink-0" />
+              <SidebarTrigger className="shrink-0 lg:hidden" />
 
               <div className="hidden min-w-0 flex-1 md:block">
                 <Breadcrumb>
@@ -115,7 +115,10 @@ function StudentWorkspaceShell({
                   <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
                   <Input
                     aria-label={searchPlaceholder}
-                    className="h-10 rounded-full border-primary-100 bg-white pl-10 shadow-sm"
+                    className={cn(
+                      REFERENCE_CONTROL_CLASS_NAMES.input,
+                      "h-10 min-h-10 pl-10",
+                    )}
                     placeholder={searchPlaceholder}
                   />
                 </div>
@@ -130,16 +133,14 @@ function StudentWorkspaceShell({
             </div>
           </header>
 
-          <ScrollArea className="h-[calc(100svh-4rem)]">
-            <main
-              className={cn(
-                "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
-                mainClassName,
-              )}
-            >
-              {children}
-            </main>
-          </ScrollArea>
+          <main
+            className={cn(
+              "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
+              mainClassName,
+            )}
+          >
+            {children}
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>

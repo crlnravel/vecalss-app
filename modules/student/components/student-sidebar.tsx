@@ -6,6 +6,8 @@ import {
   Bell,
   BookOpen,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   Gauge,
   LayoutDashboard,
   ListChecks,
@@ -23,9 +25,13 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
-import { BrandLockup } from "@/modules/home/components/home-primitives";
+import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 import { buildAdminStudentPreviewRoute } from "@/lib/student/preview-routes";
+import { cn } from "@/lib/utils";
 
 type StudentNavigationItem = {
   href: string;
@@ -50,34 +56,70 @@ const previewNavigationItems: StudentNavigationItem[] = [
   { href: "/tryout", icon: Gauge, label: "Tryout" },
 ];
 
+type StudentSidebarAppearance = "default" | "reference";
+
 function StudentSidebar({
   activeLabel,
+  appearance = "reference",
   notificationBadge,
   previewMode = false,
 }: {
   activeLabel: string;
+  appearance?: StudentSidebarAppearance;
   notificationBadge?: string;
   previewMode?: boolean;
 }) {
+  const { isMobile, state } = useSidebar();
   const navigationItems = previewMode ? previewNavigationItems : studentNavigationItems;
+  const isReference = appearance === "reference" && !previewMode;
+  const isCompactReferenceMark = isReference && !isMobile && state === "collapsed";
 
   return (
     <Sidebar
       collapsible="icon"
-      className="border-primary-100 bg-white/95 backdrop-blur"
+      variant={isReference ? "floating" : "sidebar"}
+      className={cn(
+        "border-primary-100 bg-white/95 backdrop-blur",
+        isReference &&
+          "border-0 bg-transparent lg:bottom-4 lg:h-auto lg:left-4! lg:top-4 [&>div]:rounded-4xl [&>div]:border [&>div]:border-primary-100 [&>div]:bg-white [&>div]:shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] [&>div]:ring-0",
+      )}
     >
-      <SidebarHeader className="gap-4 p-4 group-data-[collapsible=icon]:px-2">
+      <SidebarHeader
+        className={cn(
+          "gap-4 p-4 group-data-[collapsible=icon]:px-2",
+          isReference && "mb-2 gap-5 p-3 group-data-[collapsible=icon]:px-0",
+        )}
+      >
         <Link
           href={previewMode ? buildAdminStudentPreviewRoute() : "/dashboard"}
-          className="flex w-full origin-center scale-100 items-center justify-center rounded-2xl px-1 py-1 transition-transform duration-300 ease-out group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50"
+          className={cn(
+            "flex w-full origin-center scale-100 items-center justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
+            !isReference && "transition-[background-color,transform] duration-300 ease-out hover:bg-primary-50",
+            isCompactReferenceMark ? "px-0 py-0" : "px-1 py-1",
+            !isReference && "group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50",
+          )}
         >
-          <BrandLockup />
+          {isCompactReferenceMark ? <BrandMark compact /> : <BrandLockup />}
         </Link>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Belajar</SidebarGroupLabel>
+      <SidebarContent className={isReference ? "gap-0" : undefined}>
+        <SidebarGroup
+          className={
+            isReference
+              ? "mb-2 group-data-[collapsible=icon]:mb-0.5! group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0"
+              : undefined
+          }
+        >
+          <SidebarGroupLabel
+            className={
+              isReference
+                ? "h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase group-data-[collapsible=icon]:hidden"
+                : undefined
+            }
+          >
+            Belajar
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigationItems.map((item) => {
@@ -90,12 +132,32 @@ function StudentSidebar({
                 return (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
+                      className={
+                        isReference
+                          ? cn(
+                              "h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+                              "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)]",
+                              "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!",
+                              item.label === activeLabel &&
+                                "group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none!",
+                            )
+                          : undefined
+                      }
                       isActive={item.label === activeLabel}
                       tooltip={item.label}
                       render={<Link href={href} />}
                     >
-                      <item.icon />
-                      <span>{item.label}</span>
+                      <span
+                        className={cn(
+                          "flex size-4 shrink-0 items-center justify-center [&>svg]:size-4",
+                          isReference &&
+                            item.label === activeLabel &&
+                            "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] [&>svg]:size-5",
+                        )}
+                      >
+                        <item.icon />
+                      </span>
+                      <span className={isReference ? "group-data-[collapsible=icon]:hidden" : undefined}>{item.label}</span>
                     </SidebarMenuButton>
                     {badge ? (
                       <SidebarMenuBadge className="border border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg">
@@ -110,8 +172,28 @@ function StudentSidebar({
         </SidebarGroup>
       </SidebarContent>
 
+      {isReference ? (
+        <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">
+          <SidebarTrigger
+            aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
+            className={cn(
+              "min-h-11 w-full rounded-2xl border border-primary-100 bg-primary-50/60 text-secondary-500 transition-[background-color,color,box-shadow] hover:bg-primary-50 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
+              state === "collapsed" ? "justify-center" : "justify-end px-4",
+              "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-0!",
+            )}
+          >
+            {state === "collapsed" ? (
+              <ChevronRight aria-hidden="true" className="size-4" />
+            ) : (
+              <ChevronLeft aria-hidden="true" className="size-4" />
+            )}
+          </SidebarTrigger>
+        </SidebarFooter>
+      ) : null}
+
     </Sidebar>
   );
 }
 
 export { StudentSidebar };
+export type { StudentSidebarAppearance };

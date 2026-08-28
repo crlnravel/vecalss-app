@@ -7,6 +7,7 @@ import {
   ListChecks,
 } from "@/lib/icons";
 
+import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { StudentBadge } from "@/components/ui/student-badge";
@@ -116,27 +117,23 @@ function QuizSubjectDetailPageModule({
             </div>
           </section>
         ) : (
-          <section className="rounded-[2rem] border border-dashed border-primary-200 bg-primary-50/35 px-6 py-14 text-center shadow-[0_12px_38px_-30px_rgba(1,76,56,0.35)]">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-100 text-primary-800">
-              <ListChecks className="size-7" />
-            </div>
-            <h2 className="mt-5 text-xl font-semibold text-secondary-900">
-              Belum ada kuis tersedia
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-secondary-500">
-              Kuis untuk subjek ini belum dipublikasikan. Coba cek kembali nanti
-              atau pilih subjek lain untuk mulai berlatih.
-            </p>
-            <Button
-              className="mt-6"
-              nativeButton={false}
-              render={<Link href="/quiz" />}
-              size="sm"
-              variant="brandOutline"
-            >
-              Lihat subjek lain
-            </Button>
-          </section>
+          <ReferenceSurface as="section" className="overflow-hidden">
+            <ReferenceEmptyState
+              description="Kuis untuk subjek ini belum dipublikasikan. Coba cek kembali nanti atau pilih subjek lain untuk mulai berlatih."
+              icon={ListChecks}
+              title="Belum ada kuis tersedia"
+              action={
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/quiz" />}
+                  size="sm"
+                  variant="brandOutline"
+                >
+                  Lihat subjek lain
+                </Button>
+              }
+            />
+          </ReferenceSurface>
         )}
       </div>
     </CourseWorkspaceShell>

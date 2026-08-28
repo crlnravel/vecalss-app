@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { CompactFilterTabs } from "@/components/ui/compact-filter-tabs";
 import { Input } from "@/components/ui/input";
+import { ReferenceEmptyState, ReferenceSurface } from "@/components/dashboard";
 import { StudentCatalogueCardFrame } from "@/components/ui/student-catalogue-card";
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed } from "@/lib/notifications/types";
@@ -250,27 +251,26 @@ function ParticipantTryoutWorkspace({
             })}
           </div>
         ) : (
-          <div className="rounded-[2rem] border border-dashed border-primary-200 bg-white px-6 py-16 text-center shadow-[0_18px_42px_-34px_rgba(23,107,77,0.38)]">
-            <Buildings className="mx-auto text-3xl text-primary-700" />
-            <h3 className="mt-4 text-lg font-semibold text-secondary-900">
-              Tidak ada tryout yang cocok
-            </h3>
-            <p className="mt-2 text-sm text-secondary-600">
-              Coba pilih kategori atau kata kunci lain.
-            </p>
-            {query || filter !== "all" ? (
-              <Button
-                className="mt-5"
-                onClick={() => {
-                  setFilter("all");
-                  setQuery("");
-                }}
-                variant="brandOutline"
-              >
-                <ArrowCounterClockwise /> Reset pencarian
-              </Button>
-            ) : null}
-          </div>
+          <ReferenceSurface className="overflow-hidden">
+            <ReferenceEmptyState
+              description="Coba pilih kategori atau kata kunci lain."
+              icon={Buildings}
+              title="Tidak ada tryout yang cocok"
+              action={
+                query || filter !== "all" ? (
+                  <Button
+                    onClick={() => {
+                      setFilter("all");
+                      setQuery("");
+                    }}
+                    variant="brandOutline"
+                  >
+                    <ArrowCounterClockwise /> Reset pencarian
+                  </Button>
+                ) : undefined
+              }
+            />
+          </ReferenceSurface>
         )}
       </section>
     </CourseWorkspaceShell>

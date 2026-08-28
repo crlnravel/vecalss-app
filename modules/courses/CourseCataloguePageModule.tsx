@@ -12,6 +12,8 @@ import {
   PenTool,
   type AppIcon,
 } from "@/lib/icons";
+import { ReferenceEmptyState } from "@/components/dashboard";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { StudentCatalogueCard } from "@/components/ui/student-catalogue-card";
 
 import type { SessionContext } from "@/lib/auth/types";
@@ -26,6 +28,7 @@ import {
   type SubjectIcon,
 } from "./data";
 import { useCourseProgress } from "./progress-storage";
+import { cn } from "@/lib/utils";
 
 const courseIcons = {
   brain: Brain,
@@ -103,14 +106,12 @@ function CourseCataloguePageModule({
             </div>
           </section>
         ) : (
-          <div className="rounded-[2rem] border border-[#d6e5db] bg-white px-6 py-12 text-center shadow-[0_24px_50px_-42px_rgba(23,107,77,0.45)]">
-            <p className="text-base font-extrabold text-[#173c2d]">
-              Belum ada bacaan terbit
-            </p>
-            <p className="mt-2 text-sm text-[#5f776a]">
-              Bacaan yang tersedia akan muncul di sini.
-            </p>
-          </div>
+          <ReferenceEmptyState
+            className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "overflow-hidden")}
+            description="Bacaan yang tersedia akan muncul di sini."
+            icon={BookOpen}
+            title="Belum ada bacaan terbit"
+          />
         )}
       </section>
     </CourseWorkspaceShell>
