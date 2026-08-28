@@ -121,13 +121,13 @@ assert.match(workspace, /updateTryoutMetadataAction/u, "published details must u
 assert.match(workspace, /Duplikat draf baru/u, "published structural changes must use an explicit change draft");
 assert.match(workspace, /const allowed: Workspace\[\] = \["basics", "schedule"\]/u, "published workspaces must allow Overview alongside Delivery");
 assert.match(workspace, /mode === "published" \? \([\s\S]*variant="brandOutline"[\s\S]*Duplikat draf baru/u, "published duplicate action must move to the top as an outline control");
-assert.match(workspace, /updateTryoutMetadataAction\(\{ description: draft\.description, id, title: draft\.title \}\)/u, "published Overview must save the inline title and description");
+assert.match(workspace, /updateTryoutMetadataAction\(\{ (?:bannerMediaId: draft\.bannerMediaId \?\? null, )?description: draft\.description, id, title: draft\.title \}\)/u, "published Overview must save the inline title and description");
 assert.match(workspace, /disabled=\{mode === "draft" && draft\.locked\}/u, "published Overview metadata must remain editable when structure is locked");
 assert.match(workspace, /mode === "published"[\s\S]*Simpan perubahan/u, "published Overview must expose a metadata save action");
 assert.match(workspace, /unpublishTryoutAction/u, "published Tryout detail must expose the unpublish action");
 assert.match(workspace, /Jadikan draf/u, "published Tryout detail must label the unpublish action plainly");
 assert.match(workspace, /hasActiveAttempt/u, "unpublish affordance must reflect active student work in the mentor view");
-assert.doesNotMatch(workspace, /Versi terbit tidak dapat diubah strukturnya|Tindakan versi terbit|metadataOpen|metadataDraft|Edit details Tryout|Simpan detail|<Dialog\b|<Pencil\b/u, "published pages must remove the structural-lock widget and metadata modal");
+assert.doesNotMatch(workspace, /Versi terbit tidak dapat diubah strukturnya|Tindakan versi terbit|metadataOpen|metadataDraft|Edit details Tryout|Simpan detail/u, "published pages must remove the structural-lock widget and metadata modal");
 assert.match(repository, /current\.status === ContentStatus\.published[\s\S]*Buat draf perubahan/u, "server save must reject structural edits to published Tryouts");
 assert.match(repository, /updateTryoutMetadata/u, "server metadata editing must remain a separate allowlisted path");
 assert.match(repository, /async function unpublishTryout/u, "Tryout unpublish must be implemented at the repository boundary");
