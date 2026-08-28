@@ -579,7 +579,7 @@ function KaptenQuizEditorPageModule({
           </div>
           <p className="mt-2 text-sm leading-6 text-secondary-500">Atur informasi dasar Kuis sebelum menambahkan soal.</p>
         </div>
-        <Button aria-busy={isSaving} disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save /> {isSaving ? "Menyimpan…" : "Simpan"}</Button>
+        <Button aria-busy={isSaving} aria-label="Buat" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save /> {isSaving ? "Membuat…" : "Buat"}</Button>
       </header>
 
       {saveError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{saveError}</p> : null}
