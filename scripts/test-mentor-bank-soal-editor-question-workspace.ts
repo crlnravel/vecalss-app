@@ -23,10 +23,12 @@ const openQuestionBlock = builder.match(
   /function openQuestion\(questionId: string\) \{[\s\S]*?\n  \}/u,
 )?.[0] ?? "";
 
-assert.match(workspace, /value=\{state\.questionEditorTab\}/u);
-assert.match(workspace, /onValueChange=\{actions\.onEditorTabChange\}/u);
-assert.match(workspace, /value="edit"/u);
-assert.match(workspace, /value="preview"/u);
+assert.match(workspace, /<Switch/u);
+assert.match(workspace, /Toggle preview/u);
+assert.match(workspace, /checked=\{state\.questionEditorTab === "preview"\}/u);
+assert.match(workspace, /onCheckedChange=\{\(checked\) => actions\.onEditorTabChange\(checked \? "preview" : "edit"\)\}/u);
+assert.doesNotMatch(workspace, /<Tabs|TabsTrigger|TabsContent/u);
+assert.match(workspace, /state\.questionEditorTab === "preview"/u);
 assert.match(workspace, /<QuestionBankEditorForm/u);
 assert.match(workspace, /<QuestionBankPreview/u);
 assert.match(workspace, /builderState\.questions\.length === 0/u);

@@ -46,12 +46,12 @@ type AdminNavigationItem = {
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
   { href: "/admin/ai", icon: Sparkles, id: "ai", label: "Vera AI" },
-  { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifications" },
-  { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Audit logs" },
+  { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifikasi" },
+  { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Log audit" },
 ];
 
 const adminDirectoryNavigation: AdminNavigationItem[] = [
-  { href: "/admin/enrollment", icon: Users, id: "students", label: "Students" },
+  { href: "/admin/enrollment", icon: Users, id: "students", label: "Siswa" },
   { href: "/admin/kapten", icon: BookOpenCheck, id: "kapten", label: "Kapten" },
 ];
 
@@ -69,8 +69,8 @@ function AdminNavigationGroup({
   label: string;
 }) {
   return (
-    <SidebarGroup className="mb-2 group-data-[collapsible=icon]:px-0">
-      <SidebarGroupLabel className="h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
+    <SidebarGroup className="mb-2 group-data-[collapsible=icon]:mb-0.5! group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0">
+      <SidebarGroupLabel className="h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase group-data-[collapsible=icon]:hidden">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>
@@ -140,12 +140,12 @@ function AdminPortalNav({
         <AdminNavigationGroup
           activeSection={activeSection}
           items={adminOperationNavigation}
-          label="Operations"
+           label="Operasional"
         />
         <AdminNavigationGroup
           activeSection={activeSection}
           items={adminDirectoryNavigation}
-          label="Directories"
+           label="Direktori"
         />
         {studentPreviewEnabled ? (
           <AdminNavigationGroup

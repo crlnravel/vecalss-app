@@ -167,6 +167,62 @@
       "dependencies": [],
       "status": "complete",
       "evidence": "de0189c + 6881d48 + 3777553 + ae83c4e + 4221dc1 + f767ecb + 85f969d + a6c8be9 + fc0cbc8 + 151b390 + cf518c3 + 939cb15 + 03f18b3 + 84384bd + f4e786d + 0d2dcda + e1d2fbf + b7981d6 + 65bc158 + 8011146 + 1ccbca3 + 50fcbf8 + 298d355 + 99f482a + fea1e1c + c5bf784 + 17fa021 + 3a67d8e + dbb18d9 + b204d10 + 6d9e14d; Vecalss-tokenized reference surfaces and responsive shell are applied across visible mentor Dashboard, Tryout, Quiz, Materi, Media, Settings, Packages, and Bank Soal route groups. MentorWorkspaceShell now keeps normal content in document flow; only bounded navigation/inventory/picker/editor panes retain internal scrolling. Bank Soal and Packages loaders no longer use page-level viewport ScrollArea wrappers. Table/list internals, columns, rows, selection, sorting, pagination, dense markup, and row geometry were preserved; only outer frames and adjacent headers/controls/surfaces changed. Focused mentor contracts, mentor-target TypeScript checks, focused ESLint, git diff-check, Impeccable detector [], and the relevant production checks pass; repository-wide TypeScript and a later full-hook attempt are blocked only by unrelated admin BarChart3 export diagnostics. Browser QA for this expanded rollout was intentionally deferred. Student/admin surfaces and untracked information-architecture skill files remain untouched; Packages and tryout-package aliases remain archived or redirect-only by existing route behavior."
+    },
+    {
+      "id": "feat-022",
+      "name": "Vera AI Control Plane Contracts & Metric Engine",
+      "description": "Define unified domain models, semantic metric states (available, partial, suppressed, unavailable), admitted vs rejected request classification, privacy suppression (k>=5), capacity gauges, and incident taxonomy",
+      "dependencies": ["feat-001"],
+      "status": "complete",
+      "evidence": "lib/admin/ai/contracts.ts, lib/admin/ai/aggregators.ts, lib/admin/ai/service.ts; mathematically precise formulas for execution success, effective completion, fallback recovery, admission rejection; privacy threshold suppression (k>=5) and complement suppression; verified with test:admin-ai-control-plane 30/30 checks passing"
+    },
+    {
+      "id": "feat-023",
+      "name": "Vera AI Admin API Surface & Async Report Service",
+      "description": "Implement domain-oriented REST endpoints for overview, usage, quota-health, reliability, incidents, providers, routing, and cost with async reservations and zero student data leaks",
+      "dependencies": ["feat-022"],
+      "status": "complete",
+      "evidence": "app/api/admin/ai/overview, usage, quota-health, reliability, incidents, providers, routing, cost endpoints; authenticated admin access with security headers, privacy threshold guards, and projection exclusion of student conversation texts"
+    },
+    {
+      "id": "feat-024",
+      "name": "Vera AI Admin Portal Shell & UI Primitives",
+      "description": "Update portal navigation and provide tokenized design system components for KPI cards, quota/capacity meters, routing chains, incident badges, and privacy suppression notices",
+      "dependencies": ["feat-022"],
+      "status": "complete",
+      "evidence": "modules/portal/components/admin-portal-nav.tsx, portal-shell.tsx, modules/admin/ai/components/ (AiControlPlaneNav, AiMetricCard, AiQuotaGauge, AiCapacityMeter, AiRoutingChainVisualizer, AiHourlyLockChart, AiFreshnessBanner, AiPrivacyNotice); full adherence to DESIGN.md tokens and Phosphor icons"
+    },
+    {
+      "id": "feat-025",
+      "name": "Vera AI Admin Overview & Usage Screens",
+      "description": "Implement Screen 1 (AI Overview command center) and Screen 2 (Usage & Capacity, Quota Health, Cost dashboard with metric switchers)",
+      "dependencies": ["feat-023", "feat-024"],
+      "status": "complete",
+      "evidence": "app/admin/ai/page.tsx, modules/admin/ai/AiOverviewPageModule.tsx, app/admin/ai/usage/page.tsx, modules/admin/ai/AiUsagePageModule.tsx; 6 KPI top-level grid, requests over time, quota health gauge, feature breakdown, open incidents, metric toggle switchers (quota units, requests, tokens, cost), privacy-suppressed table, hourly lock distribution, and spend/cost efficiency dashboard"
+    },
+    {
+      "id": "feat-026",
+      "name": "Vera AI Admin Reliability & Providers Screens",
+      "description": "Implement Screen 3 (Reliability & Incidents with request classification and domain taxonomy) and Screen 4 (Providers & Routing with capability chains and capacity metrics)",
+      "dependencies": ["feat-023", "feat-024"],
+      "status": "complete",
+      "evidence": "app/admin/ai/reliability/page.tsx, modules/admin/ai/AiReliabilityPageModule.tsx, app/admin/ai/providers/page.tsx, modules/admin/ai/AiProvidersPageModule.tsx; admitted vs rejected request classification, domain-grouped incident taxonomy (admission, infrastructure, upstream, application), privacy-safe cohort drilldown, graceful degradation breakdown, gateway health cards with masked credential fingerprints, AI capacity headroom, and capability routing intention vs 24h observed behavior"
+    },
+    {
+      "id": "feat-027",
+      "name": "Vera AI Admin Policy Governance & Impact Preview",
+      "description": "Implement Screen 5 (Immutable Policy Bundle lifecycle, diff editor, 7-day impact preview, dual approval UX, and deployment-style activation)",
+      "dependencies": ["feat-023", "feat-024"],
+      "status": "complete",
+      "evidence": "app/admin/ai/policies/page.tsx, modules/admin/ai/AiPoliciesPageModule.tsx; immutable versioned policy bundle viewer, visual before/after diff editor, deterministic 7-day impact preview modeling (hard-locks, cost, consumption, concurrency), dual approval governance enforcement (creator cannot self-approve), and deployment-style activation modal"
+    },
+    {
+      "id": "feat-028",
+      "name": "Vera AI Admin Verification, Redirects & Test Suite",
+      "description": "Add legacy route redirects, automated contract test suite in scripts/, and full verification across TypeScript, lint, and build",
+      "dependencies": ["feat-025", "feat-026", "feat-027"],
+      "status": "complete",
+      "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts test script (30 checks passing); TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh"
     }
   ]
 }

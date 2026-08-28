@@ -448,24 +448,23 @@ function AdminStudentPreviewTryoutCatalogueSurface({
               return (
                 <StudentCatalogueCard href={buildAdminStudentPreviewTryoutRoute(tryout.id)} key={tryout.id} variant="tryout">
                   <div className="relative flex h-full flex-col p-6 md:p-7">
-                    <div className="pointer-events-none absolute -top-16 right-[-2rem] size-44 rounded-full border-[18px] border-[#b7ddc3]/15" />
                     <div className="relative flex items-start justify-between gap-3">
-                      <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[#b7ddc3]/20 text-[#d7f2df] md:size-16">
+                      <span className="grid size-14 place-items-center rounded-[1.25rem] bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)] md:size-16">
                         <ListChecks className="size-7 md:size-8" strokeWidth={2.2} />
                       </span>
                       {currentSession ? <TryoutScheduleBadge status={currentSession.scheduleStatus} /> : null}
                     </div>
                     <div className="relative mt-8">
-                      <p className="text-xs font-extrabold tracking-[0.14em] text-[#b7ddc3] uppercase">Published tryout</p>
-                      <h3 className="mt-2 text-3xl leading-[0.98] font-extrabold tracking-[-0.04em] text-balance md:text-4xl">{tryout.title}</h3>
-                      {tryout.description ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#d8e9dd]">{tryout.description}</p> : null}
+                      <p className="text-xs font-extrabold tracking-[0.14em] text-primary-700 uppercase">Published tryout</p>
+                      <h3 className="mt-2 text-3xl leading-[0.98] font-extrabold tracking-[-0.04em] text-balance text-secondary-900 md:text-4xl">{tryout.title}</h3>
+                      {tryout.description ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-secondary-600">{tryout.description}</p> : null}
                     </div>
                     <div className="relative mt-auto flex flex-wrap items-end justify-between gap-4 pt-8">
-                      <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#d7f2df]">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-bold text-secondary-700">
                         <Timer className="size-4" />
                         {tryout.sections.length} bagian · {activeOrClosedSessions.length} sesi aman
                       </span>
-                      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d7f2df] text-[#176b4d] shadow-[0_10px_24px_-16px_rgba(215,242,223,0.75)]">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#176b4d] text-white shadow-[0_10px_24px_-16px_rgba(23,107,77,0.75)]">
                         <ChevronRight className="size-5" strokeWidth={2.6} />
                       </span>
                     </div>

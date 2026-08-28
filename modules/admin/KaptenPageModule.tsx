@@ -23,18 +23,18 @@ type EnrolledKapten = Pick<User, "createdAt" | "email" | "fullName" | "id" | "ph
 };
 
 const noticeMessages: Record<string, string> = {
-  "kapten-deactivated": "Kapten access has been disabled and active sessions were revoked.",
-  "kapten-reactivated": "Kapten access has been restored without restoring old sessions or handoffs.",
-  "kapten-updated": "Kapten profile details were updated.",
+  "kapten-deactivated": "Akses Kapten dinonaktifkan dan sesi aktif telah dicabut.",
+  "kapten-reactivated": "Akses Kapten dipulihkan tanpa memulihkan sesi atau handoff lama.",
+  "kapten-updated": "Detail profil Kapten diperbarui.",
 };
 
 const errorMessages: Record<string, string> = {
-  "duplicate-email": "That email is already being used by another account.",
-  "invalid-directory-query": "That directory filter is invalid or too broad. The safe directory view has been restored.",
-  "invalid-user": "That account identifier is invalid. Reload the directory and try again.",
-  "missing-fields": "Please add the Kapten's name and email before updating.",
-  "missing-user": "We couldn't find that Kapten account.",
-  "update-failed": "We're sorry, we couldn't update that Kapten account. Please try again.",
+  "duplicate-email": "Email tersebut sudah digunakan oleh akun lain.",
+  "invalid-directory-query": "Filter direktori tidak valid atau terlalu luas. Tampilan direktori aman telah dipulihkan.",
+  "invalid-user": "ID akun tidak valid. Muat ulang direktori lalu coba lagi.",
+  "missing-fields": "Tambahkan nama dan email Kapten sebelum memperbarui.",
+  "missing-user": "Akun Kapten tersebut tidak ditemukan.",
+  "update-failed": "Akun Kapten tidak dapat diperbarui. Silakan coba lagi.",
 };
 
 type PaginationItem = number | "ellipsis-before" | "ellipsis-after";
@@ -122,7 +122,7 @@ function KaptenPageModule({
     <PortalShell
       activeAdminSection="kapten"
       audience="admin"
-      description="Manage Kapten accounts and enrollment handoffs."
+       description="Kelola akun Kapten dan handoff enrollment."
       session={session}
       title="Kapten"
     >
@@ -131,16 +131,16 @@ function KaptenPageModule({
 
         <ReferencePageHeader
           actions={<AddKaptenDialog />}
-          description="Manage Kapten accounts and enrollment handoffs."
+           description="Kelola akun Kapten dan handoff enrollment."
           id="kapten-heading"
           title="Kapten"
         />
 
-        <p aria-live="polite" className="sr-only" id="kapten-directory-announcement">{focus ? "Returned to the selected Kapten directory row." : ""}</p>
+        <p aria-live="polite" className="sr-only" id="kapten-directory-announcement">{focus ? "Kembali ke baris Kapten yang dipilih di direktori." : ""}</p>
         {notice ? <div id="kapten-directory-notice" tabIndex={-1}><FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice></div> : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <ReferenceSurface as="section" aria-label="Kapten directory" className="min-w-0 overflow-hidden">
+        <ReferenceSurface as="section" aria-label="Direktori Kapten" className="min-w-0 overflow-hidden">
           <KaptenDirectoryTable
             direction={direction}
             focus={focus ?? null}
@@ -154,22 +154,22 @@ function KaptenPageModule({
 
           <div className="flex flex-col gap-3 border-t border-primary-100/80 bg-white/70 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="text-xs tabular-nums text-secondary-600"><span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}</p>
+              <p className="text-xs tabular-nums text-secondary-600"><span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}</p>
               <StudentPageSizeSelect basePath="/admin/kapten" pageSize={pageSize} query={directoryQuery} />
             </div>
             {pageCount > 1 ? (
-              <nav aria-label="Kapten directory pages" className="flex min-w-0 items-center gap-2">
+              <nav aria-label="Halaman direktori Kapten" className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
                 <div className="flex min-w-0 items-center gap-0.5">
-                  {page > 1 ? <Link aria-label="Previous Kapten directory page" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
+                  {page > 1 ? <Link aria-label="Halaman direktori Kapten sebelumnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
                   <ol className="flex items-center gap-0.5">
                     {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
-                      <li key={item}><span aria-hidden="true" className="grid size-10 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">More pages</span></li>
+                      <li key={item}><span aria-hidden="true" className="grid size-10 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">Halaman lainnya</span></li>
                     ) : (
-                      <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Go to page ${item}`} className={buttonVariants({ className: item === page ? "size-10 rounded-2xl p-0" : "size-10 rounded-2xl p-0 text-secondary-700", size: "icon-sm", variant: item === page ? "brand" : "reference" })} href={pageHref(item)}>{item}</Link></li>
+                      <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Buka halaman ${item}`} className={buttonVariants({ className: item === page ? "size-10 rounded-2xl p-0" : "size-10 rounded-2xl p-0 text-secondary-700", size: "icon-sm", variant: item === page ? "brand" : "reference" })} href={pageHref(item)}>{item}</Link></li>
                     ))}
                   </ol>
-                  {page < pageCount ? <Link aria-label="Next Kapten directory page" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
+                  {page < pageCount ? <Link aria-label="Halaman direktori Kapten berikutnya" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
                 </div>
               </nav>
             ) : null}

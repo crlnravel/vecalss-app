@@ -32,7 +32,7 @@ assert.doesNotMatch(builder, /moveQuestionBanksToFolderAction/u);
 assert.doesNotMatch(builder, /Unfiled/u);
 assert.doesNotMatch(detailRoute, /initialFolderTree|listQuestionBankFolderTree/u);
 assert.doesNotMatch(editorRoute, /initialFolderTree|listQuestionBankFolderTree/u);
-assert.match(builder, />Subtest<\/FieldLabel>/u);
+assert.match(builder, /<FieldLabel[^>]*>Subtest<\/FieldLabel>/u);
 assert.match(builder, /pendingRouteReplacement: `\/mentor\/quiz\/question-bank\/\$\{result\.result\.bank\.id\}`/u);
 assert.match(createRoute, /mode="create"/u);
 assert.match(detailRoute, /if \(!initial\) notFound\(\)/u);

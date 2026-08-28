@@ -1,5 +1,24 @@
 # Session Progress Log
 
+## Vera AI Admin Operational Control Plane V1 Rollout (2026-08-28)
+
+- [x] Divided the production AI Admin Dashboard plan into 7 structured tickets:
+  - Ticket 1 (`feat-022`): Core Domain Contracts, Metric Aggregators & Metric State Engine.
+  - Ticket 2 (`feat-023`): Domain API Surface & Asynchronous Report Engine.
+  - Ticket 3 (`feat-024`): Navigation Shell & Shared Control Plane Design Primitives.
+  - Ticket 4 (`feat-025`): Screen 1 (AI Overview) & Screen 2 (Usage, Quota Health & Cost).
+  - Ticket 5 (`feat-026`): Screen 3 (Reliability & Incidents) & Screen 4 (Providers & Routing).
+  - Ticket 6 (`feat-027`): Screen 5 (Policy Governance, Impact Preview, Dual Approval & Activation).
+  - Ticket 7 (`feat-028`): Legacy Redirects, Integration Verification & Automated Contract Test Suite.
+- [x] Generated detailed specification artifact `vera-ai-admin-control-plane-spec.md`.
+- [x] **Ticket 1 (`feat-022`) Completed**: Implemented domain contracts in `lib/admin/ai/contracts.ts`, mathematical metric aggregators in `lib/admin/ai/aggregators.ts`, and database telemetry query service in `lib/admin/ai/service.ts`.
+- [x] **Ticket 2 (`feat-023`) Completed**: Implemented REST API route endpoints under `app/api/admin/ai/` (`overview`, `usage`, `quota-health`, `reliability`, `incidents`, `providers`, `routing`, `cost`) with admin session enforcement, security headers, and cohort privacy suppression.
+- [x] **Ticket 3 (`feat-024`) Completed**: Updated admin portal navigation in `modules/portal/components/admin-portal-nav.tsx` and `portal-shell.tsx`; created design primitives in `modules/admin/ai/components/` (`AiControlPlaneNav`, `AiMetricCard`, `AiQuotaGauge`, `AiCapacityMeter`, `AiRoutingChainVisualizer`, `AiHourlyLockChart`, `AiFreshnessBanner`, `AiPrivacyNotice`).
+- [x] **Ticket 4 (`feat-025`) Completed**: Implemented Screen 1 (AI Overview command center) in `app/admin/ai/page.tsx` & `modules/admin/ai/AiOverviewPageModule.tsx` and Screen 2 (Usage & Capacity, Quota Health, Cost dashboard) in `app/admin/ai/usage/page.tsx` & `modules/admin/ai/AiUsagePageModule.tsx`.
+- [x] **Ticket 5 (`feat-026`) Completed**: Implemented Screen 3 (Reliability & Incidents with request classification and domain taxonomy) in `app/admin/ai/reliability/page.tsx` & `modules/admin/ai/AiReliabilityPageModule.tsx` and Screen 4 (Providers & Routing with capability chains and capacity metrics) in `app/admin/ai/providers/page.tsx` & `modules/admin/ai/AiProvidersPageModule.tsx`.
+- [x] **Ticket 6 (`feat-027`) Completed**: Implemented Screen 5 (Policy Governance with immutable bundles, diff review, 7-day impact preview modeling, dual approval, and deployment activation) in `app/admin/ai/policies/page.tsx` & `modules/admin/ai/AiPoliciesPageModule.tsx`.
+- [x] **Ticket 7 (`feat-028`) Completed**: Added backwards compatibility redirects for legacy routes (`/admin/ai-usage` -> `/admin/ai/usage`, `/admin/ai-policy` -> `/admin/ai/policies`); created contract test suite in `scripts/test-admin-ai-control-plane.ts` (30 checks passing); verified TypeScript clean (`tsc --noEmit` exit 0) and ESLint clean.
+
 ## Mentor-wide reference rollout and document scrolling (2026-08-28)
 
 - [x] Applied the extracted Vecalss-tokenized reference visual language to the

@@ -60,14 +60,19 @@ type StudentDirectoryItem = {
 
 type StudentStatusTone = "attention" | "danger" | "neutral" | "success";
 
-const studentDirectoryDateFormatter = new Intl.DateTimeFormat("en-US", {
+const studentDirectoryDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
   month: "short",
   year: "numeric",
 });
 
 function formatStatus(status: string) {
-  return status.replaceAll("_", " ");
+  return {
+    active: "Aktif",
+    disabled: "Dinonaktifkan",
+    locked: "Terkunci",
+    soft_deleted: "Dihapus sementara",
+  }[status] ?? status.replaceAll("_", " ");
 }
 
 function highlightSearchMatches(text: string, query: string): ReactNode {
@@ -142,7 +147,7 @@ function statusDotClassName(tone: StudentStatusTone) {
 }
 
 function formatCreatedDate(value: string) {
-  return new Date(value).toLocaleDateString("en-US", {
+   return new Date(value).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -303,7 +308,7 @@ function StudentPreviewPanel({
             <code className="min-w-0 truncate text-xs font-medium text-secondary-600" title={student.id}>
               {displayStudentId(student.id)}
             </code>
-            <CopyValueButton ariaLabel="Copy account ID" iconOnly value={student.id} />
+             <CopyValueButton ariaLabel="Salin ID akun" iconOnly value={student.id} />
           </div>
           <SheetTitle className="mt-2 text-xl font-semibold leading-tight tracking-[-0.03em] text-secondary-950 sm:text-2xl">
             {student.fullName}
@@ -312,7 +317,7 @@ function StudentPreviewPanel({
             {student.email}
           </SheetDescription>
           <Link className={buttonVariants({ className: "mt-5 w-full", size: "sm", variant: "brand" })} href={detailHref}>
-            Open
+             Buka detail
           </Link>
           <StudentAccountActions
             compact
@@ -351,13 +356,13 @@ function BulkStudentActions({
         onClick={() => setPendingAction("deactivate")}
         variant="destructive"
       >
-        Disable access{activeCount ? ` (${activeCount})` : ""}
+         Nonaktifkan akses{activeCount ? ` (${activeCount})` : ""}
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={disabledCount === 0}
         onClick={() => setPendingAction("reactivate")}
       >
-        Reactivate access{disabledCount ? ` (${disabledCount})` : ""}
+         Pulihkan akses{disabledCount ? ` (${disabledCount})` : ""}
       </DropdownMenuItem>
 
       <AlertDialog
@@ -371,14 +376,14 @@ function BulkStudentActions({
         <AlertDialogContent size="sm" variant={isDeactivation ? "warning" : "info"}>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isDeactivation ? "Disable selected students?" : "Reactivate selected students?"}
+              {isDeactivation ? "Nonaktifkan siswa yang dipilih?" : "Pulihkan siswa yang dipilih?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isDeactivation
-                ? `This will disable access for ${eligibleCount} active ${eligibleCount === 1 ? "student" : "students"} and revoke their active sessions and open handoffs.`
-                : `This will restore access for ${eligibleCount} disabled ${eligibleCount === 1 ? "student" : "students"}. Existing sessions and handoffs will not be restored.`}
+                 ? `Akses untuk ${eligibleCount} siswa aktif akan dinonaktifkan, termasuk pencabutan sesi aktif dan handoff terbuka.`
+                 : `Akses untuk ${eligibleCount} siswa yang dinonaktifkan akan dipulihkan. Sesi dan handoff lama tidak akan dipulihkan.`}
               {skippedCount > 0
-                ? ` ${skippedCount} selected ${skippedCount === 1 ? "account" : "accounts"} will be left unchanged.`
+                 ? ` ${skippedCount} akun yang dipilih tidak akan diubah.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -393,12 +398,12 @@ function BulkStudentActions({
             <AlertDialogFooter>
               <AlertDialogCancel size="sm" type="button">Cancel</AlertDialogCancel>
               <SubmitButton
-                pendingLabel={isDeactivation ? "Disabling…" : "Reactivating…"}
+                pendingLabel={isDeactivation ? "Menonaktifkan…" : "Memulihkan…"}
                 size="sm"
                 type="submit"
                 variant={isDeactivation ? "destructive" : "brand"}
               >
-                {isDeactivation ? "Disable access" : "Reactivate access"}
+                {isDeactivation ? "Nonaktifkan akses" : "Pulihkan akses"}
               </SubmitButton>
             </AlertDialogFooter>
           </form>
@@ -480,7 +485,7 @@ function StudentFilterPanel({
 
   return (
     <fieldset className="grid gap-1">
-      <legend className="sr-only">Student filter fields</legend>
+      <legend className="sr-only">Kolom filter siswa</legend>
       <Popover
         onOpenChange={(open) => {
           setStatusPopoverOpen(open);
@@ -539,9 +544,9 @@ function StudentFilterPanel({
             </div>
             <div className="flex w-full items-center gap-1.5 pt-1">
               <Link className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
-                Clear
+                 Hapus filter
               </Link>
-              <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
+               <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Terapkan</Button>
             </div>
           </form>
         </PopoverContent>
@@ -571,7 +576,7 @@ function StudentFilterPanel({
             />
           }
         >
-          <span className="font-medium text-secondary-900">Added</span>
+           <span className="font-medium text-secondary-900">Ditambahkan</span>
           <ChevronRight aria-hidden="true" className="text-secondary-400 transition-transform group-aria-expanded:translate-x-0.5" size={16} />
         </PopoverTrigger>
         <PopoverContent
@@ -588,7 +593,7 @@ function StudentFilterPanel({
             <input name="addedFrom" type="hidden" value={toDateInput(draftDateRange?.from)} />
             <input name="addedTo" type="hidden" value={toDateInput(draftDateRange?.to)} />
             <Calendar
-              aria-label="Added date"
+               aria-label="Tanggal ditambahkan"
               defaultMonth={draftDateRange?.from}
               mode="range"
               onSelect={setDraftDateRange}
@@ -596,9 +601,9 @@ function StudentFilterPanel({
             />
             <div className="flex w-full items-center gap-1.5 pt-1">
               <Link className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
-                Clear
+                 Hapus filter
               </Link>
-              <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
+               <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Terapkan</Button>
             </div>
           </form>
         </PopoverContent>
@@ -656,7 +661,7 @@ function StudentDirectoryTable({
     filters.push({
       href: clearDateHref,
       id: "added",
-      label: "Added",
+       label: "Ditambahkan",
       value: formatDateFilter(addedFrom, addedTo),
     });
   }
@@ -679,7 +684,7 @@ function StudentDirectoryTable({
       headerClassName: "w-[28%]",
       hideable: false,
       id: "student",
-      label: "Student",
+       label: "Siswa",
       sortKey: "student",
       width: 28,
     },
@@ -700,7 +705,7 @@ function StudentDirectoryTable({
       cellClassName: "text-secondary-700",
       headerClassName: "w-[17%]",
       id: "added",
-      label: "Added",
+       label: "Ditambahkan",
       sortKey: "added",
       width: 17,
     },
@@ -720,7 +725,7 @@ function StudentDirectoryTable({
     {
       cell: (student) => {
         if (demo) {
-          return <span className="font-medium text-secondary-400">Demo</span>;
+           return <span className="font-medium text-secondary-400">Demo</span>;
         }
 
         const detailHref = backQuery
@@ -733,14 +738,14 @@ function StudentDirectoryTable({
             className="font-semibold text-primary-700 underline-offset-4 transition-colors hover:text-primary-900 hover:underline"
             href={detailHref}
           >
-            Open
+             Buka
           </Link>
         );
       },
       cellClassName: "text-right",
       headerClassName: "w-[10%] text-right",
       id: "action",
-      label: "Action",
+       label: "Aksi",
       width: 10,
     },
   ];
@@ -763,17 +768,17 @@ function StudentDirectoryTable({
     <ReferenceEmptyState
       className="min-h-56"
       description={isEmptyDirectory
-        ? "Use Add student above to create the first account and choose its handoff."
-        : "Try another name, email, or status filter to find the account you need."}
+         ? "Gunakan tombol tambah siswa di atas untuk membuat akun pertama dan memilih handoff."
+         : "Coba nama, email, atau filter status lain untuk menemukan akun yang dibutuhkan."}
       icon={UserRound}
-      title={isEmptyDirectory ? "No student accounts yet." : "No students match these filters."}
+       title={isEmptyDirectory ? "Belum ada akun siswa." : "Tidak ada siswa yang cocok dengan filter ini."}
     />
   );
 
   return (
     <>
       <DataTable
-        caption="Student directory"
+         caption="Direktori siswa"
         clearFiltersHref={clearFiltersHref}
         columns={columns}
         emptyState={emptyState}
@@ -803,8 +808,8 @@ function StudentDirectoryTable({
             ...(sort ? { sort } : {}),
             ...(sort && direction === "desc" ? { direction } : {}),
           },
-          label: "Global student search",
-          placeholder: "Search students by name or email…",
+           label: "Pencarian siswa global",
+           placeholder: "Cari siswa berdasarkan nama atau email…",
           value: search,
         }}
         sort={{

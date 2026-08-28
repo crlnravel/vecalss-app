@@ -64,17 +64,60 @@ function mapDebugAccount(user: {
   };
 }
 
-async function getDebugAccounts() {
+const ROLE_ORDER: RoleName[] = [RoleName.admin, RoleName.tutor, RoleName.student];
+const MAX_ACCOUNTS_PER_ROLE = 2;
+
+const SEED_PRIORITY_EMAILS = [
+  "admin@vecalss.local",
+  "tutor@vecalss.local",
+  "student@vecalss.local",
+  "newstudent@vecalss.local",
+  "dimas@vecalss.local",
+  "leila@vecalss.local",
+];
+
+function getSeedPriority(email: string): number {
+  const index = SEED_PRIORITY_EMAILS.indexOf(email.toLowerCase());
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+async function getDebugAccounts(): Promise<DebugAccount[]> {
   const users = await prisma.user.findMany({
     orderBy: [{ fullName: "asc" }, { email: "asc" }],
     select: debugAccountSelect,
     where: activeDebugAccountWhere,
   });
 
-  return users.flatMap((user) => {
+  const accounts = users.flatMap((user) => {
     const account = mapDebugAccount(user);
     return account ? [account] : [];
   });
+
+  const selectedAccountIds = new Set<string>();
+  const result: DebugAccount[] = [];
+
+  for (const role of ROLE_ORDER) {
+    const roleAccounts = accounts
+      .filter((account) => account.roles.includes(role))
+      .sort((a, b) => {
+        const priorityA = getSeedPriority(a.email);
+        const priorityB = getSeedPriority(b.email);
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+        return a.fullName.localeCompare(b.fullName) || a.email.localeCompare(b.email);
+      });
+
+    const topForRole = roleAccounts.slice(0, MAX_ACCOUNTS_PER_ROLE);
+    for (const account of topForRole) {
+      if (!selectedAccountIds.has(account.id)) {
+        selectedAccountIds.add(account.id);
+        result.push(account);
+      }
+    }
+  }
+
+  return result;
 }
 
 async function getDebugAccountById(id: string) {

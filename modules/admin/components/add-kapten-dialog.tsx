@@ -61,9 +61,9 @@ function AddKaptenDialog() {
       <DialogTrigger
         render={
           <button
-            aria-label="Add Kapten"
+             aria-label="Tambah Kapten"
             className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
-            title="Add Kapten"
+             title="Tambah Kapten"
             type="button"
           />
         }
@@ -78,7 +78,7 @@ function AddKaptenDialog() {
       >
         <div className="max-h-[calc(100svh-1.5rem)] overflow-y-auto">
           <DialogHeader className="border-b border-primary-100 px-5 py-6 pr-16 sm:px-8 sm:py-7">
-            <DialogTitle className="text-2xl tracking-[-0.035em] text-secondary-950">Add Kapten</DialogTitle>
+         <DialogTitle className="text-2xl tracking-[-0.035em] text-secondary-950">Tambah Kapten</DialogTitle>
           </DialogHeader>
 
           <div className="border-b border-primary-100 bg-primary-50/55 px-5 py-4 sm:px-8 sm:py-5">
@@ -102,8 +102,8 @@ function AddKaptenDialog() {
                   <UserPlus aria-hidden="true" size={18} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">Single import</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Fill in one Kapten&apos;s details</span>
+                   <span className="block text-sm font-semibold">Import satu akun</span>
+                   <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Isi detail satu Kapten</span>
                 </span>
               </button>
               <button
@@ -125,8 +125,8 @@ function AddKaptenDialog() {
                   <Users aria-hidden="true" size={18} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">Bulk import</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Upload multiple Kapten accounts with CSV</span>
+                   <span className="block text-sm font-semibold">Import massal</span>
+                   <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Upload beberapa akun Kapten dengan CSV</span>
                 </span>
               </button>
             </div>

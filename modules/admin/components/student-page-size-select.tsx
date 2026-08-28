@@ -45,10 +45,10 @@ function StudentPageSizeSelect({
 
   return (
     <div className="inline-flex items-center gap-2 text-xs text-secondary-600">
-      <span>Rows per page</span>
+       <span>Baris per halaman</span>
       <DropdownMenu>
         <DropdownMenuTrigger
-          aria-label="Rows per page"
+           aria-label="Baris per halaman"
           render={<Button className="h-8 min-w-16 justify-between rounded-lg border-primary-100 bg-white px-2 text-xs font-semibold text-secondary-800 hover:border-primary-300 hover:bg-primary-50/40" variant="context" />}
         >
           <span>{pageSize}</span>

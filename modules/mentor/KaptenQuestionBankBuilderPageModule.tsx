@@ -67,7 +67,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import type { SessionContext } from "@/lib/auth/types";
 import type { MediaAssetDto } from "@/lib/media/types";
 import {
@@ -99,8 +99,10 @@ type QuestionRowRefs = {
 };
 
 type ConfirmationRequest = {
+  actionVariant?: "brand" | "destructive";
   confirmLabel: string;
   description: string;
+  dialogVariant?: "default" | "info" | "warning" | "danger" | "success";
   onConfirm: () => void;
   title: string;
 };
@@ -605,9 +607,15 @@ function QuestionBankInventory({
                     <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
                       <MentorBadge size="xs" tone="category">{question.subjectCode}</MentorBadge>
                       {hasIssues ? (
-                        <MentorBadge className="gap-1" size="xs" tone="attention">
+                        <MentorBadge
+                          aria-label={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
+                          className="size-7 justify-center !px-0 !py-0"
+                          role="img"
+                          size="xs"
+                          title={`Soal ${questionNumber} memiliki ${issueCount} masalah`}
+                          tone="attention"
+                        >
                           <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
-                          <span>Perlu diperbaiki</span>
                         </MentorBadge>
                       ) : null}
                     </span>
@@ -704,8 +712,13 @@ function QuestionBankMobileInventory({
                         {question.prompt || "Soal tanpa pertanyaan"}
                       </span>
                       {issueCount > 0 ? (
-                        <span className="shrink-0 text-xs font-semibold text-amber-700">
-                          {issueCount} masalah
+                        <span
+                          aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`}
+                          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-student-status-attention-bg text-student-status-attention-fg"
+                          role="img"
+                          title={`Soal ${index + 1} memiliki ${issueCount} masalah`}
+                        >
+                          <AlertTriangle aria-hidden="true" className="size-3.5" />
                         </span>
                       ) : null}
                     </span>
@@ -917,6 +930,7 @@ type QuestionBankBuilderActions = {
   onSubmitPreview: () => void;
   onUpdateDraft: (question: BankQuestion) => void;
   requestArchive: () => void;
+  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
   saveDraft: () => void;
   updateMetadata: (field: "title" | "description", value: string) => void;
   updateCategories: (patch: QuestionBankCategoryPatch) => void;
@@ -940,8 +954,8 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
       <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
       <div className="flex flex-wrap items-center gap-2">
         <Button aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
-        {mode === "edit" && state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0} id="question-bank-lifecycle-publish" onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : null}
         {mode === "edit" && state.isDraftLifecycle ? <DropdownMenu><DropdownMenuTrigger render={<Button aria-label="Aksi destruktif Bank Soal" size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuGroup><DropdownMenuItem disabled={state.isSaving || Boolean(lifecycleDisabledReason)} onClick={actions.requestArchive} variant="destructive"><Archive />Arsipkan</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu> : null}
+        {mode === "edit" && state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0} id="question-bank-lifecycle-publish" onClick={() => actions.requestLifecycleChange("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : null}
       </div>
     </section>
   );
@@ -1002,6 +1016,8 @@ function QuestionBankBuilderScreen({
   workspaceRef: { current: HTMLDivElement | null };
 }) {
   const confirmation = state.confirmationRequest;
+  const confirmationDialogVariant = confirmation?.dialogVariant ?? "danger";
+  const confirmationActionVariant = confirmation?.actionVariant ?? "destructive";
   const targetBankId = bankId ?? builderState.title;
   const detailHref = `/mentor/quiz/question-bank/${targetBankId}`;
 
@@ -1036,7 +1052,7 @@ function QuestionBankBuilderScreen({
         {state.lifecycleError ? <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{state.lifecycleError}</p> : null}
         <QuestionBankMetadataForm actions={actions} builderState={builderState} categories={categories} state={state} />
         <MediaPickerDialog onOpenChange={(open) => { if (!open) actions.onCloseMedia(); }} onSelect={actions.onSelectMedia} open={Boolean(state.mediaPickerTarget)} selectedAssetId={state.selectedMediaAssetId} title={state.mediaPickerTarget?.label ?? "Pilih gambar"} />
-        <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+        <AlertDialog onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }} open={Boolean(state.confirmationRequest)}><AlertDialogContent size="sm" variant={confirmationDialogVariant}><AlertDialogHeader><AlertDialogMedia variant={confirmationDialogVariant}><CircleHelp /></AlertDialogMedia><AlertDialogTitle>{confirmation?.title}</AlertDialogTitle><AlertDialogDescription>{confirmation?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel><AlertDialogAction onClick={actions.confirmPendingAction} variant={confirmationActionVariant}>{confirmation?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       </MentorWorkspaceShell>
     );
   }
@@ -1050,11 +1066,11 @@ function QuestionBankBuilderScreen({
             aria-label="Kembali ke detail bank soal"
             nativeButton={false}
             render={<Link href={detailHref} />}
-            size="sm"
+            size="icon-sm"
+            title="Kembali ke detail bank soal"
             variant="ghost"
           >
             <ChevronLeft />
-            <span className="hidden sm:inline font-medium">Kembali ke Detail</span>
           </Button>
           <div className="h-5 w-px bg-primary-100" />
           <div className="flex min-w-0 items-center gap-2.5">
@@ -1094,25 +1110,6 @@ function QuestionBankBuilderScreen({
           </Button>
 
           {state.isDraftLifecycle ? (
-            <>
-              <Button
-                aria-busy={state.isSaving}
-                data-question-bank-lifecycle-action="publish"
-                aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-                disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0}
-                id="question-bank-lifecycle-publish"
-                onClick={() => actions.updateLifecycle("publish")}
-                size="sm"
-                type="button"
-                variant="reference"
-              >
-                {state.isSaving ? "Menerbitkan…" : "Terbitkan"}
-              </Button>
-              {publishDisabledReason ? <span className="sr-only" id="publish-disabled-reason">{publishDisabledReason}</span> : null}
-            </>
-          ) : null}
-
-          {state.isDraftLifecycle ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -1139,6 +1136,25 @@ function QuestionBankBuilderScreen({
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : null}
+
+          {state.isDraftLifecycle ? (
+            <>
+              <Button
+                aria-busy={state.isSaving}
+                data-question-bank-lifecycle-action="publish"
+                aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
+                disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0}
+                id="question-bank-lifecycle-publish"
+                onClick={() => actions.requestLifecycleChange("publish")}
+                size="sm"
+                type="button"
+                variant="reference"
+              >
+                {state.isSaving ? "Menerbitkan…" : "Terbitkan"}
+              </Button>
+              {publishDisabledReason ? <span className="sr-only" id="publish-disabled-reason">{publishDisabledReason}</span> : null}
+            </>
           ) : null}
         </div>
       </header>
@@ -1185,10 +1201,18 @@ function QuestionBankBuilderScreen({
           ref={workspaceRef}
         >
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex min-h-11 flex-wrap items-center gap-3">
+            <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold text-secondary-900" id="question-bank-question-workspace-title">
                 Edit soal
               </h2>
+              <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="question-bank-preview-toggle">
+                Toggle preview
+                <Switch
+                  checked={state.questionEditorTab === "preview"}
+                  id="question-bank-preview-toggle"
+                  onCheckedChange={(checked) => actions.onEditorTabChange(checked ? "preview" : "edit")}
+                />
+              </label>
             </div>
 
             {builderState.questions.length === 0 ? (
@@ -1209,12 +1233,15 @@ function QuestionBankBuilderScreen({
                   </p>
                 ) : null}
 
-                <Tabs className="gap-5" onValueChange={actions.onEditorTabChange} value={state.questionEditorTab}>
-                  <TabsList>
-                    <TabsTrigger className="rounded-full px-4" value="edit">Edit</TabsTrigger>
-                    <TabsTrigger className="rounded-full px-4" value="preview">Preview</TabsTrigger>
-                  </TabsList>
-                  <TabsContent className="m-0" value="edit">
+                {state.questionEditorTab === "preview" ? (
+                  <QuestionBankPreview
+                    hasSubmittedPreview={state.hasSubmittedPreview}
+                    onChoiceChange={actions.onChoiceChange}
+                    onSubmit={actions.onSubmitPreview}
+                    previewChoiceId={state.previewChoiceId}
+                    questionDraft={state.questionDraft}
+                  />
+                ) : (
                     <QuestionBankEditorForm
                       activeQuestionId={state.activeQuestionId}
                       isQuestionContentLocked={state.isQuestionContentLocked}
@@ -1226,17 +1253,7 @@ function QuestionBankBuilderScreen({
                       questionDraft={state.questionDraft}
                       readinessIssues={questionIssues}
                     />
-                  </TabsContent>
-                  <TabsContent className="m-0" value="preview">
-                    <QuestionBankPreview
-                      hasSubmittedPreview={state.hasSubmittedPreview}
-                      onChoiceChange={actions.onChoiceChange}
-                      onSubmit={actions.onSubmitPreview}
-                      previewChoiceId={state.previewChoiceId}
-                      questionDraft={state.questionDraft}
-                    />
-                  </TabsContent>
-                </Tabs>
+                )}
               </>
             )}
           </div>
@@ -1254,15 +1271,15 @@ function QuestionBankBuilderScreen({
         onOpenChange={(open) => { if (!open) actions.closeConfirmation(); }}
         open={Boolean(state.confirmationRequest)}
       >
-        <AlertDialogContent size="sm" variant="danger">
+        <AlertDialogContent size="sm" variant={confirmationDialogVariant}>
           <AlertDialogHeader>
-            <AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia>
+            <AlertDialogMedia variant={confirmationDialogVariant}><CircleHelp /></AlertDialogMedia>
             <AlertDialogTitle>{confirmation?.title}</AlertDialogTitle>
             <AlertDialogDescription>{confirmation?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={actions.closeConfirmation}>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={actions.confirmPendingAction} variant="destructive">
+            <AlertDialogAction onClick={actions.confirmPendingAction} variant={confirmationActionVariant}>
               {confirmation?.confirmLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1748,14 +1765,30 @@ function useQuestionBankBuilderState({
   }
 
   function requestQuestionRemoval(id: string) {
-    const question = builderState.questions.find((item) => item.id === id);
-    const questionLabel = question?.prompt || "Soal tanpa pertanyaan";
+    const questionIndex = builderState.questions.findIndex((item) => item.id === id);
+    if (questionIndex < 0) return;
+    const questionNumber = questionIndex + 1;
 
     updateEditor({ confirmationRequest: {
       confirmLabel: "Hapus soal",
-      description: `“${questionLabel}” akan dihapus dari Bank Soal dan tidak dapat dikembalikan.`,
+      description: `Soal nomor ${questionNumber} akan dihapus dari Bank Soal dan tidak dapat dikembalikan.`,
       onConfirm: () => removeQuestion(id),
-      title: "Hapus soal ini?",
+      title: `Hapus soal nomor ${questionNumber}?`,
+    } });
+  }
+
+  function requestLifecycleChange(operation: "publish" | "unpublish") {
+    const isPublishing = operation === "publish";
+
+    updateEditor({ confirmationRequest: {
+      actionVariant: "brand",
+      confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
+      description: isPublishing
+        ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
+        : "Bank Soal ini dapat dikembalikan menjadi draf meski sudah dipakai Tryout. Tryout yang sudah dibuat tetap menggunakan snapshot soal; Bank Soal tidak akan tersedia sebagai sumber baru sampai diterbitkan kembali.",
+      dialogVariant: "warning",
+      onConfirm: () => updateLifecycle(operation),
+      title: isPublishing ? "Terbitkan Bank Soal?" : "Jadikan Bank Soal draf?",
     } });
   }
 
@@ -1802,6 +1835,7 @@ function useQuestionBankBuilderState({
       onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }),
       onUpdateDraft: updateQuestionDraft,
       requestArchive,
+      requestLifecycleChange,
       saveDraft,
       updateLifecycle,
       updateMetadata,

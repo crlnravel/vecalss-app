@@ -66,23 +66,23 @@ type RowStatus = "created" | "failed" | "invalid" | "pending" | "processing" | "
 type RowStatusTone = "danger" | "info" | "neutral" | "success" | "warning";
 
 const actionErrorMessages: Record<string, string> = {
-  active_claims: "A worker is still finishing this import. Wait for the claim to expire, then retry.",
-  handoff_account_inactive: "One account is inactive. Review the account before releasing its handoff.",
-  handoff_expired: "One invite has expired. It cannot be released again; use a fresh preview for this account.",
-  handoff_file_unavailable: "The handoff file could not be prepared. The import state is unchanged; try again.",
-  handoff_not_releasable: "One handoff is already released or closed. Refresh to see the current state.",
-  handoff_conflict: "This handoff changed elsewhere. Refresh to see the current state.",
-  handoff_reissue_unavailable: "The handoff replacement could not be created. Refresh and try again.",
-  import_confirmation_unavailable: "The import could not be confirmed. Refresh and check the current row counts.",
-  import_not_draft: "This draft is no longer editable. Refresh to see its current state.",
-  import_not_found: "This import is no longer available to your admin account.",
-  import_retry_unavailable: "The failed rows could not be queued again. Refresh and try once more.",
-  invalid_import_state: "This import is not in a state that accepts that action.",
-  invalid_origin: "This action expired. Refresh the page and try again.",
-  invalid_rows_pending_skip: "This bulk import is blocked because the CSV contains invalid rows. Correct the CSV and upload a new file; no rows will be imported.",
-  invalid_selection: "The selected rows are no longer available for handoff release.",
-  no_failed_rows: "There are no failed rows available for retry.",
-  row_selection_invalid: "Select only failed rows from this result.",
+  active_claims: "Worker masih menyelesaikan import ini. Tunggu hingga claim kedaluwarsa, lalu coba lagi.",
+  handoff_account_inactive: "Salah satu akun tidak aktif. Periksa akun sebelum merilis handoff-nya.",
+  handoff_expired: "Salah satu undangan sudah kedaluwarsa dan tidak dapat dirilis lagi; gunakan preview baru untuk akun ini.",
+  handoff_file_unavailable: "File handoff tidak dapat disiapkan. Status import tidak berubah; coba lagi.",
+  handoff_not_releasable: "Salah satu handoff sudah dirilis atau ditutup. Segarkan untuk melihat status terbaru.",
+  handoff_conflict: "Handoff ini berubah di tempat lain. Segarkan untuk melihat status terbaru.",
+  handoff_reissue_unavailable: "Pengganti handoff tidak dapat dibuat. Segarkan lalu coba lagi.",
+  import_confirmation_unavailable: "Import tidak dapat dikonfirmasi. Segarkan dan periksa jumlah baris terbaru.",
+  import_not_draft: "Draft ini tidak lagi dapat diedit. Segarkan untuk melihat status terbaru.",
+  import_not_found: "Import ini tidak lagi tersedia untuk akun admin Anda.",
+  import_retry_unavailable: "Baris yang gagal tidak dapat dimasukkan kembali ke antrean. Segarkan lalu coba lagi.",
+  invalid_import_state: "Import ini tidak berada dalam status yang menerima tindakan tersebut.",
+  invalid_origin: "Tindakan ini kedaluwarsa. Segarkan halaman lalu coba lagi.",
+  invalid_rows_pending_skip: "Import massal diblokir karena CSV berisi baris tidak valid. Perbaiki CSV dan unggah file baru; tidak ada baris yang akan diimport.",
+  invalid_selection: "Baris yang dipilih tidak lagi tersedia untuk rilis handoff.",
+  no_failed_rows: "Tidak ada baris gagal yang dapat dicoba ulang.",
+  row_selection_invalid: "Pilih hanya baris gagal dari hasil ini.",
 };
 
 function apiErrorMessage(code: unknown, fallback: string) {
@@ -90,25 +90,25 @@ function apiErrorMessage(code: unknown, fallback: string) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "Not available";
+   if (!value) return "Belum tersedia";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "Not available" : parsed.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+   return Number.isNaN(parsed.getTime()) ? "Belum tersedia" : parsed.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function methodLabel(method: HandoffMethod | null) {
-  return method === "temporary_password" ? "Temporary password" : "Invite link";
+   return method === "temporary_password" ? "Password sementara" : "Link undangan";
 }
 
 function statusCopy(status: string) {
   switch (status) {
-    case "draft": return { detail: "Preview saved. No accounts have changed.", label: "Draft needs review", tone: "warning" as const };
-    case "queued": return { detail: "The import is queued for the background worker.", label: "Queued", tone: "info" as const };
-    case "processing": return { detail: "Rows are being processed from the PostgreSQL state.", label: "Processing", tone: "info" as const };
-    case "completed": return { detail: "Every eligible row completed without a failure.", label: "Completed", tone: "success" as const };
-    case "partial": return { detail: "Some rows completed; review the remaining failures or skipped rows.", label: "Partially complete", tone: "warning" as const };
-    case "failed": return { detail: "The import stopped before all rows completed.", label: "Import failed", tone: "danger" as const };
-    case "cancelled": return { detail: "This draft was abandoned before account changes began.", label: "Cancelled", tone: "neutral" as const };
-    default: return { detail: "The import state is unavailable.", label: status, tone: "neutral" as const };
+     case "draft": return { detail: "Preview tersimpan. Tidak ada akun yang berubah.", label: "Draft perlu ditinjau", tone: "warning" as const };
+     case "queued": return { detail: "Import masuk ke antrean background worker.", label: "Dalam antrean", tone: "info" as const };
+     case "processing": return { detail: "Baris sedang diproses berdasarkan status PostgreSQL.", label: "Sedang diproses", tone: "info" as const };
+     case "completed": return { detail: "Semua baris yang memenuhi syarat selesai tanpa kegagalan.", label: "Selesai", tone: "success" as const };
+     case "partial": return { detail: "Sebagian baris selesai; periksa baris yang gagal atau dilewati.", label: "Selesai sebagian", tone: "warning" as const };
+     case "failed": return { detail: "Import berhenti sebelum semua baris selesai.", label: "Import gagal", tone: "danger" as const };
+     case "cancelled": return { detail: "Draft ini dibatalkan sebelum perubahan akun dimulai.", label: "Dibatalkan", tone: "neutral" as const };
+     default: return { detail: "Status import tidak tersedia.", label: status, tone: "neutral" as const };
   }
 }
 
@@ -134,14 +134,14 @@ function referenceBadgeTone(tone: ReturnType<typeof statusCopy>["tone"]): "dange
 
 function rowStatusCopy(status: RowStatus): { icon: React.ReactNode; label: string; tone: RowStatusTone } {
   switch (status) {
-    case "created": return { icon: <CheckCircle2 aria-hidden="true" size={14} />, label: "Created", tone: "success" };
-    case "updated": return { icon: <Check aria-hidden="true" size={14} />, label: "Updated", tone: "success" };
-    case "failed": return { icon: <CircleX aria-hidden="true" size={14} />, label: "Failed", tone: "danger" };
-    case "invalid": return { icon: <CircleAlert aria-hidden="true" size={14} />, label: "Needs review", tone: "warning" };
-    case "skipped": return { icon: <SkipForward aria-hidden="true" size={14} />, label: "Skipped", tone: "neutral" };
-    case "processing": return { icon: <RefreshCw aria-hidden="true" size={14} />, label: "Processing", tone: "info" };
-    case "pending": return { icon: <FileClock aria-hidden="true" size={14} />, label: "Pending", tone: "warning" };
-    default: return { icon: <FileClock aria-hidden="true" size={14} />, label: "Ready", tone: "info" };
+     case "created": return { icon: <CheckCircle2 aria-hidden="true" size={14} />, label: "Dibuat", tone: "success" };
+     case "updated": return { icon: <Check aria-hidden="true" size={14} />, label: "Diperbarui", tone: "success" };
+     case "failed": return { icon: <CircleX aria-hidden="true" size={14} />, label: "Gagal", tone: "danger" };
+     case "invalid": return { icon: <CircleAlert aria-hidden="true" size={14} />, label: "Perlu ditinjau", tone: "warning" };
+     case "skipped": return { icon: <SkipForward aria-hidden="true" size={14} />, label: "Dilewati", tone: "neutral" };
+     case "processing": return { icon: <RefreshCw aria-hidden="true" size={14} />, label: "Sedang diproses", tone: "info" };
+     case "pending": return { icon: <FileClock aria-hidden="true" size={14} />, label: "Menunggu", tone: "warning" };
+     default: return { icon: <FileClock aria-hidden="true" size={14} />, label: "Siap", tone: "info" };
   }
 }
 
@@ -151,9 +151,9 @@ function rowBadgeTone(tone: RowStatusTone): "danger" | "info" | "neutral" | "suc
 
 function rowIssueLabel(code: string | null) {
   if (!code) return null;
-  if (code === "duplicate_email_in_file") return "Duplicate in this file";
-  if (["opposite_role", "role_conflict", "revoked_role", "soft_deleted_user", "inactive_account"].includes(code)) return "Account or role conflict";
-  if (code === "changed_since_preview") return "Changed since preview";
+   if (code === "duplicate_email_in_file") return "Duplikat di file ini";
+   if (["opposite_role", "role_conflict", "revoked_role", "soft_deleted_user", "inactive_account"].includes(code)) return "Konflik akun atau peran";
+   if (code === "changed_since_preview") return "Berubah sejak preview";
   return code.replaceAll("_", " ");
 }
 
@@ -176,7 +176,7 @@ function ImportInputSummary({ input }: { input: ImportStatusDto["rows"][number][
             <span>{key.replaceAll("_", " ")}: {isLongBio ? getBoundedKaptenBioPreview(value) : value}</span>
             {isLongBio ? (
               <details className="mt-1">
-                <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2 font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300">View full bio ({value.trim().length} characters)</summary>
+                 <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2 font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300">Lihat bio lengkap ({value.trim().length} karakter)</summary>
                 <p className="mt-1 max-w-[48ch] whitespace-pre-wrap rounded-xl bg-secondary-50 px-3 py-2 text-xs leading-5 text-secondary-900">{value}</p>
               </details>
             ) : null}
@@ -227,8 +227,8 @@ function ImportSessionRecoveryNotice({
   return (
     <ReferenceSurface as="section" aria-labelledby="import-session-recovery-heading" className={`flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6 ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert" variant="inset">
       <div>
-        <p className="text-base font-semibold" id="import-session-recovery-heading">{kind === "expired" ? "Admin session expired" : "Admin permission required"}</p>
-        <p className="mt-1 max-w-[68ch] text-sm leading-6">{kind === "expired" ? "Sign in again to return to this import review. The import ID stays in this page context; credentials are never included in the recovery link." : "This admin account can no longer review the import. Sign in with an active admin account or return to the admin home."}</p>
+         <p className="text-base font-semibold" id="import-session-recovery-heading">{kind === "expired" ? "Sesi admin kedaluwarsa" : "Izin admin diperlukan"}</p>
+         <p className="mt-1 max-w-[68ch] text-sm leading-6">{kind === "expired" ? "Masuk lagi untuk kembali ke review import ini. ID import tetap berada di konteks halaman; kredensial tidak pernah dimasukkan ke link pemulihan." : "Akun admin ini tidak lagi dapat meninjau import. Masuk dengan akun admin aktif atau kembali ke halaman utama admin."}</p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
         <Button
@@ -237,9 +237,9 @@ function ImportSessionRecoveryNotice({
           size="default"
           variant="dangerOutline"
         >
-          {kind === "expired" ? "Sign in again" : "Sign in as admin"}
+           {kind === "expired" ? "Masuk lagi" : "Masuk sebagai admin"}
         </Button>
-        <Button onClick={onRefresh} size="default" variant="dangerOutline">Refresh page</Button>
+         <Button onClick={onRefresh} size="default" variant="dangerOutline">Segarkan halaman</Button>
       </div>
     </ReferenceSurface>
   );
@@ -248,17 +248,17 @@ function ImportSessionRecoveryNotice({
 function CountStrip({ counts, mode }: { counts: ImportStatusDto["counts"]; mode: "preview" | "result" }) {
   const items = mode === "preview"
     ? [
-      ["New accounts", counts.create],
-      ["Profile updates", counts.update],
-      ["Failed", counts.failed],
-      ["Needs review", counts.invalid],
-      ["Skipped", counts.skipped],
+         ["Akun baru", counts.create],
+         ["Profil diperbarui", counts.update],
+         ["Gagal", counts.failed],
+         ["Perlu ditinjau", counts.invalid],
+         ["Dilewati", counts.skipped],
     ] as const
     : [
-      ["Created", counts.created],
-      ["Updated", counts.updated],
-      ["Failed", counts.failed],
-      ["Skipped", counts.skipped],
+         ["Dibuat", counts.created],
+         ["Diperbarui", counts.updated],
+         ["Gagal", counts.failed],
+         ["Dilewati", counts.skipped],
     ] as const;
 
   return (
@@ -282,21 +282,21 @@ function ImportProgressPanel({ importStatus }: { importStatus: ImportStatusDto }
     <ReferenceSurface as="section" aria-labelledby="import-progress-heading" className="p-5 sm:p-6" variant="inset">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-progress-heading">Import progress</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-600">The worker reports durable row outcomes from PostgreSQL. This page will keep polling until the import reaches a terminal state.</p>
+           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="import-progress-heading">Progress import</h2>
+           <p className="mt-1 text-sm leading-6 text-secondary-600">Worker melaporkan hasil baris yang tersimpan di PostgreSQL. Halaman ini akan terus melakukan polling sampai import mencapai status terminal.</p>
         </div>
         <p className="text-sm font-semibold tabular-nums text-primary-800">{progress.percent}% complete</p>
       </div>
-      <div aria-label={`Import progress: ${progress.processed} of ${progress.total} rows processed`} aria-valuemax={progressMax} aria-valuemin={0} aria-valuenow={progress.processed} aria-valuetext={`${progress.processed} of ${progress.total} rows processed`} className="mt-5 h-3 overflow-hidden rounded-full bg-primary-100" role="progressbar">
+       <div aria-label={`Progress import: ${progress.processed} dari ${progress.total} baris diproses`} aria-valuemax={progressMax} aria-valuemin={0} aria-valuenow={progress.processed} aria-valuetext={`${progress.processed} dari ${progress.total} baris diproses`} className="mt-5 h-3 overflow-hidden rounded-full bg-primary-100" role="progressbar">
         <div className="h-full rounded-full bg-primary-600 transition-[width] duration-300" style={{ width: `${progress.percent}%` }} />
       </div>
-      <p className="mt-2 text-sm font-semibold tabular-nums text-secondary-900">Processed {progress.processed} of {progress.total} rows</p>
+       <p className="mt-2 text-sm font-semibold tabular-nums text-secondary-900">Diproses {progress.processed} dari {progress.total} baris</p>
       <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          ["Pending", progress.pending],
-          ["Processing", progress.processing],
-          ["Remaining", progress.remaining],
-          ["Rows with outcomes", progress.processed],
+           ["Menunggu", progress.pending],
+           ["Sedang diproses", progress.processing],
+           ["Tersisa", progress.remaining],
+           ["Baris dengan hasil", progress.processed],
         ].map(([label, value]) => (
           <ReferenceSurface as="div" className="px-3 py-3" key={label}>
             <dt className="text-xs font-semibold text-secondary-600">{label}</dt>
@@ -321,7 +321,7 @@ function ImportStatusBanner({ importStatus }: { importStatus: ImportStatusDto })
           </div>
         </div>
         <div className="text-left text-xs sm:text-right">
-          <p className="font-semibold">Last saved</p>
+           <p className="font-semibold">Terakhir disimpan</p>
           <time className="mt-1 block opacity-80" dateTime={importStatus.updatedAt}>{formatDate(importStatus.updatedAt)}</time>
         </div>
       </div>
@@ -334,19 +334,19 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
     <ReferenceSurface as="section" aria-labelledby="import-rows-heading" className="overflow-hidden p-0">
       <div className="flex flex-col gap-3 border-b border-primary-100/80 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
         <div>
-          <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="import-rows-heading">Preview rows</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-500">Each row keeps its original operation decision. Existing email matches update the role profile only.</p>
+           <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="import-rows-heading">Baris preview</h2>
+           <p className="mt-1 text-sm leading-6 text-secondary-500">Setiap baris mempertahankan keputusan operasinya. Email yang sudah ada hanya memperbarui profil peran.</p>
         </div>
       </div>
       <Table className="min-w-[760px] text-left text-sm">
-        <TableCaption className="sr-only">Import preview rows and their operation status.</TableCaption>
+         <TableCaption className="sr-only">Baris preview import dan status operasinya.</TableCaption>
         <TableHeader>
           <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
             <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Row</TableHead>
             <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Email</TableHead>
-            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Operation</TableHead>
-            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">State</TableHead>
-            <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Explanation</TableHead>
+             <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Operasi</TableHead>
+             <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Status</TableHead>
+             <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold tracking-[0.02em] text-secondary-700 sm:px-5">Penjelasan</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -357,10 +357,10 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
               <TableRow className={isInvalid ? "bg-student-status-attention-bg/45" : undefined} key={row.rowId}>
                 <TableCell className="px-4 py-3.5 align-top font-semibold tabular-nums text-secondary-900 sm:px-5">{row.rowNumber}</TableCell>
                 <TableCell className="max-w-[240px] px-4 py-3.5 align-top sm:px-5">
-                  <span className="block truncate font-semibold text-secondary-900">{row.normalizedEmail || "No email"}</span>
+                   <span className="block truncate font-semibold text-secondary-900">{row.normalizedEmail || "Email tidak ada"}</span>
                   <ImportInputSummary input={row.input} />
                 </TableCell>
-                <TableCell className="px-4 py-3.5 align-top text-secondary-600 sm:px-5">{row.operation === "create" ? "Create" : row.operation === "update" ? "Update profile" : "No operation"}</TableCell>
+                 <TableCell className="px-4 py-3.5 align-top text-secondary-600 sm:px-5">{row.operation === "create" ? "Buat" : row.operation === "update" ? "Perbarui profil" : "Tidak ada operasi"}</TableCell>
                 <TableCell className="px-4 py-3.5 align-top sm:px-5">
                   <StudentBadge size="sm" tone={rowBadgeTone(copy.tone)}>
                     {copy.icon}
@@ -368,7 +368,7 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
                   </StudentBadge>
                 </TableCell>
                 <TableCell className="max-w-[270px] px-4 py-3.5 align-top text-xs leading-5 text-secondary-600 sm:px-5">
-                  {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} handoff · ${row.handoffStatus.replaceAll("_", " ")}` : "Ready for the next step."}
+                   {row.errorMessage ? <><span className="font-semibold text-student-status-attention-fg">{rowIssueLabel(row.errorCode)}</span><span className="mt-0.5 block">{row.errorMessage}</span></> : row.status === "created" && row.handoffStatus ? `${methodLabel(row.handoffMethod)} handoff · ${row.handoffStatus.replaceAll("_", " ")}` : "Siap untuk langkah berikutnya."}
                 </TableCell>
               </TableRow>
             );
@@ -377,8 +377,8 @@ function ImportRowTable({ importStatus }: { importStatus: ImportStatusDto }) {
               <TableCell className="px-5 py-12 text-center" colSpan={5}>
                 <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
                   <span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-primary-50 text-primary-800"><FileClock size={18} /></span>
-                  <p className="font-semibold text-secondary-900">No import rows</p>
-                  <p className="text-sm leading-6 text-secondary-600">The preview contains no rows to review.</p>
+                   <p className="font-semibold text-secondary-900">Tidak ada baris import</p>
+                   <p className="text-sm leading-6 text-secondary-600">Preview tidak memiliki baris untuk ditinjau.</p>
                 </div>
               </TableCell>
             </TableRow>
@@ -418,19 +418,19 @@ function WorkerHealthNotice({
     <ReferenceSurface as="div" className={`flex items-start gap-3 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="status" variant="inset">
       <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} />
       <div>
-        <p className="font-semibold">
-          {statusReadOnly ? "Status refresh is delayed" : workerOnly ? "Worker or queue needs attention" : "Status and worker health need attention"}
+           <p className="font-semibold">
+             {statusReadOnly ? "Penyegaran status terlambat" : workerOnly ? "Worker atau antrean perlu diperhatikan" : "Status dan kesehatan worker perlu diperhatikan"}
         </p>
         {statusReadOnly ? (
-          <p className="mt-1 max-w-[70ch] text-xs leading-5">PostgreSQL remains the source of truth. The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}; this read outage does not establish a worker heartbeat failure.</p>
+           <p className="mt-1 max-w-[70ch] text-xs leading-5">PostgreSQL tetap menjadi sumber kebenaran. Pembacaan database terakhir pada {formatDate(new Date(lastFetchedAt).toISOString())}; gangguan pembacaan ini tidak menunjukkan kegagalan heartbeat worker.</p>
         ) : workerOnly ? (
-          <p className="mt-1 max-w-[70ch] text-xs leading-5">PostgreSQL remains the source of truth. A worker heartbeat has been missing or stale for at least 45 seconds, or the queue reported an unavailable job. This page will keep backing off instead of claiming success.</p>
+           <p className="mt-1 max-w-[70ch] text-xs leading-5">PostgreSQL tetap menjadi sumber kebenaran. Heartbeat worker hilang atau kedaluwarsa setidaknya selama 45 detik, atau antrean melaporkan job yang tidak tersedia. Halaman ini akan memperpanjang jeda polling dan tidak mengklaim keberhasilan.</p>
         ) : (
           <>
-            <p className="mt-1 max-w-[70ch] text-xs leading-5">PostgreSQL remains the source of truth, but the last database read was {formatDate(new Date(lastFetchedAt).toISOString())} and the worker heartbeat is also stale or the queue reported an unavailable job. This page will keep backing off instead of claiming success.</p>
+             <p className="mt-1 max-w-[70ch] text-xs leading-5">PostgreSQL tetap menjadi sumber kebenaran, tetapi pembacaan database terakhir pada {formatDate(new Date(lastFetchedAt).toISOString())} dan heartbeat worker juga kedaluwarsa atau antrean melaporkan job yang tidak tersedia. Halaman ini akan memperpanjang jeda polling dan tidak mengklaim keberhasilan.</p>
           </>
         )}
-        {!statusReadOnly ? <p className="mt-1 text-xs opacity-80">Last row heartbeat: {formatDate(importStatus.lastHeartbeatAt)}</p> : null}
+         {!statusReadOnly ? <p className="mt-1 text-xs opacity-80">Heartbeat baris terakhir: {formatDate(importStatus.lastHeartbeatAt)}</p> : null}
       </div>
     </ReferenceSurface>
   );
@@ -591,7 +591,7 @@ function HandoffDeliveryPanel({
           onSessionIssue(recovery);
           return;
         }
-        dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The one-time file could not be released. Refresh and review the handoff state.") });
+         dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "File sekali pakai tidak dapat dirilis. Segarkan dan periksa status handoff.") });
         return;
       }
       const file = await response.blob();
@@ -605,12 +605,12 @@ function HandoffDeliveryPanel({
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       dispatch({
         ids: selectedIds,
-        message: `Downloaded ${selectedIds.length} ${selectedIds.length === 1 ? "handoff" : "handoffs"}. Transfer the file now; the credentials will not be released again.`,
+         message: `${selectedIds.length} handoff berhasil diunduh. Pindahkan file sekarang; kredensial tidak akan dirilis lagi.`,
         type: "downloadSuccess",
       });
       await onRefresh();
     } catch {
-      dispatch({ type: "message", value: "The one-time file could not be downloaded. Refresh before trying again." });
+       dispatch({ type: "message", value: "File sekali pakai tidak dapat diunduh. Segarkan sebelum mencoba lagi." });
     } finally {
       dispatch({ type: "downloadBusy", value: false });
     }
@@ -634,13 +634,13 @@ function HandoffDeliveryPanel({
         return;
       }
       if (!response.ok) {
-        dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The acknowledgement could not be recorded. Refresh and try again.") });
+         dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Konfirmasi tidak dapat dicatat. Segarkan lalu coba lagi.") });
         return;
       }
-      dispatch({ message: "Handoff acknowledgement recorded. The one-time credentials remain out of the app state.", type: "acknowledgeSuccess" });
+       dispatch({ message: "Konfirmasi handoff tercatat. Kredensial sekali pakai tetap tidak masuk ke state aplikasi.", type: "acknowledgeSuccess" });
       await onRefresh();
     } catch {
-      dispatch({ type: "message", value: "The acknowledgement could not reach the server. Refresh and try again." });
+       dispatch({ type: "message", value: "Konfirmasi tidak dapat mencapai server. Segarkan lalu coba lagi." });
     } finally {
       dispatch({ type: "acknowledgeBusy", value: false });
     }
@@ -663,13 +663,13 @@ function HandoffDeliveryPanel({
         return;
       }
       if (!response.ok) {
-        dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The replacement handoff could not be created.") });
+         dispatch({ type: "message", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Pengganti handoff tidak dapat dibuat.") });
         return;
       }
-      dispatch({ message: "Replacement handoff ready. Select it below and download the new one-time file.", type: "reissueSuccess" });
+       dispatch({ message: "Pengganti handoff siap. Pilih di bawah lalu unduh file sekali pakai yang baru.", type: "reissueSuccess" });
       await onRefresh();
     } catch {
-      dispatch({ type: "message", value: "The replacement request could not reach the server. Refresh and try again." });
+       dispatch({ type: "message", value: "Permintaan pengganti tidak dapat mencapai server. Segarkan lalu coba lagi." });
     } finally {
       dispatch({ type: "reissueBusy", value: null });
     }
@@ -685,8 +685,8 @@ function HandoffDeliveryPanel({
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-student-status-success-bg text-student-status-success-fg"><CheckCircle2 size={19} /></span>
           <div>
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">All handoffs acknowledged</h2>
-            <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Every released credential file for this import has been confirmed as transferred. No handoff file remains available to download.</p>
+             <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">Semua handoff sudah dikonfirmasi</h2>
+             <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Semua file kredensial yang dirilis untuk import ini sudah dikonfirmasi telah dipindahkan. Tidak ada file handoff yang tersisa untuk diunduh.</p>
           </div>
         </div>
       </ReferenceSurface>
@@ -699,8 +699,8 @@ function HandoffDeliveryPanel({
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary-100 text-secondary-700"><FileClock size={19} /></span>
           <div>
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">No handoff action remains</h2>
-            <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Every new-account handoff for this import is terminal. Completed or revoked handoffs cannot be downloaded, reissued, or acknowledged here.</p>
+             <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">Tidak ada tindakan handoff tersisa</h2>
+             <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Semua handoff akun baru untuk import ini sudah terminal. Handoff yang selesai atau dicabut tidak dapat diunduh, dibuat ulang, atau dikonfirmasi di sini.</p>
           </div>
         </div>
       </ReferenceSurface>
@@ -711,27 +711,27 @@ function HandoffDeliveryPanel({
     <ReferenceSurface as="section" aria-labelledby="handoff-file-heading" className="p-5 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">One-time handoff file</h2>
-          <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">This import uses one method for all new accounts: <span className="font-semibold text-secondary-900">{methodLabel(method)}</span>. The file is generated in memory and is never stored.</p>
+           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="handoff-file-heading">File handoff sekali pakai</h2>
+           <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-600">Import ini menggunakan satu metode untuk semua akun baru: <span className="font-semibold text-secondary-900">{methodLabel(method)}</span>. File dibuat di memori dan tidak pernah disimpan.</p>
         </div>
         <p className="flex max-w-[18rem] items-start gap-2 text-xs leading-5 text-student-status-info-fg">
           <Info aria-hidden="true" className="mt-0.5 shrink-0" size={14} />
-          <span>Credentials are shown once.</span>
+           <span>Kredensial hanya ditampilkan sekali.</span>
         </p>
       </div>
 
       <ReferenceSurface as="div" className="mt-4 px-4 py-3 text-sm leading-6 text-secondary-600" variant="inset">
         {method === "invite_link"
-          ? "Invite links expire after 24 hours and are used once. Share the link manually; no email delivery is implied. The recipient follows it to set a password."
-          : "Temporary passwords work for the first login only and require a password change. Share the file securely; no email delivery is implied."}
+           ? "Link undangan kedaluwarsa setelah 24 jam dan hanya dapat digunakan sekali. Bagikan link secara manual; tidak ada pengiriman email otomatis. Penerima menggunakannya untuk membuat password."
+           : "Password sementara hanya berlaku untuk login pertama dan harus diganti. Bagikan file melalui kanal yang aman; tidak ada pengiriman email otomatis."}
       </ReferenceSurface>
 
       {pendingRows.length > 0 ? (
         <div className="mt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-semibold text-secondary-900">Pending new-account handoffs</p>
+             <p className="text-sm font-semibold text-secondary-900">Handoff akun baru yang menunggu</p>
             <Button className="text-xs" onClick={() => dispatch({ ids: pendingRows.map((row) => row.handoffId).filter((id): id is string => Boolean(id)), type: "selectPending" })} size="default" variant="reference">
-              {selectedRows.size === pendingRows.length ? "Clear selection" : "Select all pending"}
+               {selectedRows.size === pendingRows.length ? "Hapus pilihan" : "Pilih semua yang menunggu"}
             </Button>
           </div>
           <div className="mt-2 divide-y divide-primary-100 rounded-2xl border border-primary-100">
@@ -739,25 +739,25 @@ function HandoffDeliveryPanel({
               <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
                 <input aria-label={`Select handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-primary-700" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
                 <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs text-secondary-600">Expires {formatDate(row.handoffExpiresAt)}</span></span>
-                <StudentBadge size="sm" tone="attention">Pending</StudentBadge>
+             <StudentBadge size="sm" tone="attention">Menunggu</StudentBadge>
               </label>
             ))}
           </div>
           <label className={cn(REFERENCE_SURFACE_CLASS_NAMES.inset, "mt-4 flex items-start gap-3 px-4 py-3 text-xs leading-5 text-secondary-600")}>
             <input checked={acknowledgeIntent} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "acknowledgeIntent", value: event.target.checked })} type="checkbox" />
-            <span>I will share this file through a secure channel and understand the selected credentials cannot be recovered after release.</span>
+             <span>Saya akan membagikan file ini melalui kanal yang aman dan memahami bahwa kredensial yang dipilih tidak dapat dipulihkan setelah dirilis.</span>
           </label>
           <Button className="mt-3" disabled={!selectedIds.length || !acknowledgeIntent || downloadBusy} onClick={downloadFile} type="button" variant="brand">
             <Download aria-hidden="true" size={16} />
-            {downloadBusy ? "Preparing file…" : `Download selected (${selectedIds.length})`}
+             {downloadBusy ? "Menyiapkan file…" : `Unduh pilihan (${selectedIds.length})`}
           </Button>
         </div>
       ) : null}
 
       {releasedRows.length > 0 ? (
         <ReferenceSurface as="div" className={`mt-5 px-4 py-4 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} variant="inset">
-          <p className="font-semibold">Some credentials are already released</p>
-          <p className="mt-1 text-xs leading-5">The response cannot be downloaded again. If the file was lost, start a new preview/import for those accounts; do not expect the old credentials to reappear. Once you have transferred the file, acknowledge the released rows below.</p>
+           <p className="font-semibold">Sebagian kredensial sudah dirilis</p>
+           <p className="mt-1 text-xs leading-5">File tidak dapat diunduh lagi. Jika file hilang, mulai preview/import baru untuk akun tersebut; kredensial lama tidak akan muncul kembali. Setelah memindahkan file, konfirmasi baris yang sudah dirilis di bawah.</p>
           <div className="mt-3 space-y-2">
             {releasedRows.map((row) => (
               <div className="flex min-h-11 items-center gap-3 rounded-xl border border-student-status-attention-border bg-white/50 px-3 py-2 text-xs" key={row.rowId}>
@@ -765,31 +765,31 @@ function HandoffDeliveryPanel({
                   <input aria-label={`Select released handoff for row ${row.rowNumber}`} checked={Boolean(row.handoffId && selectedRows.has(row.handoffId))} className="size-4 accent-student-status-attention-fg" onChange={() => row.handoffId && toggleRow(row.handoffId)} type="checkbox" />
                   <span className="truncate">Row {row.rowNumber} · {row.normalizedEmail}</span>
                 </label>
-                <span className="font-semibold">Already released</span>
-                {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} size="default" type="button" variant="attentionOutline">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</Button> : null}
+                 <span className="font-semibold">Sudah dirilis</span>
+                 {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} size="default" type="button" variant="attentionOutline">{reissueBusy === row.handoffId ? "Membuat ulang…" : "Buat ulang"}</Button> : null}
               </div>
             ))}
           </div>
           <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-attention-fg">
             <input checked={transferConfirmed} className="mt-1 size-4 accent-student-status-attention-fg" onChange={(event) => dispatch({ type: "transferConfirmed", value: event.target.checked })} type="checkbox" />
-            <span>I confirm the released file was transferred through a secure channel.</span>
+             <span>Saya mengonfirmasi bahwa file yang dirilis sudah dipindahkan melalui kanal yang aman.</span>
           </label>
           <Button className="mt-3" disabled={!acknowledgementIds.length || !transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button" variant="attentionOutline">
             <Check aria-hidden="true" size={16} />
-            {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
+             {acknowledgeBusy ? "Menyimpan…" : "Konfirmasi pemindahan"}
           </Button>
         </ReferenceSurface>
       ) : null}
 
       {expiredRows.length > 0 ? (
         <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-xs leading-5 ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset">
-          <p className="font-semibold">Expired handoffs need a new preview</p>
-          <p className="mt-1">Expired invite secrets are no longer releasable. Reissue a sealed replacement here, then select the new pending row for download. If the source data is wrong, create a new preview instead.</p>
+           <p className="font-semibold">Handoff kedaluwarsa perlu preview baru</p>
+           <p className="mt-1">Secret undangan yang kedaluwarsa tidak dapat dirilis lagi. Buat ulang pengganti yang tersegel di sini, lalu pilih baris baru yang menunggu untuk diunduh. Jika data sumber salah, buat preview baru.</p>
           <div className="mt-3 space-y-2">
             {expiredRows.map((row) => (
               <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-student-status-danger-border bg-white/50 px-3 py-2" key={row.rowId}>
                 <span className="truncate text-xs">Row {row.rowNumber} · {row.normalizedEmail}</span>
-                {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} size="default" type="button" variant="dangerOutline">{reissueBusy === row.handoffId ? "Reissuing…" : "Reissue"}</Button> : null}
+                 {row.handoffId ? <Button className="shrink-0 text-xs" disabled={reissueBusy !== null} onClick={() => void reissueHandoff(row.handoffId as string)} size="default" type="button" variant="dangerOutline">{reissueBusy === row.handoffId ? "Membuat ulang…" : "Buat ulang"}</Button> : null}
               </div>
             ))}
           </div>
@@ -798,15 +798,15 @@ function HandoffDeliveryPanel({
 
       {downloadedIds.size > 0 && releasedRows.length === 0 ? (
         <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.success}`} variant="inset">
-          <p className="font-semibold">File downloaded</p>
-          <p className="mt-1 text-xs leading-5">Confirm that the file reached the recipient. The acknowledgement records the handoff; it does not expose the credentials again.</p>
+           <p className="font-semibold">File berhasil diunduh</p>
+           <p className="mt-1 text-xs leading-5">Konfirmasi bahwa file sudah sampai ke penerima. Konfirmasi ini mencatat handoff dan tidak menampilkan kredensial lagi.</p>
           <label className="mt-3 flex items-start gap-3 text-xs leading-5 text-student-status-success-fg">
             <input checked={transferConfirmed} className="mt-1 size-4 accent-primary-700" onChange={(event) => dispatch({ type: "transferConfirmed", value: event.target.checked })} type="checkbox" />
-            <span>I confirm the released file was transferred through a secure channel.</span>
+             <span>Saya mengonfirmasi bahwa file yang dirilis sudah dipindahkan melalui kanal yang aman.</span>
           </label>
           <Button className="mt-3" disabled={!transferConfirmed || acknowledgeBusy} onClick={acknowledgeTransfer} type="button" variant="brandOutline">
             <Check aria-hidden="true" size={16} />
-            {acknowledgeBusy ? "Saving…" : "Acknowledge transfer"}
+             {acknowledgeBusy ? "Menyimpan…" : "Konfirmasi pemindahan"}
           </Button>
         </ReferenceSurface>
       ) : null}
@@ -837,7 +837,7 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
   async function retryRows() {
     if (!retryAll && !selectedRows.size) return;
     setBusy(true);
-    setMessage("Queueing the selected failed rows…");
+     setMessage("Memasukkan baris gagal yang dipilih ke antrean…");
     try {
       const body: Record<string, unknown> = {
         expectedGeneration: importStatus.dispatchGeneration,
@@ -857,15 +857,15 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
         return;
       }
       if (!response.ok) {
-        setMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The failed rows could not be queued."));
+         setMessage(apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Baris gagal tidak dapat dimasukkan ke antrean."));
         return;
       }
       setSelectedRows(new Set());
       setRetryAll(false);
       await onRefresh();
-      setMessage("Retry queued. The status will update from the worker's database outcomes.");
+       setMessage("Percobaan ulang masuk ke antrean. Status akan diperbarui berdasarkan hasil worker di database.");
     } catch {
-      setMessage("The retry could not reach the server. Refresh and try again.");
+       setMessage("Percobaan ulang tidak dapat mencapai server. Segarkan lalu coba lagi.");
     } finally {
       setBusy(false);
     }
@@ -875,24 +875,24 @@ function RetryPanel({ importStatus, onRefresh, onSessionIssue }: { importStatus:
     <ReferenceSurface as="section" aria-labelledby="retry-heading" className={`p-5 sm:p-6 ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="retry-heading">Review failed rows</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-600">Retry is for transient or operational failures. Data corrections require a new preview/import.</p>
+           <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id="retry-heading">Tinjau baris gagal</h2>
+           <p className="mt-1 text-sm leading-6 text-secondary-600">Percobaan ulang ditujukan untuk kegagalan sementara atau operasional. Perbaikan data memerlukan preview/import baru.</p>
         </div>
-        <StudentBadge size="sm" tone="danger">{failedRows.length} failed</StudentBadge>
+         <StudentBadge size="sm" tone="danger">{failedRows.length} gagal</StudentBadge>
       </div>
       <div className="mt-4 divide-y divide-student-status-danger-border rounded-2xl border border-student-status-danger-border bg-white">
         {failedRows.map((row) => (
           <label className="flex min-h-14 items-center gap-3 px-4 py-3 text-sm" key={row.rowId}>
             <input aria-label={`Select failed row ${row.rowNumber} for retry`} checked={selectedRows.has(row.rowId)} className="size-4 accent-student-status-danger-solid-bg" onChange={() => toggleRow(row.rowId)} type="checkbox" />
-            <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Row {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs leading-5 text-student-status-danger-fg">{row.errorMessage ?? row.errorCode?.replaceAll("_", " ") ?? "Operational failure"}</span></span>
+           <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-secondary-900">Baris {row.rowNumber} · {row.normalizedEmail}</span><span className="mt-0.5 block text-xs leading-5 text-student-status-danger-fg">{row.errorMessage ?? row.errorCode?.replaceAll("_", " ") ?? "Kegagalan operasional"}</span></span>
           </label>
         ))}
       </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="flex min-h-11 items-center gap-2 text-xs text-secondary-600"><input checked={retryAll} className="size-4 accent-student-status-danger-solid-bg" onChange={(event) => setRetryAll(event.target.checked)} type="checkbox" /> Retry all failed rows</label>
+         <label className="flex min-h-11 items-center gap-2 text-xs text-secondary-600"><input checked={retryAll} className="size-4 accent-student-status-danger-solid-bg" onChange={(event) => setRetryAll(event.target.checked)} type="checkbox" /> Coba ulang semua baris gagal</label>
         <Button disabled={busy || (!retryAll && !selectedRows.size)} onClick={retryRows} type="button" variant="destructive">
           <RotateCcw aria-hidden="true" size={16} />
-          {busy ? "Queueing retry…" : retryAll ? "Retry all failed" : `Retry selected (${selectedRows.size})`}
+           {busy ? "Memasukkan ke antrean…" : retryAll ? "Coba ulang semua yang gagal" : `Coba ulang pilihan (${selectedRows.size})`}
         </Button>
       </div>
       {message ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{message}</p> : null}
@@ -953,12 +953,12 @@ function ImportDetailView({
     <div className="space-y-7">
       <div className="flex min-w-0 items-start gap-3">
         <Button
-          aria-label="Back to enrollment"
+           aria-label="Kembali ke enrollment"
           className="mt-1 shrink-0"
           nativeButton={false}
           render={<Link href="/admin/enrollment" />}
           size="icon"
-          title="Back to enrollment"
+           title="Kembali ke enrollment"
           variant="ghost"
         >
           <ChevronLeft aria-hidden="true" size={18} />
@@ -966,21 +966,21 @@ function ImportDetailView({
         <ReferencePageHeader
           actions={(
             <div className="flex flex-wrap items-center gap-2">
-              <Button aria-label="Refresh import status" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="reference">
+               <Button aria-label="Segarkan status import" disabled={refreshing} onClick={() => void loadStatus()} size="sm" variant="reference">
                 <RefreshCw aria-hidden="true" size={15} />
-                {refreshing ? "Refreshing…" : "Refresh status"}
+                 {refreshing ? "Menyegarkan…" : "Segarkan status"}
               </Button>
               <ReferenceStatusBadge label={copy.label} status={importStatus.status} tone={referenceBadgeTone(copy.tone)} />
             </div>
           )}
           className="min-w-0 flex-1"
-          description="Review rows and release the next handoff."
-          title="Import review"
+           description="Tinjau baris dan rilis handoff berikutnya."
+           title="Review import"
         />
       </div>
 
       {sessionIssue ? <ImportSessionRecoveryNotice importId={importStatus.importId} kind={sessionIssue} onRefresh={() => window.location.reload()} /> : null}
-      {pollError && !sessionIssue && !readIsStale ? <ReferenceSurface as="div" className={`flex items-start gap-3 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert" variant="inset"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status refresh is unavailable</p><p className="mt-1 text-xs leading-5">The last database read was {formatDate(new Date(lastFetchedAt).toISOString())}. Refresh to recover; no success is inferred from a missing response.</p></div></ReferenceSurface> : null}
+       {pollError && !sessionIssue && !readIsStale ? <ReferenceSurface as="div" className={`flex items-start gap-3 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} role="alert" variant="inset"><AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={17} /><div><p className="font-semibold">Status tidak dapat disegarkan</p><p className="mt-1 text-xs leading-5">Pembacaan database terakhir pada {formatDate(new Date(lastFetchedAt).toISOString())}. Segarkan untuk memulihkan; respons yang hilang tidak dianggap sebagai keberhasilan.</p></div></ReferenceSurface> : null}
       <WorkerHealthNotice importStatus={importStatus} lastFetchedAt={lastFetchedAt} heartbeatStale={heartbeatIsStale} statusReadStale={readIsStale} />
 
       <ImportStatusBanner importStatus={importStatus} />
@@ -989,11 +989,11 @@ function ImportDetailView({
       <ReferenceSurface as="section" aria-labelledby="import-summary-heading" className="p-5 sm:p-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="import-summary-heading">Import details</h2>
+            <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="import-summary-heading">Detail import</h2>
             <p className="mt-2 text-base font-semibold text-secondary-900">{importStatus.sourceFilename}</p>
-            <p className="mt-1 text-sm text-secondary-500">{importStatus.role === "tutor" ? "Kapten" : "Students"} · {importStatus.templateVersion} · {importStatus.rowCount} rows</p>
+            <p className="mt-1 text-sm text-secondary-500">{importStatus.role === "tutor" ? "Kapten" : "Siswa"} · {importStatus.templateVersion} · {importStatus.rowCount} baris</p>
           </div>
-          <p className="text-xs text-secondary-500">Preview created {formatDate(importStatus.createdAt)}</p>
+            <p className="text-xs text-secondary-500">Preview dibuat {formatDate(importStatus.createdAt)}</p>
         </div>
         <div className="mt-5"><CountStrip counts={importStatus.counts} mode={importStatus.status === "draft" ? "preview" : "result"} /></div>
       </ReferenceSurface>
@@ -1004,8 +1004,8 @@ function ImportDetailView({
           <ReferenceSurface as="section" aria-labelledby="confirm-import-heading" className="p-5 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="confirm-import-heading">Choose one handoff method</h2>
-                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">The choice applies to every new account in this import. Existing accounts receive profile-only updates and never receive new credentials.</p>
+                <h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="confirm-import-heading">Pilih satu metode handoff</h2>
+                <p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">Pilihan ini berlaku untuk setiap akun baru dalam import. Akun yang sudah ada hanya menerima pembaruan profil dan tidak pernah menerima kredensial baru.</p>
               </div>
               <div
                 className={`flex max-w-sm items-start gap-2 text-sm leading-5 ${importStatus.counts.invalid ? "text-student-status-attention-fg" : "text-student-status-success-fg"}`}
@@ -1014,17 +1014,17 @@ function ImportDetailView({
                 {importStatus.counts.invalid ? <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" /> : <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
                 <span>
                   <strong className="block font-semibold">
-                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} invalid rows block this batch` : "Ready to confirm"}
+                    {importStatus.counts.invalid ? `${importStatus.counts.invalid} baris tidak valid memblokir batch ini` : "Siap dikonfirmasi"}
                   </strong>
-                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">No rows will be imported until you upload a corrected CSV.</span> : null}
+                  {importStatus.counts.invalid ? <span className="block text-xs leading-5 text-secondary-600">Tidak ada baris yang diimport sampai Anda mengunggah CSV yang sudah diperbaiki.</span> : null}
                 </span>
               </div>
             </div>
 
             {invalidRows.length > 0 ? (
               <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.warning}`} role="alert" variant="inset">
-                <p className="font-semibold">Bulk import blocked</p>
-                <p className="mt-1 text-xs leading-5">This CSV contains {importStatus.counts.invalid} invalid row{importStatus.counts.invalid === 1 ? "" : "s"}. No rows will be imported. Correct the highlighted data, upload a new CSV, and start a fresh preview.</p>
+                <p className="font-semibold">Import massal diblokir</p>
+                <p className="mt-1 text-xs leading-5">CSV ini berisi {importStatus.counts.invalid} baris tidak valid. Tidak ada baris yang akan diimport. Perbaiki data yang ditandai, unggah CSV baru, lalu mulai preview baru.</p>
               </ReferenceSurface>
             ) : null}
 
@@ -1035,7 +1035,7 @@ function ImportDetailView({
                 handoffMethod === "invite_link" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "hover:bg-primary-50/90",
               )}>
                 <input checked={handoffMethod === "invite_link"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("invite_link")} type="radio" value="invite_link" />
-                <span><span className="block text-sm font-semibold text-secondary-900">Invite link</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · expires after 24 hours · recipient sets a password</span></span>
+                <span><span className="block text-sm font-semibold text-secondary-900">Link undangan</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Bagikan manual · kedaluwarsa setelah 24 jam · penerima membuat password</span></span>
               </label>
               <label className={cn(
                 REFERENCE_SURFACE_CLASS_NAMES.inset,
@@ -1043,22 +1043,22 @@ function ImportDetailView({
                 handoffMethod === "temporary_password" ? "border-primary-500 bg-white shadow-[0_12px_28px_-24px_rgba(1,76,56,0.8)]" : "hover:bg-primary-50/90",
               )}>
                 <input checked={handoffMethod === "temporary_password"} className="mt-1 size-4 accent-primary-700" name="handoff-method" onChange={() => onHandoffMethodChange("temporary_password")} type="radio" value="temporary_password" />
-                <span><span className="block text-sm font-semibold text-secondary-900">Temporary password</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Manual share · shown once · recipient must change it on first login</span></span>
+                <span><span className="block text-sm font-semibold text-secondary-900">Password sementara</span><span className="mt-1 block text-xs leading-5 text-secondary-600">Bagikan manual · hanya ditampilkan sekali · penerima harus menggantinya saat login pertama</span></span>
               </label>
             </div>
 
             <ReferenceSurface as="div" className="mt-5 px-4 py-4" variant="inset">
-              <p className="text-sm font-semibold text-secondary-900">Confirmation counts</p>
-              <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-secondary-600">New <strong className="text-secondary-900">{importStatus.counts.create}</strong></span><span className="text-secondary-600">Updates <strong className="text-secondary-900">{importStatus.counts.update}</strong></span><span className="text-secondary-600">Failed <strong className={importStatus.counts.failed ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.failed}</strong></span><span className="text-secondary-600">Skipped <strong className="text-secondary-900">{importStatus.counts.skipped}</strong></span><span className="text-secondary-600">Unresolved <strong className={importStatus.counts.invalid ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.invalid}</strong></span></div>
+              <p className="text-sm font-semibold text-secondary-900">Jumlah untuk konfirmasi</p>
+               <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-5"><span className="text-secondary-600">Baru <strong className="text-secondary-900">{importStatus.counts.create}</strong></span><span className="text-secondary-600">Diperbarui <strong className="text-secondary-900">{importStatus.counts.update}</strong></span><span className="text-secondary-600">Gagal <strong className={importStatus.counts.failed ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.failed}</strong></span><span className="text-secondary-600">Dilewati <strong className="text-secondary-900">{importStatus.counts.skipped}</strong></span><span className="text-secondary-600">Belum selesai <strong className={importStatus.counts.invalid ? "text-student-status-danger-fg" : "text-secondary-900"}>{importStatus.counts.invalid}</strong></span></div>
             </ReferenceSurface>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <Button onClick={() => void cancelImport()} type="button" variant="dangerOutline"><X aria-hidden="true" size={16} />{cancelArmed ? "Confirm abandon draft" : "Abandon draft"}</Button>
-                {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="ghost">Keep draft</Button> : null}
-                {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Abandoning…" : cancelMessage}</p> : null}
+                <Button onClick={() => void cancelImport()} type="button" variant="dangerOutline"><X aria-hidden="true" size={16} />{cancelArmed ? "Konfirmasi batalkan draft" : "Batalkan draft"}</Button>
+                {cancelArmed ? <Button className="ml-2 text-xs" onClick={() => onCancelArmedChange(false)} size="default" type="button" variant="ghost">Pertahankan draft</Button> : null}
+                {cancelMessage ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-secondary-600" role="status">{cancelBusy ? "Membatalkan…" : cancelMessage}</p> : null}
               </div>
-              <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="brand"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Confirming…" : "Confirm and queue import"}</Button>
+              <Button disabled={!canConfirm || confirmBusy || cancelBusy} onClick={() => void confirmImport()} size="lg" type="button" variant="brand"><CheckCircle2 aria-hidden="true" size={17} />{confirmBusy ? "Mengonfirmasi…" : "Konfirmasi dan masukkan import ke antrean"}</Button>
             </div>
             {confirmMessage ? <p aria-live="polite" className="mt-3 text-xs leading-5 text-secondary-600" role="status">{confirmMessage}</p> : null}
           </ReferenceSurface>
@@ -1066,9 +1066,9 @@ function ImportDetailView({
       ) : (
         <>
           <ReferenceSurface as="section" aria-labelledby="result-heading" className="p-5 sm:p-6">
-            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-2xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="result-heading">Import result</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">{copy.detail}</p></div></div>
+            <div className="flex items-start gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-2xl ${toneClasses(copy.tone)}`}>{statusIcon(importStatus.status)}</span><div><h2 className="font-heading text-xl font-semibold tracking-[-0.025em] text-secondary-900" id="result-heading">Hasil import</h2><p className="mt-1 max-w-[68ch] text-sm leading-6 text-secondary-500">{copy.detail}</p></div></div>
             <div className="mt-5"><CountStrip counts={importStatus.counts} mode="result" /></div>
-            {importStatus.lastErrorMessage ? <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset"><p className="font-semibold">Operational note</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></ReferenceSurface> : null}
+            {importStatus.lastErrorMessage ? <ReferenceSurface as="div" className={`mt-4 px-4 py-3 text-sm ${ADMIN_STATUS_CLASS_NAMES.danger}`} variant="inset"><p className="font-semibold">Catatan operasional</p><p className="mt-1 text-xs leading-5">{importStatus.lastErrorMessage}</p></ReferenceSurface> : null}
           </ReferenceSurface>
           {importStatus.status === "completed" || importStatus.status === "partial" || importStatus.status === "failed" ? <HandoffDeliveryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} /> : null}
           <RetryPanel importStatus={importStatus} onRefresh={loadStatus} onSessionIssue={(kind) => onSessionIssueChange(kind)} />
@@ -1109,7 +1109,7 @@ function useImportDetailActions({
   const confirmImport = useCallback(async () => {
     if (!canConfirm) return;
     setConfirmBusy(true);
-    setConfirmMessage("Saving the handoff method and queueing this import…");
+     setConfirmMessage("Menyimpan metode handoff dan memasukkan import ke antrean…");
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importId)}/confirm`, {
         body: JSON.stringify({ handoffMethod }),
@@ -1125,17 +1125,17 @@ function useImportDetailActions({
         return;
       }
       if (!response.ok) {
-        const message = apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The import could not be confirmed.");
+         const message = apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Import tidak dapat dikonfirmasi.");
         setConfirmMessage(message);
-        toast.error("Bulk import blocked", { description: message });
+         toast.error("Import massal diblokir", { description: message });
         return;
       }
-      setConfirmMessage("Import queued. This page will poll the database status and stop on a terminal result.");
+       setConfirmMessage("Import masuk ke antrean. Halaman ini akan melakukan polling status database dan berhenti saat mencapai hasil terminal.");
       await loadStatus();
     } catch {
-      const message = "The confirmation could not reach the server. Refresh before trying again.";
+       const message = "Konfirmasi tidak dapat mencapai server. Segarkan sebelum mencoba lagi.";
       setConfirmMessage(message);
-      toast.error("Import confirmation unavailable", { description: message });
+       toast.error("Konfirmasi import tidak tersedia", { description: message });
     } finally {
       setConfirmBusy(false);
     }
@@ -1433,7 +1433,7 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
       return;
     }
     dispatch({ type: "cancelBusy", value: true });
-    dispatch({ type: "cancelMessage", value: "Abandoning this draft…" });
+     dispatch({ type: "cancelMessage", value: "Membatalkan draft…" });
     try {
       const response = await fetch(`/api/admin/imports/${encodeURIComponent(importStatus.importId)}/cancel`, {
         cache: "no-store",
@@ -1448,15 +1448,15 @@ function ImportDetailModule({ initialImport }: { initialImport: ImportStatusDto 
         return;
       }
       if (!response.ok) {
-        dispatch({ type: "cancelMessage", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "The draft could not be abandoned.") });
+         dispatch({ type: "cancelMessage", value: apiErrorMessage(payload && typeof payload === "object" && "error" in payload ? (payload as { error?: unknown }).error : null, "Draft tidak dapat dibatalkan.") });
         return;
       }
       dispatch({ type: "cancelArmed", value: false });
-      dispatch({ type: "cancelMessage", value: "Draft abandoned. No account changes were made." });
+       dispatch({ type: "cancelMessage", value: "Draft dibatalkan. Tidak ada akun yang berubah." });
       await loadStatus();
       router.refresh();
     } catch {
-      dispatch({ type: "cancelMessage", value: "The cancel action could not reach the server. Refresh and try again." });
+       dispatch({ type: "cancelMessage", value: "Tindakan pembatalan tidak dapat mencapai server. Segarkan lalu coba lagi." });
     } finally {
       dispatch({ type: "cancelBusy", value: false });
     }

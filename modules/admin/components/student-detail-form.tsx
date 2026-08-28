@@ -60,7 +60,7 @@ function StudentDetailForm({ children }: { children: ReactNode }) {
             <span className="grid size-10 shrink-0 place-items-center text-primary-700">
               <AlertCircle aria-hidden="true" className="size-5" strokeWidth={2.2} />
             </span>
-            <p className="text-sm font-medium leading-5 text-secondary-800">There are unsaved changes.</p>
+            <p className="text-sm font-medium leading-5 text-secondary-800">Ada perubahan yang belum disimpan.</p>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
             <Button
@@ -70,10 +70,10 @@ function StudentDetailForm({ children }: { children: ReactNode }) {
               type="button"
               variant="ghost"
             >
-              Discard
+               Buang perubahan
             </Button>
-            <SubmitButton className="w-32 justify-center" pendingLabel="Saving…" size="sm" type="submit" variant="brand">
-              Save changes
+             <SubmitButton className="w-32 justify-center" pendingLabel="Menyimpan…" size="sm" type="submit" variant="brand">
+               Simpan perubahan
             </SubmitButton>
           </div>
         </div>

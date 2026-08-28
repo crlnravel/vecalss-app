@@ -119,18 +119,18 @@ function DataTableFilterChips({
   }
 
   return (
-    <div aria-label="Active table filters" className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5">
+    <div aria-label="Filter tabel aktif" className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5">
       {filters.map((filter) => (
         <span
           className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-secondary-50 px-2.5 py-1.5 text-xs text-secondary-700"
           key={filter.id}
         >
           <span className="font-semibold text-secondary-900">{filter.label}</span>
-          <span className="text-secondary-400">is</span>
+           <span className="text-secondary-400">adalah</span>
           <span className="max-w-[16rem] truncate" title={filter.value}>{filter.value}</span>
           {filter.href ? (
             <Link
-              aria-label={`Remove ${filter.label} filter`}
+               aria-label={`Hapus filter ${filter.label}`}
               className="ml-0.5 inline-flex size-5 items-center justify-center rounded-md text-secondary-500 transition-colors hover:bg-white hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
               href={filter.href}
             >
@@ -144,7 +144,7 @@ function DataTableFilterChips({
           className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "ml-1 text-secondary-600")}
           href={clearFiltersHref}
         >
-          Clear all
+           Hapus semua
         </Link>
       ) : null}
     </div>
@@ -201,13 +201,13 @@ function DataTableSortHeader<T>({
   const sorted = sort.key === column.sortKey ? sort.direction : null;
   const nextSortKey = sorted === "desc" ? null : column.sortKey;
   const nextDirection: DataTableSortDirection = sorted === "asc" ? "desc" : "asc";
-  const nextAction = nextSortKey === null
-    ? "clear sorting"
-    : `sort ${nextDirection === "desc" ? "descending" : "ascending"}`;
+   const nextAction = nextSortKey === null
+     ? "hapus pengurutan"
+     : `urutkan ${nextDirection === "desc" ? "menurun" : "menaik"}`;
 
   return (
     <Link
-      aria-label={`Sort by ${column.label}; activate to ${nextAction}`}
+       aria-label={`Urutkan berdasarkan ${column.label}; aktifkan untuk ${nextAction}`}
       className="group inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold tracking-[0.02em] text-secondary-700 transition-colors hover:text-primary-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/20"
       href={sort.href(nextSortKey, nextDirection)}
       prefetch={false}
@@ -254,7 +254,7 @@ function DataTableGrid<T>({
             <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
               <Checkbox
                 aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
-                aria-label={hasPartialSelection || areAllVisibleSelected ? "Clear all rows on this page" : "Select all rows on this page"}
+                 aria-label={hasPartialSelection || areAllVisibleSelected ? "Hapus pilihan semua baris di halaman ini" : "Pilih semua baris di halaman ini"}
                 checked={areAllVisibleSelected}
                 indeterminate={hasPartialSelection}
                 onCheckedChange={(checked) => {
@@ -295,7 +295,7 @@ function DataTableGrid<T>({
             <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
               <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-700" role="status">
                 <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
-                <span>{loadingLabel ?? "Loading…"}</span>
+                 <span>{loadingLabel ?? "Memuat…"}</span>
               </div>
             </TableCell>
           </TableRow>
@@ -355,7 +355,7 @@ function DataTableGrid<T>({
               {selection ? (
                 <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection">
                   <Checkbox
-                    aria-label={`Select row ${id}`}
+                     aria-label={`Pilih baris ${id}`}
                     checked={selected}
                     onCheckedChange={(checked) => toggleSelected(id, checked === true)}
                   />
@@ -378,7 +378,7 @@ function DataTableGrid<T>({
         }) : (
           <TableRow className="hover:bg-transparent">
             <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
-              {emptyState ?? <span className="text-sm text-secondary-700">No results found.</span>}
+               {emptyState ?? <span className="text-sm text-secondary-700">Tidak ada hasil.</span>}
             </TableCell>
           </TableRow>
         )}
@@ -540,13 +540,13 @@ function DataTable<T>({
             ) : (
               <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary-400" size={17} />
             )}
-            <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Search table"}</label>
+             <label className="sr-only" htmlFor="data-table-search">{search.label ?? "Cari tabel"}</label>
             <input
               className="h-11 w-full rounded-2xl border-0 bg-transparent py-2.5 pl-10 pr-9 text-sm text-secondary-900 outline-none transition-[color,background-color] placeholder:text-secondary-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-500/30"
               id="data-table-search"
               name="q"
               onChange={handleSearchChange}
-              placeholder={search.placeholder ?? "Search this table…"}
+               placeholder={search.placeholder ?? "Cari di tabel ini…"}
               type="search"
               value={searchValue}
             />
@@ -560,7 +560,7 @@ function DataTable<T>({
               : null}
             {search.value && search.clearHref ? (
               <Link
-                aria-label="Clear table search"
+                 aria-label="Hapus pencarian tabel"
                 className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-700/30"
                 href={search.clearHref}
                 onClick={cancelPendingSearch}
@@ -575,7 +575,7 @@ function DataTable<T>({
           {filterPanel ? (
             <Popover>
               <PopoverTrigger
-                render={<Button aria-label="Open table filters" className="rounded-lg aria-expanded:bg-secondary-50" size="icon-sm" type="button" variant={filters.length ? "contextSelected" : "ghost"} />}
+                 render={<Button aria-label="Buka filter tabel" className="rounded-lg aria-expanded:bg-secondary-50" size="icon-sm" type="button" variant={filters.length ? "contextSelected" : "ghost"} />}
               >
                 <ListFilter aria-hidden="true" />
               </PopoverTrigger>
@@ -587,21 +587,21 @@ function DataTable<T>({
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button aria-label={hasSelection ? "Open bulk actions" : "Choose table columns"} className="size-9 rounded-lg text-secondary-500" size="icon-sm" type="button" variant="ghost" />}
+               render={<Button aria-label={hasSelection ? "Buka aksi massal" : "Pilih kolom tabel"} className="size-9 rounded-lg text-secondary-500" size="icon-sm" type="button" variant="ghost" />}
             >
               {hasSelection ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
               {hasSelection ? (
                 <>
-                  <DropdownMenuLabel className="font-semibold text-secondary-900">Bulk actions</DropdownMenuLabel>
+                   <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
                   {selectionActionMenu}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Clear selection</DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Hapus pilihan</DropdownMenuItem>
                 </>
               ) : (
                 <>
-                  <DropdownMenuLabel className="font-semibold text-secondary-900">Choose columns</DropdownMenuLabel>
+                   <DropdownMenuLabel className="font-semibold text-secondary-900">Pilih kolom</DropdownMenuLabel>
                   {columns.reduce<ReactNode[]>((items, column) => {
                     if (column.hideable === false) {
                       return items;
@@ -634,7 +634,7 @@ function DataTable<T>({
                   }, [])}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
-                    Reset columns
+                     Atur ulang kolom
                   </DropdownMenuItem>
                   {moreMenu ? (
                     <>

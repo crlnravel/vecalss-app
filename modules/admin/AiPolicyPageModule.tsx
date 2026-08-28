@@ -334,23 +334,23 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
           </div>
         }
         description="Kelola snapshot operasional yang berlaku untuk admission, report reservation, settlement, dan bukti content ke depan. Perubahan tidak menulis ulang histori."
-        title="Vera AI policy console"
+        title="Control plane policy Vera AI"
       />
 
       <ReferenceSurface as="section" className="p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Active version</p>
+             <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Versi aktif</p>
             <p className="mt-2 text-lg font-bold text-secondary-950">{metadata.active?.bundleVersion ?? "Belum ada"}</p>
             <p className="mt-1 text-xs text-secondary-600">Berlaku {formatDate(metadata.active?.effectiveAt)}</p>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Scheduled successor</p>
+             <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Successor terjadwal</p>
             <p className="mt-2 text-lg font-bold text-secondary-950">{metadata.scheduled?.bundleVersion ?? "Tidak ada"}</p>
             <p className="mt-1 text-xs text-secondary-600">Batas DB {formatDate(metadata.scheduled?.effectiveAt)}</p>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Last approver</p>
+             <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Approver terakhir</p>
             <p className="mt-2 text-lg font-bold text-secondary-950">{metadata.active?.lastApprover?.display ?? "Belum tersedia"}</p>
             <p className="mt-1 break-all text-xs text-secondary-600">Digest {metadata.active?.validationDigest ?? "Belum tersedia"}</p>
           </div>
@@ -366,7 +366,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
 
       <section className="grid gap-5 md:grid-cols-2">
         <ReferenceSurface as="section" className="p-5 sm:p-6">
-          <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Editable policy envelope</h2>
+           <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Ruang lingkup policy yang dapat diedit</h2>
           <p className="mt-2 text-sm leading-6 text-secondary-600">Form perubahan section tersusun di backend dengan guardrail tetap: quota 1.000–50.000, settlement 30 menit–6 jam, report k≤5 dan maksimal 31 hari, serta provider attempts tepat 2.</p>
           <div className="mt-5 grid gap-3 text-sm text-secondary-700 sm:grid-cols-2">
             <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Policy</span><br />Quota, mode, report budget<br /><span className="text-xs text-secondary-500">{canPolicy ? "Dapat mengedit section" : "Tidak diberikan"}</span></ReferenceSurface>
@@ -392,7 +392,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
             <ReferenceSurface className="mt-6 space-y-4 p-4" data-testid="policy-lifecycle-controls" variant="inset">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Selected draft</p>
+                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Draft terpilih</p>
                   <p className="mt-1 break-all text-sm font-semibold text-secondary-900">{draft.bundleVersion} · {draft.state} · rev {draft.revision}</p>
                 </div>
                 <ReferenceStatusBadge label="providerGateState=open_blocked" size="xs" status="blocked" />
@@ -401,14 +401,14 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                 <div className="space-y-5" data-testid="typed-policy-controls">
                   <ReferenceSurface className="grid gap-4 rounded-2xl p-4" variant="inset">
                     <div>
-                      <p className="text-sm font-bold text-secondary-900">Grouped quota / plan mapping</p>
-                      <p className="mt-1 text-xs leading-5 text-secondary-600">Limit ini adalah default server untuk plan yang telah dipetakan BillingAccount; legacy StudentProfile limit tidak dipakai.</p>
+                       <p className="text-sm font-bold text-secondary-900">Pemetaan quota / plan</p>
+                       <p className="mt-1 text-xs leading-5 text-secondary-600">Limit ini adalah default server untuk plan yang telah dipetakan BillingAccount; limit StudentProfile legacy tidak dipakai.</p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-secondary-700">
                         {["free", "trial", "starter", "pro"].map((plan) => <span className="rounded-full border border-primary-100 bg-white px-3 py-1" key={plan}>{plan}: server policy</span>)}
                       </div>
                     </div>
                     <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
-                      Daily quota units
+                       Unit quota harian
                       <input className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
                     </label>
                   </ReferenceSurface>
@@ -416,19 +416,19 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                   <ReferenceSurface className="rounded-2xl p-4" variant="inset">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <div>
-                        <p className="text-sm font-bold text-secondary-900">Per-mode input / output / reservation</p>
-                        <p className="mt-1 text-xs text-secondary-600">Certified bounds are validated by the server and cannot change provider attempts.</p>
+                        <p className="text-sm font-bold text-secondary-900">Input / output / reservation per mode</p>
+                        <p className="mt-1 text-xs text-secondary-600">Batas tersertifikasi divalidasi oleh server dan tidak dapat mengubah jumlah percobaan provider.</p>
                       </div>
-                      <span className="rounded-full bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700">max attempts: {quotaConfig.maxProviderAttempts}</span>
+                      <span className="rounded-full bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700">maks. percobaan: {quotaConfig.maxProviderAttempts}</span>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {Object.entries(quotaConfig.modes).map(([mode, values]) => (
                         <ReferenceSurface className="rounded-2xl p-3" key={mode} variant="inset">
                           <p className="text-sm font-semibold text-secondary-900">{mode}</p>
                           <div className="mt-2 grid gap-2">
-                            <label className="grid gap-1 text-xs text-secondary-600">Input bound<input aria-label={`${mode} input bound`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1000} onChange={(event) => updateModeConfig(mode, "inputBound", Number(event.target.value))} type="number" value={values.inputBound} /></label>
-                            <label className="grid gap-1 text-xs text-secondary-600">Output cap<input aria-label={`${mode} output cap`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={256} onChange={(event) => updateModeConfig(mode, "hardOutputCap", Number(event.target.value))} type="number" value={values.hardOutputCap} /></label>
-                            <label className="grid gap-1 text-xs text-secondary-600">Reservation bound<input aria-label={`${mode} reservation bound`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1256} onChange={(event) => updateModeConfig(mode, "reservationBound", Number(event.target.value))} type="number" value={values.reservationBound} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Batas input<input aria-label={`${mode} batas input`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1000} onChange={(event) => updateModeConfig(mode, "inputBound", Number(event.target.value))} type="number" value={values.inputBound} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Batas output<input aria-label={`${mode} batas output`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={256} onChange={(event) => updateModeConfig(mode, "hardOutputCap", Number(event.target.value))} type="number" value={values.hardOutputCap} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Batas reservation<input aria-label={`${mode} batas reservation`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1256} onChange={(event) => updateModeConfig(mode, "reservationBound", Number(event.target.value))} type="number" value={values.reservationBound} /></label>
                           </div>
                         </ReferenceSurface>
                       ))}
@@ -443,8 +443,8 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                     <ReferenceSurface className="rounded-2xl p-4" variant="inset">
                       <p className="text-sm font-bold text-secondary-900">Report budget / burst</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="grid gap-2 text-sm text-secondary-700">Units / 24h<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.unitLimit} /></label>
-                        <label className="grid gap-2 text-sm text-secondary-700">Accepted / 10m<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.requestLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Unit / 24 jam<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.unitLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Diterima / 10 menit<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.requestLimit} /></label>
                         <label className="grid gap-2 text-sm text-secondary-700">Minimum cohort (immutable)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
                         <label className="grid gap-2 text-sm text-secondary-700">Max range days (immutable)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
                       </div>
@@ -470,26 +470,26 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                   </ReferenceSurface>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-secondary-500">Dirty sections: {dirtySectionLabel}</p>
-                    <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="reference">Save typed policy sections</Button>
+                     <p className="text-xs text-secondary-500">Section berubah: {dirtySectionLabel}</p>
+                    <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="reference">Simpan section policy</Button>
                   </div>
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                <Button disabled={busy || draft.state !== "draft"} onClick={() => void validateDraft()} type="button" variant="brand">Validate draft</Button>
-                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void previewDraft("categorical")} type="button" variant="reference">Preview impact</Button>
-                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void approveDraft()} type="button" variant="reference">Approve (second operator)</Button>
+                 <Button disabled={busy || draft.state !== "draft"} onClick={() => void validateDraft()} type="button" variant="brand">Validasi draft</Button>
+                 <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void previewDraft("categorical")} type="button" variant="reference">Preview dampak</Button>
+                 <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void approveDraft()} type="button" variant="reference">Approve (operator kedua)</Button>
               </div>
               {draft.state === "pending_approval" ? (
                 <ReferenceSurface className="grid gap-3 rounded-2xl p-4" variant="inset">
                   <div className="grid gap-2">
-                    <p className="text-sm font-semibold text-secondary-800">Aggregate preview range</p>
+                     <p className="text-sm font-semibold text-secondary-800">Rentang preview agregat</p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <input aria-label="Preview range from" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
                       <input aria-label="Preview range to" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
                     </div>
                     <input aria-label="Preview IANA timezone" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
-                    <Button disabled={busy || !previewFrom || !previewTo} onClick={() => void previewDraft("aggregate")} type="button" variant="reference">Run aggregate preview</Button>
+                   <Button disabled={busy || !previewFrom || !previewTo} onClick={() => void previewDraft("aggregate")} type="button" variant="reference">Jalankan preview agregat</Button>
                   </div>
                   <div className="text-xs leading-5 text-secondary-600">
                     Preview memerlukan rentang kalender lokal half-open, maksimum 31 hari. Cost penuh tetap dicatat walau hasil suppressed atau unavailable.
@@ -499,18 +499,18 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
               {draft.state === "pending_approval" || draft.state === "scheduled" ? (
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                   <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
-                    Effective at (browser local → UTC)
+                     Waktu berlaku (lokal browser → UTC)
                     <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
                   </label>
                   <div className="flex items-end gap-2">
-                    <Button disabled={busy || draft.state !== "pending_approval" || !effectiveAt} onClick={() => void scheduleDraft()} type="button" variant="brand">Schedule</Button>
-                    <Button disabled={busy || draft.state !== "scheduled"} onClick={() => void activateDraft()} type="button" variant="reference">Activate due</Button>
+                     <Button disabled={busy || draft.state !== "pending_approval" || !effectiveAt} onClick={() => void scheduleDraft()} type="button" variant="brand">Jadwalkan</Button>
+                     <Button disabled={busy || draft.state !== "scheduled"} onClick={() => void activateDraft()} type="button" variant="reference">Aktifkan yang jatuh tempo</Button>
                   </div>
                 </div>
               ) : null}
               {preview ? (
                 <ReferenceSurface className="p-4 text-sm text-secondary-700" role="status" variant="inset">
-                  <p className="font-semibold text-secondary-900">Preview state: {preview.state}</p>
+                   <p className="font-semibold text-secondary-900">Status preview: {preview.state}</p>
                   <p className="mt-1">Admission {preview.effects.futureAdmissions.state}; report {preview.effects.futureReportReservations.state}; content {preview.effects.futureContentEvidence.state}.</p>
                 </ReferenceSurface>
               ) : null}
@@ -568,8 +568,8 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                 {item.state !== "active" && item.state !== "scheduled" ? null : <Button className="h-8 px-2 text-xs" disabled={busy || !canPolicy} onClick={() => void rollbackBundle(item.id)} type="button" variant="ghost">Rollback</Button>}
               </div>
               <dl className="mt-3 grid gap-2 text-xs">
-                <div><dt className="text-secondary-500">Reason</dt><dd className="mt-1 break-words text-secondary-700">{item.reason ?? "—"}</dd></div>
-                <div><dt className="text-secondary-500">Last action</dt><dd className="mt-1 break-words text-secondary-700">{item.lastAction ?? "—"}</dd></div>
+                 <div><dt className="text-secondary-500">Alasan</dt><dd className="mt-1 break-words text-secondary-700">{item.reason ?? "—"}</dd></div>
+                 <div><dt className="text-secondary-500">Aksi terakhir</dt><dd className="mt-1 break-words text-secondary-700">{item.lastAction ?? "—"}</dd></div>
               </dl>
             </article>
           )) : <p className="rounded-2xl bg-secondary-50 px-4 py-6 text-sm text-secondary-600">Belum ada bundle yang tersimpan.</p>}

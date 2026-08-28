@@ -62,8 +62,8 @@ const featureLabels: Record<FilterValue, string> = {
 const statusLabels: Record<StatusValue, string> = {
   all: "Semua status",
   fallback: "Fallback",
-  failed: "Failed",
-  pending: "Pending",
+  failed: "Gagal",
+  pending: "Menunggu",
   staged: "Staged",
   succeeded: "Sukses",
 };
@@ -168,12 +168,12 @@ function SummaryPanel({ partition }: { partition: VeraAggregatePartition }) {
   const summary = partition.rows[0];
   if (!summary) return <p className="text-sm text-secondary-600">Belum ada request pada rentang ini.</p>;
   const metrics = [
-    { label: "Requests", value: formatNumber(summary.requests) },
+    { label: "Permintaan", value: formatNumber(summary.requests) },
     { label: "Sukses terminal", value: formatNumber(summary.succeeded) },
-    { label: "Success rate", value: summary.successRate === null ? "—" : `${(summary.successRate * 100).toFixed(1)}%` },
-    { label: "Quota consumed", value: formatDecimal(summary.quotaUnits) },
-    { label: "Pending / staged", value: `${formatNumber(summary.pending)} / ${formatNumber(summary.staged)}` },
-    { label: "P95 latency", value: summary.p95LatencyMs === null ? "—" : `${formatNumber(summary.p95LatencyMs)} ms` },
+    { label: "Tingkat keberhasilan", value: summary.successRate === null ? "—" : `${(summary.successRate * 100).toFixed(1)}%` },
+    { label: "Kuota terpakai", value: formatDecimal(summary.quotaUnits) },
+    { label: "Menunggu / staged", value: `${formatNumber(summary.pending)} / ${formatNumber(summary.staged)}` },
+    { label: "Latensi P95", value: summary.p95LatencyMs === null ? "—" : `${formatNumber(summary.p95LatencyMs)} ms` },
   ];
   return (
     <ReferenceSurface className="grid gap-px overflow-hidden sm:grid-cols-2 lg:grid-cols-3" variant="inset">
@@ -200,7 +200,7 @@ function AggregateTable({ partition, title }: { partition: VeraAggregatePartitio
           <TableHeader>
             <TableRow className="bg-secondary-50/80 hover:bg-secondary-50/80">
               <TableHead>Label</TableHead>
-              <TableHead>Requests</TableHead>
+              <TableHead>Permintaan</TableHead>
               <TableHead>Sukses</TableHead>
               <TableHead>Fallback</TableHead>
               <TableHead>Failed</TableHead>
@@ -229,11 +229,11 @@ function AggregateTable({ partition, title }: { partition: VeraAggregatePartitio
             <article className="rounded-2xl border border-primary-100 bg-primary-50/40 p-4" key={`${row.label ?? row.date ?? "row"}-mobile-${index}`}>
               <p className="font-semibold text-secondary-900">{row.label ?? row.date ?? "Total"}</p>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <div><dt className="text-secondary-500">Requests</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.requests)}</dd></div>
+                <div><dt className="text-secondary-500">Permintaan</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.requests)}</dd></div>
                 <div><dt className="text-secondary-500">Sukses</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.succeeded)}</dd></div>
                 <div><dt className="text-secondary-500">Fallback</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.fallback)}</dd></div>
                 <div><dt className="text-secondary-500">Failed</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.failed)}</dd></div>
-                <div><dt className="text-secondary-500">Students</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.activeStudents)}</dd></div>
+                <div><dt className="text-secondary-500">Siswa</dt><dd className="font-semibold text-secondary-900">{formatNumber(row.activeStudents)}</dd></div>
                 <div><dt className="text-secondary-500">Quota</dt><dd className="font-semibold text-secondary-900">{formatDecimal(row.quotaUnits)}</dd></div>
               </dl>
             </article>
@@ -250,7 +250,7 @@ function IncidentPanel({ partition }: { partition: VeraAggregatePartition<VeraIn
     <ReferenceSurface as="section" className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-primary-100 px-5 py-4">
         <div>
-          <h2 className="text-base font-semibold text-secondary-900">Incidents</h2>
+          <h2 className="text-base font-semibold text-secondary-900">Insiden</h2>
           <p className="mt-1 text-sm text-secondary-600">Admission dan outcome dibaca sebagai agregat terpisah.</p>
         </div>
         <AlertCircle aria-hidden="true" className="text-primary-700" size={20} />
@@ -276,7 +276,7 @@ function ComparisonPanel({ partition }: { partition: VeraAggregatePartition<Vera
     <ReferenceSurface as="section" className="overflow-hidden">
       <div className="flex flex-col gap-1 border-b border-primary-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-secondary-900">Period comparison</h2>
+          <h2 className="text-base font-semibold text-secondary-900">Perbandingan periode</h2>
           <p className="mt-1 text-sm text-secondary-600">Perbandingan terhadap rentang kalender lokal sebelumnya; hanya agregat.</p>
         </div>
         <ReferenceStatusBadge label="Tidak retroaktif" size="xs" status="neutral" />
@@ -285,7 +285,7 @@ function ComparisonPanel({ partition }: { partition: VeraAggregatePartition<Vera
       {partition.state === "ready" && partition.rows.length > 0 ? (
         <div className="grid gap-px bg-primary-100 sm:grid-cols-3">
           {[
-            { label: "Requests", key: "requests" as const },
+            { label: "Permintaan", key: "requests" as const },
             { label: "Sukses terminal", key: "succeeded" as const },
             { label: "Quota units", key: "quotaUnits" as const },
           ].map((metric) => {
@@ -382,7 +382,7 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
           actions={
             <ReferenceSurface className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-secondary-600" variant="inset">
               <BarChart3 aria-hidden="true" className="text-primary-700" size={20} />
-              <span>Mock / disabled telemetry only</span>
+              <span>Hanya telemetri mock/nonaktif</span>
             </ReferenceSurface>
           }
           description="Pantau volume, latency, quota, dan incident Vera tanpa membuka identitas siswa atau isi percakapan."
@@ -432,16 +432,16 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
               <ReferenceSectionHeading
                 action={<div className="flex items-center gap-2 text-xs text-secondary-500"><Clock3 aria-hidden="true" size={15} /> Data sampai {formatDateTime(dto.lastUpdatedAt)}</div>}
                 description={`${dto.range.from} sampai ${dto.range.to} · ${dto.range.timezone}`}
-                title="Summary"
+                title="Ringkasan"
               />
               <SummaryPanel partition={dto.summary} />
             </ReferenceSurface>
 
             <div className="grid gap-5 xl:grid-cols-2">
-              <AggregateTable partition={dto.dailyTrend} title="Daily trend" />
-              <AggregateTable partition={dto.byFeature} title="By feature" />
-              <AggregateTable partition={dto.byModel} title="By model" />
-              <AggregateTable partition={dto.byStatus} title="By status" />
+              <AggregateTable partition={dto.dailyTrend} title="Tren harian" />
+              <AggregateTable partition={dto.byFeature} title="Berdasarkan fitur" />
+              <AggregateTable partition={dto.byModel} title="Berdasarkan model" />
+              <AggregateTable partition={dto.byStatus} title="Berdasarkan status" />
             </div>
 
             <IncidentPanel partition={dto.incidents} />

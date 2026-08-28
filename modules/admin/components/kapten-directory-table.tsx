@@ -48,7 +48,12 @@ type KaptenDirectoryItem = {
 };
 
 function formatStatus(status: string) {
-  return status.replaceAll("_", " ");
+  return {
+    active: "Aktif",
+    disabled: "Dinonaktifkan",
+    locked: "Terkunci",
+    soft_deleted: "Dihapus sementara",
+  }[status] ?? status.replaceAll("_", " ");
 }
 
 function statusTone(status: UserStatus) {
@@ -115,7 +120,7 @@ function highlightSearchMatches(text: string, query: string): ReactNode {
   return parts;
 }
 
-const createdDateFormatter = new Intl.DateTimeFormat("en-US", {
+const createdDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
@@ -215,15 +220,15 @@ function KaptenFilterPanel({
                   type="radio"
                   value={option}
                 />
-                <span>{option === "all" ? "All statuses" : formatStatus(option)}</span>
+                 <span>{option === "all" ? "Semua status" : formatStatus(option)}</span>
               </label>
             ))}
           </div>
           <div className="flex w-full items-center gap-2 pt-1">
             <a className={cn(buttonVariants({ size: "sm", variant: "reference" }), "min-w-0 flex-1")} href={directoryHref({ direction, pageSize, search, sort, status: "all" })}>
-              Clear
+             Hapus filter
             </a>
-            <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
+           <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Terapkan</Button>
           </div>
         </form>
       </PopoverContent>
@@ -250,7 +255,7 @@ function KaptenDetailPanel({
               render={<Button className="text-secondary-900 hover:text-primary-700" size="icon" type="button" variant="reference" />}
             >
               <XIcon />
-              <span className="sr-only">Close</span>
+               <span className="sr-only">Tutup</span>
             </SheetClose>
           </div>
           <SheetTitle className="mt-4 text-xl font-semibold leading-tight tracking-[-0.03em] text-secondary-950 sm:text-2xl">
@@ -264,18 +269,18 @@ function KaptenDetailPanel({
             <input name="userId" type="hidden" value={kapten.id} />
             <input name="directoryQuery" type="hidden" value={directoryQuery} />
             <div className="grid gap-5 sm:grid-cols-2">
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Kapten name</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Kapten email</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Phone</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
+               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nama Kapten</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
+               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Email Kapten</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
+               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Nomor telepon</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
+               <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
             </div>
             <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Bio</span><textarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28 py-3`} defaultValue={kapten.bio ?? ""} name="bio" /></label>
-            <div className="flex justify-end"><Button type="submit" variant="brand">Save changes</Button></div>
+           <div className="flex justify-end"><Button type="submit" variant="brand">Simpan perubahan</Button></div>
           </form>
 
           <ReferenceSurface as="section" aria-labelledby={`kapten-state-${kapten.id}`} className="mt-7 p-4 sm:p-5" variant="inset">
-            <h2 className="text-sm font-semibold text-secondary-900" id={`kapten-state-${kapten.id}`}>Account state</h2>
-            <p className="mt-1 text-sm capitalize text-secondary-600">{formatStatus(kapten.status)} · Active role: Kapten</p>
+             <h2 className="text-sm font-semibold text-secondary-900" id={`kapten-state-${kapten.id}`}>Status akun</h2>
+             <p className="mt-1 text-sm capitalize text-secondary-600">{formatStatus(kapten.status)} · Peran aktif: Kapten</p>
             <div className="mt-4">
               {kapten.status === "active" ? (
                 <form action={deactivateKaptenEnrollmentAction} className="space-y-3">
@@ -283,9 +288,9 @@ function KaptenDetailPanel({
                   <input name="directoryQuery" type="hidden" value={directoryQuery} />
                   <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
                     <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="deactivate" />
-                    <span>I understand this disables the account, revokes active sessions, and invalidates open handoffs.</span>
+                     <span>Saya memahami bahwa tindakan ini menonaktifkan akun, mencabut sesi aktif, dan membatalkan handoff terbuka.</span>
                   </label>
-                  <Button type="submit" variant="destructive">Deactivate</Button>
+                   <Button type="submit" variant="destructive">Nonaktifkan</Button>
                 </form>
               ) : kapten.status === "disabled" ? (
                 <form action={reactivateKaptenEnrollmentAction} className="space-y-3">
@@ -293,19 +298,19 @@ function KaptenDetailPanel({
                   <input name="directoryQuery" type="hidden" value={directoryQuery} />
                   <label className="flex items-start gap-2 text-xs leading-5 text-secondary-600">
                     <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reactivate" />
-                    <span>I understand reactivation does not restore old sessions or handoffs.</span>
+                     <span>Saya memahami bahwa pemulihan tidak mengembalikan sesi atau handoff lama.</span>
                   </label>
-                  <button className={buttonVariants({ variant: "brandOutline" })} type="submit">Reactivate</button>
+                   <button className={buttonVariants({ variant: "brandOutline" })} type="submit">Pulihkan</button>
                 </form>
               ) : (
-                <p className="max-w-xs rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">This account needs manual recovery before enrollment status can be changed.</p>
+                 <p className="max-w-xs rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">Akun ini memerlukan pemulihan manual sebelum status enrollment dapat diubah.</p>
               )}
             </div>
           </ReferenceSurface>
 
           {kapten.latestHandoff ? (
             <ReferenceSurface as="section" aria-labelledby={`kapten-handoff-${kapten.id}`} className="mt-5 p-4 sm:p-5" variant="inset">
-              <h2 className="mb-4 text-sm font-semibold text-secondary-900" id={`kapten-handoff-${kapten.id}`}>Enrollment handoff</h2>
+               <h2 className="mb-4 text-sm font-semibold text-secondary-900" id={`kapten-handoff-${kapten.id}`}>Handoff enrollment</h2>
               <HandoffControls
                 expiresAt={kapten.latestHandoff.expiresAt ? new Date(kapten.latestHandoff.expiresAt) : null}
                 handoffId={kapten.latestHandoff.id}
@@ -316,7 +321,7 @@ function KaptenDetailPanel({
             </ReferenceSurface>
           ) : null}
 
-          <p className="mt-6 text-xs leading-6 text-secondary-500">Created on {formatCreatedDate(kapten.createdAt)}</p>
+           <p className="mt-6 text-xs leading-6 text-secondary-500">Dibuat pada {formatCreatedDate(kapten.createdAt)}</p>
         </div>
       </div>
     </SheetContent>
@@ -379,7 +384,7 @@ function KaptenDirectoryTable({
       cellClassName: "text-secondary-700",
       headerClassName: "w-[17%]",
       id: "added",
-      label: "Added",
+       label: "Ditambahkan",
       sortKey: "added",
       width: 17,
     },
@@ -396,18 +401,18 @@ function KaptenDirectoryTable({
       cellClassName: "text-right",
       headerClassName: "w-[10%] text-right",
       id: "action",
-      label: "Action",
+       label: "Aksi",
       width: 10,
     },
   ];
 
   return (
     <>
-      <DataTable
-        caption="Kapten directory"
+       <DataTable
+         caption="Direktori Kapten"
         clearFiltersHref={clearFiltersHref}
         columns={columns}
-        emptyState={<ReferenceEmptyState className="min-h-56" description={status === "all" && !search ? "Use the Add Kapten button above to create the first account and choose its handoff." : "Try another name, email, or status filter to find the account you need."} icon={Users} title={status === "all" && !search ? "No Kapten accounts yet." : "No Kapten match these filters."} />}
+         emptyState={<ReferenceEmptyState className="min-h-56" description={status === "all" && !search ? "Gunakan tombol tambah Kapten di atas untuk membuat akun pertama dan memilih handoff." : "Coba nama, email, atau filter status lain untuk menemukan akun yang dibutuhkan."} icon={Users} title={status === "all" && !search ? "Belum ada akun Kapten." : "Tidak ada Kapten yang cocok dengan filter ini."} />}
         filterPanel={<KaptenFilterPanel direction={direction} pageSize={pageSize} search={search} sort={sort} status={status} />}
         filters={filters}
         getRowId={(person) => person.id}
@@ -424,8 +429,8 @@ function KaptenDirectoryTable({
             ...(sort && direction === "desc" ? { direction } : {}),
             ...(status !== "all" ? { status } : {}),
           },
-          label: "Global Kapten search",
-          placeholder: "Search Kapten by name or email…",
+           label: "Pencarian Kapten global",
+           placeholder: "Cari Kapten berdasarkan nama atau email…",
           value: search,
         }}
         sort={{

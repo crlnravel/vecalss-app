@@ -77,9 +77,9 @@ function AddStudentDialog({
       <DialogTrigger
         render={
           <button
-            aria-label="Add student"
+             aria-label="Tambah siswa"
             className={buttonVariants({ className: "lg:mt-1", size: "icon", variant: "brand" })}
-            title="Add student"
+             title="Tambah siswa"
             type="button"
           />
         }
@@ -94,7 +94,7 @@ function AddStudentDialog({
       >
         <div className="max-h-[calc(100svh-1.5rem)] overflow-y-auto">
           <DialogHeader className="border-b border-primary-100 px-5 py-6 pr-16 sm:px-8 sm:py-7">
-            <DialogTitle className="text-2xl tracking-[-0.035em] text-secondary-950">Add student</DialogTitle>
+             <DialogTitle className="text-2xl tracking-[-0.035em] text-secondary-950">Tambah siswa</DialogTitle>
           </DialogHeader>
 
           <div className="border-b border-primary-100 bg-primary-50/55 px-5 py-4 sm:px-8 sm:py-5">
@@ -118,8 +118,8 @@ function AddStudentDialog({
                   <UserPlus aria-hidden="true" size={18} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">Single import</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Fill in one student&apos;s details</span>
+                   <span className="block text-sm font-semibold">Import satu akun</span>
+                   <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Isi detail satu siswa</span>
                 </span>
               </button>
               <button
@@ -141,8 +141,8 @@ function AddStudentDialog({
                   <Users aria-hidden="true" size={18} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">Bulk import</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Upload multiple students with CSV</span>
+                   <span className="block text-sm font-semibold">Import massal</span>
+                   <span className="mt-0.5 block text-xs leading-5 text-secondary-600">Upload beberapa siswa dengan CSV</span>
                 </span>
               </button>
             </div>

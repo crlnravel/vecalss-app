@@ -18,7 +18,7 @@ const TABS: Array<{
   href: string;
   icon: typeof LayoutDashboard;
 }> = [
-  { id: "overview", label: "Overview", href: "/admin/ai", icon: LayoutDashboard },
+  { id: "overview", label: "Ringkasan", href: "/admin/ai", icon: LayoutDashboard },
   { id: "usage", label: "Pemakaian", href: "/admin/ai/usage", icon: BarChart3 },
 ];
 
@@ -41,7 +41,7 @@ export function AiControlPlaneNav({ activeTab }: { activeTab?: AiControlPlaneTab
 
   return (
     <nav
-      aria-label="Vera AI Control Plane Navigation"
+      aria-label="Navigasi control plane Vera AI"
       className="flex w-full border-b border-primary-100 bg-transparent"
     >
       {TABS.map((tab) => {

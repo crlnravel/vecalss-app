@@ -12,11 +12,17 @@ import { reissueEnrollmentHandoffAction } from "../actions";
 import { HandoffDeliveryNotice } from "./handoff-delivery-notice";
 
 function formatMethod(method: EnrollmentHandoffMethod) {
-  return method === "invite_link" ? "Invite link" : "Temporary password";
+  return method === "invite_link" ? "Link undangan" : "Password sementara";
 }
 
 function formatStatus(status: EnrollmentHandoffStatus) {
-  return status.replaceAll("_", " ");
+  return {
+    pending: "Menunggu",
+    expired: "Kedaluwarsa",
+    revoked: "Dicabut",
+    released: "Dirilis",
+    completed: "Selesai",
+  }[status] ?? status.replaceAll("_", " ");
 }
 
 function statusTone(status: EnrollmentHandoffStatus) {
@@ -36,7 +42,7 @@ function statusTone(status: EnrollmentHandoffStatus) {
 }
 
 function formatDateTime(value: Date) {
-  return value.toLocaleString("en-US", {
+    return value.toLocaleString("id-ID", {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -66,7 +72,7 @@ function HandoffControls({
       {expiresAt ? (
         <dl className="border-y border-primary-100 py-3 text-xs">
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-secondary-600">Expires</dt>
+             <dt className="text-secondary-600">Kedaluwarsa</dt>
             <dd className="text-right font-medium text-secondary-800">
               <time dateTime={expiresAt.toISOString()}>{formatDateTime(expiresAt)}</time>
             </dd>
@@ -77,16 +83,16 @@ function HandoffControls({
       {state.handoffId && (state.inviteUrl || state.temporaryPassword) ? <HandoffDeliveryNotice key={state.handoffId} state={state} /> : null}
       {sourceImportRowId ? (
         <p className="rounded-2xl border border-secondary-200 bg-secondary-50 px-3 py-3 text-xs leading-5 text-secondary-600">
-          Reissue is paused for import-sourced handoffs until the authenticated handoff-file recovery workflow is reachable. This protects the only sealed credential deliverable.
+           Reissue dijeda untuk handoff dari import sampai workflow pemulihan file handoff terautentikasi tersedia. Ini melindungi satu-satunya kredensial yang sudah disegel.
         </p>
       ) : state.status !== "success" || !state.handoffId ? (
         <form action={formAction} className="space-y-3">
           <input name="handoffId" type="hidden" value={handoffId} />
           <label className="flex items-start gap-3 text-xs leading-5 text-secondary-600">
             <input className="mt-1 size-4 shrink-0 accent-primary-700" name="confirmation" required type="checkbox" value="reissue" />
-            <span>I understand this revokes the current handoff and creates a replacement.</span>
+             <span>Saya memahami bahwa tindakan ini mencabut handoff saat ini dan membuat penggantinya.</span>
           </label>
-          <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">{pending ? "Reissuing…" : "Reissue handoff"}</Button>
+           <Button className="min-h-11" disabled={pending} size="sm" type="submit" variant="brandOutline">{pending ? "Membuat ulang…" : "Buat ulang handoff"}</Button>
         </form>
       ) : null}
     </div>

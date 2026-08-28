@@ -35,14 +35,14 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 import { CopyValueButton } from "./components/copy-value-button";
 
-const auditDateFormatter = new Intl.DateTimeFormat("en-US", {
+const auditDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
   year: "numeric",
 });
 
-const auditTimeFormatter = new Intl.DateTimeFormat("en-US", {
+const auditTimeFormatter = new Intl.DateTimeFormat("id-ID", {
   hour: "2-digit",
   minute: "2-digit",
   timeZone: "UTC",
@@ -51,18 +51,18 @@ const auditTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 const auditTargetTypeLabels: Record<AuditLogTargetType, string> = {
   cohort: "Cohort",
-  enrollment_handoff: "Enrollment handoff",
-  enrollment_import: "Enrollment import",
-  enrollment_import_row: "Enrollment import row",
-  system_config: "System configuration",
-  user: "User",
+  enrollment_handoff: "Handoff enrollment",
+  enrollment_import: "Import enrollment",
+  enrollment_import_row: "Baris import enrollment",
+  system_config: "Konfigurasi sistem",
+  user: "Pengguna",
 };
 
 const AUDIT_LOGS_EMPTY_STATE = (
   <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
     <div className="max-w-xl">
-      <h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">No audit events match these filters.</h3>
-      <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Try another search or target filter to find the recorded event.</p>
+       <h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">Tidak ada event audit yang cocok dengan filter ini.</h3>
+       <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">Coba pencarian atau filter target lain untuk menemukan event yang tercatat.</p>
     </div>
   </div>
 );
@@ -88,7 +88,7 @@ function formatAuditTimestamp(value: string) {
 
 function formatTargetType(value: string | null) {
   if (!value) {
-    return "No target recorded";
+     return "Target belum tercatat";
   }
 
   return auditTargetTypeLabels[value as AuditLogTargetType] ?? humanizeAuditValue(value);
@@ -183,7 +183,7 @@ function AuditFilterPanel({
               type="radio"
               value="all"
             />
-            <span>All targets</span>
+             <span>Semua target</span>
           </label>
           {AUDIT_LOG_TARGET_TYPES.map((value) => (
             <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60" key={value}>
@@ -206,10 +206,10 @@ function AuditFilterPanel({
             )}
             href={auditLogHref({ direction, page: 1, query, sort, targetType: null })}
           >
-            Clear
+             Hapus filter
           </Link>
           <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">
-            Apply
+             Terapkan
           </Button>
         </div>
       </form>
@@ -243,25 +243,25 @@ function AuditLogDetailDialog({
             <DialogHeader className="min-w-0 border-b border-primary-100 px-5 py-5 pr-14 sm:px-6">
               {targetId ? (
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">Target ID</p>
+                 <p className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">ID target</p>
                   <div className="mt-1 flex min-w-0 items-center gap-2">
                     <code className="min-w-0 flex-1 break-all font-mono text-xs leading-5 text-secondary-700" title={targetId}>{displayId(targetId)}</code>
-                    <CopyValueButton ariaLabel="Copy target ID" iconOnly value={targetId} />
+                 <CopyValueButton ariaLabel="Salin ID target" iconOnly value={targetId} />
                   </div>
                 </div>
               ) : null}
               <DialogTitle className="break-words text-xl tracking-[-0.03em]">{humanizeAuditValue(audit.action)}</DialogTitle>
               <DialogDescription className="break-words">
-                Recorded {formatAuditTimestamp(audit.occurredAt)}.
+                 Tercatat pada {formatAuditTimestamp(audit.occurredAt)}.
               </DialogDescription>
             </DialogHeader>
 
             <div className="min-w-0 px-5 py-6 sm:px-6">
               <dl className="grid min-w-0 gap-5">
-                <DetailField label="Time" value={formatAuditTimestamp(audit.occurredAt)} />
-                <DetailField label="User" value={audit.actorEmail ? `${audit.actorName} · ${audit.actorEmail}` : audit.actorName} />
+                 <DetailField label="Waktu" value={formatAuditTimestamp(audit.occurredAt)} />
+                 <DetailField label="Pengguna" value={audit.actorEmail ? `${audit.actorName} · ${audit.actorEmail}` : audit.actorName} />
                 <DetailField label="Target" value={formatTargetType(audit.targetType)} />
-                <DetailField label="IP address" value={audit.ipAddress ?? "Not recorded"} />
+                 <DetailField label="Alamat IP" value={audit.ipAddress ?? "Belum tercatat"} />
               </dl>
             </div>
           </>
@@ -285,18 +285,18 @@ function AuditUserDetailDialog({
           <>
             <DialogHeader className="min-w-0 border-b border-primary-100 px-5 py-5 pr-14 sm:px-6">
               <DialogTitle className="break-words text-xl tracking-[-0.03em]">{user.actorName}</DialogTitle>
-              <DialogDescription>User recorded in this audit log.</DialogDescription>
+               <DialogDescription>Pengguna yang tercatat di log audit ini.</DialogDescription>
             </DialogHeader>
             <div className="min-w-0 px-5 py-6 sm:px-6">
               <dl className="grid min-w-0 gap-5">
-                <DetailField label="Name" value={user.actorName} />
-                <DetailField label="Email" value={user.actorEmail ?? "No email recorded"} />
+                 <DetailField label="Nama" value={user.actorName} />
+                 <DetailField label="Email" value={user.actorEmail ?? "Email belum tercatat"} />
                 {user.actorId ? (
                   <div className="min-w-0">
-                    <dt className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">User ID</dt>
+                     <dt className="text-xs font-semibold tracking-[0.08em] text-secondary-500 uppercase">ID pengguna</dt>
                     <dd className="mt-1 flex min-w-0 items-center gap-2">
                       <code className="min-w-0 flex-1 break-all font-mono text-xs leading-5 text-secondary-700" title={user.actorId}>{displayId(user.actorId)}</code>
-                      <CopyValueButton ariaLabel="Copy user ID" iconOnly value={user.actorId} />
+                       <CopyValueButton ariaLabel="Salin ID pengguna" iconOnly value={user.actorId} />
                     </dd>
                   </div>
                 ) : null}
@@ -367,7 +367,7 @@ function AuditLogsPageModule({
       headerClassName: "w-[30%]",
       hideable: false,
       id: "time",
-      label: "Time",
+       label: "Waktu",
       sortKey: "time",
       width: 30,
     },
@@ -389,7 +389,7 @@ function AuditLogsPageModule({
       headerClassName: "w-[25%] rounded-r-xl",
       hideable: false,
       id: "user",
-      label: "User",
+       label: "Pengguna",
       sortKey: "user",
       width: 25,
     },
@@ -399,27 +399,27 @@ function AuditLogsPageModule({
     <PortalShell
       activeAdminSection="audit-logs"
       audience="admin"
-      description="Search recorded activity, inspect an event, or open its user details."
+       description="Cari aktivitas yang tercatat, periksa event, atau buka detail penggunanya."
       session={session}
-      title="Audit logs"
+       title="Log audit"
     >
       <div className="space-y-8">
         <ReferencePageHeader
-          actions={<ReferenceSurface className="px-3.5 py-2.5 text-sm text-secondary-700" variant="inset">{total.toLocaleString("en-US")} {total === 1 ? "event" : "events"} recorded</ReferenceSurface>}
-          description="Search recorded activity, inspect an event, or open its user details."
-          title="Audit logs"
+           actions={<ReferenceSurface className="px-3.5 py-2.5 text-sm text-secondary-700" variant="inset">{total.toLocaleString("id-ID")} event tercatat</ReferenceSurface>}
+           description="Cari aktivitas yang tercatat, periksa event, atau buka detail penggunanya."
+           title="Log audit"
         />
 
         <ReferenceSurface as="section" aria-labelledby="audit-log-table-heading" className="overflow-hidden">
           <div className="px-5 pt-5 sm:px-6" id="audit-log-table-heading">
             <ReferenceSectionHeading
-              description="Search, filter, or sort the current audit history."
-              title="Recorded events"
+               description="Cari, filter, atau urutkan riwayat audit saat ini."
+               title="Event tercatat"
             />
           </div>
 
           <DataTable
-            caption="Recorded administrative events"
+             caption="Event administrasi yang tercatat"
             clearFiltersHref={clearFiltersHref}
             columns={columns}
             emptyState={AUDIT_LOGS_EMPTY_STATE}
@@ -428,7 +428,7 @@ function AuditLogsPageModule({
             getRowId={(entry) => entry.id}
             onRowClick={setSelectedAudit}
             rowProps={(entry) => ({
-              "aria-label": `Open details for ${humanizeAuditValue(entry.action)}`,
+               "aria-label": `Buka detail ${humanizeAuditValue(entry.action)}`,
               "data-audit-row": "true",
               tabIndex: -1,
             })}
@@ -437,8 +437,8 @@ function AuditLogsPageModule({
               action: "/admin/audit-logs",
               clearHref: clearSearchHref,
               hiddenFields: auditSearchHiddenFields({ direction, sort, targetType }),
-              label: "Search audit logs",
-              placeholder: "Search events, users, or IDs…",
+               label: "Cari log audit",
+               placeholder: "Cari event, pengguna, atau ID…",
               value: query,
             }}
             sort={{
@@ -457,11 +457,11 @@ function AuditLogsPageModule({
 
           {pageCount > 1 ? (
             <footer className="flex flex-col gap-3 border-t border-primary-100 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <p className="text-xs text-secondary-600">Showing {visibleStart}–{visibleEnd} of {total.toLocaleString("en-US")}</p>
+              <p className="text-xs text-secondary-600">Menampilkan {visibleStart}–{visibleEnd} dari {total.toLocaleString("id-ID")}</p>
               <nav aria-label="Audit log pages" className="flex items-center gap-2">
-                {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={auditLogHref({ direction, page: page - 1, query, sort, targetType })}>Previous</Link> : null}
-                <span aria-current="page" className="inline-flex min-h-11 items-center rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Page {page} of {pageCount}</span>
-                {page < pageCount ? <Link className={cn(buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" }))} href={auditLogHref({ direction, page: page + 1, query, sort, targetType })}>Next</Link> : null}
+                 {page > 1 ? <Link className={buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" })} href={auditLogHref({ direction, page: page - 1, query, sort, targetType })}>Sebelumnya</Link> : null}
+                 <span aria-current="page" className="inline-flex min-h-11 items-center rounded-xl bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-800">Halaman {page} dari {pageCount}</span>
+                 {page < pageCount ? <Link className={cn(buttonVariants({ className: "min-h-11", size: "sm", variant: "brandOutline" }))} href={auditLogHref({ direction, page: page + 1, query, sort, targetType })}>Berikutnya</Link> : null}
               </nav>
             </footer>
           ) : null}

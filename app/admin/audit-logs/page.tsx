@@ -8,7 +8,7 @@ import { AuditLogsPageModule } from "@/modules/admin/AuditLogsPageModule";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Audit logs | Vecalss LMS",
+  title: "Log audit | Vecalss LMS",
 };
 
 export default async function AdminAuditLogsPage({

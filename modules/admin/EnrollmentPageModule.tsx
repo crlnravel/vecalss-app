@@ -49,26 +49,26 @@ function statusTone(status: UserStatus): StudentStatusTone {
 }
 
 const noticeMessages: Record<string, string> = {
-  "student-deactivated": "Student access has been disabled and active sessions were revoked.",
-  "student-deleted": "Student account deleted.",
-  "student-reactivated": "Student access has been restored.",
-  "students-disabled": "Selected student access has been disabled and active sessions were revoked.",
-  "students-reactivated": "Selected student access has been restored.",
-  "student-updated": "Student enrollment details were updated.",
+  "student-deactivated": "Akses siswa dinonaktifkan dan sesi aktif telah dicabut.",
+  "student-deleted": "Akun siswa dihapus.",
+  "student-reactivated": "Akses siswa dipulihkan.",
+  "students-disabled": "Akses siswa yang dipilih dinonaktifkan dan sesi aktif telah dicabut.",
+  "students-reactivated": "Akses siswa yang dipilih dipulihkan.",
+  "student-updated": "Detail enrollment siswa diperbarui.",
 };
 
 const errorMessages: Record<string, string> = {
-  "duplicate-email": "That email is already being used by another student account.",
-  "bulk-status-confirmation": "Confirm the bulk status change before continuing.",
-  "bulk-status-failed": "We couldn't update the selected student accounts. Refresh the directory and try again.",
-  "bulk-status-no-change": "None of the selected accounts can be changed in that direction. Refresh the directory and try again.",
-  "delete-confirmation": "Confirm that you want to delete this student account.",
-  "delete-failed": "We're sorry, we couldn't delete that student account. Please try again.",
-  "invalid-directory-query": "That directory filter is invalid or too broad. The safe directory view has been restored.",
-  "invalid-user": "That account identifier is invalid. Reload the directory and try again.",
-  "missing-fields": "Please add the student's name and email before updating.",
-  "missing-user": "We couldn't find that student account.",
-  "update-failed": "We're sorry, we couldn't update that student account. Please try again.",
+  "duplicate-email": "Email tersebut sudah digunakan oleh akun siswa lain.",
+  "bulk-status-confirmation": "Konfirmasi perubahan status massal sebelum melanjutkan.",
+  "bulk-status-failed": "Akun siswa yang dipilih tidak dapat diperbarui. Segarkan direktori lalu coba lagi.",
+  "bulk-status-no-change": "Tidak ada akun yang dapat diubah ke arah tersebut. Segarkan direktori lalu coba lagi.",
+  "delete-confirmation": "Konfirmasi bahwa Anda ingin menghapus akun siswa ini.",
+  "delete-failed": "Akun siswa tidak dapat dihapus. Silakan coba lagi.",
+  "invalid-directory-query": "Filter direktori tidak valid atau terlalu luas. Tampilan direktori aman telah dipulihkan.",
+  "invalid-user": "ID akun tidak valid. Muat ulang direktori lalu coba lagi.",
+  "missing-fields": "Tambahkan nama dan email siswa sebelum memperbarui.",
+  "missing-user": "Akun siswa tersebut tidak ditemukan.",
+  "update-failed": "Akun siswa tidak dapat diperbarui. Silakan coba lagi.",
 };
 
 type PaginationItem = number | "ellipsis-before" | "ellipsis-after";
@@ -154,9 +154,9 @@ function EnrollmentPageModule({
     <PortalShell
       activeAdminSection="students"
       audience="admin"
-      description="Browse student accounts and open one to manage access or enrollment handoffs."
+       description="Telusuri akun siswa dan buka salah satunya untuk mengelola akses atau handoff enrollment."
       session={session}
-      title="Students"
+       title="Siswa"
     >
       <div className="space-y-8">
         <FocusRestorer
@@ -170,11 +170,11 @@ function EnrollmentPageModule({
           actions={<AddStudentDialog examEvents={examEvents} />}
           id="students-heading"
           tabIndex={-1}
-          title="Students"
+           title="Siswa"
         />
 
         <p aria-live="polite" className="sr-only" id="student-directory-announcement">
-          {focus ? "Returned to the selected student directory row." : ""}
+           {focus ? "Kembali ke baris siswa yang dipilih di direktori." : ""}
         </p>
         {notice ? (
           <div id="student-directory-notice" tabIndex={-1}>
@@ -183,12 +183,12 @@ function EnrollmentPageModule({
         ) : null}
         {demo ? (
           <FormNotice compact tone="neutral">
-            Temporary demo data is active. Remove <code className="font-semibold">demo=1</code> from the URL to return to live students.
+             Data demo sementara sedang aktif. Hapus <code className="font-semibold">demo=1</code> dari URL untuk kembali ke data siswa aktif.
           </FormNotice>
         ) : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <ReferenceSurface as="section" aria-label="Student directory" className="overflow-hidden">
+           <ReferenceSurface as="section" aria-label="Direktori siswa" className="overflow-hidden">
           <StudentDirectoryTable
             backQuery={backQuery}
             dataQuery={directoryQuery}
@@ -239,16 +239,16 @@ function EnrollmentPageModule({
           <div className="flex flex-col gap-3 border-t border-primary-100/80 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="text-xs tabular-nums text-secondary-600">
-                <span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}
+                <span className="sr-only">Menampilkan </span>{visibleStart}–{visibleEnd} dari {total}
               </p>
               <StudentPageSizeSelect pageSize={pageSize} query={backQuery} />
             </div>
             {pageCount > 1 ? (
-              <nav aria-label="Student directory pages" className="flex min-w-0 items-center gap-2">
+              <nav aria-label="Halaman direktori siswa" className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
                 <div className="flex min-w-0 items-center gap-0.5">
                   {page > 1 ? (
-                    <Link aria-label="Previous student directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}>
+                    <Link aria-label="Halaman direktori siswa sebelumnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}>
                       <ChevronLeft aria-hidden="true" size={16} />
                     </Link>
                   ) : null}
@@ -258,13 +258,13 @@ function EnrollmentPageModule({
                         <span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400">
                           <MoreHorizontal size={16} />
                         </span>
-                        <span className="sr-only">More pages</span>
+                        <span className="sr-only">Halaman lainnya</span>
                       </li>
                     ) : (
                       <li key={item}>
                         <Link
                           aria-current={item === page ? "page" : undefined}
-                          aria-label={`Go to page ${item}`}
+                          aria-label={`Buka halaman ${item}`}
                           className={buttonVariants({
                             className: item === page
                               ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800"
@@ -280,7 +280,7 @@ function EnrollmentPageModule({
                     ))}
                   </ol>
                   {page < pageCount ? (
-                    <Link aria-label="Next student directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}>
+                    <Link aria-label="Halaman direktori siswa berikutnya" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}>
                       <ChevronRight aria-hidden="true" size={16} />
                     </Link>
                   ) : null}

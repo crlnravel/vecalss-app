@@ -8,7 +8,7 @@ import { Check, Copy } from "@/lib/icons";
 function CopyValueButton({
   ariaLabel,
   iconOnly = false,
-  label = "Copy",
+   label = "Salin",
   value,
 }: {
   ariaLabel?: string;
@@ -56,7 +56,7 @@ function CopyValueButton({
       variant={iconOnly ? "ghost" : "brandOutline"}
     >
       {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
-      {!iconOnly ? <span>{copied ? "Copied" : label}</span> : null}
+       {!iconOnly ? <span>{copied ? "Tersalin" : label}</span> : null}
     </Button>
   );
 }

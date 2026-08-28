@@ -33,8 +33,8 @@ assert.match(builder, /Bank soal dapat disimpan tanpa soal/u);
 assert.match(detail, /questionBankFolderLabel\(/u);
 assert.doesNotMatch(builder, /moveQuestionBanksToFolderAction|<FieldLabel htmlFor="bank-folder">Folder<\/FieldLabel>/u);
 assert.match(labels, /QUESTION_BANK_ROOT_LABEL = "Bank soal"/u);
-assert.match(builder, /<FieldLabel htmlFor="question-subtest">Subtest<\/FieldLabel>/u);
-assert.match(builder, /<FieldLabel htmlFor="bank-categories">Kategori<\/FieldLabel>/u);
+assert.match(builder, /<FieldLabel[^>]*htmlFor="question-subtest">Subtest<\/FieldLabel>/u);
+assert.match(builder, /<FieldLabel[^>]*htmlFor="bank-categories">Kategori<\/FieldLabel>/u);
 assert.doesNotMatch(builder, /\bUnfiled\b|\bunfiled\b/u);
 assert.doesNotMatch(builder, /\bHalaman\b|inventoryPageCount|paginatedQuestions|visibleInventoryPage/u);
 
@@ -56,7 +56,16 @@ assert.match(builder, /const nextActiveQuestion = questions\[0\] \?\? null/u);
 assert.match(builder, /if \(questions\.length === builderState\.questions\.length\) return/u);
 assert.match(builder, /questionDraft: nextActiveQuestion \? toQuestionDraft\(nextActiveQuestion\) : fallbackQuestionDraft/u);
 assert.match(builder, /const id = createQuestionId\(subjectCode\)/u);
-assert.match(builder, /Perlu diperbaiki/u);
+const inventory = builder.match(
+  /function QuestionBankInventory\([\s\S]*?\n\}\n\nfunction QuestionBankMobileInventory/u,
+)?.[0] ?? "";
+assert.doesNotMatch(inventory, /Perlu diperbaiki/u);
+assert.match(builder, /description: `Soal nomor \$\{questionNumber\} akan dihapus/u);
+assert.match(builder, /title: `Hapus soal nomor \$\{questionNumber\}\?`/u);
+assert.doesNotMatch(builder, /const questionLabel = question\?\.prompt/u);
+assert.match(builder, /requestLifecycleChange\(operation: "publish" \| "unpublish"\)/u);
+assert.match(builder, /Jadikan Bank Soal draf\?/u);
+assert.match(builder, /Tryout yang sudah dibuat tetap menggunakan snapshot soal/u);
 assert.doesNotMatch(builder, /Masalah berikutnya|Bank diterbitkan/u);
 assert.doesNotMatch(builder, /Siap dipakai|Belum lengkap|Tersimpan/u);
 assert.doesNotMatch(builder, /Kesiapan terbit:/u);
@@ -67,12 +76,18 @@ assert.match(detail, /const choiceLabel = String\.fromCharCode\(65 \+ choiceInde
 assert.match(detail, /\{choiceLabel\}/u);
 assert.doesNotMatch(detail, /\{choice\.id\}\s*<\/span>/u);
 assert.match(detail, /bank\.status === "published"[\s\S]*Buat draf/u);
-assert.match(detail, /bank\.status === "draft"[\s\S]*Publish/u);
+assert.match(detail, /bank\.status === "draft"[\s\S]*Terbitkan/u);
+assert.match(detail, /requestLifecycleChange\(operation: "publish" \| "unpublish"\)/u);
+assert.match(detail, /Jadikan Bank Soal draf\?/u);
+assert.match(detail, /Tryout yang sudah dibuat tetap menggunakan snapshot soal/u);
 assert.match(detail, /variant="brandOutline"/u);
 assert.match(detail, /aria-label="Arsipkan bank soal"/u);
 assert.match(detail, /variant="dangerOutline"/u);
 assert.doesNotMatch(detail, /<Ellipsis\b|aria-label="Aksi Bank Soal"/u);
-assert.match(detail, /className="space-y-5 border-t border-primary-100\/70 pt-4"/u);
+assert.match(detail, /className="space-y-5"/u);
+assert.match(detail, /<span className="text-xs font-semibold text-secondary-500">Subjek<\/span>/u);
+assert.match(detail, /<span className="block text-xs font-semibold text-secondary-500">Kesulitan<\/span>/u);
+assert.doesNotMatch(detail, /<span>Kembali ke Bank Soal<\/span>/u);
 assert.doesNotMatch(detail, /grid gap-5 rounded-xl border border-primary-100 bg-primary-50\/30/u);
 assert.match(detail, /Deskripsi[\s\S]*Folder[\s\S]*Kategori/u);
 assert.match(detail, /showToast\(/u);
@@ -145,11 +160,11 @@ assert.match(actions, /questionBankActionFailure\(error, "Status Bank Soal tidak
 
 // Source consumers keep their own scope: they select Bank Soal data and do
 // not import the editor's legacy catalogue vocabulary.
-assert.match(packageBuilder, /<FieldLabel htmlFor="package-source-bank-picker">Bank Soal<\/FieldLabel>/u);
+assert.match(packageBuilder, /<FieldLabel[^>]*htmlFor="package-source-bank-picker">Bank Soal<\/FieldLabel>/u);
 assert.match(packageBuilder, /Pilih Bank Soal/u);
-assert.match(quizBuilder, /<FieldLabel htmlFor="quiz-editor-subject">Subjek<\/FieldLabel>/u);
+assert.match(quizBuilder, /<FieldLabel[^>]*htmlFor="quiz-editor-subject">Subjek<\/FieldLabel>/u);
 assert.match(quizBuilder, /ReferenceSelect/u);
-assert.match(tryoutBuilder, /<FieldLabel>Bank Soal untuk ditelusuri(?:\s*<RequiredMark\s*\/>)?\s*<\/FieldLabel>/u);
+assert.match(tryoutBuilder, /<FieldLabel[^>]*>Bank Soal untuk ditelusuri(?:\s*<RequiredMark\s*\/>)?\s*<\/FieldLabel>/u);
 assert.match(tryoutBuilder, /role="listbox"/u);
 for (const [name, source] of [["Paket Soal", packageBuilder], ["Kuis", quizBuilder], ["Tryout", tryoutBuilder]] as const) {
   assert.doesNotMatch(source, /\bUnfiled\b|\bunfiled\b/u, `${name} source picker must not expose legacy catalogue vocabulary`);

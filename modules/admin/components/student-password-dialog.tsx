@@ -31,7 +31,7 @@ function StudentPasswordForm({
   return (
     <AlertDialogContent size="sm">
       <AlertDialogHeader>
-        <AlertDialogTitle>Change Password</AlertDialogTitle>
+        <AlertDialogTitle>Ubah password</AlertDialogTitle>
       </AlertDialogHeader>
 
       <form action={formAction} className="space-y-5">
@@ -45,7 +45,7 @@ function StudentPasswordForm({
         ) : null}
 
         <Field>
-          <FieldLabel htmlFor="student-new-password">New password</FieldLabel>
+          <FieldLabel htmlFor="student-new-password">Password baru</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.password ? "student-new-password-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.password)}
@@ -60,7 +60,7 @@ function StudentPasswordForm({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="student-confirm-password">Confirm password</FieldLabel>
+          <FieldLabel htmlFor="student-confirm-password">Konfirmasi password</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.confirmPassword ? "student-confirm-password-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.confirmPassword)}
@@ -74,9 +74,9 @@ function StudentPasswordForm({
         </Field>
 
         <AlertDialogFooter>
-          <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-          <SubmitButton pendingLabel="Updating…" type="submit" variant="brand">
-            Confirm
+          <AlertDialogCancel type="button">Batal</AlertDialogCancel>
+          <SubmitButton pendingLabel="Memperbarui…" type="submit" variant="brand">
+            Konfirmasi
           </SubmitButton>
         </AlertDialogFooter>
       </form>
@@ -100,7 +100,7 @@ function StudentPasswordDialog({
         size="default"
         variant="ghost"
       >
-        Change Password
+         Ubah password
       </Button>
 
       <AlertDialog onOpenChange={setOpen} open={open}>

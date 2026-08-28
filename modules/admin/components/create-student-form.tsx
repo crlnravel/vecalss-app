@@ -54,7 +54,7 @@ function StudentDropdownField({
   options: StudentDropdownOption[];
   value: string;
 }) {
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? "Set later";
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? "Atur nanti";
 
   return (
     <Field>
@@ -147,9 +147,9 @@ function CreateStudentForm({
       {!embedded ? (
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Create a student account</h2>
+            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Buat akun siswa</h2>
             <p className="mt-2 max-w-[56ch] text-sm leading-6 text-secondary-600">
-              Add an approved student, set an exam goal, and choose the credential handoff.
+              Tambahkan siswa yang sudah disetujui, atur target ujian, dan pilih metode handoff kredensial.
             </p>
           </div>
         </div>
@@ -174,7 +174,7 @@ function CreateStudentForm({
       <div aria-disabled={handoffActive || undefined} className={handoffActive ? "pointer-events-none opacity-65" : undefined} inert={handoffActive || undefined}>
         <div className={embedded ? "grid gap-5 sm:grid-cols-2" : "grid gap-5 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]"}>
           <Field>
-            <FieldLabel htmlFor="student-full-name">Student name</FieldLabel>
+             <FieldLabel htmlFor="student-full-name">Nama siswa</FieldLabel>
             <FieldInput
               aria-describedby={state.fieldErrors?.fullName ? "student-full-name-error" : undefined}
               aria-invalid={Boolean(state.fieldErrors?.fullName)}
@@ -189,7 +189,7 @@ function CreateStudentForm({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="student-email">Student email</FieldLabel>
+             <FieldLabel htmlFor="student-email">Email siswa</FieldLabel>
             <FieldInput
               aria-describedby={state.fieldErrors?.email ? "student-email-error" : undefined}
               aria-invalid={Boolean(state.fieldErrors?.email)}
@@ -206,11 +206,11 @@ function CreateStudentForm({
 
           <StudentDropdownField
             id="student-exam-goal"
-            label="Target exam"
+             label="Target ujian"
             name="targetExamEventId"
             onValueChange={setTargetExamEventId}
             options={[
-              { label: "Set later", value: "" },
+               { label: "Atur nanti", value: "" },
               ...examEvents.map((examEvent) => ({ label: examEvent.name, value: examEvent.id })),
             ]}
             value={targetExamEventId}
@@ -218,9 +218,9 @@ function CreateStudentForm({
 
           <StudentDropdownField
             error={state.fieldErrors?.handoffMethod}
-            help="Choose how the student receives their first login credentials."
+             help="Pilih cara siswa menerima kredensial login pertamanya."
             id="student-handoff-method"
-            label="Credential handoff"
+             label="Handoff kredensial"
             name="handoffMethod"
             onValueChange={(value) => {
               if (value === "invite_link" || value === "temporary_password") {
@@ -228,16 +228,16 @@ function CreateStudentForm({
               }
             }}
             options={[
-              { label: "Temporary password", value: "temporary_password" },
-              { label: "Invite link (24 hours)", value: "invite_link" },
+               { label: "Password sementara", value: "temporary_password" },
+               { label: "Link undangan (24 jam)", value: "invite_link" },
             ]}
             value={handoffMethod}
           />
         </div>
 
         <div className="mt-5 flex justify-start md:justify-end">
-          <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
-            Create student account
+           <SubmitButton className={embedded ? "mt-1 w-full" : undefined} disabled={pending || handoffActive || !isFormComplete} pendingLabel="Membuat akun..." size="lg" type="submit" variant="brand">
+             Buat akun siswa
           </SubmitButton>
         </div>
       </div>

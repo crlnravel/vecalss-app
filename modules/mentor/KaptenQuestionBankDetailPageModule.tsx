@@ -68,8 +68,10 @@ type QuestionBankCategoryOption = {
 };
 
 type ConfirmationRequest = {
+  actionVariant?: "brand" | "destructive";
   confirmLabel: string;
   description: string;
+  dialogVariant?: "default" | "info" | "warning" | "danger" | "success";
   onConfirm: () => void;
   title: string;
 };
@@ -99,12 +101,14 @@ function QuestionBankDetailHeaderBar({
   isSavingLifecycle,
   publishDisabledReason,
   requestArchive,
+  requestLifecycleChange,
 }: {
   bank: KaptenQuestionBank;
   handleLifecycle: (operation: "publish" | "unpublish" | "archive" | "restore") => Promise<void>;
   isSavingLifecycle: boolean;
   publishDisabledReason?: string;
   requestArchive: () => void;
+  requestLifecycleChange: (operation: "publish" | "unpublish") => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -113,55 +117,15 @@ function QuestionBankDetailHeaderBar({
           aria-label="Kembali ke Bank Soal"
           nativeButton={false}
           render={<Link href="/mentor/quiz/question-bank" />}
-          size="sm"
+          size="icon-sm"
           title="Kembali ke Bank Soal"
           variant="ghost"
         >
           <ChevronLeft />
-          <span>Kembali ke Bank Soal</span>
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {bank.status === "archived" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            disabled={isSavingLifecycle}
-            onClick={() => void handleLifecycle("restore")}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <Upload />
-            {isSavingLifecycle ? "Memulihkan…" : "Pulihkan bank"}
-          </Button>
-        ) : bank.status === "published" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            disabled={isSavingLifecycle}
-            onClick={() => void handleLifecycle("unpublish")}
-            size="sm"
-            type="button"
-            variant="brandOutline"
-          >
-            <FilePenLine />
-            {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
-          </Button>
-        ) : bank.status === "draft" ? (
-          <Button
-            aria-busy={isSavingLifecycle}
-            aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-            disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
-            onClick={() => void handleLifecycle("publish")}
-            size="sm"
-            type="button"
-            variant="brand"
-          >
-            <Upload />
-            {isSavingLifecycle ? "Mempublikasikan…" : "Publish"}
-          </Button>
-        ) : null}
-
         {bank.status !== "archived" && bank.status !== "scheduled" ? (
           <TooltipProvider>
             <Tooltip>
@@ -183,6 +147,47 @@ function QuestionBankDetailHeaderBar({
               <TooltipContent>Arsipkan bank soal</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        ) : null}
+
+        {bank.status === "archived" ? (
+          <Button
+            aria-busy={isSavingLifecycle}
+            disabled={isSavingLifecycle}
+            onClick={() => void handleLifecycle("restore")}
+            size="sm"
+            type="button"
+            variant="brandOutline"
+          >
+            <Upload />
+            {isSavingLifecycle ? "Memulihkan…" : "Pulihkan bank"}
+          </Button>
+        ) : bank.status === "published" ? (
+          <Button
+            aria-busy={isSavingLifecycle}
+            data-question-bank-lifecycle-action="unpublish"
+            disabled={isSavingLifecycle}
+            onClick={() => requestLifecycleChange("unpublish")}
+            size="sm"
+            type="button"
+            variant="brandOutline"
+          >
+            <FilePenLine />
+            {isSavingLifecycle ? "Membuat draf…" : "Buat draf"}
+          </Button>
+        ) : bank.status === "draft" ? (
+          <Button
+            aria-busy={isSavingLifecycle}
+            aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
+            data-question-bank-lifecycle-action="publish"
+            disabled={isSavingLifecycle || Boolean(publishDisabledReason)}
+            onClick={() => requestLifecycleChange("publish")}
+            size="sm"
+            type="button"
+            variant="brand"
+          >
+            <Upload />
+            {isSavingLifecycle ? "Menerbitkan…" : "Terbitkan"}
+          </Button>
         ) : null}
         {publishDisabledReason ? (
           <p className="sr-only" id="publish-disabled-reason">
@@ -246,14 +251,6 @@ function QuestionBankMetadataCard({
     <ReferenceSurface as="section" className="p-5 sm:p-6">
       <div className="space-y-6">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            {subjectCoverage.map((code) => (
-              <MentorBadge key={code} size="xs" tone="category">
-                {code}
-              </MentorBadge>
-            ))}
-          </div>
-
           {isEditingTitle ? (
             <div className="mt-3 flex max-w-2xl items-center gap-2">
               <Input
@@ -326,7 +323,7 @@ function QuestionBankMetadataCard({
           </div>
         </div>
 
-        <div className="space-y-5 border-t border-primary-100/70 pt-4">
+        <div className="space-y-5">
           <div>
             <div className="flex items-center justify-start gap-1.5">
               <span className="text-xs font-semibold text-secondary-500">Deskripsi</span>
@@ -404,6 +401,21 @@ function QuestionBankMetadataCard({
                 <Folder className="size-4 text-primary-700" />
                 <span className="truncate">{folderLabel}</span>
               </span>
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs font-semibold text-secondary-500">Subjek</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {subjectCoverage.length > 0 ? (
+                subjectCoverage.map((code) => (
+                  <MentorBadge key={code} size="xs" tone="category">
+                    {code}
+                  </MentorBadge>
+                ))
+              ) : (
+                <span className="text-xs text-secondary-400">Belum ada subjek</span>
+              )}
             </div>
           </div>
 
@@ -489,36 +501,46 @@ function QuestionBankQuestionCard({
       )}
       key={question.id}
     >
-      <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col items-start gap-4 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">
             {index + 1}
           </span>
-          <MentorBadge size="xs" tone="category">
-            {question.subjectCode}
-          </MentorBadge>
-          <MentorBadge
-            size="xs"
-            tone={
-              question.difficulty === "easy"
-                ? "neutral"
-                : question.difficulty === "hard"
-                  ? "attention"
-                  : "category"
-            }
-          >
-            {question.difficulty === "easy"
-              ? "Mudah"
-              : question.difficulty === "hard"
-                ? "Sulit"
-                : "Sedang"}
-          </MentorBadge>
           {hasIssues ? (
             <MentorBadge className="gap-1" size="xs" tone="attention">
               <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
               Perlu diperbaiki ({questionIssues.length})
             </MentorBadge>
           ) : null}
+        </div>
+
+        <div className="grid w-full grid-cols-2 gap-4 sm:w-auto sm:min-w-[13rem]">
+          <div className="min-w-0">
+            <span className="block text-xs font-semibold text-secondary-500">Subjek</span>
+            <MentorBadge className="mt-1.5" size="xs" tone="category">
+              {question.subjectCode}
+            </MentorBadge>
+          </div>
+          <div className="min-w-0">
+            <span className="block text-xs font-semibold text-secondary-500">Kesulitan</span>
+            <MentorBadge
+              className="mt-1.5"
+              size="xs"
+              tone={
+                question.difficulty === "easy"
+                  ? "neutral"
+                  : question.difficulty === "hard"
+                    ? "attention"
+                    : "category"
+              }
+            >
+              {question.difficulty === "easy"
+                ? "Mudah"
+                : question.difficulty === "hard"
+                  ? "Sulit"
+                  : "Sedang"}
+            </MentorBadge>
+          </div>
         </div>
       </div>
 
@@ -614,7 +636,7 @@ function QuestionBankQuestionsSection({
 }) {
   return (
     <section className="space-y-6">
-      <div className="flex flex-col items-start gap-4 rounded-xl border border-primary-100 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
@@ -687,6 +709,9 @@ function QuestionBankArchiveConfirmationDialog({
   confirmationRequest: ConfirmationRequest | null;
   onClose: () => void;
 }) {
+  const dialogVariant = confirmationRequest?.dialogVariant ?? "danger";
+  const actionVariant = confirmationRequest?.actionVariant ?? "destructive";
+
   return (
     <AlertDialog
       onOpenChange={(open) => {
@@ -694,9 +719,9 @@ function QuestionBankArchiveConfirmationDialog({
       }}
       open={Boolean(confirmationRequest)}
     >
-      <AlertDialogContent size="sm" variant="danger">
+      <AlertDialogContent size="sm" variant={dialogVariant}>
         <AlertDialogHeader>
-          <AlertDialogMedia variant="danger">
+          <AlertDialogMedia variant={dialogVariant}>
             <CircleHelp />
           </AlertDialogMedia>
           <AlertDialogTitle>{confirmationRequest?.title}</AlertDialogTitle>
@@ -708,7 +733,7 @@ function QuestionBankArchiveConfirmationDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={() => confirmationRequest?.onConfirm()}
-            variant="destructive"
+            variant={actionVariant}
           >
             {confirmationRequest?.confirmLabel}
           </AlertDialogAction>
@@ -906,6 +931,24 @@ function KaptenQuestionBankDetailPageModule({
     });
   }
 
+  function requestLifecycleChange(operation: "publish" | "unpublish") {
+    const isPublishing = operation === "publish";
+
+    setConfirmationRequest({
+      actionVariant: "brand",
+      confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
+      description: isPublishing
+        ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
+        : "Bank Soal ini dapat dikembalikan menjadi draf meski sudah dipakai Tryout. Tryout yang sudah dibuat tetap menggunakan snapshot soal; Bank Soal tidak akan tersedia sebagai sumber baru sampai diterbitkan kembali.",
+      dialogVariant: "warning",
+      onConfirm: () => {
+        setConfirmationRequest(null);
+        void handleLifecycle(operation);
+      },
+      title: isPublishing ? "Terbitkan Bank Soal?" : "Jadikan Bank Soal draf?",
+    });
+  }
+
   const publishDisabledReason =
     questions.length === 0
       ? "Tambahkan minimal satu soal sebelum diterbitkan"
@@ -930,6 +973,7 @@ function KaptenQuestionBankDetailPageModule({
           isSavingLifecycle={isSavingLifecycle}
           publishDisabledReason={publishDisabledReason}
           requestArchive={requestArchive}
+          requestLifecycleChange={requestLifecycleChange}
         />
 
         {lifecycleError ? (

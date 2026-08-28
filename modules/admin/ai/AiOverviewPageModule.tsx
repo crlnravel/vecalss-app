@@ -67,13 +67,13 @@ export function AiOverviewPageModule({
       audience="admin"
       description="Ringkasan penggunaan Vera AI, kuota harian, dan pengeluaran."
       session={session}
-      title="Overview"
+       title="Ringkasan"
     >
       <div>
         {/* Orientation band: page title with the data-refresh control docked beside it */}
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <h1 className="text-2xl font-extrabold tracking-tight text-secondary-950 sm:text-3xl">
-            Overview
+             Ringkasan
           </h1>
           <AiRefreshBar
             lastRefreshedAt={lastRefreshedAt}
@@ -132,7 +132,7 @@ export function AiOverviewPageModule({
                     href="/admin/ai/usage"
                     className="flex shrink-0 items-center gap-1 text-xs font-bold text-primary-700 hover:underline"
                   >
-                    <span>Lihat Rincian</span>
+                     <span>Lihat detail</span>
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </div>
@@ -183,7 +183,7 @@ export function AiOverviewPageModule({
                     href="/admin/ai/usage"
                     className="flex shrink-0 items-center gap-1 text-xs font-bold text-primary-700 hover:underline"
                   >
-                    <span>Lihat Semua</span>
+                     <span>Lihat semua</span>
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </div>

@@ -26,7 +26,7 @@ export default function AuditLogsLoading() {
 
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
-      <div aria-busy="true" aria-label="Loading audit logs" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+      <div aria-busy="true" aria-label="Memuat log audit" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
         <AdminPortalNav activeSection="audit-logs" studentPreviewEnabled={studentPreviewEnabled} />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">

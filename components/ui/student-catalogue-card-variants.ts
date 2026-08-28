@@ -10,7 +10,7 @@ const studentCatalogueCardVariants = cva(
         kuis:
           "flex min-h-[246px] flex-col bg-white p-6 text-primary-900 md:min-h-[270px] md:p-7",
         tryout:
-          "flex min-h-[26rem] flex-col rounded-[2.5rem] bg-[#14241d] text-white",
+          "flex min-h-[26rem] flex-col bg-white text-secondary-900",
       },
     },
   },

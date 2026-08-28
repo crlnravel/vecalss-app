@@ -22,9 +22,9 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
       id="create-kapten-account"
     >
       <div>
-        <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Create a Kapten account</h2>
+         <h2 className="text-2xl font-semibold tracking-[-0.03em] text-secondary-900">Buat akun Kapten</h2>
         <p className="mt-2 max-w-[60ch] text-sm leading-6 text-secondary-600">
-          Add an active tutor profile. Cohorts and subject specialties are assigned separately.
+           Tambahkan profil tutor aktif. Kelas dan spesialisasi mata pelajaran diatur secara terpisah.
         </p>
       </div>
 
@@ -33,7 +33,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="kapten-full-name">Kapten name</FieldLabel>
+           <FieldLabel htmlFor="kapten-full-name">Nama Kapten</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.fullName ? "kapten-full-name-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.fullName)}
@@ -47,7 +47,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="kapten-email">Kapten email</FieldLabel>
+           <FieldLabel htmlFor="kapten-email">Email Kapten</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.email ? "kapten-email-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.email)}
@@ -62,7 +62,7 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="kapten-phone">Phone</FieldLabel>
+           <FieldLabel htmlFor="kapten-phone">Nomor telepon</FieldLabel>
           <FieldInput defaultValue={state.fields?.phone ?? ""} id="kapten-phone" name="phone" type="tel" />
         </Field>
 
@@ -72,9 +72,9 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="kapten-handoff-method">Credential handoff</FieldLabel>
+           <FieldLabel htmlFor="kapten-handoff-method">Handoff kredensial</FieldLabel>
           <select
-            aria-label="Credential handoff"
+             aria-label="Handoff kredensial"
             aria-describedby={state.fieldErrors?.handoffMethod ? "kapten-handoff-method-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.handoffMethod)}
             className={fieldControlClassName}
@@ -82,8 +82,8 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
             id="kapten-handoff-method"
             name="handoffMethod"
           >
-            <option value="temporary_password">Temporary password</option>
-            <option value="invite_link">Invite link (24 hours)</option>
+             <option value="temporary_password">Password sementara</option>
+             <option value="invite_link">Link undangan (24 jam)</option>
           </select>
           <FieldError error={state.fieldErrors?.handoffMethod} id="kapten-handoff-method-error" />
         </Field>
@@ -101,8 +101,8 @@ function CreateKaptenForm({ embedded = false }: { embedded?: boolean } = {}) {
       </div>
 
       <div className="flex justify-start md:justify-end">
-        <SubmitButton pendingLabel="Creating account..." size="lg" type="submit" variant="brand">
-          Create Kapten account
+         <SubmitButton pendingLabel="Membuat akun..." size="lg" type="submit" variant="brand">
+           Buat akun Kapten
         </SubmitButton>
       </div>
     </form>

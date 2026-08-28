@@ -50,13 +50,13 @@ function StudentAccountActions({
       ? reactivateStudentEnrollmentAction
       : deleteStudentEnrollmentAction;
   const confirmation = isBan ? "deactivate" : isUnban ? "reactivate" : "delete";
-  const title = isBan ? "Ban User?" : isUnban ? "Unban User?" : "Delete User?";
+  const title = isBan ? "Nonaktifkan pengguna?" : isUnban ? "Pulihkan pengguna?" : "Hapus pengguna?";
   const description = isBan
-    ? "This will disable access and revoke the student’s active sessions."
+    ? "Akses siswa akan dinonaktifkan dan sesi aktifnya dicabut."
     : isUnban
-      ? "This will restore access for this student. Existing sessions will remain revoked."
-      : "This will remove the student from the directory and revoke access to the account.";
-  const actionLabel = isBan ? "Ban User" : isUnban ? "Unban User" : "Delete User";
+      ? "Akses siswa akan dipulihkan. Sesi yang sudah ada tetap dicabut."
+      : "Siswa akan dihapus dari direktori dan akses akunnya dicabut.";
+  const actionLabel = isBan ? "Nonaktifkan pengguna" : isUnban ? "Pulihkan pengguna" : "Hapus pengguna";
   return (
     <>
       <div className={cn("mt-8 flex w-full max-w-sm flex-col items-start gap-2", compact && "mt-3 max-w-none gap-1")}>
@@ -70,7 +70,7 @@ function StudentAccountActions({
             type="button"
             variant="dangerOutline"
           >
-            Ban User
+            Nonaktifkan pengguna
           </Button>
         ) : status === "disabled" ? (
           <Button
@@ -80,7 +80,7 @@ function StudentAccountActions({
             type="button"
             variant="ghost"
           >
-            Unban User
+            Pulihkan pengguna
           </Button>
         ) : null}
 
@@ -91,7 +91,7 @@ function StudentAccountActions({
           type="button"
           variant="dangerOutline"
         >
-          Delete User
+          Hapus pengguna
         </Button>
       </div>
 
@@ -115,7 +115,7 @@ function StudentAccountActions({
             <input name="returnPath" type="hidden" value={returnPath} />
             <input name="userId" type="hidden" value={studentId} />
             <AlertDialogFooter>
-              <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+              <AlertDialogCancel type="button">Batal</AlertDialogCancel>
               <SubmitButton
                 pendingLabel={`${actionLabel}…`}
                 type="submit"

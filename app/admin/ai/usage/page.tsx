@@ -5,7 +5,7 @@ import { AiUsagePageModule } from "@/modules/admin/ai/AiUsagePageModule";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Vera AI Pemakaian | Vecalss Admin",
+  title: "Pemakaian Vera AI | Vecalss Admin",
 };
 
 export default async function AdminAiUsagePage() {

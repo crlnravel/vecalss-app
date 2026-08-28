@@ -24,22 +24,24 @@ import { StudentAccountMenu } from "@/modules/student/components/student-account
 import { AdminPortalNav } from "./admin-portal-nav";
 
 const adminSectionLabels = {
-  "ai-policy": "Vera AI policy",
-  "audit-logs": "Audit logs",
-  "ai-usage": "AI usage",
-  docs: "Documentation",
+  ai: "Vera AI",
+  "ai-policy": "Policy Vera AI",
+  "audit-logs": "Log audit",
+  "ai-usage": "Pemakaian AI",
+  docs: "Dokumentasi",
   kapten: "Kapten",
-  notifications: "Notifications",
+  notifications: "Notifikasi",
   overview: "Dashboard",
-  "student-banners": "Student banners",
+  "student-banners": "Banner siswa",
   "student-preview": "Student preview",
-  students: "Students",
+  students: "Siswa",
 } as const;
 
 const adminSectionRootHrefs = {
-  "ai-policy": "/admin/ai-policy",
+  ai: "/admin/ai",
+  "ai-policy": "/admin/ai/policies",
   "audit-logs": "/admin/audit-logs",
-  "ai-usage": "/admin/ai-usage",
+  "ai-usage": "/admin/ai/usage",
   docs: "/admin/docs",
   kapten: "/admin/kapten",
   notifications: "/admin/notifications",
@@ -58,7 +60,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
+  activeAdminSection?: "overview" | "ai" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;

@@ -42,19 +42,19 @@ type StudentDetail = Pick<
 };
 
 const noticeMessages: Record<string, string> = {
-  "student-deactivated": "Student access has been disabled and active sessions were revoked.",
-  "student-deleted": "Student account deleted.",
-  "student-password-updated": "Student password updated.",
-  "student-reactivated": "Student access has been restored.",
-  "student-updated": "Student details were updated.",
+  "student-deactivated": "Akses siswa dinonaktifkan dan sesi aktif telah dicabut.",
+  "student-deleted": "Akun siswa dihapus.",
+  "student-password-updated": "Password siswa diperbarui.",
+  "student-reactivated": "Akses siswa dipulihkan.",
+  "student-updated": "Detail siswa diperbarui.",
 };
 
 const errorMessages: Record<string, string> = {
-  "duplicate-email": "That email is already being used by another student account.",
-  "delete-confirmation": "Confirm that you want to delete this student account.",
-  "delete-failed": "We're sorry, we couldn't delete that student account. Please try again.",
-  "missing-fields": "Please add the student's first name and email before updating.",
-  "update-failed": "We're sorry, we couldn't update that student account. Please try again.",
+  "duplicate-email": "Email tersebut sudah digunakan oleh akun siswa lain.",
+  "delete-confirmation": "Konfirmasi bahwa Anda ingin menghapus akun siswa ini.",
+  "delete-failed": "Akun siswa tidak dapat dihapus. Silakan coba lagi.",
+  "missing-fields": "Tambahkan nama depan dan email siswa sebelum memperbarui.",
+  "update-failed": "Akun siswa tidak dapat diperbarui. Silakan coba lagi.",
 };
 
 const detailFieldClassName = REFERENCE_CONTROL_CLASS_NAMES.input;
@@ -70,7 +70,12 @@ function splitStudentName(fullName: string) {
 }
 
 function formatStatus(status: UserStatus) {
-  return status.replaceAll("_", " ");
+  return {
+    active: "Aktif",
+    disabled: "Dinonaktifkan",
+    locked: "Terkunci",
+    soft_deleted: "Dihapus sementara",
+  }[status] ?? status.replaceAll("_", " ");
 }
 
 function statusTextClassName(status: UserStatus) {
@@ -91,10 +96,10 @@ function statusTextClassName(status: UserStatus) {
 
 function formatDate(value: Date | null) {
   if (!value) {
-    return "Not recorded";
+    return "Belum tercatat";
   }
 
-  return value.toLocaleDateString("en-US", {
+   return value.toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -106,7 +111,7 @@ function formatExamDate(value: Date | null) {
     return null;
   }
 
-  return value.toLocaleDateString("en-US", {
+   return value.toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -161,38 +166,38 @@ function StudentDetailPageModule({
 }) {
   const profile = student.studentProfile;
   const { firstName, lastName } = splitStudentName(student.fullName);
-  const targetExam = profile?.targetExamEvent?.name ?? "Not set";
+  const targetExam = profile?.targetExamEvent?.name ?? "Belum diatur";
   const targetExamDate = formatExamDate(profile?.targetExamEvent?.examDate ?? null);
   const targetUniversity =
     profile?.targetUniversity?.shortName ||
     profile?.targetUniversity?.name ||
     profile?.targetMajor?.university.shortName ||
     profile?.targetMajor?.university.name ||
-    "Not set";
-  const targetMajor = profile?.targetMajor?.name ?? "Not set";
+    "Belum diatur";
+  const targetMajor = profile?.targetMajor?.name ?? "Belum diatur";
 
   return (
     <PortalShell
       activeAdminSection="students"
       audience="admin"
-      description={`Manage the account for ${student.fullName}.`}
+      description={`Kelola akun ${student.fullName}.`}
       session={session}
-      title="Student details"
+      title="Detail siswa"
     >
       <div className="space-y-8">
         <div className="flex min-w-0 items-start gap-3">
-          <nav aria-label="Student navigation" className="shrink-0">
+          <nav aria-label="Navigasi siswa" className="shrink-0">
             <Button
-              aria-label="Back to Students"
+              aria-label="Kembali ke siswa"
               className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
               nativeButton={false}
               render={<Link href={backHref} />}
               size="icon"
-              title="Back to Students"
+              title="Kembali ke siswa"
               variant="ghost"
             >
               <ChevronLeft aria-hidden="true" size={22} />
-              <span className="sr-only">Back to Students</span>
+              <span className="sr-only">Kembali ke siswa</span>
             </Button>
           </nav>
           <ReferencePageHeader
@@ -216,17 +221,17 @@ function StudentDetailPageModule({
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
         <div className="min-w-0 max-w-5xl space-y-6">
-          <DetailSection title="Account Information">
+          <DetailSection title="Informasi akun">
             <div className="grid gap-5 md:grid-cols-2">
               <div className="min-w-0 space-y-2 text-sm">
                 <span className="font-medium text-secondary-900">ID</span>
                 <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
                   <code className="min-w-0 truncate font-mono text-xs text-secondary-700">{displayId(student.id)}</code>
-                  <CopyValueButton ariaLabel="Copy student ID" iconOnly value={student.id} />
+                   <CopyValueButton ariaLabel="Salin ID siswa" iconOnly value={student.id} />
                 </div>
               </div>
               <div className="min-w-0 space-y-2 text-sm">
-                <span className="font-medium text-secondary-900">Added</span>
+                <span className="font-medium text-secondary-900">Ditambahkan</span>
                 <div className={`${detailFieldClassName} flex min-h-[52px] items-center text-secondary-800`}>
                   {formatDate(student.createdAt)}
                 </div>
@@ -235,7 +240,7 @@ function StudentDetailPageModule({
                 <span className="font-medium text-secondary-900">Password</span>
                 <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
                   <span aria-label="Hidden password" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
-                  <CopyValueButton ariaLabel="Copy hidden password" iconOnly value={maskedPassword} />
+                   <CopyValueButton ariaLabel="Salin password tersembunyi" iconOnly value={maskedPassword} />
                 </div>
               </div>
               <div className="min-w-0 space-y-2 text-sm">
@@ -253,22 +258,22 @@ function StudentDetailPageModule({
             <input name="userId" type="hidden" value={student.id} />
             <input name="returnPath" type="hidden" value={returnPath} />
 
-            <DetailSection title="Personal Information">
+            <DetailSection title="Informasi pribadi">
               <div className="grid gap-5 md:grid-cols-2">
                 <label className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">First name</span>
+                  <span className="font-medium text-secondary-900">Nama depan</span>
                   <input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" />
                 </label>
                 <label className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">Last name</span>
+                  <span className="font-medium text-secondary-900">Nama belakang</span>
                   <input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" />
                 </label>
                 <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                  <span className="font-medium text-secondary-900">Email address</span>
+                  <span className="font-medium text-secondary-900">Alamat email</span>
                   <input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" />
                 </label>
                 <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                  <span className="font-medium text-secondary-900">Phone number</span>
+                  <span className="font-medium text-secondary-900">Nomor telepon</span>
                   <input
                     aria-readonly="true"
                     className={`${detailFieldClassName} text-secondary-700`}
@@ -280,37 +285,37 @@ function StudentDetailPageModule({
               </div>
             </DetailSection>
 
-            <DetailSection title="Enrollment Profile">
+            <DetailSection title="Profil enrollment">
               <div className="grid gap-5 md:grid-cols-2">
                 <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                  <span className="font-medium text-secondary-900">Target exam</span>
+                   <span className="font-medium text-secondary-900">Target ujian</span>
                   <select
                     className={`${detailFieldClassName} appearance-auto cursor-pointer pr-12`}
                     defaultValue={profile?.targetExamEventId ?? ""}
                     name="targetExamEventId"
                   >
-                    <option value="">Set later</option>
+                    <option value="">Atur nanti</option>
                     {examEvents.map((examEvent) => (
                       <option key={examEvent.id} value={examEvent.id}>{examEvent.name}</option>
                     ))}
                   </select>
-                  {targetExam !== "Not set" ? (
+                  {targetExam !== "Belum diatur" ? (
                     <span className="flex items-center gap-1.5 text-xs text-secondary-600">
                       <CalendarDays aria-hidden="true" size={14} />
-                      {targetExamDate ? `Exam date · ${targetExamDate}` : "Exam date not set"}
+                      {targetExamDate ? `Tanggal ujian · ${targetExamDate}` : "Tanggal ujian belum diatur"}
                     </span>
                   ) : null}
                 </label>
 
                 <div className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">University</span>
+                   <span className="font-medium text-secondary-900">Universitas</span>
                   <div className={`${detailFieldClassName} flex min-h-[52px] items-center gap-2 text-secondary-800`}>
                     <Buildings aria-hidden="true" className="shrink-0 text-primary-700" size={17} />
                     <span className="truncate">{targetUniversity}</span>
                   </div>
                 </div>
                 <div className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">Major</span>
+                   <span className="font-medium text-secondary-900">Jurusan</span>
                   <div className={`${detailFieldClassName} flex min-h-[52px] items-center gap-2 text-secondary-800`}>
                     <Target aria-hidden="true" className="shrink-0 text-primary-700" size={17} />
                     <span className="truncate">{targetMajor}</span>
@@ -320,7 +325,7 @@ function StudentDetailPageModule({
             </DetailSection>
 
             <div className="flex justify-end">
-              <Button className="min-w-32" type="submit" variant="brand">Save changes</Button>
+              <Button className="min-w-32" type="submit" variant="brand">Simpan perubahan</Button>
             </div>
           </StudentDetailForm>
         </div>

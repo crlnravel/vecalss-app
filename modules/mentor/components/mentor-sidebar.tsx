@@ -69,11 +69,17 @@ function NavigationGroup({
   label: string;
 }) {
   return (
-    <SidebarGroup className={appearance === "reference" ? "mb-2" : undefined}>
+    <SidebarGroup
+      className={
+        appearance === "reference"
+          ? "mb-2 group-data-[collapsible=icon]:mb-0.5! group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-0"
+          : undefined
+      }
+    >
       <SidebarGroupLabel
         className={
           appearance === "reference"
-            ? "h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase"
+            ? "h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase group-data-[collapsible=icon]:hidden"
             : undefined
         }
       >
@@ -108,7 +114,7 @@ function NavigationGroup({
                 >
                   <item.icon />
                 </span>
-                <span>{item.label}</span>
+                <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
@@ -144,7 +150,7 @@ function MentorSidebar({
       <SidebarHeader
         className={cn(
           "gap-4 p-4 group-data-[collapsible=icon]:px-2",
-          isReference && "mb-2 gap-5 p-3",
+          isReference && "mb-2 gap-5 p-3 group-data-[collapsible=icon]:px-0",
         )}
       >
         <Link
@@ -182,7 +188,7 @@ function MentorSidebar({
       </SidebarContent>
 
       {isReference ? (
-        <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:px-0!">
+        <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">
           <SidebarTrigger
             aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
             className={cn(
