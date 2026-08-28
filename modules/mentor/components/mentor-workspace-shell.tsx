@@ -296,28 +296,32 @@ function MentorWorkspaceShell({
   return (
     <>
       <SidebarProvider
-        className={sidebarAppearance === "reference" ? "lg:gap-2 lg:p-6" : undefined}
+        className={sidebarAppearance === "reference" ? "bg-white lg:gap-2 lg:p-6" : undefined}
       >
         <div
           className={cn(
-            "flex min-h-svh w-full bg-[#f7faf8] text-secondary-900",
-            sidebarAppearance === "reference" && "lg:gap-2",
-            sidebarAppearance === "reference" && "bg-secondary-50",
+            "flex min-h-svh w-full text-secondary-900",
+            sidebarAppearance === "reference"
+              ? "bg-white lg:gap-2"
+              : "bg-[#f7faf8]",
           )}
         >
           <MentorSidebar activeLabel={activeLabel} appearance={sidebarAppearance} />
 
           <SidebarInset
             className={cn(
-              "min-w-0 bg-transparent",
-              sidebarAppearance === "reference" && "lg:rounded-3xl",
+              "min-w-0",
+              sidebarAppearance === "reference"
+                ? "min-h-svh bg-voyage-canvas lg:rounded-3xl"
+                : "bg-transparent",
             )}
           >
             <header
               className={cn(
-                "sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl",
-                sidebarAppearance === "reference" &&
-                  "bg-secondary-50/90 lg:rounded-3xl lg:border",
+                "sticky top-0 z-20 border-b border-primary-100/80 backdrop-blur-xl",
+                sidebarAppearance === "reference"
+                  ? "bg-voyage-canvas/90 lg:rounded-3xl lg:border"
+                  : "bg-[#f7faf8]/90",
               )}
             >
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">

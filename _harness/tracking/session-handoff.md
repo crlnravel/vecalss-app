@@ -1,5 +1,26 @@
 # Session Handoff
 
+## Reference workspace background split refinement (2026-08-28)
+
+- Objective: make the reference-styled mentor workspace background fill the
+  viewport while clearly separating the outside workspace from the inner
+  route content surface.
+- Implementation: `MentorWorkspaceShell` now gives only
+  `sidebarAppearance="reference"` a white full wrapper and a full-height
+  `bg-voyage-canvas` `SidebarInset` with rounded desktop edges. The default
+  shell branch remains unchanged; the header follows the inner canvas.
+- QA: live DOM geometry confirms `/mentor/dashboard`, `/mentor/tryout`, and
+  `/mentor/tryout/[tryoutId]` have a full-width white wrapper plus pale inner
+  canvas at desktop, and the mobile canvas spans the viewport without
+  horizontal overflow.
+- Verification: focused ESLint, Impeccable layout detector, and
+  `git diff --check` pass. Browser screenshot capture intermittently timed out
+  after the local server restart, but computed backgrounds, bounds, and route
+  content were verified against the seeded PostgreSQL-backed app.
+- Scope: no default-shell, student, admin, or unrelated mentor/Kapten page was
+  changed; the existing untracked `.agents/skills/information-architecture/`
+  directory remains untouched.
+
 ## Tryout detail reference composition adoption (2026-08-28)
 
 - Objective: apply the extracted Goals-like composition to the existing
