@@ -11,7 +11,10 @@ import {
   ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
@@ -279,35 +282,35 @@ function QuizSettings({
         </div>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="quiz-settings-opens">Mulai dibuka</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-opens">Mulai dibuka</FieldLabel>
           <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-opens" onChange={(event) => onChange({ opensAt: event.target.value })} type="datetime-local" value={form.opensAt} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-closes">Tutup akses</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-closes">Tutup akses</FieldLabel>
           <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-closes" onChange={(event) => onChange({ closesAt: event.target.value })} type="datetime-local" value={form.closesAt} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-attempts">Jumlah percobaan</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-attempts">Jumlah percobaan</FieldLabel>
           <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-attempts" onValueChange={(value) => onChange({ attemptsAllowed: value === "unlimited" ? null : Number(value) })} options={attemptsOptions} placeholder="Pilih batas" value={form.attemptsAllowed === null ? "unlimited" : String(form.attemptsAllowed)} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-score">Penilaian akhir</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-score">Penilaian akhir</FieldLabel>
           <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-score" onValueChange={(value) => onChange({ scorePolicy: value as SettingsForm["scorePolicy"] })} options={[{ label: "Skor tertinggi", value: "highest" }, { label: "Percobaan terbaru", value: "latest" }, { label: "Percobaan pertama", value: "first" }, { label: "Rata-rata", value: "average" }]} placeholder="Pilih penilaian" value={form.scorePolicy} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-retry">Jeda percobaan ulang (detik)</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-retry">Jeda percobaan ulang (detik)</FieldLabel>
           <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-retry" min={0} onChange={(event) => { const value = event.target.value.trim(); const parsed = Number(value); onChange({ retryDelaySeconds: value === "" || !Number.isFinite(parsed) ? null : Math.max(0, Math.floor(parsed)) }); }} type="number" value={form.retryDelaySeconds ?? ""} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-behavior">Susunan soal di percobaan ulang</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-behavior">Susunan soal di percobaan ulang</FieldLabel>
           <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-behavior" onValueChange={(value) => onChange({ formBehavior: value as SettingsForm["formBehavior"] })} options={[{ label: "Pertahankan soal dan urutan", value: "same" }, { label: "Acak soal setiap percobaan", value: "fresh_randomized" }]} placeholder="Pilih susunan soal" value={form.formBehavior} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-review">Waktu review</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-review">Waktu review</FieldLabel>
           <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-review" onValueChange={(value) => onChange({ reviewTiming: value as SettingsForm["reviewTiming"] })} options={[{ label: "Langsung setelah kirim", value: "immediate" }, { label: "Setelah Kuis ditutup", value: "after_close" }, { label: "Tidak tersedia", value: "never" }]} placeholder="Pilih waktu review" value={form.reviewTiming} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="quiz-settings-visibility">Jawaban benar</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="quiz-settings-visibility">Jawaban benar</FieldLabel>
           <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-visibility" onValueChange={(value) => onChange({ correctAnswerVisibility: value as SettingsForm["correctAnswerVisibility"] })} options={[{ label: "Tampilkan", value: "show" }, { label: "Sembunyikan", value: "hide" }]} placeholder="Pilih visibilitas" value={form.correctAnswerVisibility} />
           </Field>
         </div>
