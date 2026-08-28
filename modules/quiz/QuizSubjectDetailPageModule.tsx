@@ -159,7 +159,7 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
   const hasReviewableResult = Boolean(quiz.isCompleted && quiz.latestAttemptId);
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-white text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] motion-reduce:transition-none">
-      <div className="relative z-10 flex flex-col p-3 sm:p-4 md:p-5">
+      <div className="relative z-10 flex flex-col px-3 py-5 sm:px-4 sm:py-6 md:px-5 md:py-7">
         <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">
           {quiz.title}
         </h3>
