@@ -27,6 +27,7 @@ import {
   ReferenceEmptyState,
   ReferencePageHeader,
   ReferenceSurface,
+  ReferenceStatusBadge,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
@@ -39,7 +40,6 @@ import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspa
 import {
   DropdownField,
   PaginationLinks,
-  StatusPill,
 } from "@/modules/mentor/components/kapten-ui";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
 import {
@@ -404,9 +404,7 @@ function KaptenMateriSubjectPageModule({
     <MateriSubjectCatalogueScreen
       actions={{
         onApplyLessonAction: (lesson, action) => { void applyLessonAction(lesson, action); },
-        onReadinessFilterChange: (value) => navigateCatalogue({ readiness: value }),
         onStatusFilterChange: (value) => navigateCatalogue({ status: value }),
-        onVideoFilterChange: (value) => navigateCatalogue({ video: value }),
       }}
       data={{
         pageCount,
@@ -424,9 +422,7 @@ function KaptenMateriSubjectPageModule({
 
 type MateriSubjectCatalogueActions = {
   onApplyLessonAction: (lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void;
-  onReadinessFilterChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
-  onVideoFilterChange: (value: string) => void;
 };
 
 type MateriSubjectCatalogueData = {
@@ -437,19 +433,11 @@ type MateriSubjectCatalogueData = {
 };
 
 function MateriSubjectCatalogueFilterPanel({
-  onReadinessFilterChange,
   onStatusFilterChange,
-  onVideoFilterChange,
-  readinessFilter,
   statusFilter,
-  videoFilter,
 }: {
-  onReadinessFilterChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
-  onVideoFilterChange: (value: string) => void;
-  readinessFilter: string;
   statusFilter: string;
-  videoFilter: string;
 }) {
   const allFilterOptionValue = "__all__";
 
@@ -477,48 +465,6 @@ function MateriSubjectCatalogueFilterPanel({
           ]}
           placeholder="Semua status"
           value={statusFilter || allFilterOptionValue}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label
-          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
-          htmlFor="materi-subject-readiness-filter"
-        >
-          Kesiapan PDF
-        </label>
-        <DropdownField
-          ariaLabel="Filter kesiapan PDF"
-          className={REFERENCE_CONTROL_CLASS_NAMES.select}
-          id="materi-subject-readiness-filter"
-          onValueChange={(value) => onReadinessFilterChange(value === allFilterOptionValue ? "" : value)}
-          options={[
-            { label: "Semua kesiapan PDF", value: allFilterOptionValue },
-            { label: "PDF siap", value: "ready" },
-            { label: "PDF belum siap", value: "incomplete" },
-          ]}
-          placeholder="Semua kesiapan PDF"
-          value={readinessFilter || allFilterOptionValue}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label
-          className={cn(REFERENCE_FIELD_LABEL_CLASS_NAME, "block")}
-          htmlFor="materi-subject-video-filter"
-        >
-          Video opsional
-        </label>
-        <DropdownField
-          ariaLabel="Filter video opsional"
-          className={REFERENCE_CONTROL_CLASS_NAMES.select}
-          id="materi-subject-video-filter"
-          onValueChange={(value) => onVideoFilterChange(value === allFilterOptionValue ? "" : value)}
-          options={[
-            { label: "Semua video", value: allFilterOptionValue },
-            { label: "Dengan video opsional", value: "with-video" },
-            { label: "Tanpa video", value: "without-video" },
-          ]}
-          placeholder="Semua video"
-          value={videoFilter || allFilterOptionValue}
         />
       </div>
     </div>
@@ -623,7 +569,7 @@ function MateriSubjectCatalogueScreen({
       width: 68,
     },
     {
-      cell: (lesson) => <StatusPill status={lesson.status} />,
+      cell: (lesson) => <ReferenceStatusBadge appearance="mentor" size="sm" status={lesson.status} />,
       headerClassName: "min-w-[8rem]",
       id: "status",
       label: "Status",
@@ -749,12 +695,8 @@ function MateriSubjectCatalogueScreen({
             }
             filterPanel={
               <MateriSubjectCatalogueFilterPanel
-                onReadinessFilterChange={actions.onReadinessFilterChange}
                 onStatusFilterChange={actions.onStatusFilterChange}
-                onVideoFilterChange={actions.onVideoFilterChange}
-                readinessFilter={readinessFilter}
                 statusFilter={statusFilter}
-                videoFilter={videoFilter}
               />
             }
             filters={activeFilters}
