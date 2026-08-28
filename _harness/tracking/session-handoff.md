@@ -1,5 +1,37 @@
 # Session Handoff
 
+## Tryout banner configuration for Kapten (2026-08-28)
+
+- Objective: let Kapten attach and change a banner image on a Tryout from
+  tryout creation and tryout detail, and show the authored banner to students.
+- Implementation: `bac78b5` adds nullable `banner_media_id` on `tryout_packages`
+  (Restrict FK to `assets`, indexed, plus the previously missing `exam_event_id`
+  index) — Prisma also reconciled accumulated constraint/index naming drift into
+  the same forward migration. `a00ea3a` threads `bannerMediaId` through
+  `saveTryout`, `updateTryoutMetadata`, and `duplicateTryout` with in-transaction
+  validation (kapten scope, Ready state, image mime) and resolves a signed R2
+  `bannerUrl` in the participant repository. `8c8b01b` adds the banner picker
+  (MediaPickerDialog, 16:9 preview, replace/remove) to the builder's Identitas
+  Tryout section shared by `/mentor/tryout/create` and `/mentor/tryout/[tryoutId]`,
+  and renders the banner in student tryout detail plus catalogue cards, falling
+  back to the shared placeholder.
+- Verification: focused ESLint on all five changed files passes (0 errors;
+  3 pre-existing warnings in the builder). Guarded `pnpm verify` (lint + full
+  production build) passed twice via the pre-commit hook on commits `a00ea3a`
+  and `8c8b01b`. No tryout-domain `test:*` script exists to run. Browser QA
+  intentionally skipped — ego-browser verification requires explicit user
+  permission per harness rules.
+- Shared-worktree notes: another agent is active (commits `47b737a`, `ff5a790`;
+  uncommitted edits to admin/portal/sidebar/icon files, `_harness/tracking/
+  progress.md`, and `feature_list.json`). Their dirty files and the two tracking
+  files were left untouched; this session's tracking updates go into this handoff
+  only. One commit retry was needed after the guard blocked on the other agent's
+  build load.
+- Recommended next step: optional ego-browser check of `/mentor/tryout/create`
+  and `/mentor/tryout/[tryoutId]` (Kapten role) plus `/tryout` and `/tryout/[id]`
+  (Voyager role) for banner pick/save/display, after asking the user for
+  permission.
+
 ## Mentor-wide reference rollout and document scrolling (2026-08-28)
 
 - Objective: apply the extracted reference dashboard components across the
