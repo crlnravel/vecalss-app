@@ -9,6 +9,7 @@ import {
   CircleAlert,
   CircleHelp,
   Copy,
+  Eye,
   FilePenLine,
   ImagePlus,
   Lock,
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -293,6 +295,10 @@ function normalizeWorkspace(value?: string): Workspace {
 
 function subjectName(code: SubjectCode) {
   return kaptenSubjects.find((subject) => subject.code === code)?.name ?? code;
+}
+
+function difficultyLabel(difficulty: SourceQuestion["difficulty"]) {
+  return difficulty === "easy" ? "Mudah" : difficulty === "hard" ? "Sulit" : "Sedang";
 }
 
 function unavailablePhaseReason(phase: WorkspacePhase) {
@@ -707,8 +713,11 @@ function TryoutSectionsTab({
   sourceQuestions: SourceQuestion[];
   saving: boolean;
 }) {
+  const [previewQuestion, setPreviewQuestion] = useState<SourceQuestion | null>(null);
+
   return (
-    <>
+    <TooltipProvider>
+      <>
       <TabsContent className="mt-0 min-w-0 w-full lg:col-start-2" value="sections">
         <div className="grid gap-5">
           <ReferenceSurface as="section" aria-labelledby="tryout-basic-info-title" className="grid gap-5 p-5 sm:p-7">
@@ -737,7 +746,7 @@ function TryoutSectionsTab({
           </div>
 
           <div className="grid gap-5">
-            <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)] lg:items-start">
+            <div className="grid gap-5">
               <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
                 <Field>
                   <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
@@ -774,7 +783,29 @@ function TryoutSectionsTab({
                   const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
                   const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
                   const checkboxId = `source-question-${question.id}`;
-                  return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
+                  return (
+                    <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-start justify-between gap-3">
+                            <label className="min-w-0 flex-1 cursor-pointer" htmlFor={checkboxId}>
+                              <div className="flex flex-wrap gap-2">
+                                <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
+                                <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
+                              </div>
+                              <p className="mt-2 line-clamp-3 max-w-full break-words overflow-hidden text-sm leading-6 text-secondary-900">{question.prompt}</p>
+                            </label>
+                            <Tooltip>
+                              <TooltipTrigger render={<Button aria-label={`Lihat pratinjau soal ${question.subjectCode}`} disabled={saving} onClick={() => setPreviewQuestion(question)} size="icon" type="button" variant="ghost" />}><Eye /></TooltipTrigger>
+                              <TooltipContent>Pratinjau soal</TooltipContent>
+                            </Tooltip>
+                          </div>
+                          {selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}
+                        </div>
+                      </div>
+                    </article>
+                  );
                 })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
                 {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={saving || sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="reference"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
               </ReferenceSurface>
@@ -782,7 +813,30 @@ function TryoutSectionsTab({
           </div>
         </ReferenceSurface>
       </TabsContent>
-    </>
+
+      <Dialog onOpenChange={(open) => { if (!open) setPreviewQuestion(null); }} open={Boolean(previewQuestion)}>
+        <DialogContent className="max-h-[calc(100svh-2rem)] sm:max-w-2xl" variant="default">
+          <DialogHeader>
+            <DialogTitle>Pratinjau soal</DialogTitle>
+            <DialogDescription>Lihat tampilan soal dan pilihan jawaban sebelum menambahkannya ke Section.</DialogDescription>
+          </DialogHeader>
+          {previewQuestion ? <div className="grid gap-5">
+            <div aria-label="Informasi soal" className="flex flex-wrap gap-2">
+              <MentorBadge size="compact" tone="category">{previewQuestion.subjectCode}</MentorBadge>
+              <MentorBadge size="compact" tone="neutral">{difficultyLabel(previewQuestion.difficulty)}</MentorBadge>
+            </div>
+            <p className="break-words text-base leading-7 text-secondary-900">{previewQuestion.prompt || "Pertanyaan belum tersedia."}</p>
+            <ol aria-label="Pilihan jawaban" className="m-0 grid list-none gap-3 p-0">
+              {previewQuestion.choices.map((choice, index) => <li className="flex min-w-0 items-start gap-3 rounded-xl border border-primary-100 bg-primary-50/45 px-3 py-3" key={choice.id}>
+                <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-primary-800">{String.fromCharCode(65 + index)}</span>
+                <span className="min-w-0 break-words pt-0.5 text-sm leading-6 text-secondary-900">{choice.text}</span>
+              </li>)}
+            </ol>
+          </div> : null}
+        </DialogContent>
+      </Dialog>
+      </>
+    </TooltipProvider>
   );
 }
 
