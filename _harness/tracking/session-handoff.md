@@ -1,5 +1,31 @@
 # Session Handoff
 
+## Tryout Policy and session authoring refinement (2026-08-28)
+
+- Objective: finish the reference treatment for the scoped Tryout draft
+  picker, Delivery Policy, and nested Buat sesi route, and make invalid session
+  windows explain the correction.
+- Implementation: `03f18b3` removes the selected-question `Terpilih` badge,
+  gives Policy separate reference surfaces for `Akses peserta` and `Jadwal
+  rilis hasil`, and opts `/mentor/tryout/[tryoutId]/operations/sessions/new`
+  into the reference sidebar and controls. Existing session fields, switches,
+  action wiring, breadcrumbs, account menu, and route guard remain intact.
+- Validation: both client and delivery-repository create paths report
+  `Waktu selesai harus setelah waktu mulai.` when Selesai is not after Mulai;
+  missing names continue to receive their own required-field message.
+- QA: authenticated ego-browser checks at 1512px and 390px confirm a selected
+  draft question with no `Terpilih` badge, two Policy cards, reference-styled
+  create-session controls, no header search, no mobile overflow, and the
+  specific reversed-time alert without the former vague message.
+- Verification: focused ESLint, `test:tryout-authoring-workspace`,
+  `test:mentor-dashboard-ia`, Impeccable layout detector `[]`, and
+  `git diff --check` pass. Repository `tsc` remains blocked by the preserved
+  invalid `tmp/reference/res1` syntax diagnostics.
+- Scope: only Tryout authoring/delivery surfaces changed; no student, admin,
+  or unrelated mentor/Kapten page was changed. Existing untracked
+  `.agents/skills/information-architecture/` and the unrelated
+  `MentorDashboardPageModule.tsx` edit remain untouched.
+
 ## Tryout reference header cleanup (2026-08-28)
 
 - Objective: simplify the scoped reference-styled Tryout detail header.

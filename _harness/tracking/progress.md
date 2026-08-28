@@ -1,5 +1,30 @@
 # Session Progress Log
 
+## Tryout Policy and session authoring refinement (2026-08-28)
+
+- [x] Removed the `Terpilih` badge from checked questions in the draft
+  `Pilih bank soal` picker while preserving checkbox selection and the
+  cross-section conflict notice.
+- [x] Split the Policy option groups into independent reference surfaces for
+  `Akses peserta` and `Jadwal rilis hasil` without changing save behavior.
+- [x] Applied the reference sidebar, raised surface, recessed input, and quiet
+  action treatment to `/mentor/tryout/[tryoutId]/operations/sessions/new`;
+  the scoped route keeps its existing breadcrumbs, avatar menu, and guards
+  while hiding the header search.
+- [x] Replaced the reversed-session-window error with the specific
+  `Waktu selesai harus setelah waktu mulai.` message in both client and server
+  validation paths.
+- [x] Authenticated browser QA at 1512px and 390px confirms the selected draft
+  question has zero `Terpilih` badges, Policy has two cards, Buat sesi uses
+  tokenized controls, the header search is absent, and no horizontal overflow
+  is present. The reversed-time form alert is visible and the vague message is
+  absent.
+- [x] Focused ESLint, `test:tryout-authoring-workspace`,
+  `test:mentor-dashboard-ia`, Impeccable layout detection, and
+  `git diff --check` pass. Repository TypeScript remains blocked only by the
+  preserved invalid `tmp/reference/res1` prototype.
+- [x] Commit: `03f18b3` (`fix: align tryout policy and session creation`).
+
 ## Tryout reference header cleanup (2026-08-28)
 
 - [x] Removed the hover background/transition from the reference sidebar logo
