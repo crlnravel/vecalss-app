@@ -1,5 +1,37 @@
 # Session Progress Log
 
+## Mentor-wide reference rollout and document scrolling (2026-08-28)
+
+- [x] Applied the extracted Vecalss-tokenized reference visual language to the
+  visible mentor Dashboard, Tryout, Quiz, Materi, Media, Settings, Packages,
+  and Bank Soal route groups through scoped page adapters. Student dashboard
+  and admin surfaces were intentionally excluded.
+- [x] Changed `MentorWorkspaceShell` to keep normal page content in document
+  flow so the whole page scrolls. Navigation, inventory, picker, and editor
+  panes that need bounded scrolling remain intentionally internal.
+- [x] Preserved table/list internals across the rollout: columns, rows, dense
+  markup, selection, sorting, pagination, and row geometry were not changed.
+  Only outer table frames, headers, controls, and surrounding surfaces were
+  restyled. Bank Soal and Packages loading shells also no longer add a
+  page-level viewport `ScrollArea`.
+- [x] Rollout commits include `b7981d6`, `65bc158`, `c5bf784`, `fea1e1c`,
+  `50fcbf8`, `298d355`, `99f482a`, `a6eac8b`, `b204d10`, `dbb18d9`,
+  `6d9e14d`, `8011146`, and `1ccbca3`; dashboard refinements are recorded in
+  `84384bd`, `f4e786d`, `0d2dcda`, and `e1d2fbf`.
+- [x] Refreshed the affected Bank Soal source contracts in `17fa021` and
+  `3a67d8e` so static checks describe the current reference controls and
+  callback signatures.
+- [x] Focused mentor contracts, TypeScript, focused ESLint, `git diff
+  --check`, and the Impeccable layout detector pass. A later full-hook attempt
+  was blocked only by unrelated admin `BarChart3` export diagnostics; the
+  earlier Bank Soal loading hook and current-tree TypeScript checks pass.
+- [x] Browser verification was intentionally deferred per request. The
+  Packages subtree remains archived by its existing `notFound()` layout and
+  tryout package aliases remain redirect/archived-only; those are not visible
+  rollout gaps.
+- [x] Untracked `.agents/skills/information-architecture/` files and all
+  unrelated student/admin work were preserved.
+
 ## Mentor dashboard schedule and activity alignment (2026-08-28)
 
 - [x] Aligned the activity title/type block with its leading icon by

@@ -1,5 +1,32 @@
 # Session Handoff
 
+## Mentor-wide reference rollout and document scrolling (2026-08-28)
+
+- Objective: apply the extracted reference dashboard components across the
+  visible mentor pages while keeping dense table layouts stable and allowing
+  the document, rather than a page content pane, to scroll.
+- Implementation: `b7981d6` removes the outer `ScrollArea` from
+  `MentorWorkspaceShell`; bounded navigation, inventory, picker, and editor
+  panes remain internal where their interaction requires it. Reference
+  adapters now cover Dashboard, Tryout detail/create/operations, Quiz, Materi
+  root/builder/subject, Media, Settings, Packages, and Bank Soal. The package
+  subtree remains intentionally archived by `app/mentor/packages/layout.tsx`.
+- Table boundary: table/list columns, rows, dense markup, selection, sorting,
+  pagination, and row geometry were preserved. Changes are limited to outer
+  table frames and adjacent headers, controls, and surfaces. The Bank Soal and
+  Packages loading shells no longer wrap the page in a viewport-height
+  `ScrollArea`.
+- Key commits: `fea1e1c`, `c5bf784`, `50fcbf8`, `298d355`, `99f482a`,
+  `a6eac8b`, `b204d10`, `dbb18d9`, `6d9e14d`, `8011146`, `1ccbca3`, plus the
+  dashboard refinements `84384bd`, `f4e786d`, `0d2dcda`, and `e1d2fbf`.
+  Bank Soal contract refreshes are `17fa021` and `3a67d8e`.
+- Verification: focused mentor contracts, `pnpm exec tsc --noEmit
+  --pretty false`, focused ESLint, `git diff --check`, and the Impeccable
+  layout detector (`[]`) pass. A later full-hook run is blocked by unrelated
+  admin `BarChart3` export diagnostics; no in-scope diagnostics remain.
+- Browser QA: intentionally deferred per request. Student/admin surfaces and
+  untracked `.agents/skills/information-architecture/` remain untouched.
+
 ## Mentor dashboard schedule and activity alignment (2026-08-28)
 
 - Objective: align activity entries with their icons and simplify the
