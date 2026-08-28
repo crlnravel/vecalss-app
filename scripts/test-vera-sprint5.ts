@@ -207,6 +207,9 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
     "T11_EVIDENCE callback_namespace=summary",
     "T11_EVIDENCE callback_namespace=ptn",
     "T11_EVIDENCE callback_namespace=drill",
+    "T11_EVIDENCE operation_edge=export_create actual=true",
+    "T11_EVIDENCE operation_edge=conversation_delete actual=true",
+    "T11_EVIDENCE operation_edge=artifact_delete actual=true",
     "T12_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle",
     "daily_validation_checks=30",
     "T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=restarted-kms actual=true",
@@ -218,9 +221,9 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
   ]) assert(output.includes(marker), `T12 executable integration output is missing ${marker}`);
   const actualOperationLines = output.split("\n")
     .map((line) => line.trim())
-    .filter((line) => /^(?:T12|T11)_EVIDENCE operation=/u.test(line) && line.includes(" actual=true") && line.includes(" status=pass"));
+    .filter((line) => /^(?:T12|T11)_EVIDENCE operation_edge=/u.test(line) && line.includes(" actual=true") && line.includes(" status=pass"));
   const actualOperationNamespaces = new Set(actualOperationLines.flatMap((line) => {
-    const match = line.match(/^(?:T12|T11)_EVIDENCE operation=([^ ]+)/u);
+    const match = line.match(/^(?:T12|T11)_EVIDENCE operation_edge=([^ ]+)/u);
     return match?.[1] ? [match[1]] : [];
   }));
   for (const operation of operations) {

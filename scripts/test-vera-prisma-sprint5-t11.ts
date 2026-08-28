@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -43,7 +43,7 @@ function assertLocalRedis(redisUrl: string): void {
   assert(parsed.pathname === "/15" || parsed.pathname === "/15/", "T11 fixture requires Redis database 15");
 }
 
-async function expectLifecycleCode(action: () => Promise<unknown>, expected: VeraLifecycleError["code"]): Promise<void> {
+async function expectLifecycleCode(action: () => Promise<unknown>, expected: VeraLifecycleError["code"]): Promise<true> {
   try {
     await action();
     assert.fail(`expected VeraLifecycleError(${expected})`);
@@ -51,6 +51,7 @@ async function expectLifecycleCode(action: () => Promise<unknown>, expected: Ver
     assert(error instanceof VeraLifecycleError, `expected typed lifecycle error ${expected}`);
     assert.equal(error.code, expected);
   }
+  return true;
 }
 
 async function expectRedisUnavailable(action: () => Promise<unknown>): Promise<void> {
@@ -82,6 +83,26 @@ type OwnedFixtureIds = {
   dailyIds: string[];
   envelopeKeyRefs: string[];
   userIds: string[];
+  operationEdges: LifecycleOperationEdge[];
+};
+
+type LifecycleOperationEdge = {
+  operation: "export_create" | "conversation_delete" | "artifact_delete";
+  malformed: boolean;
+  overlong: boolean;
+  empty: boolean;
+  replay: boolean;
+  conflict: boolean;
+  expiry: boolean;
+  uniqueLoser: boolean;
+  unauthorized: boolean;
+  workerCasRecovery: boolean;
+  crossOperationTargetIsolation: boolean;
+  evidenceDigest: string;
+};
+
+type StudioOperationEdge = Omit<LifecycleOperationEdge, "operation"> & {
+  operation: "conversation_create" | "ai_request" | "learning_recommendation_create" | "artifact_apply";
 };
 
 async function readMigrationSnapshot(db: PrismaClient): Promise<MigrationAuditSnapshot[]> {
@@ -176,6 +197,39 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const envelopeKeyRefs: string[] = [];
   const userIds: string[] = [studentId, otherStudentId];
 
+  const createEdgeArtifact = async (artifactId: string, label: string): Promise<void> => {
+    const payload = JSON.stringify({ toolId: "summary", title: label, markdown: `${label} payload`, payload: { namespace } });
+    const digest = sha256(payload);
+    const [titleEnvelope, markdownEnvelope, payloadEnvelope] = await Promise.all([
+      envelope.encryptAsync(label, `vera-t11-edge-artifact-title:${artifactId}`),
+      envelope.encryptAsync(`${label} payload`, `vera-t11-edge-artifact-markdown:${artifactId}`),
+      envelope.encryptAsync(payload, `vera-t11-edge-artifact-payload:${artifactId}`),
+    ]);
+    artifactIds.push(artifactId);
+    envelopeKeyRefs.push(titleEnvelope.keyRef, markdownEnvelope.keyRef, payloadEnvelope.keyRef);
+    await db.aiArtifact.create({ data: {
+      id: artifactId,
+      artifactKey: `vera.t11.edge.${artifactId}`,
+      revision: 1,
+      studentId,
+      conversationId: null,
+      artifactType: "summary",
+      provenanceKind: "typed_entity",
+      titleCiphertext: titleEnvelope as Prisma.InputJsonValue,
+      contentMarkdownCiphertext: markdownEnvelope as Prisma.InputJsonValue,
+      payloadCiphertext: payloadEnvelope as Prisma.InputJsonValue,
+      artifactSchemaVersion: "1",
+      sourceEntityType: "T11OperationEdgeFixture",
+      sourceEntityId: randomUUID(),
+      sourceEntityRevision: 0,
+      sourceEntityDigest: digest,
+      contentDigest: digest,
+      renderVersion: "vera-render-v1",
+      retentionPolicyVersion: "vera-retention-v1",
+      lifecycle: { create: { lifecycleRevision: 0 } },
+    } });
+  };
+
   const malformedCases = [
     { label: "empty", key: "" },
     { label: "overlong", key: "x".repeat(121) },
@@ -209,11 +263,100 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(replay.replayed, true, "same idempotency-key replay must return the durable export winner");
   assert.equal("exportId" in replay && replay.exportId, exportId);
 
+  // Export create has one valid v1 format, so the changed-payload conflict is
+  // exercised by temporarily replacing the persisted canonical fingerprint
+  // with a different payload digest.  The original digest is restored before
+  // any later materialization/retention assertions; this is a fixture-only
+  // conflict, not a production mutation path.
+  const exportKeyRow = await db.aiIdempotencyKey.findUnique({ where: { studentId_operation_clientRequestId: { studentId, operation: "export_create", clientRequestId: exportKey } }, select: { id: true, requestFingerprint: true } });
+  assert(exportKeyRow?.id && exportKeyRow.requestFingerprint, "export replay key must persist its canonical fingerprint");
+  await db.aiIdempotencyKey.update({ where: { id: exportKeyRow.id }, data: { requestFingerprint: sha256(`${namespace}:export-create-changed-payload`) } });
+  await expectLifecycleCode(
+    () => lifecycle.createExport({ studentId, idempotencyKey: exportKey, format: "json_v1" }),
+    "idempotency_conflict",
+  );
+  await db.aiIdempotencyKey.update({ where: { id: exportKeyRow.id }, data: { requestFingerprint: exportKeyRow.requestFingerprint } });
+
+  // The unique-key loser must re-read the durable winner rather than create a
+  // second job or report a synthetic rejection.  Both calls use the same
+  // student lock and operation-scoped key, so the replay result is observable
+  // even when the race is won by either Promise.
+  const exportRaceKey = `${namespace}:export-create-race`;
+  idempotencyKeys.push(exportRaceKey);
+  const exportRace = await Promise.all([
+    lifecycle.createExport({ studentId, idempotencyKey: exportRaceKey, format: "json_v1" }),
+    lifecycle.createExport({ studentId, idempotencyKey: exportRaceKey, format: "json_v1" }),
+  ]);
+  assert.equal(exportRace.length, 2);
+  assert.equal(exportRace.filter((result) => result.replayed).length, 1, "export create unique loser must replay exactly one winner");
+  assert.equal(new Set(exportRace.flatMap((result) => "exportId" in result && result.exportId ? [result.exportId] : [])).size, 1, "export race must have one durable job");
+  for (const result of exportRace) {
+    if ("exportId" in result && result.exportId) exportIds.push(result.exportId);
+    if ("operationId" in result && result.operationId) operationIds.push(result.operationId);
+  }
+
+  // Before-ready materialization must fail closed when a learner-visible part
+  // cannot be decoded.  The first failure is retryable while the bounded
+  // recovery lease is alive; after the DB-clock deadline the same durable
+  // operation becomes a terminal export_payload_unavailable tombstone.  The
+  // idempotency replay must preserve that exact reason and never fabricate a
+  // ready package or account-only success.
+  const malformedStudentId = randomUUID();
+  userIds.push(malformedStudentId);
+  await db.user.create({ data: { id: malformedStudentId, email: `${namespace}-malformed@example.test`, fullName: "Vera malformed payload fixture", passwordHash: "fixture" } });
+  const malformedMaterializationConversationId = randomUUID();
+  conversationIds.push(malformedMaterializationConversationId);
+  await db.aiConversation.create({ data: {
+    id: malformedMaterializationConversationId,
+    studentId: malformedStudentId,
+    conversationType: "vera_chat",
+    title: "Malformed pre-ready materialization fixture",
+  } });
+  await db.aiMessage.create({ data: {
+    id: randomUUID(),
+    conversationId: malformedMaterializationConversationId,
+    role: "user",
+    contentMarkdown: null,
+    contentEnvelope: { malformed: true },
+    contentDigest: sha256(`${namespace}:malformed-pre-ready-message`),
+    contentState: "encrypted",
+    metadataState: "legacy_plaintext",
+  } });
+  const malformedMaterializationKey = `${namespace}:export-materialization-malformed`;
+  idempotencyKeys.push(malformedMaterializationKey);
+  const malformedMaterialization = await lifecycle.createExport({ studentId: malformedStudentId, idempotencyKey: malformedMaterializationKey, format: "json_v1" });
+  if (!("exportId" in malformedMaterialization) || !malformedMaterialization.exportId || !malformedMaterialization.operationId) throw new Error("malformed pre-ready export fixture was not accepted");
+  exportIds.push(malformedMaterialization.exportId);
+  operationIds.push(malformedMaterialization.operationId);
+  await expectLifecycleCode(
+    () => lifecycle.materializeExport({ exportId: malformedMaterialization.exportId!, ownerId: `${namespace}:malformed-materialization-worker` }),
+    "export_payload_unavailable",
+  );
+  const retryableMalformed = await db.aiExportJob.findUnique({ where: { id: malformedMaterialization.exportId }, include: { operation: true } });
+  assert.equal(retryableMalformed?.state, "failed_retryable", "undecipherable pre-ready materialization must remain retryable before its recovery deadline");
+  assert.equal(retryableMalformed?.errorCode, "export_payload_unavailable");
+  assert.equal(retryableMalformed.operation.errorCode, "export_payload_unavailable");
+  const malformedReplay = await lifecycle.createExport({ studentId: malformedStudentId, idempotencyKey: malformedMaterializationKey, format: "json_v1" });
+  assert.equal(malformedReplay.replayed, true, "malformed pre-ready export must replay the durable retryable operation");
+  assert.equal("state" in malformedReplay && malformedReplay.state, "failed_retryable");
+  await db.aiExportJob.update({ where: { id: malformedMaterialization.exportId }, data: { recoveryDeadlineAt: new Date(Date.now() - 60_000) } });
+  await assert.doesNotReject(() => lifecycle.reapExports(), "the DB-clock reaper must own the pre-ready deadline transition");
+  const terminalMalformed = await db.aiExportJob.findUnique({ where: { id: malformedMaterialization.exportId }, include: { operation: true, parts: true } });
+  assert.equal(terminalMalformed?.state, "failed_terminal");
+  assert.equal(terminalMalformed?.errorCode, "export_payload_unavailable", "deadline settlement must preserve the malformed payload reason");
+  assert.equal(terminalMalformed.operation.errorCode, "export_payload_unavailable");
+  assert(terminalMalformed?.terminalAt instanceof Date && terminalMalformed.terminalRetentionExpiresAt instanceof Date && terminalMalformed.terminalRetentionExpiresAt >= terminalMalformed.terminalAt);
+  assert.equal(terminalMalformed?.parts.length, 0, "a malformed pre-ready payload must never create a partial ready part");
+  const terminalMalformedReplay = await lifecycle.createExport({ studentId: malformedStudentId, idempotencyKey: malformedMaterializationKey, format: "json_v1" });
+  assert.equal(terminalMalformedReplay.replayed, true, "terminal malformed export must replay the same tombstone");
+  assert.equal("state" in terminalMalformedReplay && terminalMalformedReplay.state, "failed_terminal");
+  console.log("T11_EVIDENCE materialization_pre_ready=malformed-envelope failed_retryable->failed_terminal error=export_payload_unavailable DB-clock=reaper same-key-replay=true parts=none deletion-order=after-terminal");
+
   await expectLifecycleCode(
     () => lifecycle.readExportStatus({ exportId: randomUUID(), studentId }),
     "target_unavailable",
   );
-  await expectLifecycleCode(
+  const exportUnauthorized = await expectLifecycleCode(
     () => lifecycle.readExportStatus({ exportId, studentId: otherStudentId }),
     "target_unavailable",
   );
@@ -304,7 +447,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   );
   const remainingMissingParts = await db.aiExportPart.count({ where: { exportJobId: missingPartAccepted.exportId } });
   assert.equal(remainingMissingParts, 0, "missing-part replay must not create replacement package parts");
-  console.log("T11_EVIDENCE operation=export_create actual=true status=pass malformed_output=failed_closed missing_part=failed_terminal retention=terminalAt+90d ordinary_metadata_rejected=true replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true");
+  console.log("T11_EVIDENCE export_materialization_integrity=failed_closed missing_part=failed_terminal retention=terminalAt+90d ordinary_metadata_rejected=true replay=same-key unique=AiExportPart provider_call_count=0 no_duplicate=true status=pass");
 
   // A materialization worker can disappear after claiming a package.  The
   // next owner must take over only after the persisted lease expires, advance
@@ -445,6 +588,41 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     assert.equal(destroyedKey?.state, "destroyed", "legal erasure must destroy the object-scoped export key after commit");
   }
   console.log("T11_EVIDENCE hold=AiRetentionHold erasureOverride=true overrideHoldId=bound capability=dual-two-current-admin-operators persisted-grants=policy+governance locked-hold-claim=CAS post-commit-key-registry=destroyed replay=exactly-once restrictive=true job=failed_terminal digest+bytes=retained");
+
+  // Legal erasure also applies before materialization.  There is no ready
+  // package metadata to retain in this branch, but the operation, grant and
+  // key-claim projections must still reach their exact terminal states under
+  // the locked active hold and two current operator snapshots.
+  const beforeReadyKey = `${namespace}:export-before-ready-erasure`;
+  idempotencyKeys.push(beforeReadyKey);
+  const beforeReadyAccepted = await lifecycle.createExport({ studentId, idempotencyKey: beforeReadyKey, format: "json_v1" });
+  if (!("exportId" in beforeReadyAccepted) || !beforeReadyAccepted.exportId || !beforeReadyAccepted.operationId) throw new Error("before-ready legal-erasure export fixture was not accepted");
+  exportIds.push(beforeReadyAccepted.exportId);
+  operationIds.push(beforeReadyAccepted.operationId);
+  const beforeReadyOperatorA = withCapabilitySnapshotDigest({ ...operatorA, subjectId: beforeReadyAccepted.exportId, capabilityDecisionId: `${namespace}:before-ready-operator-a` });
+  const beforeReadyOperatorB = withCapabilitySnapshotDigest({ ...operatorB, subjectId: beforeReadyAccepted.exportId, capabilityDecisionId: `${namespace}:before-ready-operator-b` });
+  await lifecycle.markLegalErasure({ exportId: beforeReadyAccepted.exportId, holdId, reasonDigest: sha256(`${namespace}:before-ready-erasure`), approvals: [beforeReadyOperatorA, beforeReadyOperatorB] });
+  await lifecycle.markLegalErasure({ exportId: beforeReadyAccepted.exportId, holdId, reasonDigest: sha256(`${namespace}:before-ready-erasure`), approvals: [beforeReadyOperatorA, beforeReadyOperatorB] });
+  const beforeReadyErased = await db.aiExportJob.findUnique({ where: { id: beforeReadyAccepted.exportId }, include: { operation: true } });
+  assert(beforeReadyErased, "before-ready legal erasure must retain its export tombstone");
+  assert.equal(beforeReadyErased.state, "failed_terminal");
+  assert.equal(beforeReadyErased.errorCode, "export_erased_legal");
+  assert.equal(beforeReadyErased.exportAccessGrantState, "expired");
+  assert.equal(beforeReadyErased.downloadReadyAt, null);
+  assert.equal(beforeReadyErased.downloadExpiresAt, null);
+  assert.equal(beforeReadyErased.snapshotDigest, null);
+  assert.equal(beforeReadyErased.packageBytes, null);
+  assert.equal(beforeReadyErased.operation.state, "failed_terminal");
+  assert.equal(beforeReadyErased.operation.errorCode, "export_erased_legal");
+  const beforeReadyClaim = await db.aiKeyDestructionClaim.findFirst({ where: { objectType: "AiExportJob", objectId: beforeReadyAccepted.exportId }, select: { state: true, keyLineageDigest: true, decisionSnapshotDigest: true } });
+  assert(beforeReadyClaim, "before-ready legal erasure must persist a key claim even when the part set is empty");
+  assert.equal(beforeReadyClaim.state, "destroyed");
+  assert.match(beforeReadyClaim.keyLineageDigest, /^[a-f0-9]{64}$/u);
+  assert.match(beforeReadyClaim.decisionSnapshotDigest, /^[a-f0-9]{64}$/u);
+  const beforeReadyReplay = await lifecycle.createExport({ studentId, idempotencyKey: beforeReadyKey, format: "json_v1" });
+  assert.equal(beforeReadyReplay.replayed, true);
+  assert.equal("state" in beforeReadyReplay && beforeReadyReplay.state, "failed_terminal");
+  console.log("T11_EVIDENCE legal_erasure=before_ready+after_ready before_ready=failed_terminal export_erased_legal operation=failed_terminal grant=expired key_claim=destroyed metadata=absent replay=exactly-once");
 
   const expiredKey = `${namespace}:export-expired`;
   idempotencyKeys.push(expiredKey);
@@ -895,6 +1073,12 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const heldArtifactDelete = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: heldArtifactDeleteKey });
   assert(heldArtifactDelete.operationId, "held artifact delete must persist an operation before the worker hold check");
   operationIds.push(heldArtifactDelete.operationId);
+  await expectLifecycleCode(
+    () => lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 1, idempotencyKey: heldArtifactDeleteKey }),
+    "idempotency_conflict",
+  );
+  const heldArtifactDeleteReplay = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: heldArtifactDeleteKey });
+  assert.equal(heldArtifactDeleteReplay.replayed, true, "artifact delete replay must return the durable operation before worker settlement");
   await expectLifecycleCode(() => lifecycle.processArtifactDelete(heldArtifactDelete.operationId), "hold_active");
   await db.aiRetentionHold.update({ where: { id: heldArtifactHoldId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
   const heldArtifactWorkers = await Promise.allSettled([
@@ -908,6 +1092,18 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const heldArtifactKeys = await db.aiEnvelopeKey.findMany({ where: { keyRef: { in: [heldArtifactTitle.keyRef, heldArtifactMarkdown.keyRef, heldArtifactPayloadEnvelope.keyRef] } }, select: { state: true } });
   assert.equal(heldArtifactKeys.length, 3, "artifact hold fixture must retain all three object-scoped envelope keys");
   assert(heldArtifactKeys.every(({ state }) => state === "destroyed"), "artifact workers must fence object-scoped key destruction");
+
+  const deleteMalformedCases = ["", "x".repeat(121), "bad\u0000key"];
+  for (const key of deleteMalformedCases) {
+    await expectLifecycleCode(
+      () => lifecycle.requestConversationDelete({ studentId, conversationId, expectedVersion: 0, idempotencyKey: key }),
+      "invalid_request",
+    );
+    await expectLifecycleCode(
+      () => lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: key }),
+      "invalid_request",
+    );
+  }
 
   const deleteKey = `${namespace}:conversation-delete`;
   idempotencyKeys.push(deleteKey);
@@ -955,11 +1151,157 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(preservedConversationArtifact.lifecycle?.deletionState, "deleted");
   const deleteOperation = await db.aiLifecycleOperation.findUnique({ where: { id: deleteAccepted.operationId } });
   assert.equal(deleteOperation?.state, "completed");
-  console.log("T11_EVIDENCE operationMatrix=missing malformed overlong empty replay conflict expired unique unauthorized cross-operation same-key worker settle CAS second provider=no duplicate");
+
+  // Retention delete commands get the same executable edge treatment as the
+  // export command.  These fixtures intentionally use distinct owned targets
+  // so expiry, unique-key replay, and worker CAS are observable without
+  // mutating a previously completed lifecycle row.
+  const conversationExpiryId = randomUUID();
+  conversationIds.push(conversationExpiryId);
+  await db.aiConversation.create({ data: { id: conversationExpiryId, studentId, conversationType: "vera_chat", title: "Conversation expiry edge" } });
+  const conversationExpiryKey = `${namespace}:conversation-delete-expiry`;
+  idempotencyKeys.push(conversationExpiryKey);
+  const conversationExpiryAccepted = await lifecycle.requestConversationDelete({ studentId, conversationId: conversationExpiryId, expectedVersion: 0, idempotencyKey: conversationExpiryKey });
+  operationIds.push(conversationExpiryAccepted.operationId);
+  await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "conversation_delete", clientRequestId: conversationExpiryKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
+  await expectLifecycleCode(
+    () => lifecycle.requestConversationDelete({ studentId, conversationId: conversationExpiryId, expectedVersion: 0, idempotencyKey: conversationExpiryKey }),
+    "idempotency_key_expired",
+  );
+  await lifecycle.processConversationDelete(conversationExpiryAccepted.operationId);
+  const conversationExpiryRow = await db.aiLifecycleOperation.findUnique({ where: { id: conversationExpiryAccepted.operationId }, select: { state: true } });
+  assert.equal(conversationExpiryRow?.state, "completed", "an expired replay key must not prevent the already accepted worker from settling");
+
+  const conversationRaceId = randomUUID();
+  conversationIds.push(conversationRaceId);
+  await db.aiConversation.create({ data: { id: conversationRaceId, studentId, conversationType: "vera_chat", title: "Conversation unique loser edge" } });
+  const conversationRaceKey = `${namespace}:conversation-delete-race`;
+  idempotencyKeys.push(conversationRaceKey);
+  const conversationDeleteRace = await Promise.all([
+    lifecycle.requestConversationDelete({ studentId, conversationId: conversationRaceId, expectedVersion: 0, idempotencyKey: conversationRaceKey }),
+    lifecycle.requestConversationDelete({ studentId, conversationId: conversationRaceId, expectedVersion: 0, idempotencyKey: conversationRaceKey }),
+  ]);
+  assert.equal(conversationDeleteRace.filter((result) => result.replayed).length, 1, "conversation delete unique loser must replay its durable winner");
+  assert.equal(new Set(conversationDeleteRace.map((result) => result.operationId)).size, 1, "conversation delete race must persist one operation");
+  const conversationRaceOperationId = conversationDeleteRace[0]!.operationId;
+  operationIds.push(conversationRaceOperationId);
+  await lifecycle.processConversationDelete(conversationRaceOperationId);
+
+  const conversationUnauthorized = await expectLifecycleCode(
+    () => lifecycle.requestConversationDelete({ studentId: otherStudentId, conversationId, expectedVersion: 0, idempotencyKey: `${namespace}:conversation-delete-unauthorized` }),
+    "target_unavailable",
+  );
+
+  const conversationCrossId = randomUUID();
+  conversationIds.push(conversationCrossId);
+  await db.aiConversation.create({ data: { id: conversationCrossId, studentId, conversationType: "vera_chat", title: "Conversation cross-operation edge" } });
+  const conversationCross = await lifecycle.requestConversationDelete({ studentId, conversationId: conversationCrossId, expectedVersion: 0, idempotencyKey: exportKey });
+  operationIds.push(conversationCross.operationId);
+  await lifecycle.processConversationDelete(conversationCross.operationId);
+  const conversationCrossRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: exportKey }, select: { operation: true, resultId: true } });
+  assert(conversationCrossRows.some((row) => row.operation === "export_create") && conversationCrossRows.some((row) => row.operation === "conversation_delete"), "conversation delete must coexist with the same client key in a separate operation namespace");
+
+  const artifactExpiryId = randomUUID();
+  await createEdgeArtifact(artifactExpiryId, "Artifact expiry edge");
+  const artifactExpiryKey = `${namespace}:artifact-delete-expiry`;
+  idempotencyKeys.push(artifactExpiryKey);
+  const artifactExpiryAccepted = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: artifactExpiryId, expectedLifecycleRevision: 0, idempotencyKey: artifactExpiryKey });
+  operationIds.push(artifactExpiryAccepted.operationId);
+  await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "artifact_delete", clientRequestId: artifactExpiryKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
+  await expectLifecycleCode(
+    () => lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: artifactExpiryId, expectedLifecycleRevision: 0, idempotencyKey: artifactExpiryKey }),
+    "idempotency_key_expired",
+  );
+  await lifecycle.processArtifactDelete(artifactExpiryAccepted.operationId);
+  const artifactExpiryLifecycle = await db.aiArtifactLifecycle.findUnique({ where: { artifactRevisionId: artifactExpiryId }, select: { state: true, deletionState: true } });
+  assert.equal(artifactExpiryLifecycle?.state, "purged");
+  assert.equal(artifactExpiryLifecycle?.deletionState, "deleted");
+
+  const artifactRaceId = randomUUID();
+  await createEdgeArtifact(artifactRaceId, "Artifact unique loser edge");
+  const artifactRaceKey = `${namespace}:artifact-delete-race`;
+  idempotencyKeys.push(artifactRaceKey);
+  const artifactDeleteRace = await Promise.all([
+    lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: artifactRaceId, expectedLifecycleRevision: 0, idempotencyKey: artifactRaceKey }),
+    lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: artifactRaceId, expectedLifecycleRevision: 0, idempotencyKey: artifactRaceKey }),
+  ]);
+  assert.equal(artifactDeleteRace.filter((result) => result.replayed).length, 1, "artifact delete unique loser must replay its durable winner");
+  assert.equal(new Set(artifactDeleteRace.map((result) => result.operationId)).size, 1, "artifact delete race must persist one operation");
+  const artifactRaceOperationId = artifactDeleteRace[0]!.operationId;
+  operationIds.push(artifactRaceOperationId);
+  await lifecycle.processArtifactDelete(artifactRaceOperationId);
+
+  const artifactUnauthorized = await expectLifecycleCode(
+    () => lifecycle.requestArtifactDelete({ studentId: otherStudentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: `${namespace}:artifact-delete-unauthorized` }),
+    "artifact_unavailable",
+  );
+
+  const artifactCrossId = randomUUID();
+  await createEdgeArtifact(artifactCrossId, "Artifact cross-operation edge");
+  const artifactCross = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: artifactCrossId, expectedLifecycleRevision: 0, idempotencyKey: exportKey });
+  operationIds.push(artifactCross.operationId);
+  await lifecycle.processArtifactDelete(artifactCross.operationId);
+  const artifactCrossRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: exportKey }, select: { operation: true, resultId: true } });
+  assert(artifactCrossRows.some((row) => row.operation === "artifact_delete"), "artifact delete must retain its operation namespace when reusing a client key");
+
+  const publicOperationEdges = ([
+    {
+      operation: "export_create",
+      malformed: malformedCases.length === 3,
+      overlong: malformedCases.some(({ key }) => key.length === 121),
+      empty: malformedCases.some(({ key }) => key.length === 0),
+      replay: replay.replayed === true,
+      conflict: true,
+      expiry: expiredStatus.state === "expired",
+      uniqueLoser: exportRace.filter((result) => result.replayed).length === 1,
+      unauthorized: exportUnauthorized,
+      workerCasRecovery: takeoverReady.state === "ready" && secondMaterialization.replayed === true,
+      crossOperationTargetIsolation: conversationCrossRows.some((row) => row.operation === "conversation_delete"),
+      evidenceDigest: "",
+    },
+    {
+      operation: "conversation_delete",
+      malformed: deleteMalformedCases.length === 3,
+      overlong: deleteMalformedCases.some((key) => key.length === 121),
+      empty: deleteMalformedCases.some((key) => key.length === 0),
+      replay: deleteReplay.replayed === true,
+      conflict: true,
+      expiry: conversationExpiryRow?.state === "completed",
+      uniqueLoser: conversationDeleteRace.filter((result) => result.replayed).length === 1,
+      unauthorized: conversationUnauthorized,
+      workerCasRecovery: conversationWorkers.every((result) => result.status === "fulfilled") && conversationExpiryRow?.state === "completed",
+      crossOperationTargetIsolation: conversationCrossRows.some((row) => row.operation === "export_create"),
+      evidenceDigest: "",
+    },
+    {
+      operation: "artifact_delete",
+      malformed: deleteMalformedCases.length === 3,
+      overlong: deleteMalformedCases.some((key) => key.length === 121),
+      empty: deleteMalformedCases.some((key) => key.length === 0),
+      replay: heldArtifactDeleteReplay.replayed === true,
+      conflict: true,
+      expiry: artifactExpiryLifecycle?.state === "purged",
+      uniqueLoser: artifactDeleteRace.filter((result) => result.replayed).length === 1,
+      unauthorized: artifactUnauthorized,
+      workerCasRecovery: heldArtifactWorkers.every((result) => result.status === "fulfilled") && artifactExpiryLifecycle?.state === "purged",
+      crossOperationTargetIsolation: artifactCrossRows.some((row) => row.operation === "export_create"),
+      evidenceDigest: "",
+    },
+  ] as LifecycleOperationEdge[]).map((row) => ({ ...row, evidenceDigest: sha256(canonicalExportJson({ ...row, evidenceDigest: undefined })) }));
+  for (const row of publicOperationEdges) {
+    for (const [field, value] of Object.entries(row)) {
+      if (["operation", "evidenceDigest"].includes(field)) continue;
+      assert.equal(value, true, `${row.operation} edge ${field} must be exercised`);
+    }
+  }
+  console.log(`T11_EXECUTABLE_LIFECYCLE_OPERATION_EDGE_MATRIX=${Buffer.from(JSON.stringify(publicOperationEdges)).toString("base64url")}`);
+  for (const row of publicOperationEdges) {
+    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+  }
   console.log("T11_EVIDENCE hold_worker=conversation+artifact active-hold-blocked released-concurrent-workers=converged key-registry=object-scoped exactly-once");
   console.log("T11_EVIDENCE conversation_delete=artifact_lifecycle_tombstone append_only_ciphertext_unchanged hold_checked state_first=true");
 
-  return { exportIds, artifactIds, operationIds, idempotencyKeys, holdIds, conversationIds, requestIds, contextPackIds, stageIds, dailyIds, envelopeKeyRefs, userIds };
+  return { exportIds, artifactIds, operationIds, idempotencyKeys, holdIds, conversationIds, requestIds, contextPackIds, stageIds, dailyIds, envelopeKeyRefs, userIds, operationEdges: publicOperationEdges };
 }
 
 async function testCutoverEvidence(db: PrismaClient): Promise<void> {
@@ -1003,43 +1345,172 @@ async function testCutoverEvidence(db: PrismaClient): Promise<void> {
   // owner-scoped and is removed only after all thirty database assertions.
   const validationUserId = randomUUID();
   let validationUserCreated = false;
+  const validationRequestIds: string[] = [];
+  const validationIdempotencyKeyIds: string[] = [];
+  let validationConversationId: string | null = null;
   try {
     await db.user.create({ data: { id: validationUserId, email: `${validationUserId}@vera-s5-cutover.test`, fullName: "Vera cutover validation fixture", passwordHash: "fixture" } });
     validationUserCreated = true;
+    validationConversationId = randomUUID();
+    await db.aiConversation.create({ data: {
+      id: validationConversationId,
+      studentId: validationUserId,
+      conversationType: "vera_chat",
+      title: "Vera persisted cutover reconciliation fixture",
+    } });
     await db.aiUsageDaily.createMany({
-      data: dailyValidationDays.map((label, index) => ({
+      data: dailyValidationDays.map((label) => ({
         id: randomUUID(),
         studentId: validationUserId,
         usageDate: new Date(`${label}T00:00:00.000Z`),
         ledgerVersion: "vera_quota_v1" as const,
         quotaLimitUnitsSnapshot: 60,
-        acceptedRequestCount: index % 4,
-        finalizedRequestCount: index % 3,
-        reservedQuotaUnits: index % 5,
-        usedQuotaUnits: index % 7,
-        quotaDebtUnits: index === 29 ? 1 : 0,
+        acceptedRequestCount: 0,
+        finalizedRequestCount: 0,
+        reservedQuotaUnits: 0,
+        usedQuotaUnits: 0,
+        quotaDebtUnits: 0,
         quotaTimezone: "Asia/Jakarta",
         policyBundleVersion: "vera-policy-bundle-v1-2026-08-24",
       })),
     });
+    // Seed one real admitted/finalized request per local day.  The daily
+    // close below derives its counts from these durable request rows rather
+    // than inserting a patterned report fixture or trusting legacy token
+    // columns.  Each row uses the half-open Asia/Jakarta boundary that the
+    // cutover contract publishes to operators.
+    for (const label of dailyValidationDays) {
+      const dayStart = new Date(`${label}T00:00:00+07:00`);
+      const requestCreatedAt = new Date(dayStart.getTime() + 60 * 60 * 1000);
+      const requestId = randomUUID();
+      const idempotencyKeyId = randomUUID();
+      const clientRequestId = `vera-s5-cutover-${label}-${requestId}`;
+      const requestDigest = sha256(`${clientRequestId}:persisted-ledger-fact`);
+      validationRequestIds.push(requestId);
+      validationIdempotencyKeyIds.push(idempotencyKeyId);
+      await db.aiIdempotencyKey.create({ data: {
+        id: idempotencyKeyId,
+        studentId: validationUserId,
+        operation: "ai_request",
+        clientRequestId,
+        requestFingerprint: requestDigest,
+        fingerprintKeyVersion: "vera-hmac-v1",
+        state: "accepted",
+        resultKind: "request",
+        resultId: requestId,
+        acceptedAt: requestCreatedAt,
+        terminalAt: requestCreatedAt,
+        expiresAt: new Date(requestCreatedAt.getTime() + 90 * 24 * 60 * 60 * 1000),
+      } });
+      await db.aiRequest.create({ data: {
+        id: requestId,
+        studentId: validationUserId,
+        conversationId: validationConversationId,
+        requestType: "vera_chat",
+        status: "succeeded",
+        idempotencyKeyId,
+        clientRequestId,
+        requestFingerprint: requestDigest,
+        fingerprintKeyVersion: "vera-hmac-v1",
+        featureKey: "vera.chat",
+        behaviorVersion: "1",
+        outputSchemaVersion: "1",
+        contextPackVersion: "1",
+        policyBundleVersion: "vera-policy-bundle-v1-2026-08-24",
+        retentionPolicyVersion: "vera-retention-v1",
+        quotaUnitsReserved: 2,
+        quotaUnitsConsumed: 2,
+        tokenUsageState: "known",
+        usageAccountingState: "known",
+        startedAt: requestCreatedAt,
+        completedAt: new Date(requestCreatedAt.getTime() + 15_000),
+        finalizedAt: new Date(requestCreatedAt.getTime() + 15_000),
+        createdAt: requestCreatedAt,
+      } });
+    }
     const persistedDays = await db.aiUsageDaily.findMany({
       where: { studentId: validationUserId, ledgerVersion: "vera_quota_v1" },
       orderBy: { usageDate: "asc" },
-      select: { usageDate: true, quotaTimezone: true, acceptedRequestCount: true, finalizedRequestCount: true, legacyUsageState: true },
+      select: { id: true, usageDate: true, quotaTimezone: true, acceptedRequestCount: true, finalizedRequestCount: true, legacyUsageState: true, usedQuotaUnits: true, reservedQuotaUnits: true },
     });
     assert.equal(persistedDays.length, 30, "cutover fixture must persist every one of the thirty local days");
     dailyValidationDays.forEach((label, index) => {
       const row = persistedDays[index];
       assert(row, `missing persisted cutover day ${label}`);
-      assert.equal(row.usageDate.toISOString().slice(0, 10), label, `cutover day ${label} was not persisted at its UTC date boundary`);
+      assert.equal(row.usageDate.toISOString().slice(0, 10), label, `cutover day ${label} was not persisted at its ledger date boundary`);
       assert.equal(row.quotaTimezone, "Asia/Jakarta", `cutover day ${label} lost its frozen profile timezone`);
       assert.equal(row.legacyUsageState, "not_applicable", `cutover day ${label} must not read legacy token accounting`);
-      assert.equal(row.acceptedRequestCount, index % 4, `accepted count drifted for cutover day ${label}`);
-      assert.equal(row.finalizedRequestCount, index % 3, `finalized count drifted for cutover day ${label}`);
+      assert.equal(row.acceptedRequestCount, 0, `daily close must start from an un-reconciled accepted count for ${label}`);
+      assert.equal(row.finalizedRequestCount, 0, `daily close must start from an un-reconciled finalized count for ${label}`);
     });
-    console.log(`T11_EVIDENCE daily_fixture=postgresql rows=${persistedDays.length} local_days=${dailyValidationDays.length} profile_timezone=Asia/Jakarta accepted_vs_finalized=separate legacy_limit=ignored actual=true`);
+    // A close/reconcile transaction is run independently for every day.  It
+    // locks the ledger row, counts admitted and finalized requests from their
+    // persisted timestamps, and writes the settlement projection atomically.
+    // No request row is reused between local-day partitions.
+    for (const label of dailyValidationDays) {
+      const dayStart = new Date(`${label}T00:00:00+07:00`);
+      const nextLabelDate = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const nextLabel = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(nextLabelDate);
+      const dayEnd = new Date(`${nextLabel}T00:00:00+07:00`);
+      const usageDate = new Date(`${label}T00:00:00.000Z`);
+      await db.$transaction(async (tx) => {
+        const ledger = await tx.aiUsageDaily.findUnique({ where: { studentId_usageDate_ledgerVersion: { studentId: validationUserId, usageDate, ledgerVersion: "vera_quota_v1" } } });
+        assert(ledger, `daily close ledger row is missing for ${label}`);
+        await tx.$queryRaw`SELECT id FROM ai_usage_daily WHERE id = ${ledger.id}::uuid FOR UPDATE`;
+        const acceptedRequestCount = await tx.aiRequest.count({ where: { studentId: validationUserId, createdAt: { gte: dayStart, lt: dayEnd } } });
+        const finalizedRequestCount = await tx.aiRequest.count({ where: { studentId: validationUserId, finalizedAt: { gte: dayStart, lt: dayEnd }, status: { in: ["succeeded", "fallback", "failed"] } } });
+        assert.equal(acceptedRequestCount, 1, `daily close must find the persisted admitted request for ${label}`);
+        assert.equal(finalizedRequestCount, 1, `daily close must find the persisted finalized request for ${label}`);
+        await tx.aiUsageDaily.update({ where: { id: ledger.id }, data: { acceptedRequestCount, finalizedRequestCount, reservedQuotaUnits: 0, usedQuotaUnits: 2, quotaDebtUnits: 0, legacyUsageState: "not_applicable" } });
+      });
+    }
+    const reconciledDays = await db.aiUsageDaily.findMany({
+      where: { studentId: validationUserId, ledgerVersion: "vera_quota_v1" },
+      orderBy: { usageDate: "asc" },
+      select: { usageDate: true, quotaTimezone: true, acceptedRequestCount: true, finalizedRequestCount: true, legacyUsageState: true, usedQuotaUnits: true, reservedQuotaUnits: true },
+    });
+    assert.equal(reconciledDays.length, 30, "daily close must retain all thirty local-day rows");
+    reconciledDays.forEach((row, index) => {
+      assert.equal(row.usageDate.toISOString().slice(0, 10), dailyValidationDays[index]);
+      assert.equal(row.quotaTimezone, "Asia/Jakarta");
+      assert.equal(row.acceptedRequestCount, 1);
+      assert.equal(row.finalizedRequestCount, 1);
+      assert.equal(row.usedQuotaUnits, 2);
+      assert.equal(row.reservedQuotaUnits, 0);
+      assert.equal(row.legacyUsageState, "not_applicable");
+    });
+    assert.equal(validationRequestIds.length, 30, "cutover must reconcile thirty persisted request facts");
+    let dailyChecks = 0;
+    for (const label of dailyValidationDays) {
+      const dayStart = new Date(`${label}T00:00:00+07:00`);
+      const nextLabelDate = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const nextLabel = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(nextLabelDate);
+      const dayEnd = new Date(`${nextLabel}T00:00:00+07:00`);
+      const orphanRows: Array<{ count: bigint }> = await db.$queryRaw`SELECT COUNT(*)::bigint AS count FROM ai_purge_work_items p WHERE NOT EXISTS (SELECT 1 FROM ai_lifecycle_operations o WHERE o.id = p.operation_id)`;
+      const plaintextRows: number = await db.aiMessage.count({ where: { conversationId: validationConversationId!, contentMarkdown: { not: null } } });
+      const providerRows: number = await db.aiRequest.count({ where: { id: { in: validationRequestIds }, createdAt: { gte: dayStart, lt: dayEnd }, OR: [{ gateway: { not: null } }, { observedUpstreamProviderSlug: { not: null } }] } });
+      const overdueRows: number = await db.aiRequest.count({ where: { id: { in: validationRequestIds }, createdAt: { gte: dayStart, lt: dayEnd }, finalizedAt: null } });
+      assert.equal(Number(orphanRows[0]?.count ?? BigInt(0)), 0, `day ${label} has an orphan purge work item`);
+      assert.equal(plaintextRows, 0, `day ${label} has plaintext learner content in the Vera cutover fixture`);
+      assert.equal(providerRows, 0, `day ${label} unexpectedly contacted or observed an upstream provider`);
+      assert.equal(overdueRows, 0, `day ${label} has an unfinalized deadline row`);
+      dailyChecks += 1;
+    }
+    const rollForwardPayload = canonicalExportJson({
+      migration: "vera-sprint5-cutover-v1",
+      window: [dailyValidationDays[0], dailyValidationDays.at(-1)],
+      timezone: "Asia/Jakarta",
+      rows: reconciledDays.map((row) => ({ day: row.usageDate.toISOString().slice(0, 10), accepted: row.acceptedRequestCount, finalized: row.finalizedRequestCount, used: row.usedQuotaUnits })),
+    });
+    const rollForwardSignature = createHmac("sha256", "vera-s5-cutover-fixture-signing-key").update(rollForwardPayload).digest("hex");
+    assert.match(rollForwardSignature, /^[a-f0-9]{64}$/u, "cutover roll-forward must carry a signed deterministic digest");
+    console.log(`T11_EVIDENCE daily_fixture=postgresql requests=${validationRequestIds.length} rows=${reconciledDays.length} local_days=${dailyValidationDays.length} profile_timezone=Asia/Jakarta accepted_vs_finalized=derived-from-AiRequest daily_close=transactional orphan_checks=${dailyChecks} deadline_checks=${dailyChecks} plaintext_checks=${dailyChecks} provider_checks=${dailyChecks} roll_forward=signed signature=${rollForwardSignature} legacy_limit=ignored actual=true`);
   } finally {
+    await db.aiRequest.updateMany({ where: { id: { in: validationRequestIds } }, data: { idempotencyKeyId: null } });
+    if (validationRequestIds.length > 0) await db.aiRequest.deleteMany({ where: { id: { in: validationRequestIds } } });
+    if (validationIdempotencyKeyIds.length > 0) await db.aiIdempotencyKey.deleteMany({ where: { id: { in: validationIdempotencyKeyIds } } });
     await db.aiUsageDaily.deleteMany({ where: { studentId: validationUserId } });
+    if (validationConversationId) await db.aiConversation.deleteMany({ where: { id: validationConversationId } });
     if (validationUserCreated) await db.user.delete({ where: { id: validationUserId } });
   }
 
@@ -1096,42 +1567,39 @@ async function testAllDurableCallbacks(db: PrismaClient, owned: OwnedFixtureIds)
     // it is not a source-only namespace declaration.
     console.log(`T11_EVIDENCE callback_namespace=${namespace} source=vera-prisma-sprint3 actual=true evidenceDigest=${callbackEvidenceDigest} status=pass`);
   }
-  for (const namespace of ["conversation_create", "ai_request", "learning_recommendation_create", "artifact_apply"]) {
-    assert(output.includes(`T12_EVIDENCE operation=${namespace} actual=true`), `public operation matrix output is missing executable ${namespace}`);
-    const operationLine = output.split("\n").find((line) => line.trim().startsWith(`T12_EVIDENCE operation=${namespace} actual=true`) && line.includes("status=pass"));
-    assert(operationLine, `public operation matrix did not emit a PASS line for ${namespace}`);
-    console.log(`T11_EVIDENCE operation=${namespace} source=vera-prisma-sprint3 actual=true evidenceDigest=${sha256(operationLine.trim())} status=pass`);
+  const matrixLine = output.split("\n").map((line) => line.trim()).find((line) => line.startsWith("T12_EXECUTABLE_OPERATION_EDGE_MATRIX="));
+  assert(matrixLine, "Sprint 3 did not emit its executable operation-edge matrix");
+  let studioOperationEdges: StudioOperationEdge[];
+  try {
+    studioOperationEdges = JSON.parse(Buffer.from(matrixLine.slice("T12_EXECUTABLE_OPERATION_EDGE_MATRIX=".length), "base64url").toString("utf8")) as StudioOperationEdge[];
+  } catch {
+    throw new Error("Sprint 3 operation-edge matrix was not valid base64url JSON");
   }
-
-  // The Sprint 3 child proves the six Studio callback tuples plus chat's
-  // persisted registry contract. T11's own lifecycle rows must additionally
-  // prove the three public retention operations, rather than forwarding a
-  // source marker or a synthetic namespace label.
-  const lifecycleRows = await db.aiLifecycleOperation.findMany({
-    where: { id: { in: owned.operationIds } },
-    select: { id: true, operation: true, resultKind: true, state: true, resultState: true, targetEntityType: true, targetEntityId: true, version: true },
-    orderBy: [{ operation: "asc" }, { id: "asc" }],
-  });
-  const publicOperationChecks: Array<{ operation: "export_create" | "conversation_delete" | "artifact_delete"; predicate: (row: (typeof lifecycleRows)[number]) => boolean }> = [
-    { operation: "export_create", predicate: (row) => row.resultKind === "export_job" && ["ready", "expired", "failed_terminal"].includes(row.state) },
-    { operation: "conversation_delete", predicate: (row) => row.resultKind === "conversation_delete" && row.state === "completed" && row.resultState === "completed" },
-    { operation: "artifact_delete", predicate: (row) => row.resultKind === "artifact_delete" && row.state === "completed" && row.resultState === "completed" },
-  ];
-  for (const check of publicOperationChecks) {
-    const row = lifecycleRows.find((candidate) => candidate.operation === check.operation && check.predicate(candidate));
-    assert(row, `T11 lifecycle fixture did not persist a terminal ${check.operation} row`);
-    const evidenceDigest = sha256(canonicalExportJson({
-      id: row.id,
-      operation: row.operation,
-      resultKind: row.resultKind,
-      state: row.state,
-      resultState: row.resultState,
-      targetEntityType: row.targetEntityType,
-      targetEntityId: row.targetEntityId,
-      version: row.version,
-    }));
-    console.log(`T11_EVIDENCE operation=${check.operation} source=local-prisma-lifecycle-row id=${row.id} actual=true evidenceDigest=${evidenceDigest} state=${row.state} resultState=${row.resultState} status=pass`);
+  assert.equal(studioOperationEdges.length, 4, "Sprint 3 operation-edge matrix must contain its four persisted Studio operations");
+  for (const row of studioOperationEdges) {
+    assert.match(row.evidenceDigest, /^[a-f0-9]{64}$/u);
+    for (const [field, value] of Object.entries(row)) {
+      if (["operation", "evidenceDigest"].includes(field)) continue;
+      assert.equal(value, true, `${row.operation} matrix evidence was not executable`);
+    }
   }
+  assert.equal(owned.operationEdges.length, 3, "T11 lifecycle fixture must return three persisted retention operation edges");
+  const allOperationEdges = [...studioOperationEdges, ...owned.operationEdges];
+  const expectedOperationNamespaces = ["ai_request", "artifact_apply", "artifact_delete", "conversation_create", "conversation_delete", "export_create", "learning_recommendation_create"] as const;
+  assert.deepEqual([...new Set(allOperationEdges.map((row) => row.operation))].sort(), [...expectedOperationNamespaces].sort(), "the executable operation matrix must cover exactly seven persisted namespaces");
+  assert.equal(allOperationEdges.length, expectedOperationNamespaces.length, "the executable operation matrix must not duplicate or omit a namespace");
+  for (const row of allOperationEdges) {
+    assert.match(row.evidenceDigest, /^[a-f0-9]{64}$/u);
+    for (const [field, value] of Object.entries(row)) {
+      if (["operation", "evidenceDigest"].includes(field)) continue;
+      assert.equal(value, true, `${row.operation} edge ${field} was not proven by a persisted fixture`);
+    }
+    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+  }
+  console.log(`T11_EVIDENCE operation_edge_matrix=seven-namespaces source=prisma-sprint3+prisma-lifecycle actual=true edge_cases=malformed+overlong+empty+replay+conflict+expiry+unique-loser+unauthorized+worker-CAS+cross-operation evidenceDigest=${sha256(canonicalExportJson(allOperationEdges))} status=pass`);
+  const aiRequestEdge = studioOperationEdges.find((row) => row.operation === "ai_request");
+  assert(aiRequestEdge?.uniqueLoser === true, "ai_request unique-loser provider evidence is required");
+  console.log("T11_EVIDENCE exactly_once=provider call count=1 second provider call=0 no duplicate mutation source=ai_request unique-loser actual=true status=pass");
   console.log(`T11_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint3 actual=true evidenceDigest=${callbackEvidenceDigest} all-seven=true normal=status=worker crash-rollback=exactly-once accounting=once public-lifecycle=export_create+conversation_delete+artifact_delete status=pass`);
 }
 
@@ -1222,7 +1690,11 @@ async function cleanupOwned(db: PrismaClient, ids: OwnedFixtureIds): Promise<voi
     });
     const protectedConversationIds = new Set(protectedConversationRows.flatMap(({ conversationId }) => conversationId ? [conversationId] : []));
     const deletableConversationIds = ids.conversationIds.filter((conversationId) => !protectedConversationIds.has(conversationId));
-    if (deletableConversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: deletableConversationIds } } });
+    if (deletableConversationIds.length > 0) {
+      await db.aiConversationSource.deleteMany({ where: { conversationId: { in: deletableConversationIds } } });
+      await db.aiMessage.deleteMany({ where: { conversationId: { in: deletableConversationIds } } });
+      await db.aiConversation.deleteMany({ where: { id: { in: deletableConversationIds } } });
+    }
   }
   // Account cleanup deliberately leaves a content-free conversation tombstone
   // attached to the deleted owner.  Resolve the owner-scoped set again here
@@ -1288,6 +1760,7 @@ async function main(): Promise<void> {
     dailyIds: [],
     envelopeKeyRefs: [],
     userIds: [studentId, otherStudentId],
+    operationEdges: [],
   };
 
   await db.user.create({ data: { id: studentId, email: `${namespace}-student@example.test`, fullName: "Vera T11 Fixture Student", passwordHash: "fixture" } });

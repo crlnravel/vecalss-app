@@ -1240,9 +1240,14 @@ export class VeraLifecycleService {
         return;
       }
       const deadlines = preReadyExportDeadlines(now);
-      const updated = await tx.aiExportJob.updateMany({ where: { id: exportId, state: "materializing", ...(claimId === undefined ? {} : { materializationClaimId: claimId, materializationFence: fence }) }, data: { state: "failed_terminal", errorCode: terminal ? errorCode : "recovery_expired", terminalAt: now, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
+      // A malformed/undecipherable payload is a known terminal reason once
+      // its bounded recovery window has elapsed. Preserve that reason across
+      // the DB-clock transition so replay/status can distinguish it from an
+      // owner that simply disappeared during materialization.
+      const terminalErrorCode = errorCode === "export_payload_unavailable" ? errorCode : "recovery_expired";
+      const updated = await tx.aiExportJob.updateMany({ where: { id: exportId, state: "materializing", ...(claimId === undefined ? {} : { materializationClaimId: claimId, materializationFence: fence }) }, data: { state: "failed_terminal", errorCode: terminal ? errorCode : terminalErrorCode, terminalAt: now, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null } });
       if (updated.count !== 1) return;
-      await tx.aiLifecycleOperation.updateMany({ where: { id: job.operationId, state: "processing" }, data: { state: "failed_terminal", resultState: "failed_terminal", errorCode: terminal ? errorCode : "recovery_expired", terminalAt: now, expiresAt: deadlines.terminalRetentionExpiresAt, version: { increment: 1 } } });
+      await tx.aiLifecycleOperation.updateMany({ where: { id: job.operationId, state: "processing" }, data: { state: "failed_terminal", resultState: "failed_terminal", errorCode: terminal ? errorCode : terminalErrorCode, terminalAt: now, expiresAt: deadlines.terminalRetentionExpiresAt, version: { increment: 1 } } });
     });
   }
 
@@ -1395,12 +1400,13 @@ export class VeraLifecycleService {
             // retention deadlines are anchored to the authoritative DB-clock
             // terminalAt, never to a caller/policy deadline from the past.
             const deadlines = preReadyExportDeadlines(clock);
+            const terminalErrorCode = locked.errorCode === "export_payload_unavailable" ? locked.errorCode : "recovery_expired";
             const terminal = await tx.aiExportJob.updateMany({
               where: { id: locked.id, state: locked.state, recoveryDeadlineAt: locked.recoveryDeadlineAt },
-              data: { state: "failed_terminal", errorCode: "recovery_expired", terminalAt: clock, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null },
+              data: { state: "failed_terminal", errorCode: terminalErrorCode, terminalAt: clock, partialPackagePurgeAt: deadlines.partialPackagePurgeAt, terminalRetentionExpiresAt: deadlines.terminalRetentionExpiresAt, materializationClaimId: null, materializationOwnerId: null, materializationLeaseExpiresAt: null },
             });
             const operation = terminal.count === 1
-              ? await tx.aiLifecycleOperation.updateMany({ where: { id: locked.operationId, state: locked.operation.state, version: locked.operation.version }, data: { state: "failed_terminal", errorCode: "recovery_expired", terminalAt: clock, expiresAt: deadlines.terminalRetentionExpiresAt, resultState: "failed_terminal", version: { increment: 1 } } })
+              ? await tx.aiLifecycleOperation.updateMany({ where: { id: locked.operationId, state: locked.operation.state, version: locked.operation.version }, data: { state: "failed_terminal", errorCode: terminalErrorCode, terminalAt: clock, expiresAt: deadlines.terminalRetentionExpiresAt, resultState: "failed_terminal", version: { increment: 1 } } })
               : { count: 0 };
             if (terminal.count === 1 && operation.count === 1) changed += 1;
           } else if (locked.state === "materializing" && locked.materializationLeaseExpiresAt && locked.materializationLeaseExpiresAt <= clock) {

@@ -52,6 +52,10 @@ function normalizeTitle(value: string | null | undefined): string | null {
   return normalized;
 }
 
+function isSafeClientRequestId(value: string): boolean {
+  return value.length > 0 && value.length <= 120 && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
 function boundedPreview(value: string | null, maxBytes = 320): string | null {
   if (value === null) return null;
   const normalized = value.normalize("NFC").replace(/\s+/gu, " ").trim();
@@ -185,6 +189,7 @@ export class VeraLearnerService {
   }
 
   async createConversation(input: { studentId: string; clientRequestId: string; conversationType: AiConversationType; title?: string | null }) {
+    if (!isSafeClientRequestId(input.clientRequestId)) throw new VeraLearnerServiceError("invalid_request", 400);
     const title = normalizeTitle(input.title);
     const fingerprint = createHmac("sha256", this.fingerprintSecret).update(canonicalJson({
       operation: "conversation_create",
@@ -192,7 +197,7 @@ export class VeraLearnerService {
       conversationType: input.conversationType,
       title,
     })).digest("hex");
-    return this.db.$transaction(async (tx) => {
+    const create = async () => this.db.$transaction(async (tx) => {
       const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
       const now = nowRows[0]?.now ?? new Date();
       const existing = await tx.aiIdempotencyKey.findUnique({
@@ -228,6 +233,32 @@ export class VeraLearnerService {
       });
       return { conversation: await this.conversationDto(conversation), replayed: false };
     });
+    try {
+      return await create();
+    } catch (error) {
+      // A concurrent absent-key loser can observe PostgreSQL's unique
+      // violation only after its interactive transaction has aborted.  Never
+      // downgrade that loser to a synthetic error: start a fresh transaction,
+      // lock/re-read the durable winner, and apply the same expiry/fingerprint
+      // rules as the normal replay path.
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+      return this.db.$transaction(async (tx) => {
+        const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+        const now = nowRows[0]?.now ?? new Date();
+        const existing = await tx.aiIdempotencyKey.findUnique({
+          where: { studentId_operation_clientRequestId: { studentId: input.studentId, operation: AiIdempotencyOperation.conversation_create, clientRequestId: input.clientRequestId } },
+        });
+        if (!existing) throw error;
+        await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${existing.id}::uuid FOR UPDATE`;
+        const locked = await tx.aiIdempotencyKey.findUnique({ where: { id: existing.id } });
+        if (!locked || locked.expiresAt <= now || locked.state === AiIdempotencyState.expired) throw new VeraLearnerServiceError("idempotency_key_expired", 409);
+        if (locked.requestFingerprint !== fingerprint) throw new VeraLearnerServiceError("idempotency_conflict", 409);
+        if (!locked.resultId) throw new VeraLearnerServiceError("request_pending", 409);
+        const conversation = await tx.aiConversation.findFirst({ where: { id: locked.resultId, studentId: input.studentId, deletionState: "active" } });
+        if (!conversation) throw new VeraLearnerServiceError("target_unavailable", 404);
+        return { conversation: await this.conversationDto(conversation), replayed: true };
+      });
+    }
   }
 
   async getConversation(studentId: string, conversationId: string) {

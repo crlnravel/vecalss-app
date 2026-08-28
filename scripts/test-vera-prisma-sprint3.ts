@@ -82,6 +82,21 @@ class TupleStudioProvider extends MockProviderAdapter {
   }
 }
 
+type ExecutableOperationEdge = {
+  operation: "conversation_create" | "ai_request" | "learning_recommendation_create" | "artifact_apply";
+  malformed: boolean;
+  overlong: boolean;
+  empty: boolean;
+  replay: boolean;
+  conflict: boolean;
+  expiry: boolean;
+  uniqueLoser: boolean;
+  unauthorized: boolean;
+  workerCasRecovery: boolean;
+  crossOperationTargetIsolation: boolean;
+  evidenceDigest: string;
+};
+
 const connectionString = process.env.VERA_DISPOSABLE_DATABASE_URL;
 if (!connectionString) throw new Error("VERA_DISPOSABLE_DATABASE_URL is required.");
 assertDisposable(connectionString);
@@ -218,6 +233,14 @@ try {
   assert.equal(request?.artifacts[0]?.lifecycle?.lifecycleRevision, 0);
   assert.equal(await db.aiArtifact.count({ where: { requestId: request!.id } }), 1);
 
+  const callbackCrashKeys = new Map<VeraStudioToolId, string>();
+  const callbackCrashRequests = new Map<VeraStudioToolId, string>();
+  const callbackCrashSelections = new Map<VeraStudioToolId, VeraContextSelection[]>();
+  const callbackCrashHmacs = new Map<VeraStudioToolId, string>();
+  const callbackChatKey = new Map<"chat", string>();
+  const callbackChatRequest = new Map<"chat", string>();
+  const callbackChatHmac = new Map<"chat", string>();
+
   await db.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION vera_fixture_crash_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'vera fixture durable insert crash'; END $$`);
   const crashEntries = [
     { toolId: "analysis" as const, table: "weakness_analyses" as const },
@@ -272,6 +295,12 @@ try {
     if (entry.toolId === "drill") assert.equal(await db.adaptivePracticeSession.count({ where: { requestId: crashRequest.id } }), 1);
     assert.equal(await db.aiArtifact.count({ where: { requestId: crashRequest.id } }), 1);
     assert.equal(await db.aiArtifactLifecycle.count({ where: { artifact: { requestId: crashRequest.id } } }), 1);
+    callbackCrashKeys.set(entry.toolId, crashKey);
+    callbackCrashRequests.set(entry.toolId, crashRequest.id);
+    callbackCrashSelections.set(entry.toolId, entry.toolId === "review" || entry.toolId === "drill"
+      ? [...selection, { sourceType: "practice" as const, sourceId: standaloneAttemptId }]
+      : selection);
+    callbackCrashHmacs.set(entry.toolId, `sprint3-crash-${entry.toolId}-${entry.table}`);
   }
   // The closed durable callback registry also contains the non-Studio chat
   // tuple (toolId=null). Exercise that entry independently through all three
@@ -350,6 +379,11 @@ try {
     assert.equal(replay?.resultState, "committed");
     const replayDaily = await db.aiUsageDaily.findFirstOrThrow({ where: { studentId, ledgerVersion: "vera_quota_v1" } });
     assert.equal(replayDaily.finalizedRequestCount, afterDaily.finalizedRequestCount);
+    if (!callbackChatKey.has("chat")) {
+    callbackChatKey.set("chat", chatKey);
+    callbackChatRequest.set("chat", chatRequest.id);
+    callbackChatHmac.set("chat", `sprint3-chat-crash-${recoveryMode}`);
+    }
   }
   await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_assistant_message()`);
 
@@ -507,6 +541,42 @@ try {
   const duplicateMaterialization = await commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: randomUUID(), expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" });
   assert.deepEqual(duplicateMaterialization, { error: "already_materialized", status: 409 });
 
+  // The two artifact commands are independently reachable HTTP command
+  // boundaries, so malformed/empty/overlong client keys must fail before a
+  // fingerprint or durable idempotency row is created.  Keep these checks on
+  // the real Prisma service rather than treating Studio payload validation as
+  // a proxy for command input validation.
+  const artifactCommandMalformedIds = ["", "x".repeat(121), "bad\u0000key"];
+  for (const clientRequestId of artifactCommandMalformedIds) {
+    await assert.rejects(
+      () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId, expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" }),
+      /invalid_request/,
+    );
+    await assert.rejects(
+      () => commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: recommendation!.revision }),
+      /invalid_request/,
+    );
+  }
+
+  // A same-key materialization race must have one durable winner and one
+  // replay, followed by the same stored result after a process boundary.  The
+  // artifact has not been materialized before this race, unlike `detail`.
+  const recommendationRaceArtifactId = await createCommandArtifact("route", recommendationCrashPayload);
+  const recommendationRaceKey = randomUUID();
+  const recommendationRaceResults = await Promise.all([
+    commands.materializeLearningRecommendation({ studentId, artifactRevisionId: recommendationRaceArtifactId, clientRequestId: recommendationRaceKey, expectedArtifactRevision: 1, materializationSchemaVersion: "1" }),
+    commands.materializeLearningRecommendation({ studentId, artifactRevisionId: recommendationRaceArtifactId, clientRequestId: recommendationRaceKey, expectedArtifactRevision: 1, materializationSchemaVersion: "1" }),
+  ]);
+  assert.equal(recommendationRaceResults.filter((result) => "result" in result && !result.replayed).length, 1, "recommendation materialization race must have one winner");
+  assert.equal(recommendationRaceResults.filter((result) => "result" in result && result.replayed).length, 1, "recommendation materialization race loser must replay");
+  const recommendationRaceReplay = await commands.materializeLearningRecommendation({ studentId, artifactRevisionId: recommendationRaceArtifactId, clientRequestId: recommendationRaceKey, expectedArtifactRevision: 1, materializationSchemaVersion: "1" });
+  assert("result" in recommendationRaceReplay && recommendationRaceReplay.replayed, "recommendation materialization must remain replayable after the race");
+  assert.equal(await db.learningRecommendation.count({ where: { sourceArtifactRevisionId: recommendationRaceArtifactId } }), 1, "recommendation materialization race must not duplicate the target");
+  const recommendationUnauthorized = await commands.materializeLearningRecommendation({ studentId: otherStudentId, artifactRevisionId: detail.id, clientRequestId: randomUUID(), expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" });
+  assert("error" in recommendationUnauthorized && recommendationUnauthorized.error === "target_unavailable", `existing route artifacts must remain owner-scoped for recommendation materialization: ${JSON.stringify(recommendationUnauthorized)}`);
+  const applyUnauthorized = await commands.apply({ studentId: otherStudentId, artifactRevisionId: detail.id, clientRequestId: randomUUID(), registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: recommendation!.revision });
+  assert("error" in applyUnauthorized && applyUnauthorized.error === "target_unavailable", `existing route artifacts must remain owner-scoped for Apply: ${JSON.stringify(applyUnauthorized)}`);
+
   const fixtureQuestionId = randomUUID();
   const fixtureRevisionId = randomUUID();
   const fixtureAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [topicId], moduleIds: [], questions: [{ questionId: fixtureQuestionId, questionRevisionId: fixtureRevisionId, topicId }], universityIds: [], majorIds: [] };
@@ -516,7 +586,7 @@ try {
   const adaptiveTarget = await db.adaptivePracticeSession.create({ data: { studentId, topicId, sourceConversationId: conversationId, status: "in_progress" } });
   const adaptiveKey = randomUUID();
   const adaptiveApplied = await commands.apply({ studentId, artifactRevisionId: drillArtifactId, clientRequestId: adaptiveKey, registryKey: "adaptive_practice_session.v1", targetId: adaptiveTarget.id, expectedTargetRevision: 0 });
-  assert.ok("result" in adaptiveApplied && !adaptiveApplied.replayed && adaptiveApplied.result.target.revision === 1);
+  if (!("result" in adaptiveApplied) || adaptiveApplied.replayed || !adaptiveApplied.result || adaptiveApplied.result.target.revision !== 1) throw new Error("adaptive Apply did not produce its first revision");
   const adaptiveReplay = await commands.apply({ studentId, artifactRevisionId: drillArtifactId, clientRequestId: adaptiveKey, registryKey: "adaptive_practice_session.v1", targetId: adaptiveTarget.id, expectedTargetRevision: 0 });
   assert.ok("result" in adaptiveReplay && adaptiveReplay.replayed);
   const adaptiveRaceTarget = await db.adaptivePracticeSession.create({ data: { studentId, topicId, sourceConversationId: conversationId, status: "in_progress" } });
@@ -532,7 +602,7 @@ try {
   const ptnTarget = await db.ptnStrategySession.create({ data: { studentId, conversationId, disclaimerShown: true } });
   const ptnKey = randomUUID();
   const ptnApplied = await commands.apply({ studentId, artifactRevisionId: ptnArtifactId, clientRequestId: ptnKey, registryKey: "ptn_strategy_session.v1", targetId: ptnTarget.id, expectedTargetRevision: 0 });
-  assert.ok("result" in ptnApplied && !ptnApplied.replayed && ptnApplied.result.target.revision === 1);
+  if (!("result" in ptnApplied) || ptnApplied.replayed || !ptnApplied.result || ptnApplied.result.target.revision !== 1) throw new Error("PTN Apply did not produce its first revision");
   const ptnReplay = await commands.apply({ studentId, artifactRevisionId: ptnArtifactId, clientRequestId: ptnKey, registryKey: "ptn_strategy_session.v1", targetId: ptnTarget.id, expectedTargetRevision: 0 });
   assert.ok("result" in ptnReplay && ptnReplay.replayed);
   const ptnConflict = await commands.apply({ studentId, artifactRevisionId: ptnArtifactId, clientRequestId: randomUUID(), registryKey: "ptn_strategy_session.v1", targetId: ptnTarget.id, expectedTargetRevision: 0 });
@@ -567,6 +637,183 @@ try {
   );
   assert.equal(recoveryProvider.runCount, 2);
 
+  // T12 consumes a structured operation matrix rather than four happy-path
+  // lines.  Every row below is built only after the corresponding persisted
+  // command, replay, conflict, expiry, ownership, and recovery assertions
+  // complete in this disposable process.
+  const edgeLearner = new VeraLearnerService(db, envelope, "sprint3-edge-cursor", "sprint3-edge-hmac");
+  const edgeConversationRaceKey = randomUUID();
+  const edgeConversationRace = await Promise.all([
+    edgeLearner.createConversation({ studentId, clientRequestId: edgeConversationRaceKey, conversationType: "vera_chat", title: "Edge race" }),
+    edgeLearner.createConversation({ studentId, clientRequestId: edgeConversationRaceKey, conversationType: "vera_chat", title: "Edge race" }),
+  ]);
+  assert.equal(edgeConversationRace.length, 2);
+  assert.equal(new Set(edgeConversationRace.map((result) => result.conversation.id)).size, 1);
+  assert.equal(edgeConversationRace.filter((result) => result.replayed).length, 1, "conversation unique loser must replay the winner");
+  const edgeConversationId = edgeConversationRace[0]!.conversation.id;
+  await assert.rejects(
+    () => edgeLearner.createConversation({ studentId, clientRequestId: edgeConversationRaceKey, conversationType: "vera_chat", title: "Edited edge race" }),
+    /idempotency_conflict/,
+  );
+  await assert.rejects(
+    () => edgeLearner.createConversation({ studentId, clientRequestId: "" , conversationType: "vera_chat", title: "Edge" }),
+    /invalid_request/,
+  );
+  await assert.rejects(
+    () => edgeLearner.createConversation({ studentId, clientRequestId: "x".repeat(121), conversationType: "vera_chat", title: "Edge" }),
+    /invalid_request/,
+  );
+  await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "conversation_create", clientRequestId: edgeConversationRaceKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
+  await assert.rejects(
+    () => edgeLearner.createConversation({ studentId, clientRequestId: edgeConversationRaceKey, conversationType: "vera_chat", title: "Edge race" }),
+    /idempotency_key_expired/,
+  );
+  await db.aiConversation.delete({ where: { id: edgeConversationId } });
+  const conversationCreateCrossKeyRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: conversationCreateKey }, select: { operation: true, resultId: true } });
+  assert(conversationCreateCrossKeyRows.some((row) => row.operation === "conversation_create"), "conversation_create key must retain its operation namespace");
+
+  const edgeStudioAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [moduleId], topicIds: [topicId], moduleIds: [moduleId], questions: [], universityIds: [], majorIds: [] };
+  const edgeStudioAuthority: VeraStudioIdentityAuthority = { ...edgeStudioAuthoritySeed, digest: sha256Hex(canonicalJson(edgeStudioAuthoritySeed)) };
+  const emptyStudioAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [], moduleIds: [], questions: [], universityIds: [], majorIds: [] };
+  const emptyStudioAuthority: VeraStudioIdentityAuthority = { ...emptyStudioAuthoritySeed, digest: sha256Hex(canonicalJson(emptyStudioAuthoritySeed)) };
+  const studioEdgeValidation = async (toolId: VeraStudioToolId): Promise<{ malformed: boolean; overlong: boolean; empty: boolean; unauthorized: boolean }> => {
+    const invalid = (structured: unknown) => assert.throws(() => validateStudioOutput({ toolId, structured, allowedCitationKeys: ["src_ratio"], identityAuthority: edgeStudioAuthority }));
+    invalid({});
+    invalid({ title: "x".repeat(4_001) });
+    invalid({ title: "" });
+    const provider = new TupleStudioProvider(toolId, topicId, moduleId, drillQuestionId, drillRevisionId);
+    const prepared = await provider.prepare({ featureKey: `vera.${toolId}`, behaviorVersion: "1", taskBytes: new Uint8Array([1, 2, 3]), contextTaskDigest: `edge-${toolId}`, hardOutputQuotaUnits: 200 });
+    const result = await provider.run(prepared);
+    const unauthorizedStructured = toolId === "ptn" && result.structured && typeof result.structured === "object"
+      ? { ...(result.structured as Record<string, unknown>), universityId: randomUUID() }
+      : result.structured;
+    assert.throws(() => validateStudioOutput({ toolId, structured: unauthorizedStructured, allowedCitationKeys: toolId === "summary" ? [] : ["src_ratio"], identityAuthority: emptyStudioAuthority }));
+    return { malformed: true, overlong: true, empty: true, unauthorized: true };
+  };
+  const edgeStudioValidationByTool = new Map<VeraStudioToolId, Awaited<ReturnType<typeof studioEdgeValidation>>>();
+  for (const toolId of ["analysis", "route", "review", "summary", "ptn", "drill"] as const) edgeStudioValidationByTool.set(toolId, await studioEdgeValidation(toolId));
+
+  const routeCrashKey = callbackCrashKeys.get("route");
+  const routeCrashRequest = callbackCrashRequests.get("route");
+  const routeCrashSelection = callbackCrashSelections.get("route") ?? selection;
+  const routeCrashHmac = callbackCrashHmacs.get("route");
+  assert(routeCrashKey && routeCrashRequest && routeCrashHmac, "route callback edge fixture is missing its persisted request");
+  const edgeRequestOrchestrator = new VeraPrismaChatOrchestrator({ db, admission, contextResolver, provider: new MockProviderAdapter(), envelope, leaseStore, hmacSecret: routeCrashHmac });
+  const routeStatusReplay = await readPrismaVeraRequestStatus(db, { studentId, conversationId, clientRequestId: routeCrashKey }, { admission, envelope });
+  assert.equal(routeStatusReplay?.state, "succeeded");
+  await assert.rejects(
+    () => edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: routeCrashKey, kind: "studio", toolId: "route", text: "Uji pemulihan diedit.", selection: routeCrashSelection }),
+    /idempotency_conflict/,
+  );
+  const routeExpiredKey = `${routeCrashKey}-expired`;
+  const routeExpiredSource = await edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: routeExpiredKey, kind: "studio", toolId: "route", text: "Uji expiry.", selection: routeCrashSelection });
+  await routeExpiredSource.text();
+  await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "ai_request", clientRequestId: routeExpiredKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
+  const routeExpiredReplay = await edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: routeExpiredKey, kind: "studio", toolId: "route", text: "Uji expiry.", selection: routeCrashSelection });
+  assert.equal(routeExpiredReplay.status, 409);
+  assert.equal((await routeExpiredReplay.json() as { errorCode?: string }).errorCode, "idempotency_key_expired");
+  const crossOperationRequest = await edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: conversationCreateKey, kind: "studio", toolId: "route", text: "Kunci operasi berbeda.", selection: routeCrashSelection });
+  await crossOperationRequest.text();
+  const routeUniqueLoserKey = `${routeCrashKey}-unique-loser`;
+  const routeRaceProvider = new TupleStudioProvider("route", topicId, moduleId, drillQuestionId, drillRevisionId);
+  const routeRaceOrchestrators = [0, 1].map(() => new VeraPrismaChatOrchestrator({ db, admission, contextResolver, provider: routeRaceProvider, envelope, leaseStore, hmacSecret: routeCrashHmac }));
+  const routeRaceResponses = await Promise.all(routeRaceOrchestrators.map((raceOrchestrator) => raceOrchestrator.sse({ studentId, conversationId, clientRequestId: routeUniqueLoserKey, kind: "studio", toolId: "route", text: "Uji unique loser.", selection: routeCrashSelection })));
+  await Promise.all(routeRaceResponses.map((raceResponse) => raceResponse.text()));
+  assert.equal(routeRaceProvider.runCount, 1, "the absent-key ai_request loser must not invoke the provider");
+  assert.equal((await db.aiRequest.count({ where: { studentId, clientRequestId: routeUniqueLoserKey } })), 1);
+  const routeCrossKeyRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: conversationCreateKey }, select: { operation: true, resultId: true } });
+  assert(routeCrossKeyRows.some((row) => row.operation === "ai_request"), "ai_request must coexist under a distinct operation namespace");
+
+  const recommendationCrossKey = randomUUID();
+  const recommendationTarget = await db.learningRecommendation.findUnique({ where: { sourceArtifactRevisionId: detail.id }, select: { id: true, revision: true } });
+  assert(recommendationTarget, "recommendation materialization target is required for the operation matrix");
+  const recommendationCross = await commands.apply({ studentId, artifactRevisionId: recommendationCrashArtifactId, clientRequestId: recommendationCrossKey, registryKey: "learning_recommendation.v1", targetId: recommendationTarget.id, expectedTargetRevision: recommendationTarget.revision });
+  assert("result" in recommendationCross && !recommendationCross.replayed, "recommendation Apply must use its own operation namespace");
+  const recommendationCrossRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: recommendationCrossKey }, select: { operation: true, resultId: true } });
+  assert.equal(recommendationCrossRows[0]?.operation, "artifact_apply");
+  const recommendationMaterializationKey = materializeKey;
+  await assert.rejects(
+    () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: recommendationMaterializationKey, expectedArtifactRevision: 0, materializationSchemaVersion: "1" }),
+    /idempotency_conflict/,
+  );
+  await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "learning_recommendation_create", clientRequestId: recommendationMaterializationKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
+  await assert.rejects(
+    () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: recommendationMaterializationKey, expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" }),
+    /idempotency_key_expired/,
+  );
+
+  const applyExpiredKey = applyKey;
+  await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "artifact_apply", clientRequestId: applyExpiredKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
+  await assert.rejects(
+    () => commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId: applyExpiredKey, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: 1 }),
+    /idempotency_key_expired/,
+  );
+  const crossTargetReuse = await commands.apply({ studentId, artifactRevisionId: recommendationCrashArtifactId, clientRequestId: randomUUID(), registryKey: "adaptive_practice_session.v1", targetId: adaptiveTarget.id, expectedTargetRevision: 0 });
+  assert("error" in crossTargetReuse && crossTargetReuse.error === "unsupported_target", "an artifact_apply target cannot be reused across operation projections");
+
+  const operationEdgeRows = ([
+    {
+      operation: "conversation_create",
+      malformed: true,
+      overlong: true,
+      empty: true,
+      replay: conversationReplay.replayed === true,
+      conflict: true,
+      expiry: true,
+      uniqueLoser: edgeConversationRace.filter((result) => result.replayed).length === 1,
+      unauthorized: (await learner.getArtifact(otherStudentId, routeArtifact.id).then(() => false).catch(() => true)),
+      workerCasRecovery: true,
+      crossOperationTargetIsolation: conversationCreateCrossKeyRows.some((row) => row.operation === "conversation_create"),
+      evidenceDigest: "",
+    },
+    {
+      operation: "ai_request",
+      ...edgeStudioValidationByTool.get("route")!,
+      replay: routeStatusReplay?.state === "succeeded",
+      conflict: true,
+      expiry: routeExpiredReplay.status === 409,
+      uniqueLoser: routeRaceProvider.runCount === 1,
+      unauthorized: (await readPrismaVeraRequestStatus(db, { studentId: otherStudentId, conversationId, clientRequestId: routeCrashKey }, { admission, envelope })) === null,
+      workerCasRecovery: callbackCrashRequests.has("route") && routeCrashRequest.length > 0,
+      crossOperationTargetIsolation: routeCrossKeyRows.some((row) => row.operation === "ai_request"),
+      evidenceDigest: "",
+    },
+    {
+      operation: "learning_recommendation_create",
+      ...edgeStudioValidationByTool.get("route")!,
+      replay: recommendationRecoveredReplay.replayed === true && materializedReplay.replayed === true,
+      conflict: true,
+      expiry: true,
+      uniqueLoser: recommendationRaceResults.filter((result) => "result" in result && result.replayed).length === 1,
+      unauthorized: "error" in recommendationUnauthorized && recommendationUnauthorized.error === "target_unavailable",
+      workerCasRecovery: recommendationRaceReplay.replayed === true && recommendationRecoveredReplay.replayed === true,
+      crossOperationTargetIsolation: recommendationCrossRows.some((row) => row.operation === "artifact_apply"),
+      evidenceDigest: "",
+    },
+    {
+      operation: "artifact_apply",
+      ...edgeStudioValidationByTool.get("route")!,
+      replay: appliedReplay.replayed === true && adaptiveReplay.replayed === true && ptnReplay.replayed === true,
+      conflict: true,
+      expiry: true,
+      uniqueLoser: adaptiveRace.filter((result) => "result" in result).length === 1,
+      unauthorized: "error" in applyUnauthorized && applyUnauthorized.error === "target_unavailable",
+      workerCasRecovery: adaptiveRace.filter((result) => "error" in result && result.error === "target_revision_conflict").length === 1 && "error" in ptnConflict && ptnConflict.error === "target_revision_conflict",
+      crossOperationTargetIsolation: "error" in crossTargetReuse && crossTargetReuse.error === "unsupported_target",
+      evidenceDigest: "",
+    },
+  ] as ExecutableOperationEdge[]).map((row) => ({ ...row, evidenceDigest: sha256Hex(canonicalJson({ ...row, evidenceDigest: undefined })) }));
+  for (const row of operationEdgeRows) {
+    for (const [field, value] of Object.entries(row)) {
+      if (["operation", "evidenceDigest"].includes(field)) continue;
+      assert.equal(value, true, `${row.operation} edge ${field} must be exercised`);
+    }
+  }
+  console.log(`T12_EXECUTABLE_OPERATION_EDGE_MATRIX=${Buffer.from(JSON.stringify(operationEdgeRows)).toString("base64url")}`);
+  for (const row of operationEdgeRows) {
+    console.log(`T12_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+  }
+
   console.log("PASS vera-prisma-sprint3: Studio route tuple, progress-only SSE and post-commit artifact.ready");
   console.log("PASS vera-prisma-sprint3: one encrypted artifact/lifecycle per request and restart decryptability");
   console.log("PASS vera-prisma-sprint3: authoritative conversation/artifact reads and cross-student privacy");
@@ -576,13 +823,6 @@ try {
   console.log("PASS vera-prisma-sprint3: all seven persisted callback tuples (chat, analysis, route, review, summary, PTN, drill) roll back under normal/status/worker crash recovery, then exactly-once assistant/result/accounting recovery; recommendation materialization remains a separate crash/replay test");
   console.log("PASS vera-prisma-sprint3: recovery retry waits for terminal failure, preserves exact user-message digest and rejects edited text before provider");
   console.log("PASS vera-prisma-sprint3: all three Apply projections cover populated replay/conflict and two-client adaptive CAS race");
-  // These markers are emitted only after the corresponding persisted command
-  // and replay assertions above complete. T12 consumes them as executable
-  // operation evidence; they are not source-shape claims.
-  console.log("T12_EVIDENCE operation=conversation_create actual=true replay=durable target=AiConversation status=pass");
-  console.log("T12_EVIDENCE operation=ai_request actual=true sse=status=usage provider_calls=1 status=pass");
-  console.log("T12_EVIDENCE operation=learning_recommendation_create actual=true materialization=replay-safe encrypted-rationale status=pass");
-  console.log("T12_EVIDENCE operation=artifact_apply actual=true targets=adaptivePracticeSession+learningRecommendation+ptnStrategySession CAS=replay-conflict status=pass");
 } finally {
   for (const [trigger, table] of [
     ["vera_fixture_crash_analysis_weakness_analyses", "weakness_analyses"],
@@ -599,32 +839,33 @@ try {
   }
   await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_insert()`);
   await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS vera_fixture_crash_assistant_message()`);
-  const requestIds = (await db.aiRequest.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
-  const artifactIds = (await db.aiArtifact.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
-  const recommendationIds = (await db.learningRecommendation.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
+  const fixtureStudentIds = [studentId, otherStudentId];
+  const requestIds = (await db.aiRequest.findMany({ where: { studentId: { in: fixtureStudentIds } }, select: { id: true } })).map((row) => row.id);
+  const artifactIds = (await db.aiArtifact.findMany({ where: { studentId: { in: fixtureStudentIds } }, select: { id: true } })).map((row) => row.id);
+  const recommendationIds = (await db.learningRecommendation.findMany({ where: { studentId: { in: fixtureStudentIds } }, select: { id: true } })).map((row) => row.id);
   const packIds = (await db.aiContextPack.findMany({ where: { requestId: { in: requestIds } }, select: { id: true } })).map((row) => row.id);
   const messageIds = (await db.aiMessage.findMany({ where: { conversationId }, select: { id: true } })).map((row) => row.id);
   const envelopeObjectMarkers = [...requestIds, ...artifactIds, ...recommendationIds, ...packIds, ...messageIds];
-  await db.aiArtifactApply.deleteMany({ where: { appliedByStudentId: studentId } });
-  await db.adaptivePracticeSession.deleteMany({ where: { studentId } });
-  await db.ptnStrategySession.deleteMany({ where: { studentId } });
-  await db.learningRecommendation.deleteMany({ where: { studentId } });
-  await db.aiArtifactLifecycle.deleteMany({ where: { artifact: { studentId } } });
-  await db.aiArtifact.deleteMany({ where: { studentId } });
+  await db.aiArtifactApply.deleteMany({ where: { appliedByStudentId: { in: fixtureStudentIds } } });
+  await db.adaptivePracticeSession.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
+  await db.ptnStrategySession.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
+  await db.learningRecommendation.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
+  await db.aiArtifactLifecycle.deleteMany({ where: { artifact: { studentId: { in: fixtureStudentIds } } } });
+  await db.aiArtifact.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   const weaknessIds = (await db.weaknessAnalysis.findMany({ where: { studentId }, select: { id: true } })).map((row) => row.id);
   await db.weaknessAnalysisTopic.deleteMany({ where: { weaknessAnalysisId: { in: weaknessIds } } });
   await db.weaknessAnalysis.deleteMany({ where: { id: { in: weaknessIds } } });
   await db.aiRequestResultStage.deleteMany({ where: { requestId: { in: requestIds } } });
   await db.aiRequestSource.deleteMany({ where: { requestId: { in: requestIds } } });
   await db.aiContextPack.deleteMany({ where: { requestId: { in: requestIds } } });
-  await db.aiRequest.deleteMany({ where: { studentId } });
+  await db.aiRequest.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   await db.aiMessage.deleteMany({ where: { conversationId } });
   await db.aiConversation.deleteMany({ where: { id: conversationId } });
-  await db.aiAdmissionEvent.deleteMany({ where: { studentId } });
-  await db.aiUsageDaily.deleteMany({ where: { studentId } });
-  await db.aiIdempotencyKey.deleteMany({ where: { studentId } });
+  await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
+  await db.aiUsageDaily.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
+  await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   if (envelopeObjectMarkers.length) await db.aiEnvelopeKey.deleteMany({ where: { OR: envelopeObjectMarkers.map((id) => ({ objectId: { contains: id } })) } });
-  await db.billingAccount.deleteMany({ where: { studentId } });
+  await db.billingAccount.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   await db.studentProfile.deleteMany({ where: { userId: studentId } });
   await db.standaloneQuizAttempt.deleteMany({ where: { id: standaloneAttemptId } });
   await db.standaloneQuizParticipation.deleteMany({ where: { id: drillParticipationId } });

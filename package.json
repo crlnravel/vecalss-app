@@ -71,6 +71,7 @@
     "test:vera-admin-usage-schema": "tsx scripts/test-vera-admin-usage-schema.ts",
     "test:vera-sprint5-t11": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-sprint5-t11.ts",
     "test:vera-prisma-sprint5-t11": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-prisma-sprint5-t11.ts",
+    "test:vera-learner-authority": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-learner-authority.ts",
     "test:vera-foundation": "pnpm test:vera-schema-preflight && pnpm test:vera-encryption-context && pnpm test:vera-idempotency-conversation && pnpm test:vera-provider",
     "test:admin-student-preview-quiz": "tsx scripts/test-admin-student-preview-quiz.ts",
     "test:admin-student-preview-tryout": "tsx scripts/test-admin-student-preview-tryout.ts",

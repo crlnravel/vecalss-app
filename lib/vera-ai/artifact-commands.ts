@@ -41,6 +41,20 @@ export class VeraArtifactCommandError extends Error {
   }
 }
 
+function assertArtifactClientRequestId(value: string): void {
+  // Artifact materialization/Apply share the same bounded idempotency
+  // contract as the learner and lifecycle commands.  Validate before the
+  // fingerprint/transaction so malformed keys cannot create a durable row or
+  // enter a competing operation namespace.
+  if (value.length === 0 || value.length > 120 || /[\u0000-\u001f\u007f]/u.test(value)) {
+    throw new VeraArtifactCommandError("invalid_request", 400);
+  }
+}
+
+function isUniqueConstraintError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
 type BegunKey = {
   id: string;
   version: number;
@@ -118,7 +132,7 @@ export class VeraArtifactCommandService {
     }
   }
 
-  async apply(input: {
+  private async applyOnce(input: {
     studentId: string;
     artifactRevisionId: string;
     clientRequestId: string;
@@ -126,6 +140,7 @@ export class VeraArtifactCommandService {
     targetId: string;
     expectedTargetRevision: number;
   }) {
+    assertArtifactClientRequestId(input.clientRequestId);
     const fingerprint = this.fingerprint({ operation: "artifact_apply", ...input });
     return this.db.$transaction(async (tx) => {
       const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
@@ -182,6 +197,56 @@ export class VeraArtifactCommandService {
     });
   }
 
+  private async replayApplyAfterUnique(input: {
+    studentId: string;
+    artifactRevisionId: string;
+    clientRequestId: string;
+    registryKey: VeraApplyRegistryKey;
+    targetId: string;
+    expectedTargetRevision: number;
+  }) {
+    const fingerprint = this.fingerprint({ operation: "artifact_apply", ...input });
+    return this.db.$transaction(async (tx) => {
+      const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+      const now = nowRows[0]?.now ?? new Date();
+      const existing = await tx.aiIdempotencyKey.findUnique({
+        where: { studentId_operation_clientRequestId: { studentId: input.studentId, operation: AiIdempotencyOperation.artifact_apply, clientRequestId: input.clientRequestId } },
+      });
+      if (!existing) throw new VeraArtifactCommandError("request_pending", 409);
+      await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${existing.id}::uuid FOR UPDATE`;
+      const locked = await tx.aiIdempotencyKey.findUnique({ where: { id: existing.id } });
+      if (!locked || locked.expiresAt <= now || locked.state === AiIdempotencyState.expired) throw new VeraArtifactCommandError("idempotency_key_expired", 409);
+      if (locked.requestFingerprint !== fingerprint) throw new VeraArtifactCommandError("idempotency_conflict", 409);
+      if (locked.state === AiIdempotencyState.accepted && locked.resultId) {
+        const apply = await tx.aiArtifactApply.findFirst({ where: { id: locked.resultId, appliedByStudentId: input.studentId } });
+        if (!apply) throw new VeraArtifactCommandError("target_unavailable", 404);
+        return { result: await this.applyDto(tx, apply), replayed: true };
+      }
+      if (locked.rejectionClass === AiRejectionClass.terminal) return { error: locked.rejectionCode ?? "target_unavailable", status: 409 as const };
+      throw new VeraArtifactCommandError("request_pending", 409);
+    });
+  }
+
+  async apply(input: {
+    studentId: string;
+    artifactRevisionId: string;
+    clientRequestId: string;
+    registryKey: VeraApplyRegistryKey;
+    targetId: string;
+    expectedTargetRevision: number;
+  }) {
+    assertArtifactClientRequestId(input.clientRequestId);
+    try {
+      return await this.applyOnce(input);
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) throw error;
+      // PostgreSQL reports a concurrent upsert loser after the winner's
+      // transaction has committed. Re-read it in a fresh transaction so the
+      // loser returns the durable winner/rejection instead of a synthetic 503.
+      return this.replayApplyAfterUnique(input);
+    }
+  }
+
   private async applyDto(tx: Prisma.TransactionClient, apply: { id: string; registryKey: string; artifactRevisionId: string; applyState: AiArtifactApplyState; appliedAt: Date; targetEntityId: string; targetEntityRevision: number }) {
     let lifecycleState = "active";
     let deletionState = "active";
@@ -201,7 +266,8 @@ export class VeraArtifactCommandService {
     return { applyId: apply.id, registryKey: apply.registryKey, artifactRevisionId: apply.artifactRevisionId, applyState: apply.applyState, appliedAt: apply.appliedAt.toISOString(), target: { id: apply.targetEntityId, revision: apply.targetEntityRevision, lifecycleState, deletionState } };
   }
 
-  async materializeLearningRecommendation(input: { studentId: string; artifactRevisionId: string; clientRequestId: string; expectedArtifactRevision: number; materializationSchemaVersion: "1" }) {
+  private async materializeLearningRecommendationOnce(input: { studentId: string; artifactRevisionId: string; clientRequestId: string; expectedArtifactRevision: number; materializationSchemaVersion: "1" }) {
+    assertArtifactClientRequestId(input.clientRequestId);
     const fingerprint = this.fingerprint({ operation: "learning_recommendation_create", ...input });
     return this.db.$transaction(async (tx) => {
       const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
@@ -214,7 +280,8 @@ export class VeraArtifactCommandService {
         return { result: { id: target.id, revision: target.revision, lifecycleState: target.lifecycleState, deletionState: target.deletionState, sourceArtifactRevisionId: target.sourceArtifactRevisionId }, replayed: true };
       }
       const locked = await this.readLockedArtifact(tx, input.studentId, input.artifactRevisionId);
-      if (!locked || locked.artifact.revision !== input.expectedArtifactRevision || locked.payload.toolId !== "route" || !locked.payload.saveProjection) return this.rejectTerminal(tx, begun.key, "unsupported_target", now);
+      if (!locked) return this.rejectTerminal(tx, begun.key, "target_unavailable", now);
+      if (locked.artifact.revision !== input.expectedArtifactRevision || locked.payload.toolId !== "route" || !locked.payload.saveProjection) return this.rejectTerminal(tx, begun.key, "unsupported_target", now);
       const existingMaterialization = await tx.learningRecommendation.findUnique({ where: { sourceArtifactRevisionId: locked.artifact.id }, select: { id: true } });
       if (existingMaterialization) return this.rejectTerminal(tx, begun.key, "already_materialized", now);
       const projection = locked.payload.saveProjection;
@@ -228,5 +295,40 @@ export class VeraArtifactCommandService {
       await tx.aiIdempotencyKey.update({ where: { id: begun.key.id }, data: { state: AiIdempotencyState.accepted, resultKind: AiIdempotencyResultKind.learning_recommendation, resultId: recommendation.id, acceptedAt: now, terminalAt: now, lastSeenAt: now, version: { increment: 1 } } });
       return { result: { id: recommendation.id, revision: recommendation.revision, lifecycleState: recommendation.lifecycleState, deletionState: recommendation.deletionState, sourceArtifactRevisionId: recommendation.sourceArtifactRevisionId }, replayed: false };
     });
+  }
+
+  private async replayRecommendationAfterUnique(input: { studentId: string; artifactRevisionId: string; clientRequestId: string; expectedArtifactRevision: number; materializationSchemaVersion: "1" }) {
+    const fingerprint = this.fingerprint({ operation: "learning_recommendation_create", ...input });
+    return this.db.$transaction(async (tx) => {
+      const nowRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
+      const now = nowRows[0]?.now ?? new Date();
+      const existing = await tx.aiIdempotencyKey.findUnique({
+        where: { studentId_operation_clientRequestId: { studentId: input.studentId, operation: AiIdempotencyOperation.learning_recommendation_create, clientRequestId: input.clientRequestId } },
+      });
+      if (!existing) throw new VeraArtifactCommandError("request_pending", 409);
+      await tx.$queryRaw`SELECT id FROM ai_idempotency_keys WHERE id = ${existing.id}::uuid FOR UPDATE`;
+      const locked = await tx.aiIdempotencyKey.findUnique({ where: { id: existing.id } });
+      if (!locked || locked.expiresAt <= now || locked.state === AiIdempotencyState.expired) throw new VeraArtifactCommandError("idempotency_key_expired", 409);
+      if (locked.requestFingerprint !== fingerprint) throw new VeraArtifactCommandError("idempotency_conflict", 409);
+      if (locked.state === AiIdempotencyState.accepted && locked.resultId) {
+        const target = await tx.learningRecommendation.findFirst({ where: { id: locked.resultId, studentId: input.studentId } });
+        if (!target) throw new VeraArtifactCommandError("target_unavailable", 404);
+        return { result: { id: target.id, revision: target.revision, lifecycleState: target.lifecycleState, deletionState: target.deletionState, sourceArtifactRevisionId: target.sourceArtifactRevisionId }, replayed: true };
+      }
+      if (locked.rejectionClass === AiRejectionClass.terminal) return { error: locked.rejectionCode ?? "target_unavailable", status: 409 as const };
+      throw new VeraArtifactCommandError("request_pending", 409);
+    });
+  }
+
+  async materializeLearningRecommendation(input: { studentId: string; artifactRevisionId: string; clientRequestId: string; expectedArtifactRevision: number; materializationSchemaVersion: "1" }) {
+    assertArtifactClientRequestId(input.clientRequestId);
+    try {
+      return await this.materializeLearningRecommendationOnce(input);
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) throw error;
+      // A same-key materialization loser must replay the committed target in
+      // a fresh transaction after the aborted upsert transaction is gone.
+      return this.replayRecommendationAfterUnique(input);
+    }
   }
 }

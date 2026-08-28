@@ -324,6 +324,21 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     assert.equal(expiredDownloadResponse.status, 410, "expired export download must return a typed terminal response");
     assert.equal((await jsonBody<{ error?: string }>(expiredDownloadResponse)).error, "export_expired");
 
+    // Use an owned export that has crossed the account-detachment/purge
+    // boundary for the learner stale-CAS branch.  This is a real persisted
+    // target created by the authenticated route, then transitioned to the
+    // content-free post-purge owner state; the browser must receive the same
+    // privacy-safe target_unavailable response as it would after a worker
+    // completed account cleanup, never a random UUID that proves nothing.
+    const staleTarget = await createHttpExport(`vera-s5-http-stale-owned-${randomUUID()}`);
+    await lifecycle.materializeExport({ exportId: staleTarget.exportId, ownerId: "vera-s5-http-stale-worker" });
+    lifecycleFixture.exportIds.push(staleTarget.exportId);
+    const staleAt = new Date();
+    await db.aiExportJob.update({ where: { id: staleTarget.exportId }, data: { state: "expired", ownerState: "account_deleted", ownerReferenceDigest: hashToken(`vera-s5-stale-owner:${staleTarget.exportId}`), studentId: null, accountDeletedAt: staleAt, expiredAt: staleAt, terminalAt: staleAt, terminalRetentionExpiresAt: new Date(staleAt.getTime() + 90 * 24 * 60 * 60 * 1000), snapshotDigest: null, packageBytes: null, downloadReadyAt: null, downloadExpiresAt: null, exportAccessGrantState: "expired" } });
+    const staleStatusResponse = await fetch(`${base}/api/vera-ai/exports/${staleTarget.exportId}`, { headers: { cookie: studentCookie } });
+    assert.equal(staleStatusResponse.status, 404, "an owned post-purge export must not leak its detached lifecycle state to the learner");
+    assert.equal((await jsonBody<{ error?: string }>(staleStatusResponse)).error, "target_unavailable");
+
     const deleteConversationId = randomUUID();
     lifecycleFixture.conversationIds.push(deleteConversationId);
     await db.aiConversation.create({ data: { id: deleteConversationId, studentId: fixture.studentId, conversationType: "vera_chat", title: "HTTP lifecycle delete fixture" } });
@@ -420,9 +435,9 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
       artifactDeleteOperation: artifactDelete.operationId,
     }));
     console.log(`T12_EVIDENCE learner_page actual=true http=GET authenticated=student digest=${httpEvidenceDigest} status=pass`);
-    console.log(`T12_EVIDENCE operation=export_create actual=true http=POST+status+download+grant evidenceDigest=${httpEvidenceDigest} status=pass`);
-    console.log(`T12_EVIDENCE operation=conversation_delete actual=true http=DELETE+status-reconnect worker=state-first evidenceDigest=${httpEvidenceDigest} status=pass`);
-    console.log(`T12_EVIDENCE operation=artifact_delete actual=true http=DELETE+status-reconnect worker=state-first evidenceDigest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE http_export_lifecycle=POST+status+download+grant evidenceDigest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE http_conversation_delete=DELETE+status-reconnect worker=state-first evidenceDigest=${httpEvidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE http_artifact_delete=DELETE+status-reconnect worker=state-first evidenceDigest=${httpEvidenceDigest} status=pass`);
     console.log(`T12_EVIDENCE actual_http=t9-report+t10-metadata+draft+replay lifecycle=export-create+status+download+grant+expiry+conversation-delete+artifact-delete+reconnect evidenceDigest=${httpEvidenceDigest} status=pass port=${port}`);
 
     const browserTaskName = `vera sprint5 isolated browser evidence ${randomUUID()}`;
@@ -433,6 +448,7 @@ const adminToken = ${JSON.stringify(fixture.adminToken)}
 const studentToken = ${JSON.stringify(fixture.studentToken)}
 const readyExportId = ${JSON.stringify(exportTarget.exportId)}
 const expiredExportId = ${JSON.stringify(expiredTarget.exportId)}
+const staleExportId = ${JSON.stringify(staleTarget.exportId)}
 const grantExportId = ${JSON.stringify(browserGrantTarget.exportId)}
 const grantToken = ${JSON.stringify(browserGrantToken)}
 const conversationOperationId = ${JSON.stringify(conversationDelete.operationId)}
@@ -621,7 +637,7 @@ await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimp
 await new Promise((resolve) => setTimeout(resolve, 800))
 const expiredUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
 if (!expiredUiState.includes('Ekspor: expired')) throw new Error('learner page did not surface expired export state: ' + expiredUiState)
-await fillInput('input[aria-label="ID ekspor"]', crypto.randomUUID())
+await fillInput('input[aria-label="ID ekspor"]', staleExportId)
 await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'show stale learner export target' })
 await new Promise((resolve) => setTimeout(resolve, 800))
 const staleUiState = await js('(() => ({ status: (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim(), alerts: [...document.querySelectorAll("[role=alert]")].map((node) => (node.textContent || "").trim()).filter(Boolean) }))()')
@@ -995,8 +1011,9 @@ async function main(): Promise<void> {
   await setupDb.$disconnect();
 
   const evidence: Array<[string, readonly string[]]> = [
-    ["test:vera-prisma-sprint5-t11", ["T11_EVIDENCE callback_namespace=chat", "T11_EVIDENCE callback_namespace=drill", "T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger", "T11_EVIDENCE hold_worker=conversation+artifact", "daily_validation_checks=30", "T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=restarted-kms actual=true", "T11_EVIDENCE reaper=failed_terminal"]],
-    ["test:vera-prisma-sprint3", ["PASS vera-prisma-sprint3", "T12_EVIDENCE operation=conversation_create actual=true"]],
+    ["test:vera-prisma-sprint5-t11", ["T11_EXECUTABLE_LIFECYCLE_OPERATION_EDGE_MATRIX=", "T11_EVIDENCE operation_edge=export_create actual=true", "T11_EVIDENCE operation_edge=conversation_delete actual=true", "T11_EVIDENCE operation_edge=artifact_delete actual=true", "T11_EVIDENCE account_settlement=preserved-stage+context-pack+daily-ledger", "T11_EVIDENCE hold_worker=conversation+artifact", "daily_validation_checks=30", "T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=restarted-kms actual=true", "T11_EVIDENCE reaper=failed_terminal"]],
+    ["test:vera-prisma-sprint3", ["PASS vera-prisma-sprint3", "T12_EXECUTABLE_OPERATION_EDGE_MATRIX="]],
+    ["test:vera-learner-authority", ["PASS vera-learner-authority", "learner_authority=prisma-context-resolver", "kuis=", "tryout=", "released=true"]],
     ["test:vera-prisma-sprint2", ["actual HTTP route auth/body/privacy/replay/expired DTO assertions", "one provider"]],
     ["test:vera-prisma-sprint4-runtime", ["optional include/read gating", "partition faults return privacy-safe"]],
   ];
@@ -1007,6 +1024,7 @@ async function main(): Promise<void> {
   const outputs = evidence.map(([script, markers]) => [script, runEvidenceScript(script, markers)] as const);
   const callbackOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint5-t11")?.[1] ?? "";
   const sprint3Output = outputs.find(([script]) => script === "test:vera-prisma-sprint3")?.[1] ?? "";
+  const learnerAuthorityOutput = outputs.find(([script]) => script === "test:vera-learner-authority")?.[1] ?? "";
   const learnerOutput = outputs.find(([script]) => script === "test:vera-prisma-sprint2")?.[1] ?? "";
   const t9t10Output = outputs.find(([script]) => script === "test:vera-prisma-sprint4-runtime")?.[1] ?? "";
   assert.match(callbackOutput, /all-seven=true/u);
@@ -1026,12 +1044,14 @@ async function main(): Promise<void> {
     || candidate.includes("daily_validation_checks=30")
   ))) console.log(line);
   assert.match(learnerOutput, /PASS vera-prisma-sprint2/u, "Sprint 2 learner flow did not report an executable pass");
+  assert.match(learnerAuthorityOutput, /PASS vera-learner-authority/u, "learner authority fixture did not report an executable pass");
+  assert.match(learnerAuthorityOutput, /learner_authority=prisma-context-resolver.*kuis=.*tryout=.*released=true/u, "learner authority fixture did not exercise both released Kuis and Tryout sources");
   assert.match(sprint3Output, /PASS vera-prisma-sprint3/u, "Sprint 3 callback/read evidence did not report an executable pass");
   const operationEvidenceLines = callbackOutput.split("\n")
     .map((line) => line.trim())
-    .filter((line) => line.startsWith("T11_EVIDENCE operation=") && line.includes(" actual=true") && line.includes(" status=pass") && line.includes(" evidenceDigest="));
+    .filter((line) => line.startsWith("T11_EVIDENCE operation_edge=") && line.includes(" actual=true") && line.includes(" status=pass") && line.includes(" evidenceDigest="));
   const operationNamespaces = operationEvidenceLines
-    .map((line) => line.match(/^T11_EVIDENCE operation=([^ ]+)/u)?.[1])
+    .map((line) => line.match(/^T11_EVIDENCE operation_edge=([^ ]+)/u)?.[1])
     .filter((value): value is string => Boolean(value));
   assert.deepEqual([...new Set(operationNamespaces)].sort(), ["ai_request", "artifact_apply", "artifact_delete", "conversation_create", "conversation_delete", "export_create", "learning_recommendation_create"], "T11/T12 operation evidence must cover exactly the seven persisted operation namespaces");
   assert.equal(new Set(operationNamespaces).size, 7, "T11/T12 operation evidence contained a duplicate or unknown namespace");
@@ -1044,10 +1064,13 @@ async function main(): Promise<void> {
   assert(callbackSummary, "T11 callback summary was not produced by the executable matrix");
   const learnerPass = learnerOutput.split("\n").map((line) => line.trim()).find((line) => line.startsWith("PASS vera-prisma-sprint2:"));
   assert(learnerPass, "learner flow did not emit an executable PASS line");
+  const learnerAuthorityPass = learnerAuthorityOutput.split("\n").map((line) => line.trim()).find((line) => line.startsWith("PASS vera-learner-authority:"));
+  assert(learnerAuthorityPass, "learner authority fixture did not emit an executable PASS line");
   const t9t10Pass = t9t10Output.split("\n").map((line) => line.trim()).find((line) => line.startsWith("PASS vera-prisma-sprint4-runtime:"));
   assert(t9t10Pass, "T9/T10 runtime did not emit an executable PASS line");
   console.log(`T12_EVIDENCE callbacks=chat+analysis+route+review+summary+ptn+drill source=test:vera-prisma-sprint5-t11 actual=true evidenceDigest=${hashToken(callbackSummary)} status=pass`);
   console.log(`T12_EVIDENCE learner_flow=authenticated-http-post-status-usage-replay-cross-student source=test:vera-prisma-sprint2 actual=true evidenceDigest=${hashToken(learnerPass)} status=pass`);
+  console.log(`T12_EVIDENCE learner_authority=prisma-context-resolver kuis+tryout=owner-scoped-released source=test:vera-learner-authority actual=true evidenceDigest=${hashToken(learnerAuthorityPass)} status=pass`);
   console.log(`T12_EVIDENCE t9_t10_runtime=populated-report-policy-preview source=test:vera-prisma-sprint4-runtime actual=true evidenceDigest=${hashToken(t9t10Pass)} status=pass`);
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
