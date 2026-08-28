@@ -450,7 +450,7 @@ function KaptenQuizEditorPageModule({
         formBehavior: form.formBehavior,
         id: savedQuiz?.id ?? quizId,
         opensAt: form.opensAt,
-        questions: cloneForSave(form.questions),
+        questions: mode === "create" ? [] : cloneForSave(form.questions),
         retryDelaySeconds: form.retryDelaySeconds,
         reviewTiming: form.reviewTiming,
         scorePolicy: form.scorePolicy,
@@ -533,7 +533,7 @@ function KaptenQuizEditorPageModule({
             <h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.03em] text-secondary-900 sm:text-3xl">{form.title || "Kuis tanpa judul"}</h1>
             {hasUnsavedChanges ? <ReferenceStatusBadge label="Belum disimpan" size="xs" status="need_help" /> : null}
           </div>
-          <p className="mt-2 text-sm leading-6 text-secondary-500">Editor soal mandiri · {form.questions.length} soal</p>
+          <p className="mt-2 text-sm leading-6 text-secondary-500">Atur informasi dasar Kuis sebelum menambahkan soal.</p>
         </div>
         <Button aria-busy={isSaving} disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save /> {isSaving ? "Menyimpan…" : "Simpan"}</Button>
       </header>
@@ -547,32 +547,6 @@ function KaptenQuizEditorPageModule({
         <Field className="md:col-span-2"><FieldLabel htmlFor="quiz-editor-description">Deskripsi <span className="font-normal text-secondary-400">(opsional)</span></FieldLabel><FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[96px]`} disabled={editorDisabled} id="quiz-editor-description" onChange={(event) => patchForm({ description: event.target.value })} value={form.description} /></Field>
       </ReferenceSurface>
 
-      <div className="xl:hidden"><QuestionInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onDelete={setPendingDeleteId} onMove={moveQuestion} onSelect={(id) => { setActiveQuestionId(id); setQuestionEditorTab("edit"); }} questions={form.questions} /></div>
-      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(250px,0.3fr)_minmax(0,0.7fr)]">
-        <aside className="hidden min-w-0 xl:block"><div className="sticky top-6"><QuestionInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onDelete={setPendingDeleteId} onMove={moveQuestion} onSelect={(id) => { setActiveQuestionId(id); setQuestionEditorTab("edit"); }} questions={form.questions} /></div></aside>
-        <section className="min-w-0" ref={(node) => { if (node && activeQuestionId) node.dataset.activeQuestionId = activeQuestionId; }}>
-          {activeQuestion ? (
-            <Tabs className="min-w-0 gap-4" onValueChange={setQuestionEditorTab} value={questionEditorTab}>
-              <TabsList aria-label="Mode soal" className="w-fit max-w-full overflow-x-auto">
-                <TabsTrigger className="min-h-11" value="edit"><Save /> Edit soal</TabsTrigger>
-                <TabsTrigger className="min-h-11" value="preview"><Eye /> Preview</TabsTrigger>
-              </TabsList>
-              <TabsContent className="m-0 min-w-0" value="edit"><QuestionForm disabled={editorDisabled} onAddChoice={addChoice} onChange={updateActiveQuestion} onOpenMedia={setMediaPickerTarget} onRemoveChoice={removeChoice} onRemoveMedia={removeMedia} question={activeQuestion} /></TabsContent>
-              <TabsContent className="m-0 min-w-0" value="preview"><QuestionPreview question={activeQuestion} /></TabsContent>
-            </Tabs>
-          ) : (
-            <ReferenceSurface className="grid min-h-72 place-items-center p-8 text-center" variant="inset"><ReferenceEmptyState action={<Button disabled={editorDisabled} onClick={addQuestion} size="sm" type="button" variant="brand"><Plus />Tambah soal</Button>} description="Daftar soalmu masih kosong. Tambahkan soal pertama dari panel di sebelah kiri." icon={CircleHelp} title="Pilih soal untuk mulai mengedit" /></ReferenceSurface>
-          )}
-        </section>
-      </section>
-
-      <MediaPickerDialog onOpenChange={(open) => { if (!open) setMediaPickerTarget(null); }} onSelect={selectMediaAsset} open={Boolean(mediaPickerTarget)} selectedAssetId={mediaPickerTarget?.kind === "prompt" ? activeQuestion?.promptMediaAssetId : mediaPickerTarget?.kind === "explanation" ? activeQuestion?.explanationMediaAssetId : activeQuestion?.choices.find((choice) => choice.id === mediaPickerTarget?.choiceId)?.mediaAssetId} title={mediaPickerTarget?.label ?? "Pilih gambar"} />
-      <AlertDialog onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }} open={Boolean(pendingDeleteId)}>
-        <AlertDialogContent size="sm" variant="danger">
-          <AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Hapus soal ini?</AlertDialogTitle><AlertDialogDescription>Soal akan dihapus dari Kuis ini. Bank atau sumber lain tidak akan berubah.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel onClick={() => setPendingDeleteId(null)}>Batal</AlertDialogCancel><AlertDialogAction onClick={() => { if (pendingDeleteId) removeQuestion(pendingDeleteId); }} variant="destructive">Hapus soal</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </MentorWorkspaceShell>
   );
 }
