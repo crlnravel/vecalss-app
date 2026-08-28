@@ -171,7 +171,7 @@ function MentorSidebar({
       </SidebarContent>
 
       {isReference ? (
-        <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:p-2">
+        <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:px-0!">
           <SidebarTrigger
             aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
             className={cn(

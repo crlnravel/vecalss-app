@@ -7,26 +7,6 @@ import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-cont
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
-import {
-  resultReleaseStateLabels,
-} from "@/lib/tryout/operations-projections";
-
-type ResultStatusTone = "attention" | "neutral" | "success";
-
-function resultReleaseLabel(state: string) {
-  return state === "hidden"
-    ? "Belum dirilis"
-    : resultReleaseStateLabels[state as keyof typeof resultReleaseStateLabels] ?? state;
-}
-
-function resultReleaseTone(state: string): ResultStatusTone {
-  return state === "released" ? "success" : "attention";
-}
-
-function ResultStatus({ label, tone = "neutral" }: { label: string; tone?: ResultStatusTone }) {
-  const dotClass = tone === "success" ? "bg-primary-700" : tone === "attention" ? "bg-voyage-warm-sun" : "bg-secondary-400";
-  return <span className="inline-flex items-center gap-2 text-sm text-secondary-700"><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${dotClass}`} />{label}</span>;
-}
 
 function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial: TryoutOperationsView; selectedSessionId?: string | null }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(selectedSessionId ?? initial.sessions[0]?.id ?? null);
@@ -56,9 +36,9 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
         <h2 className="text-xl font-semibold text-secondary-900" id="tryout-results-title">Results</h2>
       </header>
 
-      {initial.sessions.length ? <div className="grid min-w-0 w-full max-w-full grid-cols-1 gap-3 rounded-4xl border border-primary-100 bg-white px-4 py-3.5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:flex sm:items-center">
+      {initial.sessions.length ? <div className="grid min-w-0 w-full max-w-md gap-2">
         <label className="text-sm font-semibold text-secondary-900" htmlFor="results-session">Sesi yang ditampilkan</label>
-        <div className="min-w-0 w-full max-w-full sm:max-w-md sm:flex-1">
+        <div className="min-w-0 w-full max-w-full">
           <ReferenceSelect
             aria-label="Sesi yang ditampilkan"
             className="w-full"
@@ -84,7 +64,6 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                   <h3 className="text-lg font-semibold text-secondary-900" id={`results-session-${session.id}`}>{session.name}</h3>
                   <p className="mt-1 text-sm text-secondary-600">{formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB</p>
                 </div>
-                <ResultStatus label={resultReleaseLabel(session.releaseState)} tone={resultReleaseTone(session.releaseState)} />
               </div>
 
               <div className="mt-3 min-w-0 overflow-x-auto rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
