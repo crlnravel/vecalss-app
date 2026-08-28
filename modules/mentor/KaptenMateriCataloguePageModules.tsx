@@ -61,10 +61,8 @@ type MateriCatalogueQuery = {
   direction?: MateriSortDirection;
   page?: number;
   q?: string;
-  readiness?: string;
   sort?: MateriSortKey;
   status?: string;
-  video?: string;
 };
 
 function buildCreateHref(subjectSlug?: string) {
@@ -90,8 +88,6 @@ function buildMateriSubjectHref(
   const params = new URLSearchParams();
   if (query.q?.trim()) params.set("q", query.q.trim());
   if (query.status) params.set("status", query.status);
-  if (query.readiness) params.set("readiness", query.readiness);
-  if (query.video) params.set("video", query.video);
   if (query.sort) params.set("sort", query.sort);
   if (query.direction === "desc") params.set("direction", query.direction);
   if (query.page && query.page > 1) params.set("page", String(query.page));
@@ -108,10 +104,6 @@ function statusLabel(status: KaptenMateriView["status"]) {
       : status === "scheduled"
         ? "Terjadwal"
         : "Draf";
-}
-
-function readinessLabel(readiness: KaptenMateriView["readiness"]) {
-  return readiness === "ready" ? "PDF siap" : "PDF belum siap";
 }
 
 function sortLessons(
@@ -145,12 +137,10 @@ type MateriCatalogueState = {
   lessons: KaptenMateriView[];
   page: number;
   query: string;
-  readinessFilter: string;
   sort: MateriSortKey;
   sortDirection: MateriSortDirection;
   statusFilter: string;
   tableVersion: number;
-  videoFilter: string;
 };
 
 type MateriCatalogueAction =
@@ -257,22 +247,18 @@ function KaptenMateriSubjectPageModule({
   catalogue,
   initialPage = 1,
   initialQuery = "",
-  initialReadinessFilter = "",
   initialSort = "",
   initialSortDirection = "asc",
   initialStatusFilter = "",
-  initialVideoFilter = "",
   session,
   subject,
 }: {
   catalogue: KaptenMateriView[];
   initialPage?: number;
   initialQuery?: string;
-  initialReadinessFilter?: string;
   initialSort?: MateriSortKey;
   initialSortDirection?: MateriSortDirection;
   initialStatusFilter?: string;
-  initialVideoFilter?: string;
   session: SessionContext;
   subject: KaptenMateriSubjectView;
 }) {
@@ -286,23 +272,19 @@ function KaptenMateriSubjectPageModule({
       .sort((a, b) => a.position - b.position || a.code.localeCompare(b.code)),
     page: initialPage,
     query: initialQuery,
-    readinessFilter: initialReadinessFilter,
     sort: initialSort,
     sortDirection: initialSortDirection,
     statusFilter: initialStatusFilter,
     tableVersion: 0,
-    videoFilter: initialVideoFilter,
   }));
   const {
     isBulkPending,
     lessons,
     page,
     query,
-    readinessFilter,
     sort,
     sortDirection,
     statusFilter,
-    videoFilter,
   } = state;
   const returnTo = `/mentor/materi/subject/${subject.slug}`;
 
@@ -311,10 +293,8 @@ function KaptenMateriSubjectPageModule({
       direction: next.direction ?? sortDirection,
       page: next.page ?? 1,
       q: next.q ?? query,
-      readiness: next.readiness ?? readinessFilter,
       sort: next.sort ?? sort,
       status: next.status ?? statusFilter,
-      video: next.video ?? videoFilter,
     }));
   }
 
@@ -330,10 +310,8 @@ function KaptenMateriSubjectPageModule({
             lesson.hasOptionalVideo ? "video opsional" : "tanpa video",
             lesson.status,
             lesson.readiness === "incomplete" ? "belum siap" : "",
-          ].some((candidate) => candidate.toLocaleLowerCase().includes(normalizedValue))) &&
-        (!statusFilter || lesson.status === statusFilter) &&
-        (!readinessFilter || lesson.readiness === readinessFilter) &&
-        (!videoFilter || (videoFilter === "with-video" ? lesson.hasOptionalVideo : !lesson.hasOptionalVideo)),
+        ].some((candidate) => candidate.toLocaleLowerCase().includes(normalizedValue))) &&
+        (!statusFilter || lesson.status === statusFilter),
     );
   }
 
@@ -523,12 +501,10 @@ function MateriSubjectCatalogueScreen({
     bulkError,
     bulkNotice,
     query,
-    readinessFilter,
     sort,
     sortDirection,
     statusFilter,
     tableVersion,
-    videoFilter,
   } = state;
   const {
     pageCount,
@@ -541,17 +517,13 @@ function MateriSubjectCatalogueScreen({
     direction: next.direction ?? sortDirection,
     page: next.page ?? 1,
     q: next.q ?? query,
-    readiness: next.readiness ?? readinessFilter,
     sort: next.sort ?? sort,
     status: next.status ?? statusFilter,
-    video: next.video ?? videoFilter,
   });
   const clearFiltersHref = buildMateriSubjectHref(subject.slug, { sort, direction: sortDirection });
-  const hasActiveFilters = Boolean(query || readinessFilter || statusFilter || videoFilter);
+  const hasActiveFilters = Boolean(query || statusFilter);
   const activeFilters: DataTableFilter[] = [
     ...(statusFilter ? [{ id: "status", label: "Status", value: statusLabel(statusFilter as KaptenMateriView["status"]), href: buildHref({ status: "" }) }] : []),
-    ...(readinessFilter ? [{ id: "readiness", label: "Kesiapan", value: readinessLabel(readinessFilter as KaptenMateriView["readiness"]), href: buildHref({ readiness: "" }) }] : []),
-    ...(videoFilter ? [{ id: "video", label: "Video", value: videoFilter === "with-video" ? "Dengan video opsional" : "Tanpa video", href: buildHref({ video: "" }) }] : []),
   ];
 
   const columns: DataTableColumn<KaptenMateriView>[] = [
@@ -711,8 +683,6 @@ function MateriSubjectCatalogueScreen({
               clearHref: buildHref({ q: "" }),
               hiddenFields: {
                 ...(statusFilter ? { status: statusFilter } : {}),
-                ...(readinessFilter ? { readiness: readinessFilter } : {}),
-                ...(videoFilter ? { video: videoFilter } : {}),
                 ...(sort ? { sort } : {}),
                 ...(sort && sortDirection === "desc" ? { direction: sortDirection } : {}),
               },
