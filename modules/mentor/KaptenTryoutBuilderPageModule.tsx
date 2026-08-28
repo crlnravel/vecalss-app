@@ -339,12 +339,14 @@ function directQuestionsReady(questions: DirectQuestionDraft[]) {
 function SourceBankList({
   activeSectionSubtest,
   browseBankId,
+  disabled,
   guardExternalNavigation,
   onSelectBank,
   sourceBanks,
 }: {
   activeSectionSubtest: SubjectCode;
   browseBankId: string;
+  disabled: boolean;
   guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
   onSelectBank: (bankId: string) => void;
   sourceBanks: SourceBank[];
@@ -353,7 +355,7 @@ function SourceBankList({
     return (
       <div className="grid gap-3 px-3 py-5">
         <p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSectionSubtest}.</p>
-        <Button className="w-fit" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="reference">Buka Bank Soal</Button>
+        <Button className="w-fit" disabled={disabled} nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="reference">Buka Bank Soal</Button>
       </div>
     );
   }
@@ -361,6 +363,7 @@ function SourceBankList({
     <Button
       aria-selected={browseBankId === bank.id}
       className="h-auto justify-start rounded-xl px-3 py-2.5 text-left"
+      disabled={disabled}
       key={bank.id}
       onClick={() => onSelectBank(bank.id)}
       role="option"
@@ -377,11 +380,13 @@ function SourceBankList({
 
 function SectionRail({
   activeCode,
+  disabled,
   onSelect,
   readiness,
   sections,
 }: {
   activeCode: SubjectCode;
+  disabled: boolean;
   onSelect: (subtest: SubjectCode) => void;
   readiness: Record<SubjectCode, SectionReadiness>;
   sections: TestDraft[];
@@ -401,6 +406,7 @@ function SectionRail({
                 aria-current={active ? "page" : undefined}
                 aria-label={`${section.subtest}${incomplete ? " (belum lengkap)" : ""}`}
                 className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
+                disabled={disabled}
                 onClick={() => onSelect(section.subtest)}
                 variant="ghost"
               >
@@ -595,7 +601,7 @@ function TryoutBannerField({
         allowedMimeTypes={imageMediaMimeTypes}
         onOpenChange={setPickerOpen}
         onSelect={(asset: MediaAssetDto) => onChange(asset.id)}
-        open={pickerOpen}
+        open={pickerOpen && !disabled}
         selectedAssetId={bannerMediaId ?? null}
         title="Pilih banner Tryout"
       />
@@ -611,6 +617,7 @@ function TryoutBasicsTab({
   onDescriptionChange,
   onSaveMetadata,
   onTitleChange,
+  saving,
 }: {
   draft: TryoutDraft;
   metadataSaving: boolean;
@@ -619,8 +626,9 @@ function TryoutBasicsTab({
   onDescriptionChange: (description: string) => void;
   onSaveMetadata: () => void;
   onTitleChange: (title: string) => void;
+  saving: boolean;
 }) {
-  const identityDisabled = mode === "draft" && draft.locked;
+  const identityDisabled = saving || (mode === "draft" && draft.locked);
   return (
     <TabsContent className="mt-0 w-full" value="basics">
       <ReferenceSurface as="section" className="grid w-full gap-6 p-5 sm:p-7">
@@ -672,6 +680,7 @@ function TryoutSectionsTab({
   sourceQuestionSearch,
   sourceQuestionTotal,
   sourceQuestions,
+  saving,
 }: {
   activeBrowseBank?: SourceBank;
   activeDirectQuestions: DirectQuestionDraft[];
@@ -696,6 +705,7 @@ function TryoutSectionsTab({
   sourceQuestionSearch: string;
   sourceQuestionTotal: number;
   sourceQuestions: SourceQuestion[];
+  saving: boolean;
 }) {
   return (
     <>
@@ -707,13 +717,13 @@ function TryoutSectionsTab({
               <Field>
                 <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`duration-${activeSection.subtest}`}>Durasi <RequiredMark /></FieldLabel>
                 <div className="relative">
-                  <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`} disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => onUpdateSection({ durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
+                  <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`} disabled={saving || draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => onUpdateSection({ durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
                   <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
                 </div>
               </Field>
               <Field>
                 <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
-                <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32`} disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
+                <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32`} disabled={saving || draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
               </Field>
             </div>
           </ReferenceSurface>
@@ -732,40 +742,41 @@ function TryoutSectionsTab({
                 <Field>
                   <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
                   <Popover>
-                    <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`} variant="reference" />}>
+                    <PopoverTrigger disabled={saving || draft.locked} render={<Button aria-haspopup="listbox" className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`} variant="reference" />}>
                       <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
                       <ChevronDown />
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
                       <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                        <FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl py-2 pl-9 pr-3 text-sm`} onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
+                        <FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving} onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
                       </div>
                       {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
                       <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
                         <SourceBankList
                           activeSectionSubtest={activeSection.subtest}
                           browseBankId={browseBankId}
+                          disabled={saving}
                           guardExternalNavigation={guardExternalNavigation}
                           onSelectBank={onSelectBank}
                           sourceBanks={sourceBanks}
                         />
                       </div>
-                      {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={onBankPageNext} size="sm" variant="reference">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
+                      {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={saving || sourceBankLoading} onClick={onBankPageNext} size="sm" variant="reference">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
                     </PopoverContent>
                   </Popover>
                 </Field>
               </ReferenceSurface>
               <ReferenceSurface className="min-w-0 p-5">
-                <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={!browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
+                <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={saving || !browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
                 {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
                 {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
                   const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
                   const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
                   const checkboxId = `source-question-${question.id}`;
-                  return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
+                  return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
                 })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
-                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="reference"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
+                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={saving || sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="reference"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
               </ReferenceSurface>
             </div>
           </div>
@@ -884,7 +895,7 @@ function TryoutLifecycleModals({
 
       <AlertDialog onOpenChange={onOpenChangeDirtyNavigation} open={dirtyNavigationOpen}>
         <AlertDialogContent className="!max-w-xl rounded-5xl gap-5" pending={saving} variant="warning">
-          <AlertDialogHeader><AlertDialogTitle>Perubahan belum disimpan</AlertDialogTitle><AlertDialogDescription>Simpan perubahan sebelum berpindah langkah, atau buang perubahan lokal. Jika penyimpanan gagal, Anda tetap berada di langkah ini.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Perubahan belum disimpan</AlertDialogTitle><AlertDialogDescription>Simpan perubahan sebelum meninggalkan halaman, atau buang perubahan lokal. Jika penyimpanan gagal, Anda tetap berada di sini.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter className="!justify-stretch grid w-full gap-2">
             <AlertDialogCancel className="w-full" disabled={saving} onClick={onCancelDirtyNavigation}>Tetap di sini</AlertDialogCancel>
             <Button className="w-full" disabled={saving} onClick={onConfirmDiscard} variant="brandOutline">Buang perubahan</Button>
@@ -981,8 +992,15 @@ function useTryoutBuilderState({
   } = state;
 
   const savedDraftRef = useRef<TryoutDraft>(initialFormDraft);
+  const latestDraftRef = useRef<TryoutDraft>(initialFormDraft);
+  const draftWorkspaceSaveInFlightRef = useRef(false);
+  const pendingDraftWorkspaceRef = useRef<Workspace | null>(null);
   const pendingWorkspaceRef = useRef<Workspace | null>(null);
   const pendingHrefRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    latestDraftRef.current = draft;
+  }, [draft]);
 
   const selectedSessionId = useMemo(() => {
     return initialSessionId
@@ -1104,14 +1122,15 @@ function useTryoutBuilderState({
   };
 
   const save = async (status: "draft" | "published" = "draft", redirectWorkspace: Workspace = status === "published" ? "schedule" : "basics"): Promise<boolean> => {
+    const draftToSave = latestDraftRef.current;
     dispatch({ saving: true, type: "setSaving" });
     dispatch({ error: null, type: "setError" });
     try {
       const result = await saveTryoutAction({
-        bannerMediaId: draft.bannerMediaId ?? null,
-        description: draft.description,
+        bannerMediaId: draftToSave.bannerMediaId ?? null,
+        description: draftToSave.description,
         id,
-        sections: draft.sections.map((section) => ({
+        sections: draftToSave.sections.map((section) => ({
           catItemCount: section.testType === "cat" ? section.catItemCount : undefined,
           directQuestions: section.directQuestions?.map((question) => ({ sourceContentDigest: question.sourceContentDigest ?? "", sourceQuestionId: question.sourceQuestionId, sourceQuestionRevisionId: question.sourceQuestionRevisionId ?? "" })),
           durationMinutes: section.durationMinutes,
@@ -1122,16 +1141,19 @@ function useTryoutBuilderState({
           testType: section.testType,
         })),
         status,
-        title: draft.title,
+        title: draftToSave.title,
       });
       if (!result.ok) {
         dispatch({ error: result.message, type: "setError" });
         return false;
       }
       const nextDraft = normalize(result.result);
-      dispatch({ draft: nextDraft, type: "setDraft" });
       savedDraftRef.current = nextDraft;
-      dispatch({ dirty: false, type: "setDirty" });
+      if (latestDraftRef.current === draftToSave) {
+        latestDraftRef.current = nextDraft;
+        dispatch({ draft: nextDraft, type: "setDraft" });
+        dispatch({ dirty: false, type: "setDirty" });
+      }
       if (!id) {
         const nextUrl = new URL(`/mentor/tryout/${result.result.id}`, window.location.origin);
         if (redirectWorkspace !== "basics") nextUrl.searchParams.set("workspace", redirectWorkspace);
@@ -1191,6 +1213,22 @@ function useTryoutBuilderState({
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
+  const saveBeforeDraftWorkspaceChange = (nextWorkspace: Workspace) => {
+    if (draftWorkspaceSaveInFlightRef.current) {
+      pendingDraftWorkspaceRef.current = nextWorkspace;
+      return;
+    }
+    if (saving) return;
+    pendingDraftWorkspaceRef.current = null;
+    draftWorkspaceSaveInFlightRef.current = true;
+    void save("draft", nextWorkspace).then((ok) => {
+      if (ok && id) commitWorkspaceChange(pendingDraftWorkspaceRef.current ?? nextWorkspace);
+    }).finally(() => {
+      pendingDraftWorkspaceRef.current = null;
+      draftWorkspaceSaveInFlightRef.current = false;
+    });
+  };
+
   const changeWorkspace = (value: string) => {
     const nextWorkspace = normalizeWorkspace(value);
     if (!allowedWorkspaces.includes(nextWorkspace)) {
@@ -1208,9 +1246,7 @@ function useTryoutBuilderState({
     }
     if (nextWorkspace === workspace) return;
     if (dirty && mode === "draft") {
-      pendingWorkspaceRef.current = nextWorkspace;
-      pendingHrefRef.current = null;
-      dispatch({ open: true, type: "setDirtyNavigationOpen" });
+      saveBeforeDraftWorkspaceChange(nextWorkspace);
       return;
     }
     commitWorkspaceChange(nextWorkspace);
@@ -1410,6 +1446,7 @@ function TryoutPhaseNavigation({
   goTo,
   lifecyclePhases,
   mode,
+  saving,
   visiblePhaseDefinitions,
 }: {
   activePhase: WorkspacePhase;
@@ -1418,6 +1455,7 @@ function TryoutPhaseNavigation({
   goTo: (workspace: Workspace) => void;
   lifecyclePhases: Array<{ label: string; value: WorkspacePhase }>;
   mode: WorkflowMode;
+  saving: boolean;
   visiblePhaseDefinitions: WorkspacePhaseDefinition[];
 }) {
   return (
@@ -1435,7 +1473,7 @@ function TryoutPhaseNavigation({
               const trigger = (
                 <FullWidthLineTabsTrigger
                   aria-label={available ? phase.label : `${phase.label} terkunci`}
-                  disabled={!available}
+                  disabled={!available || saving}
                   key={phase.value}
                   value={phase.value}
                 >
@@ -1463,6 +1501,7 @@ function TryoutPhaseNavigation({
             {activePhaseDefinition.items.map((item) => (
               <FullWidthLineTabsTrigger
                 className="min-w-max"
+                disabled={saving}
                 key={item.value}
                 onClick={() => changeWorkspace(item.value)}
                 value={item.value}
@@ -1723,6 +1762,7 @@ function KaptenTryoutBuilderPageModule({
         goTo={goTo}
         lifecyclePhases={lifecyclePhases}
         mode={mode}
+        saving={saving}
         visiblePhaseDefinitions={visiblePhaseDefinitions}
       />
 
@@ -1731,6 +1771,7 @@ function KaptenTryoutBuilderPageModule({
           {activePhase === "build" ? (
             <SectionRail
               activeCode={activeCode}
+              disabled={saving}
               onSelect={changeActiveCode}
               readiness={sectionReadiness}
               sections={draft.sections}
@@ -1746,6 +1787,7 @@ function KaptenTryoutBuilderPageModule({
               onDescriptionChange={(desc) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, description: desc }, type: "setDraft" }); }}
               onSaveMetadata={() => void saveMetadata()}
               onTitleChange={(title) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, title }, type: "setDraft" }); }}
+              saving={saving}
             />
 
             <TryoutSectionsTab
@@ -1772,6 +1814,7 @@ function KaptenTryoutBuilderPageModule({
               sourceQuestionSearch={sourceQuestionSearch}
               sourceQuestionTotal={sourceQuestionTotal}
               sourceQuestions={sourceQuestions}
+              saving={saving}
             />
 
             <TryoutDeliveryTab
