@@ -18,6 +18,7 @@ import { AiControlPlaneNav } from "./components/AiControlPlaneNav";
 import { AiPrivacyNotice } from "./components/AiPrivacyNotice";
 import { AiRefreshBar } from "./components/AiRefreshBar";
 import { formatAiCurrency, formatAiFeatureLabel } from "./components/AiDisplayLabels";
+import { cn } from "@/lib/utils";
 
 type MetricOption = "quota_units" | "requests" | "tokens" | "cost";
 type PeriodOption = "today" | "7days" | "30days";
@@ -116,23 +117,19 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
       audience="admin"
       description="Lihat pemakaian Vera AI dan perkiraan biayanya dalam ringkasan yang mudah dibaca."
       session={session}
-      title="Usage"
+      title="Pemakaian"
     >
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-secondary-950 sm:text-3xl">Usage</h1>
-          <p className="mt-1 max-w-2xl text-sm text-secondary-600">
-            Pantau seberapa sering Vera digunakan, kuota yang sudah terpakai, dan perkiraan pengeluaran tanpa membuka isi percakapan siswa.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <h1 className="text-2xl font-extrabold tracking-tight text-secondary-950 sm:text-3xl">Pemakaian</h1>
+          <AiRefreshBar
+            lastRefreshedAt={lastRefreshedAt}
+            isLoading={isLoading}
+            onRefresh={() => void loadUsage()}
+          />
         </div>
 
         <AiControlPlaneNav activeTab="usage" />
-
-        <AiRefreshBar
-          lastRefreshedAt={lastRefreshedAt}
-          isLoading={isLoading}
-          onRefresh={() => void loadUsage()}
-        />
 
         {error && (
           <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -141,30 +138,29 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
           </div>
         )}
 
-        <div className="flex flex-col gap-5 rounded-3xl border border-primary-100 bg-white p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-bold text-secondary-950">Angka yang ingin dilihat</p>
-            <p className="mt-1 text-xs text-secondary-500">Pilih satu ukuran utama untuk membandingkan pemakaian antar fitur.</p>
-            <div className="mt-3 flex flex-wrap gap-1 rounded-2xl border border-secondary-100 bg-secondary-50 p-1" role="group" aria-label="Ukuran penggunaan">
-              {(Object.keys(METRIC_LABELS) as MetricOption[]).map((option) => (
-                <button
-                  key={option}
-                  aria-pressed={metric === option}
-                  className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
-                    metric === option
-                      ? "border border-primary-100 bg-white text-secondary-950 shadow-xs"
-                      : "text-secondary-500 hover:text-secondary-900"
-                  }`}
-                  onClick={() => setMetric(option)}
-                  type="button"
-                >
-                  {METRIC_LABELS[option]}
-                </button>
-              ))}
-            </div>
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            aria-label="Ukuran penggunaan"
+            className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1"
+            role="group"
+          >
+            {(Object.keys(METRIC_LABELS) as MetricOption[]).map((option) => (
+              <button
+                key={option}
+                aria-pressed={metric === option}
+                className={cn(
+                  "inline-flex min-h-10 shrink-0 items-center rounded-full px-4 text-sm font-semibold text-secondary-500 transition-[background-color,color,box-shadow] duration-200 hover:text-secondary-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
+                  metric === option && "bg-white text-secondary-900 shadow-[0_12px_28px_-22px_rgba(23,107,77,0.72)]",
+                )}
+                onClick={() => setMetric(option)}
+                type="button"
+              >
+                {METRIC_LABELS[option]}
+              </button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex shrink-0 items-center gap-2 text-xs">
             <span className="font-semibold text-secondary-500">Periode</span>
             <DropdownMenu>
               <DropdownMenuTrigger

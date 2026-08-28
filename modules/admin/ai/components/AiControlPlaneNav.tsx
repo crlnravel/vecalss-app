@@ -19,7 +19,7 @@ const TABS: Array<{
   icon: typeof LayoutDashboard;
 }> = [
   { id: "overview", label: "Overview", href: "/admin/ai", icon: LayoutDashboard },
-  { id: "usage", label: "Usage", href: "/admin/ai/usage", icon: BarChart3 },
+  { id: "usage", label: "Pemakaian", href: "/admin/ai/usage", icon: BarChart3 },
 ];
 
 export function AiControlPlaneNav({ activeTab }: { activeTab?: AiControlPlaneTab }) {
