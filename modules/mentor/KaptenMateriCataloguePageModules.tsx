@@ -46,7 +46,6 @@ import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalog
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import {
   CatalogueFilter,
-  PageIntro,
   PaginationLinks,
   StatusPill,
 } from "@/modules/mentor/components/kapten-ui";
@@ -883,46 +882,63 @@ function MateriSubjectCatalogueScreen({
       breadcrumbLabel={`${subject.code} · Materi`}
       searchPlaceholder="Cari lesson..."
       session={session}
+      sidebarAppearance="reference"
     >
-      <div className="space-y-6">
-        <section className="space-y-4">
+      <div className="space-y-8">
+        <div className="flex min-w-0 items-start gap-3">
           <Button
             aria-label="Kembali ke semua materi"
+            className="mt-1 shrink-0"
+            nativeButton={false}
             render={<Link href="/mentor/materi" />}
-            size="icon-sm"
+            size="icon"
             title="Kembali ke semua materi"
             variant="ghost"
           >
-            <ChevronLeft />
+            <ChevronLeft aria-hidden="true" className="size-5" />
           </Button>
-          <PageIntro
-            action={
+          <ReferencePageHeader
+            actions={
               <Button
                 aria-label="Buat materi baru"
+                nativeButton={false}
                 render={<Link href={buildCreateHref(subject.slug)} />}
-                size="icon"
-                title="Buat materi baru"
+                size="sm"
                 variant="brand"
               >
                 <Plus />
+                Buat Materi
               </Button>
             }
+            className="min-w-0 flex-1"
+            description="Kelola bacaan dan video pendamping siswa di subject ini."
             title={subject.name}
           />
-        </section>
+        </div>
 
         {bulkNotice ? (
-          <p className="rounded-2xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-sm font-medium text-primary-900" role="status">
+          <ReferenceSurface
+            as="div"
+            className="px-4 py-3 text-sm font-medium text-primary-900"
+            role="status"
+            variant="inset"
+          >
             {bulkNotice}
-          </p>
+          </ReferenceSurface>
         ) : null}
         {bulkError && !bulkIntent ? (
-          <p aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+          <ReferenceSurface
+            aria-live="assertive"
+            as="div"
+            className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            role="alert"
+            variant="inset"
+          >
             {bulkError}
-          </p>
+          </ReferenceSurface>
         ) : null}
 
-        <section className="space-y-3">
+        <section className="min-w-0 space-y-3">
           <MentorCatalogueTable
             caption={`Daftar materi subject ${subject.name}`}
             clearFiltersHref={clearFiltersHref}
@@ -979,7 +995,7 @@ function MateriSubjectCatalogueScreen({
               key: sort || null,
             }}
             tableClassName="min-w-[760px]"
-            wrapperClassName="border border-primary-100 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]"
+            wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
           />
           <PaginationLinks
             nextHref={nextHref}
