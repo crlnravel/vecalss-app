@@ -260,7 +260,11 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
       href={`/mentor/materi/subject/${subject.slug}`}
     >
       <div className="flex items-start gap-4">
-        <MentorBadge className="text-sm font-bold" size="sm" tone="category">
+        <MentorBadge
+          className="bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] text-sm !font-normal text-[#176b4d]"
+          size="sm"
+          tone="category"
+        >
           {subjectCategory}
         </MentorBadge>
       </div>

@@ -144,7 +144,11 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
       href={`/mentor/quiz/subject/${subject.slug}`}
     >
       <div>
-        <MentorBadge size="sm" tone="category">
+        <MentorBadge
+          className="bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]"
+          size="sm"
+          tone="category"
+        >
           {subjectCategory}
         </MentorBadge>
       </div>
