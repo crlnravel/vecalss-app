@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   BarChart3,
   SlidersHorizontal,
+  Sparkles,
   Users,
 } from "@/lib/icons";
 
@@ -30,9 +31,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { BrandLockup, BrandMark } from "@/modules/home/components/home-primitives";
 
-type AdminSection = "overview" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
+type AdminSection = "overview" | "ai" | "students" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
 
 type AdminNavigationItem = {
   href: string;
@@ -43,8 +45,7 @@ type AdminNavigationItem = {
 
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
-  { href: "/admin/ai-usage", icon: BarChart3, id: "ai-usage", label: "AI usage" },
-  { href: "/admin/ai-policy", icon: SlidersHorizontal, id: "ai-policy", label: "Vera AI policy" },
+  { href: "/admin/ai", icon: Sparkles, id: "ai", label: "Vera AI" },
   { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifications" },
   { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Audit logs" },
 ];
@@ -68,7 +69,7 @@ function AdminNavigationGroup({
   label: string;
 }) {
   return (
-    <SidebarGroup className="mb-2">
+    <SidebarGroup className="mb-2 group-data-[collapsible=icon]:px-0">
       <SidebarGroupLabel className="h-auto min-h-8 px-3 py-2 text-ui-xs font-semibold tracking-[0.14em] text-secondary-500 uppercase">
         {label}
       </SidebarGroupLabel>
@@ -97,7 +98,7 @@ function AdminNavigationGroup({
                 >
                   <item.icon />
                 </span>
-                <span>{item.label}</span>
+                <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
@@ -109,7 +110,7 @@ function AdminNavigationGroup({
 
 function AdminPortalNav({
   activeSection,
-  studentPreviewEnabled = false,
+  studentPreviewEnabled = isAdminStudentPreviewEnabled(),
 }: {
   activeSection: AdminSection;
   studentPreviewEnabled?: boolean;
@@ -123,7 +124,7 @@ function AdminPortalNav({
       collapsible="icon"
       variant="floating"
     >
-      <SidebarHeader className="mb-2 gap-5 p-3">
+      <SidebarHeader className="mb-2 gap-5 p-3 group-data-[collapsible=icon]:px-0">
         <Link
           className={cn(
             "flex w-full origin-center scale-100 items-center justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
@@ -155,7 +156,7 @@ function AdminPortalNav({
         ) : null}
       </SidebarContent>
 
-      <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:px-0!">
+      <SidebarFooter className="hidden p-3 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0!">
         <SidebarTrigger
           aria-label={state === "collapsed" ? "Buka navigasi" : "Ciutkan navigasi"}
           className={cn(

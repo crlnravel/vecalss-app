@@ -3,6 +3,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { isAdminStudentPreviewEnabled } from "@/lib/config";
 import { AdminPortalNav } from "@/modules/portal/components/admin-portal-nav";
 
 function LoadingBlock({ className }: { className: string }) {
@@ -10,10 +11,12 @@ function LoadingBlock({ className }: { className: string }) {
 }
 
 function AdminLoading() {
+  const studentPreviewEnabled = isAdminStudentPreviewEnabled();
+
   return (
     <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
       <div aria-busy="true" aria-label="Loading admin dashboard" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
-        <AdminPortalNav activeSection="overview" />
+        <AdminPortalNav activeSection="overview" studentPreviewEnabled={studentPreviewEnabled} />
 
         <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
           <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:rounded-3xl lg:border">
