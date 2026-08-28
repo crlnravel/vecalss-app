@@ -1,5 +1,25 @@
 # Session Progress Log
 
+## Tryout detail divider and surface alignment (2026-08-28)
+
+- [x] Removed structural divider lines from the reference Tryout detail
+  title row, mobile reference shell header, metadata save area, question
+  pagination, and embedded attempts/results table rows; lifecycle tab
+  underlines remain as navigation state.
+- [x] Replaced remaining mint slabs/flat cards in the builder and embedded
+  delivery/live/results areas with extracted raised/inset reference surfaces:
+  white cards use soft ambient depth, supporting groups use mint inset
+  treatment, and Delivery navigation uses the quiet mint active state.
+- [x] Preserved lifecycle workflow, field interactions, save/publish behavior,
+  delivery subareas, table semantics, and existing shell infrastructure.
+- [x] Authenticated browser QA passes at 1440px and 390px for Overview,
+  Delivery/Policy, and Results; reference wrapper/header/title rows have no
+  bottom divider and no horizontal overflow.
+- [x] Focused ESLint, Impeccable layout detector, `test:tryout-authoring-workspace`,
+  `test:mentor-dashboard-ia`, and `git diff --check` pass. Repository TypeScript
+  remains blocked only by the preserved invalid `tmp/reference/res1` prototype.
+- [x] Commit: `85f969d` (`fix: align tryout detail surfaces with reference`).
+
 ## Reference workspace canvas continuity refinement (2026-08-28)
 
 - [x] Updated only the `sidebarAppearance="reference"` branch of

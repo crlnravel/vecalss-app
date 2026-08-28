@@ -1,5 +1,26 @@
 # Session Handoff
 
+## Tryout detail divider and surface alignment (2026-08-28)
+
+- Objective: finish the reference treatment on `/mentor/tryout/[tryoutId]`
+  by removing structural separators and aligning lingering cards with the
+  extracted raised/inset surfaces.
+- Implementation: `85f969d` extends `ReferenceSurface` with semantic `as`
+  elements; updates the Tryout builder, embedded Policy/Sessions/Participants/
+  Live/Attempts/Results modules, and removes only the reference branch’s
+  mobile header divider. Lifecycle tab underlines and existing workflow/data
+  behavior remain intact.
+- QA: authenticated ego-browser checks at 1440px and 390px cover Overview,
+  Delivery/Policy, and Results. Title/header bottom border widths are 0px on
+  mobile, wrapper/inset backgrounds remain continuous `voyage-canvas`, and
+  body width equals viewport.
+- Verification: focused ESLint (pre-existing unused-prop warnings only),
+  Impeccable layout detector `[]`, focused authoring/dashboard contracts, and
+  `git diff --check` pass. Full `tsc` remains blocked by preserved invalid
+  `tmp/reference/res1` syntax diagnostics.
+- Scope: no student, admin, or unrelated role pages changed; existing
+  untracked `.agents/skills/information-architecture/` remains untouched.
+
 ## Reference workspace canvas continuity refinement (2026-08-28)
 
 - Objective: make the green-tinted reference workspace canvas fill the whole
