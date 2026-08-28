@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  FullWidthLineTabsList,
+  FullWidthLineTabsTrigger,
+} from "@/components/ui/full-width-line-tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   BookOpen,
   ArrowLeft,
@@ -21,8 +25,10 @@ import {
   Gauge,
   GraduationCap,
   House,
+  LibraryBig,
   ListChecks,
   LoaderCircle,
+  MessageCircleMore,
   Pencil,
   Plus,
   SendHorizontal,
@@ -162,39 +168,7 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   const [titleDraft, setTitleDraft] = useState("");
   const [provisionalText, setProvisionalText] = useState<string | null>(null);
   const [lastFailed, setLastFailed] = useState<RequestAttempt | null>(null);
-  const [learnerExportId, setLearnerExportId] = useState<string | null>(null);
-  const [learnerExportOperationId, setLearnerExportOperationId] = useState<string | null>(null);
-  const [learnerExportState, setLearnerExportState] = useState<string | null>(null);
-  const [learnerExportDownloadState, setLearnerExportDownloadState] = useState<string | null>(null);
-  const [learnerDeleteOperationId, setLearnerDeleteOperationId] = useState<string | null>(null);
-  const [learnerDeleteState, setLearnerDeleteState] = useState<string | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState(false);
-  const [lifecycleExportReference, setLifecycleExportReference] = useState("");
-  const [lifecycleGrant, setLifecycleGrant] = useState("");
-  const [lifecycleGrantState, setLifecycleGrantState] = useState<string | null>(null);
-  const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    const operationId = new URLSearchParams(window.location.search).get("veraLifecycleOperation");
-    if (!operationId) return;
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      setLearnerDeleteOperationId(operationId);
-      setLearnerDeleteState(null);
-      void requestJson<{ state: string; targetState?: string }>(`/api/vera-ai/lifecycle/${operationId}`)
-        .then((status) => {
-          if (!cancelled) setLearnerDeleteState(status.targetState ?? status.state);
-        })
-        .catch((caught) => {
-          if (!cancelled) setError(caught instanceof VeraRequestError ? caught.code : "lifecycle_unavailable");
-        });
-    }, 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, []);
 
   const activeConversation = conversations.find((item) => item.id === activeConversationId) ?? null;
   const selectedSourceIds = useMemo(() => new Set((context?.sources ?? []).map((source) => source.sourceId)), [context]);
@@ -389,7 +363,7 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
 
   function cancelRequest() {
     abortRef.current?.abort();
-    setNotice("Permintaan dibatalkan. Status tersimpan dapat diperiksa kembali.");
+    setNotice("Permintaan dibatalkan.");
   }
 
   async function openArtifact(id: string) {
@@ -429,115 +403,6 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
     } finally { setBusy(false); }
   }
 
-  async function createLearnerExport() {
-    try {
-      setLifecycleBusy(true);
-      setError(null);
-      const result = await requestJson<{ exportId: string; operationId: string; state: string }>("/api/vera-ai/exports", {
-        method: "POST",
-        headers: { "Idempotency-Key": `vera-learner-export-${crypto.randomUUID()}` },
-        body: JSON.stringify({ format: "json_v1" }),
-      });
-      setLearnerExportId(result.exportId);
-      setLearnerExportOperationId(result.operationId);
-      setLearnerExportState(result.state);
-      setLifecycleExportReference(result.exportId);
-      setNotice("Ekspor data Vera sedang disiapkan. Kamu dapat memeriksa statusnya kapan saja.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "export_unavailable");
-    } finally { setLifecycleBusy(false); }
-  }
-
-  async function refreshLearnerLifecycle() {
-    try {
-      setLifecycleBusy(true);
-      setError(null);
-      const exportId = lifecycleExportReference.trim() || learnerExportId;
-      if (exportId) {
-        const exportStatus = await requestJson<{ state: string }>(`/api/vera-ai/exports/${exportId}`);
-        setLearnerExportId(exportId);
-        setLearnerExportState(exportStatus.state);
-      }
-      if (learnerDeleteOperationId) {
-        const deleteStatus = await requestJson<{ state: string; targetState?: string }>(`/api/vera-ai/lifecycle/${learnerDeleteOperationId}`);
-        setLearnerDeleteState(deleteStatus.targetState ?? deleteStatus.state);
-      }
-      setNotice("Status tersimpan sudah diperbarui.");
-    } catch (caught) {
-      const code = caught instanceof VeraRequestError ? caught.code : "lifecycle_unavailable";
-      if (lifecycleExportReference.trim()) setLearnerExportState(`error:${code}`);
-      setError(code);
-    } finally { setLifecycleBusy(false); }
-  }
-
-  async function downloadLearnerExport() {
-    const exportId = lifecycleExportReference.trim() || learnerExportId;
-    if (!exportId) return setError("export_required");
-    try {
-      setLifecycleBusy(true);
-      setError(null);
-      const response = await fetch(`/api/vera-ai/exports/${exportId}/download`);
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { error?: string };
-        throw new VeraRequestError(body.error ?? "export_unavailable", body);
-      }
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = `vera-ai-${exportId}.json`;
-      anchor.click();
-      URL.revokeObjectURL(objectUrl);
-      setLearnerExportId(exportId);
-      setLearnerExportDownloadState("downloaded");
-      setNotice("Ekspor Vera berhasil diunduh dan tetap tercatat sebagai akses satu kali.");
-    } catch (caught) {
-      const code = caught instanceof VeraRequestError ? caught.code : "export_unavailable";
-      setLearnerExportDownloadState(`error:${code}`);
-      setError(code);
-    } finally { setLifecycleBusy(false); }
-  }
-
-  async function deleteActiveConversation() {
-    if (!activeConversation) return;
-    if (!deleteConfirmation) {
-      setDeleteConfirmation(true);
-      setNotice("Percakapan akan dihapus sesuai siklus hidup Vera. Konfirmasi untuk melanjutkan.");
-      return;
-    }
-    try {
-      setLifecycleBusy(true);
-      setError(null);
-      const result = await requestJson<{ operationId: string; state: string }>(`/api/vera-ai/conversations/${activeConversation.id}`, {
-        method: "DELETE",
-        headers: { "Idempotency-Key": `vera-learner-delete-${crypto.randomUUID()}` },
-        body: JSON.stringify({ expectedVersion: activeConversation.version }),
-      });
-      setLearnerDeleteOperationId(result.operationId);
-      setLearnerDeleteState(result.state);
-      setDeleteConfirmation(false);
-      setNotice("Penghapusan percakapan tercatat. Status dapat dipulihkan setelah koneksi terputus.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "deletion_pending");
-    } finally { setLifecycleBusy(false); }
-  }
-
-  async function checkCleanupGrant() {
-    const exportId = lifecycleExportReference.trim();
-    const grant = lifecycleGrant.trim();
-    if (!exportId || !grant) return setError("export_grant_required");
-    try {
-      setLifecycleBusy(true);
-      setError(null);
-      const result = await requestJson<{ accessMode: string; exportAccessGrantState: string }>(`/api/vera-ai/exports/${exportId}`, { headers: { "x-vera-export-grant": grant } });
-      setLifecycleGrantState(`${result.accessMode}:${result.exportAccessGrantState}`);
-      setNotice("Akses cleanup grant tervalidasi untuk sesi ini.");
-    } catch (caught) {
-      setLifecycleGrantState(null);
-      setError(caught instanceof Error ? caught.message : "target_unavailable");
-    } finally { setLifecycleBusy(false); }
-  }
-
   const usagePercent = usage ? Math.min(100, Math.round(((usage.usedQuotaUnits + usage.reservedQuotaUnits) / Math.max(1, usage.quotaLimitUnits)) * 100)) : 0;
   const usageState = !usage ? "Memuat penggunaan…"
     : !usage.redisAvailable ? "Pembatas permintaan tidak tersedia"
@@ -549,36 +414,38 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
                 : "Tersedia";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[radial-gradient(circle_at_top_left,rgba(219,247,234,0.9),transparent_36%),linear-gradient(180deg,#f8fcfa_0%,#eef8f3_100%)] text-secondary-950">
-      <header className="flex min-h-18 items-center gap-3 border-b border-primary-100/70 bg-white/85 px-3 py-3 backdrop-blur md:px-5">
-        <Link className="flex items-center gap-2.5" href="/dashboard">
-          <Image alt="Vecalss" className="h-8 w-auto" height={42} priority src="/brand/logo-mark-cropped.png" width={52} />
-          <span className="hidden text-xl tracking-[0.04em] text-primary-800 sm:inline" style={{ fontFamily: "var(--font-sports-world)" }}>VECALSS</span>
-        </Link>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="hidden min-w-44 rounded-2xl border border-primary-100 bg-white px-3 py-2 sm:block">
-            <div className="flex justify-between text-xs font-medium text-secondary-500"><span title={usageState}>Unit Vera hari ini</span><span>{usagePercent}%</span></div>
-            <Progress className="mt-1.5 h-1.5" value={usagePercent} />
+    <div className="vera-ai-motion min-h-dvh bg-primary-50 text-secondary-900 md:h-svh md:overflow-hidden">
+      <div className="flex min-h-svh flex-col md:h-svh">
+        <header className="flex min-h-18 items-center gap-3 px-3 py-3 md:px-4">
+          <Link className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-85" href="/dashboard">
+            <Image alt="Vecalss" className="h-7 w-auto object-contain md:h-8" height={42} priority src="/brand/logo-mark-cropped.png" width={52} />
+            <span className="hidden text-xl leading-none tracking-[0.04em] text-primary-800 sm:inline" style={{ fontFamily: "var(--font-sports-world)" }}>VECALSS</span>
+          </Link>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden min-w-44 rounded-full border border-primary-100 bg-white px-3 py-2 shadow-sm sm:block">
+              <div className="flex justify-between text-xs font-medium text-secondary-500"><span title={usageState}>Unit Vera hari ini</span><span>{usagePercent}%</span></div>
+              <Progress className="mt-1.5 h-1.5" value={usagePercent} />
+            </div>
+            <Button aria-label="Ke dashboard" className="rounded-full border border-primary-100 bg-white shadow-sm" nativeButton={false} render={<Link href="/dashboard" />} size="icon-sm" variant="ghost"><House /></Button>
+            <StudentNotificationPopover items={notificationFeed.items} unreadCount={notificationFeed.unreadCount} />
+            <StudentAccountMenu extraItem="notifications" session={session} />
           </div>
-          <Button aria-label="Ke dashboard" nativeButton={false} render={<Link href="/dashboard" />} size="icon-sm" variant="outline"><House /></Button>
-          <StudentNotificationPopover items={notificationFeed.items} unreadCount={notificationFeed.unreadCount} />
-          <StudentAccountMenu extraItem="notifications" session={session} />
+        </header>
+        <div className="flex items-center gap-3 border-b border-primary-100 bg-primary-50 px-3 py-2 sm:hidden" role="status">
+          <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-secondary-800">Unit Vera hari ini · {usagePercent}%</p><p className="truncate text-xs text-secondary-600">{usageState}</p></div>
+          <Progress aria-label={`Penggunaan Vera ${usagePercent}%`} className="h-2 w-24" value={usagePercent} />
         </div>
-      </header>
-      <div className="flex items-center gap-3 border-b border-primary-100 bg-white px-3 py-2 sm:hidden" role="status">
-        <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-secondary-800">Unit Vera hari ini · {usagePercent}%</p><p className="truncate text-xs text-secondary-600">{usageState}</p></div>
-        <Progress aria-label={`Penggunaan Vera ${usagePercent}%`} className="h-2 w-24" value={usagePercent} />
-      </div>
 
-      <main className="mx-auto grid w-full max-w-[1680px] flex-1 gap-3 overflow-hidden p-3 md:grid-cols-[260px_minmax(0,1fr)] md:p-4 xl:grid-cols-[280px_minmax(0,1.25fr)_minmax(330px,.75fr)]">
-        <aside className="hidden min-h-0 overflow-hidden rounded-[1.5rem] border border-primary-100 bg-white shadow-sm md:flex md:flex-col">
-          <div className="flex items-center justify-between border-b border-primary-100 p-4"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Percakapan</p><p className="mt-1 text-xs text-secondary-500">Riwayat tersimpan</p></div><Button aria-label="Percakapan baru" disabled={busy} onClick={() => void createConversation()} size="icon-sm"><Plus /></Button></div>
-          <ScrollArea className="min-h-0 flex-1 p-2">
-            {conversations.length ? conversations.map((conversation) => <button className={cn("mb-1 w-full rounded-2xl px-3 py-3 text-left transition", activeConversationId === conversation.id ? "bg-primary-50 ring-1 ring-primary-200" : "hover:bg-secondary-50")} key={conversation.id} onClick={() => void selectConversation(conversation.id)} type="button"><p className="truncate text-sm font-semibold">{conversation.title ?? "Percakapan tanpa judul"}</p><p className="mt-1 truncate text-xs text-secondary-500">{conversation.messagePreview?.text ?? "Belum ada pesan"}</p><p className="mt-2 text-xs text-secondary-400">{relativeTime(conversation.updatedAt)}</p></button>) : <EmptyCopy title="Belum ada percakapan" body="Buat sesi ketika kamu siap mulai." />}
-          </ScrollArea>
-        </aside>
+        <main className="min-h-0 flex-1 px-2 pb-2 md:px-3 md:pb-3">
+          <div className="flex h-full min-h-0 min-w-0 gap-3">
+            <aside className="hidden h-full w-72 shrink-0 overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:flex md:flex-col">
+              <div className="flex items-center justify-between border-b border-primary-100 p-4"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Percakapan</p><p className="mt-1 text-xs text-secondary-500">Riwayat tersimpan</p></div><Button aria-label="Percakapan baru" className="rounded-full" disabled={busy} onClick={() => void createConversation()} size="icon-sm" variant="ghost"><Plus /></Button></div>
+              <ScrollArea className="min-h-0 flex-1 p-2">
+                {conversations.length ? conversations.map((conversation) => <button className={cn("mb-1 w-full rounded-2xl px-3 py-3 text-left transition", activeConversationId === conversation.id ? "border border-primary-200 bg-primary-50 text-primary-950" : "border border-transparent hover:border-primary-100 hover:bg-white")} key={conversation.id} onClick={() => void selectConversation(conversation.id)} type="button"><p className="truncate text-sm font-semibold">{conversation.title ?? "Percakapan tanpa judul"}</p><p className="mt-1 truncate text-xs text-secondary-500">{conversation.messagePreview?.text ?? "Belum ada pesan"}</p><p className="mt-2 text-xs text-secondary-400">{relativeTime(conversation.updatedAt)}</p></button>) : <EmptyCopy title="Belum ada percakapan" body="Buat sesi ketika kamu siap mulai." />}
+              </ScrollArea>
+            </aside>
 
-        <section className="flex min-h-[68vh] min-w-0 flex-col overflow-hidden rounded-[1.5rem] border border-primary-100 bg-white shadow-sm md:min-h-0">
+            <section className="flex min-h-[68vh] min-w-0 flex-1 flex-col overflow-hidden rounded-[1.65rem] border border-primary-100 bg-white shadow-[0_18px_54px_-46px_rgba(1,76,56,0.42)] md:h-full md:min-h-0">
           <div className="flex min-h-17 items-center gap-3 border-b border-primary-100 px-4 py-3">
             <div className="min-w-0 flex-1">
               {renaming && activeConversation ? <div className="flex gap-2"><Input autoFocus maxLength={160} onChange={(event) => setTitleDraft(event.target.value)} value={titleDraft} /><Button onClick={() => void saveTitle()} size="sm"><Check /></Button></div> : <><h1 className="truncate text-base font-semibold">{activeConversation?.title ?? "Vera AI"}</h1><p className="text-xs text-secondary-500">{activeConversation ? `${context?.sources.length ?? 0} sumber aktif` : "Pilih atau buat percakapan"}</p></>}
@@ -595,51 +462,30 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
             </select>
             <Button aria-label="Percakapan baru" disabled={busy} onClick={() => void createConversation()} size="icon-sm"><Plus /></Button>
           </div>
-          <Tabs className="flex min-h-0 flex-1 flex-col" onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)} value={workspaceTab}>
-            <TabsList className="mx-3 mt-3 grid grid-cols-3 xl:hidden"><TabsTrigger value="chat">Chat</TabsTrigger><TabsTrigger value="context">Konteks</TabsTrigger><TabsTrigger value="studio">Studio</TabsTrigger></TabsList>
-            <TabsContent className="flex min-h-0 flex-1 flex-col" value="chat">
+          <Tabs className="flex min-h-0 min-w-0 flex-1 flex-col gap-0" onValueChange={(value) => setWorkspaceTab(value as WorkspaceTab)} value={workspaceTab}>
+            <FullWidthLineTabsList aria-label="Area kerja Vera" className="mx-3 mt-3">
+              <FullWidthLineTabsTrigger value="chat"><MessageCircleMore data-icon="inline-start" />Percakapan</FullWidthLineTabsTrigger>
+              <FullWidthLineTabsTrigger value="context"><LibraryBig data-icon="inline-start" />Konteks</FullWidthLineTabsTrigger>
+              <FullWidthLineTabsTrigger value="studio"><Sparkles data-icon="inline-start" />Studio</FullWidthLineTabsTrigger>
+            </FullWidthLineTabsList>
+            <TabsContent className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" value="chat">
               <ScrollArea className="min-h-0 flex-1 px-4 py-5">
                 {activeConversation ? messages.length || provisionalText !== null ? <div className="mx-auto flex max-w-3xl flex-col gap-4">{messages.map((message) => <div className={cn("max-w-[88%] rounded-3xl px-4 py-3 text-sm leading-6", message.role === "user" ? "ml-auto rounded-br-lg bg-primary-700 text-white" : "rounded-bl-lg border border-primary-100 bg-primary-50 text-secondary-900")} key={message.id}>{message.text ?? <span className="text-secondary-500">Konten tidak tersedia.</span>}</div>)}{provisionalText !== null ? <div aria-hidden="true" className="max-w-[88%] rounded-3xl rounded-bl-lg border border-dashed border-primary-200 bg-primary-50 px-4 py-3 text-sm leading-6 text-secondary-700">{provisionalText || "Vera sedang menyusun jawaban…"}</div> : null}</div> : <EmptyCopy title="Mulai dari pertanyaanmu" body="Vera hanya memakai sumber yang kamu pilih dan hasilnya tetap tersimpan di sesi ini." /> : <EmptyCopy title="Belum ada sesi aktif" body="Buat percakapan baru untuk mulai belajar bersama Vera." />}
               </ScrollArea>
-              <div className="border-t border-primary-100 p-3 md:p-4">
-                <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-[1.35rem] border border-primary-200 bg-white p-2 shadow-sm focus-within:ring-3 focus-within:ring-primary-200/50">
-                  <textarea aria-label="Pesan untuk Vera" className="min-h-12 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none" disabled={!activeConversation || busy} maxLength={40000} onChange={(event) => setDraft(event.target.value)} placeholder="Tanyakan materi atau pola belajarmu…" value={draft} />
-                  {busy ? <Button aria-label="Batalkan permintaan" onClick={cancelRequest} size="icon" variant="outline"><X /></Button> : <Button aria-label="Kirim pesan" disabled={!draft.trim() || !activeConversation} onClick={() => void streamRequest("chat", draft.trim(), null)} size="icon"><SendHorizontal /></Button>}
+              <div className="border-t border-primary-100 bg-white px-3 py-3 md:px-5">
+                <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[1.4rem] border border-primary-200 bg-white p-2 shadow-[0_12px_34px_-28px_rgba(1,76,56,0.65)] focus-within:shadow-[0_16px_38px_-28px_rgba(1,76,56,0.8)]">
+                  <textarea aria-label="Pesan untuk Vera" className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-secondary-400" disabled={!activeConversation || busy} maxLength={40000} onChange={(event) => setDraft(event.target.value)} placeholder="Tanyakan konsep, soal, atau langkah belajarmu..." value={draft} />
+                  {busy ? <Button aria-label="Batalkan permintaan" className="rounded-full" onClick={cancelRequest} size="icon-sm" variant="outline"><X /></Button> : <Button aria-label="Kirim pesan" className="rounded-full" disabled={!draft.trim() || !activeConversation} onClick={() => void streamRequest("chat", draft.trim(), null)} size="icon-sm" variant="brand"><SendHorizontal /></Button>}
                 </div>
               </div>
             </TabsContent>
-            <TabsContent className="min-h-0 flex-1 overflow-auto p-4 xl:hidden" value="context"><ContextPanel catalog={catalog} context={context} onToggle={toggleSource} selected={selectedSourceIds} /></TabsContent>
-            <TabsContent className="min-h-0 flex-1 overflow-auto p-4 xl:hidden" value="studio"><StudioPanel artifact={artifact} artifacts={artifacts} busy={busy} onApply={applyToExisting} onBack={() => setArtifact(null)} onGenerate={(tool) => void streamRequest("studio", tool.prompt, tool.id)} onMaterialize={materializeRoute} onOpen={openArtifact} progress={progress} /></TabsContent>
+            <TabsContent className="min-h-0 min-w-0 flex-1 overflow-auto p-4" value="context"><ContextPanel catalog={catalog} context={context} onToggle={toggleSource} selected={selectedSourceIds} /></TabsContent>
+            <TabsContent className="min-h-0 min-w-0 flex-1 overflow-auto p-4" value="studio"><StudioPanel artifact={artifact} artifacts={artifacts} busy={busy} onApply={applyToExisting} onBack={() => setArtifact(null)} onGenerate={(tool) => void streamRequest("studio", tool.prompt, tool.id)} onMaterialize={materializeRoute} onOpen={openArtifact} progress={progress} /></TabsContent>
           </Tabs>
-        </section>
-
-        <aside className="hidden min-h-0 overflow-hidden rounded-[1.5rem] border border-primary-100 bg-white shadow-sm xl:flex xl:flex-col">
-          <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="studio">
-            <TabsList className="m-3 grid grid-cols-2"><TabsTrigger value="studio">Studio</TabsTrigger><TabsTrigger value="context">Konteks</TabsTrigger></TabsList>
-            <TabsContent className="min-h-0 flex-1 overflow-auto px-4 pb-4" value="studio"><StudioPanel artifact={artifact} artifacts={artifacts} busy={busy} onApply={applyToExisting} onBack={() => setArtifact(null)} onGenerate={(tool) => void streamRequest("studio", tool.prompt, tool.id)} onMaterialize={materializeRoute} onOpen={openArtifact} progress={progress} /></TabsContent>
-            <TabsContent className="min-h-0 flex-1 overflow-auto px-4 pb-4" value="context"><ContextPanel catalog={catalog} context={context} onToggle={toggleSource} selected={selectedSourceIds} /></TabsContent>
-          </Tabs>
-        </aside>
-      </main>
-      <section aria-label="Data dan privasi" className="mx-auto mb-3 w-full max-w-[1680px] rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-sm md:mb-4 md:p-4" data-vera-lifecycle-panel>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Data &amp; privasi</p><p className="mt-1 max-w-2xl text-xs leading-5 text-secondary-500">Ekspor, penghapusan, dan akses pemulihan tetap tercatat sebagai operasi Vera yang bisa diperiksa ulang.</p></div>
-          <div aria-live="polite" className="min-w-0 text-right text-xs text-secondary-600" role="status">{learnerExportState ? `Ekspor: ${learnerExportState}` : learnerDeleteOperationId ? "" : "Ekspor belum dimulai"}{learnerExportDownloadState ? ` · Unduh: ${learnerExportDownloadState}` : ""}{learnerDeleteState ? ` · Hapus: ${learnerDeleteState}` : ""}{lifecycleGrantState ? ` · Grant: ${lifecycleGrantState}` : ""}</div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button disabled={lifecycleBusy || !activeConversation} onClick={() => void createLearnerExport()} size="sm" variant="outline">Buat ekspor data</Button>
-          <Button data-vera-lifecycle-status disabled={lifecycleBusy || !learnerExportOperationId && !learnerDeleteOperationId && !lifecycleExportReference.trim()} onClick={() => void refreshLearnerLifecycle()} size="sm" variant="outline">Periksa status tersimpan</Button>
-          <Button data-vera-export-download disabled={lifecycleBusy || !learnerExportId || learnerExportState !== "ready"} onClick={() => void downloadLearnerExport()} size="sm" variant="outline">Unduh ekspor</Button>
-          <Button disabled={lifecycleBusy || !activeConversation || Boolean(learnerDeleteOperationId)} onClick={() => void deleteActiveConversation()} size="sm" variant="outline">Hapus percakapan ini</Button>
-        </div>
-        {deleteConfirmation ? <div aria-live="assertive" className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900" data-vera-delete-confirm role="alert"><span className="min-w-0 flex-1">Konfirmasi penghapusan percakapan?</span><Button data-vera-delete-confirm onClick={() => void deleteActiveConversation()} size="sm">Konfirmasi hapus percakapan</Button><Button onClick={() => setDeleteConfirmation(false)} size="sm" variant="ghost">Batal</Button></div> : null}
-        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <Input aria-label="ID ekspor" className="min-w-0" maxLength={64} onChange={(event) => setLifecycleExportReference(event.target.value)} placeholder="ID ekspor untuk akses grant" value={lifecycleExportReference} />
-          <Input aria-label="Token akses cleanup" className="min-w-0" maxLength={240} onChange={(event) => setLifecycleGrant(event.target.value)} placeholder="Token akses cleanup (opsional)" type="password" value={lifecycleGrant} />
-          <Button disabled={lifecycleBusy} onClick={() => void checkCleanupGrant()} size="sm" variant="outline">Periksa grant</Button>
-        </div>
-        {learnerExportId || learnerDeleteOperationId ? <p className="mt-2 break-all text-xs text-secondary-400">{learnerExportId ? `Ekspor tersimpan: ${learnerExportId}` : ""}{learnerExportOperationId ? ` · operasi ${learnerExportOperationId}` : ""}{learnerDeleteOperationId ? ` · operasi hapus ${learnerDeleteOperationId}` : ""}</p> : null}
-      </section>
+            </section>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
@@ -653,7 +499,7 @@ function ContextPanel({ catalog, context, selected, onToggle }: { catalog: Sourc
 }
 
 function StudioPanel({ artifact, artifacts, busy, progress, onApply, onBack, onGenerate, onMaterialize, onOpen }: { artifact: ArtifactDetail | null; artifacts: ArtifactSummary[]; busy: boolean; progress: number | null; onApply: (target: ArtifactDetail["applyCapabilities"]["targets"][number]) => Promise<void>; onBack: () => void; onGenerate: (tool: (typeof studioTools)[number]) => void; onMaterialize: () => Promise<void>; onOpen: (id: string) => Promise<void> }) {
-  if (artifact) return <article className="rounded-3xl border border-primary-100 bg-[#fffdf8] p-5"><Button className="mb-3" onClick={onBack} size="sm" variant="ghost"><ArrowLeft />Kembali ke Studio</Button><div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">{artifact.artifactType}</p><h2 className="mt-1 text-lg font-semibold">{artifact.title ?? "Hasil tidak tersedia"}</h2></div><span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700">Revisi {artifact.revision}</span></div>{artifact.markdown ? <div className="prose prose-sm max-w-none text-secondary-800"><ReactMarkdown>{artifact.markdown}</ReactMarkdown></div> : <p className="rounded-2xl border border-dashed border-secondary-200 p-4 text-sm text-secondary-500">Konten tidak tersedia karena siklus hidup hasil ini sudah {artifact.lifecycle.state}.</p>}<div className="mt-5 flex flex-wrap gap-2 text-xs text-secondary-500"><span>Konteks: {artifact.contextState}</span><span>•</span><span>Status: {artifact.resultState}</span><span>•</span><span>Siklus: {artifact.lifecycle.state}</span></div>{artifact.applyCapabilities.materializeLearningRecommendation ? <Button className="mt-5" disabled={busy} onClick={() => void onMaterialize()}>Simpan sebagai rekomendasi baru</Button> : null}{artifact.applyCapabilities.targets.length ? <div className="mt-5 border-t border-primary-100 pt-4"><p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Terapkan ke target yang ada</p><div className="space-y-2">{artifact.applyCapabilities.targets.map((target) => <Button className="w-full justify-between" disabled={busy} key={`${target.registryKey}:${target.id}`} onClick={() => void onApply(target)} variant="outline"><span className="truncate">{target.label}</span><span className="text-xs text-secondary-500">Rev {target.revision}</span></Button>)}</div></div> : null}</article>;
+  if (artifact) return <article className="rounded-3xl border border-primary-100 bg-white p-5"><Button className="mb-3" onClick={onBack} size="sm" variant="ghost"><ArrowLeft />Kembali ke Studio</Button><div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">{artifact.artifactType}</p><h2 className="mt-1 text-lg font-semibold">{artifact.title ?? "Hasil tidak tersedia"}</h2></div><span className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700">Revisi {artifact.revision}</span></div>{artifact.markdown ? <div className="prose prose-sm max-w-none text-secondary-800"><ReactMarkdown>{artifact.markdown}</ReactMarkdown></div> : <p className="rounded-2xl border border-dashed border-secondary-200 p-4 text-sm text-secondary-500">Konten tidak tersedia karena siklus hidup hasil ini sudah {artifact.lifecycle.state}.</p>}<div className="mt-5 flex flex-wrap gap-2 text-xs text-secondary-500"><span>Konteks: {artifact.contextState}</span><span>•</span><span>Status: {artifact.resultState}</span><span>•</span><span>Siklus: {artifact.lifecycle.state}</span></div>{artifact.applyCapabilities.materializeLearningRecommendation ? <Button className="mt-5" disabled={busy} onClick={() => void onMaterialize()}>Simpan sebagai rekomendasi baru</Button> : null}{artifact.applyCapabilities.targets.length ? <div className="mt-5 border-t border-primary-100 pt-4"><p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Terapkan ke target yang ada</p><div className="space-y-2">{artifact.applyCapabilities.targets.map((target) => <Button className="w-full justify-between" disabled={busy} key={`${target.registryKey}:${target.id}`} onClick={() => void onApply(target)} variant="outline"><span className="truncate">{target.label}</span><span className="text-xs text-secondary-500">Rev {target.revision}</span></Button>)}</div></div> : null}</article>;
   return <div><div className="grid grid-cols-2 gap-2">{studioTools.map((tool) => { const Icon = tool.icon; return <Button className="h-auto min-h-24 flex-col items-start rounded-2xl border-primary-100 p-3 text-left" disabled={busy} key={tool.id} onClick={() => onGenerate(tool)} variant="outline"><Icon className="text-primary-700" /><span className="mt-2 w-full whitespace-normal text-xs font-semibold">{tool.label}</span></Button>; })}</div>{progress !== null ? <div aria-live="polite" className="mt-4 rounded-2xl bg-primary-50 p-3" role="status"><div className="flex items-center gap-2 text-xs font-medium text-primary-800"><LoaderCircle className="animate-spin" />Menyiapkan hasil tersimpan…</div><Progress className="mt-2" value={progress} /></div> : null}<div className="mt-6"><p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Hasil tersimpan</p><div className="space-y-2">{artifacts.map((item) => <button className="w-full rounded-2xl border border-secondary-100 p-3 text-left hover:border-primary-200" key={item.id} onClick={() => void onOpen(item.id)} type="button"><p className="truncate text-sm font-semibold">{item.title ?? `Konten ${item.lifecycleState}`}</p><p className="mt-1 text-xs text-secondary-500">{item.artifactType} · {item.lifecycleState} · {relativeTime(item.createdAt)}</p></button>)}{artifacts.length === 0 ? <p className="rounded-2xl border border-dashed border-secondary-200 p-4 text-center text-xs text-secondary-500">Belum ada hasil Studio.</p> : null}</div></div></div>;
 }
 
