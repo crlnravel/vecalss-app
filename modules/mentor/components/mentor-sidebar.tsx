@@ -89,7 +89,9 @@ function NavigationGroup({
                     ? cn(
                         "h-11 min-h-11 rounded-2xl px-3 text-sm font-medium text-secondary-500 transition-[background-color,color,box-shadow] hover:bg-primary-50/70 hover:text-secondary-900 focus-visible:ring-3 focus-visible:ring-primary-300/35",
                         "data-active:bg-primary-50 data-active:text-primary-800 data-active:shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)]",
-                        "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:p-3!",
+                        "group-data-[collapsible=icon]:mx-auto! group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0!",
+                        item.label === activeLabel &&
+                          "group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:shadow-none!",
                       )
                     : undefined
                 }
@@ -97,7 +99,15 @@ function NavigationGroup({
                 tooltip={item.label}
                 render={<Link href={item.href} />}
               >
-                <item.icon />
+                <span
+                  className={cn(
+                    "flex size-4 shrink-0 items-center justify-center [&>svg]:size-4",
+                    item.label === activeLabel &&
+                      "group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-primary-50 group-data-[collapsible=icon]:text-primary-800 group-data-[collapsible=icon]:shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] [&>svg]:size-5",
+                  )}
+                >
+                  <item.icon />
+                </span>
                 <span>{item.label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
