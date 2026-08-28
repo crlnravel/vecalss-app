@@ -298,7 +298,7 @@ function RequiredMark() {
 
 function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
   return (
-    <section className="grid min-h-56 place-items-center rounded-3xl border border-dashed border-primary-200 bg-white px-6 py-12 text-center">
+    <ReferenceSurface as="section" className="grid min-h-56 place-items-center px-6 py-12 text-center">
       <div className="grid max-w-md justify-items-center gap-3">
         <div className="flex size-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
           <Save aria-hidden="true" />
@@ -307,7 +307,7 @@ function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
         <p className="text-sm leading-6 text-secondary-600">Soal dan Review &amp; Publish bisa disiapkan sekarang. Delivery, Live, Attempts, dan Results akan tersambung setelah Tryout memiliki ID.</p>
         <Button onClick={onSaveDraft} variant="brand">Simpan perubahan</Button>
       </div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -376,7 +376,7 @@ function SectionRail({
   sections: TestDraft[];
 }) {
   return (
-    <aside aria-labelledby="section-rail-title" className="grid gap-3 rounded-3xl border border-primary-100 bg-[#f8fbf9] p-4 lg:sticky lg:top-5 lg:self-start">
+    <ReferenceSurface as="aside" aria-labelledby="section-rail-title" className="grid gap-3 p-4 lg:sticky lg:top-5 lg:self-start">
       <div>
         <h2 className="font-semibold text-secondary-900" id="section-rail-title">Configure Sections</h2>
       </div>
@@ -389,7 +389,7 @@ function SectionRail({
               <Button
                 aria-current={active ? "page" : undefined}
                 aria-label={`${section.subtest}${incomplete ? " (belum lengkap)" : ""}`}
-                className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-200 bg-primary-50 text-primary-900 hover:bg-primary-100" : "border-transparent text-secondary-800 hover:bg-primary-50"}`}
+                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
                 onClick={() => onSelect(section.subtest)}
                 variant="ghost"
               >
@@ -400,7 +400,7 @@ function SectionRail({
           );
         })}
       </ul>
-    </aside>
+    </ReferenceSurface>
   );
 }
 
@@ -554,7 +554,7 @@ function TryoutBasicsTab({
 }) {
   return (
     <TabsContent className="mt-0 w-full" value="basics">
-      <section className="grid w-full gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+      <ReferenceSurface as="section" className="grid w-full gap-6 p-5 sm:p-7">
         <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
         <div className="grid gap-5">
           <Field>
@@ -567,13 +567,13 @@ function TryoutBasicsTab({
           </Field>
         </div>
         {mode === "published" ? (
-          <div className="flex justify-end border-t border-primary-100 pt-4">
+          <div className="flex justify-end pt-1">
             <Button disabled={metadataSaving || !draft.title.trim()} onClick={onSaveMetadata} variant="brand">
               {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
             </Button>
           </div>
         ) : null}
-      </section>
+      </ReferenceSurface>
     </TabsContent>
   );
 }
@@ -631,7 +631,7 @@ function TryoutSectionsTab({
     <>
       <TabsContent className="mt-0 lg:col-start-2" value="sections">
         <div className="grid gap-5">
-          <section aria-labelledby="tryout-basic-info-title" className="grid gap-5 rounded-3xl border border-primary-200 bg-primary-50/35 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+          <ReferenceSurface as="section" aria-labelledby="tryout-basic-info-title" className="grid gap-5 p-5 sm:p-7">
             <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
             <div className="grid gap-5">
               <Field>
@@ -646,19 +646,19 @@ function TryoutSectionsTab({
                 <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
               </Field>
             </div>
-          </section>
+          </ReferenceSurface>
         </div>
       </TabsContent>
 
       <TabsContent className="mt-0 lg:col-start-2" value="sections">
-        <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+        <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
           <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
             <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
           </div>
 
           <div className="grid gap-5">
             <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)] lg:items-start">
-              <div className="grid min-w-0 gap-4 rounded-2xl border border-primary-200 bg-white/80 p-4">
+              <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
                 <Field>
                   <FieldLabel>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
                   <Popover>
@@ -685,21 +685,21 @@ function TryoutSectionsTab({
                     </PopoverContent>
                   </Popover>
                 </Field>
-              </div>
-              <div className="min-w-0 rounded-3xl border border-primary-200 bg-white p-5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+              </ReferenceSurface>
+              <ReferenceSurface className="min-w-0 p-5">
                 <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-11 rounded-xl border-primary-200 bg-primary-50/35 py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
                 {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
                 {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
                   const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
                   const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
                   const checkboxId = `source-question-${question.id}`;
-                  return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-400 bg-primary-50/70 shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-secondary-100 bg-secondary-50/30 hover:border-primary-200 hover:bg-primary-50/40"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
-                })}</div> : <div className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-10 text-center text-sm leading-6 text-secondary-500">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</div>}
-                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-primary-100 pt-4"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
-              </div>
+                  return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
+                })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
+                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
+              </ReferenceSurface>
             </div>
           </div>
-        </section>
+        </ReferenceSurface>
       </TabsContent>
     </>
   );
@@ -718,7 +718,7 @@ function TryoutReviewTab({
 }) {
   return (
     <TabsContent className="mt-0" value="review">
-      <section className="grid gap-6 rounded-3xl border border-primary-200 bg-primary-50/40 p-5 shadow-[0_24px_52px_-30px_rgba(23,107,77,0.45)] sm:p-7">
+      <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
         <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Review &amp; Publish</h2>
         <dl className="grid gap-5">
           <div className="grid gap-1">
@@ -734,20 +734,20 @@ function TryoutReviewTab({
           <h3 className="font-semibold text-secondary-900" id="tryout-sections-summary-title">Sections</h3>
           <div className="grid gap-2">
             {draft.sections.map((section, index) => (
-              <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary-200 bg-white/80 px-4 py-3 transition-colors hover:border-primary-300 hover:bg-white" key={section.subtest}>
+              <ReferenceSurface className="flex w-full items-center justify-between gap-3 px-4 py-3" key={section.subtest} variant="inset">
                 <div>
                   <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
                   <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
                 </div>
                 <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1.5 text-sm font-bold text-primary-800">{section.durationMinutes} menit</span>
-              </div>
+              </ReferenceSurface>
             ))}
           </div>
         </section>
         <div className="flex justify-end">
           <Button disabled={saving || draft.locked} onClick={() => setPublishOpen(true)} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</Button>
         </div>
-      </section>
+      </ReferenceSurface>
     </TabsContent>
   );
 }
@@ -1431,11 +1431,11 @@ function TryoutDeliveryTab({
                 return (
                   <Button
                     aria-current={active ? "page" : undefined}
-                    className={`h-12 w-full justify-start rounded-xl border px-3 text-left text-base font-bold transition-colors ${active ? "border-primary-900 bg-primary-900 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" : "border-transparent text-secondary-800 hover:bg-primary-50"}`}
+                    className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
                     key={area.value}
                     onClick={() => changeDeliveryArea(area.value)}
                     role="tab"
-                    variant={active ? "brand" : "ghost"}
+                    variant="ghost"
                   >
                     {area.label}
                   </Button>
@@ -1593,7 +1593,7 @@ function KaptenTryoutBuilderPageModule({
 
   return (
     <div className="mx-auto min-w-0 w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 items-start gap-3 border-b border-primary-100/80 pb-6">
+      <div className="flex min-w-0 items-start gap-3">
         <Button aria-label="Kembali ke semua Tryout" className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/tryout", event)} render={<Link href="/mentor/tryout" />} size="icon" title="Kembali ke semua Tryout" variant="ghost">
           <ChevronLeft aria-hidden="true" className="size-5" />
         </Button>

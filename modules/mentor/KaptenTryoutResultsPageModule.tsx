@@ -55,7 +55,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
         <h2 className="text-xl font-semibold text-secondary-900" id="tryout-results-title">Results</h2>
       </header>
 
-      {initial.sessions.length ? <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary-100 bg-white px-4 py-3.5">
+      {initial.sessions.length ? <div className="flex flex-wrap items-center gap-3 rounded-4xl border border-primary-100 bg-white px-4 py-3.5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
         <label className="text-sm font-semibold text-secondary-900" htmlFor="results-session">Sesi yang ditampilkan</label>
         <select className="min-h-10 w-full min-w-0 basis-full rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100 sm:basis-auto sm:flex-1 sm:max-w-md" id="results-session" onChange={(event) => selectSession(event.target.value)} value={validSessionId ?? ""}>
           {initial.sessions.map((session) => <option key={session.id} value={session.id}>{session.name} · {session.status === "closed" ? "Ditutup" : session.status === "active" ? "Aktif" : "Draf"}</option>)}
@@ -76,18 +76,18 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                 <ResultStatus label={resultReleaseLabel(session.releaseState)} tone={resultReleaseTone(session.releaseState)} />
               </div>
 
-              <div className="mt-3 overflow-hidden rounded-2xl border border-primary-100 bg-white">
+              <div className="mt-3 overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
                 <Table className="min-w-[520px]">
                   <caption className="sr-only">Hasil peserta untuk {session.name}</caption>
-                  <TableHeader className="bg-secondary-50/80">
-                    <TableRow className="border-primary-100 hover:bg-secondary-50/80">
+                  <TableHeader className="bg-primary-50/60 [&_tr]:border-0">
+                    <TableRow className="border-0 hover:bg-primary-50/60">
                       <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Peserta</TableHead>
                       <TableHead className="h-11 px-4 py-2.5 text-xs font-semibold text-secondary-700 sm:px-5">Skor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {results.length ? results.map((result) => (
-                      <TableRow className="border-primary-100 hover:bg-secondary-50/70" key={result.attemptId}>
+                      <TableRow className="border-0 hover:bg-primary-50/45" key={result.attemptId}>
                         <TableCell className="max-w-[16rem] whitespace-normal px-4 py-3.5 align-top sm:px-5">
                           <p className="font-medium text-secondary-900">{result.participant}</p>
                           {result.reviewReason ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[#6a4a00]"><CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{result.reviewReason}</p> : null}
@@ -100,7 +100,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
               </div>
             </section>
           );
-        }) : <div className="grid min-h-40 place-items-center rounded-3xl border border-dashed border-primary-200 bg-white px-5 py-10 text-center text-sm text-secondary-500">Belum ada sesi delivery untuk menampilkan hasil.</div>}
+        }) : <div className="grid min-h-40 place-items-center rounded-4xl border border-solid border-primary-100 bg-white px-5 py-10 text-center text-sm text-secondary-500 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">Belum ada sesi delivery untuk menampilkan hasil.</div>}
       </div>
     </section>
   );

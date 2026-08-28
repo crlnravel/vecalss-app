@@ -33,11 +33,11 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
       </header>
       <TryoutRefreshNotice message={refreshMessage} onRetry={retryRefresh} />
 
-      <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white">
+      <div className="overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
         <Table className="min-w-[680px]">
           <caption className="sr-only">Daftar attempt peserta yang tercatat</caption>
-          <TableHeader>
-            <TableRow className="border-primary-100 bg-secondary-50/80 hover:bg-secondary-50/80">
+          <TableHeader className="[&_tr]:border-0">
+            <TableRow className="border-0 bg-primary-50/60 hover:bg-primary-50/60">
               <TableHead className="h-11 px-4 text-xs font-semibold text-secondary-600 sm:px-5">Peserta</TableHead>
               <TableHead className="h-11 px-4 text-xs font-semibold text-secondary-600 sm:px-5">Sesi</TableHead>
               <TableHead className="h-11 px-4 text-xs font-semibold text-secondary-600 sm:px-5">Status</TableHead>
@@ -57,7 +57,7 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
                 ? live.state === "cat_failure" ? "Butuh tindakan" : liveStateLabels[live.state]
                 : participantAttemptStateLabels[attempt.attemptState] ?? attempt.attemptState;
               return (
-                <TableRow className="border-primary-100 hover:bg-secondary-50/70" key={attempt.id}>
+                <TableRow className="border-0 hover:bg-primary-50/45" key={attempt.id}>
                   <TableCell className="max-w-56 truncate px-4 py-3.5 font-semibold text-secondary-900 sm:px-5">{attempt.student}</TableCell>
                   <TableCell className="max-w-48 truncate px-4 py-3.5 text-secondary-700 sm:px-5">{attempt.sessionName}</TableCell>
                   <TableCell className="px-4 py-3.5 sm:px-5">

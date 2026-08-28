@@ -61,8 +61,8 @@ function KaptenTryoutSessionsPageModule({
               return (
                 <Card
                   className={isPrimary
-                    ? "border border-primary-200 bg-primary-50/65 shadow-[0_14px_32px_-24px_rgba(1,76,56,0.42)] ring-primary-300/70"
-                    : "ring-primary-100"}
+                    ? "border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] ring-0"
+                    : "border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0"}
                   key={session.id}
                   size="sm"
                 >
@@ -109,8 +109,8 @@ function KaptenTryoutSessionsPageModule({
                     <Link
                       aria-label={`Buka sesi ${session.name}`}
                       className={isPrimary
-                        ? "flex w-10 shrink-0 items-center justify-center border-l border-primary-200/70 text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/35"
-                        : "flex w-10 shrink-0 items-center justify-center border-l border-secondary-100 text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/40"}
+                        ? "flex w-10 shrink-0 items-center justify-center rounded-r-4xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/35"
+                        : "flex w-10 shrink-0 items-center justify-center rounded-r-4xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/40"}
                       href={`${base}/${session.id}`}
                     >
                       <ChevronRight aria-hidden="true" />
@@ -122,7 +122,7 @@ function KaptenTryoutSessionsPageModule({
           </div>
         </>
       ) : (
-        <Empty className="mt-5 border border-dashed border-primary-100 bg-white">
+        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <CalendarDays aria-hidden="true" />

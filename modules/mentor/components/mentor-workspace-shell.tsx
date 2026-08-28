@@ -317,12 +317,12 @@ function MentorWorkspaceShell({
             )}
           >
             <header
-              className={cn(
-                "sticky top-0 z-20 border-b border-primary-100/80 backdrop-blur-xl",
-                sidebarAppearance === "reference"
-                  ? "bg-voyage-canvas/90 lg:rounded-3xl lg:border"
-                  : "bg-[#f7faf8]/90",
-              )}
+            className={cn(
+              "sticky top-0 z-20 backdrop-blur-xl",
+              sidebarAppearance === "reference"
+                ? "bg-voyage-canvas/90 lg:rounded-3xl lg:border"
+                : "border-b border-primary-100/80 bg-[#f7faf8]/90",
+            )}
             >
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
                 <SidebarTrigger

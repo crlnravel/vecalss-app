@@ -24,18 +24,20 @@ import {
 type AppIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
 type ReferenceSurfaceProps = React.ComponentProps<"div"> & {
+  as?: "article" | "aside" | "div" | "section";
   interactive?: boolean;
   variant?: "inset" | "raised";
 };
 
 function ReferenceSurface({
+  as: Element = "div",
   className,
   interactive = false,
   variant = "raised",
   ...props
 }: ReferenceSurfaceProps) {
   return (
-    <div
+    <Element
       data-slot="reference-surface"
       data-variant={variant}
       className={cn(

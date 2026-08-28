@@ -76,7 +76,7 @@ function KaptenTryoutPolicyPageModule({
       />}
       <OperationNotice message={notice?.message ?? null} tone={notice?.tone} />
 
-      <Card className={`${embedded ? "" : "mt-5"} shadow-none ring-primary-100`}>
+      <Card className={`${embedded ? "" : "mt-5"} border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0`}>
         <CardContent className="grid gap-7 lg:grid-cols-2">
           <OptionSet
             label="Akses peserta"

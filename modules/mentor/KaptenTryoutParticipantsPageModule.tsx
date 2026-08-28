@@ -18,6 +18,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
 import { KaptenTryoutInvitationPicker } from "@/modules/mentor/KaptenTryoutInvitationPicker";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
@@ -53,9 +54,9 @@ function KaptenTryoutParticipantsPageModule({
       />}
 
       {initial.admissionMode === "open" ? (
-        <section aria-labelledby="tryout-open-admission-title" className="mt-5 flex min-h-16 items-center rounded-3xl border border-primary-200 bg-primary-50/55 px-4 py-4 sm:px-6">
+        <ReferenceSurface as="section" aria-labelledby="tryout-open-admission-title" className="mt-5 flex min-h-16 items-center px-4 py-4 sm:px-6" variant="inset">
           <h2 className="text-lg font-semibold text-primary-950" id="tryout-open-admission-title">Semua peserta dapat bergabung</h2>
-        </section>
+        </ReferenceSurface>
       ) : (
         <KaptenTryoutInvitationPicker
           onRefresh={applyRefresh}
@@ -72,7 +73,7 @@ function KaptenTryoutParticipantsPageModule({
               href={`${base}/${participant.admissionId}`}
               key={participant.id}
             >
-              <Card className="shadow-none ring-primary-100 transition-colors group-hover:bg-secondary-50 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
+              <Card className="border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0 transition-colors group-hover:bg-primary-50/45 group-focus-visible:ring-2 group-focus-visible:ring-primary-700/40" size="sm">
                 <CardHeader>
                   <CardTitle className="font-semibold">{participant.participant.displayName}</CardTitle>
                   <CardAction className="flex items-center gap-2">
@@ -91,7 +92,7 @@ function KaptenTryoutParticipantsPageModule({
           ))}
         </div>
       ) : (
-        <Empty className="mt-5 border border-dashed border-primary-100 bg-white">
+        <Empty className="mt-5 rounded-4xl border border-solid border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Users aria-hidden="true" />
