@@ -33,7 +33,7 @@ assert.match(workspace, /<QuestionBankPreview/u);
 assert.match(openQuestionBlock, /hasSubmittedPreview: false/u);
 assert.match(openQuestionBlock, /previewChoiceId: null/u);
 assert.doesNotMatch(openQuestionBlock, /questionEditorTab\s*:/u);
-assert.match(builder, /onChoiceChange: \(value\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u);
+assert.match(builder, /onChoiceChange: \(value(?:: string)?\) => updateEditor\(\{ hasSubmittedPreview: false, previewChoiceId: value \}\)/u);
 assert.match(builder, /onSubmitPreview: \(\) => updateEditor\(\{ hasSubmittedPreview: true \}\)/u);
 assert.match(preview, /<RadioGroup key=\{questionDraft\.id\}/u);
 assert.doesNotMatch(
@@ -122,6 +122,6 @@ assert.match(builder, /const visibleQuestions = builderState\.questions/u);
 assert.match(builder, /className="flex flex-col gap-1\.5"/u);
 assert.match(editRoute, /initial\.bank\.status !== "draft"/u);
 assert.match(builder, /disabled=\{isQuestionContentLocked\}[\s\S]*?id="question-prompt"/u);
-assert.match(builder, /disabled=\{state\.isMetadataLocked\} id="bank-title"/u);
+assert.match(builder, /disabled=\{state\.isMetadataLocked\}[^>]*id="bank-title"/u);
 
 console.log("Mentor Bank Soal question workspace contracts passed.");
