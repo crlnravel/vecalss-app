@@ -41,12 +41,12 @@ export class VeraArtifactCommandError extends Error {
   }
 }
 
-function assertArtifactClientRequestId(value: string): void {
+function assertArtifactClientRequestId(value: unknown): asserts value is string {
   // Artifact materialization/Apply share the same bounded idempotency
   // contract as the learner and lifecycle commands.  Validate before the
   // fingerprint/transaction so malformed keys cannot create a durable row or
   // enter a competing operation namespace.
-  if (value.length === 0 || value.length > 120 || /[\u0000-\u001f\u007f]/u.test(value)) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 120 || /[\u0000-\u001f\u007f]/u.test(value)) {
     throw new VeraArtifactCommandError("invalid_request", 400);
   }
 }

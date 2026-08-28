@@ -52,8 +52,8 @@ function normalizeTitle(value: string | null | undefined): string | null {
   return normalized;
 }
 
-function isSafeClientRequestId(value: string): boolean {
-  return value.length > 0 && value.length <= 120 && !/[\u0000-\u001f\u007f]/u.test(value);
+function isSafeClientRequestId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 120 && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
 function boundedPreview(value: string | null, maxBytes = 320): string | null {

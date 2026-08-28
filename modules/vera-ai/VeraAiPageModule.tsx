@@ -175,6 +175,16 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const operationId = new URLSearchParams(window.location.search).get("veraLifecycleOperation");
+    if (!operationId) return;
+    const timer = window.setTimeout(() => {
+      setLearnerDeleteOperationId(operationId);
+      setLearnerDeleteState(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const activeConversation = conversations.find((item) => item.id === activeConversationId) ?? null;
   const selectedSourceIds = useMemo(() => new Set((context?.sources ?? []).map((source) => source.sourceId)), [context]);
 
@@ -438,8 +448,8 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
         setLearnerExportState(exportStatus.state);
       }
       if (learnerDeleteOperationId) {
-        const deleteStatus = await requestJson<{ state: string }>(`/api/vera-ai/lifecycle/${learnerDeleteOperationId}`);
-        setLearnerDeleteState(deleteStatus.state);
+        const deleteStatus = await requestJson<{ state: string; targetState?: string }>(`/api/vera-ai/lifecycle/${learnerDeleteOperationId}`);
+        setLearnerDeleteState(deleteStatus.targetState ?? deleteStatus.state);
       }
       setNotice("Status tersimpan sudah diperbarui.");
     } catch (caught) {

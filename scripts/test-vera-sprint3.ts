@@ -84,13 +84,15 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     assert.ok(!dto.includes("targetEntityDigest"));
     assert.match(dto, /target:\s*\{ id: apply\.targetEntityId, revision: apply\.targetEntityRevision, lifecycleState, deletionState \}/);
   }],
-  ["learner workspace hydrates authoritative routes and contains no fixture transport or T11 controls", () => {
+  ["learner workspace hydrates authoritative routes and contains no fixture transport", () => {
     const ui = readFileSync(join(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"), "utf8");
     assert.ok(!ui.includes('from "./data"'));
     assert.ok(!/initialSessions|initialMessages|veraContextSources|DAILY_TOKEN_USAGE|DAILY_TOKEN_LIMIT/.test(ui));
     for (const route of ["/api/vera-ai/conversations", "/api/vera-ai/sources", "/api/vera-ai/usage", "/requests", "/artifacts"]) assert.ok(ui.includes(route), route);
     assert.match(ui, /sources: \(context\?\.sources/);
-    assert.ok(!/Ekspor|Unduh|Hapus|Unggah/i.test(ui));
+    // Lifecycle/export controls are authorized T11 behavior and are covered by
+    // the executable Sprint 5 browser matrix. This Sprint 3 boundary only
+    // guards against the old fixture transport leaking into the learner page.
   }],
   ["closed recovery registry, bounded keys and learner recovery controls are explicit", () => {
     assert.equal(VERA_DURABLE_CALLBACK_REGISTRY.size, 7);

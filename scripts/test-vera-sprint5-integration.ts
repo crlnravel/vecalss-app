@@ -249,6 +249,13 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     const learnerConversationBody = JSON.parse(learnerConversationText) as { defaultConversationId?: string | null; conversations?: Array<{ id?: string }> };
     assert.equal(learnerConversationBody.defaultConversationId, fixture.conversationId, "browser learner fixture did not expose its owned conversation");
     assert(learnerConversationBody.conversations?.some((row) => row.id === fixture.conversationId), "browser learner fixture conversation is missing from the actual route");
+    // The direct HTTP lifecycle proof consumes the original fixture
+    // conversation. Keep a separate, still-active owned conversation as the
+    // browser's stale-CAS target so the UI exercises a real version conflict
+    // rather than replaying an already-deleted object.
+    const browserStaleConversationId = randomUUID();
+    lifecycleFixture.conversationIds.push(browserStaleConversationId);
+    await db.aiConversation.create({ data: { id: browserStaleConversationId, studentId: fixture.studentId, conversationType: "vera_chat", title: "Browser owned stale-CAS session" } });
 
     const lifecycleEnvelope = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => Buffer.from(rootKey, "base64url")));
     const lifecycle = createVeraLifecycleService({ db, envelope: lifecycleEnvelope, fingerprintSecret: hmacSecret });
@@ -412,6 +419,21 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     const artifactReconnectResponse = await fetch(`${base}/api/vera-ai/lifecycle/${artifactDelete.operationId}`, { headers: { cookie: studentCookie } });
     assert.equal(artifactReconnectResponse.status, 200, "lifecycle status route did not support reconnect after artifact deletion");
     assert.equal((await jsonBody<{ state?: string }>(artifactReconnectResponse)).state, "completed");
+    // Keep a separate owned conversation whose lifecycle operation is already
+    // purged. The browser uses this durable target for the visible
+    // already-purged branch; it is deliberately distinct from the stale-CAS
+    // conversation that remains owned and active below.
+    const alreadyPurgedConversationId = randomUUID();
+    lifecycleFixture.conversationIds.push(alreadyPurgedConversationId);
+    await db.aiConversation.create({ data: { id: alreadyPurgedConversationId, studentId: fixture.studentId, conversationType: "vera_chat", title: "Already purged browser fixture" } });
+    const alreadyPurgedKey = `vera-s5-http-already-purged-${randomUUID()}`;
+    lifecycleFixture.idempotencyKeys.push(alreadyPurgedKey);
+    const alreadyPurgedAccepted = await lifecycle.requestConversationDelete({ studentId: fixture.studentId, conversationId: alreadyPurgedConversationId, expectedVersion: 0, idempotencyKey: alreadyPurgedKey });
+    assert(alreadyPurgedAccepted.operationId, "already-purged browser fixture must have a durable operation");
+    lifecycleFixture.operationIds.push(alreadyPurgedAccepted.operationId);
+    await lifecycle.processConversationDelete(alreadyPurgedAccepted.operationId);
+    const alreadyPurgedStatus = await lifecycle.readLifecycleStatus({ studentId: fixture.studentId, operationId: alreadyPurgedAccepted.operationId });
+    assert.equal(alreadyPurgedStatus.targetState, "purged", "already-purged browser fixture must be terminally purged");
     const learnerPageResponse = await fetch(`${base}/vera-ai`, {
       headers: { cookie: studentCookie },
       redirect: "manual",
@@ -451,6 +473,8 @@ const expiredExportId = ${JSON.stringify(expiredTarget.exportId)}
 const staleExportId = ${JSON.stringify(staleTarget.exportId)}
 const grantExportId = ${JSON.stringify(browserGrantTarget.exportId)}
 const grantToken = ${JSON.stringify(browserGrantToken)}
+const learnerConversationId = ${JSON.stringify(browserStaleConversationId)}
+const alreadyPurgedOperationId = ${JSON.stringify(alreadyPurgedAccepted.operationId)}
 const conversationOperationId = ${JSON.stringify(conversationDelete.operationId)}
 const artifactOperationId = ${JSON.stringify(artifactDelete.operationId)}
 async function session(token, path) {
@@ -592,6 +616,11 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, devi
 // browser rather than competing with an in-flight admin route.
 await assertVisiblePage('/vera-ai', studentToken, ['Studio'])
 await openStudio()
+const selectedStaleConversation = await js('(() => { const wanted = "Browser owned stale-CAS session"; const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("aside button")].find((candidate) => visible(candidate) && (candidate.textContent || "").includes(wanted)); if (!node) return false; node.click(); return true; })()')
+if (!selectedStaleConversation) throw new Error('learner browser fixture did not expose the owned stale-CAS conversation in navigation')
+await new Promise((resolve) => setTimeout(resolve, 900))
+const selectedStaleConversationTitle = await js('(() => (document.querySelector("main h1")?.textContent || "").trim())()')
+if (!selectedStaleConversationTitle.includes('Browser owned stale-CAS session')) throw new Error('learner browser did not activate the owned stale-CAS conversation: ' + selectedStaleConversationTitle)
 cliLog('BROWSER_DESKTOP learner=studio six-studio-tools=visible')
 await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
 const lifecyclePanel = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const status = panel?.querySelector("[role=status]"); return { panelVisible: Boolean(panel && panel.getBoundingClientRect().width > 0), statusLive: status?.getAttribute("aria-live"), statusText: (status?.textContent || "").trim() }; })()')
@@ -630,8 +659,8 @@ await click('[data-vera-export-download]', { label: 'download learner export fro
 await new Promise((resolve) => setTimeout(resolve, 800))
 const downloadedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
 if (!downloadedUiState.includes('Unduh: downloaded')) throw new Error('learner page download control did not report a completed download: ' + downloadedUiState)
-// The same page must surface terminal lifecycle states and a typed stale/
-// already-purged target without exposing whether another student owns it.
+    // The same page must surface terminal lifecycle states without exposing
+    // whether another student owns a detached export.
 await fillInput('input[aria-label="ID ekspor"]', expiredExportId)
 await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'show expired learner export' })
 await new Promise((resolve) => setTimeout(resolve, 800))
@@ -644,17 +673,51 @@ const staleUiState = await js('(() => ({ status: (document.querySelector("[data-
 if (!staleUiState.alerts.some((message) => message.includes('target unavailable') || message.includes('target_unavailable'))) throw new Error('learner page did not surface a privacy-safe stale/already-purged error: ' + JSON.stringify(staleUiState))
 await fillInput('input[aria-label="ID ekspor"]', grantExportId)
 await fillInput('input[aria-label="Token akses cleanup"]', grantToken)
+await new Promise((resolve) => setTimeout(resolve, 400))
+const grantInputValues = await js('(() => ({ exportId: document.querySelector("input[aria-label=\\"ID ekspor\\"]")?.value || "", token: document.querySelector("input[aria-label=\\"Token akses cleanup\\"]")?.value || "" }))()')
+if (grantInputValues.exportId !== grantExportId || grantInputValues.token !== grantToken) throw new Error('learner cleanup grant inputs were not committed before the actual UI check: ' + JSON.stringify(grantInputValues))
 await click('xpath=//button[contains(normalize-space(.), "Periksa grant")]', { label: 'check learner cleanup grant' })
-await new Promise((resolve) => setTimeout(resolve, 1_000))
-const grantUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
+let grantUiState = ''
+for (let attempt = 0; attempt < 8; attempt += 1) {
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  grantUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
+  if (grantUiState.includes('Grant: cleanup_grant:active')) break
+  // React may still be reconciling the preceding export-state request when
+  // the grant control is first clicked. Re-submit the same visible, bounded
+  // form rather than substituting a direct fetch for the UI interaction.
+  if (attempt < 7) await click('xpath=//button[contains(normalize-space(.), "Periksa grant")]', { label: 'retry learner cleanup grant check' })
+}
 if (!grantUiState.includes('Grant: cleanup_grant:active')) throw new Error('learner lifecycle grant control did not expose the active cleanup grant: ' + grantUiState)
+// Force a real owned stale-CAS conflict after the page has hydrated its
+// conversation version. The external authenticated rename advances the
+// persisted version; the page still submits its earlier version and must show
+// a typed conflict rather than deleting a different target.
+const currentConversationText = await serverFetch(base + '/api/vera-ai/conversations/' + learnerConversationId, { headers: { cookie: 'vecalss_session=' + studentToken } })
+const currentConversation = JSON.parse(currentConversationText).conversation
+const staleRenameText = await serverFetch(base + '/api/vera-ai/conversations/' + learnerConversationId, { method: 'PATCH', headers: { cookie: 'vecalss_session=' + studentToken, 'content-type': 'application/json' }, body: JSON.stringify({ title: 'External stale-CAS update', expectedVersion: currentConversation.version }) })
+if (!JSON.parse(staleRenameText).version) throw new Error('owned stale-CAS setup did not commit its external version advance: ' + staleRenameText)
 await click('xpath=//button[contains(normalize-space(.), "Hapus percakapan ini")]', { label: 'delete learner conversation from lifecycle panel' })
 await new Promise((resolve) => setTimeout(resolve, 1_000))
 if (!(await visibleText('Konfirmasi penghapusan percakapan?'))) throw new Error('learner delete UI did not require an explicit confirmation')
 await click('[data-vera-delete-confirm] button', { label: 'confirm learner conversation deletion' })
 await new Promise((resolve) => setTimeout(resolve, 1_000))
 const deleteUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
-if (!deleteUiState.includes('Hapus:')) throw new Error('learner delete UI did not expose a durable operation state: ' + deleteUiState)
+const deleteUiAlerts = await js('(() => [...document.querySelectorAll("[role=alert]")].map((node) => (node.textContent || "").trim()).filter(Boolean))()')
+if (!deleteUiAlerts.some((message) => message.includes('conversation version conflict') || message.includes('conversation_version_conflict') || message.includes('target revision conflict') || message.includes('target_revision_conflict'))) throw new Error('learner stale-CAS UI did not expose the owned conflict: ' + JSON.stringify({ deleteUiState, deleteUiAlerts }))
+cliLog('BROWSER_LIFECYCLE_UI stale-cas=owned expectedVersion=stale visible=true target=conversation')
+// Reconnect to a separate durable operation that has already completed. This
+// is an actual owned/purged target, not a random UUID or a generic
+// target_unavailable response.
+await assertVisiblePage('/vera-ai?veraLifecycleOperation=' + alreadyPurgedOperationId, studentToken, ['Studio'])
+// Navigation creates a fresh document, so re-apply the media preference to
+// the actual reconnect page before asserting its accessible lifecycle state.
+await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
+await js('document.querySelector("[data-vera-lifecycle-panel]")?.scrollIntoView({ block: "center", behavior: "auto" })')
+await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconnect already-purged learner lifecycle status' })
+await new Promise((resolve) => setTimeout(resolve, 900))
+const alreadyPurgedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
+if (!alreadyPurgedUiState.includes('Hapus: purged')) throw new Error('learner already-purged UI did not expose the persisted purged result: ' + alreadyPurgedUiState)
+cliLog('BROWSER_LIFECYCLE_UI already-purged=owned operation=' + alreadyPurgedOperationId + ' visible=true targetState=purged')
 await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconcile learner delete status' })
 await new Promise((resolve) => setTimeout(resolve, 800))
 const reducedMotionState = await js('({ reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches, panelVisible: Boolean(document.querySelector("[data-vera-lifecycle-panel]")), liveRegion: document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.getAttribute("aria-live"), download: (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").includes("Unduh:") })')
@@ -693,7 +756,10 @@ if (usageMobileOverflow.scrollWidth > usageMobileOverflow.width + 1 || usageMobi
 cliLog('BROWSER_MOBILE page=usage width=390 interactive=true overflow=false')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 const browserConversationProbe = await browserJson('/api/vera-ai/conversations?limit=50')
-if (browserConversationProbe.body?.defaultConversationId && browserConversationProbe.body?.conversations?.length !== 1) throw new Error('browser learner conversation API probe returned an inconsistent owner list: ' + JSON.stringify(browserConversationProbe))
+// The fixture deliberately keeps the original conversation plus a separate
+// owned stale-CAS target. Both must remain in the authenticated owner list;
+// the probe must not collapse the two into a fabricated single-row result.
+if (browserConversationProbe.body?.defaultConversationId && (browserConversationProbe.body?.conversations?.length ?? 0) < 2) throw new Error('browser learner conversation API probe returned an incomplete owner list: ' + JSON.stringify(browserConversationProbe))
 const browserConversationId = browserConversationProbe.body.defaultConversationId
 const browserHydrationProbe = await Promise.all([
   browserJson('/api/vera-ai/sources?limit=50'),
@@ -815,7 +881,10 @@ async function dbCleanupBrowserLifecycle(db: PrismaClient, fixture: BrowserLifec
       }
       await db.aiArtifact.deleteMany({ where: { id: { in: fixture.artifactIds } } });
     }
-    if (fixture.conversationIds.length > 0) await db.aiConversation.deleteMany({ where: { id: { in: fixture.conversationIds } } });
+    // Conversation rows can own messages/requests created by the real browser
+    // flow. The later fixture cleanup removes those children in FK order; this
+    // lifecycle cleanup only handles operation-owned rows and must not delete a
+    // parent before its encrypted messages are reclaimed.
     if (exportIds.length > 0) {
       await db.aiExportPart.deleteMany({ where: { exportJobId: { in: exportIds } } });
       await db.aiExportJob.deleteMany({ where: { id: { in: exportIds } } });

@@ -13,10 +13,12 @@ import { MockProviderAdapter, type PreparedProviderTask, type ProviderResult } f
 import { IORedisVeraLeaseStore, type VeraLeaseStore } from "@/lib/vera-ai/redis-lease";
 import { canonicalJson, sha256Hex, type VeraContextSelection } from "@/lib/vera-ai/contracts";
 import type { ResolvedContextBlock, VeraContextResolver } from "@/lib/vera-ai/context-pack";
+import { createPrismaVeraContextResolver } from "@/lib/vera-ai/prisma-context-resolver";
 import { questionRevisionContentDigest } from "@/lib/question-bank/revision";
 import { validateVeraResult } from "@/lib/vera-ai/output-validator";
 import { validateStudioOutput, type NormalizedStudioPayload, type VeraStudioToolId } from "@/lib/vera-ai/studio-contracts";
 import type { VeraStudioIdentityAuthority } from "@/lib/vera-ai/studio-authority";
+import { parseVeraRequestBody, VeraHttpError } from "@/lib/vera-ai/http";
 
 function assertDisposable(url: string) {
   const parsed = new URL(url);
@@ -60,14 +62,24 @@ class TupleStudioProvider extends MockProviderAdapter {
     this.runCount += 1;
     if (prepared.preparedTask.featureKey !== `vera.${this.toolId}`) return super.run(prepared);
     const commonUsage = { inputTokens: 12, outputTokens: 30, quotaUnitsConsumed: 42, tokenUsageState: "known" as const };
+    let citationKey = `src_${this.moduleId.replaceAll("-", "")}`;
+    try {
+      const task = JSON.parse(Buffer.from(prepared.preparedTask.taskBytes).toString("utf8")) as {
+        blocks?: Array<{ citationKey?: unknown }>;
+      };
+      const preparedCitationKey = task.blocks?.find((block) => typeof block.citationKey === "string")?.citationKey;
+      if (typeof preparedCitationKey === "string") citationKey = preparedCitationKey;
+    } catch {
+      // The edge-only direct provider call intentionally supplies opaque bytes.
+    }
     const structured = this.toolId === "analysis"
-      ? { title: "Analisis pemulihan", summaryMarkdown: "Bukti rasio perlu diperkuat. [^src_ratio]", topics: [{ topicId: this.topicId, moduleId: this.moduleId, rank: 1, weaknessScore: 68, confidence: 0.75, evidenceCitationKeys: ["src_ratio"], limitations: "Bukti terbatas.", nextStep: "Ulangi materi rasio." }] }
+      ? { title: "Analisis pemulihan", summaryMarkdown: `Bukti rasio perlu diperkuat. [^${citationKey}]`, topics: [{ topicId: this.topicId, moduleId: this.moduleId, rank: 1, weaknessScore: 68, confidence: 0.75, evidenceCitationKeys: [citationKey], limitations: "Bukti terbatas.", nextStep: "Ulangi materi rasio." }] }
       : this.toolId === "route"
         ? { title: "Rute pemulihan", goal: "Menguatkan rasio secara bertahap.", activities: [{ ordinal: 1, action: "Pelajari kembali konsep rasio.", estimatedMinutes: 20, topicIds: [this.topicId], moduleIds: [this.moduleId], sourceIds: [], citationKeys: [] }], saveProjection: { sourceActivityOrdinal: 1, targetKind: "topic" as const, targetId: this.topicId, priority: 80, rationale: "Prioritas dipilih dari bukti belajar yang tersedia." } }
         : this.toolId === "review"
-          ? { title: "Ulasan pemulihan", questionId: this.questionId, questionRevisionId: this.questionRevisionId, misconception: "Rasio perlu dibaca dengan teliti.", explanationSteps: ["Tentukan data.", "Bandingkan hasil."], citationKeys: ["src_ratio"] }
+          ? { title: "Ulasan pemulihan", questionId: this.questionId, questionRevisionId: this.questionRevisionId, misconception: "Rasio perlu dibaca dengan teliti.", explanationSteps: ["Tentukan data.", "Bandingkan hasil."], citationKeys: [citationKey] }
           : this.toolId === "summary"
-            ? { title: "Ringkasan pemulihan", focus: "Fokus rasio dan latihan rilis.", decisions: ["Ulangi rasio."], nextActions: ["Kerjakan drill rilis."], limitations: "Bukti berasal dari sumber yang dirilis.", citationKeys: ["src_ratio"] }
+            ? { title: "Ringkasan pemulihan", focus: "Fokus rasio dan latihan rilis.", decisions: ["Ulangi rasio."], nextActions: ["Kerjakan drill rilis."], limitations: "Bukti berasal dari sumber yang dirilis.", citationKeys: [citationKey] }
             : this.toolId === "ptn"
               ? { title: "Strategi pemulihan", universityId: null, majorId: null, scoreEvidence: 640, assumptions: ["Skor rilis digunakan."], actions: ["Perkuat subtes utama."], disclaimer: "Strategi belajar, bukan prediksi kelulusan.", citationKeys: [] }
               : { title: "Drill pemulihan", topicId: this.topicId, items: [{ ordinal: 1, questionId: this.questionId, questionRevisionId: this.questionRevisionId, topicId: this.topicId, difficulty: "easy" as const, explanationPlan: "Tinjau setelah submit." }] };
@@ -87,6 +99,9 @@ type ExecutableOperationEdge = {
   malformed: boolean;
   overlong: boolean;
   empty: boolean;
+  missingKey: boolean;
+  payloadValidation: boolean;
+  unauthorizedKey: boolean;
   replay: boolean;
   conflict: boolean;
   expiry: boolean;
@@ -126,8 +141,20 @@ const drillQuizId = randomUUID();
 const drillQuizItemId = randomUUID();
 const drillParticipationId = randomUUID();
 const standaloneAttemptId = randomUUID();
+const tryoutId = randomUUID();
+const tryoutReleaseId = randomUUID();
+const tryoutDeliverySessionId = randomUUID();
+const tryoutAdmissionId = randomUUID();
+const tryoutSectionId = randomUUID();
+const tryoutItemId = randomUUID();
+const tryoutAttemptId = randomUUID();
+const tryoutRunId = randomUUID();
+const tryoutQuestionId = randomUUID();
+const tryoutRevisionId = randomUUID();
 const drillRevisionOptions = [{ label: "A", content: "4", isCorrect: true, sortOrder: 1 }, { label: "B", content: "5", isCorrect: false, sortOrder: 2 }];
 const drillRevisionDigest = questionRevisionContentDigest({ difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", options: drillRevisionOptions, prompt: "Berapa 2 + 2?", questionType: "single_choice" });
+const tryoutRevisionOptions = [{ label: "A", content: "6", isCorrect: true, sortOrder: 1 }, { label: "B", content: "7", isCorrect: false, sortOrder: 2 }];
+const tryoutRevisionDigest = questionRevisionContentDigest({ difficulty: "easy", explanation: "Tiga ditambah tiga adalah enam.", options: tryoutRevisionOptions, prompt: "Berapa 3 + 3?", questionType: "single_choice" });
 const now = new Date();
 const policy = await db.aiPolicyBundle.findFirst({ where: { bundleVersion: "vera-policy-bundle-v1-2026-08-24" } });
 if (!policy) throw new Error("Disposable policy seed is missing.");
@@ -149,23 +176,42 @@ try {
     { id: otherStudentId, email: `vera-s3-other-${otherStudentId}@example.test`, fullName: "Vera Sprint 3 Other", passwordHash: "fixture" },
   ] });
   await db.studentProfile.create({ data: { userId: studentId, timezone: "Asia/Jakarta" } });
+  await db.studentProfile.create({ data: { userId: otherStudentId, timezone: "Asia/Jakarta" } });
   await db.billingAccount.create({ data: { studentId, planCode: "pro", status: "trial" } });
+  await db.billingAccount.create({ data: { studentId: otherStudentId, planCode: "pro", status: "trial" } });
   await db.subtest.create({ data: { id: subtestId, code: `VS3-${subtestId.slice(0, 8)}`, name: "Vera Sprint 3" } });
   await db.topic.create({ data: { id: topicId, subtestId, code: `topic-${topicId.slice(0, 8)}`, name: "Rasio" } });
   await db.module.createMany({ data: [
-    { id: moduleId, topicId, code: `vera-s3-${moduleId}`, title: "Rasio dasar", sequenceNo: 1, status: "published", publishedAt: now },
-    { id: secondModuleId, topicId, code: `vera-s3-${secondModuleId}`, title: "Rasio lanjut", sequenceNo: 2, status: "published", publishedAt: new Date(now.getTime() - 1_000) },
+    { id: moduleId, topicId, code: `vera-s3-${moduleId}`, title: "Rasio dasar", summary: "Materi rasio yang telah dirilis untuk pembelajaran.", sequenceNo: 1, status: "published", publishedAt: now },
+    { id: secondModuleId, topicId, code: `vera-s3-${secondModuleId}`, title: "Rasio lanjut", summary: "Materi rasio lanjutan yang telah dirilis.", sequenceNo: 2, status: "published", publishedAt: new Date(now.getTime() - 1_000) },
   ] });
   await db.$transaction(async (tx) => {
     await tx.question.create({ data: { id: drillQuestionId, code: `vera-s3-question-${drillQuestionId}`, subtestId, topicId, stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", status: "published", currentRevisionId: drillRevisionId, createdByUserId: studentId, updatedByUserId: studentId } });
     await tx.questionRevision.create({ data: { id: drillRevisionId, questionId: drillQuestionId, revisionNo: 1, status: "draft", provenance: "authored", stem: "Berapa 2 + 2?", questionType: "single_choice", difficulty: "easy", explanation: "Dua ditambah dua adalah empat.", contentDigest: drillRevisionDigest, createdByUserId: studentId, updatedByUserId: studentId, options: { createMany: { data: drillRevisionOptions } } } });
     await tx.questionRevision.update({ where: { id: drillRevisionId }, data: { status: "ready", readyAt: now } });
+    await tx.question.create({ data: { id: tryoutQuestionId, code: `vera-s3-tryout-question-${tryoutQuestionId}`, subtestId, topicId, stem: "Berapa 3 + 3?", questionType: "single_choice", difficulty: "easy", status: "published", currentRevisionId: tryoutRevisionId, createdByUserId: studentId, updatedByUserId: studentId } });
+    await tx.questionRevision.create({ data: { id: tryoutRevisionId, questionId: tryoutQuestionId, revisionNo: 1, status: "draft", provenance: "authored", stem: "Berapa 3 + 3?", questionType: "single_choice", difficulty: "easy", explanation: "Tiga ditambah tiga adalah enam.", contentDigest: tryoutRevisionDigest, createdByUserId: studentId, updatedByUserId: studentId, options: { createMany: { data: tryoutRevisionOptions } } } });
+    await tx.questionRevision.update({ where: { id: tryoutRevisionId }, data: { status: "ready", readyAt: now } });
   });
   await db.standaloneQuiz.create({ data: { id: drillQuizId, slug: `vera-s3-quiz-${drillQuizId}`, title: "Latihan Sprint 3", description: "Latihan rilis untuk callback evidence.", subtestId, status: "published", reviewTiming: "immediate", correctAnswerVisibility: "show", createdByUserId: studentId } });
   await db.standaloneQuizItem.create({ data: { id: drillQuizItemId, quizId: drillQuizId, sortOrder: 1, prompt: "Berapa 2 + 2?", explanation: "Empat", difficulty: "easy", subtestId, sourceQuestionId: drillQuestionId, sourceQuestionRevisionId: drillRevisionId, sourceContentDigest: drillRevisionDigest, sourceRevisionProvenance: "authored" } });
   const drillPolicySnapshot = { reviewTiming: "immediate", correctAnswerVisibility: "show", formBehavior: "same", scorePolicy: "latest", attemptsAllowed: 1, retryDelaySeconds: null };
   await db.standaloneQuizParticipation.create({ data: { id: drillParticipationId, quizId: drillQuizId, studentId, policySnapshot: drillPolicySnapshot } });
   await db.standaloneQuizAttempt.create({ data: { id: standaloneAttemptId, participationId: drillParticipationId, attemptNo: 1, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", releaseAt: now, score: 100, policySnapshot: drillPolicySnapshot, formItemOrder: [drillQuizItemId], formSnapshot: { version: 1, items: [{ id: drillQuizItemId, prompt: "Berapa 2 + 2?", explanation: "Dua ditambah dua adalah empat.", options: [{ choiceKey: "A", content: "4", isCorrect: true }, { choiceKey: "B", content: "5", isCorrect: false }] }] } } });
+
+  // The end-to-end T12 chain uses the same server-owned resolver for all three
+  // released source classes.  The Tryout run snapshot is populated because
+  // Studio/drill authority must prove the release digest and item revision,
+  // not merely resolve a package title.
+  const tryoutReleaseDigest = sha256Hex(canonicalJson({ tryoutId, tryoutRevisionDigest, release: "vera-s3-released" }));
+  await db.tryoutPackage.create({ data: { id: tryoutId, code: `vera-s3-tryout-${tryoutId}`, title: "Tryout rilis Sprint 3", description: "Tryout owner-scoped yang telah dirilis.", status: "published", publishedAt: now, createdByUserId: studentId } });
+  await db.assessmentRelease.create({ data: { id: tryoutReleaseId, tryoutId, releaseNumber: 1, contentDigest: tryoutReleaseDigest, payload: { version: 1, source: "released" }, publishedAt: now, createdByUserId: studentId } });
+  await db.tryoutDeliverySession.create({ data: { id: tryoutDeliverySessionId, tryoutId, name: "Sesi rilis Sprint 3", availableFrom: new Date(now.getTime() - 60_000), availableUntil: new Date(now.getTime() + 3_600_000), status: "active", releaseState: "released", releasedAt: now, assessmentReleaseId: tryoutReleaseId, createdByUserId: studentId, updatedByUserId: studentId } });
+  await db.tryoutAdmission.create({ data: { id: tryoutAdmissionId, tryoutId, studentId, status: "active", decidedAt: now, decidedByUserId: studentId } });
+  await db.tryoutSection.create({ data: { id: tryoutSectionId, tryoutId, subtestId, title: "Rasio Sprint 3", sequenceNo: 1, durationSeconds: 600, questionCount: 1 } });
+  await db.tryoutItem.create({ data: { id: tryoutItemId, tryoutId, tryoutSectionId, sourceQuestionId: tryoutQuestionId, sourceQuestionRevisionId: tryoutRevisionId, sourceContentDigest: tryoutRevisionDigest, sourceRevisionProvenance: "authored", sortOrder: 1, prompt: "Prompt Tryout yang dibekukan", explanation: "Penjelasan Tryout yang dirilis.", difficulty: "easy", subtestId, packageCode: `vera-s3-${tryoutId.slice(0, 8)}` } });
+  await db.tryoutAttempt.create({ data: { id: tryoutAttemptId, tryoutId, deliverySessionId: tryoutDeliverySessionId, admissionId: tryoutAdmissionId, studentId, status: "scored", attemptState: "submitted", scoringState: "scored", releaseState: "released", assessmentReleaseId: tryoutReleaseId, assessmentReleaseNumber: 1, assessmentReleaseDigest: tryoutReleaseDigest, serverStartedAt: new Date(now.getTime() - 120_000), serverDeadlineAt: new Date(now.getTime() - 60_000), submittedAt: new Date(now.getTime() - 70_000), releaseAt: now, score: 710, releasePolicySnapshot: { policy: "immediate" }, contentSnapshot: { version: 1, source: "frozen-tryout-release" } } });
+  await db.tryoutAttemptTestRun.create({ data: { id: tryoutRunId, attemptId: tryoutAttemptId, tryoutSectionId, sequenceNo: 1, status: "sealed", scoringState: "scored", assessmentReleaseId: tryoutReleaseId, assessmentReleaseNumber: 1, assessmentReleaseDigest: tryoutReleaseDigest, serverStartedAt: new Date(now.getTime() - 120_000), serverDeadlineAt: new Date(now.getTime() - 60_000), sealedAt: now, contentSnapshot: { version: 1, items: [{ id: tryoutItemId, prompt: "Prompt Tryout yang dibekukan", explanation: "Penjelasan Tryout yang dirilis.", sourceQuestionId: tryoutQuestionId, sourceQuestionRevisionId: tryoutRevisionId, sourceContentDigest: tryoutRevisionDigest, difficulty: "easy", options: [{ choiceKey: "A", content: "6", isCorrect: true }, { choiceKey: "B", content: "7", isCorrect: false }] }] }, calculationReleaseable: true } });
   // Use the persisted learner command (rather than a fixture-only insert) so
   // the T12 operation matrix proves the public conversation_create replay
   // contract and its durable idempotency target.
@@ -186,9 +232,14 @@ try {
   assert.equal(conversationReplay.replayed, true);
   assert.equal(conversationReplay.conversation.id, conversationId);
 
+  const prismaContextResolver = createPrismaVeraContextResolver(db);
   const contextResolver: VeraContextResolver = {
-    resolve: async (selection: VeraContextSelection): Promise<ResolvedContextBlock> => {
+    resolve: async (selection: VeraContextSelection, authority): Promise<ResolvedContextBlock> => {
       if (selection.sourceType === "document") throw new Error("document source is disabled in the fixture");
+      if ((selection.sourceType === "material" && ([moduleId, secondModuleId] as string[]).includes(selection.sourceId))
+        || (selection.sourceType === "practice" && ([standaloneAttemptId, tryoutAttemptId] as string[]).includes(selection.sourceId))) {
+        return prismaContextResolver.resolve(selection, { studentId: authority?.studentId ?? studentId });
+      }
       return {
         sourceType: selection.sourceType,
         sourceId: selection.sourceId,
@@ -270,7 +321,8 @@ try {
         ? [...selection, { sourceType: "practice" as const, sourceId: standaloneAttemptId }]
         : selection;
       const crashResponse = await crashOrchestrator.sse({ studentId, conversationId, clientRequestId: crashKey, kind: "studio", toolId: entry.toolId, text: `Uji crash ${entry.toolId}/${entry.table}.`, selection: crashSelection });
-      assert.ok((await crashResponse.text()).includes("request.recovery_pending"));
+      const crashWire = await crashResponse.text();
+      assert.ok(crashWire.includes("request.recovery_pending"));
     } finally {
       await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${trigger} ON ${entry.table}`);
     }
@@ -490,6 +542,82 @@ try {
     await db.aiArtifact.create({ data: { id, artifactKey: `vera.fixture.${toolId}.${id}`, revision: 1, studentId, conversationId, artifactType: toolId, provenanceKind: "typed_entity", titleCiphertext, contentMarkdownCiphertext, payloadCiphertext, artifactSchemaVersion: "1", sourceEntityType: "Fixture", sourceEntityId: randomUUID(), sourceEntityRevision: 0, sourceEntityDigest: normalized.digest, contentDigest: normalized.digest, renderVersion: "vera-render-v1", retentionPolicyVersion: "vera-retention-v1", lifecycle: { create: { lifecycleRevision: 0 } } } });
     return id;
   };
+
+  // One persisted learner chain carries all released source authorities through
+  // the same ai_request admission, retry, Studio artifact, and Apply path.  A
+  // separate process-level authority script is useful for resolver unit
+  // coverage, but cannot prove that those identities survive the public
+  // request lifecycle together.
+  const learnerChainSelection: VeraContextSelection[] = [
+    { sourceType: "material", sourceId: moduleId },
+    { sourceType: "practice", sourceId: standaloneAttemptId },
+    { sourceType: "practice", sourceId: tryoutAttemptId },
+  ];
+  const learnerChainBlocks = await Promise.all(learnerChainSelection.map((source) => prismaContextResolver.resolve(source, { studentId })));
+  assert.deepEqual(learnerChainBlocks.map((block) => block.sourceId).sort(), [moduleId, standaloneAttemptId, tryoutAttemptId].sort(), "learner chain must preserve all three source IDs");
+  assert.equal(learnerChainBlocks.find((block) => block.sourceId === moduleId)?.content.includes("Materi rasio"), true);
+  assert.match(learnerChainBlocks.find((block) => block.sourceId === standaloneAttemptId)?.citationLabel ?? "", /^Latihan:/u);
+  assert.match(learnerChainBlocks.find((block) => block.sourceId === tryoutAttemptId)?.citationLabel ?? "", /^Tryout:/u);
+  assert.equal(learnerChainBlocks.find((block) => block.sourceId === tryoutAttemptId)?.contentDigest, tryoutReleaseDigest);
+
+  const learnerChainConversation = await learner.createConversation({
+    studentId,
+    clientRequestId: `sprint3-chain-conversation-${randomUUID()}`,
+    conversationType: "vera_chat",
+    title: "Rantai sumber rilis Sprint 3",
+  });
+  const learnerChainConversationId = learnerChainConversation.conversation.id;
+  const learnerChainProvider = new RouteStudioProvider(topicId, moduleId);
+  const learnerChainOrchestrator = new VeraPrismaChatOrchestrator({
+    db,
+    admission: new VeraPrismaAdmissionService(db, envelope),
+    contextResolver,
+    provider: learnerChainProvider,
+    envelope,
+    leaseStore,
+    hmacSecret: "sprint3-learner-chain-hmac",
+  });
+  const learnerChainText = "Susun rute dari materi, Kuis, dan Tryout yang dirilis.";
+  const learnerChainKey = `sprint3-chain-request-${randomUUID()}`;
+  const learnerChainResponse = await learnerChainOrchestrator.sse({ studentId, conversationId: learnerChainConversationId, clientRequestId: learnerChainKey, kind: "studio", toolId: "route", text: learnerChainText, selection: learnerChainSelection });
+  const learnerChainWire = await learnerChainResponse.text();
+  assert.ok(learnerChainWire.includes("event: artifact.ready") && learnerChainWire.includes("event: request.completed"), "learner chain must complete the Studio stream");
+  const learnerChainStatus = await readPrismaVeraRequestStatus(db, { studentId, conversationId: learnerChainConversationId, clientRequestId: learnerChainKey }, { admission, envelope });
+  assert.equal(learnerChainStatus?.state, "succeeded");
+  assert(learnerChainStatus?.artifact?.id, "learner chain must persist one Studio artifact");
+  const learnerChainRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: learnerChainKey }, select: { id: true, userMessageId: true } });
+  const learnerChainSources = await db.aiRequestSource.findMany({ where: { requestId: learnerChainRequest.id }, select: { sourceType: true, sourceId: true } });
+  assert.deepEqual(learnerChainSources.map((source) => `${source.sourceType}:${source.sourceId}`).sort(), learnerChainSelection.map((source) => `${source.sourceType}:${source.sourceId}`).sort(), "ai_request must persist all released source authorities");
+  const learnerChainMaterializationKey = `sprint3-chain-recommendation-${randomUUID()}`;
+  const learnerChainMaterialized = await commands.materializeLearningRecommendation({ studentId, artifactRevisionId: learnerChainStatus.artifact.id, clientRequestId: learnerChainMaterializationKey, expectedArtifactRevision: learnerChainStatus.artifact.revision, materializationSchemaVersion: "1" });
+  if (!("result" in learnerChainMaterialized) || learnerChainMaterialized.replayed || !learnerChainMaterialized.result) throw new Error("learner chain must materialize its route exactly once");
+  const learnerChainRecommendation = await db.learningRecommendation.findUnique({ where: { id: learnerChainMaterialized.result.id }, select: { id: true, revision: true } });
+  assert(learnerChainRecommendation, "learner chain Apply target must be durable");
+  const learnerChainApply = await commands.apply({ studentId, artifactRevisionId: learnerChainStatus.artifact.id, clientRequestId: `sprint3-chain-apply-${randomUUID()}`, registryKey: "learning_recommendation.v1", targetId: learnerChainRecommendation.id, expectedTargetRevision: learnerChainRecommendation.revision });
+  assert("result" in learnerChainApply && !learnerChainApply.replayed, "learner chain Apply must use the materialized route target");
+
+  // Retry is exercised against the same source authority and durable user
+  // message after a provider-result validation failure. The new key is allowed
+  // only once the original request is terminal and carries the exact text.
+  const learnerChainFailureKey = `sprint3-chain-failure-${randomUUID()}`;
+  const learnerChainFailureProvider = new MockProviderAdapter("malformed");
+  const learnerChainFailureOrchestrator = new VeraPrismaChatOrchestrator({ db, admission: new VeraPrismaAdmissionService(db, envelope), contextResolver, provider: learnerChainFailureProvider, envelope, leaseStore, hmacSecret: "sprint3-learner-chain-failure-hmac" });
+  const learnerChainFailureResponse = await learnerChainFailureOrchestrator.sse({ studentId, conversationId: learnerChainConversationId, clientRequestId: learnerChainFailureKey, kind: "studio", toolId: "route", text: learnerChainText, selection: learnerChainSelection });
+  const learnerChainFailureWire = await learnerChainFailureResponse.text();
+  assert.ok(learnerChainFailureWire.includes("event: request.failed"), "malformed chain output must settle a terminal failure");
+  const learnerChainFailureRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: learnerChainFailureKey }, select: { id: true, status: true, userMessageId: true } });
+  assert.equal(learnerChainFailureRequest.status, "failed");
+  const learnerChainRetryProvider = new RouteStudioProvider(topicId, moduleId);
+  const learnerChainRetryOrchestrator = new VeraPrismaChatOrchestrator({ db, admission: new VeraPrismaAdmissionService(db, envelope), contextResolver, provider: learnerChainRetryProvider, envelope, leaseStore, hmacSecret: "sprint3-learner-chain-retry-hmac" });
+  const learnerChainRetryKey = `sprint3-chain-retry-${randomUUID()}`;
+  const learnerChainRetryResponse = await learnerChainRetryOrchestrator.sse({ studentId, conversationId: learnerChainConversationId, clientRequestId: learnerChainRetryKey, kind: "studio", toolId: "route", text: learnerChainText, selection: learnerChainSelection, retryOfRequestId: learnerChainFailureRequest.id });
+  assert.ok((await learnerChainRetryResponse.text()).includes("event: request.completed"), "eligible learner chain retry must complete");
+  const learnerChainRetryRequest = await db.aiRequest.findFirstOrThrow({ where: { studentId, clientRequestId: learnerChainRetryKey }, select: { retryOfRequestId: true, userMessageId: true } });
+  assert.equal(learnerChainRetryRequest.retryOfRequestId, learnerChainFailureRequest.id);
+  assert.equal(learnerChainRetryRequest.userMessageId, learnerChainFailureRequest.userMessageId);
+  assert.equal(learnerChainFailureProvider.calls.length, 1);
+  assert.equal(learnerChainRetryProvider.runCount, 1);
+  console.log(`T12_EVIDENCE learner_chain=material+released-kuis+released-tryout same_ai_request=${learnerChainRequest.id} retry=${learnerChainRetryRequest.retryOfRequestId} studio=artifact.ready apply=learning_recommendation ownership=server-resolver release=true status=pass`);
   const routeCommandAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [moduleId], topicIds: [topicId], moduleIds: [moduleId], questions: [], universityIds: [], majorIds: [] };
   const routeCommandAuthority: VeraStudioIdentityAuthority = { ...routeCommandAuthoritySeed, digest: sha256Hex(canonicalJson(routeCommandAuthoritySeed)) };
   const recommendationCrashPayload = validateStudioOutput({ toolId: "route", structured: { title: "Rute materialisasi crash", goal: "Menguji recovery materialisasi.", activities: [{ ordinal: 1, action: "Pulihkan proyeksi.", estimatedMinutes: 15, topicIds: [topicId], moduleIds: [moduleId], sourceIds: [], citationKeys: [] }], saveProjection: { sourceActivityOrdinal: 1, targetKind: "topic", targetId: topicId, priority: 70, rationale: "Proyeksi untuk crash recovery." } }, allowedCitationKeys: [], identityAuthority: routeCommandAuthority });
@@ -651,23 +779,74 @@ try {
   assert.equal(new Set(edgeConversationRace.map((result) => result.conversation.id)).size, 1);
   assert.equal(edgeConversationRace.filter((result) => result.replayed).length, 1, "conversation unique loser must replay the winner");
   const edgeConversationId = edgeConversationRace[0]!.conversation.id;
+  let conversationMissingKey = false;
+  try {
+    await edgeLearner.createConversation({ studentId, clientRequestId: undefined as unknown as string, conversationType: "vera_chat", title: "Edge" });
+    assert.fail("conversation_create must reject a missing client key");
+  } catch (error) {
+    assert(error instanceof Error && "code" in error && (error as { code?: unknown }).code === "invalid_request");
+    conversationMissingKey = true;
+  }
+  let conversationPayloadValidation = false;
   await assert.rejects(
+    () => edgeLearner.createConversation({ studentId, clientRequestId: randomUUID(), conversationType: "vera_chat", title: "x".repeat(161) }),
+    /invalid_request/,
+  );
+  conversationPayloadValidation = true;
+  const conversationConflict = await (async () => {
+    await assert.rejects(
     () => edgeLearner.createConversation({ studentId, clientRequestId: edgeConversationRaceKey, conversationType: "vera_chat", title: "Edited edge race" }),
     /idempotency_conflict/,
-  );
-  await assert.rejects(
-    () => edgeLearner.createConversation({ studentId, clientRequestId: "" , conversationType: "vera_chat", title: "Edge" }),
-    /invalid_request/,
-  );
-  await assert.rejects(
-    () => edgeLearner.createConversation({ studentId, clientRequestId: "x".repeat(121), conversationType: "vera_chat", title: "Edge" }),
-    /invalid_request/,
-  );
+    );
+    return true;
+  })();
+  const edgeContextRace = await Promise.allSettled([
+    edgeLearner.replaceContext({ studentId, conversationId: edgeConversationId, expectedContextVersion: 0, sources: [] }),
+    edgeLearner.replaceContext({ studentId, conversationId: edgeConversationId, expectedContextVersion: 0, sources: [] }),
+  ]);
+  const isContextConflict = (result: PromiseSettledResult<unknown>): boolean => result.status === "rejected"
+    && result.reason instanceof Error
+    && "code" in result.reason
+    && (result.reason as { code?: unknown }).code === "context_version_conflict";
+  assert.equal(edgeContextRace.filter((result) => result.status === "fulfilled").length, 1, "one context writer must win the CAS race");
+  const conversationWorkerCasRecovery = edgeContextRace.filter(isContextConflict).length === 1;
+  assert.equal(conversationWorkerCasRecovery, true, "the context worker loser must return a typed CAS conflict");
+  const conversationUnauthorizedKey = await (async () => {
+    await assert.rejects(
+      () => edgeLearner.getConversation(otherStudentId, edgeConversationId),
+      /target_unavailable/,
+    );
+    return true;
+  })();
+  const conversationMalformed = await (async () => {
+    await assert.rejects(
+      () => edgeLearner.createConversation({ studentId, clientRequestId: "bad\u0000key", conversationType: "vera_chat", title: "Edge" }),
+      /invalid_request/,
+    );
+    return true;
+  })();
+  const conversationOverlong = await (async () => {
+    await assert.rejects(
+      () => edgeLearner.createConversation({ studentId, clientRequestId: "x".repeat(121), conversationType: "vera_chat", title: "Edge" }),
+      /invalid_request/,
+    );
+    return true;
+  })();
+  const conversationEmpty = await (async () => {
+    await assert.rejects(
+      () => edgeLearner.createConversation({ studentId, clientRequestId: "", conversationType: "vera_chat", title: "Edge" }),
+      /invalid_request/,
+    );
+    return true;
+  })();
   await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "conversation_create", clientRequestId: edgeConversationRaceKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
-  await assert.rejects(
+  const conversationExpiry = await (async () => {
+    await assert.rejects(
     () => edgeLearner.createConversation({ studentId, clientRequestId: edgeConversationRaceKey, conversationType: "vera_chat", title: "Edge race" }),
     /idempotency_key_expired/,
-  );
+    );
+    return true;
+  })();
   await db.aiConversation.delete({ where: { id: edgeConversationId } });
   const conversationCreateCrossKeyRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: conversationCreateKey }, select: { operation: true, resultId: true } });
   assert(conversationCreateCrossKeyRows.some((row) => row.operation === "conversation_create"), "conversation_create key must retain its operation namespace");
@@ -676,19 +855,37 @@ try {
   const edgeStudioAuthority: VeraStudioIdentityAuthority = { ...edgeStudioAuthoritySeed, digest: sha256Hex(canonicalJson(edgeStudioAuthoritySeed)) };
   const emptyStudioAuthoritySeed = { version: "vera-studio-authority-v1" as const, studentId, sourceIds: [], topicIds: [], moduleIds: [], questions: [], universityIds: [], majorIds: [] };
   const emptyStudioAuthority: VeraStudioIdentityAuthority = { ...emptyStudioAuthoritySeed, digest: sha256Hex(canonicalJson(emptyStudioAuthoritySeed)) };
-  const studioEdgeValidation = async (toolId: VeraStudioToolId): Promise<{ malformed: boolean; overlong: boolean; empty: boolean; unauthorized: boolean }> => {
-    const invalid = (structured: unknown) => assert.throws(() => validateStudioOutput({ toolId, structured, allowedCitationKeys: ["src_ratio"], identityAuthority: edgeStudioAuthority }));
-    invalid({});
-    invalid({ title: "x".repeat(4_001) });
-    invalid({ title: "" });
+  const studioEdgeValidation = async (toolId: VeraStudioToolId): Promise<{ malformed: boolean; overlong: boolean; empty: boolean; missingKey: boolean; payloadValidation: boolean; unauthorizedKey: boolean; unauthorized: boolean }> => {
+    const invalid = (structured: unknown): boolean => {
+      assert.throws(() => validateStudioOutput({ toolId, structured, allowedCitationKeys: [`src_${moduleId.replaceAll("-", "")}`], identityAuthority: edgeStudioAuthority }));
+      return true;
+    };
+    const malformed = invalid({});
+    const overlong = invalid({ title: "x".repeat(4_001) });
+    const empty = invalid({ title: "" });
     const provider = new TupleStudioProvider(toolId, topicId, moduleId, drillQuestionId, drillRevisionId);
     const prepared = await provider.prepare({ featureKey: `vera.${toolId}`, behaviorVersion: "1", taskBytes: new Uint8Array([1, 2, 3]), contextTaskDigest: `edge-${toolId}`, hardOutputQuotaUnits: 200 });
     const result = await provider.run(prepared);
     const unauthorizedStructured = toolId === "ptn" && result.structured && typeof result.structured === "object"
       ? { ...(result.structured as Record<string, unknown>), universityId: randomUUID() }
       : result.structured;
-    assert.throws(() => validateStudioOutput({ toolId, structured: unauthorizedStructured, allowedCitationKeys: toolId === "summary" ? [] : ["src_ratio"], identityAuthority: emptyStudioAuthority }));
-    return { malformed: true, overlong: true, empty: true, unauthorized: true };
+    const unauthorizedKey = (() => {
+      assert.throws(() => validateStudioOutput({ toolId, structured: unauthorizedStructured, allowedCitationKeys: toolId === "summary" ? [] : [`src_${moduleId.replaceAll("-", "")}`], identityAuthority: emptyStudioAuthority }));
+      return true;
+    })();
+    const parseEdgeRequest = (clientRequestId: unknown): boolean => {
+      try {
+        parseVeraRequestBody({ clientRequestId, kind: "studio", text: `Edge ${toolId}`, sources: [], options: {}, toolId });
+        assert.fail("invalid Vera client key must be rejected by the HTTP parser");
+      } catch (error) {
+        assert(error instanceof VeraHttpError, "invalid Vera client key must use the typed HTTP error");
+        assert.equal(error.code, "invalid_request");
+      }
+      return true;
+    };
+    const missingKey = [undefined, "", "x".repeat(121), "bad\u0000key"].map(parseEdgeRequest).every(Boolean);
+    const payloadValidation = [malformed, overlong, empty].every(Boolean);
+    return { malformed, overlong, empty, missingKey, payloadValidation, unauthorizedKey, unauthorized: unauthorizedKey };
   };
   const edgeStudioValidationByTool = new Map<VeraStudioToolId, Awaited<ReturnType<typeof studioEdgeValidation>>>();
   for (const toolId of ["analysis", "route", "review", "summary", "ptn", "drill"] as const) edgeStudioValidationByTool.set(toolId, await studioEdgeValidation(toolId));
@@ -701,10 +898,13 @@ try {
   const edgeRequestOrchestrator = new VeraPrismaChatOrchestrator({ db, admission, contextResolver, provider: new MockProviderAdapter(), envelope, leaseStore, hmacSecret: routeCrashHmac });
   const routeStatusReplay = await readPrismaVeraRequestStatus(db, { studentId, conversationId, clientRequestId: routeCrashKey }, { admission, envelope });
   assert.equal(routeStatusReplay?.state, "succeeded");
-  await assert.rejects(
-    () => edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: routeCrashKey, kind: "studio", toolId: "route", text: "Uji pemulihan diedit.", selection: routeCrashSelection }),
-    /idempotency_conflict/,
-  );
+  const aiRequestConflict = await (async () => {
+    await assert.rejects(
+      () => edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: routeCrashKey, kind: "studio", toolId: "route", text: "Uji pemulihan diedit.", selection: routeCrashSelection }),
+      /idempotency_conflict/,
+    );
+    return true;
+  })();
   const routeExpiredKey = `${routeCrashKey}-expired`;
   const routeExpiredSource = await edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: routeExpiredKey, kind: "studio", toolId: "route", text: "Uji expiry.", selection: routeCrashSelection });
   await routeExpiredSource.text();
@@ -715,14 +915,23 @@ try {
   const crossOperationRequest = await edgeRequestOrchestrator.sse({ studentId, conversationId, clientRequestId: conversationCreateKey, kind: "studio", toolId: "route", text: "Kunci operasi berbeda.", selection: routeCrashSelection });
   await crossOperationRequest.text();
   const routeUniqueLoserKey = `${routeCrashKey}-unique-loser`;
+  const routeRaceConversation = await learner.createConversation({
+    studentId: otherStudentId,
+    clientRequestId: `sprint3-route-race-conversation-${randomUUID()}`,
+    conversationType: "vera_chat",
+    title: "Race owner",
+  });
   const routeRaceProvider = new TupleStudioProvider("route", topicId, moduleId, drillQuestionId, drillRevisionId);
   const routeRaceOrchestrators = [0, 1].map(() => new VeraPrismaChatOrchestrator({ db, admission, contextResolver, provider: routeRaceProvider, envelope, leaseStore, hmacSecret: routeCrashHmac }));
-  const routeRaceResponses = await Promise.all(routeRaceOrchestrators.map((raceOrchestrator) => raceOrchestrator.sse({ studentId, conversationId, clientRequestId: routeUniqueLoserKey, kind: "studio", toolId: "route", text: "Uji unique loser.", selection: routeCrashSelection })));
-  await Promise.all(routeRaceResponses.map((raceResponse) => raceResponse.text()));
+  const routeRaceResponses = await Promise.all(routeRaceOrchestrators.map((raceOrchestrator) => raceOrchestrator.sse({ studentId: otherStudentId, conversationId: routeRaceConversation.conversation.id, clientRequestId: routeUniqueLoserKey, kind: "studio", toolId: "route", text: "Uji unique loser.", selection: routeCrashSelection })));
+  await Promise.all(routeRaceResponses.map((result) => result.text()));
   assert.equal(routeRaceProvider.runCount, 1, "the absent-key ai_request loser must not invoke the provider");
-  assert.equal((await db.aiRequest.count({ where: { studentId, clientRequestId: routeUniqueLoserKey } })), 1);
+  assert.equal((await db.aiRequest.count({ where: { studentId: otherStudentId, clientRequestId: routeUniqueLoserKey } })), 1);
   const routeCrossKeyRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: conversationCreateKey }, select: { operation: true, resultId: true } });
   assert(routeCrossKeyRows.some((row) => row.operation === "ai_request"), "ai_request must coexist under a distinct operation namespace");
+  const routeRecoveredRequest = await db.aiRequest.findUnique({ where: { id: routeCrashRequest }, include: { resultStage: true } });
+  const aiRequestWorkerCasRecovery = routeRecoveredRequest?.status === "succeeded" && routeRecoveredRequest.resultStage?.state === "consumed";
+  assert.equal(aiRequestWorkerCasRecovery, true, "the persisted ai_request worker recovery must consume its stage exactly once");
 
   const recommendationCrossKey = randomUUID();
   const recommendationTarget = await db.learningRecommendation.findUnique({ where: { sourceArtifactRevisionId: detail.id }, select: { id: true, revision: true } });
@@ -731,38 +940,64 @@ try {
   assert("result" in recommendationCross && !recommendationCross.replayed, "recommendation Apply must use its own operation namespace");
   const recommendationCrossRows = await db.aiIdempotencyKey.findMany({ where: { studentId, clientRequestId: recommendationCrossKey }, select: { operation: true, resultId: true } });
   assert.equal(recommendationCrossRows[0]?.operation, "artifact_apply");
+  const recommendationMissingKey = await (async () => {
+    await assert.rejects(
+      () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: undefined as unknown as string, expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" }),
+      /invalid_request/,
+    );
+    return true;
+  })();
+  const applyMissingKey = await (async () => {
+    await assert.rejects(
+      () => commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId: undefined as unknown as string, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: recommendation!.revision }),
+      /invalid_request/,
+    );
+    return true;
+  })();
   const recommendationMaterializationKey = materializeKey;
-  await assert.rejects(
-    () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: recommendationMaterializationKey, expectedArtifactRevision: 0, materializationSchemaVersion: "1" }),
-    /idempotency_conflict/,
-  );
+  const recommendationConflict = await (async () => {
+    await assert.rejects(
+      () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: recommendationMaterializationKey, expectedArtifactRevision: 0, materializationSchemaVersion: "1" }),
+      /idempotency_conflict/,
+    );
+    return true;
+  })();
   await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "learning_recommendation_create", clientRequestId: recommendationMaterializationKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
-  await assert.rejects(
-    () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: recommendationMaterializationKey, expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" }),
-    /idempotency_key_expired/,
-  );
+  const recommendationExpiry = await (async () => {
+    await assert.rejects(
+      () => commands.materializeLearningRecommendation({ studentId, artifactRevisionId: detail.id, clientRequestId: recommendationMaterializationKey, expectedArtifactRevision: detail.revision, materializationSchemaVersion: "1" }),
+      /idempotency_key_expired/,
+    );
+    return true;
+  })();
 
   const applyExpiredKey = applyKey;
   await db.aiIdempotencyKey.update({ where: { studentId_operation_clientRequestId: { studentId, operation: "artifact_apply", clientRequestId: applyExpiredKey } }, data: { state: "expired", expiresAt: new Date(Date.now() - 1_000) } });
-  await assert.rejects(
-    () => commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId: applyExpiredKey, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: 1 }),
-    /idempotency_key_expired/,
-  );
+  const applyExpiry = await (async () => {
+    await assert.rejects(
+      () => commands.apply({ studentId, artifactRevisionId: detail.id, clientRequestId: applyExpiredKey, registryKey: "learning_recommendation.v1", targetId: recommendation!.id, expectedTargetRevision: 1 }),
+      /idempotency_key_expired/,
+    );
+    return true;
+  })();
   const crossTargetReuse = await commands.apply({ studentId, artifactRevisionId: recommendationCrashArtifactId, clientRequestId: randomUUID(), registryKey: "adaptive_practice_session.v1", targetId: adaptiveTarget.id, expectedTargetRevision: 0 });
   assert("error" in crossTargetReuse && crossTargetReuse.error === "unsupported_target", "an artifact_apply target cannot be reused across operation projections");
 
   const operationEdgeRows = ([
     {
       operation: "conversation_create",
-      malformed: true,
-      overlong: true,
-      empty: true,
+      malformed: conversationMalformed,
+      overlong: conversationOverlong,
+      empty: conversationEmpty,
+      missingKey: conversationMissingKey,
+      payloadValidation: conversationPayloadValidation,
+      unauthorizedKey: conversationUnauthorizedKey,
       replay: conversationReplay.replayed === true,
-      conflict: true,
-      expiry: true,
+      conflict: conversationConflict,
+      expiry: conversationExpiry,
       uniqueLoser: edgeConversationRace.filter((result) => result.replayed).length === 1,
-      unauthorized: (await learner.getArtifact(otherStudentId, routeArtifact.id).then(() => false).catch(() => true)),
-      workerCasRecovery: true,
+      unauthorized: conversationUnauthorizedKey,
+      workerCasRecovery: conversationWorkerCasRecovery,
       crossOperationTargetIsolation: conversationCreateCrossKeyRows.some((row) => row.operation === "conversation_create"),
       evidenceDigest: "",
     },
@@ -770,20 +1005,21 @@ try {
       operation: "ai_request",
       ...edgeStudioValidationByTool.get("route")!,
       replay: routeStatusReplay?.state === "succeeded",
-      conflict: true,
+      conflict: aiRequestConflict,
       expiry: routeExpiredReplay.status === 409,
       uniqueLoser: routeRaceProvider.runCount === 1,
       unauthorized: (await readPrismaVeraRequestStatus(db, { studentId: otherStudentId, conversationId, clientRequestId: routeCrashKey }, { admission, envelope })) === null,
-      workerCasRecovery: callbackCrashRequests.has("route") && routeCrashRequest.length > 0,
+      workerCasRecovery: aiRequestWorkerCasRecovery,
       crossOperationTargetIsolation: routeCrossKeyRows.some((row) => row.operation === "ai_request"),
       evidenceDigest: "",
     },
     {
       operation: "learning_recommendation_create",
       ...edgeStudioValidationByTool.get("route")!,
+      missingKey: recommendationMissingKey,
       replay: recommendationRecoveredReplay.replayed === true && materializedReplay.replayed === true,
-      conflict: true,
-      expiry: true,
+      conflict: recommendationConflict,
+      expiry: recommendationExpiry,
       uniqueLoser: recommendationRaceResults.filter((result) => "result" in result && result.replayed).length === 1,
       unauthorized: "error" in recommendationUnauthorized && recommendationUnauthorized.error === "target_unavailable",
       workerCasRecovery: recommendationRaceReplay.replayed === true && recommendationRecoveredReplay.replayed === true,
@@ -793,9 +1029,10 @@ try {
     {
       operation: "artifact_apply",
       ...edgeStudioValidationByTool.get("route")!,
+      missingKey: applyMissingKey,
       replay: appliedReplay.replayed === true && adaptiveReplay.replayed === true && ptnReplay.replayed === true,
-      conflict: true,
-      expiry: true,
+      conflict: adaptiveRace.filter((result) => "error" in result && result.error === "target_revision_conflict").length === 1 && "error" in ptnConflict && ptnConflict.error === "target_revision_conflict",
+      expiry: applyExpiry,
       uniqueLoser: adaptiveRace.filter((result) => "result" in result).length === 1,
       unauthorized: "error" in applyUnauthorized && applyUnauthorized.error === "target_unavailable",
       workerCasRecovery: adaptiveRace.filter((result) => "error" in result && result.error === "target_revision_conflict").length === 1 && "error" in ptnConflict && ptnConflict.error === "target_revision_conflict",
@@ -811,7 +1048,7 @@ try {
   }
   console.log(`T12_EXECUTABLE_OPERATION_EDGE_MATRIX=${Buffer.from(JSON.stringify(operationEdgeRows)).toString("base64url")}`);
   for (const row of operationEdgeRows) {
-    console.log(`T12_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+    console.log(`T12_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} missing_key=${row.missingKey} payload_validation=${row.payloadValidation} unauthorized_key=${row.unauthorizedKey} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
   }
 
   console.log("PASS vera-prisma-sprint3: Studio route tuple, progress-only SSE and post-commit artifact.ready");
@@ -844,7 +1081,8 @@ try {
   const artifactIds = (await db.aiArtifact.findMany({ where: { studentId: { in: fixtureStudentIds } }, select: { id: true } })).map((row) => row.id);
   const recommendationIds = (await db.learningRecommendation.findMany({ where: { studentId: { in: fixtureStudentIds } }, select: { id: true } })).map((row) => row.id);
   const packIds = (await db.aiContextPack.findMany({ where: { requestId: { in: requestIds } }, select: { id: true } })).map((row) => row.id);
-  const messageIds = (await db.aiMessage.findMany({ where: { conversationId }, select: { id: true } })).map((row) => row.id);
+  const fixtureConversationIds = (await db.aiConversation.findMany({ where: { studentId: { in: fixtureStudentIds } }, select: { id: true } })).map((row) => row.id);
+  const messageIds = (await db.aiMessage.findMany({ where: { conversationId: { in: fixtureConversationIds } }, select: { id: true } })).map((row) => row.id);
   const envelopeObjectMarkers = [...requestIds, ...artifactIds, ...recommendationIds, ...packIds, ...messageIds];
   await db.aiArtifactApply.deleteMany({ where: { appliedByStudentId: { in: fixtureStudentIds } } });
   await db.adaptivePracticeSession.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
@@ -859,18 +1097,30 @@ try {
   await db.aiRequestSource.deleteMany({ where: { requestId: { in: requestIds } } });
   await db.aiContextPack.deleteMany({ where: { requestId: { in: requestIds } } });
   await db.aiRequest.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
-  await db.aiMessage.deleteMany({ where: { conversationId } });
-  await db.aiConversation.deleteMany({ where: { id: conversationId } });
+  await db.aiMessage.deleteMany({ where: { conversationId: { in: fixtureConversationIds } } });
+  await db.aiConversation.deleteMany({ where: { id: { in: fixtureConversationIds } } });
   await db.aiAdmissionEvent.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   await db.aiUsageDaily.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   await db.aiIdempotencyKey.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
   if (envelopeObjectMarkers.length) await db.aiEnvelopeKey.deleteMany({ where: { OR: envelopeObjectMarkers.map((id) => ({ objectId: { contains: id } })) } });
   await db.billingAccount.deleteMany({ where: { studentId: { in: fixtureStudentIds } } });
-  await db.studentProfile.deleteMany({ where: { userId: studentId } });
+  await db.studentProfile.deleteMany({ where: { userId: { in: fixtureStudentIds } } });
   await db.standaloneQuizAttempt.deleteMany({ where: { id: standaloneAttemptId } });
   await db.standaloneQuizParticipation.deleteMany({ where: { id: drillParticipationId } });
   await db.standaloneQuizItem.deleteMany({ where: { id: drillQuizItemId } });
   await db.standaloneQuiz.deleteMany({ where: { id: drillQuizId } });
+  await db.tryoutAttemptTestRun.deleteMany({ where: { id: tryoutRunId } });
+  await db.tryoutAttempt.deleteMany({ where: { id: tryoutAttemptId } });
+  await db.tryoutItem.deleteMany({ where: { id: tryoutItemId } });
+  await db.tryoutSection.deleteMany({ where: { id: tryoutSectionId } });
+  await db.tryoutDeliverySession.deleteMany({ where: { id: tryoutDeliverySessionId } });
+  await db.tryoutAdmission.deleteMany({ where: { id: tryoutAdmissionId } });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("ALTER TABLE assessment_releases DISABLE TRIGGER USER");
+    await tx.assessmentRelease.deleteMany({ where: { id: tryoutReleaseId } });
+    await tx.$executeRawUnsafe("ALTER TABLE assessment_releases ENABLE TRIGGER USER");
+  });
+  await db.tryoutPackage.deleteMany({ where: { id: tryoutId } });
   await db.$transaction(async (tx) => {
     await tx.$executeRawUnsafe('ALTER TABLE question_revision_options DISABLE TRIGGER USER');
     await tx.$executeRawUnsafe('ALTER TABLE question_revisions DISABLE TRIGGER USER');
@@ -880,6 +1130,9 @@ try {
     await tx.questionRevisionOption.deleteMany({ where: { questionRevisionId: drillRevisionId } });
     await tx.questionRevision.deleteMany({ where: { id: drillRevisionId } });
     await tx.question.deleteMany({ where: { id: drillQuestionId } });
+    await tx.questionRevisionOption.deleteMany({ where: { questionRevisionId: tryoutRevisionId } });
+    await tx.questionRevision.deleteMany({ where: { id: tryoutRevisionId } });
+    await tx.question.deleteMany({ where: { id: tryoutQuestionId } });
     await tx.$executeRawUnsafe('ALTER TABLE questions ADD CONSTRAINT questions_current_revision_id_fkey FOREIGN KEY (current_revision_id) REFERENCES question_revisions(id) ON UPDATE CASCADE ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED');
     await tx.$executeRawUnsafe('ALTER TABLE questions ADD CONSTRAINT questions_current_revision_identity_fkey FOREIGN KEY (id, current_revision_id) REFERENCES question_revisions(question_id, id) ON UPDATE CASCADE ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED');
     await tx.$executeRawUnsafe('ALTER TABLE questions ENABLE TRIGGER USER');

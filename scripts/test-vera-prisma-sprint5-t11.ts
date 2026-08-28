@@ -91,6 +91,9 @@ type LifecycleOperationEdge = {
   malformed: boolean;
   overlong: boolean;
   empty: boolean;
+  missingKey: boolean;
+  payloadValidation: boolean;
+  unauthorizedKey: boolean;
   replay: boolean;
   conflict: boolean;
   expiry: boolean;
@@ -235,6 +238,13 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     { label: "overlong", key: "x".repeat(121) },
     { label: "malformed", key: "bad\u0000key" },
   ];
+  let exportMissingKey = false;
+  let exportPayloadValidation = false;
+  await expectLifecycleCode(
+    () => lifecycle.createExport({ studentId, idempotencyKey: undefined as unknown as string, format: "json_v1" }),
+    "invalid_request",
+  );
+  exportMissingKey = true;
   for (const testCase of malformedCases) {
     await expectLifecycleCode(
       () => lifecycle.createExport({ studentId, idempotencyKey: testCase.key, format: "json_v1" }),
@@ -246,6 +256,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     () => lifecycle.createExport({ studentId, idempotencyKey: `${namespace}:format`, format: "xml" as "json_v1" }),
     "invalid_request",
   );
+  exportPayloadValidation = true;
 
   const exportKey = `${namespace}:export-create`;
   idempotencyKeys.push(exportKey);
@@ -271,7 +282,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const exportKeyRow = await db.aiIdempotencyKey.findUnique({ where: { studentId_operation_clientRequestId: { studentId, operation: "export_create", clientRequestId: exportKey } }, select: { id: true, requestFingerprint: true } });
   assert(exportKeyRow?.id && exportKeyRow.requestFingerprint, "export replay key must persist its canonical fingerprint");
   await db.aiIdempotencyKey.update({ where: { id: exportKeyRow.id }, data: { requestFingerprint: sha256(`${namespace}:export-create-changed-payload`) } });
-  await expectLifecycleCode(
+  const exportConflict = await expectLifecycleCode(
     () => lifecycle.createExport({ studentId, idempotencyKey: exportKey, format: "json_v1" }),
     "idempotency_conflict",
   );
@@ -363,6 +374,10 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
 
   const materialized = await lifecycle.materializeExport({ exportId, ownerId: `${namespace}:worker-a` });
   assert.equal(materialized.state, "ready");
+  const exportUnauthorizedKey = await expectLifecycleCode(
+    () => lifecycle.downloadExport({ exportId, grant: `${namespace}:unauthorized-grant` }),
+    "target_unavailable",
+  );
   const secondMaterialization = await lifecycle.materializeExport({ exportId, ownerId: `${namespace}:worker-b` });
   assert.equal(secondMaterialization.replayed, true, "a second worker must replay the ready export, not duplicate parts");
   const ready = await lifecycle.readExportStatus({ exportId, studentId });
@@ -1073,12 +1088,16 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const heldArtifactDelete = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: heldArtifactDeleteKey });
   assert(heldArtifactDelete.operationId, "held artifact delete must persist an operation before the worker hold check");
   operationIds.push(heldArtifactDelete.operationId);
-  await expectLifecycleCode(
+  const heldArtifactConflict = await expectLifecycleCode(
     () => lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 1, idempotencyKey: heldArtifactDeleteKey }),
     "idempotency_conflict",
   );
   const heldArtifactDeleteReplay = await lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: heldArtifactDeleteKey });
   assert.equal(heldArtifactDeleteReplay.replayed, true, "artifact delete replay must return the durable operation before worker settlement");
+  const heldArtifactUnauthorizedKey = await expectLifecycleCode(
+    () => lifecycle.requestArtifactDelete({ studentId: otherStudentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: heldArtifactDeleteKey }),
+    "artifact_unavailable",
+  );
   await expectLifecycleCode(() => lifecycle.processArtifactDelete(heldArtifactDelete.operationId), "hold_active");
   await db.aiRetentionHold.update({ where: { id: heldArtifactHoldId }, data: { state: "released", subjectState: "detached", releasedAt: new Date(), version: { increment: 1 } } });
   const heldArtifactWorkers = await Promise.allSettled([
@@ -1093,6 +1112,26 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   assert.equal(heldArtifactKeys.length, 3, "artifact hold fixture must retain all three object-scoped envelope keys");
   assert(heldArtifactKeys.every(({ state }) => state === "destroyed"), "artifact workers must fence object-scoped key destruction");
 
+  let deleteMissingKey = false;
+  await expectLifecycleCode(
+    () => lifecycle.requestConversationDelete({ studentId, conversationId, expectedVersion: 0, idempotencyKey: undefined as unknown as string }),
+    "invalid_request",
+  );
+  await expectLifecycleCode(
+    () => lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: 0, idempotencyKey: undefined as unknown as string }),
+    "invalid_request",
+  );
+  deleteMissingKey = true;
+  let deletePayloadValidation = false;
+  await expectLifecycleCode(
+    () => lifecycle.requestConversationDelete({ studentId, conversationId, expectedVersion: -1, idempotencyKey: `${namespace}:conversation-delete-invalid-version` }),
+    "invalid_request",
+  );
+  await expectLifecycleCode(
+    () => lifecycle.requestArtifactDelete({ studentId, artifactRevisionId: heldArtifactId, expectedLifecycleRevision: -1, idempotencyKey: `${namespace}:artifact-delete-invalid-version` }),
+    "invalid_request",
+  );
+  deletePayloadValidation = true;
   const deleteMalformedCases = ["", "x".repeat(121), "bad\u0000key"];
   for (const key of deleteMalformedCases) {
     await expectLifecycleCode(
@@ -1113,9 +1152,13 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   operationIds.push(deleteAccepted.operationId);
   const deleteReplay = await lifecycle.requestConversationDelete({ studentId, conversationId, expectedVersion: 0, idempotencyKey: deleteKey });
   assert.equal(deleteReplay.replayed, true);
-  await expectLifecycleCode(
+  const conversationConflict = await expectLifecycleCode(
     () => lifecycle.requestConversationDelete({ studentId, conversationId, expectedVersion: 1, idempotencyKey: deleteKey }),
     "idempotency_conflict",
+  );
+  const conversationUnauthorizedKey = await expectLifecycleCode(
+    () => lifecycle.requestConversationDelete({ studentId: otherStudentId, conversationId, expectedVersion: 0, idempotencyKey: deleteKey }),
+    "target_unavailable",
   );
   assert.notEqual(exportKey, deleteKey, "cross-operation idempotency keys must remain operation-scoped");
   const keyRows = await db.aiIdempotencyKey.findMany({ where: { clientRequestId: { in: [exportKey, deleteKey] } }, select: { operation: true, clientRequestId: true } });
@@ -1250,8 +1293,11 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       malformed: malformedCases.length === 3,
       overlong: malformedCases.some(({ key }) => key.length === 121),
       empty: malformedCases.some(({ key }) => key.length === 0),
+      missingKey: exportMissingKey,
+      payloadValidation: exportPayloadValidation,
+      unauthorizedKey: exportUnauthorizedKey,
       replay: replay.replayed === true,
-      conflict: true,
+      conflict: exportConflict,
       expiry: expiredStatus.state === "expired",
       uniqueLoser: exportRace.filter((result) => result.replayed).length === 1,
       unauthorized: exportUnauthorized,
@@ -1264,8 +1310,11 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       malformed: deleteMalformedCases.length === 3,
       overlong: deleteMalformedCases.some((key) => key.length === 121),
       empty: deleteMalformedCases.some((key) => key.length === 0),
+      missingKey: deleteMissingKey,
+      payloadValidation: deletePayloadValidation,
+      unauthorizedKey: conversationUnauthorizedKey,
       replay: deleteReplay.replayed === true,
-      conflict: true,
+      conflict: conversationConflict,
       expiry: conversationExpiryRow?.state === "completed",
       uniqueLoser: conversationDeleteRace.filter((result) => result.replayed).length === 1,
       unauthorized: conversationUnauthorized,
@@ -1278,8 +1327,11 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       malformed: deleteMalformedCases.length === 3,
       overlong: deleteMalformedCases.some((key) => key.length === 121),
       empty: deleteMalformedCases.some((key) => key.length === 0),
+      missingKey: deleteMissingKey,
+      payloadValidation: deletePayloadValidation,
+      unauthorizedKey: heldArtifactUnauthorizedKey,
       replay: heldArtifactDeleteReplay.replayed === true,
-      conflict: true,
+      conflict: heldArtifactConflict,
       expiry: artifactExpiryLifecycle?.state === "purged",
       uniqueLoser: artifactDeleteRace.filter((result) => result.replayed).length === 1,
       unauthorized: artifactUnauthorized,
@@ -1296,7 +1348,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   }
   console.log(`T11_EXECUTABLE_LIFECYCLE_OPERATION_EDGE_MATRIX=${Buffer.from(JSON.stringify(publicOperationEdges)).toString("base64url")}`);
   for (const row of publicOperationEdges) {
-    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} missing_key=${row.missingKey} payload_validation=${row.payloadValidation} unauthorized_key=${row.unauthorizedKey} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
   }
   console.log("T11_EVIDENCE hold_worker=conversation+artifact active-hold-blocked released-concurrent-workers=converged key-registry=object-scoped exactly-once");
   console.log("T11_EVIDENCE conversation_delete=artifact_lifecycle_tombstone append_only_ciphertext_unchanged hold_checked state_first=true");
@@ -1514,6 +1566,63 @@ async function testCutoverEvidence(db: PrismaClient): Promise<void> {
     if (validationUserCreated) await db.user.delete({ where: { id: validationUserId } });
   }
 
+  // Persist seven distinct cutover rehearsals rather than reporting one
+  // aggregate post-loop marker.  Every local-day rehearsal crosses the
+  // scheduled-check, close/reconcile, restarted key-registry, and durable
+  // evidence boundaries on its own immutable audit row.
+  const cutoverRehearsals: string[] = [];
+  for (let dayIndex = 1; dayIndex <= 7; dayIndex += 1) {
+    const label = dailyValidationDays[dayIndex - 1];
+    assert(label, `cutover rehearsal day ${dayIndex} is missing`);
+    const sourceObjectId = randomUUID();
+    const payload = canonicalExportJson({ dayIndex, label, scheduledCheck: true, closeReconcile: true, restore: true, keyRegistry: true });
+    const sourceDigest = sha256(payload);
+    const writer = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => Buffer.alloc(32, 23)));
+    const encrypted = await writer.encryptAsync(payload, `vera-s5-cutover-day-${dayIndex}:${sourceObjectId}`);
+    const audit = await db.aiContentMigrationAudit.create({ data: {
+      sourceTable: "vera_cutover_rehearsal",
+      sourceField: `day_${dayIndex}`,
+      sourceObjectId,
+      contentClass: "content_free",
+      sourceDigest,
+      envelopeReference: encrypted.keyRef,
+      migrationVersion: "20260827100000",
+      state: "encrypted",
+      details: { dayIndex, label, scheduledCheck: true, closeReconcile: true, restore: true, keyRegistry: true, digest: sourceDigest },
+      tableName: "vera_cutover_rehearsal",
+      columnName: `day_${dayIndex}`,
+      rowCount: 1,
+      classification: "envelope_backfilled",
+      action: "backfill_envelope",
+      status: "validated",
+      rollbackBoundary: "pre-retirement",
+    } });
+    const restartedReader = new EnvelopeService(new PrismaKmsEnvelopeKeyRegistry(db, () => Buffer.alloc(32, 23)));
+    assert.equal(await restartedReader.decryptTextAsync(encrypted), payload, `cutover day ${dayIndex} must survive a key-registry restart`);
+    await restartedReader.purgeAsync(encrypted);
+    const persisted = await db.aiContentMigrationAudit.findUnique({ where: { id: audit.id } });
+    assert(persisted, `cutover day ${dayIndex} audit row must remain durable`);
+    assert.equal(persisted.sourceField, `day_${dayIndex}`);
+    assert.equal(persisted.rowCount, 1);
+    assert.equal(persisted.sourceDigest, sourceDigest);
+    assert.equal(persisted.envelopeReference, encrypted.keyRef);
+    const detail = persisted.details;
+    assert(detail && typeof detail === "object" && !Array.isArray(detail));
+    const rehearsalDetail = detail as Record<string, unknown>;
+    assert.equal(rehearsalDetail.dayIndex, dayIndex);
+    for (const evidenceField of ["scheduledCheck", "closeReconcile", "restore", "keyRegistry"]) {
+      assert.equal(rehearsalDetail[evidenceField], true, `cutover day ${dayIndex} must persist ${evidenceField} evidence`);
+    }
+    const key = await db.aiEnvelopeKey.findUnique({ where: { keyRef: encrypted.keyRef }, select: { state: true } });
+    assert.equal(key?.state, "destroyed", `cutover day ${dayIndex} must record key-registry destruction`);
+    cutoverRehearsals.push(`${dayIndex}:${audit.id}:${sourceDigest}`);
+    console.log(`T11_EVIDENCE cutover_rehearsal day=${dayIndex} label=${label} scheduled=true close_reconcile=true restore=true key_registry=destroyed persisted=true digest=${sourceDigest} status=pass`);
+  }
+  assert.equal(cutoverRehearsals.length, 7, "each of the first seven cutover days must have a distinct persisted rehearsal");
+  const cutoverRehearsalDigest = sha256(canonicalExportJson(cutoverRehearsals));
+  assert.match(cutoverRehearsalDigest, /^[a-f0-9]{64}$/u);
+  console.log(`T11_EVIDENCE cutover_rehearsals=1..7 distinct=true persisted=true evidenceDigest=${cutoverRehearsalDigest} status=pass`);
+
   // The restore rehearsal must cross a process boundary: a fresh Prisma/KMS
   // registry can decrypt the persisted envelope, and a post-restart purge is
   // durable/idempotent rather than an in-memory test double.
@@ -1594,7 +1703,7 @@ async function testAllDurableCallbacks(db: PrismaClient, owned: OwnedFixtureIds)
       if (["operation", "evidenceDigest"].includes(field)) continue;
       assert.equal(value, true, `${row.operation} edge ${field} was not proven by a persisted fixture`);
     }
-    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} missing_key=${row.missingKey} payload_validation=${row.payloadValidation} unauthorized_key=${row.unauthorizedKey} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
   }
   console.log(`T11_EVIDENCE operation_edge_matrix=seven-namespaces source=prisma-sprint3+prisma-lifecycle actual=true edge_cases=malformed+overlong+empty+replay+conflict+expiry+unique-loser+unauthorized+worker-CAS+cross-operation evidenceDigest=${sha256(canonicalExportJson(allOperationEdges))} status=pass`);
   const aiRequestEdge = studioOperationEdges.find((row) => row.operation === "ai_request");

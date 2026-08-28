@@ -972,6 +972,9 @@ export class VeraLifecycleService {
       if (existing) {
         if (existing.state === "expired" || now >= existing.expiresAt) throw new VeraLifecycleError("idempotency_key_expired", "The idempotency key has expired.");
         if (existing.requestFingerprint !== fingerprint) throw new VeraLifecycleError("idempotency_conflict", "The idempotency key payload differs from the stored request.");
+        if (existing.rejectionClass === "terminal" && existing.rejectionCode === "target_revision_conflict") {
+          throw new VeraLifecycleError("target_revision_conflict", "The stored conversation deletion conflict is replayed.", 409, { replayed: true });
+        }
         if (existing.resultId) {
           const operation = await tx.aiLifecycleOperation.findUnique({ where: { id: existing.resultId } });
           if (operation) {
@@ -999,7 +1002,11 @@ export class VeraLifecycleService {
       const claimed = await tx.aiConversation.updateMany({ where: { id: input.conversationId, studentId: input.studentId, version: input.expectedVersion, deletionState: "active" }, data: { deletionState: "deletion_pending", deletionOperationId: operationId, claimedVersion: input.expectedVersion, version: { increment: 1 } } });
       if (claimed.count !== 1) {
         await tx.aiLifecycleOperation.update({ where: { id: operationId }, data: { state: "conflict", statusCode: "target_revision_conflict", errorCode: "target_revision_conflict", targetState: "target_unavailable", terminalAt: now, version: { increment: 1 } } });
-        await tx.aiIdempotencyKey.update({ where: { id: idempotencyId }, data: { state: "rejected", rejectionClass: "terminal", rejectionCode: "target_revision_conflict", resultKind: "conversation_delete", resultId: operationId, terminalAt: now, expiresAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
+        // Rejected idempotency rows retain the foundation invariant
+        // result_kind=none. The conflict is durable in the lifecycle
+        // operation's typed row and replay is keyed by rejectionCode; linking
+        // a rejected key to a result would violate that DB contract.
+        await tx.aiIdempotencyKey.update({ where: { id: idempotencyId }, data: { state: "rejected", rejectionClass: "terminal", rejectionCode: "target_revision_conflict", resultKind: "none", resultId: null, terminalAt: now, expiresAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
         throw new VeraLifecycleError("target_revision_conflict", "Conversation version changed before deletion could be claimed.");
       }
       await tx.aiIdempotencyKey.update({ where: { id: idempotencyId }, data: { state: "accepted", resultKind: "conversation_delete", resultId: operationId, acceptedAt: now, expiresAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
@@ -1024,6 +1031,9 @@ export class VeraLifecycleService {
       if (existing) {
         if (existing.state === "expired" || now >= existing.expiresAt) throw new VeraLifecycleError("idempotency_key_expired", "The idempotency key has expired.");
         if (existing.requestFingerprint !== fingerprint) throw new VeraLifecycleError("idempotency_conflict", "The idempotency key payload differs from the stored request.");
+        if (existing.rejectionClass === "terminal" && existing.rejectionCode === "target_revision_conflict") {
+          throw new VeraLifecycleError("target_revision_conflict", "The stored artifact deletion conflict is replayed.", 409, { replayed: true });
+        }
         if (existing.resultId) {
           const operation = await tx.aiLifecycleOperation.findUnique({ where: { id: existing.resultId } });
           if (operation) return { operationId: operation.id, resultKind: "artifact_delete", state: operation.state === "conflict" ? "conflict" : "pending", targetState: operation.targetState ?? "deletion_pending", targetId: operation.targetEntityId ?? input.artifactRevisionId, replayed: true };
@@ -1041,7 +1051,9 @@ export class VeraLifecycleService {
       const claimed = await tx.aiArtifactLifecycle.updateMany({ where: { artifactRevisionId: input.artifactRevisionId, lifecycleRevision: input.expectedLifecycleRevision, deletionState: "active" }, data: { deletionState: "deletion_pending", deletionOperationId: operationId, claimedExpectedRevision: input.expectedLifecycleRevision, changedAt: now, reason: "learner_request", lifecycleRevision: { increment: 1 } } });
       if (claimed.count !== 1) {
         await tx.aiLifecycleOperation.update({ where: { id: operationId }, data: { state: "conflict", statusCode: "target_revision_conflict", errorCode: "target_revision_conflict", targetState: "target_unavailable", terminalAt: now, version: { increment: 1 } } });
-        await tx.aiIdempotencyKey.update({ where: { id: idempotencyId }, data: { state: "rejected", rejectionClass: "terminal", rejectionCode: "target_revision_conflict", resultKind: "artifact_delete", resultId: operationId, terminalAt: now, expiresAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
+        // See conversation_delete above: rejected keys cannot carry a typed
+        // result link under the foundation result namespace constraint.
+        await tx.aiIdempotencyKey.update({ where: { id: idempotencyId }, data: { state: "rejected", rejectionClass: "terminal", rejectionCode: "target_revision_conflict", resultKind: "none", resultId: null, terminalAt: now, expiresAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
         throw new VeraLifecycleError("target_revision_conflict", "Artifact lifecycle revision changed before deletion could be claimed.");
       }
       await tx.aiIdempotencyKey.update({ where: { id: idempotencyId }, data: { state: "accepted", resultKind: "artifact_delete", resultId: operationId, acceptedAt: now, expiresAt: new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), version: { increment: 1 } } });
