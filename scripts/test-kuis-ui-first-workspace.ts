@@ -44,6 +44,8 @@ assert.match(editor, /function hasQuizDraftContent\(/u, "quiz exit guarding must
 assert.match(editor, /useState\(mode === "create" && hasQuizDraftContent\(initialForm\)\)/u, "empty create quizzes must not start with an unsaved-change guard");
 assert.match(editor, /setHasUnsavedChanges\(mode === "create" \? hasQuizDraftContent\(nextForm\) : true\)/u, "create-mode exit guarding must clear when its fields are emptied");
 assert.match(editor, /isSaving \? "Membuat…" : "Buat"/u, "create quiz action must use creation copy");
+assert.match(editor, /aria-label="Buat"[\s\S]*?variant="brand"/u, "create quiz action must use the primary button variant");
+assert.match(editor, /<ChevronLeft \/>\{mode === "create" \? null : "Kembali ke Detail"\}/u, "create quiz back action must be icon-only");
 assert.match(editor, /data-quiz-editor-shell="full-page"/u, "quiz editing must use a full-page shell");
 assert.match(editor, /min-h-14 shrink-0 flex-wrap items-center/u, "full-page editor must expose the Bank Soal-style top header");
 assert.doesNotMatch(editor, /const metadata =|>\{metadata\}/u, "full-page editor must not render the removed quiz metadata card");

@@ -572,14 +572,14 @@ function KaptenQuizEditorPageModule({
     >
       <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <Button aria-label={mode === "create" ? "Kembali ke daftar Kuis" : "Kembali ke Detail Kuis"} nativeButton={false} render={<Link href={quizId ? `/mentor/quiz/${quizId}` : "/mentor/quiz"} />} size="sm" type="button" variant="ghost"><ChevronLeft /> {mode === "create" ? "Kembali ke Kuis" : "Kembali ke Detail"}</Button>
+          <Button aria-label={mode === "create" ? "Kembali ke daftar Kuis" : "Kembali ke Detail Kuis"} nativeButton={false} render={<Link href={quizId ? `/mentor/quiz/${quizId}` : "/mentor/quiz"} />} size="sm" type="button" variant="ghost"><ChevronLeft />{mode === "create" ? null : "Kembali ke Detail"}</Button>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.03em] text-secondary-900 sm:text-3xl">{form.title || "Kuis tanpa judul"}</h1>
             {hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}
           </div>
           <p className="mt-2 text-sm leading-6 text-secondary-500">Atur informasi dasar Kuis sebelum menambahkan soal.</p>
         </div>
-        <Button aria-busy={isSaving} aria-label="Buat" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save /> {isSaving ? "Membuat…" : "Buat"}</Button>
+        <Button aria-busy={isSaving} aria-label="Buat" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} type="button" variant="brand"><Save /> {isSaving ? "Membuat…" : "Buat"}</Button>
       </header>
 
       {saveError ? <p aria-live="assertive" className="rounded-2xl border border-student-status-danger-border bg-student-status-danger-bg px-4 py-3 text-sm leading-6 text-student-status-danger-fg" role="alert">{saveError}</p> : null}
