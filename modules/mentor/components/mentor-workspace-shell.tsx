@@ -319,7 +319,7 @@ function MentorWorkspaceShell({
             className={cn(
               "sticky top-0 z-20 backdrop-blur-xl",
               sidebarAppearance === "reference"
-                ? "bg-voyage-canvas/90 lg:rounded-3xl lg:border"
+                ? "bg-voyage-canvas/90 lg:top-6 lg:rounded-3xl lg:border"
                 : "border-b border-primary-100/80 bg-[#f7faf8]/90",
             )}
             >

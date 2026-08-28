@@ -131,7 +131,7 @@ function ReferenceDashboardShell({
           />
 
           <div className="min-w-0">
-            <header className="sticky top-0 z-30 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl lg:rounded-3xl lg:border">
+            <header className="sticky top-0 z-30 border-b border-primary-100/80 bg-secondary-50/90 backdrop-blur-xl lg:top-6 lg:rounded-3xl lg:border">
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-6">
                 <div className="md:hidden">
                   <ReferenceMenuButton
