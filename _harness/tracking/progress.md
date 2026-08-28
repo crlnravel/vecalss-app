@@ -1,5 +1,17 @@
 # Session Progress Log
 
+## Tryout reference header cleanup (2026-08-28)
+
+- [x] Removed the hover background/transition from the reference sidebar logo
+  while retaining its dashboard link and keyboard focus indication.
+- [x] Removed the header search control from the scoped
+  `/mentor/tryout/[tryoutId]` detail route; the avatar menu remains available.
+- [x] Authenticated browser QA at 1496px and 390px confirms zero Tryout search
+  inputs, one Kapten avatar menu, no reference-logo hover class, and no
+  horizontal overflow.
+- [x] Focused ESLint and Impeccable layout detector pass.
+- [x] Commit: `939cb15` (`fix: simplify tryout reference header`).
+
 ## Tryout Sessions alignment correction (2026-08-28)
 
 - [x] Moved Sessions status into the shared action row and reserved stable

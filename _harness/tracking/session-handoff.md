@@ -1,5 +1,19 @@
 # Session Handoff
 
+## Tryout reference header cleanup (2026-08-28)
+
+- Objective: simplify the scoped reference-styled Tryout detail header.
+- Implementation: `939cb15` removes the hover surface/transition from the
+  reference sidebar logo (default mentor sidebar behavior is unchanged) and
+  passes `showSearch={false}` only to `/mentor/tryout/[tryoutId]`.
+- QA: authenticated ego-browser checks at 1496px and 390px confirm no
+  `Cari Tryout...` header input, the Kapten avatar menu remains present, the
+  reference logo link has no `hover:bg-primary-50` class, and the page has no
+  horizontal overflow.
+- Verification: focused ESLint and Impeccable layout detector `[]` pass.
+- Scope: no student/admin/unrelated routes changed; existing untracked
+  `.agents/skills/information-architecture/` remains untouched.
+
 ## Tryout Sessions alignment correction (2026-08-28)
 
 - Objective: remove the last visible Sessions-card drift caused by different
