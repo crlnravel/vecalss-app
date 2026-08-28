@@ -1,5 +1,6 @@
 import { LoaderCircle } from "@/lib/icons";
 
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MentorSidebar } from "@/modules/mentor/components/mentor-sidebar";
@@ -10,14 +11,14 @@ function LoadingBlock({ className }: { className: string }) {
 
 export default function QuestionBankLoading() {
   return (
-    <SidebarProvider>
-      <div aria-busy="true" aria-label="Memuat Bank Soal" className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
-        <MentorSidebar activeLabel="Bank Soal" />
+    <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
+      <div aria-busy="true" aria-label="Memuat Bank Soal" className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
+        <MentorSidebar activeLabel="Bank Soal" appearance="reference" />
 
-        <SidebarInset className="min-w-0 bg-transparent">
-          <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+        <SidebarInset className="min-w-0 bg-voyage-canvas lg:rounded-3xl">
+          <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:rounded-3xl lg:border">
             <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-              <SidebarTrigger className="shrink-0" />
+              <SidebarTrigger className="shrink-0 lg:hidden" />
               <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
                 <span className="text-sm font-medium text-secondary-500">Bank Soal</span>
               </div>
@@ -35,7 +36,7 @@ export default function QuestionBankLoading() {
               </div>
             </section>
 
-            <section aria-busy="true" className="overflow-hidden rounded-2xl bg-white">
+            <ReferenceSurface as="section" aria-busy="true" className="overflow-hidden">
               <div aria-hidden="true" className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
                 <div className="h-10 min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90 py-2.5">
                   <LoadingBlock className="h-4 w-52 max-w-full" />
@@ -67,7 +68,7 @@ export default function QuestionBankLoading() {
                   </TableRow>
                 </TableBody>
               </Table>
-            </section>
+            </ReferenceSurface>
           </main>
         </SidebarInset>
       </div>
