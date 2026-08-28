@@ -71,13 +71,17 @@ assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata mu
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.doesNotMatch(detail, /Arsipkan|updateStandaloneQuizLifecycleAction/u, "Kuis detail must not expose archive lifecycle controls");
 assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");
-assert.match(quizCatalogue, /group grid gap-4 rounded-3xl border border-primary-100 bg-white p-4/u, "quiz rows must use compact Tryout-style cards");
+assert.match(quizCatalogue, /grid min-w-0 gap-4 p-5/u, "quiz rows must use Tryout-style card sizing");
+assert.match(quizCatalogue, /<span className="mt-0\.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">/u, "quiz rows must use the Tryout-style icon treatment");
+assert.match(quizCatalogue, /<ListChecks aria-hidden="true" className="size-5" \/>/u, "quiz rows must show the quiz icon");
+assert.match(quizCatalogue, /<h2 className="truncate text-base font-semibold text-secondary-900">/u, "quiz row titles must use Tryout-style sizing");
+assert.match(quizCatalogue, /<div className="mt-1 flex flex-wrap items-center gap-2">/u, "quiz row badges must sit beneath the title");
+assert.match(quizCatalogue, /<ReferenceStatusBadge appearance="mentor" size="sm" status=\{quiz\.status\} \/>/u, "quiz row badges must use Tryout-style sizing");
 assert.match(quizCatalogue, /aria-label=\{`Buka \$\{quiz\.title\}`\}/u, "quiz rows must provide a direct open action");
 assert.match(quizCatalogue, /<ChevronRight aria-hidden/u, "quiz rows must use the Tryout-style trailing chevron");
 assert.doesNotMatch(quizCatalogue, /<Archive|>Arsipkan<|>Pulihkan</u, "subject catalogue must not expose archive lifecycle actions");
 assert.doesNotMatch(quizCatalogue, /Lihat hasil siswa|aria-label="Edit quiz"|Aksi untuk \$\{quiz\.title\}|<Ellipsis/u, "quiz rows must not expose row-level action controls");
 assert.doesNotMatch(quizCatalogue, /<span>\{quiz\.primaryMetric\}<\/span>|quizDateFormatter/u, "quiz rows must not repeat metadata below the title");
-assert.doesNotMatch(quizCatalogue, /ListChecks className="size-4 shrink-0 text-primary-800"/u, "quiz rows must not show a redundant type icon");
 assert.match(submission, /\?tab=hasil/u, "submission back navigation must preserve Hasil context");
 
 assert.match(repository, /const quizContentInclude = \{/u, "mentor detail reads must have a Kuis-owned content include");

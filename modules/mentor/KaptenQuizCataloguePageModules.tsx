@@ -192,22 +192,26 @@ function KaptenQuizPageModule({ session, subjects }: { session: SessionContext; 
 function QuizRow({ onSelectedChange, quiz, selectionMode, selected }: { onSelectedChange: (checked: boolean) => void; quiz: KaptenQuiz; selectionMode: boolean; selected: boolean }) {
   return (
     <article className={cn(
-      // Keep the compact catalogue geometry while adding the reference depth contract.
-      "group grid gap-4 rounded-3xl border border-primary-100 bg-white p-4",
       REFERENCE_SURFACE_CLASS_NAMES.raised,
       REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+      "grid min-w-0 gap-4 p-5",
       selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)]" : "sm:grid-cols-1",
       "sm:items-center",
     )}>
       {selectionMode ? <Checkbox aria-label={`Pilih ${quiz.title}`} checked={selected} onCheckedChange={(checked) => onSelectedChange(checked === true)} /> : null}
-      <Link aria-label={`Buka ${quiz.title}`} className="group/link flex min-w-0 items-center justify-between gap-4 rounded-2xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={quiz.href}>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="truncate font-semibold text-secondary-900">{quiz.title}</h2>
-            <ReferenceStatusBadge appearance="mentor" size="xs" status={quiz.status} />
+      <Link aria-label={`Buka ${quiz.title}`} className="group flex min-w-0 items-start justify-between gap-4 rounded-2xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20 sm:items-center" href={quiz.href}>
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+            <ListChecks aria-hidden="true" className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-secondary-900">{quiz.title}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <ReferenceStatusBadge appearance="mentor" size="sm" status={quiz.status} />
+            </div>
           </div>
         </div>
-        <ChevronRight aria-hidden className="size-5 shrink-0 text-secondary-400 transition-transform group-hover/link:translate-x-0.5" />
+        <ChevronRight aria-hidden="true" className="mt-1 size-5 shrink-0 text-secondary-400 transition-transform duration-200 group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5 sm:mt-0" />
       </Link>
     </article>
   );
