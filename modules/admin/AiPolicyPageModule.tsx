@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import {
+  ReferencePageHeader,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import type { AiPolicyBundleDto, AiPolicyImpactPreviewDto, AiPolicyMetadataDto, PolicySection } from "@/lib/admin/ai-policy/contracts";
 
@@ -320,20 +326,19 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="rounded-[28px] border border-primary-100 bg-white p-6 shadow-[0_22px_55px_-44px_rgba(1,76,56,0.55)] md:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <h1 className="text-3xl font-extrabold tracking-[-0.035em] text-secondary-950 md:text-4xl">Vera AI policy console</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-secondary-600">
-              Kelola snapshot operasional yang berlaku untuk admission, report reservation, settlement, dan bukti content ke depan. Perubahan tidak menulis ulang histori.
-            </p>
+      <ReferencePageHeader
+        actions={
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <ReferenceStatusBadge label="Provider gate: open_blocked" size="sm" status="blocked" />
+            <ReferenceStatusBadge label={capabilitySummary} size="sm" status={metadata.canMutate ? "active" : "neutral"} />
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2 text-xs font-semibold text-secondary-600">
-            <span className="rounded-full bg-primary-50 px-3 py-2 text-primary-900">Provider gate: open_blocked</span>
-            <span className="rounded-full bg-secondary-50 px-3 py-2">{capabilitySummary}</span>
-          </div>
-        </div>
-        <div className="mt-7 grid gap-4 border-t border-primary-100 pt-6 sm:grid-cols-3">
+        }
+        description="Kelola snapshot operasional yang berlaku untuk admission, report reservation, settlement, dan bukti content ke depan. Perubahan tidak menulis ulang histori."
+        title="Vera AI policy console"
+      />
+
+      <ReferenceSurface as="section" className="p-5 sm:p-6">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Active version</p>
             <p className="mt-2 text-lg font-bold text-secondary-950">{metadata.active?.bundleVersion ?? "Belum ada"}</p>
@@ -350,51 +355,51 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
             <p className="mt-1 break-all text-xs text-secondary-600">Digest {metadata.active?.validationDigest ?? "Belum tersedia"}</p>
           </div>
         </div>
-      </section>
+      </ReferenceSurface>
 
       {!metadata.canMutate ? (
-        <section className="rounded-[24px] border border-primary-100 bg-[#eef8f1] p-5 text-sm leading-7 text-secondary-700">
+        <ReferenceSurface as="section" className="p-5 text-sm leading-7 text-secondary-700" variant="inset">
           <p className="font-bold text-secondary-950">Akses metadata saja</p>
           <p className="mt-1">Akun ini dapat membaca active, scheduled, dan audit history. Capability mutation tidak tersedia; UI ini tidak menyamarkan batas server.</p>
-        </section>
+        </ReferenceSurface>
       ) : null}
 
       <section className="grid gap-5 md:grid-cols-2">
-        <div className="rounded-[24px] border border-primary-100 bg-white p-6 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+        <ReferenceSurface as="section" className="p-5 sm:p-6">
           <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Editable policy envelope</h2>
           <p className="mt-2 text-sm leading-6 text-secondary-600">Form perubahan section tersusun di backend dengan guardrail tetap: quota 1.000–50.000, settlement 30 menit–6 jam, report k≤5 dan maksimal 31 hari, serta provider attempts tepat 2.</p>
           <div className="mt-5 grid gap-3 text-sm text-secondary-700 sm:grid-cols-2">
-            <div className="rounded-2xl bg-primary-50 p-4"><span className="font-bold text-secondary-950">Policy</span><br />Quota, mode, report budget<br /><span className="text-xs text-secondary-500">{canPolicy ? "Dapat mengedit section" : "Tidak diberikan"}</span></div>
-            <div className="rounded-2xl bg-secondary-50 p-4"><span className="font-bold text-secondary-950">Governance</span><br />Settlement, evidence TTL<br /><span className="text-xs text-secondary-500">{canGovern ? "Dapat mengedit section" : "Tidak diberikan"}</span></div>
+            <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Policy</span><br />Quota, mode, report budget<br /><span className="text-xs text-secondary-500">{canPolicy ? "Dapat mengedit section" : "Tidak diberikan"}</span></ReferenceSurface>
+            <ReferenceSurface className="rounded-2xl p-4" variant="inset"><span className="font-bold text-secondary-950">Governance</span><br />Settlement, evidence TTL<br /><span className="text-xs text-secondary-500">{canGovern ? "Dapat mengedit section" : "Tidak diberikan"}</span></ReferenceSurface>
           </div>
           {metadata.canMutate ? (
             <div className="mt-6 border-t border-primary-100 pt-5">
               <label className="block text-sm font-bold text-secondary-900" htmlFor="policy-reason">Alasan perubahan</label>
               <textarea
-                className="mt-2 min-h-24 w-full rounded-xl border border-primary-200 bg-[#f7faf8] px-3 py-3 text-sm text-secondary-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                className={`${REFERENCE_CONTROL_CLASS_NAMES.input} mt-2 min-h-24 resize-y rounded-2xl`}
                 id="policy-reason"
                 maxLength={500}
                 onChange={(event) => setReason(event.target.value)}
                 placeholder="Contoh: menyelaraskan batas report burst untuk periode ujian."
                 value={reason}
               />
-              <Button className="mt-3" disabled={busy || reason.trim().length === 0} onClick={createDraft} type="button">
+              <Button className="mt-3" disabled={busy || reason.trim().length === 0} onClick={createDraft} type="button" variant="brand">
                 Buat complete draft
               </Button>
             </div>
           ) : null}
           {draft ? (
-            <div className="mt-6 space-y-4 border-t border-primary-100 pt-5" data-testid="policy-lifecycle-controls">
+            <ReferenceSurface className="mt-6 space-y-4 p-4" data-testid="policy-lifecycle-controls" variant="inset">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Selected draft</p>
                   <p className="mt-1 break-all text-sm font-semibold text-secondary-900">{draft.bundleVersion} · {draft.state} · rev {draft.revision}</p>
                 </div>
-                <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-900">providerGateState=open_blocked</span>
+                <ReferenceStatusBadge label="providerGateState=open_blocked" size="xs" status="blocked" />
               </div>
               {quotaConfig && settlementConfig && reportConfig && retentionConfig ? (
                 <div className="space-y-5" data-testid="typed-policy-controls">
-                  <div className="grid gap-4 rounded-2xl bg-primary-50/60 p-4 md:grid-cols-2">
+                  <ReferenceSurface className="grid gap-4 rounded-2xl p-4" variant="inset">
                     <div>
                       <p className="text-sm font-bold text-secondary-900">Grouped quota / plan mapping</p>
                       <p className="mt-1 text-xs leading-5 text-secondary-600">Limit ini adalah default server untuk plan yang telah dipetakan BillingAccount; legacy StudentProfile limit tidak dipakai.</p>
@@ -404,11 +409,11 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                     </div>
                     <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-daily-limit">
                       Daily quota units
-                      <input className="h-11 rounded-xl border border-primary-200 bg-white px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:bg-secondary-50" disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
+                      <input className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={!canPolicy} id="policy-daily-limit" inputMode="numeric" max={50000} min={1000} onChange={(event) => { markDirty("quota"); setDailyLimit(event.target.value); setQuotaConfig((current) => current ? { ...current, defaultDailyLimit: Number(event.target.value) } : current); }} type="number" value={dailyLimit} />
                     </label>
-                  </div>
+                  </ReferenceSurface>
 
-                  <div className="rounded-2xl border border-primary-100 p-4">
+                  <ReferenceSurface className="rounded-2xl p-4" variant="inset">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <div>
                         <p className="text-sm font-bold text-secondary-900">Per-mode input / output / reservation</p>
@@ -418,35 +423,35 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {Object.entries(quotaConfig.modes).map(([mode, values]) => (
-                        <div className="rounded-xl bg-secondary-50 p-3" key={mode}>
+                        <ReferenceSurface className="rounded-2xl p-3" key={mode} variant="inset">
                           <p className="text-sm font-semibold text-secondary-900">{mode}</p>
                           <div className="mt-2 grid gap-2">
-                            <label className="grid gap-1 text-xs text-secondary-600">Input bound<input aria-label={`${mode} input bound`} className="h-9 rounded-lg border border-primary-100 bg-white px-2 text-sm text-secondary-900 disabled:bg-secondary-100" disabled={!canPolicy} min={1000} onChange={(event) => updateModeConfig(mode, "inputBound", Number(event.target.value))} type="number" value={values.inputBound} /></label>
-                            <label className="grid gap-1 text-xs text-secondary-600">Output cap<input aria-label={`${mode} output cap`} className="h-9 rounded-lg border border-primary-100 bg-white px-2 text-sm text-secondary-900 disabled:bg-secondary-100" disabled={!canPolicy} min={256} onChange={(event) => updateModeConfig(mode, "hardOutputCap", Number(event.target.value))} type="number" value={values.hardOutputCap} /></label>
-                            <label className="grid gap-1 text-xs text-secondary-600">Reservation bound<input aria-label={`${mode} reservation bound`} className="h-9 rounded-lg border border-primary-100 bg-white px-2 text-sm text-secondary-900 disabled:bg-secondary-100" disabled={!canPolicy} min={1256} onChange={(event) => updateModeConfig(mode, "reservationBound", Number(event.target.value))} type="number" value={values.reservationBound} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Input bound<input aria-label={`${mode} input bound`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1000} onChange={(event) => updateModeConfig(mode, "inputBound", Number(event.target.value))} type="number" value={values.inputBound} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Output cap<input aria-label={`${mode} output cap`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={256} onChange={(event) => updateModeConfig(mode, "hardOutputCap", Number(event.target.value))} type="number" value={values.hardOutputCap} /></label>
+                            <label className="grid gap-1 text-xs text-secondary-600">Reservation bound<input aria-label={`${mode} reservation bound`} className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-9 min-h-9 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1256} onChange={(event) => updateModeConfig(mode, "reservationBound", Number(event.target.value))} type="number" value={values.reservationBound} /></label>
                           </div>
-                        </div>
+                        </ReferenceSurface>
                       ))}
                     </div>
-                  </div>
+                  </ReferenceSurface>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-primary-100 p-4">
+                    <ReferenceSurface className="rounded-2xl p-4" variant="inset">
                       <p className="text-sm font-bold text-secondary-900">Settlement</p>
-                        <label className="mt-3 grid gap-2 text-sm text-secondary-700">Max pending age (minutes)<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={30} max={360} onChange={(event) => { markDirty("settlement"); setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: Number(event.target.value) } : current); }} type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
-                    </div>
-                    <div className="rounded-2xl border border-primary-100 p-4">
+                        <label className="mt-3 grid gap-2 text-sm text-secondary-700">Max pending age (minutes)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={30} max={360} onChange={(event) => { markDirty("settlement"); setSettlementConfig((current) => current ? { ...current, maxPendingAgeMinutes: Number(event.target.value) } : current); }} type="number" value={settlementConfig.maxPendingAgeMinutes} /></label>
+                    </ReferenceSurface>
+                    <ReferenceSurface className="rounded-2xl p-4" variant="inset">
                       <p className="text-sm font-bold text-secondary-900">Report budget / burst</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <label className="grid gap-2 text-sm text-secondary-700">Units / 24h<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={12} max={240} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.unitLimit} /></label>
-                        <label className="grid gap-2 text-sm text-secondary-700">Accepted / 10m<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canPolicy} min={1} max={60} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.requestLimit} /></label>
-                        <label className="grid gap-2 text-sm text-secondary-700">Minimum cohort (immutable)<input className="h-10 rounded-lg border border-primary-100 bg-secondary-50 px-2 text-sm" disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
-                        <label className="grid gap-2 text-sm text-secondary-700">Max range days (immutable)<input className="h-10 rounded-lg border border-primary-100 bg-secondary-50 px-2 text-sm" disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Units / 24h<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={12} max={240} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, unitLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.unitLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Accepted / 10m<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canPolicy} min={1} max={60} onChange={(event) => { markDirty("report"); setReportConfig((current) => current ? { ...current, requestLimit: Number(event.target.value) } : current); }} type="number" value={reportConfig.requestLimit} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Minimum cohort (immutable)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={100} min={5} readOnly type="number" value={reportConfig.minimumGroupSize} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700">Max range days (immutable)<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled max={31} min={1} readOnly type="number" value={reportConfig.maxRangeDays} /></label>
                       </div>
-                    </div>
+                    </ReferenceSurface>
                   </div>
 
-                  <div className="rounded-2xl border border-primary-100 p-4">
+                  <ReferenceSurface className="rounded-2xl p-4" variant="inset">
                     <p className="text-sm font-bold text-secondary-900">Forward evidence / content TTL</p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       {([
@@ -459,84 +464,84 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
                         ["operationalMetadataTtlDays", "Operational metadata (days)"],
                         ["activeArtifactEvidenceTtlDays", "Active artifact evidence (days)"],
                       ] as const).map(([field, label]) => (
-                        <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<input className="h-10 rounded-lg border border-primary-100 bg-white px-2 text-sm disabled:bg-secondary-50" disabled={!canGovern} min={1} onChange={(event) => { markDirty("retention"); setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} type="number" value={retentionConfig[field] ?? ""} /></label>
+                        <label className="grid gap-2 text-sm text-secondary-700" key={field}>{label}<input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} disabled={!canGovern} min={1} onChange={(event) => { markDirty("retention"); setRetentionConfig((current) => current ? { ...current, [field]: Number(event.target.value) } : current); }} type="number" value={retentionConfig[field] ?? ""} /></label>
                       ))}
                     </div>
-                  </div>
+                  </ReferenceSurface>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-secondary-500">Dirty sections: {dirtySectionLabel}</p>
-                    <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="outline">Save typed policy sections</Button>
+                    <Button className="self-end" disabled={busy || draft.state !== "draft" || (!canPolicy && !canGovern) || dirtySections.size === 0} onClick={() => void editDraft()} type="button" variant="reference">Save typed policy sections</Button>
                   </div>
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                <Button disabled={busy || draft.state !== "draft"} onClick={() => void validateDraft()} type="button">Validate draft</Button>
-                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void previewDraft("categorical")} type="button" variant="outline">Preview impact</Button>
-                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void approveDraft()} type="button" variant="outline">Approve (second operator)</Button>
+                <Button disabled={busy || draft.state !== "draft"} onClick={() => void validateDraft()} type="button" variant="brand">Validate draft</Button>
+                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void previewDraft("categorical")} type="button" variant="reference">Preview impact</Button>
+                <Button disabled={busy || draft.state !== "pending_approval"} onClick={() => void approveDraft()} type="button" variant="reference">Approve (second operator)</Button>
               </div>
               {draft.state === "pending_approval" ? (
-                <div className="grid gap-3 rounded-2xl bg-secondary-50 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <ReferenceSurface className="grid gap-3 rounded-2xl p-4" variant="inset">
                   <div className="grid gap-2">
                     <p className="text-sm font-semibold text-secondary-800">Aggregate preview range</p>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <input aria-label="Preview range from" className="h-10 rounded-xl border border-primary-200 bg-white px-3 text-sm" onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
-                      <input aria-label="Preview range to" className="h-10 rounded-xl border border-primary-200 bg-white px-3 text-sm" onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
+                      <input aria-label="Preview range from" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewFrom(event.target.value)} placeholder="2026-08-01" type="date" value={previewFrom} />
+                      <input aria-label="Preview range to" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTo(event.target.value)} placeholder="2026-08-08" type="date" value={previewTo} />
                     </div>
-                    <input aria-label="Preview IANA timezone" className="h-10 rounded-xl border border-primary-200 bg-white px-3 text-sm" onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
-                    <Button disabled={busy || !previewFrom || !previewTo} onClick={() => void previewDraft("aggregate")} type="button" variant="outline">Run aggregate preview</Button>
+                    <input aria-label="Preview IANA timezone" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 min-h-10 rounded-xl px-3 py-2`} onChange={(event) => setPreviewTimezone(event.target.value)} value={previewTimezone} />
+                    <Button disabled={busy || !previewFrom || !previewTo} onClick={() => void previewDraft("aggregate")} type="button" variant="reference">Run aggregate preview</Button>
                   </div>
                   <div className="text-xs leading-5 text-secondary-600">
                     Preview memerlukan rentang kalender lokal half-open, maksimum 31 hari. Cost penuh tetap dicatat walau hasil suppressed atau unavailable.
                   </div>
-                </div>
+                </ReferenceSurface>
               ) : null}
               {draft.state === "pending_approval" || draft.state === "scheduled" ? (
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                   <label className="grid gap-2 text-sm font-semibold text-secondary-800" htmlFor="policy-effective-at">
                     Effective at (browser local → UTC)
-                    <input className="h-11 rounded-xl border border-primary-200 bg-[#f7faf8] px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
+                    <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="policy-effective-at" onChange={(event) => setEffectiveAt(event.target.value)} type="datetime-local" value={effectiveAt} />
                   </label>
                   <div className="flex items-end gap-2">
-                    <Button disabled={busy || draft.state !== "pending_approval" || !effectiveAt} onClick={() => void scheduleDraft()} type="button">Schedule</Button>
-                    <Button disabled={busy || draft.state !== "scheduled"} onClick={() => void activateDraft()} type="button" variant="outline">Activate due</Button>
+                    <Button disabled={busy || draft.state !== "pending_approval" || !effectiveAt} onClick={() => void scheduleDraft()} type="button" variant="brand">Schedule</Button>
+                    <Button disabled={busy || draft.state !== "scheduled"} onClick={() => void activateDraft()} type="button" variant="reference">Activate due</Button>
                   </div>
                 </div>
               ) : null}
               {preview ? (
-                <div className="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm text-secondary-700" role="status">
+                <ReferenceSurface className="p-4 text-sm text-secondary-700" role="status" variant="inset">
                   <p className="font-semibold text-secondary-900">Preview state: {preview.state}</p>
                   <p className="mt-1">Admission {preview.effects.futureAdmissions.state}; report {preview.effects.futureReportReservations.state}; content {preview.effects.futureContentEvidence.state}.</p>
-                </div>
+                </ReferenceSurface>
               ) : null}
-            </div>
+            </ReferenceSurface>
           ) : null}
-        </div>
+        </ReferenceSurface>
 
-        <div className="rounded-[24px] border border-primary-100 bg-white p-6 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+        <ReferenceSurface as="section" className="p-5 sm:p-6">
           <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Retention handoff</h2>
           <p className="mt-2 text-sm leading-6 text-secondary-600">Permintaan extension hanya dicatat sebagai pending. Tidak ada deadline, lifecycle, purge claim, atau key action yang berubah di Sprint 4.</p>
           {canGovern ? (
             <div className="mt-5 space-y-3">
               <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-target">Referensi target</label>
-              <input className="h-11 w-full rounded-xl border border-primary-200 bg-[#f7faf8] px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/content-free reference" value={targetReference} />
+              <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-target" maxLength={160} onChange={(event) => setTargetReference(event.target.value)} placeholder="ID/content-free reference" value={targetReference} />
               <label className="block text-sm font-bold text-secondary-900" htmlFor="retention-bound">Batas waktu yang diminta (UTC)</label>
-              <input className="h-11 w-full rounded-xl border border-primary-200 bg-[#f7faf8] px-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" value={requestedUpperBound} />
-              <Button disabled={busy || !targetReference.trim() || !requestedUpperBound.trim() || !reason.trim()} onClick={requestRetentionExtension} type="button" variant="outline">Kirim pending handoff</Button>
+              <input className={REFERENCE_CONTROL_CLASS_NAMES.input} id="retention-bound" onChange={(event) => setRequestedUpperBound(event.target.value)} placeholder="2026-12-31T00:00:00.000Z" value={requestedUpperBound} />
+              <Button disabled={busy || !targetReference.trim() || !requestedUpperBound.trim() || !reason.trim()} onClick={requestRetentionExtension} type="button" variant="reference">Kirim pending handoff</Button>
             </div>
-          ) : <p className="mt-5 rounded-2xl bg-secondary-50 p-4 text-sm text-secondary-600">Governance capability diperlukan untuk membuat handoff. Tidak ada tombol pengganti atau bypass.</p>}
-        </div>
+          ) : <ReferenceSurface className="mt-5 p-4 text-sm text-secondary-600" variant="inset">Governance capability diperlukan untuk membuat handoff. Tidak ada tombol pengganti atau bypass.</ReferenceSurface>}
+        </ReferenceSurface>
       </section>
 
-      {message ? <p aria-live="polite" className="rounded-2xl border border-primary-100 bg-white px-4 py-3 text-sm leading-6 text-secondary-700">{message}</p> : null}
+      {message ? <ReferenceSurface aria-live="polite" className="px-4 py-3 text-sm leading-6 text-secondary-700" role="status" variant="inset">{message}</ReferenceSurface> : null}
 
-      <section className="rounded-[24px] border border-primary-100 bg-white p-6 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] md:p-7">
+      <ReferenceSurface as="section" className="p-5 sm:p-6 md:p-7">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-xl font-extrabold tracking-[-0.03em] text-secondary-950">Version history</h2>
             <p className="mt-1 text-sm text-secondary-600">Audit content-free; setiap transisi menyimpan actor, digest, alasan, dan state.</p>
           </div>
-          <Button disabled={busy} onClick={() => void refresh().catch((error) => setMessage(error instanceof Error ? error.message : "Metadata tidak tersedia."))} type="button" variant="ghost">Refresh metadata</Button>
+          <Button disabled={busy} onClick={() => void refresh().catch((error) => setMessage(error instanceof Error ? error.message : "Metadata tidak tersedia."))} type="button" variant="reference">Refresh metadata</Button>
         </div>
         <div className="mt-5 hidden overflow-hidden sm:block">
           <table className="w-full table-fixed border-collapse text-left text-sm">
@@ -569,7 +574,7 @@ function AiPolicyPageModule({ metadata: initialMetadata }: AiPolicyPageModulePro
             </article>
           )) : <p className="rounded-2xl bg-secondary-50 px-4 py-6 text-sm text-secondary-600">Belum ada bundle yang tersimpan.</p>}
         </div>
-      </section>
+      </ReferenceSurface>
 
       <p className="text-sm text-secondary-600">Butuh konteks operasional lain? Kembali ke <Link className="font-bold text-primary-800 underline decoration-primary-200 underline-offset-4" href="/admin">dashboard admin</Link>.</p>
     </div>

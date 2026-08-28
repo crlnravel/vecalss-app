@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import {
+  ReferencePageHeader,
+  ReferenceSectionHeading,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -29,7 +34,6 @@ import { cn } from "@/lib/utils";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 import { CopyValueButton } from "./components/copy-value-button";
-import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 
 const auditDateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
@@ -167,47 +171,49 @@ function AuditFilterPanel({
   }
 
   return (
-    <form className="grid gap-2" onSubmit={handleSubmit}>
-      <fieldset className="grid gap-0.5">
-        <legend className="px-2 pb-1 text-xs font-semibold text-secondary-900">Target</legend>
-        <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60">
-          <input
-            className="size-4 accent-primary-700"
-            defaultChecked={!targetType}
-            name="targetType"
-            type="radio"
-            value="all"
-          />
-          <span>All targets</span>
-        </label>
-        {AUDIT_LOG_TARGET_TYPES.map((value) => (
-          <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60" key={value}>
+    <ReferenceSurface className="p-2" variant="inset">
+      <form className="grid gap-2" onSubmit={handleSubmit}>
+        <fieldset className="grid gap-0.5">
+          <legend className="px-2 pb-1 text-xs font-semibold text-secondary-900">Target</legend>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60">
             <input
               className="size-4 accent-primary-700"
-              defaultChecked={targetType === value}
+              defaultChecked={!targetType}
               name="targetType"
               type="radio"
-              value={value}
+              value="all"
             />
-            <span>{auditTargetTypeLabels[value]}</span>
+            <span>All targets</span>
           </label>
-        ))}
-      </fieldset>
-      <div className="flex w-full items-center gap-1.5 pt-1">
-        <Link
-          className={cn(
-            buttonVariants({ size: "xs", variant: "ghost" }),
-            "min-w-0 flex-1",
-          )}
-          href={auditLogHref({ direction, page: 1, query, sort, targetType: null })}
-        >
-          Clear
-        </Link>
-        <Button className="min-w-0 flex-[2]" size="xs" type="submit" variant="brand">
-          Apply
-        </Button>
-      </div>
-    </form>
+          {AUDIT_LOG_TARGET_TYPES.map((value) => (
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-medium text-secondary-800 transition-colors hover:bg-primary-50/60" key={value}>
+              <input
+                className="size-4 accent-primary-700"
+                defaultChecked={targetType === value}
+                name="targetType"
+                type="radio"
+                value={value}
+              />
+              <span>{auditTargetTypeLabels[value]}</span>
+            </label>
+          ))}
+        </fieldset>
+        <div className="flex w-full items-center gap-1.5 pt-1">
+          <Link
+            className={cn(
+              buttonVariants({ size: "sm", variant: "ghost" }),
+              "min-w-0 flex-1",
+            )}
+            href={auditLogHref({ direction, page: 1, query, sort, targetType: null })}
+          >
+            Clear
+          </Link>
+          <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">
+            Apply
+          </Button>
+        </div>
+      </form>
+    </ReferenceSurface>
   );
 }
 
@@ -397,18 +403,19 @@ function AuditLogsPageModule({
       session={session}
       title="Audit logs"
     >
-      <div className="space-y-5">
-        <header className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl">Audit logs</h1>
-            <p className="mt-1 text-sm text-secondary-600">{total.toLocaleString("en-US")} {total === 1 ? "event" : "events"} recorded</p>
-          </div>
-        </header>
+      <div className="space-y-8">
+        <ReferencePageHeader
+          actions={<ReferenceSurface className="px-3.5 py-2.5 text-sm text-secondary-700" variant="inset">{total.toLocaleString("en-US")} {total === 1 ? "event" : "events"} recorded</ReferenceSurface>}
+          description="Search recorded activity, inspect an event, or open its user details."
+          title="Audit logs"
+        />
 
-        <section aria-labelledby="audit-log-table-heading" className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
-          <div className="border-b border-primary-100 px-5 py-4 sm:px-6">
-            <h2 className="text-base font-semibold tracking-[-0.02em] text-secondary-900" id="audit-log-table-heading">Recorded events</h2>
-            <p className="mt-1 text-sm text-secondary-600">Search, filter, or sort the current audit history.</p>
+        <ReferenceSurface as="section" aria-labelledby="audit-log-table-heading" className="overflow-hidden">
+          <div className="px-5 pt-5 sm:px-6" id="audit-log-table-heading">
+            <ReferenceSectionHeading
+              description="Search, filter, or sort the current audit history."
+              title="Recorded events"
+            />
           </div>
 
           <DataTable
@@ -458,7 +465,7 @@ function AuditLogsPageModule({
               </nav>
             </footer>
           ) : null}
-        </section>
+        </ReferenceSurface>
       </div>
 
       <AuditLogDetailDialog audit={selectedAudit} onClose={() => setSelectedAudit(null)} />

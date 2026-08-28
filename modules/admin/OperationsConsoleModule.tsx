@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
+
 import {
+  ReferenceEmptyState,
+  ReferencePageHeader,
+  ReferenceSectionHeading,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  Activity,
   BarChart3,
   ChevronRight,
   UserPlus,
@@ -13,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import type { ExamEvent } from "@/generated/prisma/client";
 import type { AdminOperationsSnapshot } from "@/lib/admin/operations";
 
-import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 import { CreateKaptenForm } from "./components/create-kapten-form";
 import { CreateStudentForm } from "./components/create-student-form";
 
@@ -56,7 +64,7 @@ function OperationControl({
   return (
     <button
       aria-pressed={active}
-      className={`group flex min-h-[88px] items-center gap-3 rounded-3xl border px-4 py-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 ${active ? "-translate-y-0.5 border-primary-300 bg-primary-50 shadow-[0_18px_34px_-30px_rgba(1,76,56,0.8)]" : "border-primary-100 bg-white hover:-translate-y-0.5 hover:border-primary-200 hover:bg-secondary-50"}`}
+      className={`group flex min-h-[88px] items-center gap-3 px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-300 ${REFERENCE_SURFACE_CLASS_NAMES.raised} ${REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive} ${active ? "border-primary-300 bg-primary-50 shadow-[0_18px_34px_-30px_rgba(1,76,56,0.8)]" : "hover:border-primary-200 hover:bg-secondary-50"}`}
       onClick={onSelect}
       type="button"
     >
@@ -80,10 +88,17 @@ function ActivityPanel({
   audits: AdminOperationsSnapshot["audits"];
 }) {
   return (
-    <section>
-      <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Recent activity</h2>
+    <ReferenceSurface as="section" className="overflow-hidden">
+      <div className="px-5 pt-5 sm:px-6">
+        <ReferenceSectionHeading title="Recent activity" />
+      </div>
       {audits.length === 0 ? (
-        <p className="mt-5 rounded-3xl border border-primary-200 bg-white/65 px-4 py-5 text-sm leading-6 text-secondary-600">No audit activity has been recorded yet.</p>
+        <ReferenceEmptyState
+          className="min-h-40"
+          description="No audit activity has been recorded yet."
+          icon={Activity}
+          title="No recent activity"
+        />
       ) : (
         <ol className="mt-4 space-y-3">
           {audits.slice(0, 10).map((audit) => (
@@ -97,7 +112,7 @@ function ActivityPanel({
           ))}
         </ol>
       )}
-      <div className="mt-5 flex justify-center">
+      <div className="mt-5 flex justify-center pb-5">
         <Button
           className="font-bold text-primary-700 hover:bg-transparent hover:text-primary-800"
           nativeButton={false}
@@ -108,7 +123,7 @@ function ActivityPanel({
           See more
         </Button>
       </div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -136,15 +151,14 @@ function OperationsConsoleModule({
   }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl">Dashboard</h1>
-      </header>
+    <div className="space-y-8">
+      <ReferencePageHeader
+        description="Kelola akses akun admin dan pantau aktivitas operasional terbaru."
+        title="Dashboard"
+      />
 
       <section>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900">Quick actions</h2>
-        </div>
+        <ReferenceSectionHeading title="Quick actions" />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <OperationControl active={selectedOperation === "add-student"} icon={UserPlus} onSelect={() => selectOperation("add-student")} operation="add-student" />
           <OperationControl active={selectedOperation === "add-kapten"} icon={UserPlus} onSelect={() => selectOperation("add-kapten")} operation="add-kapten" />
@@ -152,7 +166,7 @@ function OperationsConsoleModule({
       </section>
 
       {selectedOperation === "add-student" ? (
-        <section aria-labelledby="operation-student-heading" className={`${ADMIN_CARD_CLASS_NAME} p-4 sm:p-6`}>
+        <ReferenceSurface as="section" aria-labelledby="operation-student-heading" className="p-4 sm:p-6">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold text-secondary-900" id="operation-student-heading">Add student</h2>
@@ -160,11 +174,11 @@ function OperationsConsoleModule({
             <Button aria-label="Close selected operation" onClick={() => selectOperation(null)} size="icon" variant="ghost"><X size={17} /></Button>
           </div>
           <CreateStudentForm examEvents={examEvents} />
-        </section>
+        </ReferenceSurface>
       ) : null}
 
       {selectedOperation === "add-kapten" ? (
-        <section aria-labelledby="operation-kapten-heading" className={`${ADMIN_CARD_CLASS_NAME} p-4 sm:p-6`}>
+        <ReferenceSurface as="section" aria-labelledby="operation-kapten-heading" className="p-4 sm:p-6">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold text-secondary-900" id="operation-kapten-heading">Add Kapten</h2>
@@ -172,10 +186,10 @@ function OperationsConsoleModule({
             <Button aria-label="Close selected operation" onClick={() => selectOperation(null)} size="icon" variant="ghost"><X size={17} /></Button>
           </div>
           <CreateKaptenForm />
-        </section>
+        </ReferenceSurface>
       ) : null}
 
-      <section className={`${ADMIN_CARD_CLASS_NAME} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}>
+      <ReferenceSurface as="section" className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
             <BarChart3 aria-hidden="true" size={19} />
@@ -194,7 +208,7 @@ function OperationsConsoleModule({
           Open AI usage
           <ChevronRight aria-hidden="true" size={16} />
         </Button>
-      </section>
+      </ReferenceSurface>
 
       <ActivityPanel audits={snapshot.audits} />
     </div>

@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { Badge } from "@/components/ui/badge";
+import {
+  ReferencePageHeader,
+  ReferenceSectionHeading,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,11 +40,6 @@ import {
   type VeraReportStatus,
 } from "@/lib/admin/ai-usage/types";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
-
-import {
-  ADMIN_CARD_CLASS_NAME,
-  ADMIN_INSET_CLASS_NAME,
-} from "./admin-ui-contract";
 
 type FilterValue = VeraReportFeature | "all";
 type GatewayValue = VeraReportGateway | "unknown" | "all";
@@ -123,10 +124,10 @@ function partitionMessage<T>(partition: VeraAggregatePartition<T>) {
 function PartitionState<T>({ partition }: { partition: VeraAggregatePartition<T> }) {
   const message = partitionMessage(partition);
   return message ? (
-    <div className={`${ADMIN_INSET_CLASS_NAME} flex items-start gap-3 px-4 py-4 text-sm leading-6 text-secondary-600`}>
+    <ReferenceSurface className="flex items-start gap-3 px-4 py-4 text-sm leading-6 text-secondary-600" variant="inset">
       <ShieldCheck aria-hidden="true" className="mt-0.5 shrink-0 text-primary-700" size={18} />
       <p>{message}</p>
-    </div>
+    </ReferenceSurface>
   ) : null;
 }
 
@@ -144,7 +145,7 @@ function FilterMenu<T extends string>({
   const selected = options.find((option) => option.value === value)?.label ?? label;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button className="min-h-11 justify-between gap-3 rounded-2xl border-primary-100 bg-white px-3 text-left text-sm text-secondary-800" variant="outline" />}>
+      <DropdownMenuTrigger render={<Button className={REFERENCE_CONTROL_CLASS_NAMES.select} variant="reference" />}>
         <span className="truncate">{selected}</span>
         <ChevronDown aria-hidden="true" size={16} />
       </DropdownMenuTrigger>
@@ -175,23 +176,23 @@ function SummaryPanel({ partition }: { partition: VeraAggregatePartition }) {
     { label: "P95 latency", value: summary.p95LatencyMs === null ? "—" : `${formatNumber(summary.p95LatencyMs)} ms` },
   ];
   return (
-    <div className="grid gap-px overflow-hidden rounded-3xl border border-primary-100 bg-primary-100 sm:grid-cols-2 lg:grid-cols-3">
+    <ReferenceSurface className="grid gap-px overflow-hidden sm:grid-cols-2 lg:grid-cols-3" variant="inset">
       {metrics.map((metric) => (
         <div className="bg-white px-4 py-4" key={metric.label}>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary-500">{metric.label}</p>
           <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-secondary-900">{metric.value}</p>
         </div>
       ))}
-    </div>
+    </ReferenceSurface>
   );
 }
 
 function AggregateTable({ partition, title }: { partition: VeraAggregatePartition; title: string }) {
   return (
-    <section className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+    <ReferenceSurface as="section" className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-primary-100 px-5 py-4">
         <h2 className="text-base font-semibold text-secondary-900">{title}</h2>
-        <Badge className="border border-primary-100 bg-primary-50 text-primary-800" size="ui">Agregat</Badge>
+        <ReferenceStatusBadge label="Agregat" size="xs" status="info" />
       </div>
       <PartitionState partition={partition} />
       {partition.state === "ready" && partition.rows.length > 0 ? (
@@ -240,13 +241,13 @@ function AggregateTable({ partition, title }: { partition: VeraAggregatePartitio
         </div>
       ) : null}
       {partition.state === "ready" && partition.rows.length === 0 ? <p className="px-5 py-5 text-sm text-secondary-600">Belum ada data pada rentang ini.</p> : null}
-    </section>
+    </ReferenceSurface>
   );
 }
 
 function IncidentPanel({ partition }: { partition: VeraAggregatePartition<VeraIncidentRow> }) {
   return (
-    <section className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+    <ReferenceSurface as="section" className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-primary-100 px-5 py-4">
         <div>
           <h2 className="text-base font-semibold text-secondary-900">Incidents</h2>
@@ -266,19 +267,19 @@ function IncidentPanel({ partition }: { partition: VeraAggregatePartition<VeraIn
           ))}
         </div>
       ) : null}
-    </section>
+    </ReferenceSurface>
   );
 }
 
 function ComparisonPanel({ partition }: { partition: VeraAggregatePartition<VeraComparisonRow> }) {
   return (
-    <section className={`${ADMIN_CARD_CLASS_NAME} overflow-hidden`}>
+    <ReferenceSurface as="section" className="overflow-hidden">
       <div className="flex flex-col gap-1 border-b border-primary-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-secondary-900">Period comparison</h2>
           <p className="mt-1 text-sm text-secondary-600">Perbandingan terhadap rentang kalender lokal sebelumnya; hanya agregat.</p>
         </div>
-        <Badge className="w-fit border border-primary-100 bg-primary-50 text-primary-800" size="ui">Tidak retroaktif</Badge>
+        <ReferenceStatusBadge label="Tidak retroaktif" size="xs" status="neutral" />
       </div>
       <PartitionState partition={partition} />
       {partition.state === "ready" && partition.rows.length > 0 ? (
@@ -303,7 +304,7 @@ function ComparisonPanel({ partition }: { partition: VeraAggregatePartition<Vera
           })}
         </div>
       ) : null}
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -376,67 +377,65 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
       session={session}
       title="AI usage"
     >
-      <div className="space-y-7">
-        <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-3xl">
-            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-secondary-900">AI usage</h1>
-            <p className="mt-2 max-w-[72ch] text-sm leading-6 text-secondary-600">Pantau volume, latency, quota, dan incident Vera tanpa membuka identitas siswa atau isi percakapan.</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-secondary-600">
-            <BarChart3 aria-hidden="true" className="text-primary-700" size={20} />
-            <span>Mock / disabled telemetry only</span>
-          </div>
-        </section>
+      <div className="space-y-8">
+        <ReferencePageHeader
+          actions={
+            <ReferenceSurface className="flex items-center gap-2 px-3.5 py-2.5 text-sm text-secondary-600" variant="inset">
+              <BarChart3 aria-hidden="true" className="text-primary-700" size={20} />
+              <span>Mock / disabled telemetry only</span>
+            </ReferenceSurface>
+          }
+          description="Pantau volume, latency, quota, dan incident Vera tanpa membuka identitas siswa atau isi percakapan."
+          title="AI usage"
+        />
 
-        <section className={`${ADMIN_CARD_CLASS_NAME} p-5`}>
+        <ReferenceSurface as="section" className="p-5 sm:p-6">
           <form className="grid gap-4 lg:grid-cols-4 xl:grid-cols-8" onSubmit={onSubmit}>
-            <label className="grid gap-2 text-sm font-semibold text-secondary-800">Dari<input aria-label="Tanggal mulai" className="h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm outline-none focus-visible:border-primary-500 focus-visible:ring-3 focus-visible:ring-primary-200" onChange={(event) => setFrom(event.target.value)} type="date" value={from} /></label>
-            <label className="grid gap-2 text-sm font-semibold text-secondary-800">Sampai<input aria-label="Tanggal akhir eksklusif" className="h-11 rounded-2xl border border-primary-100 bg-white px-3 text-sm outline-none focus-visible:border-primary-500 focus-visible:ring-3 focus-visible:ring-primary-200" onChange={(event) => setTo(event.target.value)} type="date" value={to} /></label>
-            <label className="grid gap-2 text-sm font-semibold text-secondary-800">Zona IANA<Input aria-label="Zona waktu IANA" onChange={(event) => setTimezone(event.target.value)} value={timezone} /></label>
+            <label className="grid gap-2 text-sm font-semibold text-secondary-800">Dari<input aria-label="Tanggal mulai" className={REFERENCE_CONTROL_CLASS_NAMES.input} onChange={(event) => setFrom(event.target.value)} type="date" value={from} /></label>
+            <label className="grid gap-2 text-sm font-semibold text-secondary-800">Sampai<input aria-label="Tanggal akhir eksklusif" className={REFERENCE_CONTROL_CLASS_NAMES.input} onChange={(event) => setTo(event.target.value)} type="date" value={to} /></label>
+            <label className="grid gap-2 text-sm font-semibold text-secondary-800">Zona IANA<Input aria-label="Zona waktu IANA" className={REFERENCE_CONTROL_CLASS_NAMES.input} onChange={(event) => setTimezone(event.target.value)} value={timezone} /></label>
             <FilterMenu label="Fitur" onChange={setFeature} options={["all", ...VERA_REPORT_FEATURES].map((value) => ({ label: featureLabels[value as FilterValue], value: value as FilterValue }))} value={feature} />
             <FilterMenu label="Status" onChange={setStatus} options={["all", ...VERA_REPORT_STATUSES].map((value) => ({ label: statusLabels[value as StatusValue], value: value as StatusValue }))} value={status} />
             <FilterMenu label="Gateway" onChange={setGateway} options={["all", ...VERA_REPORT_GATEWAYS, "unknown"].map((value) => ({ label: gatewayLabels[value as GatewayValue], value: value as GatewayValue }))} value={gateway} />
             <FilterMenu label="Upstream" onChange={setUpstreamProvider} options={["all", ...VERA_REPORT_UPSTREAMS, "unknown"].map((value) => ({ label: upstreamLabels[value as UpstreamValue], value: value as UpstreamValue }))} value={upstreamProvider} />
             <FilterMenu label="Model" onChange={setModel} options={["all", ...VERA_REPORT_MODELS, "unknown"].map((value) => ({ label: modelLabels[value as ModelValue], value: value as ModelValue }))} value={model} />
-            <Button className="min-h-11 self-end" disabled={state.kind === "loading"} type="submit">
+            <Button className="self-end" disabled={state.kind === "loading"} type="submit" variant="brand">
               {state.kind === "loading" ? <RefreshCw aria-hidden="true" className="animate-spin" size={16} /> : <RefreshCw aria-hidden="true" size={16} />}
               Muat laporan
             </Button>
           </form>
           <p className="mt-4 text-xs leading-5 text-secondary-500">Tanggal akhir bersifat eksklusif. Rentang maksimal 31 hari lokal dan dihitung aman terhadap DST.</p>
-        </section>
+        </ReferenceSurface>
 
         {state.kind === "loading" ? (
-          <section className={`${ADMIN_CARD_CLASS_NAME} animate-pulse p-5`} aria-live="polite">
+          <ReferenceSurface as="section" aria-live="polite" className="animate-pulse p-5 sm:p-6">
             <div className="h-5 w-44 rounded bg-primary-100" />
             <div className="mt-5 grid gap-px overflow-hidden rounded-3xl bg-primary-100 sm:grid-cols-3">
               {["one", "two", "three", "four", "five", "six"].map((item) => <div className="h-24 bg-white" key={item} />)}
             </div>
-          </section>
+          </ReferenceSurface>
         ) : null}
 
         {state.kind === "error" ? (
-          <section className={`${ADMIN_CARD_CLASS_NAME} flex items-start gap-4 p-5`} role="alert">
+          <ReferenceSurface as="section" className="flex items-start gap-4 p-5 sm:p-6" role="alert" variant="inset">
             <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0 text-red-700" size={22} />
             <div>
               <h2 className="font-semibold text-secondary-900">Laporan belum dapat dimuat</h2>
               <p className="mt-1 text-sm leading-6 text-secondary-600">{errorCode === "report_budget_exhausted" || errorCode === "report_burst_limited" ? "Budget laporan sementara habis. Tunggu sebentar sebelum mencoba lagi." : "Periksa rentang dan zona waktu, lalu coba lagi. Infrastruktur report yang tidak tersedia akan gagal tertutup."}</p>
             </div>
-          </section>
+          </ReferenceSurface>
         ) : null}
 
         {dto ? (
           <>
-            <section className={`${ADMIN_CARD_CLASS_NAME} p-5`}>
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-secondary-900">Summary</h2>
-                  <p className="mt-1 text-sm text-secondary-600">{dto.range.from} sampai {dto.range.to} · {dto.range.timezone}</p>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-secondary-500"><Clock3 aria-hidden="true" size={15} /> Data sampai {formatDateTime(dto.lastUpdatedAt)}</div>
-              </div>
+            <ReferenceSurface as="section" className="p-5 sm:p-6">
+              <ReferenceSectionHeading
+                action={<div className="flex items-center gap-2 text-xs text-secondary-500"><Clock3 aria-hidden="true" size={15} /> Data sampai {formatDateTime(dto.lastUpdatedAt)}</div>}
+                description={`${dto.range.from} sampai ${dto.range.to} · ${dto.range.timezone}`}
+                title="Summary"
+              />
               <SummaryPanel partition={dto.summary} />
-            </section>
+            </ReferenceSurface>
 
             <div className="grid gap-5 xl:grid-cols-2">
               <AggregateTable partition={dto.dailyTrend} title="Daily trend" />
@@ -449,16 +448,16 @@ function AiUsagePageModule({ session }: { session: SessionContext }) {
 
             <ComparisonPanel partition={dto.comparison} />
 
-            <section className={`${ADMIN_CARD_CLASS_NAME} p-5`}>
+            <ReferenceSurface as="section" className="p-5 sm:p-6">
               <h2 className="text-base font-semibold text-secondary-900">Policy & freshness</h2>
               <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                 <div><p className="text-secondary-500">Policy aktif</p><p className="mt-1 font-semibold text-secondary-900">{dto.policySummary.active.bundleVersion}</p></div>
                 <div><p className="text-secondary-500">Minimum cohort</p><p className="mt-1 font-semibold text-secondary-900">k = {dto.policySummary.active.allowlistedThresholds.minimumGroupSize}</p></div>
                 <div><p className="text-secondary-500">Unit / request limit</p><p className="mt-1 font-semibold text-secondary-900">{dto.policySummary.active.allowlistedThresholds.unitLimit} / {dto.policySummary.active.allowlistedThresholds.requestLimit}</p></div>
-                <div><p className="text-secondary-500">Freshness</p><p className="mt-1 font-semibold text-secondary-900">{dto.freshness.state === "fresh" ? "Fresh" : dto.freshness.state === "stale" ? "Stale" : "Unavailable"}</p></div>
+                <div><p className="text-secondary-500">Freshness</p><div className="mt-1"><ReferenceStatusBadge label={dto.freshness.state === "fresh" ? "Fresh" : dto.freshness.state === "stale" ? "Stale" : "Unavailable"} size="xs" status={dto.freshness.state} tone={dto.freshness.state === "fresh" ? "success" : dto.freshness.state === "stale" ? "attention" : "danger"} /></div></div>
               </div>
               {dto.freshness.state !== "fresh" ? <p className="mt-4 text-sm leading-6 text-secondary-600">Freshness tidak mengubah agregat atau mengungkap detail yang disembunyikan.</p> : null}
-            </section>
+            </ReferenceSurface>
           </>
         ) : null}
       </div>
