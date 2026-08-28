@@ -9,6 +9,8 @@ const contextMenu = fs.readFileSync("components/ui/context-menu.tsx", "utf8");
 assert.match(catalogue, /id: "subject"[\s\S]*label: "Subject"/u, "the catalogue must expose Subject as its own column");
 assert.match(catalogue, /id: "category"[\s\S]*label: "Kategori"/u, "the catalogue must expose Kategori as its own column");
 assert.doesNotMatch(catalogue, /id: "coverage"/u, "the catalogue must not merge Subject and Kategori into coverage");
+assert.match(catalogue, /<p className="mt-0\.5 block truncate text-xs text-secondary-500">\{row\.bank\.questionCount\} soal<\/p>/u, "bank rows must show only their question count in the secondary line");
+assert.doesNotMatch(catalogue, /row\.bank\.questionCount\} soal\{row\.bank\.folderPath/u, "bank rows must not expose their folder path");
 assert.doesNotMatch(catalogue, /label: "Aksi"/u, "the catalogue must not render an Aksi column");
 assert.match(catalogue, /ContextMenuContent[\s\S]*Edit bank soal/u, "bank actions must remain available in the row context menu");
 assert.match(catalogue, /ContextMenuContent[\s\S]*Ubah nama/u, "folder actions must remain available in the row context menu");

@@ -812,7 +812,7 @@ function useQuestionBankCatalogueState({
             <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><LibraryBig aria-hidden="true" className="size-4" /></span>
             <div className="min-w-0">
               <Link className="block truncate font-semibold text-secondary-900 hover:text-primary-800 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200" href={row.bank.href}>{row.bank.title}</Link>
-              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.bank.questionCount} soal{row.bank.folderPath?.length ? ` · ${row.bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</p>
+              <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.bank.questionCount} soal</p>
             </div>
           </div>
         </div>
