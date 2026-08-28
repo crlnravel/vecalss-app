@@ -281,7 +281,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
             id="akun"
             title="Profil"
           >
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_9rem]">
+            <div className="grid gap-6">
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field>
                   <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-first-name">
