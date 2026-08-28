@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Archive,
   ChevronLeft,
-  Ellipsis,
   Eye,
   FilePenLine,
   FileText,
@@ -17,6 +16,12 @@ import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
+import {
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 import {
   ReferenceEmptyState,
   ReferencePageHeader,
@@ -33,13 +38,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
@@ -787,57 +787,46 @@ function MateriSubjectCatalogueScreen({
       sortKey: "status",
       width: 20,
     },
-    {
-      cell: (lesson) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${lesson.title}`} size="icon-sm" type="button" variant="ghost" />}>
-            <Ellipsis />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}>
-                <Eye />
-                Preview
-              </DropdownMenuItem>
-              {lesson.status === "draft" ? (
-                <DropdownMenuItem disabled={lesson.readiness !== "ready"} onClick={() => actions.onApplyLessonAction(lesson, "publish")}>
-                  <Upload />
-                  Terbitkan
-                </DropdownMenuItem>
-              ) : null}
-              {lesson.status === "published" ? (
-                <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "unpublish")}>
-                  <FilePenLine />
-                  Batalkan terbit
-                </DropdownMenuItem>
-              ) : null}
-              {lesson.status !== "archived" ? (
-                <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "archive")}>
-                  <Archive />
-                  Arsipkan
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => actions.onApplyLessonAction(lesson, "restore")}>
-                  <Upload />
-                  Pulihkan
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled variant="destructive">
-                <Trash2 />
-                Hapus
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-      cellClassName: "text-right",
-      headerClassName: "min-w-[8.5rem] text-right",
-      id: "actions",
-      label: "Aksi",
-      width: 12,
-    },
   ];
+
+  const materiRowContextMenu = (lesson: KaptenMateriView) => (
+    <ContextMenuContent className="w-52">
+      <ContextMenuGroup>
+        <ContextMenuItem onClick={() => router.push(buildEditorHref(lesson, returnTo, true))}>
+          <Eye />
+          Preview
+        </ContextMenuItem>
+        {lesson.status === "draft" ? (
+          <ContextMenuItem disabled={lesson.readiness !== "ready"} onClick={() => actions.onApplyLessonAction(lesson, "publish")}>
+            <Upload />
+            Terbitkan
+          </ContextMenuItem>
+        ) : null}
+        {lesson.status === "published" ? (
+          <ContextMenuItem onClick={() => actions.onApplyLessonAction(lesson, "unpublish")}>
+            <FilePenLine />
+            Batalkan terbit
+          </ContextMenuItem>
+        ) : null}
+        {lesson.status !== "archived" ? (
+          <ContextMenuItem onClick={() => actions.onApplyLessonAction(lesson, "archive")}>
+            <Archive />
+            Arsipkan
+          </ContextMenuItem>
+        ) : (
+          <ContextMenuItem onClick={() => actions.onApplyLessonAction(lesson, "restore")}>
+            <Upload />
+            Pulihkan
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled variant="destructive">
+          <Trash2 />
+          Hapus
+        </ContextMenuItem>
+      </ContextMenuGroup>
+    </ContextMenuContent>
+  );
 
   const previousHref = visiblePage > 1 ? buildHref({ page: visiblePage - 1 }) : undefined;
   const nextHref = visiblePage < pageCount ? buildHref({ page: visiblePage + 1 }) : undefined;
@@ -929,6 +918,7 @@ function MateriSubjectCatalogueScreen({
             getRowId={(lesson) => lesson.code}
             key={tableVersion}
             onRowClick={(lesson) => router.push(buildEditorHref(lesson, returnTo))}
+            rowContextMenu={materiRowContextMenu}
             rows={pagedLessons}
             search={{
               action: `/mentor/materi/subject/${subject.slug}`,

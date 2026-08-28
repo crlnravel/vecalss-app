@@ -794,7 +794,7 @@ function useQuestionBankCatalogueState({
   const catalogueColumns: DataTableColumn<QuestionBankCatalogueRow>[] = [
     {
       cell: (row) => row.kind === "folder" ? (
-        <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><Folder className="size-4" /></span>
             <div className="min-w-0">
@@ -802,17 +802,9 @@ function useQuestionBankCatalogueState({
               <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.folder.bankCount} bank{row.folder.children?.length ? ` · ${row.folder.children.length} subfolder` : ""}</p>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label={`Aksi folder ${row.folder.name}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => openFolderManage(row.folder, "rename")}><Pencil />Ubah nama</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openFolderManage(row.folder, "remove")} variant="destructive"><Trash2 />Hapus folder</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       ) : (
-        <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><LibraryBig aria-hidden="true" className="size-4" /></span>
             <div className="min-w-0">
@@ -820,17 +812,6 @@ function useQuestionBankCatalogueState({
               <p className="mt-0.5 block truncate text-xs text-secondary-500">{row.bank.questionCount} soal{row.bank.folderPath?.length ? ` · ${row.bank.folderPath.map((item) => item.name).join(" / ")}` : ""}</p>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button aria-label={`Aksi untuk ${row.bank.title}`} size="icon-sm" type="button" variant="ghost" />}><Ellipsis /></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={() => router.push(row.bank.href)}><Pencil />Edit bank soal</DropdownMenuItem>
-              <DropdownMenuItem disabled={row.bank.status === "archived"} onClick={() => openBankCategories(row.bank)}><Tag />Kelola kategori</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {row.bank.status === "draft" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "publish", bank: row.bank }); }}><Upload />Terbitkan</DropdownMenuItem> : null}
-              {row.bank.status === "published" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "unpublish", bank: row.bank }); }}><FilePenLine />Jadikan draf</DropdownMenuItem> : null}
-              {row.bank.status !== "archived" ? <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "archive", bank: row.bank }); }}><Archive />Arsipkan</DropdownMenuItem> : <DropdownMenuItem onClick={() => { setLifecycleError(null); setPendingLifecycle({ action: "restore", bank: row.bank }); }}><Upload />Pulihkan</DropdownMenuItem>}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       ),
       headerClassName: "min-w-[18rem]",
@@ -949,7 +930,6 @@ function useQuestionBankCatalogueState({
     lifecycleError,
     moveBankToFolder,
     navigateCatalogue,
-    openBankCategories,
     openCategoryCreate,
     openCategoryRename,
     openFolderCreate,
@@ -1053,7 +1033,6 @@ function KaptenQuestionBankPageModule({
     lifecycleError,
     moveBankToFolder,
     navigateCatalogue,
-    openBankCategories,
     openCategoryCreate,
     openCategoryRename,
     openFolderCreate,
