@@ -140,7 +140,8 @@ function MentorSidebar({
         <Link
           href="/mentor/dashboard"
           className={cn(
-            "flex w-full origin-center scale-100 items-center justify-center rounded-2xl transition-[background-color,transform] duration-300 ease-out hover:bg-primary-50",
+            "flex w-full origin-center scale-100 items-center justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35",
+            !isReference && "transition-[background-color,transform] duration-300 ease-out hover:bg-primary-50",
             isCompactReferenceMark ? "px-0 py-0" : "px-1 py-1",
             !isReference && "group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:scale-50",
           )}
