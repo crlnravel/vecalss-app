@@ -102,7 +102,7 @@ function MentorWorkspaceShell({
   searchPlaceholder = "Cari konten, quiz, tryout, atau asset...",
   session,
   showBreadcrumb = true,
-  showSearch = true,
+  showSearch = false,
   shouldGuardNavigation = false,
 }: {
   activeLabel: string;
