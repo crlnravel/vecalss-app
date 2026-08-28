@@ -59,6 +59,12 @@ Once harness is set up:
 - If a runtime, orchestration tool, or user request selects any model other than exact `gpt-5.6-luna`, stop before starting or continuing that agent and request explicit permission from the user for that model in the current task.
 - If the selected model cannot be verified, treat it as non-Luna and request permission. See `_harness/rules.md` for the durable delegation rule.
 
+### CPU and process budget
+
+- All agents, including Traycer agents and their children, share the host's CPU budget. Do not start more than one CPU-heavy command group at a time for this repository, and do not leave more than one long-lived dev/worker process running.
+- Before a Node/package/script launch, run `_harness/resource-guard.sh status`; launch through `_harness/resource-guard.sh run -- <command>`. The guard checks CPU/load, serializes launches across worktrees, and fails closed when the host is busy.
+- Keep process-starting commands to three or fewer per agent turn. Never use background/watch/parallel launch modes or retry a busy guard in a loop. Stop agent-owned servers and workers before handoff.
+
 ### Design and UI policy
 
 - **For any task involving UI, components, styling, layout, or visual design:** Read and follow `DESIGN.md` as the authoritative design system. `DESIGN.md` links to focused guidelines in `docs/design-guidelines/` — load the narrowest relevant guide for the work at hand.
@@ -81,6 +87,7 @@ Once harness is set up:
 - Project structure lookup → `_harness/catalog.md`
 - Hard rules and constraints → `_harness/rules.md`
 - Execution procedures → `_harness/workflow.md`
+- CPU/process budget and guarded launches → `_harness/resource-guard.sh` and `_harness/rules.md`
 
 ### Loading Principles
 

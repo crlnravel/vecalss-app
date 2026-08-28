@@ -6,4 +6,25 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-pnpm verify
+HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
+RESOURCE_GUARD="$HOOK_DIR/../_harness/resource-guard.sh"
+
+if [ ! -x "$RESOURCE_GUARD" ]; then
+  echo "Missing executable resource guard: $RESOURCE_GUARD" >&2
+  exit 1
+fi
+
+if git diff --cached --name-only | awk '
+  $0 == "AGENTS.md" ||
+  $0 == "CLAUDE.md" ||
+  $0 == "init.sh" ||
+  $0 ~ /^_harness\// ||
+  $0 ~ /^\.githooks\// { next }
+  { product_change = 1 }
+  END { exit product_change ? 1 : 0 }
+'; then
+  echo "Harness-only commit: skipping the product build; shell checks remain required."
+  exit 0
+fi
+
+"$RESOURCE_GUARD" run -- pnpm verify
