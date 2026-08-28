@@ -44,8 +44,14 @@ await runChecks("vera-openrouter-free-poc", [
         assert(!evaluateVeraOpenRouterFreePocGate(env).enabled, `${key} gate unexpectedly enabled`);
         assert(evaluateVeraOpenRouterFreePocGate(env).reason === reason, `${key} gate returned the wrong reason`);
       }
-      const production = evaluateVeraOpenRouterFreePocGate({ ...baseEnvironment, NODE_ENV: "production" });
-      assert(!production.enabled && production.reason === "production_environment", "production gate did not fail closed");
+      for (const nodeEnv of ["production", "staging", "preview", ""]) {
+        const nonDevelopment = evaluateVeraOpenRouterFreePocGate({ ...baseEnvironment, NODE_ENV: nodeEnv } as NodeJS.ProcessEnv);
+        assert(!nonDevelopment.enabled && nonDevelopment.reason === "development_or_test_environment_required", `${nodeEnv || "blank"} environment gate did not fail closed`);
+      }
+      const unsetEnvironment = { ...baseEnvironment };
+      Reflect.deleteProperty(unsetEnvironment, "NODE_ENV");
+      const unset = evaluateVeraOpenRouterFreePocGate(unsetEnvironment);
+      assert(!unset.enabled && unset.reason === "development_or_test_environment_required", "unset environment gate did not fail closed");
       const debugOnly = evaluateVeraOpenRouterFreePocGate({ ...baseEnvironment, VERA_POC_OPENROUTER: undefined });
       assert(!debugOnly.enabled && debugOnly.reason === "poc_opt_in_required", "DEBUG alone enabled the POC");
     },

@@ -11,7 +11,7 @@ export const VERA_OPENROUTER_FREE_POC_MAX_RESPONSE_BYTES = 1_048_576;
 export const VERA_OPENROUTER_FREE_POC_TIMEOUT_MS = 10_000;
 
 export type VeraOpenRouterFreePocGateReason =
-  | "production_environment"
+  | "development_or_test_environment_required"
   | "debug_required"
   | "poc_opt_in_required"
   | "zdr_must_be_false"
@@ -118,7 +118,8 @@ function normalizeBaseUrl(value: string): string | null {
 export function evaluateVeraOpenRouterFreePocGate(
   env: NodeJS.ProcessEnv = process.env,
 ): VeraOpenRouterFreePocGate {
-  if (env.NODE_ENV?.toLowerCase() === "production") return { enabled: false, reason: "production_environment" };
+  const nodeEnv = env.NODE_ENV?.toLowerCase();
+  if (nodeEnv !== "development" && nodeEnv !== "test") return { enabled: false, reason: "development_or_test_environment_required" };
   if (!isTrue(env.DEBUG)) return { enabled: false, reason: "debug_required" };
   if (!isTrue(env.VERA_POC_OPENROUTER)) return { enabled: false, reason: "poc_opt_in_required" };
   if (env.VERA_POC_ZDR !== "false") return { enabled: false, reason: "zdr_must_be_false" };
