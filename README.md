@@ -44,6 +44,20 @@ The assessment-only command expects the accounts and Materi taxonomy to exist.
 Use `pnpm db:seed-assessment` only when refreshing assessment data in an already
 prepared demonstration database.
 
+### Admin AI usage demo data
+
+After the demo database is seeded, populate the Admin AI dashboard with
+privacy-safe request telemetry:
+
+```bash
+pnpm db:seed-ai-usage
+```
+
+Use `pnpm db:seed-ai-usage -- --dry-run` to verify the fixture without changing
+database rows. The seed is repeatable and replaces only its own namespaced mock
+rows. It creates request and admission telemetry, never conversations, messages,
+prompts, or assistant content.
+
 ## Required Environment Variables
 
 - `DATABASE_URL`: PostgreSQL connection string used by Prisma.
