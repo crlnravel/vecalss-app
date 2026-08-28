@@ -14,5 +14,5 @@ export default async function CreateTryoutPage({ searchParams }: { searchParams:
     listQuestionBankSourcePage({ page: 1, pageSize: 20 }),
   ]);
   const initialWorkspace = query.workspace ?? "basics";
-  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session}><KaptenTryoutBuilderPageModule initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} session={session} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Tryout" breadcrumbLabel="Buat Tryout" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Tryout..." session={session} sidebarAppearance="reference"><KaptenTryoutBuilderPageModule initialSourceBankTotal={sourceCatalog.total} initialSourceBanks={sourceCatalog.items.map(({ bank }) => bank)} initialWorkspace={initialWorkspace} session={session} /></MentorWorkspaceShell>;
 }
