@@ -634,14 +634,13 @@ function MediaLibraryScreen({
               {isDrive ? <div className="flex flex-wrap items-center justify-between gap-4 pt-4 text-xs text-secondary-500"><div className="flex items-center gap-2"><Button aria-label={isReference ? "Jumlah entri per halaman" : "Entries per page"} className="h-8 gap-1.5 rounded-md px-2.5" size="sm" variant={isReference ? "reference" : "brandOutline"}>10<ChevronDown className="size-3.5" /></Button><span>{isReference ? "Entri per halaman" : "Entries per page"}</span></div><div className="flex items-center gap-1"><Button aria-label={isReference ? "Halaman sebelumnya" : "Previous page"} disabled={activeAssetPage <= 1} onClick={() => setAssetPage((page) => Math.max(1, page - 1))} size="icon-sm" variant="ghost"><ChevronLeft /></Button><Button aria-current="page" className="size-8 rounded-md" size="icon-sm" variant={isReference ? "reference" : "brandOutline"}>{activeAssetPage}</Button><Button aria-label={isReference ? "Halaman berikutnya" : "Next page"} disabled={activeAssetPage >= assetPageCount} onClick={() => setAssetPage((page) => Math.min(assetPageCount, page + 1))} size="icon-sm" variant="ghost"><ChevronRight /></Button></div></div> : null}
             </section> : null}
           </div> : isReference ? (
-            <ReferenceSurface className="mx-5 min-h-[22rem] md:mx-8" variant="inset">
-              <ReferenceEmptyState
-                action={!query && assetFilter === "all" ? <Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload {mediaLabel}</Button> : undefined}
-                description={query ? "Coba nama file lain atau hapus pencarian." : assetFilter !== "all" ? "Pilih filter lain untuk melihat media yang tersedia." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}
-                icon={query || assetFilter !== "all" ? Search : FileImage}
-                title={query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : assetFilter !== "all" ? "Tidak ada media yang cocok" : "Folder ini masih kosong"}
-              />
-            </ReferenceSurface>
+            <ReferenceEmptyState
+              className="mx-5 min-h-[22rem] md:mx-8"
+              action={!query && assetFilter === "all" ? <Button disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant="brand"><Upload data-icon="inline-start" />Upload {mediaLabel}</Button> : undefined}
+              description={query ? "Coba nama file lain atau hapus pencarian." : assetFilter !== "all" ? "Pilih filter lain untuk melihat media yang tersedia." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}
+              icon={query || assetFilter !== "all" ? Search : FileImage}
+              title={query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : assetFilter !== "all" ? "Tidak ada media yang cocok" : "Folder ini masih kosong"}
+            />
           ) : <Empty className="min-h-[22rem] border-0"><EmptyHeader><EmptyMedia variant="icon">{query || assetFilter !== "all" ? <Search /> : <FileImage />}</EmptyMedia><EmptyTitle>{isDrive ? (query ? "No assets found" : assetFilter !== "all" ? "No matching media" : "This folder is empty") : query ? `${mediaLabel[0].toUpperCase()}${mediaLabel.slice(1)} tidak ditemukan` : assetFilter !== "all" ? "Tidak ada media dengan filter ini" : "Folder ini masih kosong"}</EmptyTitle><EmptyDescription>{isDrive ? (query ? "Try another file name or clear your search." : assetFilter !== "all" ? "Choose another filter to see more media." : "Upload assets or create a folder to start building a library.") : query ? "Coba nama file lain atau hapus pencarian." : assetFilter !== "all" ? "Pilih filter lain untuk melihat media yang tersedia." : `Upload ${mediaLabel} atau buat folder untuk mulai menyusun library.`}</EmptyDescription></EmptyHeader>{!query && assetFilter === "all" ? <EmptyContent><Button className={isPicker ? REFERENCE_CONTROL_CLASS_NAMES.file : undefined} disabled={!snapshot?.isStorageConfigured} onClick={() => fileInputRef.current?.click()} variant={isPicker ? "reference" : "brand"}><Upload data-icon="inline-start" />{isDrive ? "Upload assets" : `Upload ${mediaLabel}`}</Button></EmptyContent> : null}</Empty>}
         </div>
       </div>
