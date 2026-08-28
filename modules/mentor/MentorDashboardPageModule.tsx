@@ -14,7 +14,7 @@ import {
 } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays } from "@/lib/icons";
+import { CalendarDays, ChevronRight } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
 import { QuickCreateMenu } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -57,13 +57,21 @@ function toDashboardActivities(resources: readonly DashboardResource[]): Referen
     id: `${resource.kind}:${resource.id}`,
     href: resource.href,
     label: contentTypeMeta[resource.resourceType].label,
-    timestamp: formatDashboardTimestamp(resource.updatedAt),
+    timestamp: (
+      <Link
+        aria-label={`Buka detail ${resource.title}`}
+        className="inline-flex size-11 items-center justify-center rounded-full text-secondary-400 transition-colors hover:bg-primary-50 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/40"
+        href={resource.href}
+      >
+        <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2.4} />
+      </Link>
+    ),
     title: resource.title,
   }));
 }
 
 const mentorActivityFeedClassName = [
-  "[&>div:first-child>div:first-child>span]:hidden",
+  "[&>div:first-child]:hidden",
   "[&_[data-activity-id]>div:first-child]:bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)]",
   "[&_[data-activity-id]>div:first-child]:text-[#176b4d]",
   "[&_[data-activity-id]>div:first-child]:shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]",
@@ -135,21 +143,24 @@ function MentorDashboardPageModule({
       />
 
       <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
-        <ReferenceActivityFeed
-          activities={recentActivities}
-          className={`min-h-[28rem] ${mentorActivityFeedClassName}`}
-          nextAction={
-            nextScheduledResource ? (
-              <Link
-                className="font-semibold text-primary-800 underline-offset-4 hover:underline"
-                href={nextScheduledResource.href}
-              >
-                Buka {nextScheduledResource.title}
-              </Link>
-            ) : undefined
-          }
-          title="Aktivitas terbaru"
-        />
+        <section aria-label="Aktivitas terbaru" className="min-w-0 space-y-4">
+          <ReferenceSectionHeading title="Aktivitas terbaru" />
+          <ReferenceActivityFeed
+            activities={recentActivities}
+            className={`min-h-[28rem] ${mentorActivityFeedClassName}`}
+            nextAction={
+              nextScheduledResource ? (
+                <Link
+                  className="font-semibold text-primary-800 underline-offset-4 hover:underline"
+                  href={nextScheduledResource.href}
+                >
+                  Buka {nextScheduledResource.title}
+                </Link>
+              ) : undefined
+            }
+            title="Aktivitas terbaru"
+          />
+        </section>
 
         <section aria-label="Jadwal berikutnya" className="min-w-0 space-y-4">
           <ReferenceSectionHeading
