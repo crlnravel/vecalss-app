@@ -32,6 +32,8 @@ export default async function NewTryoutSessionPage({
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
       session={session}
+      showSearch={false}
+      sidebarAppearance="reference"
     >
       <KaptenTryoutSessionCreatePageModule initial={operations} />
     </MentorWorkspaceShell>

@@ -136,6 +136,16 @@ For import-worker changes, also run:
 pnpm admin:imports-worker:check
 ```
 
+### Browser verification gate
+
+Before performing any verification using a browser (**ego-browser**):
+1. **Request explicit user permission first.** Never run browser verification autonomously.
+2. The permission request MUST specify:
+   - **Target route(s):** Exact URL path(s) to check (e.g. `/mentor/tryouts/new`, `/dashboard`).
+   - **Role / persona:** The user role or session state to test with (e.g. Kapten / tutor, Voyager / student, Admin).
+   - **Verification items:** The concrete list of UI elements, responsive views (e.g. desktop/mobile), forms, or user flows to verify.
+3. Wait for the user's explicit confirmation before launching the browser.
+
 ### Before declaring completion
 
 ```bash
@@ -147,6 +157,7 @@ pnpm verify    # lint + production build
 - [ ] `pnpm lint` passes
 - [ ] Relevant `test:*` scripts pass (report which ones were run)
 - [ ] `pnpm verify` passes (for integration-ready or release-relevant work)
+- [ ] Browser verification performed only after explicit user confirmation (specifying route(s), role, and verification items)
 - [ ] Report exactly which commands ran and whether they passed
 - [ ] Do not claim success when required checks fail
 - [ ] Clearly document genuine environment blockers, skipped checks, and remaining risk

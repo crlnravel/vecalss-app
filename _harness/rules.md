@@ -48,6 +48,7 @@ The default model for this project and all delegated workers is exact `gpt-5.6-l
 - Changing established routes, public interfaces, or breaking schema changes
 - Introducing a major architectural layer
 - Cross-cutting refactors that substantially expand scope or affect routes, database contracts, dependencies, authorization, or externally visible behavior
+- Performing browser verification or browser testing (must state routes, role, and verification checklist before launching)
 
 ### What does not require confirmation
 
@@ -123,9 +124,15 @@ The default model for this project and all delegated workers is exact `gpt-5.6-l
 - This is strict TypeScript; consult installed Next.js 16 docs rather than assuming older Next patterns
 - Use the `@/` import alias
 
-### Browser testing
+### Browser testing and verification
 
 - Use **ego-browser** for all browser testing — not Chrome, Firefox, or Safari
+- **Always ask for explicit user permission before doing verification using a browser.** Never start browser verification autonomously.
+- When requesting permission for browser verification, the agent MUST explicitly specify:
+  1. **Route(s):** The exact route(s) or URLs to be checked (e.g., `/mentor/tryouts/new`, `/dashboard`).
+  2. **Role:** The user role or persona/session context to use (e.g., Kapten / tutor, Voyager / student, Admin, or unauthenticated).
+  3. **Verification items:** The specific checklist of UI elements, interactions, edge cases, responsive views, or user flows to verify.
+- Only proceed with browser verification after receiving explicit approval from the user.
 
 ### Domain
 

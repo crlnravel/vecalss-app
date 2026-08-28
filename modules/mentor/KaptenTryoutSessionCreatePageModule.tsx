@@ -3,15 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Field, FieldInput } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { parseTryoutDateTime } from "@/lib/tryout/time";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import {
   HelpFieldLabel,
@@ -56,6 +53,16 @@ function KaptenTryoutSessionCreatePageModule({
       setNotice({ message: "Lengkapi semua kolom wajib sebelum membuat sesi.", tone: "error" });
       return;
     }
+    const availableFrom = parseTryoutDateTime(session.availableFrom);
+    const availableUntil = parseTryoutDateTime(session.availableUntil);
+    if (Number.isNaN(availableFrom.getTime()) || Number.isNaN(availableUntil.getTime())) {
+      setNotice({ message: "Waktu mulai dan selesai sesi tidak valid.", tone: "error" });
+      return;
+    }
+    if (availableUntil <= availableFrom) {
+      setNotice({ message: "Waktu selesai harus setelah waktu mulai.", tone: "error" });
+      return;
+    }
     setBusy(true);
     try {
       const result = await createTryoutDeliverySessionAction(
@@ -84,15 +91,14 @@ function KaptenTryoutSessionCreatePageModule({
       />
       <OperationNotice message={notice?.message ?? null} tone={notice?.tone} />
 
-      <Card className="mt-5 shadow-none ring-primary-100">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Informasi sesi</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-6">
+      <ReferenceSurface as="section" className="mt-5 grid gap-6 p-5 sm:p-7">
+        <h2 className="text-xl font-semibold text-secondary-900">Informasi sesi</h2>
+        <div className="grid gap-6">
           <Field>
             <HelpFieldLabel htmlFor="session-name" label="Nama sesi" required />
             <FieldInput
               aria-required="true"
+              className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`}
               id="session-name"
               onChange={(event) =>
                 setSession({ ...session, name: event.target.value })
@@ -107,6 +113,7 @@ function KaptenTryoutSessionCreatePageModule({
               <HelpFieldLabel htmlFor="session-from" label="Mulai (WIB)" required />
               <FieldInput
                 aria-required="true"
+                className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12`}
                 id="session-from"
                 onChange={(event) =>
                   setSession({ ...session, availableFrom: event.target.value })
@@ -119,6 +126,7 @@ function KaptenTryoutSessionCreatePageModule({
               <HelpFieldLabel htmlFor="session-until" label="Selesai (WIB)" required />
               <FieldInput
                 aria-required="true"
+                className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12`}
                 id="session-until"
                 onChange={(event) =>
                   setSession({ ...session, availableUntil: event.target.value })
@@ -130,7 +138,7 @@ function KaptenTryoutSessionCreatePageModule({
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-secondary-900/14 bg-white px-4 py-3">
+            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_rgba(23,107,77,0.5)]">
               <HelpFieldLabel htmlFor="session-status" label="Aktif saat dibuat" tooltip="Sesi langsung dapat dipakai peserta setelah dibuat. Matikan untuk membuat draf dan membukanya nanti." />
               <Switch
                 checked={session.status === "active"}
@@ -140,7 +148,7 @@ function KaptenTryoutSessionCreatePageModule({
                 }
               />
             </Field>
-            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-secondary-900/14 bg-white px-4 py-3">
+            <Field className="min-h-16 flex-row items-center justify-between rounded-2xl border border-primary-100 bg-white px-4 py-3 shadow-[0_12px_30px_-26px_rgba(23,107,77,0.5)]">
               <HelpFieldLabel htmlFor="session-fullscreen" label="Minta layar penuh" tooltip="Peserta diminta masuk mode layar penuh. Keluar setelah masuk dicatat sebagai peringatan integritas tanpa konsekuensi otomatis." />
               <Switch
                 checked={session.fullscreenPrompt}
@@ -151,10 +159,10 @@ function KaptenTryoutSessionCreatePageModule({
               />
             </Field>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </ReferenceSurface>
       <div className="mt-5 flex justify-end">
-        <Button disabled={busy} onClick={() => void handleCreate()} variant="brand">
+        <Button disabled={busy} onClick={() => void handleCreate()} variant="reference">
           {busy ? "Membuat…" : "Buat sesi"}
         </Button>
       </div>

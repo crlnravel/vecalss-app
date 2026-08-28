@@ -321,7 +321,8 @@ async function createTryoutDeliverySession(input: DeliverySessionInput, actorId:
   const availableFrom = dateOrThrow(input.availableFrom, "Waktu mulai");
   const availableUntil = dateOrThrow(input.availableUntil, "Waktu selesai");
   const name = input.name.trim();
-  if (!name || availableUntil <= availableFrom) throw new TryoutDeliveryValidationError("Nama dan jendela ketersediaan sesi tidak valid.");
+  if (!name) throw new TryoutDeliveryValidationError("Nama sesi wajib diisi.");
+  if (availableUntil <= availableFrom) throw new TryoutDeliveryValidationError("Waktu selesai harus setelah waktu mulai.");
   const status = input.status ?? "active";
   if (status !== "draft" && status !== "active") throw new TryoutDeliveryValidationError("Status sesi tidak valid.");
   const resultReleasePolicy = input.resultReleasePolicy ?? "inherit";

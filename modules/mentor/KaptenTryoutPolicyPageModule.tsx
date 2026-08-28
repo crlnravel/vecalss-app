@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { policyLabels, type DefaultPolicy, type Mode } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
@@ -76,8 +76,8 @@ function KaptenTryoutPolicyPageModule({
       />}
       <OperationNotice message={notice?.message ?? null} tone={notice?.tone} />
 
-      <Card className={`${embedded ? "" : "mt-5"} border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0`}>
-        <CardContent className="grid gap-7 lg:grid-cols-2">
+      <div className={`${embedded ? "" : "mt-5"} grid gap-5 lg:grid-cols-2`}>
+        <ReferenceSurface as="section" aria-label="Akses peserta" className="p-5 sm:p-6">
           <OptionSet
             label="Akses peserta"
             onValueChange={setAdmissionMode}
@@ -89,6 +89,8 @@ function KaptenTryoutPolicyPageModule({
             required
             value={admissionMode}
           />
+        </ReferenceSurface>
+        <ReferenceSurface as="section" aria-label="Jadwal rilis hasil" className="p-5 sm:p-6">
           <OptionSet
             label="Jadwal rilis hasil"
             labelTooltip="Kebijakan ini digunakan oleh sesi yang memilih Ikuti kebijakan Tryout."
@@ -105,8 +107,8 @@ function KaptenTryoutPolicyPageModule({
             required
             value={defaultReleasePolicy}
           />
-        </CardContent>
-      </Card>
+        </ReferenceSurface>
+      </div>
       <div className="mt-5 flex justify-end">
         <Button disabled={busy} onClick={() => void handleSave()} variant="reference">
           {busy ? "Menyimpan…" : "Selanjutnya"}

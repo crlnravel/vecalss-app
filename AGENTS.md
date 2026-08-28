@@ -65,6 +65,15 @@ Once harness is set up:
 - Do not deviate from its tokens, patterns, or guidelines without explicit user approval.
 - `DESIGN.md` is a protected file — propose changes rather than editing directly.
 
+### Browser verification policy
+
+- **Always ask for explicit user permission before performing any verification using a browser (`ego-browser`).**
+- When requesting permission, the agent must specify:
+  1. **Route(s):** The exact route(s) or URLs to check.
+  2. **Role:** The user role or session state (e.g. Kapten, Voyager, Admin).
+  3. **Things to check:** Concrete checklist of elements, responsive views, or flows to verify.
+- Do not proceed with browser verification without explicit user approval.
+
 ### Routing
 
 - Project overview → `_harness/readme.md`
