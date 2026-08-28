@@ -12,7 +12,6 @@ import {
   ReferenceTaskCard,
   type ReferenceActivity,
 } from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarDays, ChevronRight } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
@@ -72,6 +71,7 @@ function toDashboardActivities(resources: readonly DashboardResource[]): Referen
 
 const mentorActivityFeedClassName = [
   "[&>div:first-child]:hidden",
+  "[&_[data-activity-id]>div:last-child>div:first-child]:items-start",
   "[&_[data-activity-id]>div:first-child]:bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)]",
   "[&_[data-activity-id]>div:first-child]:text-[#176b4d]",
   "[&_[data-activity-id]>div:first-child]:shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]",
@@ -163,30 +163,7 @@ function MentorDashboardPageModule({
         </section>
 
         <section aria-label="Jadwal berikutnya" className="min-w-0 space-y-4">
-          <ReferenceSectionHeading
-            action={
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/mentor/quiz" />}
-                  size="sm"
-                  variant="brandOutline"
-                >
-                  Kuis
-                </Button>
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/mentor/tryout" />}
-                  size="sm"
-                  variant="brandOutline"
-                >
-                  Tryout
-                </Button>
-              </div>
-            }
-            description="Sesi terdekat yang perlu kamu siapkan."
-            title="Jadwal berikutnya"
-          />
+          <ReferenceSectionHeading title="Jadwal berikutnya" />
           {scheduledResources.length > 0 ? (
             <div className="space-y-3">
               {scheduledResources.slice(0, 4).map((resource) => (
@@ -221,12 +198,12 @@ function MentorDashboardLoadingState() {
         </div>
 
         <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
-          <Skeleton className="min-h-[28rem] rounded-4xl bg-primary-100/70" />
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-56 rounded-2xl bg-primary-100/80" />
-              <Skeleton className="h-5 w-72 rounded-xl bg-primary-100/70" />
-            </div>
+            <Skeleton className="h-8 w-64 rounded-2xl bg-primary-100/80" />
+            <Skeleton className="min-h-[28rem] rounded-4xl bg-primary-100/70" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-56 rounded-2xl bg-primary-100/80" />
             <Skeleton className="h-32 rounded-4xl bg-primary-100/70" />
             <Skeleton className="h-32 rounded-4xl bg-primary-100/60" />
           </div>
