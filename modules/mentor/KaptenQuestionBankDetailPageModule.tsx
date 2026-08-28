@@ -19,6 +19,8 @@ import {
 import { useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -249,7 +251,7 @@ function QuestionBankMetadataCard({
     isSavingTitle,
   } = formState;
   return (
-    <section className="rounded-2xl border border-primary-100 bg-white p-5 shadow-xs sm:p-6">
+    <ReferenceSurface as="section" className="p-5 sm:p-6">
       <div className="space-y-6">
         <div>
           <div className="flex flex-wrap items-center gap-3">
@@ -264,7 +266,7 @@ function QuestionBankMetadataCard({
             <div className="mt-3 flex max-w-2xl items-center gap-2">
               <Input
                 autoFocus
-                className="text-2xl font-semibold md:text-3xl"
+                className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "text-2xl font-semibold md:text-3xl")}
                 disabled={isSavingTitle}
                 id="edit-bank-title-input"
                 onChange={(e) => setTitleInput(e.target.value)}
@@ -358,7 +360,7 @@ function QuestionBankMetadataCard({
               <div className="mt-2 max-w-3xl space-y-2">
                 <FieldTextarea
                   autoFocus
-                  className="min-h-[90px] text-sm"
+                  className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-[90px] text-sm")}
                   disabled={isSavingDescription}
                   onChange={(e) => setDescriptionInput(e.target.value)}
                   placeholder="Tuliskan deskripsi ringkas tentang bank soal ini…"
@@ -473,7 +475,7 @@ function QuestionBankMetadataCard({
           </div>
         </div>
       </div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -925,56 +927,59 @@ function KaptenQuestionBankDetailPageModule({
       activeLabel="Bank Soal"
       breadcrumbLabel={bank.title || "Detail Bank Soal"}
       contentElement="div"
-      mainClassName="max-w-[1400px] gap-8"
+      mainClassName="max-w-[1400px] gap-7"
       session={session}
+      sidebarAppearance="reference"
       showSearch={false}
     >
-      <QuestionBankDetailHeaderBar
-        bank={bank}
-        handleLifecycle={handleLifecycle}
-        isSavingLifecycle={isSavingLifecycle}
-        publishDisabledReason={publishDisabledReason}
-        readiness={readiness}
-        requestArchive={requestArchive}
-      />
+      <div className="space-y-8">
+        <QuestionBankDetailHeaderBar
+          bank={bank}
+          handleLifecycle={handleLifecycle}
+          isSavingLifecycle={isSavingLifecycle}
+          publishDisabledReason={publishDisabledReason}
+          readiness={readiness}
+          requestArchive={requestArchive}
+        />
 
-      {lifecycleError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Terjadi Masalah</AlertTitle>
-          <AlertDescription>{lifecycleError}</AlertDescription>
-        </Alert>
-      ) : null}
+        {lifecycleError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Terjadi Masalah</AlertTitle>
+            <AlertDescription>{lifecycleError}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      <QuestionBankMetadataCard
-        assignedCategories={assignedCategories}
-        bank={bank}
-        categories={categories}
-        descriptionInput={descriptionInput}
-        folderLabel={folderLabel}
-        formState={{
-          isEditingDescription,
-          isEditingTitle,
-          isLocked: isMetadataLocked,
-          isSavingDescription,
-          isSavingTitle,
-        }}
-        handleCategoriesChange={handleCategoriesChange}
-        handleSaveDescription={handleSaveDescription}
-        handleSaveTitle={handleSaveTitle}
-        setDescriptionInput={setDescriptionInput}
-        setIsEditingDescription={setIsEditingDescription}
-        setIsEditingTitle={setIsEditingTitle}
-        setTitleInput={setTitleInput}
-        subjectCoverage={subjectCoverage}
-        titleInput={titleInput}
-      />
+        <QuestionBankMetadataCard
+          assignedCategories={assignedCategories}
+          bank={bank}
+          categories={categories}
+          descriptionInput={descriptionInput}
+          folderLabel={folderLabel}
+          formState={{
+            isEditingDescription,
+            isEditingTitle,
+            isLocked: isMetadataLocked,
+            isSavingDescription,
+            isSavingTitle,
+          }}
+          handleCategoriesChange={handleCategoriesChange}
+          handleSaveDescription={handleSaveDescription}
+          handleSaveTitle={handleSaveTitle}
+          setDescriptionInput={setDescriptionInput}
+          setIsEditingDescription={setIsEditingDescription}
+          setIsEditingTitle={setIsEditingTitle}
+          setTitleInput={setTitleInput}
+          subjectCoverage={subjectCoverage}
+          titleInput={titleInput}
+        />
 
-      <QuestionBankQuestionsSection
-        bank={bank}
-        bankId={bankId}
-        questions={questions}
-        readiness={readiness}
-      />
+        <QuestionBankQuestionsSection
+          bank={bank}
+          bankId={bankId}
+          questions={questions}
+          readiness={readiness}
+        />
+      </div>
 
       <QuestionBankArchiveConfirmationDialog
         confirmationRequest={confirmationRequest}

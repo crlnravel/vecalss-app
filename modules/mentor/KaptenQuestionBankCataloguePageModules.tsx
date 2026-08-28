@@ -19,6 +19,11 @@ import {
 } from "@/lib/icons";
 import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 
+import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -265,7 +270,7 @@ function QuestionBankCatalogueFilterPanel({
       </fieldset>
       <label className="block space-y-2 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="question-bank-status-filter">
         <span>Status</span>
-        <select className="min-h-10 w-full rounded-lg border border-primary-100 bg-white px-3 text-sm font-normal tracking-normal text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="question-bank-status-filter" onChange={(event) => { const next = event.target.value; setStatusFilter(next); resetPage(); navigateCatalogue({ page: 1, status: next }); }} value={statusFilter}>
+        <select className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "appearance-auto font-normal tracking-normal")} id="question-bank-status-filter" onChange={(event) => { const next = event.target.value; setStatusFilter(next); resetPage(); navigateCatalogue({ page: 1, status: next }); }} value={statusFilter}>
           <option value="">Semua status</option>
           <option value="draft">Draf</option>
           <option value="published">Diterbitkan</option>
@@ -1103,16 +1108,18 @@ function KaptenQuestionBankPageModule({
   const lifecycleCopy = pendingLifecycle?.action === "publish" ? ["Terbitkan bank?", "Bank yang lengkap akan tersedia sebagai sumber baru.", "Terbitkan"] : pendingLifecycle?.action === "unpublish" ? ["Kembalikan ke draf?", "Bank tidak lagi tersedia sebagai sumber baru sampai diterbitkan lagi.", "Jadikan draf"] : pendingLifecycle?.action === "archive" ? ["Arsipkan bank?", "Bank disembunyikan dari sumber baru tanpa menghapus soal atau snapshot.", "Arsipkan"] : ["Pulihkan bank?", "Bank kembali sebagai draf dan dapat diatur lagi.", "Pulihkan"];
 
   return (
-    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false}>
+    <MentorWorkspaceShell activeLabel="Bank Soal" breadcrumbLabel="Bank Soal" contentElement="div" searchPlaceholder="Cari bank soal, folder, atau kategori..." session={session} showSearch={false} sidebarAppearance="reference">
       <div className="space-y-8">
-        <section className="flex flex-wrap items-start justify-between gap-4">
-          <div><h1 className="text-4xl leading-tight font-semibold text-secondary-900">Bank Soal</h1></div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
-            <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="icon-sm" title="Buat bank soal baru" type="button" variant="brand"><Plus /></Button>
-            <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
-          </div>
-        </section>
+        <ReferencePageHeader
+          actions={(
+            <>
+              <Button aria-label="Kelola kategori bersama" onClick={() => setCategoryManagementOpen(true)} size="icon-sm" title="Kelola kategori bersama" type="button" variant="context"><Tag /></Button>
+              <Button aria-label="Buat bank soal baru" render={<Link href="/mentor/quiz/question-bank/create" />} size="icon-sm" title="Buat bank soal baru" type="button" variant="brand"><Plus /></Button>
+              <Button aria-label={folderCreateLabel} onClick={() => openFolderCreate(folderCreateParentId)} size="icon-sm" title={folderCreateLabel} type="button" variant="brandOutline"><FolderPlus /></Button>
+            </>
+          )}
+          title="Bank Soal"
+        />
 
         <div className="min-w-0">
           <MentorCatalogueTable
@@ -1144,6 +1151,7 @@ function KaptenQuestionBankPageModule({
             rows={catalogueRows}
             search={{ action: "/mentor/quiz/question-bank", clearHref: questionBankHref({ categories: selectedCategories, folder: selectedFolder, page: 1, sort: initialSort, status: statusFilter, subjects: selectedSubjects }), hiddenFields: { ...(selectedFolder !== ROOT_FOLDER ? { folder: selectedFolder === null ? "unfiled" : selectedFolder } : {}), ...(selectedCategories.length ? { category: selectedCategories } : {}), ...(selectedSubjects.length ? { subtest: selectedSubjects } : {}), ...(statusFilter ? { status: statusFilter } : {}), ...(initialSort !== "updated" ? { sort: initialSort } : {}) }, label: "Cari bank soal", placeholder: "Cari judul, folder, subject, atau kategori…", value: initialSearch }}
             tableClassName="min-w-[760px]"
+            wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
           />
           {initialTotal ? <nav aria-label="Paginasi bank soal" className="flex items-center justify-center gap-2 pt-2"><Button aria-label="Halaman sebelumnya" disabled={visiblePage === 1} onClick={() => { const next = Math.max(1, visiblePage - 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button><span className="text-sm text-secondary-500">Halaman {visiblePage} dari {totalPages}</span><Button aria-label="Halaman berikutnya" disabled={visiblePage === totalPages} onClick={() => { const next = Math.min(totalPages, visiblePage + 1); setPage(next); navigateCatalogue({ page: next }); }} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button></nav> : null}
         </div>
