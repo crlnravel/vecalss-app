@@ -67,7 +67,7 @@ function packagePointsLabel(points: number) {
 }
 
 function PackageAvailabilityPill({ availability }: { availability: Hub["availability"] }) {
-  return <ReferenceStatusBadge label={availability === "ready" ? "Siap" : "Draf"} size="xs" status={availability} tone={availability === "ready" ? "success" : "attention"} />;
+  return <ReferenceStatusBadge appearance="mentor" label={availability === "ready" ? "Siap" : "Draf"} size="xs" status={availability} tone={availability === "ready" ? "success" : "attention"} />;
 }
 
 function PackageCompletionState({ hub }: { hub: Hub }) {
@@ -138,7 +138,7 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
       <Button aria-label="Kembali ke daftar Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke daftar Paket Soal" variant="ghost"><ChevronLeft /></Button>
 
       <ReferencePageHeader
-        actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="reference"><Pencil /></Button></div>}
+        actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge appearance="mentor" label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="reference"><Pencil /></Button></div>}
         description={hub.description || undefined}
         title={hub.title}
       />
