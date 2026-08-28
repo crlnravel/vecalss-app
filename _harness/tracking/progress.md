@@ -1,5 +1,18 @@
 # Session Progress Log
 
+## Tryout Sessions alignment correction (2026-08-28)
+
+- [x] Moved Sessions status into the shared action row and reserved stable
+  desktop tracks for status, primary-session action, and detail arrow, so
+  cards with different action widths no longer shift their controls.
+- [x] Kept the mobile action row compact and contained, with the title/date/
+  release metadata remaining a full-width content block.
+- [x] Authenticated browser QA at 1646px and 390px confirms matching status
+  x-positions, matching arrow right edges, equal action-row center lines, and
+  zero horizontal overflow.
+- [x] Focused ESLint, Impeccable layout detector, and `git diff --check` pass.
+- [x] Commit: `cf518c3` (`fix: stabilize tryout session alignment`).
+
 ## Tryout Delivery alignment follow-up (2026-08-28)
 
 - [x] Aligned Delivery/Policy radio rows and their help affordances with the

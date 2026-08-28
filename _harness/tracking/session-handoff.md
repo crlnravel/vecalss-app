@@ -1,5 +1,22 @@
 # Session Handoff
 
+## Tryout Sessions alignment correction (2026-08-28)
+
+- Objective: remove the last visible Sessions-card drift caused by different
+  primary-action widths.
+- Implementation: `cf518c3` places status, primary action, and arrow in one
+  shared action row, with fixed desktop grid tracks and the existing compact
+  mobile row. Session metadata remains a full-width left content block.
+- QA: authenticated ego-browser checks at 1646px and 390px show both status
+  badges sharing x=1323px on desktop, both arrows sharing the right edge,
+  status/action/arrow center lines aligned per card, and page/body widths
+  equal to the viewport.
+- Verification: focused ESLint, Impeccable layout detector `[]`, and
+  `git diff --check` pass.
+- Scope: only the embedded Sessions composition changed; no student, admin, or
+  unrelated mentor/Kapten pages changed; existing untracked
+  `.agents/skills/information-architecture/` remains untouched.
+
 ## Tryout Delivery alignment follow-up (2026-08-28)
 
 - Objective: resolve the remaining Policy radio and Sessions alignment issues
