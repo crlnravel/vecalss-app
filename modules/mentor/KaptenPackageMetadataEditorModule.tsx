@@ -8,7 +8,10 @@ import {
   ReferencePageHeader,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { saveReusableQuestionPackageMetadataAction } from "@/modules/mentor/tryout-actions";
@@ -44,11 +47,11 @@ function KaptenPackageMetadataEditorModule({ initialMetadata }: { initialMetadat
         {error ? <ReferenceSurface as="div" className="px-4 py-3 text-sm text-danger-600" role="alert" variant="inset">{error}</ReferenceSurface> : null}
         <div className="grid gap-5">
           <Field>
-            <FieldLabel htmlFor="package-title">Judul Paket</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-title">Judul Paket</FieldLabel>
             <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} id="package-title" onChange={(event) => setTitle(event.target.value)} value={title} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="package-description">Deskripsi singkat</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="package-description">Deskripsi singkat</FieldLabel>
             <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} id="package-description" onChange={(event) => setDescription(event.target.value)} value={description} />
           </Field>
         </div>

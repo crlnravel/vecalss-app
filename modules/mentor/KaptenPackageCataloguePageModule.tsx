@@ -9,6 +9,7 @@ import {
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
@@ -159,7 +160,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
   ];
   const filterPanel = (
     <div className="space-y-3 p-1">
-      <label className="block space-y-1.5 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="package-subtest-filter">
+      <label className={cn("block space-y-1.5", REFERENCE_FIELD_LABEL_CLASS_NAME)} htmlFor="package-subtest-filter">
         <span>Subtest</span>
         <DropdownField
           ariaLabel="Filter Subtest"
@@ -171,7 +172,7 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
           value={subtest}
         />
       </label>
-      <label className="block space-y-1.5 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="package-status-filter">
+      <label className={cn("block space-y-1.5", REFERENCE_FIELD_LABEL_CLASS_NAME)} htmlFor="package-status-filter">
         <span>Status</span>
         <DropdownField
           ariaLabel="Filter Status"
