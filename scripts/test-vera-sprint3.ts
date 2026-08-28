@@ -84,17 +84,26 @@ const checks: Array<[string, () => void | Promise<void>]> = [
     assert.ok(!dto.includes("targetEntityDigest"));
     assert.match(dto, /target:\s*\{ id: apply\.targetEntityId, revision: apply\.targetEntityRevision, lifecycleState, deletionState \}/);
   }],
-  ["legacy learner workspace remains fixture-driven and keeps backend transport out of the page", () => {
+  ["learner workspace keeps the restored composition while using the Vera backend transport", () => {
     const ui = readFileSync(join(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"), "utf8");
     assert.match(ui, /from "\.\/data"/);
     assert.match(ui, /initialSessions|initialMessages|veraContextSources/);
-    assert.ok(!ui.includes("/api/vera-ai/"));
+    for (const marker of [
+      "/api/vera-ai/conversations",
+      "/api/vera-ai/sources",
+      "/api/vera-ai/usage",
+      "/requests",
+      "/artifacts",
+      "message.delta",
+      "artifact.ready",
+      "AbortController",
+    ]) assert.ok(ui.includes(marker), marker);
   }],
-  ["legacy learner workspace omits backend recovery transport controls", () => {
+  ["learner workspace exposes durable request recovery and friendly backend errors", () => {
     assert.equal(VERA_DURABLE_CALLBACK_REGISTRY.size, 7);
     assert.deepEqual([...VERA_DURABLE_CALLBACK_REGISTRY.values()].map((entry) => entry.toolId), [null, "analysis", "route", "review", "ptn", "summary", "drill"]);
     const ui = readFileSync(join(process.cwd(), "modules/vera-ai/VeraAiPageModule.tsx"), "utf8");
-    for (const marker of ["/api/vera-ai/", "message.delta", "message.generated", "message.committed", "artifact.ready", "AbortController", "applyToExisting"]) assert.ok(!ui.includes(marker), marker);
+    for (const marker of ["message.generated", "message.committed", "request.recovery_pending", "idempotency_config_missing", "/apply"]) assert.ok(ui.includes(marker), marker);
     const http = readFileSync(join(process.cwd(), "lib/vera-ai/http.ts"), "utf8");
     assert.match(http, /value\.length <= 120/);
   }],
