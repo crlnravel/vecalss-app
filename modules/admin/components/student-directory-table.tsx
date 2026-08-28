@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
 
+import { ReferenceEmptyState } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -23,7 +25,7 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { UserStatus } from "@/generated/prisma/client";
-import { ChevronRight, XIcon } from "@/lib/icons";
+import { ChevronRight, UserRound, XIcon } from "@/lib/icons";
 import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
 import { buildDirectoryQuery, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/directory-query";
 import { cn } from "@/lib/utils";
@@ -492,10 +494,14 @@ function StudentFilterPanel({
           render={
             <Button
               aria-haspopup="dialog"
-              className="group h-9 w-full justify-between rounded-lg px-2.5 text-left text-xs hover:bg-primary-50/60"
+              className={cn(
+                REFERENCE_CONTROL_CLASS_NAMES.select,
+                "group h-11 w-full px-3 text-left text-xs",
+                statusFilters.length && "border-primary-500 bg-primary-50",
+              )}
               onMouseEnter={() => setStatusPopoverOpen(true)}
               type="button"
-              variant={statusFilters.length ? "contextSelected" : "ghost"}
+              variant="ghost"
             />
           }
         >
@@ -504,7 +510,7 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(18rem,calc(100vw-2rem))] gap-2 rounded-lg p-2"
+          className="w-[min(18rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_rgba(1,76,56,0.42)]"
           side="left"
           sideOffset={6}
         >
@@ -516,7 +522,7 @@ function StudentFilterPanel({
             {addedTo ? <input name="addedTo" type="hidden" value={addedTo} /> : null}
             <div aria-label="Status" className="grid gap-0.5" role="group">
               {(["active", "disabled", "locked"] as UserStatus[]).map((status) => (
-                <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium capitalize text-secondary-800 transition-colors hover:bg-primary-50/60" key={status}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-2xl px-3 text-xs font-medium capitalize text-secondary-800 transition-colors hover:bg-primary-50/60" key={status}>
                   <Checkbox
                     checked={draftStatuses.includes(status)}
                     className="size-4 rounded-[4px]"
@@ -532,10 +538,10 @@ function StudentFilterPanel({
               ))}
             </div>
             <div className="flex w-full items-center gap-1.5 pt-1">
-              <Link className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
+              <Link className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
                 Clear
               </Link>
-              <Button className="min-w-0 flex-[2]" size="xs" type="submit" variant="brand">Apply</Button>
+              <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
             </div>
           </form>
         </PopoverContent>
@@ -554,10 +560,14 @@ function StudentFilterPanel({
           render={
             <Button
               aria-haspopup="dialog"
-              className="group h-9 w-full justify-between rounded-lg px-2.5 text-left text-xs hover:bg-primary-50/60"
+              className={cn(
+                REFERENCE_CONTROL_CLASS_NAMES.select,
+                "group h-11 w-full px-3 text-left text-xs",
+                (addedFrom || addedTo) && "border-primary-500 bg-primary-50",
+              )}
               onMouseEnter={() => setDatePopoverOpen(true)}
               type="button"
-              variant={addedFrom || addedTo ? "contextSelected" : "ghost"}
+              variant="ghost"
             />
           }
         >
@@ -566,7 +576,7 @@ function StudentFilterPanel({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(20rem,calc(100vw-2rem))] gap-2 rounded-lg p-2"
+          className="w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-3xl border-primary-100 bg-white p-3 shadow-[0_20px_52px_-30px_rgba(1,76,56,0.42)]"
           side="left"
           sideOffset={6}
         >
@@ -585,10 +595,10 @@ function StudentFilterPanel({
               selected={draftDateRange}
             />
             <div className="flex w-full items-center gap-1.5 pt-1">
-              <Link className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
+              <Link className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "min-w-0 flex-1")} href={clearFiltersHref}>
                 Clear
               </Link>
-              <Button className="min-w-0 flex-[2]" size="xs" type="submit" variant="brand">Apply</Button>
+              <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
             </div>
           </form>
         </PopoverContent>
@@ -750,18 +760,14 @@ function StudentDirectoryTable({
   );
 
   const emptyState = (
-    <div className="px-5 py-8 text-left sm:px-8 sm:py-10">
-      <div className="max-w-xl">
-        <h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">
-          {isEmptyDirectory ? "No student accounts yet." : "No students match these filters."}
-        </h3>
-        <p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">
-          {isEmptyDirectory
-            ? "Use the Add student button above to create the first account and choose its handoff."
-            : "Try another name, email, or status filter to find the account you need."}
-        </p>
-      </div>
-    </div>
+    <ReferenceEmptyState
+      className="min-h-56"
+      description={isEmptyDirectory
+        ? "Use Add student above to create the first account and choose its handoff."
+        : "Try another name, email, or status filter to find the account you need."}
+      icon={UserRound}
+      title={isEmptyDirectory ? "No student accounts yet." : "No students match these filters."}
+    />
   );
 
   return (

@@ -6,8 +6,9 @@ import {
   ChevronLeft,
   Target,
 } from "@/lib/icons";
+import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
-import { fieldControlClassName } from "@/components/ui/field-constants";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import type {
   ExamEvent,
   Major,
@@ -20,7 +21,6 @@ import type { SessionContext } from "@/lib/auth/types";
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { PortalShell } from "@/modules/portal/components/portal-shell";
 
-import { ADMIN_CARD_CLASS_NAME } from "./admin-ui-contract";
 import { CopyValueButton } from "./components/copy-value-button";
 import { StudentAccountActions } from "./components/student-account-actions";
 import { StudentDetailForm } from "./components/student-detail-form";
@@ -57,7 +57,7 @@ const errorMessages: Record<string, string> = {
   "update-failed": "We're sorry, we couldn't update that student account. Please try again.",
 };
 
-const detailFieldClassName = `${fieldControlClassName.replace("bg-white", "bg-primary-50")} border-transparent focus-visible:bg-white`;
+const detailFieldClassName = REFERENCE_CONTROL_CLASS_NAMES.input;
 const maskedPassword = "••••••••••••";
 
 function splitStudentName(fullName: string) {
@@ -129,12 +129,16 @@ function DetailSection({
   title: string;
 }) {
   return (
-    <section aria-labelledby={`${title.toLowerCase().replaceAll(" ", "-")}-heading`} className={`${ADMIN_CARD_CLASS_NAME} min-w-0 p-5 sm:p-7`}>
-      <h2 className="text-xl font-semibold tracking-[-0.03em] text-secondary-900" id={`${title.toLowerCase().replaceAll(" ", "-")}-heading`}>
+    <ReferenceSurface
+      as="section"
+      aria-labelledby={`${title.toLowerCase().replaceAll(" ", "-")}-heading`}
+      className="min-w-0 p-5 sm:p-7"
+    >
+      <h2 className="font-heading text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900 md:text-2xl" id={`${title.toLowerCase().replaceAll(" ", "-")}-heading`}>
         {title}
       </h2>
       <div className="mt-6">{children}</div>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -175,151 +179,150 @@ function StudentDetailPageModule({
       session={session}
       title="Student details"
     >
-      <div className="space-y-6">
-        <nav aria-label="Student navigation">
-          <Button
-            aria-label="Back to Students"
-            nativeButton={false}
-            render={<Link href={backHref} />}
-            size="icon"
-            title="Back to Students"
-            variant="ghost"
-          >
-            <ChevronLeft aria-hidden="true" size={22} />
-            <span className="sr-only">Back to Students</span>
-          </Button>
-        </nav>
+      <div className="space-y-8">
+        <div className="flex min-w-0 items-start gap-3">
+          <nav aria-label="Student navigation" className="shrink-0">
+            <Button
+              aria-label="Back to Students"
+              className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+              nativeButton={false}
+              render={<Link href={backHref} />}
+              size="icon"
+              title="Back to Students"
+              variant="ghost"
+            >
+              <ChevronLeft aria-hidden="true" size={22} />
+              <span className="sr-only">Back to Students</span>
+            </Button>
+          </nav>
+          <ReferencePageHeader
+            actions={(
+              <div className="w-full min-w-0 sm:w-48">
+                <StudentAccountActions
+                  compact
+                  returnPath={returnPath}
+                  status={student.status}
+                  studentId={student.id}
+                />
+              </div>
+            )}
+            className="min-w-0 flex-1"
+            description={<span className="block break-all">{student.email}</span>}
+            title={student.fullName}
+          />
+        </div>
 
         {notice ? <FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice> : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <div className="grid min-w-0 items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(220px,0.32fr)_minmax(0,1fr)] xl:gap-x-14">
-          <aside className="min-w-0">
-            <div className="flex flex-col items-start">
-              <div className="min-w-0 max-w-full">
-                <h1 className="min-w-0 max-w-full break-words text-2xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-3xl">
-                  {student.fullName}
-                </h1>
-                <p className="mt-2 break-all text-sm font-medium text-secondary-800">{student.email}</p>
+        <div className="min-w-0 max-w-5xl space-y-6">
+          <DetailSection title="Account Information">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="min-w-0 space-y-2 text-sm">
+                <span className="font-medium text-secondary-900">ID</span>
+                <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
+                  <code className="min-w-0 truncate font-mono text-xs text-secondary-700">{displayId(student.id)}</code>
+                  <CopyValueButton ariaLabel="Copy student ID" iconOnly value={student.id} />
+                </div>
               </div>
-
-              <StudentAccountActions
-                returnPath={returnPath}
-                status={student.status}
-                studentId={student.id}
-              />
+              <div className="min-w-0 space-y-2 text-sm">
+                <span className="font-medium text-secondary-900">Added</span>
+                <div className={`${detailFieldClassName} flex min-h-[52px] items-center text-secondary-800`}>
+                  {formatDate(student.createdAt)}
+                </div>
+              </div>
+              <div className="min-w-0 space-y-2 text-sm">
+                <span className="font-medium text-secondary-900">Password</span>
+                <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
+                  <span aria-label="Hidden password" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
+                  <CopyValueButton ariaLabel="Copy hidden password" iconOnly value={maskedPassword} />
+                </div>
+              </div>
+              <div className="min-w-0 space-y-2 text-sm">
+                <span className="font-medium text-secondary-900">Status</span>
+                <div className="flex min-h-[52px] items-center">
+                  <span className={`text-base font-bold ${statusTextClassName(student.status)}`}>
+                    {formatStatus(student.status)}
+                  </span>
+                </div>
+              </div>
             </div>
-          </aside>
+          </DetailSection>
 
-          <div className="min-w-0 space-y-6">
-            <DetailSection title="Account Information">
+          <StudentDetailForm>
+            <input name="userId" type="hidden" value={student.id} />
+            <input name="returnPath" type="hidden" value={returnPath} />
+
+            <DetailSection title="Personal Information">
               <div className="grid gap-5 md:grid-cols-2">
-                <div className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">ID</span>
-                  <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
-                    <code className="min-w-0 truncate font-mono text-xs text-secondary-700">{displayId(student.id)}</code>
-                    <CopyValueButton ariaLabel="Copy student ID" iconOnly value={student.id} />
-                  </div>
-                </div>
-                <div className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">Added</span>
-                  <div className={`${detailFieldClassName} flex min-h-[52px] items-center text-secondary-800`}>
-                    {formatDate(student.createdAt)}
-                  </div>
-                </div>
-                <div className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">Password</span>
-                  <div className={`${detailFieldClassName} flex min-h-[52px] items-center justify-between gap-3`}>
-                    <span aria-label="Hidden password" className="tracking-[0.2em] text-secondary-800">{maskedPassword}</span>
-                    <CopyValueButton ariaLabel="Copy hidden password" iconOnly value={maskedPassword} />
-                  </div>
-                </div>
-                <div className="min-w-0 space-y-2 text-sm">
-                  <span className="font-medium text-secondary-900">Status</span>
-                  <div className="flex min-h-[52px] items-center">
-                    <span className={`text-base font-bold ${statusTextClassName(student.status)}`}>
-                      {formatStatus(student.status)}
+                <label className="min-w-0 space-y-2 text-sm">
+                  <span className="font-medium text-secondary-900">First name</span>
+                  <input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" />
+                </label>
+                <label className="min-w-0 space-y-2 text-sm">
+                  <span className="font-medium text-secondary-900">Last name</span>
+                  <input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" />
+                </label>
+                <label className="min-w-0 space-y-2 text-sm md:col-span-2">
+                  <span className="font-medium text-secondary-900">Email address</span>
+                  <input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" />
+                </label>
+                <label className="min-w-0 space-y-2 text-sm md:col-span-2">
+                  <span className="font-medium text-secondary-900">Phone number</span>
+                  <input
+                    aria-readonly="true"
+                    className={`${detailFieldClassName} text-secondary-700`}
+                    defaultValue={student.phone ?? "Not provided"}
+                    readOnly
+                    type="text"
+                  />
+                </label>
+              </div>
+            </DetailSection>
+
+            <DetailSection title="Enrollment Profile">
+              <div className="grid gap-5 md:grid-cols-2">
+                <label className="min-w-0 space-y-2 text-sm md:col-span-2">
+                  <span className="font-medium text-secondary-900">Target exam</span>
+                  <select
+                    className={`${detailFieldClassName} appearance-auto cursor-pointer pr-12`}
+                    defaultValue={profile?.targetExamEventId ?? ""}
+                    name="targetExamEventId"
+                  >
+                    <option value="">Set later</option>
+                    {examEvents.map((examEvent) => (
+                      <option key={examEvent.id} value={examEvent.id}>{examEvent.name}</option>
+                    ))}
+                  </select>
+                  {targetExam !== "Not set" ? (
+                    <span className="flex items-center gap-1.5 text-xs text-secondary-600">
+                      <CalendarDays aria-hidden="true" size={14} />
+                      {targetExamDate ? `Exam date · ${targetExamDate}` : "Exam date not set"}
                     </span>
+                  ) : null}
+                </label>
+
+                <div className="min-w-0 space-y-2 text-sm">
+                  <span className="font-medium text-secondary-900">University</span>
+                  <div className={`${detailFieldClassName} flex min-h-[52px] items-center gap-2 text-secondary-800`}>
+                    <Buildings aria-hidden="true" className="shrink-0 text-primary-700" size={17} />
+                    <span className="truncate">{targetUniversity}</span>
+                  </div>
+                </div>
+                <div className="min-w-0 space-y-2 text-sm">
+                  <span className="font-medium text-secondary-900">Major</span>
+                  <div className={`${detailFieldClassName} flex min-h-[52px] items-center gap-2 text-secondary-800`}>
+                    <Target aria-hidden="true" className="shrink-0 text-primary-700" size={17} />
+                    <span className="truncate">{targetMajor}</span>
                   </div>
                 </div>
               </div>
             </DetailSection>
 
-            <StudentDetailForm>
-              <input name="userId" type="hidden" value={student.id} />
-              <input name="returnPath" type="hidden" value={returnPath} />
-
-              <DetailSection title="Personal Information">
-                <div className="grid gap-5 md:grid-cols-2">
-                  <label className="min-w-0 space-y-2 text-sm">
-                    <span className="font-medium text-secondary-900">First name</span>
-                    <input className={detailFieldClassName} defaultValue={firstName} name="firstName" required type="text" />
-                  </label>
-                  <label className="min-w-0 space-y-2 text-sm">
-                    <span className="font-medium text-secondary-900">Last name</span>
-                    <input className={detailFieldClassName} defaultValue={lastName} name="lastName" type="text" />
-                  </label>
-                  <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                    <span className="font-medium text-secondary-900">Email address</span>
-                    <input className={detailFieldClassName} defaultValue={student.email} name="email" required type="email" />
-                  </label>
-                  <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                    <span className="font-medium text-secondary-900">Phone number</span>
-                    <input
-                      aria-readonly="true"
-                      className={`${detailFieldClassName} text-secondary-700`}
-                      defaultValue={student.phone ?? "Not provided"}
-                      readOnly
-                      type="text"
-                    />
-                  </label>
-                </div>
-              </DetailSection>
-
-              <DetailSection title="Enrollment Profile">
-                <div className="grid gap-5 md:grid-cols-2">
-                  <label className="min-w-0 space-y-2 text-sm md:col-span-2">
-                    <span className="font-medium text-secondary-900">Target exam</span>
-                    <select
-                      className={`${detailFieldClassName} cursor-pointer pr-12`}
-                      defaultValue={profile?.targetExamEventId ?? ""}
-                      name="targetExamEventId"
-                    >
-                      <option value="">Set later</option>
-                      {examEvents.map((examEvent) => (
-                        <option key={examEvent.id} value={examEvent.id}>{examEvent.name}</option>
-                      ))}
-                    </select>
-                    {targetExam !== "Not set" ? (
-                      <span className="flex items-center gap-1.5 text-xs text-secondary-600">
-                        <CalendarDays aria-hidden="true" size={14} />
-                        {targetExamDate ? `Exam date · ${targetExamDate}` : "Exam date not set"}
-                      </span>
-                    ) : null}
-                  </label>
-
-                  <div className="min-w-0 space-y-2 text-sm">
-                    <span className="font-medium text-secondary-900">University</span>
-                    <div className={`${detailFieldClassName} flex min-h-[52px] items-center gap-2 text-secondary-800`}>
-                      <Buildings aria-hidden="true" className="shrink-0 text-primary-700" size={17} />
-                      <span className="truncate">{targetUniversity}</span>
-                    </div>
-                  </div>
-                  <div className="min-w-0 space-y-2 text-sm">
-                    <span className="font-medium text-secondary-900">Major</span>
-                    <div className={`${detailFieldClassName} flex min-h-[52px] items-center gap-2 text-secondary-800`}>
-                      <Target aria-hidden="true" className="shrink-0 text-primary-700" size={17} />
-                      <span className="truncate">{targetMajor}</span>
-                    </div>
-                  </div>
-                </div>
-              </DetailSection>
-
-              <div className="flex justify-end">
-                <Button className="min-w-32" type="submit" variant="brand">Save changes</Button>
-              </div>
-            </StudentDetailForm>
-          </div>
+            <div className="flex justify-end">
+              <Button className="min-w-32" type="submit" variant="brand">Save changes</Button>
+            </div>
+          </StudentDetailForm>
         </div>
       </div>
     </PortalShell>

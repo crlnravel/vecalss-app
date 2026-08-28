@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
 import type { EnrollmentHandoff, ExamEvent, Major, StudentProfile, University, User, UserStatus } from "@/generated/prisma/client";
 import {
   buildDirectoryQuery,
@@ -157,7 +158,7 @@ function EnrollmentPageModule({
       session={session}
       title="Students"
     >
-      <div className="space-y-7">
+      <div className="space-y-8">
         <FocusRestorer
           announcementId="student-directory-announcement"
           fallbackId="students-heading"
@@ -165,12 +166,12 @@ function EnrollmentPageModule({
           targetId={focus ? `student-${focus}` : null}
         />
 
-        <header className="flex items-start justify-between gap-5">
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl" id="students-heading">
-            Students
-          </h1>
-          <AddStudentDialog examEvents={examEvents} />
-        </header>
+        <ReferencePageHeader
+          actions={<AddStudentDialog examEvents={examEvents} />}
+          id="students-heading"
+          tabIndex={-1}
+          title="Students"
+        />
 
         <p aria-live="polite" className="sr-only" id="student-directory-announcement">
           {focus ? "Returned to the selected student directory row." : ""}
@@ -187,7 +188,7 @@ function EnrollmentPageModule({
         ) : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <section aria-label="Student directory" className="overflow-hidden rounded-2xl bg-white">
+        <ReferenceSurface as="section" aria-label="Student directory" className="overflow-hidden">
           <StudentDirectoryTable
             backQuery={backQuery}
             dataQuery={directoryQuery}
@@ -235,7 +236,7 @@ function EnrollmentPageModule({
             })}
           />
 
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-col gap-3 border-t border-primary-100/80 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="text-xs tabular-nums text-secondary-600">
                 <span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}
@@ -287,7 +288,7 @@ function EnrollmentPageModule({
               </nav>
             ) : null}
           </div>
-        </section>
+        </ReferenceSurface>
       </div>
     </PortalShell>
   );
