@@ -71,6 +71,7 @@ function toDashboardActivities(resources: readonly DashboardResource[]): Referen
 
 const mentorActivityFeedClassName = [
   "[&>div:first-child]:hidden",
+  "[&_[data-activity-id]]:items-center",
   "[&_[data-activity-id]]:py-2",
   "[&>div:last-child]:pt-0",
   "[&_[data-activity-id]>div:first-child]:bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)]",
