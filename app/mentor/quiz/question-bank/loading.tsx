@@ -1,6 +1,5 @@
 import { LoaderCircle } from "@/lib/icons";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MentorSidebar } from "@/modules/mentor/components/mentor-sidebar";
@@ -26,52 +25,50 @@ export default function QuestionBankLoading() {
             </div>
           </header>
 
-          <ScrollArea className="h-[calc(100svh-4rem)]">
-            <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
-              <section aria-hidden="true" className="flex items-start justify-between gap-5">
-                <LoadingBlock className="h-10 w-40" />
+          <main className="mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10">
+            <section aria-hidden="true" className="flex items-start justify-between gap-5">
+              <LoadingBlock className="h-10 w-40" />
+              <div className="flex items-center gap-2">
+                <LoadingBlock className="size-9 rounded-lg" />
+                <LoadingBlock className="size-9 rounded-lg" />
+                <LoadingBlock className="size-9 rounded-lg" />
+              </div>
+            </section>
+
+            <section aria-busy="true" className="overflow-hidden rounded-2xl bg-white">
+              <div aria-hidden="true" className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+                <div className="h-10 min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90 py-2.5">
+                  <LoadingBlock className="h-4 w-52 max-w-full" />
+                </div>
                 <div className="flex items-center gap-2">
                   <LoadingBlock className="size-9 rounded-lg" />
                   <LoadingBlock className="size-9 rounded-lg" />
-                  <LoadingBlock className="size-9 rounded-lg" />
                 </div>
-              </section>
+              </div>
 
-              <section aria-busy="true" className="overflow-hidden rounded-2xl bg-white">
-                <div aria-hidden="true" className="flex flex-wrap items-center gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
-                  <div className="h-10 min-w-[min(100%,18rem)] flex-1 border-b border-primary-100/90 py-2.5">
-                    <LoadingBlock className="h-4 w-52 max-w-full" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <LoadingBlock className="size-9 rounded-lg" />
-                    <LoadingBlock className="size-9 rounded-lg" />
-                  </div>
-                </div>
-
-                <Table className="min-w-[760px] table-fixed border-separate border-spacing-y-0">
-                  <caption className="sr-only">Daftar folder dan bank soal</caption>
-                  <TableHeader>
-                    <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-                      <TableHead className="h-11 min-w-[14rem] rounded-l-xl px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Nama</TableHead>
-                      <TableHead className="h-11 min-w-[12rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Kategori</TableHead>
-                      <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Status</TableHead>
-                      <TableHead className="h-11 min-w-[5rem] rounded-r-xl px-4 py-2.5 text-right text-xs font-medium text-secondary-500 sm:px-5">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="px-5 py-10 text-center" colSpan={4}>
-                        <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-500" role="status">
-                          <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
-                          Memuat bank soal…
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </section>
-            </main>
-          </ScrollArea>
+              <Table className="min-w-[760px] table-fixed border-separate border-spacing-y-0">
+                <caption className="sr-only">Daftar folder dan bank soal</caption>
+                <TableHeader>
+                  <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
+                    <TableHead className="h-11 min-w-[14rem] rounded-l-xl px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Nama</TableHead>
+                    <TableHead className="h-11 min-w-[12rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Kategori</TableHead>
+                    <TableHead className="h-11 min-w-[7rem] px-4 py-2.5 text-xs font-medium text-secondary-500 sm:px-5">Status</TableHead>
+                    <TableHead className="h-11 min-w-[5rem] rounded-r-xl px-4 py-2.5 text-right text-xs font-medium text-secondary-500 sm:px-5">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="px-5 py-10 text-center" colSpan={4}>
+                      <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-500" role="status">
+                        <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
+                        Memuat bank soal…
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </section>
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>
