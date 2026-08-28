@@ -18,6 +18,12 @@ import { useReducer } from "react";
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
 import {
+  ReferenceEmptyState,
+  ReferencePageHeader,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -55,6 +61,7 @@ import type {
   KaptenMateriSubjectView,
   KaptenMateriView,
 } from "@/modules/mentor/materi-view-model";
+import { cn } from "@/lib/utils";
 
 type MateriSortKey = "" | "status" | "title";
 type MateriSortDirection = "asc" | "desc";
@@ -236,28 +243,44 @@ function MateriBulkActions({
   );
 }
 
-function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
+function SubjectCard({
+  lessonCount,
+  subject,
+}: {
+  lessonCount: number;
+  subject: KaptenMateriSubjectView;
+}) {
   const subjectCategory = getSubjectCategory(subject.code);
 
   return (
     <Link
-      className="group flex min-h-32 flex-col rounded-3xl border border-primary-200 bg-white p-5 shadow-sm transition-[transform,border-color,background-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-500 hover:bg-primary-50/40 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.42)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35"
+      className={cn(
+        REFERENCE_SURFACE_CLASS_NAMES.raised,
+        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+        "group flex min-h-36 min-w-0 flex-col p-5",
+      )}
       href={`/mentor/materi/subject/${subject.slug}`}
     >
       <div className="flex items-start justify-between gap-4">
         <span className="inline-flex rounded-xl bg-primary-100 px-3 py-1.5 text-sm font-bold text-primary-900">
           {subjectCategory}
         </span>
-        <FileText className="size-5 text-primary-800" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+          <FileText aria-hidden="true" className="size-5" />
+        </span>
       </div>
       <h2 className="mt-5 text-xl font-semibold text-secondary-900">
         {subject.name}
       </h2>
+      <p className="mt-1 text-sm leading-6 text-secondary-500">
+        {lessonCount ? `${lessonCount} lesson` : "Belum ada lesson"}
+      </p>
     </Link>
   );
 }
 
 function KaptenMateriPageModule({
+  catalogue,
   session,
   subjects,
 }: {
@@ -265,18 +288,59 @@ function KaptenMateriPageModule({
   session: SessionContext;
   subjects: KaptenMateriSubjectView[];
 }) {
+  const lessonCountBySubject = new Map<string, number>();
+  catalogue.forEach((lesson) => {
+    lessonCountBySubject.set(
+      lesson.subjectSlug,
+      (lessonCountBySubject.get(lesson.subjectSlug) ?? 0) + 1,
+    );
+  });
+
   return (
     <MentorWorkspaceShell
       activeLabel="Materi"
       breadcrumbLabel="Materi"
       searchPlaceholder="Cari materi..."
       session={session}
+      sidebarAppearance="reference"
     >
-      <PageIntro title="Materi" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {subjects.map((subject) => (
-          <SubjectCard key={subject.slug} subject={subject} />
-        ))}
+      <div className="space-y-8">
+        <ReferencePageHeader
+          actions={
+            <Button
+              aria-label="Buat Materi"
+              nativeButton={false}
+              render={<Link href="/mentor/materi/create" />}
+              size="sm"
+              variant="brand"
+            >
+              <Plus />
+              Buat Materi
+            </Button>
+          }
+          description="Kelola bacaan dan video pendamping siswa berdasarkan subject."
+          title="Materi"
+        />
+
+        {subjects.length ? (
+          <section aria-label="Daftar subject Materi" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {subjects.map((subject) => (
+              <SubjectCard
+                key={subject.slug}
+                lessonCount={lessonCountBySubject.get(subject.slug) ?? 0}
+                subject={subject}
+              />
+            ))}
+          </section>
+        ) : (
+          <ReferenceSurface className="min-h-56" variant="inset">
+            <ReferenceEmptyState
+              description="Belum ada subject untuk menampung bacaan dan video pendamping."
+              icon={FileText}
+              title="Belum ada subject Materi"
+            />
+          </ReferenceSurface>
+        )}
       </div>
     </MentorWorkspaceShell>
   );
