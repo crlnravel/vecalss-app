@@ -9,7 +9,7 @@ import {
   UserRound,
   Zap,
 } from "@/lib/icons";
-import { StudentBadge } from "@/components/ui/student-badge";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { cn } from "@/lib/utils";
 
 import {
@@ -321,13 +321,13 @@ function ReferenceStatusBadge({
   const resolvedTone = tone ?? resolveStatusTone(status);
 
   return (
-    <StudentBadge
-      className={cn("font-medium", className)}
+    <MentorBadge
+      className={className}
       size={size}
       tone={resolvedTone}
     >
       {label ?? formatStatusLabel(status)}
-    </StudentBadge>
+    </MentorBadge>
   );
 }
 

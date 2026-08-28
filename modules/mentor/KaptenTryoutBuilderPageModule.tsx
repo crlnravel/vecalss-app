@@ -34,6 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   FullWidthLineTabsList,
@@ -808,7 +809,7 @@ function TryoutReviewTab({
                   <p className="font-semibold text-secondary-900">{index + 1}. {section.subtest}</p>
                   <p className="text-sm text-secondary-600">{subjectName(section.subtest)}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-primary-50 px-3 py-1.5 text-sm font-bold text-primary-800">{section.durationMinutes} menit</span>
+                <MentorBadge className="shrink-0 font-bold" size="sm" tone="category">{section.durationMinutes} menit</MentorBadge>
               </ReferenceSurface>
             ))}
           </div>

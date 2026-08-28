@@ -32,8 +32,8 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -75,28 +75,22 @@ type ConfirmationRequest = {
 };
 
 function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  if (status === "published") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-600" />
-        Terbit
-      </span>
-    );
-  }
-  if (status === "archived") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary-200 bg-secondary-50 px-2.5 py-1 text-xs font-semibold text-secondary-700">
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-secondary-500" />
-        Diarsipkan
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-600" />
-      Draf
-    </span>
-  );
+  const tone = status === "published"
+    ? "success"
+    : status === "archived"
+      ? "neutral"
+      : status === "scheduled"
+        ? "info"
+        : "attention";
+  const label = status === "published"
+    ? "Terbit"
+    : status === "archived"
+      ? "Diarsipkan"
+      : status === "scheduled"
+        ? "Terjadwal"
+        : "Draf";
+
+  return <MentorBadge size="sm" tone={tone}>{label}</MentorBadge>;
 }
 
 function QuestionBankDetailHeaderBar({
@@ -254,9 +248,9 @@ function QuestionBankMetadataCard({
         <div>
           <div className="flex flex-wrap items-center gap-3">
             {subjectCoverage.map((code) => (
-              <Badge key={code} size="ui" variant="mint">
+              <MentorBadge key={code} size="xs" tone="category">
                 {code}
-              </Badge>
+              </MentorBadge>
             ))}
           </div>
 
@@ -459,12 +453,9 @@ function QuestionBankMetadataCard({
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {assignedCategories.length > 0 ? (
                 assignedCategories.map((cat) => (
-                  <span
-                    className="inline-flex items-center rounded-full border border-primary-200 bg-white px-2.5 py-0.5 text-xs font-medium text-primary-800"
-                    key={cat.id}
-                  >
+                  <MentorBadge key={cat.id} size="xs" tone="category">
                     {cat.name}
-                  </span>
+                  </MentorBadge>
                 ))
               ) : (
                 <span className="text-xs text-secondary-400">Tanpa kategori</span>
@@ -503,17 +494,17 @@ function QuestionBankQuestionCard({
           <span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">
             {index + 1}
           </span>
-          <Badge size="ui" variant="mint">
+          <MentorBadge size="xs" tone="category">
             {question.subjectCode}
-          </Badge>
-          <Badge
-            size="ui"
-            variant={
+          </MentorBadge>
+          <MentorBadge
+            size="xs"
+            tone={
               question.difficulty === "easy"
                 ? "neutral"
                 : question.difficulty === "hard"
-                  ? "accent"
-                  : "mint"
+                  ? "attention"
+                  : "category"
             }
           >
             {question.difficulty === "easy"
@@ -521,12 +512,12 @@ function QuestionBankQuestionCard({
               : question.difficulty === "hard"
                 ? "Sulit"
                 : "Sedang"}
-          </Badge>
+          </MentorBadge>
           {hasIssues ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-950">
+            <MentorBadge className="gap-1" size="xs" tone="attention">
               <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
               Perlu diperbaiki ({questionIssues.length})
-            </span>
+            </MentorBadge>
           ) : null}
         </div>
       </div>
@@ -629,9 +620,9 @@ function QuestionBankQuestionsSection({
             <h2 className="text-xl font-bold tracking-tight text-secondary-900 sm:text-2xl">
               Daftar Soal
             </h2>
-            <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-bold text-primary-800">
+            <MentorBadge className="font-bold" size="xs" tone="category">
               {questions.length} Soal
-            </span>
+            </MentorBadge>
           </div>
         </div>
         {bank.status === "draft" ? (

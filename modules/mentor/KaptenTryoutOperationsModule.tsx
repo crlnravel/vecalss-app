@@ -7,7 +7,7 @@ import {
   Users,
 } from "@/lib/icons";
 
-import { Badge } from "@/components/ui/badge";
+import { ReferenceStatusBadge } from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -51,15 +51,7 @@ const statusLabels: Record<string, string> = {
 function StatusBadge({ status }: { status: string }) {
   const label = statusLabels[status] ?? status.replace(/(^|[_\s-])(\p{L})/gu, (_, prefix: string, character: string) => `${prefix}${character.toLocaleUpperCase()}`);
 
-  return (
-    <Badge
-      className="min-h-7 rounded-full px-2.5"
-      size="ui"
-      variant={status === "active" || status === "published" ? "mint" : "accent"}
-    >
-      {label}
-    </Badge>
-  );
+  return <ReferenceStatusBadge label={label} size="sm" status={status} />;
 }
 
 function WorkspaceCard({

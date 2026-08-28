@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import {
   REFERENCE_CONTROL_CLASS_NAMES,
@@ -263,9 +263,13 @@ function InvitationDetailCard({
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary-800">Student terpilih</p>
                 <p className="mt-1 break-words font-semibold text-secondary-900">{selectedStudent.displayName}</p>
               </div>
-              <Badge className="shrink-0 rounded-full" size="ui" variant={selectedStudent.admission?.status === "active" ? "mint" : "accent"}>
+              <MentorBadge
+                className="shrink-0"
+                size="sm"
+                tone={selectedStudent.admission?.status === "active" ? "success" : "attention"}
+              >
                 {selectedStudent.admission ? admissionLabel(selectedStudent.admission.status) : "Baru"}
-              </Badge>
+              </MentorBadge>
             </div>
             <p className="text-xs leading-5 text-secondary-600">Pilihan sesi dan alasan audit akan dikirim bersama student ID ini.</p>
           </div>

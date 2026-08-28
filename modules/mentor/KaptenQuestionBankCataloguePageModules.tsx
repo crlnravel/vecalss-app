@@ -25,7 +25,6 @@ import {
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
 import { ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -34,6 +33,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { SessionContext } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
 import { kaptenSubjects, type KaptenQuestionBank } from "@/modules/mentor/mock-data";
@@ -217,7 +217,15 @@ function statusCopy(status: KaptenQuestionBank["status"]) {
 }
 
 function StatusPill({ status }: { status: KaptenQuestionBank["status"] }) {
-  return <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold", status === "published" ? "border-primary-200 bg-primary-50 text-primary-800" : status === "archived" ? "border-secondary-200 bg-secondary-50 text-secondary-600" : status === "scheduled" ? "border-secondary-200 bg-secondary-50 text-secondary-700" : "border-[#ead9a5] bg-[#fff8df] text-[#856300]")}>{statusCopy(status)}</span>;
+  const tone = status === "published"
+    ? "success"
+    : status === "archived"
+      ? "neutral"
+      : status === "scheduled"
+        ? "info"
+        : "attention";
+
+  return <MentorBadge size="sm" tone={tone}>{statusCopy(status)}</MentorBadge>;
 }
 
 function QuestionBankCatalogueFilterPanel({
@@ -817,7 +825,7 @@ function useQuestionBankCatalogueState({
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
         <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.subjectCoverage.join(" · ")}>
-          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <Badge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="ui" variant="mint">{subject}</Badge>) : <span className="text-sm text-secondary-400">—</span>}
+          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <MentorBadge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="xs" tone="category">{subject}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
         </div>
       ),
       headerClassName: "min-w-[9rem]",
@@ -828,7 +836,7 @@ function useQuestionBankCatalogueState({
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
         <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.categories.map((category) => category.name).join(" · ")}>
-          {row.bank.categories.length ? row.bank.categories.map((category) => <span className="inline-flex min-w-0 max-w-[10rem] shrink-0 items-center truncate rounded-full border border-primary-100 bg-white px-2.5 py-1 text-xs font-medium text-primary-800" key={category.id}>{category.name}</span>) : <span className="text-sm text-secondary-400">—</span>}
+          {row.bank.categories.length ? row.bank.categories.map((category) => <MentorBadge className="min-w-0 max-w-[10rem] shrink-0 truncate" key={category.id} size="xs" tone="category">{category.name}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
         </div>
       ),
       headerClassName: "min-w-[10rem]",

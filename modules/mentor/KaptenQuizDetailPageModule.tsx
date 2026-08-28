@@ -13,11 +13,11 @@ import {
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { FullWidthLineTabsList, FullWidthLineTabsTrigger } from "@/components/ui/full-width-line-tabs";
 import { Input } from "@/components/ui/input";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { SessionContext } from "@/lib/auth/types";
@@ -94,7 +94,7 @@ function QuizPreview({ quizId, questions, subjectCode }: { quizId: string; quest
 
 function QuizQuestionCard({ index, question, subjectCode }: { index: number; question: QuizQuestionSnapshot; subjectCode: string }) {
   return <ReferenceSurface as="article" className="p-5 sm:p-6">
-    <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex flex-wrap items-center gap-2"><span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">{index + 1}</span><Badge size="ui" variant="mint">{subjectCode}</Badge><Badge size="ui" variant="mint">Sedang</Badge></div></div>
+    <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex flex-wrap items-center gap-2"><span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">{index + 1}</span><MentorBadge size="xs" tone="category">{subjectCode}</MentorBadge><MentorBadge size="xs" tone="active">Sedang</MentorBadge></div></div>
     <div className="mt-4 space-y-4"><div><p className="text-base font-medium leading-7 text-secondary-900">{question.prompt || <span className="italic text-secondary-400">Pertanyaan belum diisi…</span>}</p>{question.promptMediaAssetId ? <div className="mt-3 max-w-md overflow-hidden rounded-xl border border-primary-100"><MediaAssetPreview alt={`Gambar soal ${index + 1}`} assetId={question.promptMediaAssetId} className="max-h-48 bg-white" /></div> : null}</div>
       <div className="grid gap-2.5 sm:grid-cols-2">{question.choices.map((choice, choiceIndex) => { const isCorrect = choice.id === question.correctChoiceId; const choiceLabel = String.fromCharCode(65 + choiceIndex); return <div className={isCorrect ? "flex items-start gap-2.5 rounded-xl border border-primary-200 bg-primary-50/60 p-3 text-sm font-medium text-primary-950 transition-colors" : "flex items-start gap-2.5 rounded-xl border border-secondary-100 bg-secondary-50/40 p-3 text-sm text-secondary-700 transition-colors"} key={choice.id}><span className={isCorrect ? "flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold uppercase text-white" : "flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary-200 text-xs font-bold uppercase text-secondary-700"}>{choiceLabel}</span><div className="min-w-0 flex-1"><p className="leading-5">{choice.text || <span className="italic text-secondary-400">Opsi kosong</span>}</p>{choice.mediaAssetId ? <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100"><MediaAssetPreview alt={`Media opsi ${choiceLabel}`} assetId={choice.mediaAssetId} className="max-h-24 bg-white" /></div> : null}</div></div>; })}</div>
       {question.explanation || question.explanationMediaAssetId ? <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-sm leading-6 text-secondary-700"><span className="font-bold text-primary-900">Pembahasan: </span>{question.explanation}{question.explanationMediaAssetId ? <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100"><MediaAssetPreview alt="Media pembahasan" assetId={question.explanationMediaAssetId} className="max-h-28 bg-white" /></div> : null}</div> : null}
@@ -267,7 +267,7 @@ function QuizSettings({
               </div>
             ) : (
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <Badge size="ui" variant="mint">{subject ? `${subject.code} · ${subject.name}` : form.subjectCode}</Badge>
+                <MentorBadge size="sm" tone="category">{subject ? `${subject.code} · ${subject.name}` : form.subjectCode}</MentorBadge>
               </div>
             )}
           </div>
@@ -406,7 +406,7 @@ function KaptenQuizDetailPageModule({
             description={(
               <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <StatusPill status={quiz.status} />
-                {subject ? <Badge size="ui" variant="mint">{subject.code}</Badge> : null}
+                {subject ? <MentorBadge size="xs" tone="category">{subject.code}</MentorBadge> : null}
                 <span>{questions.length} soal</span>
                 <span className="basis-full text-secondary-600">{quiz.description || "Belum ada deskripsi untuk Kuis ini."}</span>
               </span>

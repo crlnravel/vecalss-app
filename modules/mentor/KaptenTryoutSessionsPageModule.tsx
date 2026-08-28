@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { CalendarDays, ChevronRight, Plus } from "@/lib/icons";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   Empty,
   EmptyContent,
@@ -81,9 +81,9 @@ function KaptenTryoutSessionsPageModule({
                       </div>
                       <div className="flex shrink-0 items-center justify-end sm:pl-2 sm:pr-1">
                         {isPrimary ? (
-                          <Badge className="rounded-full px-2.5 py-1" size="ui" variant="mint">
+                          <MentorBadge size="sm" tone="success">
                             Sesi utama
-                          </Badge>
+                          </MentorBadge>
                         ) : (
                           <KaptenTryoutSessionPrimaryAction
                             currentPrimaryName={currentPrimarySession?.name}

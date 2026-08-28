@@ -43,8 +43,8 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   Field,
   FieldInput,
@@ -600,12 +600,12 @@ function QuestionBankInventory({
                       </span>
                     </span>
                     <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                      <Badge size="ui" variant="mint">{question.subjectCode}</Badge>
+                      <MentorBadge size="xs" tone="category">{question.subjectCode}</MentorBadge>
                       {hasIssues ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-950">
+                        <MentorBadge className="gap-1" size="xs" tone="attention">
                           <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
                           <span>Perlu diperbaiki</span>
-                        </span>
+                        </MentorBadge>
                       ) : null}
                     </span>
                   </button>
@@ -934,7 +934,7 @@ function QuestionBankEditorHeader({ actions, builderState, mode, state }: { acti
 
   return (
     <section className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <span className="inline-flex items-center gap-2 text-sm font-medium text-[#856300]"><span aria-hidden="true" className="size-2 rounded-full bg-[#d29b18]" />Belum disimpan</span> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
+      <div className="min-w-0"><Button nativeButton={false} render={<Link href="/mentor/quiz/question-bank" />} aria-label="Kembali ke bank soal" size="icon-sm" title="Kembali ke bank soal" variant="ghost"><ChevronLeft /></Button><div className="mt-5 flex flex-col gap-x-3 gap-y-2"><h1 className="text-3xl leading-tight font-semibold text-secondary-900 md:text-4xl">{mode === "create" ? "Buat Bank Soal" : builderState.title}</h1>{state.hasUnsavedChanges ? <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge> : null}{state.readiness.incompleteCount > 0 ? <Button aria-label={`Lihat ${state.readiness.incompleteCount} masalah kesiapan`} className="w-fit justify-start px-0 text-sm font-semibold text-amber-900 underline-offset-4 hover:underline" onClick={actions.focusFirstIssue} type="button" variant="ghost"><AlertTriangle data-icon="inline-start" />Lihat masalah <span className="font-normal">({state.readiness.incompleteCount})</span></Button> : null}</div></div>
       <div className="flex flex-wrap items-center gap-2">
         <Button aria-label={saveLabel} disabled={state.isSaving || state.isMetadataLocked || titleMissing} onClick={actions.saveDraft} size="sm" title={mode === "create" ? undefined : saveLabel} type="button" variant={state.hasUnsavedChanges ? "brand" : "reference"}><Save />{mode === "create" ? saveLabel : "Simpan"}</Button>
         {mode === "edit" && state.isDraftLifecycle ? <><Button aria-busy={state.isSaving} data-question-bank-lifecycle-action="publish" aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined} disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0} id="question-bank-lifecycle-publish" onClick={() => actions.updateLifecycle("publish")} type="button" variant="brandOutline">{state.isSaving ? "Menerbitkan…" : "Terbitkan"}</Button>{publishDisabledReason ? <p className="text-xs text-secondary-600" id="publish-disabled-reason">{publishDisabledReason}</p> : null}</> : null}
@@ -1059,10 +1059,7 @@ function QuestionBankBuilderScreen({
               {builderState.title || "Bank Soal"}
             </h1>
             {state.hasUnsavedChanges ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900">
-                <span aria-hidden="true" className="size-1.5 rounded-full bg-[#d29b18]" />
-                Belum disimpan
-              </span>
+              <MentorBadge size="xs" tone="attention">Belum disimpan</MentorBadge>
             ) : null}
           </div>
           {state.readiness.incompleteCount > 0 ? (

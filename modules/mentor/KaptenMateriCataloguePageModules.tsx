@@ -16,6 +16,7 @@ import { useReducer } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import {
   ContextMenuContent,
   ContextMenuGroup,
@@ -259,9 +260,9 @@ function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
       href={`/mentor/materi/subject/${subject.slug}`}
     >
       <div className="flex items-start gap-4">
-        <span className="inline-flex rounded-xl bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] px-3 py-1.5 text-sm font-bold text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]">
+        <MentorBadge className="text-sm font-bold" size="sm" tone="category">
           {subjectCategory}
-        </span>
+        </MentorBadge>
       </div>
       <h2 className="mt-4 text-xl font-semibold text-secondary-900">
         {subject.name}

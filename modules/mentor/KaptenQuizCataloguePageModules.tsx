@@ -14,6 +14,7 @@ import {
 import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -143,9 +144,9 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
       href={`/mentor/quiz/subject/${subject.slug}`}
     >
       <div>
-        <span className="inline-flex rounded-full bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] px-3 py-2 text-xs font-extrabold tracking-[0.13em] text-[#176b4d] shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]">
+        <MentorBadge size="sm" tone="category">
           {subjectCategory}
-        </span>
+        </MentorBadge>
       </div>
       <h2 className="mt-4 text-xl font-semibold text-secondary-900">{subject.name}</h2>
     </Link>

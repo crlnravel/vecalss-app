@@ -35,9 +35,9 @@ import {
 } from "@/components/dashboard/reference-dashboard-primitives";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
+import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MediaAssetDto } from "@/lib/media/types";
@@ -189,9 +189,9 @@ function QuestionInventory({
           <h2 className="text-sm font-semibold text-secondary-900">Daftar soal</h2>
           <p className="mt-1 text-xs leading-5 text-secondary-500">Susun urutan yang akan dilihat siswa.</p>
         </div>
-        <span aria-label={`${questions.length} soal`} className="inline-flex min-w-8 items-center justify-center rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-800">
+        <MentorBadge aria-label={`${questions.length} soal`} className="min-w-8" size="xs" tone="category">
           {questions.length}
-        </span>
+        </MentorBadge>
       </div>
       <Button className="mt-4 w-full" disabled={disabled} onClick={onAdd} type="button" variant="reference">
         <Plus /> Tambah soal
@@ -503,7 +503,7 @@ function KaptenQuizEditorPageModule({
     );
 
     return <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas" data-quiz-editor-shell="full-page">
-      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_rgba(23,107,77,0.42)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0"><div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3"><Button aria-label="Kembali ke detail Kuis" onClick={() => requestExit(detailHref)} size="sm" type="button" variant="ghost"><ChevronLeft /><span className="hidden font-medium sm:inline">Kembali ke Detail</span></Button><div className="h-5 w-px bg-primary-100" /><div className="flex min-w-0 items-center gap-2.5"><h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{form.title || "Kuis"}</h1>{hasUnsavedChanges ? <ReferenceStatusBadge label="Belum disimpan" size="xs" status="need_help" /> : null}{subject ? <Badge className="hidden sm:inline-flex" size="ui" variant="mint">{subject.code}</Badge> : null}</div></div><div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto"><Button aria-busy={isSaving} aria-label="Simpan" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} size="sm" title="Simpan perubahan" type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save />{isSaving ? "Menyimpan…" : "Simpan"}</Button></div></header>
+      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_rgba(23,107,77,0.42)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0"><div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3"><Button aria-label="Kembali ke detail Kuis" onClick={() => requestExit(detailHref)} size="sm" type="button" variant="ghost"><ChevronLeft /><span className="hidden font-medium sm:inline">Kembali ke Detail</span></Button><div className="h-5 w-px bg-primary-100" /><div className="flex min-w-0 items-center gap-2.5"><h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{form.title || "Kuis"}</h1>{hasUnsavedChanges ? <ReferenceStatusBadge label="Belum disimpan" size="xs" status="need_help" /> : null}{subject ? <MentorBadge className="hidden sm:inline-flex" size="xs" tone="category">{subject.code}</MentorBadge> : null}</div></div><div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto"><Button aria-busy={isSaving} aria-label="Simpan" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} size="sm" title="Simpan perubahan" type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save />{isSaving ? "Menyimpan…" : "Simpan"}</Button></div></header>
       {saveError ? <div className="border-b border-student-status-danger-border bg-student-status-danger-bg px-4 py-2.5 md:px-6"><p aria-live="assertive" className="text-xs font-semibold text-student-status-danger-fg" role="alert">{saveError}</p></div> : null}
       {scheduleError ? <div className="border-b border-student-status-danger-border bg-student-status-danger-bg px-4 py-2.5 md:px-6"><p className="text-xs font-semibold text-student-status-danger-fg" role="alert">{scheduleError}</p></div> : null}
       <div className="border-b border-primary-100 bg-voyage-canvas px-3 py-3 md:hidden">{inventory}</div>
