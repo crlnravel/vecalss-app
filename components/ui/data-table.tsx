@@ -99,7 +99,10 @@ type DataTableProps<T> = {
   rowProps?: (row: T) => ComponentProps<typeof TableRow>;
   rows: readonly T[];
   onRowClick?: (row: T) => void;
+  rowNumberOffset?: number;
   search?: DataTableSearch;
+  showColumnVisibility?: boolean;
+  showRowNumbers?: boolean;
   sort?: DataTableSort;
   selection?: boolean;
   selectionActions?: (selection: DataTableSelection<T>) => ReactNode;
@@ -175,7 +178,9 @@ type DataTableGridProps<T> = {
   rowClassName?: (row: T, selected: boolean) => string | undefined;
   rowContextMenu?: (row: T) => ReactNode;
   rowProps?: (row: T) => ComponentProps<typeof TableRow>;
+  rowNumberOffset: number;
   rowIsClickable: boolean;
+  showRowNumbers: boolean;
   rows: readonly T[];
   selectedIds: Set<string>;
   selection: boolean;
@@ -232,9 +237,11 @@ function DataTableGrid<T>({
   loadingLabel,
   onRowClick,
   rowClassName,
+  rowNumberOffset,
   rowContextMenu,
   rowProps,
   rowIsClickable,
+  showRowNumbers,
   rows,
   selectedIds,
   selection,
@@ -250,7 +257,11 @@ function DataTableGrid<T>({
       <caption className="sr-only">{caption}</caption>
       <TableHeader>
         <TableRow className="border-0 bg-secondary-50/80 hover:bg-secondary-50/80">
-          {selection ? (
+          {showRowNumbers ? (
+            <TableHead className="w-14 rounded-l-xl px-3 py-2.5 text-center sm:px-4">
+              No.
+            </TableHead>
+          ) : selection ? (
             <TableHead className="w-12 rounded-l-xl px-4 py-2.5 sm:px-5">
               <Checkbox
                 aria-checked={hasPartialSelection ? "mixed" : areAllVisibleSelected}
@@ -277,7 +288,7 @@ function DataTableGrid<T>({
                 : undefined}
               className={cn(
                 "h-11 px-4 py-2.5 text-xs font-medium tracking-[0.02em] text-secondary-700 sm:px-5",
-                index === 0 && !selection && "rounded-l-xl",
+                index === 0 && !selection && !showRowNumbers && "rounded-l-xl",
                 index === visibleColumns.length - 1 && "rounded-r-xl",
                 column.headerClassName,
               )}
@@ -292,14 +303,14 @@ function DataTableGrid<T>({
       <TableBody>
         {isLoading ? (
           <TableRow>
-            <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
+            <TableCell className="px-5 py-10 text-center" colSpan={visibleColumns.length + (selection || showRowNumbers ? 1 : 0)}>
               <div aria-live="polite" className="flex items-center justify-center gap-2 text-sm text-secondary-700" role="status">
                 <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" size={17} />
                  <span>{loadingLabel ?? "Memuat…"}</span>
               </div>
             </TableCell>
           </TableRow>
-        ) : rows.length ? rows.map((row) => {
+        ) : rows.length ? rows.map((row, rowIndex) => {
           const id = getRowId(row);
           const selected = selectedIds.has(id);
           const additionalRowProps = rowProps?.(row);
@@ -352,7 +363,11 @@ function DataTableGrid<T>({
               )}
               key={id}
             >
-              {selection ? (
+              {showRowNumbers ? (
+                <TableCell className="w-14 px-3 py-3.5 text-center text-sm font-semibold tabular-nums text-secondary-500 sm:px-4" key="row-number">
+                  {rowNumberOffset + rowIndex + 1}
+                </TableCell>
+              ) : selection ? (
                 <TableCell className="w-12 px-4 py-3.5 sm:px-5" key="selection">
                   <Checkbox
                      aria-label={`Pilih baris ${id}`}
@@ -377,8 +392,8 @@ function DataTableGrid<T>({
           ) : tableRow;
         }) : (
           <TableRow className="hover:bg-transparent">
-            <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection ? 1 : 0)}>
-               {emptyState ?? <span className="text-sm text-secondary-700">Tidak ada hasil.</span>}
+            <TableCell className="px-0 py-10 text-center" colSpan={visibleColumns.length + (selection || showRowNumbers ? 1 : 0)}>
+              {emptyState ?? <span className="text-sm text-secondary-700">Tidak ada hasil.</span>}
             </TableCell>
           </TableRow>
         )}
@@ -403,7 +418,10 @@ function DataTable<T>({
   rowClassName,
   rowProps,
   rows,
+  rowNumberOffset = 0,
   search,
+  showColumnVisibility = true,
+  showRowNumbers = false,
   sort,
   selection = false,
   selectionActions,
@@ -464,6 +482,7 @@ function DataTable<T>({
 
   const rowIsClickable = Boolean(onRowClick);
   const hasSelection = selection && selectedVisibleCount > 0;
+  const hasTableMenu = selection || showColumnVisibility || Boolean(moreMenu);
   const selectionActionMenu = hasSelection
     ? selectionActions?.({
         ids: selectedRows.map((row) => getRowId(row)),
@@ -585,67 +604,73 @@ function DataTable<T>({
             </Popover>
           ) : null}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-               render={<Button aria-label={hasSelection ? "Buka aksi massal" : "Pilih kolom tabel"} className="size-9 rounded-lg text-secondary-500" size="icon-sm" type="button" variant="ghost" />}
-            >
-              {hasSelection ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
-              {hasSelection ? (
-                <>
-                   <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
-                  {selectionActionMenu}
-                  <DropdownMenuSeparator />
-                   <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Hapus pilihan</DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                   <DropdownMenuLabel className="font-semibold text-secondary-900">Pilih kolom</DropdownMenuLabel>
-                  {columns.reduce<ReactNode[]>((items, column) => {
-                    if (column.hideable === false) {
-                      return items;
-                    }
-
-                    items.push(
-                      <DropdownMenuCheckboxItem
-                        checked={visibleColumnIds.has(column.id)}
-                        key={column.id}
-                        onCheckedChange={(checked) => {
-                          if (!checked && visibleColumns.length <= 1) {
-                            return;
+          {hasTableMenu ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button aria-label={hasSelection ? "Buka aksi massal" : showColumnVisibility ? "Pilih kolom tabel" : "Buka aksi tabel"} className="size-9 rounded-lg text-secondary-500" size="icon-sm" type="button" variant="ghost" />}
+              >
+                {hasSelection || !showColumnVisibility ? <MoreHorizontal aria-hidden="true" /> : <TableIcon aria-hidden="true" />}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 rounded-2xl" keepMounted>
+                {hasSelection ? (
+                  <>
+                    <DropdownMenuLabel className="font-semibold text-secondary-900">Aksi massal</DropdownMenuLabel>
+                    {selectionActionMenu}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSelectedIds(new Set())}>Hapus pilihan</DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    {showColumnVisibility ? (
+                      <>
+                        <DropdownMenuLabel className="font-semibold text-secondary-900">Pilih kolom</DropdownMenuLabel>
+                        {columns.reduce<ReactNode[]>((items, column) => {
+                          if (column.hideable === false) {
+                            return items;
                           }
 
-                          setVisibleColumnIds((current) => {
-                            const next = new Set(current);
-                            if (checked) {
-                              next.add(column.id);
-                            } else {
-                              next.delete(column.id);
-                            }
-                            return next;
-                          });
-                        }}
-                      >
-                        {column.label}
-                      </DropdownMenuCheckboxItem>,
-                    );
-                    return items;
-                  }, [])}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
-                     Atur ulang kolom
-                  </DropdownMenuItem>
-                  {moreMenu ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      {moreMenu}
-                    </>
-                  ) : null}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                          items.push(
+                            <DropdownMenuCheckboxItem
+                              checked={visibleColumnIds.has(column.id)}
+                              key={column.id}
+                              onCheckedChange={(checked) => {
+                                if (!checked && visibleColumns.length <= 1) {
+                                  return;
+                                }
+
+                                setVisibleColumnIds((current) => {
+                                  const next = new Set(current);
+                                  if (checked) {
+                                    next.add(column.id);
+                                  } else {
+                                    next.delete(column.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                            >
+                              {column.label}
+                            </DropdownMenuCheckboxItem>,
+                          );
+                          return items;
+                        }, [])}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem disabled={!hasCustomColumnVisibility} onClick={resetColumns}>
+                          Atur ulang kolom
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                    {moreMenu ? (
+                      <>
+                        {showColumnVisibility ? <DropdownMenuSeparator /> : null}
+                        {moreMenu}
+                      </>
+                    ) : null}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
         </div>
       </div>
@@ -662,11 +687,13 @@ function DataTable<T>({
         loadingLabel={loadingLabel}
         onRowClick={onRowClick}
         rowClassName={rowClassName}
+        rowNumberOffset={rowNumberOffset}
         rowContextMenu={rowContextMenu}
         rowIsClickable={rowIsClickable}
         rowProps={rowProps}
         rows={rows}
         selectedIds={selectedIds}
+        showRowNumbers={showRowNumbers && !selection}
         selection={selection}
         sort={sort}
         tableClassName={tableClassName}

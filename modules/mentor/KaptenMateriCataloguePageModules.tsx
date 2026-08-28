@@ -33,19 +33,6 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
   REFERENCE_SURFACE_CLASS_NAMES,
 } from "@/components/dashboard/reference-dashboard-tokens";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenuItem,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -153,9 +140,7 @@ function sortLessons(
 
 type MateriCatalogueState = {
   bulkError: string | null;
-  bulkIntent: "publish" | "unpublish" | null;
   bulkNotice: string | null;
-  bulkSelection: KaptenMateriView[];
   isBulkPending: boolean;
   lessons: KaptenMateriView[];
   page: number;
@@ -170,8 +155,6 @@ type MateriCatalogueState = {
 
 type MateriCatalogueAction =
   | { type: "bulkErrorChanged"; error: string | null }
-  | { type: "bulkIntentChanged"; intent: "publish" | "unpublish" | null }
-  | { lessons: KaptenMateriView[]; type: "bulkSelectionChanged" }
   | { type: "bulkNoticeChanged"; notice: string | null }
   | { type: "bulkPendingChanged"; pending: boolean }
   | { lessons: KaptenMateriView[]; type: "lessonsChanged" }
@@ -184,10 +167,6 @@ function materiCatalogueReducer(
   switch (action.type) {
     case "bulkErrorChanged":
       return { ...state, bulkError: action.error };
-    case "bulkIntentChanged":
-      return { ...state, bulkIntent: action.intent };
-    case "bulkSelectionChanged":
-      return { ...state, bulkSelection: action.lessons };
     case "bulkNoticeChanged":
       return { ...state, bulkNotice: action.notice };
     case "bulkPendingChanged":
@@ -199,52 +178,6 @@ function materiCatalogueReducer(
     default:
       return state;
   }
-}
-
-function MateriBulkActions({
-  onRequest,
-  rows,
-}: {
-  onRequest: (intent: "publish" | "unpublish", lessons: KaptenMateriView[]) => void;
-  rows: readonly KaptenMateriView[];
-}) {
-  const selectedLessons = [...rows];
-  const publishEligible = selectedLessons.length > 0 && selectedLessons.every(
-    (lesson) => lesson.status === "draft" && lesson.readiness === "ready",
-  );
-  const unpublishEligible = selectedLessons.length > 0 && selectedLessons.every(
-    (lesson) => lesson.status === "published",
-  );
-  const eligibilityReason = selectedLessons.length > 0 && !publishEligible && !unpublishEligible
-    ? "Pilih hanya lesson draf dengan PDF siap atau lesson yang sudah diterbitkan."
-    : null;
-
-  return (
-    <>
-      <DropdownMenuLabel className="font-semibold text-secondary-900">
-        {selectedLessons.length} lesson dipilih
-      </DropdownMenuLabel>
-      <DropdownMenuItem
-        disabled={!publishEligible}
-        onClick={() => onRequest("publish", selectedLessons)}
-      >
-        <Upload />
-        Terbitkan
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        disabled={!unpublishEligible}
-        onClick={() => onRequest("unpublish", selectedLessons)}
-      >
-        <FilePenLine />
-        Batalkan terbit
-      </DropdownMenuItem>
-      {eligibilityReason ? (
-        <DropdownMenuLabel className="whitespace-normal text-xs font-normal leading-5 text-secondary-500">
-          {eligibilityReason}
-        </DropdownMenuLabel>
-      ) : null}
-    </>
-  );
 }
 
 function SubjectCard({ subject }: { subject: KaptenMateriSubjectView }) {
@@ -346,9 +279,7 @@ function KaptenMateriSubjectPageModule({
   const router = useRouter();
   const [state, dispatch] = useReducer(materiCatalogueReducer, undefined, () => ({
     bulkError: null,
-    bulkIntent: null,
     bulkNotice: null,
-    bulkSelection: [],
     isBulkPending: false,
     lessons: catalogue
       .filter((lesson) => lesson.subjectSlug === subject.slug)
@@ -363,8 +294,6 @@ function KaptenMateriSubjectPageModule({
     videoFilter: initialVideoFilter,
   }));
   const {
-    bulkIntent,
-    bulkSelection,
     isBulkPending,
     lessons,
     page,
@@ -417,62 +346,6 @@ function KaptenMateriSubjectPageModule({
     (visiblePage - 1) * pageSize,
     visiblePage * pageSize,
   );
-  const publishEligible = bulkSelection.length > 0 && bulkSelection.every(
-    (lesson) => lesson.status === "draft" && lesson.readiness === "ready",
-  );
-  const unpublishEligible = bulkSelection.length > 0 && bulkSelection.every(
-    (lesson) => lesson.status === "published",
-  );
-  const confirmation = bulkIntent === "publish"
-    ? {
-        confirm: "Terbitkan semua",
-        description: `${bulkSelection.length} lesson akan tersedia untuk siswa.`,
-        title: "Terbitkan lesson terpilih?",
-      }
-    : {
-        confirm: "Batalkan terbit",
-        description: `${bulkSelection.length} lesson tidak lagi tersedia untuk siswa dan kembali menjadi draf.`,
-        title: "Batalkan penerbitan lesson?",
-      };
-
-  async function confirmBulkLifecycle() {
-    if (!bulkIntent || isBulkPending || bulkSelection.length === 0) return;
-    dispatch({ pending: true, type: "bulkPendingChanged" });
-    dispatch({ error: null, type: "bulkErrorChanged" });
-    const codes = bulkSelection.map((lesson) => lesson.code);
-    try {
-      const result = bulkIntent === "publish"
-        ? await bulkPublishMateriLessonsAction(subject.slug, codes)
-        : await bulkUnpublishMateriLessonsAction(subject.slug, codes);
-      if (!result.ok) {
-        dispatch({ error: result.message, type: "bulkErrorChanged" });
-        return;
-      }
-      const affected = new Set(result.affectedCodes);
-      dispatch({
-        lessons: lessons.map((lesson) =>
-          affected.has(lesson.code)
-            ? { ...lesson, lifecycleStatus: result.status, status: result.status }
-            : lesson,
-        ),
-        type: "lessonsChanged",
-      });
-      dispatch({ lessons: [], type: "bulkSelectionChanged" });
-      dispatch({ intent: null, type: "bulkIntentChanged" });
-      dispatch({ notice: result.message, type: "bulkNoticeChanged" });
-      dispatch({ type: "tableVersionChanged" });
-      router.refresh();
-    } catch (error) {
-      dispatch({
-        error: error instanceof Error
-          ? error.message
-          : "Status lesson tidak dapat diubah saat ini. Coba lagi.",
-        type: "bulkErrorChanged",
-      });
-    } finally {
-      dispatch({ pending: false, type: "bulkPendingChanged" });
-    }
-  }
 
   async function applyLessonAction(
     lesson: KaptenMateriView,
@@ -531,29 +404,14 @@ function KaptenMateriSubjectPageModule({
     <MateriSubjectCatalogueScreen
       actions={{
         onApplyLessonAction: (lesson, action) => { void applyLessonAction(lesson, action); },
-        onBulkIntent: (intent, selected) => {
-          dispatch({ lessons: selected, type: "bulkSelectionChanged" });
-          dispatch({ intent, type: "bulkIntentChanged" });
-        },
-        onClearBulkError: () => dispatch({ error: null, type: "bulkErrorChanged" }),
-        onCloseBulkDialog: () => {
-          if (!isBulkPending) {
-            dispatch({ error: null, type: "bulkErrorChanged" });
-            dispatch({ intent: null, type: "bulkIntentChanged" });
-            dispatch({ lessons: [], type: "bulkSelectionChanged" });
-          }
-        },
-        onConfirmBulkLifecycle: () => { void confirmBulkLifecycle(); },
         onReadinessFilterChange: (value) => navigateCatalogue({ readiness: value }),
         onStatusFilterChange: (value) => navigateCatalogue({ status: value }),
         onVideoFilterChange: (value) => navigateCatalogue({ video: value }),
       }}
       data={{
-        confirmation,
         pageCount,
         pagedLessons,
-        publishEligible,
-        unpublishEligible,
+        rowNumberOffset: (visiblePage - 1) * pageSize,
         visiblePage,
       }}
       returnTo={returnTo}
@@ -566,21 +424,15 @@ function KaptenMateriSubjectPageModule({
 
 type MateriSubjectCatalogueActions = {
   onApplyLessonAction: (lesson: KaptenMateriView, action: "archive" | "delete" | "publish" | "restore" | "unpublish") => void;
-  onBulkIntent: (intent: "publish" | "unpublish", lessons: KaptenMateriView[]) => void;
-  onClearBulkError: () => void;
-  onCloseBulkDialog: () => void;
-  onConfirmBulkLifecycle: () => void;
   onReadinessFilterChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
   onVideoFilterChange: (value: string) => void;
 };
 
 type MateriSubjectCatalogueData = {
-  confirmation: { confirm: string; description: string; title: string };
   pageCount: number;
   pagedLessons: KaptenMateriView[];
-  publishEligible: boolean;
-  unpublishEligible: boolean;
+  rowNumberOffset: number;
   visiblePage: number;
 };
 
@@ -705,55 +557,6 @@ function MateriSubjectCatalogueEmptyState({
   );
 }
 
-function MateriSubjectCatalogueBulkDialog({
-  bulkError,
-  bulkIntent,
-  confirmation,
-  isBulkPending,
-  onCloseBulkDialog,
-  onConfirmBulkLifecycle,
-  publishEligible,
-  unpublishEligible,
-}: {
-  bulkError: string | null;
-  bulkIntent: "publish" | "unpublish" | null;
-  confirmation: { confirm: string; description: string; title: string };
-  isBulkPending: boolean;
-  onCloseBulkDialog: () => void;
-  onConfirmBulkLifecycle: () => void;
-  publishEligible: boolean;
-  unpublishEligible: boolean;
-}) {
-  return (
-    <Dialog onOpenChange={onCloseBulkDialog} open={Boolean(bulkIntent)}>
-      <DialogContent pending={isBulkPending} showCloseButton={!isBulkPending} variant="info">
-        <DialogHeader>
-          <DialogTitle>{confirmation.title}</DialogTitle>
-          <DialogDescription>{confirmation.description}</DialogDescription>
-        </DialogHeader>
-        {bulkError ? (
-          <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-            {bulkError}
-          </div>
-        ) : null}
-        <DialogFooter>
-          <DialogClose disabled={isBulkPending} render={<Button type="button" variant="brandOutline" />}>
-            Batal
-          </DialogClose>
-          <Button
-            disabled={isBulkPending || (bulkIntent === "publish" ? !publishEligible : !unpublishEligible)}
-            onClick={onConfirmBulkLifecycle}
-            type="button"
-            variant="brand"
-          >
-            {isBulkPending ? "Memproses..." : confirmation.confirm}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function MateriSubjectCatalogueScreen({
   actions,
   data,
@@ -772,9 +575,7 @@ function MateriSubjectCatalogueScreen({
   const router = useRouter();
   const {
     bulkError,
-    bulkIntent,
     bulkNotice,
-    isBulkPending,
     query,
     readinessFilter,
     sort,
@@ -784,11 +585,9 @@ function MateriSubjectCatalogueScreen({
     videoFilter,
   } = state;
   const {
-    confirmation,
     pageCount,
     pagedLessons,
-    publishEligible,
-    unpublishEligible,
+    rowNumberOffset,
     visiblePage,
   } = data;
 
@@ -925,7 +724,7 @@ function MateriSubjectCatalogueScreen({
             {bulkNotice}
           </ReferenceSurface>
         ) : null}
-        {bulkError && !bulkIntent ? (
+        {bulkError ? (
           <ReferenceSurface
             aria-live="assertive"
             as="div"
@@ -963,6 +762,7 @@ function MateriSubjectCatalogueScreen({
             key={tableVersion}
             onRowClick={(lesson) => router.push(buildEditorHref(lesson, returnTo))}
             rowContextMenu={materiRowContextMenu}
+            rowNumberOffset={rowNumberOffset}
             rows={pagedLessons}
             search={{
               action: `/mentor/materi/subject/${subject.slug}`,
@@ -978,13 +778,8 @@ function MateriSubjectCatalogueScreen({
               placeholder: "Cari judul atau status...",
               value: query,
             }}
-            selection
-            selectionActions={({ rows }) => (
-              <MateriBulkActions
-                onRequest={actions.onBulkIntent}
-                rows={rows}
-              />
-            )}
+            showColumnVisibility={false}
+            showRowNumbers
             sort={{
               direction: sortDirection,
               href: (nextSortKey, nextDirection) => buildHref({
@@ -1006,16 +801,6 @@ function MateriSubjectCatalogueScreen({
         </section>
       </div>
 
-      <MateriSubjectCatalogueBulkDialog
-        bulkError={bulkError}
-        bulkIntent={bulkIntent}
-        confirmation={confirmation}
-        isBulkPending={isBulkPending}
-        onCloseBulkDialog={actions.onCloseBulkDialog}
-        onConfirmBulkLifecycle={actions.onConfirmBulkLifecycle}
-        publishEligible={publishEligible}
-        unpublishEligible={unpublishEligible}
-      />
     </MentorWorkspaceShell>
   );
 }
