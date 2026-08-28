@@ -1,9 +1,12 @@
 "use client";
 
-import { Calculator, RotateCcw, ShieldAlert } from "@/lib/icons";
+import Link from "next/link";
+import { Calculator, ChevronLeft, RotateCcw, ShieldAlert } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,10 +28,10 @@ import {
 } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
   AssessmentReleaseNotice,
-  OperationalPageHeader,
   OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import {
@@ -125,12 +128,25 @@ function KaptenTryoutAttemptDetailPageModule({
 
   return (
     <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
-      <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}/operations/sessions/${delivery.id}`}
-        description={delivery.name}
-        title={attempt.student}
-        trailing={<StatusBadge status={attempt.status} />}
-      />
+      <div className="flex min-w-0 items-start gap-3">
+        <Button
+          aria-label="Kembali ke detail sesi Tryout"
+          className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+          nativeButton={false}
+          render={<Link href={`/mentor/tryout/${initial.id}/operations/sessions/${delivery.id}`} />}
+          size="icon"
+          title="Kembali ke detail sesi Tryout"
+          variant="ghost"
+        >
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </Button>
+        <ReferencePageHeader
+          actions={<StatusBadge status={attempt.status} />}
+          className="min-w-0 flex-1"
+          description={delivery.name}
+          title={attempt.student}
+        />
+      </div>
       <OperationNotice message={notice} />
       <AssessmentReleaseNotice
         label="Konten attempt"
@@ -146,7 +162,7 @@ function KaptenTryoutAttemptDetailPageModule({
             </span>
           </div>
           {attempt.runs.map((run) => (
-            <Card className="shadow-none ring-primary-100" key={run.id} size="sm">
+            <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")} key={run.id} size="sm">
               <CardHeader>
                 <CardTitle className="font-semibold">Test {run.sequenceNo}</CardTitle>
                 <CardDescription>
@@ -185,7 +201,7 @@ function KaptenTryoutAttemptDetailPageModule({
         </section>
 
         <aside>
-          <Card className="shadow-none ring-primary-100">
+          <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")}>
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Tindakan attempt</CardTitle>
             </CardHeader>
@@ -193,6 +209,7 @@ function KaptenTryoutAttemptDetailPageModule({
               <Field>
                 <FieldLabel htmlFor="attempt-audit-reason">Alasan audit</FieldLabel>
                 <FieldInput
+                  className={REFERENCE_CONTROL_CLASS_NAMES.input}
                   id="attempt-audit-reason"
                   onChange={(event) => setAuditReason(event.target.value)}
                   placeholder="Jelaskan alasan tindakan"
@@ -207,7 +224,7 @@ function KaptenTryoutAttemptDetailPageModule({
                 <Calculator data-icon="inline-start" />
                 {busy === "calculate" ? "Menghitung…" : "Hitung hasil"}
               </Button>
-              <div className="grid gap-3 rounded-2xl border border-primary-100 bg-primary-50/45 p-4" role="status">
+              <ReferenceSurface className="grid gap-3 p-4" role="status" variant="inset">
                 <div>
                   <p className="font-semibold text-secondary-900">Lifecycle disconnect</p>
                   <p className="mt-1 text-xs leading-5 text-secondary-600">Marker hanya berubah lewat perintah server berwenang. Fokus, fullscreen, timer, dan sinyal browser tidak memulai disconnect.</p>
@@ -231,7 +248,7 @@ function KaptenTryoutAttemptDetailPageModule({
                     </Button>
                   ) : null}
                 </div>
-              </div>
+              </ReferenceSurface>
             </CardContent>
           </Card>
         </aside>

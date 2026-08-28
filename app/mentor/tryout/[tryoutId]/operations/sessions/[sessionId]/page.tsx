@@ -32,6 +32,8 @@ export default async function TryoutSessionDetailPage({
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
       session={session}
+      showSearch={false}
+      sidebarAppearance="reference"
     >
       <KaptenTryoutSessionDetailPageModule
         initial={operations}

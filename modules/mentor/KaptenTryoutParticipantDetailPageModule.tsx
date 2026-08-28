@@ -1,9 +1,12 @@
 "use client";
 
-import { Check, Link2, ShieldX, Unlink, X } from "@/lib/icons";
+import Link from "next/link";
+import { Check, ChevronLeft, Link2, ShieldX, Unlink, X } from "@/lib/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +27,7 @@ import {
 import { Field, FieldInput, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import {
   admissionStatusLabels,
@@ -32,7 +36,6 @@ import {
   participantSessionStateLabels,
 } from "@/modules/mentor/KaptenTryoutOperationsData";
 import {
-  OperationalPageHeader,
   OperationNotice,
 } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import {
@@ -122,15 +125,28 @@ function KaptenTryoutParticipantDetailPageModule({
 
   return (
     <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
-      <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=participants`}
-        description={initial.title}
-        title={admission.student}
-        trailing={<StatusBadge status={admission.status} />}
-      />
+      <div className="flex min-w-0 items-start gap-3">
+        <Button
+          aria-label="Kembali ke daftar peserta Tryout"
+          className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+          nativeButton={false}
+          render={<Link href={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=participants`} />}
+          size="icon"
+          title="Kembali ke daftar peserta Tryout"
+          variant="ghost"
+        >
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </Button>
+        <ReferencePageHeader
+          actions={<StatusBadge status={admission.status} />}
+          className="min-w-0 flex-1"
+          description={initial.title}
+          title={admission.student}
+        />
+      </div>
       <OperationNotice message={notice} />
 
-      <Card className="mt-5 shadow-none ring-primary-100">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "mt-5 ring-0")}>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Ringkasan peserta</CardTitle>
         </CardHeader>
@@ -185,7 +201,7 @@ function KaptenTryoutParticipantDetailPageModule({
               </CardContent>
             </Card>
           ) : null}
-          <Card className="shadow-none ring-primary-100">
+          <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")}>
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Penugasan sesi</CardTitle>
             </CardHeader>
@@ -193,7 +209,10 @@ function KaptenTryoutParticipantDetailPageModule({
               {admission.assignments.length ? (
                 admission.assignments.map((assignment) => (
                   <div
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-100 p-3.5"
+                    className={cn(
+                      REFERENCE_SURFACE_CLASS_NAMES.inset,
+                      "flex flex-wrap items-center justify-between gap-3 p-3.5",
+                    )}
                     key={assignment.id}
                   >
                     <div>
@@ -228,7 +247,7 @@ function KaptenTryoutParticipantDetailPageModule({
           </Card>
 
           {admission.status === "active" && activeSessions.length ? (
-            <Card className="shadow-none ring-primary-100">
+            <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")}>
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Tugaskan sesi</CardTitle>
               </CardHeader>
@@ -256,7 +275,7 @@ function KaptenTryoutParticipantDetailPageModule({
         </section>
 
         <aside>
-          <Card className="shadow-none ring-primary-100">
+          <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "ring-0")}>
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Tindakan peserta</CardTitle>
             </CardHeader>
@@ -264,6 +283,7 @@ function KaptenTryoutParticipantDetailPageModule({
               <Field>
                 <FieldLabel htmlFor="participant-audit-reason">Alasan audit</FieldLabel>
                 <FieldInput
+                  className={REFERENCE_CONTROL_CLASS_NAMES.input}
                   id="participant-audit-reason"
                   onChange={(event) => setAuditReason(event.target.value)}
                   placeholder="Jelaskan alasan tindakan"

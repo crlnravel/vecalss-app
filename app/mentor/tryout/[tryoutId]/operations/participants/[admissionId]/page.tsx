@@ -35,6 +35,8 @@ export default async function TryoutParticipantDetailPage({
       mainClassName="max-w-none"
       searchPlaceholder="Cari Tryout..."
       session={session}
+      showSearch={false}
+      sidebarAppearance="reference"
     >
       <KaptenTryoutParticipantDetailPageModule
         admissionId={admissionId}

@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
+  ReferencePageHeader,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -27,9 +32,11 @@ import {
 } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTimeLocal } from "@/lib/tryout/time";
+import { ChevronLeft } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/modules/mentor/KaptenTryoutOperationsModule";
 import { policyLabels, type Policy } from "@/modules/mentor/KaptenTryoutOperationsData";
-import { HelpFieldLabel, OperationalPageHeader, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
+import { HelpFieldLabel, OperationNotice } from "@/modules/mentor/KaptenTryoutOperationalShared";
 import { openTryoutDeliverySessionAction, updateTryoutDeliverySessionScheduleAction } from "@/modules/mentor/tryout-actions";
 
 type Confirmation = "open" | null;
@@ -129,29 +136,41 @@ function KaptenTryoutSessionDetailPageModule({
 
   return (
     <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
-      <OperationalPageHeader
-        backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`}
-        description={initial.title}
-        divider={false}
-        title={delivery.name}
-        trailing={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <StatusBadge status={delivery.status} />
-            {delivery.status === "draft" ? (
-              <Button
-                disabled={busy}
-                onClick={() => setConfirmation("open")}
-                variant="brand"
-              >
-                Buka sesi
-              </Button>
-            ) : null}
-          </div>
-        }
-      />
+      <div className="flex min-w-0 items-start gap-3">
+        <Button
+          aria-label="Kembali ke daftar sesi Tryout"
+          className="mt-1 shrink-0 rounded-xl text-secondary-500 hover:bg-primary-50 hover:text-secondary-900"
+          nativeButton={false}
+          render={<Link href={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`} />}
+          size="icon"
+          title="Kembali ke daftar sesi Tryout"
+          variant="ghost"
+        >
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </Button>
+        <ReferencePageHeader
+          actions={(
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <StatusBadge status={delivery.status} />
+              {delivery.status === "draft" ? (
+                <Button
+                  disabled={busy}
+                  onClick={() => setConfirmation("open")}
+                  variant="brand"
+                >
+                  Buka sesi
+                </Button>
+              ) : null}
+            </div>
+          )}
+          className="min-w-0 flex-1"
+          description={initial.title}
+          title={delivery.name}
+        />
+      </div>
       <OperationNotice message={notice} />
 
-      <Card className="mt-5 shadow-none ring-primary-100">
+      <Card className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "mt-5 ring-0")}>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Detail sesi</CardTitle>
         </CardHeader>
@@ -161,6 +180,7 @@ function KaptenTryoutSessionDetailPageModule({
               <HelpFieldLabel htmlFor="session-detail-from" label="Mulai (WIB)" required tooltip="Peserta hanya dapat memulai attempt setelah waktu ini." />
               <FieldInput
                 aria-required="true"
+                className={REFERENCE_CONTROL_CLASS_NAMES.input}
                 disabled={scheduleLocked || scheduleBusy}
                 id="session-detail-from"
                 onChange={(event) => setSchedule({ ...schedule, availableFrom: event.target.value })}
@@ -172,6 +192,7 @@ function KaptenTryoutSessionDetailPageModule({
               <HelpFieldLabel htmlFor="session-detail-until" label="Selesai (WIB)" required tooltip="Setelah waktu ini peserta tidak dapat memulai attempt baru." />
               <FieldInput
                 aria-required="true"
+                className={REFERENCE_CONTROL_CLASS_NAMES.input}
                 disabled={scheduleLocked || scheduleBusy}
                 id="session-detail-until"
                 min={schedule.availableFrom || undefined}
@@ -197,7 +218,7 @@ function KaptenTryoutSessionDetailPageModule({
             <Button
               disabled={scheduleLocked || scheduleBusy || !scheduleChanged}
               onClick={() => void handleScheduleSave()}
-              variant="brand"
+              variant="reference"
             >
               {scheduleBusy ? "Menyimpan…" : "Simpan jadwal"}
             </Button>
@@ -214,7 +235,7 @@ function KaptenTryoutSessionDetailPageModule({
             {delivery.attempts.length} attempt
           </span>
         </div>
-        <div className="mt-4 overflow-hidden rounded-2xl border border-primary-100 bg-white">
+        <ReferenceSurface className="mt-4 overflow-hidden p-0">
           <Table className="min-w-[760px]">
             <caption className="sr-only">Attempt peserta untuk {delivery.name}</caption>
             <TableHeader className="bg-secondary-50/80">
@@ -269,7 +290,7 @@ function KaptenTryoutSessionDetailPageModule({
               )}
             </TableBody>
           </Table>
-        </div>
+        </ReferenceSurface>
       </section>
 
       <AlertDialog
