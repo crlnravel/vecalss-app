@@ -8,20 +8,13 @@ import {
   ReferenceEmptyState,
   ReferencePageHeader,
   ReferenceSectionHeading,
-  ReferenceStatCard,
-  ReferenceStatGrid,
   ReferenceSurface,
   ReferenceTaskCard,
   type ReferenceActivity,
 } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  BookOpenText,
-  CalendarDays,
-  Gauge,
-  ListChecks,
-} from "@/lib/icons";
+import { CalendarDays } from "@/lib/icons";
 import type { SessionContext } from "@/lib/auth/types";
 import { QuickCreateMenu } from "@/modules/mentor/components/kapten-ui";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
@@ -139,30 +132,6 @@ function MentorDashboardPageModule({
         title={`Selamat bekerja, ${firstName}.`}
       />
 
-      <ReferenceStatGrid>
-        <ReferenceStatCard
-          href="/mentor/materi"
-          icon={BookOpenText}
-          label="Materi terbaru"
-          supportingText="Ruang kerja materi"
-          value={dashboard.recentMateri.length}
-        />
-        <ReferenceStatCard
-          href="/mentor/quiz"
-          icon={ListChecks}
-          label="Kuis terbaru"
-          supportingText="Ruang kerja kuis"
-          value={dashboard.recentKuis.length}
-        />
-        <ReferenceStatCard
-          href="/mentor/tryout"
-          icon={Gauge}
-          label="Jadwal aktif"
-          supportingText="Kuis dan tryout"
-          value={scheduledResources.length}
-        />
-      </ReferenceStatGrid>
-
       <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
         <ReferenceActivityFeed
           activities={recentActivities}
@@ -236,12 +205,6 @@ function MentorDashboardLoadingState() {
             <Skeleton className="h-5 w-[min(30rem,80vw)] rounded-xl bg-primary-100/70" />
           </div>
           <Skeleton className="h-10 w-32 rounded-xl bg-primary-100/80" />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Skeleton className="h-40 rounded-4xl bg-primary-100/70" />
-          <Skeleton className="h-40 rounded-4xl bg-primary-100/70" />
-          <Skeleton className="h-40 rounded-4xl bg-primary-100/70" />
         </div>
 
         <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1.12fr)_minmax(20rem,0.88fr)]">
