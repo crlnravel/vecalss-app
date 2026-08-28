@@ -10,6 +10,8 @@
   removed subtitle.
 - [x] Focused ESLint, `test:mentor-dashboard-ia`, `git diff --check`, and the
   Impeccable layout detector (`[]`) pass.
+- [x] `pnpm build` passes on the current tree through TypeScript, static page
+  generation, and route optimization.
 - [x] Browser QA was skipped because the active harness requires explicit
   permission and the coordinating agent requested no browser check.
 - [x] Commit: `e1d2fbf` (`fix: refine mentor dashboard schedule`).

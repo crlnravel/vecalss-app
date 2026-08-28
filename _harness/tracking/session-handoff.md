@@ -9,9 +9,9 @@
   the schedule subtitle and `Kuis`/`Tryout` actions, and updates both loading
   columns to reserve matching heading rows.
 - Verification: focused ESLint, `test:mentor-dashboard-ia`,
-  `git diff --check`, and Impeccable layout detection (`[]`) pass. The latest
-  production build remains blocked by the unrelated concurrent TypeScript
-  error at `modules/mentor/KaptenMateriCataloguePageModules.tsx:291`.
+  `git diff --check`, Impeccable layout detection (`[]`), and the full
+  production build pass on the current tree through TypeScript, static page
+  generation, and route optimization.
 - Browser QA: intentionally skipped because the active harness requires
   explicit permission before ego-browser verification and the coordinating
   agent requested no browser check.
