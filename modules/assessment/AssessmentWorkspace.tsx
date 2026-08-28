@@ -520,13 +520,13 @@ function AssessmentResultWorkspace({
         <aside className={cn(
           "flex flex-col px-5 py-6 sm:px-8 lg:px-8 xl:px-10 print:border-0 print:px-0 print:py-3",
           floatingPanels
-            ? "self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:overflow-y-auto"
+            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:overflow-y-auto"
             : "min-h-full border-b border-primary-100 bg-white lg:border-r lg:border-b-0",
         )}>
-          <div className="flex items-center gap-4 lg:block">
+          <div className="flex justify-center">
             <div
               aria-label={`${Math.round(normalizedScore)} ${scoreLabel}`}
-              className="grid size-28 shrink-0 place-items-center rounded-full p-3 sm:size-36 lg:mx-auto lg:size-44"
+              className="grid size-28 shrink-0 place-items-center rounded-full p-3 sm:size-36 lg:size-44"
               style={{ background: `conic-gradient(var(--primary-700) ${normalizedScore}%, var(--primary-100) 0)` }}
             >
               <div className="grid size-full place-items-center rounded-full border-4 border-white bg-secondary-50 text-center shadow-[inset_0_0_0_1px_rgba(1,76,56,0.08)]">
@@ -536,18 +536,14 @@ function AssessmentResultWorkspace({
                 </div>
               </div>
             </div>
-            <div className="min-w-0 lg:mt-5 lg:text-center">
-              <p className="text-sm font-semibold text-primary-800">Terus berlatih!</p>
-            </div>
           </div>
 
           {summary ? (
             <div className={cn(
-              "mt-8 border-t border-primary-100 pt-7",
+              "mt-8",
               !floatingPanels && "lg:mt-auto",
             )}>
-              <p className="text-center text-base font-semibold text-secondary-800">Ringkasan</p>
-              <div className="mt-5">{summary}</div>
+              {summary}
             </div>
           ) : null}
         </aside>
@@ -560,7 +556,7 @@ function AssessmentResultWorkspace({
         <aside className={cn(
           "px-5 py-6 sm:px-8 lg:px-8 xl:px-10 print:hidden",
           floatingPanels
-            ? "self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:overflow-y-auto"
+            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:overflow-y-auto"
             : "border-t border-primary-100 bg-white lg:border-t-0 lg:border-l",
         )}>
             {navigation}

@@ -4,12 +4,14 @@ import { cn } from "@/lib/utils";
 
 type AssessmentResultStatProps = {
   className?: string;
+  labelClassName?: string;
   label: ReactNode;
   value: ReactNode;
 };
 
 function AssessmentResultStat({
   className,
+  labelClassName,
   label,
   value,
 }: AssessmentResultStatProps) {
@@ -21,7 +23,7 @@ function AssessmentResultStat({
       )}
       data-slot="assessment-result-stat"
     >
-      <p className="text-xs font-medium text-secondary-500">{label}</p>
+      <p className={cn("text-xs font-medium text-secondary-500", labelClassName)}>{label}</p>
       <p className="mt-1 text-xl font-semibold text-secondary-900">{value}</p>
     </div>
   );

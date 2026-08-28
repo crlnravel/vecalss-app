@@ -74,6 +74,8 @@ function QuizResultPageModule({
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<string | null>(null);
+  const isAttemptLimitReached = restartMessage?.startsWith("Batas percobaan quiz ini sudah tercapai") ?? false;
+  const resultStatLabelClassName = "font-bold tracking-[0.14em] uppercase";
   const readingTextClass = "text-lg leading-[1.85]";
   const explanationTextClass = "text-base leading-7";
 
@@ -148,16 +150,19 @@ function QuizResultPageModule({
     <AssessmentResultWorkspace
       headerActions={
         <>
-          <Button
-            aria-label="Ulangi quiz"
-            className="inline-flex"
-            disabled={isRestarting}
-            onClick={() => { void restartQuiz(); }}
-            variant="brandOutline"
-          >
-            <RefreshCw />
-            <span className="hidden sm:inline">{isRestarting ? "Memulai…" : "Ulangi"}</span>
-          </Button>
+          {!isAttemptLimitReached ? (
+            <Button
+              aria-label="Ulangi quiz"
+              aria-busy={isRestarting}
+              className="inline-flex"
+              disabled={isRestarting}
+              onClick={() => { void restartQuiz(); }}
+              variant="brandOutline"
+            >
+              <RefreshCw />
+              <span className="hidden sm:inline">{isRestarting ? "Memulai…" : "Ulangi"}</span>
+            </Button>
+          ) : null}
           <Button
             aria-label="Kembali ke menu quiz"
             className="hidden sm:inline-flex"
@@ -185,9 +190,21 @@ function QuizResultPageModule({
       smoothHeaderDivider
       summary={
         <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1">
-          <AssessmentResultStat label="Benar" value={`${result.correctCount ?? 0}`} />
-          <AssessmentResultStat label="Dijawab" value={`${result.answeredCount}/${result.totalQuestions}`} />
-          <AssessmentResultStat label="Skor percobaan" value={result.attemptScore === null ? "—" : `${result.attemptScore}`} />
+          <AssessmentResultStat
+            label="Benar"
+            labelClassName={resultStatLabelClassName}
+            value={`${result.correctCount ?? 0}`}
+          />
+          <AssessmentResultStat
+            label="Dijawab"
+            labelClassName={resultStatLabelClassName}
+            value={
+              <>
+                {result.answeredCount}
+                <span className="text-xs font-semibold text-secondary-500">/{result.totalQuestions}</span>
+              </>
+            }
+          />
         </div>
       }
       title={result.title}
