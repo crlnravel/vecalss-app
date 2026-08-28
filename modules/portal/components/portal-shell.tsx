@@ -25,7 +25,9 @@ import { StudentAccountMenu } from "@/modules/student/components/student-account
 import { AdminPortalNav } from "./admin-portal-nav";
 
 const adminSectionLabels = {
+  "ai-policy": "Vera AI policy",
   "audit-logs": "Audit logs",
+  "ai-usage": "AI usage",
   docs: "Documentation",
   kapten: "Kapten",
   notifications: "Notifications",
@@ -36,7 +38,9 @@ const adminSectionLabels = {
 } as const;
 
 const adminSectionRootHrefs = {
+  "ai-policy": "/admin/ai-policy",
   "audit-logs": "/admin/audit-logs",
+  "ai-usage": "/admin/ai-usage",
   docs: "/admin/docs",
   kapten: "/admin/kapten",
   notifications: "/admin/notifications",
@@ -55,7 +59,7 @@ function PortalShell({
   title,
 }: {
   audience: LoginAudience;
-  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "student-banners" | "student-preview" | "docs";
+  activeAdminSection?: "overview" | "students" | "enrollment" | "kapten" | "notifications" | "audit-logs" | "ai-usage" | "ai-policy" | "student-banners" | "student-preview" | "docs";
   children: React.ReactNode;
   description: string;
   session: SessionContext;
