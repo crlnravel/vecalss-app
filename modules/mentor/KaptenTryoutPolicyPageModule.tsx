@@ -108,7 +108,7 @@ function KaptenTryoutPolicyPageModule({
         </CardContent>
       </Card>
       <div className="mt-5 flex justify-end">
-        <Button disabled={busy} onClick={() => void handleSave()} variant="brand">
+        <Button disabled={busy} onClick={() => void handleSave()} variant="reference">
           {busy ? "Menyimpan…" : "Selanjutnya"}
         </Button>
       </div>

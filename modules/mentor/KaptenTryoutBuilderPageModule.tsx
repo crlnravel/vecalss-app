@@ -43,6 +43,7 @@ import {
   ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
@@ -305,7 +306,7 @@ function WorkspaceUnavailable({ onSaveDraft }: { onSaveDraft: () => void }) {
         </div>
         <h2 className="text-lg font-semibold text-secondary-900">Simpan perubahan untuk membuka area ini</h2>
         <p className="text-sm leading-6 text-secondary-600">Soal dan Review &amp; Publish bisa disiapkan sekarang. Delivery, Live, Attempts, dan Results akan tersambung setelah Tryout memiliki ID.</p>
-        <Button onClick={onSaveDraft} variant="brand">Simpan perubahan</Button>
+        <Button onClick={onSaveDraft} variant="reference">Simpan perubahan</Button>
       </div>
     </ReferenceSurface>
   );
@@ -342,7 +343,7 @@ function SourceBankList({
     return (
       <div className="grid gap-3 px-3 py-5">
         <p className="text-sm text-secondary-500">Belum ada Bank Soal dengan soal Ready untuk {activeSectionSubtest}.</p>
-        <Button className="w-fit" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="brand">Buka Bank Soal</Button>
+        <Button className="w-fit" nativeButton={false} onClick={(event) => guardExternalNavigation("/mentor/quiz/question-bank", event)} render={<Link href="/mentor/quiz/question-bank" />} size="sm" variant="reference">Buka Bank Soal</Button>
       </div>
     );
   }
@@ -559,16 +560,16 @@ function TryoutBasicsTab({
         <div className="grid gap-5">
           <Field>
             <FieldLabel htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
-            <FieldInput className="h-12 border-primary-200 bg-white text-base font-semibold text-secondary-900" disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => onTitleChange(event.target.value)} required value={draft.title} />
+            <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`} disabled={mode === "draft" && draft.locked} id="tryout-title" onChange={(event) => onTitleChange(event.target.value)} required value={draft.title} />
           </Field>
           <Field>
             <FieldLabel htmlFor="tryout-description">Deskripsi</FieldLabel>
-            <FieldTextarea className="min-h-32 border-primary-200 bg-white px-4 py-3 text-sm leading-6" disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => onDescriptionChange(event.target.value)} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
+            <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`} disabled={mode === "draft" && draft.locked} id="tryout-description" onChange={(event) => onDescriptionChange(event.target.value)} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
           </Field>
         </div>
         {mode === "published" ? (
           <div className="flex justify-end pt-1">
-            <Button disabled={metadataSaving || !draft.title.trim()} onClick={onSaveMetadata} variant="brand">
+            <Button disabled={metadataSaving || !draft.title.trim()} onClick={onSaveMetadata} variant="reference">
               {metadataSaving ? "Menyimpan…" : "Simpan perubahan"}
             </Button>
           </div>
@@ -629,7 +630,7 @@ function TryoutSectionsTab({
 }) {
   return (
     <>
-      <TabsContent className="mt-0 lg:col-start-2" value="sections">
+      <TabsContent className="mt-0 min-w-0 w-full lg:col-start-2" value="sections">
         <div className="grid gap-5">
           <ReferenceSurface as="section" aria-labelledby="tryout-basic-info-title" className="grid gap-5 p-5 sm:p-7">
             <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
@@ -650,7 +651,7 @@ function TryoutSectionsTab({
         </div>
       </TabsContent>
 
-      <TabsContent className="mt-0 lg:col-start-2" value="sections">
+      <TabsContent className="mt-0 min-w-0 w-full lg:col-start-2" value="sections">
         <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
           <div aria-label="Sumber soal" className="grid gap-1" id="question-source-chooser">
             <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
@@ -662,14 +663,14 @@ function TryoutSectionsTab({
                 <Field>
                   <FieldLabel>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
                   <Popover>
-                    <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className="w-full justify-between bg-white" variant="context" />}>
+                    <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`} variant="reference" />}>
                       <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>
                       <ChevronDown />
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] gap-3">
                       <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" />
-                        <FieldInput aria-label="Cari Bank Soal" className="h-10 rounded-xl py-2 pl-9 pr-3 text-sm" onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
+                        <FieldInput aria-label="Cari Bank Soal" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-10 rounded-xl py-2 pl-9 pr-3 text-sm`} onChange={(event) => onBankSearchChange(event.target.value)} placeholder="Cari judul, folder, atau kategori…" value={sourceBankSearch} />
                       </div>
                       {sourceBankLoading ? <p className="px-2 text-xs text-secondary-500">Memuat Bank Soal…</p> : null}
                       <div aria-label="Bank Soal sumber" className="grid max-h-72 gap-1 overflow-y-auto" role="listbox">
@@ -681,13 +682,13 @@ function TryoutSectionsTab({
                           sourceBanks={sourceBanks}
                         />
                       </div>
-                      {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={onBankPageNext} size="sm" variant="brandOutline">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
+                      {sourceBankTotal > sourceBanks.length ? <Button className="w-full" disabled={sourceBankLoading} onClick={onBankPageNext} size="sm" variant="reference">{sourceBankLoading ? "Memuat…" : "Muat Bank Soal lain"}</Button> : null}
                     </PopoverContent>
                   </Popover>
                 </Field>
               </ReferenceSurface>
               <ReferenceSurface className="min-w-0 p-5">
-                <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className="h-11 rounded-xl border-primary-200 bg-primary-50/35 py-2 pl-9 pr-3 text-sm" disabled={!browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
+                <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-secondary-400" /><FieldInput aria-label="Cari soal Ready" className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-11 rounded-xl py-2 pl-9 pr-3 text-sm`} disabled={!browseBankId} onChange={(event) => onQuestionSearchChange(event.target.value)} placeholder={activeBrowseBank ? `Cari soal ${activeSection.subtest} di ${activeBrowseBank.title}…` : "Pilih Bank Soal terlebih dahulu"} value={sourceQuestionSearch} /></div>
                 {sourceQuestionLoading ? <p className="mt-3 text-xs text-secondary-500">Memuat soal Ready…</p> : null}
                 {activeSourceQuestions.length ? <div className="mt-4 grid gap-3">{activeSourceQuestions.map((question) => {
                   const selected = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
@@ -695,7 +696,7 @@ function TryoutSectionsTab({
                   const checkboxId = `source-question-${question.id}`;
                   return <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}><div className="flex items-start gap-3"><Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} /><div className="min-w-0 flex-1"><label className="block cursor-pointer" htmlFor={checkboxId}><p className="text-xs font-semibold text-primary-800">{question.subjectCode} · {question.difficulty === "easy" ? "Mudah" : question.difficulty === "hard" ? "Sulit" : "Sedang"}</p><p className="mt-1 line-clamp-4 text-sm leading-6 text-secondary-900">{question.prompt}</p></label>{selected ? <Badge className="mt-2 rounded-full" size="ui" variant="mint">Terpilih</Badge> : selectedInOtherSection ? <p className="mt-2 text-xs font-semibold text-secondary-500">Dipilih di Section lain</p> : null}</div></div></article>;
                 })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
-                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="brandOutline"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
+                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="reference"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
               </ReferenceSurface>
             </div>
           </div>
@@ -717,7 +718,7 @@ function TryoutReviewTab({
   setPublishOpen: (open: boolean) => void;
 }) {
   return (
-    <TabsContent className="mt-0" value="review">
+    <TabsContent className="mt-0 min-w-0 w-full" value="review">
       <ReferenceSurface as="section" className="grid gap-6 p-5 sm:p-7">
         <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Review &amp; Publish</h2>
         <dl className="grid gap-5">
@@ -745,7 +746,7 @@ function TryoutReviewTab({
           </div>
         </section>
         <div className="flex justify-end">
-          <Button disabled={saving || draft.locked} onClick={() => setPublishOpen(true)} variant="brand">{saving ? "Menerbitkan…" : "Terbitkan"}</Button>
+          <Button disabled={saving || draft.locked} onClick={() => setPublishOpen(true)} variant="reference">{saving ? "Menerbitkan…" : "Terbitkan"}</Button>
         </div>
       </ReferenceSurface>
     </TabsContent>
@@ -1419,7 +1420,7 @@ function TryoutDeliveryTab({
   operationsInitial?: TryoutOperationsView & { workflow?: CanonicalTryoutWorkflowProjection };
 }) {
   return (
-    <TabsContent className="mt-0" value="schedule">
+    <TabsContent className="mt-0 min-w-0 w-full" value="schedule">
       {!id || !operationsInitial ? (
         <WorkspaceUnavailable onSaveDraft={onSaveDraft} />
       ) : (
@@ -1495,8 +1496,8 @@ function TryoutFooterActions({
     <footer aria-label="Tindakan langkah Tryout" className="sticky bottom-0 z-20 mt-6 flex flex-wrap items-center justify-end gap-3 bg-transparent px-0 py-4">
       <div className="flex flex-wrap justify-end gap-2">
         {draft.locked ? <Button disabled={saving} onClick={onDuplicateClick} variant="brand"><Copy />Duplikat draf baru</Button> : null}
-        {!draft.locked && workspace === "basics" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
-        {!draft.locked && workspace === "sections" ? <Button className="rounded-2xl bg-primary-900 px-5 text-white shadow-[0_9px_0_#0f563b,0_20px_34px_-24px_rgba(23,107,77,0.7)] hover:bg-primary-800" disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="brand">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+        {!draft.locked && workspace === "basics" ? <Button disabled={saving || !draft.title.trim()} onClick={() => { void save("draft", "sections").then((ok) => { if (ok && id) commitWorkspaceChange("sections"); }); }} variant="reference">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
+        {!draft.locked && workspace === "sections" ? <Button disabled={saving || !configureReady} onClick={() => { void save("draft", "review").then((ok) => { if (ok && id) commitWorkspaceChange("review"); }); }} variant="reference">{saving ? "Menyimpan…" : "Selanjutnya"}</Button> : null}
       </div>
     </footer>
   );
@@ -1709,15 +1710,15 @@ function KaptenTryoutBuilderPageModule({
               operationsInitial={operationsInitial}
             />
 
-            <TabsContent className="mt-0" value="live">
+            <TabsContent className="mt-0 min-w-0 w-full" value="live">
               {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutLivePageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
             </TabsContent>
 
-            <TabsContent className="mt-0" value="attempts">
+            <TabsContent className="mt-0 min-w-0 w-full" value="attempts">
               {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutAttemptsPageModule initial={operationsInitial} />}
             </TabsContent>
 
-            <TabsContent className="mt-0" value="results">
+            <TabsContent className="mt-0 min-w-0 w-full" value="results">
               {!id || !operationsInitial ? <WorkspaceUnavailable onSaveDraft={() => void save("draft")} /> : <KaptenTryoutResultsPageModule initial={operationsInitial} selectedSessionId={selectedSessionId} />}
             </TabsContent>
 

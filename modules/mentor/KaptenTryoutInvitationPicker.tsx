@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Check, CircleAlert, LoaderCircle, Search, SendHorizontal, UserPlus } from "@/lib/icons";
 import type { InvitationPickerStudent } from "@/lib/tryout/invitation-picker";
 import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
@@ -156,7 +158,7 @@ function StudentSearchSection({
             aria-controls={searchResultsId}
             aria-describedby={`${searchInputId}-hint`}
             aria-expanded={students.length > 0}
-            className="min-h-11 pl-10"
+            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-11 pl-10`}
             disabled={busy}
             id={searchInputId}
             onChange={(event) => onQueryChange(event.target.value)}
@@ -270,20 +272,20 @@ function InvitationDetailCard({
 
         <Field>
           <FieldLabel htmlFor={sessionInputId}>Sesi Tryout</FieldLabel>
-          <select
+          <ReferenceSelect
             aria-describedby={`${sessionInputId}-hint`}
             aria-label="Sesi Tryout"
-            className="min-h-11 w-full min-w-0 rounded-xl border border-secondary-900/15 bg-white px-3 py-2 text-sm text-secondary-900 outline-none transition focus-visible:border-primary-700 focus-visible:ring-2 focus-visible:ring-primary-700/25 disabled:cursor-not-allowed disabled:bg-secondary-50"
+            className="w-full"
             disabled={busy || !availableSessions.length}
             id={sessionInputId}
-            onChange={(event) => onSessionChange(event.target.value)}
+            onValueChange={onSessionChange}
+            options={availableSessions.map((session) => ({
+              label: `${session.name} · ${sessionWindow(session)}`,
+              value: session.id,
+            }))}
+            placeholder="Pilih sesi tersedia"
             value={effectiveSelectedSessionId}
-          >
-            <option value="">Pilih sesi tersedia</option>
-            {availableSessions.map((session) => (
-              <option key={session.id} value={session.id}>{session.name} · {sessionWindow(session)}</option>
-            ))}
-          </select>
+          />
           <p className="text-xs leading-5 text-secondary-500" id={`${sessionInputId}-hint`}>
             {availableSessions.length ? "Sesi aktif dengan rilis konten dan waktu yang belum berakhir." : "Belum ada sesi aktif yang siap menerima peserta."}
           </p>
@@ -294,7 +296,7 @@ function InvitationDetailCard({
           <FieldTextarea
             aria-describedby={`${reasonInputId}-hint`}
             aria-required="true"
-            className="min-h-28"
+            className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28`}
             disabled={busy}
             id={reasonInputId}
             maxLength={500}
@@ -319,7 +321,7 @@ function InvitationDetailCard({
           disabled={busy || !selectedStudent || !effectiveSelectedSessionId || !reason.trim()}
           onClick={onSubmit}
           type="button"
-          variant="brand"
+          variant="reference"
         >
           {busy ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" /> : <SendHorizontal aria-hidden="true" />}
           {busy ? "Memproses undangan…" : "Kirim undangan"}

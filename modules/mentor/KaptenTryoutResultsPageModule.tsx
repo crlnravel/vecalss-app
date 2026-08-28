@@ -3,6 +3,7 @@
 import { CircleAlert } from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
 
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
@@ -50,16 +51,26 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
   };
 
   return (
-    <section className="grid gap-6" aria-labelledby="tryout-results-title">
+    <section className="grid min-w-0 w-full grid-cols-1 gap-6" aria-labelledby="tryout-results-title">
       <header className="flex items-center gap-3">
         <h2 className="text-xl font-semibold text-secondary-900" id="tryout-results-title">Results</h2>
       </header>
 
-      {initial.sessions.length ? <div className="flex flex-wrap items-center gap-3 rounded-4xl border border-primary-100 bg-white px-4 py-3.5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+      {initial.sessions.length ? <div className="grid min-w-0 w-full max-w-full grid-cols-1 gap-3 rounded-4xl border border-primary-100 bg-white px-4 py-3.5 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] sm:flex sm:items-center">
         <label className="text-sm font-semibold text-secondary-900" htmlFor="results-session">Sesi yang ditampilkan</label>
-        <select className="min-h-10 w-full min-w-0 basis-full rounded-xl border border-primary-100 bg-white px-3 text-sm text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100 sm:basis-auto sm:flex-1 sm:max-w-md" id="results-session" onChange={(event) => selectSession(event.target.value)} value={validSessionId ?? ""}>
-          {initial.sessions.map((session) => <option key={session.id} value={session.id}>{session.name} · {session.status === "closed" ? "Ditutup" : session.status === "active" ? "Aktif" : "Draf"}</option>)}
-        </select>
+        <div className="min-w-0 w-full max-w-full sm:max-w-md sm:flex-1">
+          <ReferenceSelect
+            aria-label="Sesi yang ditampilkan"
+            className="w-full"
+            id="results-session"
+            onValueChange={selectSession}
+            options={initial.sessions.map((session) => ({
+              label: `${session.name} · ${session.status === "closed" ? "Ditutup" : session.status === "active" ? "Aktif" : "Draf"}`,
+              value: session.id,
+            }))}
+            value={validSessionId ?? ""}
+          />
+        </div>
         {selectedSessionId && selectedSessionId !== validSessionId ? <p className="basis-full text-xs leading-5 text-[#8a5e00]">Sesi dari tautan sebelumnya tidak tersedia. Sesi ini dipilih agar konteks tetap aman.</p> : null}
       </div> : null}
 
@@ -76,7 +87,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
                 <ResultStatus label={resultReleaseLabel(session.releaseState)} tone={resultReleaseTone(session.releaseState)} />
               </div>
 
-              <div className="mt-3 overflow-hidden rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
+              <div className="mt-3 min-w-0 overflow-x-auto rounded-4xl border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)]">
                 <Table className="min-w-[520px]">
                   <caption className="sr-only">Hasil peserta untuk {session.name}</caption>
                   <TableHeader className="bg-primary-50/60 [&_tr]:border-0">

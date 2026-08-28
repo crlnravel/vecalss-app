@@ -40,12 +40,12 @@ function KaptenTryoutSessionsPageModule({
 
   return (
     <Root className={embedded ? "w-full" : "w-full px-4 py-5 sm:px-6 lg:px-8"}>
-      {embedded ? <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2>{!hasActiveSession ? <p className="mt-1 text-sm font-medium text-danger-600" role="alert">Paling tidak harus terdapat satu sesi yang aktif</p> : null}</div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
+      {embedded ? <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-semibold text-secondary-900">Sesi</h2>{!hasActiveSession ? <p className="mt-1 text-sm font-medium text-danger-600" role="alert">Paling tidak harus terdapat satu sesi yang aktif</p> : null}</div><Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="reference"><Plus data-icon="inline-start" />Buat sesi</Button></header> : <OperationalPageHeader
         backHref={`/mentor/tryout/${initial.id}?workspace=schedule&delivery=sessions`}
         description={initial.title}
         title="Sesi"
         trailing={
-          <Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand">
+          <Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="reference">
             <Plus data-icon="inline-start" />
             Buat sesi
           </Button>
@@ -133,7 +133,7 @@ function KaptenTryoutSessionsPageModule({
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="brand">
+            <Button nativeButton={false} render={<Link href={`${base}/new`} />} variant="reference">
               <Plus data-icon="inline-start" />
               Buat sesi
             </Button>

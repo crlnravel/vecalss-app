@@ -24,6 +24,8 @@ const buttonVariants = cva(
           "rounded-xl border-voyage-warm-sun bg-voyage-warm-sun text-voyage-warm-sun-ink shadow-[0_4px_0_#d9ad32] hover:bg-voyage-warm-sun/85 focus-visible:border-voyage-warm-sun focus-visible:ring-voyage-warm-sun/45 motion-safe:active:translate-y-1 motion-safe:active:shadow-none motion-reduce:transform-none",
         brandOutline:
           "border-voyage-soft-border bg-voyage-surface text-voyage-ink hover:border-voyage-sea-glass hover:bg-voyage-sea-glass-wash focus-visible:border-voyage-leaf focus-visible:ring-voyage-leaf/35",
+        reference:
+          "border-primary-100 bg-voyage-surface text-voyage-ink shadow-[0_14px_30px_-24px_rgba(23,107,77,0.55),inset_0_1px_0_rgba(255,255,255,0.85)] hover:border-primary-200 hover:bg-voyage-surface hover:shadow-[0_20px_40px_-26px_rgba(23,107,77,0.55),inset_0_1px_0_rgba(255,255,255,0.85)] focus-visible:border-primary-500 focus-visible:ring-primary-700/20",
         context:
           "border-primary-100 bg-white text-secondary-950 hover:border-primary-300 hover:bg-primary-50/40 focus-visible:border-primary-500 focus-visible:ring-primary-500/20",
         contextSelected:
