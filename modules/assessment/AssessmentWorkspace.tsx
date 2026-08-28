@@ -484,6 +484,7 @@ function AssessmentResultWorkspace({
   navigation,
   score,
   scoreLabel = "Skor Akhir",
+  smoothHeaderDivider = false,
   summary,
   title,
 }: {
@@ -493,6 +494,7 @@ function AssessmentResultWorkspace({
   navigation?: ReactNode;
   score: number;
   scoreLabel?: string;
+  smoothHeaderDivider?: boolean;
   summary?: ReactNode;
   title: ReactNode;
 }) {
@@ -500,7 +502,10 @@ function AssessmentResultWorkspace({
 
   return (
     <div className="min-h-svh bg-secondary-50 text-secondary-900">
-      <header className="relative grid min-h-20 grid-cols-[1fr_auto_1fr] items-center border-t-2 border-primary-800 border-b border-primary-200/80 bg-white px-4 py-3 sm:min-h-24 sm:px-8 print:min-h-0 print:border-0 print:px-0 print:py-3">
+      <header className={cn(
+        "relative grid min-h-20 grid-cols-[1fr_auto_1fr] items-center bg-white px-4 py-3 sm:min-h-24 sm:px-8 print:min-h-0 print:border-0 print:px-0 print:py-3",
+        smoothHeaderDivider ? "border-t-2 border-primary-800 border-b border-primary-200/80" : "border-t-4 border-primary-700 border-b border-primary-100",
+      )}>
         <div className="min-w-0">
           <BrandLockup />
         </div>

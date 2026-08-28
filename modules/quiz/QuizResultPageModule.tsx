@@ -182,6 +182,7 @@ function QuizResultPageModule({
       floatingPanels
       score={result.aggregateScore ?? result.score ?? 0}
       scoreLabel="Skor Akhir"
+      smoothHeaderDivider
       summary={
         <div className="grid grid-cols-2 gap-2 text-left lg:grid-cols-1">
           <AssessmentResultStat label="Benar" value={`${result.correctCount ?? 0}`} />
