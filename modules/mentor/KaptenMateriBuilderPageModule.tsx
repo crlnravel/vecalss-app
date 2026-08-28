@@ -194,7 +194,7 @@ function MateriBuilderHeader({
         description={(
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{mode === "create" ? "Susun bacaan PDF dan video pendamping untuk materi ini." : "Kelola bacaan dan video pendamping materi ini."}</span>
-            <ReferenceStatusBadge size="xs" status={status} />
+            <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />
           </span>
         )}
         title={mode === "create" ? "Buat Materi" : builderState.title || "Edit Materi"}
@@ -292,7 +292,7 @@ function MateriBuilderEditor({
             <p className="min-w-0 max-w-[42ch] truncate text-xs text-secondary-500">
               {builderState.title || "Materi tanpa judul"}
             </p>
-            <ReferenceStatusBadge size="xs" status={status} />
+            <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />
           </div>
         </div>
         <Button onClick={() => onPreviewChange(false)} type="button" variant="reference">
