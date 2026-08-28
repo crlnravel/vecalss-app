@@ -59,7 +59,7 @@ function KaptenTryoutSessionsPageModule({
                   key={session.id}
                   size="sm"
                 >
-                  <div className="grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-0 sm:p-0">
+                  <div className="grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_5rem_9rem_3rem] sm:items-center sm:gap-0 sm:p-0">
                     <Link
                       className={isPrimary
                         ? "group min-w-0 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35 sm:px-5 sm:py-4"
@@ -67,11 +67,7 @@ function KaptenTryoutSessionsPageModule({
                       href={`${base}/${session.id}`}
                     >
                       <div className="grid min-w-0 gap-1">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-secondary-900">{session.name}</h3>
-                          {!sessionReady ? <span aria-label="Sesi belum siap" className="size-2 shrink-0 rounded-full bg-voyage-warm-sun" role="img" title="Sesi belum siap" /> : null}
-                          <StatusBadge status={session.status} />
-                        </div>
+                        <h3 className="min-w-0 truncate text-base font-semibold text-secondary-900">{session.name}</h3>
                         <p className="text-xs leading-5 text-secondary-600">
                           {formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB
                         </p>
@@ -84,24 +80,30 @@ function KaptenTryoutSessionsPageModule({
                       </div>
                     </Link>
 
-                    <div className="flex min-w-0 items-center justify-end gap-2 sm:pl-2 sm:pr-1">
-                      {isPrimary ? (
-                        <Badge className="rounded-full px-2.5 py-1" size="ui" variant="mint">
-                          Sesi utama
-                        </Badge>
-                      ) : (
-                        <KaptenTryoutSessionPrimaryAction
-                          currentPrimaryName={currentPrimarySession?.name}
-                          disabled={!sessionReady}
-                          sessionId={session.id}
-                          sessionName={session.name}
-                        />
-                      )}
+                    <div className="flex min-w-0 items-center justify-end gap-2 sm:contents">
+                      <div className="flex shrink-0 items-center justify-end gap-2 px-2">
+                        {!sessionReady ? <span aria-label="Sesi belum siap" className="size-2 rounded-full bg-voyage-warm-sun" role="img" title="Sesi belum siap" /> : null}
+                        <StatusBadge status={session.status} />
+                      </div>
+                      <div className="flex shrink-0 items-center justify-end sm:pl-2 sm:pr-1">
+                        {isPrimary ? (
+                          <Badge className="rounded-full px-2.5 py-1" size="ui" variant="mint">
+                            Sesi utama
+                          </Badge>
+                        ) : (
+                          <KaptenTryoutSessionPrimaryAction
+                            currentPrimaryName={currentPrimarySession?.name}
+                            disabled={!sessionReady}
+                            sessionId={session.id}
+                            sessionName={session.name}
+                          />
+                        )}
+                      </div>
                       <Link
                         aria-label={`Buka sesi ${session.name}`}
                         className={isPrimary
-                          ? "flex size-10 shrink-0 items-center justify-center rounded-2xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35"
-                          : "flex size-10 shrink-0 items-center justify-center rounded-2xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40"}
+                          ? "flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35"
+                          : "flex size-10 shrink-0 items-center justify-center self-center justify-self-end rounded-2xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40"}
                         href={`${base}/${session.id}`}
                       >
                         <ChevronRight aria-hidden="true" />
