@@ -3,14 +3,7 @@ import { CalendarDays, ChevronRight, Plus } from "@/lib/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -61,37 +54,37 @@ function KaptenTryoutSessionsPageModule({
               return (
                 <Card
                   className={isPrimary
-                    ? "border border-primary-100 bg-primary-50/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] ring-0"
-                    : "border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0"}
+                    ? "border border-primary-100 bg-primary-50/70 py-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-2px_8px_rgba(23,107,77,0.08)] ring-0"
+                    : "border border-primary-100 bg-white py-0 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] ring-0"}
                   key={session.id}
                   size="sm"
                 >
-                  <div className="flex items-stretch">
+                  <div className="grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-0 sm:p-0">
                     <Link
                       className={isPrimary
-                        ? "group min-w-0 flex-1 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/35"
-                        : "group min-w-0 flex-1 transition-colors hover:bg-secondary-50 focus-visible:bg-secondary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/40"}
+                        ? "group min-w-0 transition-colors hover:bg-primary-50/80 focus-visible:bg-primary-50/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35 sm:px-5 sm:py-4"
+                        : "group min-w-0 transition-colors hover:bg-secondary-50 focus-visible:bg-secondary-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40 sm:px-5 sm:py-4"}
                       href={`${base}/${session.id}`}
                     >
-                      <CardHeader>
-                        <CardTitle className="text-base font-semibold">{session.name}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB
-                        </CardDescription>
-                        <CardAction className="flex items-center gap-2">
-                          {!sessionReady ? <span aria-label="Sesi belum siap" className="size-2 rounded-full bg-voyage-warm-sun" role="img" title="Sesi belum siap" /> : null}
+                      <div className="grid min-w-0 gap-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-secondary-900">{session.name}</h3>
+                          {!sessionReady ? <span aria-label="Sesi belum siap" className="size-2 shrink-0 rounded-full bg-voyage-warm-sun" role="img" title="Sesi belum siap" /> : null}
                           <StatusBadge status={session.status} />
-                        </CardAction>
-                      </CardHeader>
-                      {session.releasedAt ? (
-                        <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
-                          <span>Hasil dirilis</span>
-                          {session.assessmentRelease ? <span className="font-medium text-primary-800">Konten rilis {session.assessmentRelease.number}</span> : null}
-                        </CardContent>
-                      ) : null}
+                        </div>
+                        <p className="text-xs leading-5 text-secondary-600">
+                          {formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB
+                        </p>
+                        {session.releasedAt ? (
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-secondary-600">
+                            <span>Hasil dirilis</span>
+                            {session.assessmentRelease ? <span className="font-medium text-primary-800">Konten rilis {session.assessmentRelease.number}</span> : null}
+                          </div>
+                        ) : null}
+                      </div>
                     </Link>
 
-                    <div className="flex shrink-0 items-center justify-end gap-2 px-2 sm:px-3">
+                    <div className="flex min-w-0 items-center justify-end gap-2 sm:pl-2 sm:pr-1">
                       {isPrimary ? (
                         <Badge className="rounded-full px-2.5 py-1" size="ui" variant="mint">
                           Sesi utama
@@ -104,17 +97,16 @@ function KaptenTryoutSessionsPageModule({
                           sessionName={session.name}
                         />
                       )}
+                      <Link
+                        aria-label={`Buka sesi ${session.name}`}
+                        className={isPrimary
+                          ? "flex size-10 shrink-0 items-center justify-center rounded-2xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/35"
+                          : "flex size-10 shrink-0 items-center justify-center rounded-2xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/40"}
+                        href={`${base}/${session.id}`}
+                      >
+                        <ChevronRight aria-hidden="true" />
+                      </Link>
                     </div>
-
-                    <Link
-                      aria-label={`Buka sesi ${session.name}`}
-                      className={isPrimary
-                        ? "flex w-10 shrink-0 items-center justify-center rounded-r-4xl text-primary-700 transition-colors hover:bg-primary-100/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/35"
-                        : "flex w-10 shrink-0 items-center justify-center rounded-r-4xl text-secondary-400 transition-colors hover:bg-secondary-50 hover:text-secondary-700 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-primary-700/40"}
-                      href={`${base}/${session.id}`}
-                    >
-                      <ChevronRight aria-hidden="true" />
-                    </Link>
                   </div>
                 </Card>
               );

@@ -21,9 +21,8 @@ function KaptenTryoutAttemptsPageModule({ initial }: { initial: TryoutOperations
   const liveByAttemptId = useMemo(() => new Map(view.live.flatMap((item) => item.attemptId ? [[item.attemptId, item] as const] : [])), [view.live]);
 
   return (
-    <section className="grid gap-4" aria-labelledby="tryout-attempts-title">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <h2 className="text-xl font-semibold text-secondary-900" id="tryout-attempts-title">Attempts</h2>
+    <section className="grid gap-4" aria-label="Daftar attempt peserta">
+      <header className="flex justify-end">
         <TryoutRefreshToolbar
           ariaLabel="Refresh Attempts"
           onRefresh={retryRefresh}

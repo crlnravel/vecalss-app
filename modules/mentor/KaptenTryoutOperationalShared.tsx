@@ -175,13 +175,17 @@ function OptionSet<T extends string>({
           return (
             <Field
               className={cn(
-                "flex-row items-start rounded-2xl border border-secondary-900/14 bg-white p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50",
+                "flex-row gap-3 rounded-2xl border border-secondary-900/14 bg-white p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50",
+                option.description ? "items-start" : "items-center",
                 option.disabled && "cursor-not-allowed opacity-55",
               )}
               key={option.value}
             >
               <RadioGroupItem disabled={option.disabled} id={id} value={option.value} />
-              <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+              <div className={cn(
+                "flex min-w-0 flex-1 justify-between gap-3",
+                option.description ? "items-start" : "items-center",
+              )}>
                 <FieldLabel className={cn("min-w-0 flex-1 cursor-pointer text-sm font-medium leading-5", option.disabled && "cursor-not-allowed")} htmlFor={id}>
                   {option.label}
                   {option.description ? (
