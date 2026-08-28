@@ -17,6 +17,9 @@ import { CourseWorkspaceShell } from "@/modules/courses/CourseWorkspaceShell";
 
 import { type QuizItem, type QuizSubject } from "./data";
 
+const QUIZ_BADGE_CLASS_NAME =
+  "border-0 font-medium shadow-[inset_0_-2px_0_rgba(1,76,56,0.08)]";
+
 function QuizSubjectDetailPageModule({
   notificationFeed,
   session,
@@ -58,9 +61,13 @@ function QuizSubjectDetailPageModule({
 
           <div className="relative z-10 grid gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center md:px-10 md:py-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="max-w-[42rem]">
-              <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-extrabold tracking-[0.14em] text-primary-100">
+              <StudentBadge
+                className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]`}
+                size="sm"
+                tone="category"
+              >
                 {subject.code}
-              </span>
+              </StudentBadge>
               <h1 className="mt-6 text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
                 {subject.description}
               </h1>
@@ -70,14 +77,22 @@ function QuizSubjectDetailPageModule({
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3 text-sm font-bold">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5">
-                  <ListChecks className="size-4 text-primary-200" />
+                <StudentBadge
+                  className={QUIZ_BADGE_CLASS_NAME}
+                  size="md"
+                  tone="neutral"
+                >
+                  <ListChecks className="size-4 text-primary-700" />
                   {subject.quizzes.length} paket
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5">
-                  <BookOpenCheck className="size-4 text-primary-200" />
+                </StudentBadge>
+                <StudentBadge
+                  className={QUIZ_BADGE_CLASS_NAME}
+                  size="md"
+                  tone="neutral"
+                >
+                  <BookOpenCheck className="size-4 text-primary-700" />
                   {totalQuestions} soal
-                </span>
+                </StudentBadge>
               </div>
             </div>
 
@@ -143,16 +158,7 @@ function QuizSubjectDetailPageModule({
 function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
   const hasReviewableResult = Boolean(quiz.isCompleted && quiz.latestAttemptId);
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-[linear-gradient(180deg,#eef8f1_0%,#dcefe2_100%)] text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] motion-reduce:transition-none">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-[-18%] top-0 h-36 rounded-[50%] bg-white/65 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.25)_0%,rgba(183,221,195,0.08)_42%,rgba(47,138,93,0.08)_100%)]"
-      />
-
+    <article className="group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-primary-200 bg-white text-left text-primary-900 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.52)] transition-[border-color,box-shadow] duration-300 hover:border-primary-200 hover:shadow-[0_24px_52px_-30px_rgba(23,107,77,0.55)] motion-reduce:transition-none">
       <div className="relative z-10 flex flex-col p-3 sm:p-4 md:p-5">
         <h3 className="line-clamp-2 max-w-[20ch] font-heading text-xl leading-[1.1] font-extrabold tracking-[-0.03em]">
           {quiz.title}
@@ -163,21 +169,33 @@ function QuizCard({ quiz, subject }: { quiz: QuizItem; subject: QuizSubject }) {
 
         <div className="mt-3 flex flex-wrap gap-2">
           {quiz.duration ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-900/10 bg-white/65 px-3.5 py-2 text-xs font-medium text-primary-900">
+            <StudentBadge
+              className={QUIZ_BADGE_CLASS_NAME}
+              size="sm"
+              tone="neutral"
+            >
               <Clock3 className="size-4" />
               {quiz.duration}
-            </span>
+            </StudentBadge>
           ) : null}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-900/10 bg-white/65 px-3.5 py-2 text-xs font-medium text-primary-900">
+          <StudentBadge
+            className={QUIZ_BADGE_CLASS_NAME}
+            size="sm"
+            tone="neutral"
+          >
             <ListChecks className="size-4" />
             {quiz.questionCount} soal
-          </span>
-          <StudentBadge className="bg-white/70 text-xs" size="md" tone="category">
+          </StudentBadge>
+          <StudentBadge
+            className={QUIZ_BADGE_CLASS_NAME}
+            size="sm"
+            tone="category"
+          >
             {quiz.difficulty}
           </StudentBadge>
           <StudentBadge
-            className="bg-white/70 text-xs"
-            size="md"
+            className={QUIZ_BADGE_CLASS_NAME}
+            size="sm"
             tone={quizStatusTone(quiz.status)}
           >
             {quizStatusLabel(quiz.status)}
