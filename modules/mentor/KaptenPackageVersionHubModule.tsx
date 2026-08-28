@@ -1,5 +1,11 @@
 import Link from "next/link";
 
+import {
+  ReferencePageHeader,
+  ReferenceSectionHeading,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Pencil } from "@/lib/icons";
 import { packageReleaseLabel } from "@/lib/tryout/version-label";
@@ -60,22 +66,18 @@ function packagePointsLabel(points: number) {
 }
 
 function PackageAvailabilityPill({ availability }: { availability: Hub["availability"] }) {
-  return (
-    <span className={availability === "ready" ? "inline-flex rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800" : "inline-flex rounded-full border border-[#ead9a5] bg-[#fff8df] px-3 py-1 text-xs font-semibold text-[#856300]"}>
-      {availability === "ready" ? "Siap" : "Draf"}
-    </span>
-  );
+  return <ReferenceStatusBadge label={availability === "ready" ? "Siap" : "Draf"} size="xs" status={availability} tone={availability === "ready" ? "success" : "attention"} />;
 }
 
 function PackageCompletionState({ hub }: { hub: Hub }) {
   if (!hub.activeVersionNo) return null;
 
   return (
-    <section aria-labelledby="package-release-complete-heading" className="rounded-3xl border border-primary-200 bg-primary-50/60 p-5 sm:p-6" role="status">
+    <ReferenceSurface as="section" aria-labelledby="package-release-complete-heading" className="p-5 sm:p-6" role="status" variant="inset">
       <h2 className="text-xl font-semibold text-secondary-900" id="package-release-complete-heading">Versi aktif tersimpan</h2>
       <p className="mt-1 text-sm leading-6 text-secondary-700">{hub.title} · {packageReleaseLabel(hub.activeVersionNo)} sudah menjadi versi aktif.</p>
       <p className="mt-3 text-sm font-semibold text-secondary-900">{hub.activeItemCount} soal · {packagePointsLabel(hub.activeTotalPoints)} poin</p>
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -84,23 +86,22 @@ function PackageOverviewFeedback({ feedback, hub }: { feedback: HubFeedback; hub
   if (!feedback.savedDraft) return null;
 
   return (
-    <section aria-live="polite" className="rounded-3xl border border-primary-200 bg-primary-50/60 p-5 sm:p-6" role="status">
+    <ReferenceSurface as="section" aria-live="polite" className="p-5 sm:p-6" role="status" variant="inset">
       <h2 className="text-xl font-semibold text-secondary-900">Draf tersimpan</h2>
       <p className="mt-1 text-sm leading-6 text-secondary-700">Perubahan Paket Soal tersimpan sebagai draf. {hub.activeVersionNo ? `${packageReleaseLabel(hub.activeVersionNo)} tetap menjadi versi aktif sampai perubahan diterapkan.` : "Siapkan versi pertama saat Anda sudah selesai meninjau soal dan poin."}</p>
-    </section>
+    </ReferenceSurface>
   );
 }
 
 function PackageVersionHistory({ hub }: { hub: Hub }) {
   return (
-    <section aria-labelledby="package-version-history-heading" className="mt-6 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-secondary-900" id="package-version-history-heading">Riwayat versi</h2>
-          <p className="mt-1 text-sm leading-6 text-secondary-500">Buka versi tersimpan untuk melihat soal. Membuka riwayat tidak mengubah versi aktif.</p>
-        </div>
-        <span className="text-xs font-semibold text-secondary-500">{hub.versions.length} versi</span>
-      </div>
+    <ReferenceSurface as="section" aria-labelledby="package-version-history-heading" className="mt-6 p-5 sm:p-7">
+      <ReferenceSectionHeading
+        action={<span className="text-xs font-semibold text-secondary-500">{hub.versions.length} versi</span>}
+        description="Buka versi tersimpan untuk melihat soal. Membuka riwayat tidak mengubah versi aktif."
+        id="package-version-history-heading"
+        title="Riwayat versi"
+      />
       {hub.versions.length ? (
         <ol className="mt-5 divide-y divide-primary-100 border-y border-primary-100">
           {hub.versions.map((version) => {
@@ -123,7 +124,7 @@ function PackageVersionHistory({ hub }: { hub: Hub }) {
           })}
         </ol>
       ) : <p className="mt-5 rounded-2xl border border-dashed border-primary-200 px-4 py-5 text-sm leading-6 text-secondary-600">Belum ada versi Ready. Siapkan versi pertama saat soal dan poin sudah siap.</p>}
-    </section>
+    </ReferenceSurface>
   );
 }
 
@@ -132,52 +133,46 @@ function KaptenPackageVersionHubModule({ feedback = {}, hub }: { feedback?: HubF
   const editorLabel = hub.availability === "draft" ? "Siapkan versi pertama" : hub.hasDraftChanges ? "Lanjutkan perubahan" : "Edit soal dan poin";
 
   return (
-    <div className="w-full min-w-0">
+    <div className="w-full min-w-0 space-y-5">
       <Button aria-label="Kembali ke daftar Paket Soal" nativeButton={false} render={<Link href="/mentor/packages" />} size="icon" title="Kembali ke daftar Paket Soal" variant="ghost"><ChevronLeft /></Button>
 
-      <header className="mt-3 rounded-3xl border border-primary-100 bg-white p-5 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-3xl font-semibold tracking-[-0.03em] text-secondary-900">{hub.title}</h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <PackageAvailabilityPill availability={hub.availability} />
-              {hub.hasDraftChanges ? <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">Perubahan draf</span> : null}
-            </div>
-          </div>
-          <Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="brandOutline"><Pencil /></Button>
-        </div>
-        {hub.description ? <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary-600">{hub.description}</p> : null}
-        <dl className="mt-6 grid gap-4 border-t border-primary-100 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <ReferencePageHeader
+        actions={<div className="flex flex-wrap items-center gap-2"><PackageAvailabilityPill availability={hub.availability} />{hub.hasDraftChanges ? <ReferenceStatusBadge label="Perubahan draf" size="xs" status="need_help" /> : null}<Button aria-label="Edit nama dan deskripsi Paket" nativeButton={false} render={<Link href={`/mentor/packages/${hub.id}/edit`} />} size="icon" title="Edit nama dan deskripsi Paket" variant="reference"><Pencil /></Button></div>}
+        description={hub.description || undefined}
+        title={hub.title}
+      />
+      <ReferenceSurface as="section" aria-label="Ringkasan Paket Soal" className="p-5 sm:p-7">
+        <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div><dt className="text-secondary-500">Bank sumber</dt><dd className="mt-1 truncate font-semibold text-secondary-900" title={hub.sourceBankName}>{hub.sourceBankName}</dd></div>
           <div><dt className="text-secondary-500">Subtest</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.subtest}</dd></div>
           {hub.activeVersionNo ? <div><dt className="text-secondary-500">Versi aktif</dt><dd className="mt-1 font-semibold text-secondary-900">{packageReleaseLabel(hub.activeVersionNo)} · {hub.activeItemCount} soal · {packagePointsLabel(hub.activeTotalPoints)} poin</dd></div> : <div><dt className="text-secondary-500">Isi draf</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.draftItemCount} soal · {packagePointsLabel(hub.draftTotalPoints)} poin</dd></div>}
         </dl>
         {hub.hasDraftChanges && hub.activeVersionNo ? (
-          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950" role="note">
+          <ReferenceSurface as="div" className="mt-5 px-4 py-3 text-sm leading-6 text-student-status-attention-fg" role="note" variant="inset">
             <p><span className="font-semibold">{packageReleaseLabel(hub.activeVersionNo)} tetap aktif.</span> {hub.usageCount > 0 ? "Tryout yang sudah ada tetap menggunakan versi aktif sampai perubahan diterapkan." : "Versi aktif tetap tidak berubah sampai perubahan diterapkan."}</p>
             <p className="mt-1">Perubahan draf: {hub.draftItemCount} soal · {packagePointsLabel(hub.draftTotalPoints)} poin. Pilih <span className="font-semibold">Terapkan perubahan</span> di editor saat sudah siap.</p>
-          </div>
+          </ReferenceSurface>
         ) : null}
-      </header>
+      </ReferenceSurface>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,.55fr)]">
-        <section aria-labelledby="package-actions-heading" className="rounded-3xl border border-primary-200 bg-primary-50/45 p-5 sm:p-6">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,.55fr)]">
+        <ReferenceSurface as="section" aria-labelledby="package-actions-heading" className="p-5 sm:p-6" variant="inset">
           <h2 className="text-xl font-semibold text-secondary-900" id="package-actions-heading">Langkah berikutnya</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-secondary-600">{hub.availability === "draft" ? "Tinjau soal dan poin, lalu siapkan versi pertama." : hub.hasDraftChanges ? "Lanjutkan perubahan yang tersimpan." : "Edit soal dan poin untuk menyiapkan pembaruan."}</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button nativeButton={false} render={<Link href={editorHref} />} size="sm" variant="brand">{editorLabel}<ChevronRight /></Button>
+            <Button nativeButton={false} render={<Link href={editorHref} />} size="sm" variant="reference">{editorLabel}<ChevronRight /></Button>
           </div>
-        </section>
+        </ReferenceSurface>
 
         {hub.hasDraftChanges && hub.activeVersionNo ? (
-          <section aria-labelledby="package-draft-summary-heading" className="rounded-3xl border border-amber-200 bg-amber-50/70 p-5 sm:p-6">
-            <h2 className="font-semibold text-amber-950" id="package-draft-summary-heading">Perubahan draf</h2>
-            <dl className="mt-4 grid gap-3 text-sm"><div><dt className="text-amber-900/75">Versi aktif · {packageReleaseLabel(hub.activeVersionNo)}</dt><dd className="mt-1 font-semibold text-amber-950">{hub.activeItemCount} soal · {packagePointsLabel(hub.activeTotalPoints)} poin</dd></div><div><dt className="text-amber-900/75">Perubahan draf</dt><dd className="mt-1 font-semibold text-amber-950">{hub.draftItemCount} soal · {packagePointsLabel(hub.draftTotalPoints)} poin</dd></div></dl>
-          </section>
+          <ReferenceSurface as="section" aria-labelledby="package-draft-summary-heading" className="p-5 sm:p-6" variant="inset">
+            <h2 className="font-semibold text-secondary-900" id="package-draft-summary-heading">Perubahan draf</h2>
+            <dl className="mt-4 grid gap-3 text-sm"><div><dt className="text-secondary-500">Versi aktif · {packageReleaseLabel(hub.activeVersionNo)}</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.activeItemCount} soal · {packagePointsLabel(hub.activeTotalPoints)} poin</dd></div><div><dt className="text-secondary-500">Perubahan draf</dt><dd className="mt-1 font-semibold text-secondary-900">{hub.draftItemCount} soal · {packagePointsLabel(hub.draftTotalPoints)} poin</dd></div></dl>
+          </ReferenceSurface>
         ) : null}
       </div>
 
-      <div className="mt-6"><PackageOverviewFeedback feedback={feedback} hub={hub} /></div>
+      <div><PackageOverviewFeedback feedback={feedback} hub={hub} /></div>
       <PackageVersionHistory hub={hub} />
     </div>
   );

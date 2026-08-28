@@ -4,10 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import {
+  ReferencePageHeader,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import type { DataTableColumn, DataTableFilter } from "@/components/ui/data-table";
 import { ChevronRight, PackageCheck, Plus } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { DropdownField } from "@/modules/mentor/components/kapten-ui";
 import { MentorCatalogueTable } from "@/modules/mentor/components/mentor-catalogue-table";
 import { kaptenSubjects } from "@/modules/mentor/mock-data";
 
@@ -153,18 +161,27 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
     <div className="space-y-3 p-1">
       <label className="block space-y-1.5 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="package-subtest-filter">
         <span>Subtest</span>
-        <select className="min-h-10 w-full rounded-lg border border-primary-100 bg-white px-3 text-sm font-normal tracking-normal text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="package-subtest-filter" onChange={(event) => navigateCatalogue(catalogueHref(query, 1, status, event.target.value))} value={subtest}>
-          <option value="">Semua Subtest</option>
-          {kaptenSubjects.map((subject) => <option key={subject.code} value={subject.code}>{subject.code} · {subject.name}</option>)}
-        </select>
+        <DropdownField
+          ariaLabel="Filter Subtest"
+          className={REFERENCE_CONTROL_CLASS_NAMES.select}
+          id="package-subtest-filter"
+          onValueChange={(value) => navigateCatalogue(catalogueHref(query, 1, status, value))}
+          options={kaptenSubjects.map((subject) => ({ label: `${subject.code} · ${subject.name}`, value: subject.code }))}
+          placeholder="Semua Subtest"
+          value={subtest}
+        />
       </label>
       <label className="block space-y-1.5 text-xs font-semibold tracking-[0.02em] text-secondary-500" htmlFor="package-status-filter">
         <span>Status</span>
-        <select className="min-h-10 w-full rounded-lg border border-primary-100 bg-white px-3 text-sm font-normal tracking-normal text-secondary-900 outline-none focus:border-primary-300 focus:ring-3 focus:ring-primary-100" id="package-status-filter" onChange={(event) => navigateCatalogue(catalogueHref(query, 1, event.target.value, subtest))} value={status}>
-          <option value="">Semua status</option>
-          <option value="draft">Draf</option>
-          <option value="ready">Siap</option>
-        </select>
+        <DropdownField
+          ariaLabel="Filter Status"
+          className={REFERENCE_CONTROL_CLASS_NAMES.select}
+          id="package-status-filter"
+          onValueChange={(value) => navigateCatalogue(catalogueHref(query, 1, value, subtest))}
+          options={[{ label: "Draf", value: "draft" }, { label: "Siap", value: "ready" }]}
+          placeholder="Semua status"
+          value={status}
+        />
       </label>
     </div>
   );
@@ -184,10 +201,11 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
 
   return (
     <div className="space-y-8">
-      <section className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-4xl leading-tight font-semibold text-secondary-900 md:text-5xl">Paket Soal</h1>
-        <Button aria-label="Buat Paket Soal" nativeButton={false} render={<Link href="/mentor/packages/create" />} size="icon-sm" title="Buat Paket Soal" variant="brand"><Plus /></Button>
-      </section>
+      <ReferencePageHeader
+        actions={<Button nativeButton={false} render={<Link href="/mentor/packages/create" />} size="sm" variant="brand"><Plus />Buat Paket Soal</Button>}
+        description="Kelola paket soal yang siap digunakan dalam Tryout."
+        title="Paket Soal"
+      />
 
       <div className="min-w-0">
         <MentorCatalogueTable
@@ -204,20 +222,21 @@ function KaptenPackageCataloguePageModule({ items, page, query, status, subtest,
           rows={items}
           search={{ action: "/mentor/packages", clearHref: catalogueHref("", 1, status, subtest), hiddenFields: { ...(status ? { status } : {}), ...(subtest ? { subtest } : {}) }, label: "Cari Paket Soal", placeholder: "Cari judul, deskripsi, atau Subtest…", value: query }}
           tableClassName="min-w-0"
+          wrapperClassName={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0")}
         />
 
         {totalItems ? (
           <nav aria-label="Paginasi paket soal" className="flex items-center justify-center gap-2 pt-2">
             {previousPageHref ? (
-              <Button aria-label="Halaman sebelumnya" nativeButton={false} render={<Link href={previousPageHref} />} size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
+              <Button aria-label="Halaman sebelumnya" nativeButton={false} render={<Link href={previousPageHref} />} size="icon-sm" type="button" variant="reference"><ChevronRight className="rotate-180" /></Button>
             ) : (
-              <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" type="button" variant="brandOutline"><ChevronRight className="rotate-180" /></Button>
+              <Button aria-label="Halaman sebelumnya" disabled size="icon-sm" type="button" variant="reference"><ChevronRight className="rotate-180" /></Button>
             )}
             <span aria-current="page" className="text-sm text-secondary-500">Halaman {page} dari {totalPages}</span>
             {nextPageHref ? (
-              <Button aria-label="Halaman berikutnya" nativeButton={false} render={<Link href={nextPageHref} />} size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
+              <Button aria-label="Halaman berikutnya" nativeButton={false} render={<Link href={nextPageHref} />} size="icon-sm" type="button" variant="reference"><ChevronRight /></Button>
             ) : (
-              <Button aria-label="Halaman berikutnya" disabled size="icon-sm" type="button" variant="brandOutline"><ChevronRight /></Button>
+              <Button aria-label="Halaman berikutnya" disabled size="icon-sm" type="button" variant="reference"><ChevronRight /></Button>
             )}
           </nav>
         ) : null}

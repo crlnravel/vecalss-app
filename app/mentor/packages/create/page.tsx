@@ -14,5 +14,5 @@ export default async function CreatePackagePage() {
     listQuestionBankCategories(),
   ]);
 
-  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Buat Paket Soal" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false}><KaptenPackageBuilderPageModule sourceCatalogPage={sourcePage} sourceCategories={sourceCategories} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Paket Soal" breadcrumbLabel="Buat Paket Soal" contentElement="div" mainClassName="max-w-none" searchPlaceholder="Cari Paket Soal..." session={session} showSearch={false} sidebarAppearance="reference"><KaptenPackageBuilderPageModule sourceCatalogPage={sourcePage} sourceCategories={sourceCategories} /></MentorWorkspaceShell>;
 }
