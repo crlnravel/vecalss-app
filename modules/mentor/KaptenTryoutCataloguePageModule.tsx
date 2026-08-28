@@ -96,8 +96,9 @@ function TryoutCard({ item }: { item: TryoutItem }) {
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold text-secondary-900">{item.title}</h2>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <ReferenceStatusBadge size="sm" status={item.status} />
+            <ReferenceStatusBadge appearance="mentor" size="sm" status={item.status} />
             {item.locked ? <ReferenceStatusBadge
+              appearance="mentor"
               label={(
                 <span aria-label="Tryout terkunci" className="inline-flex items-center gap-1" title="Tryout terkunci">
                   <Lock aria-hidden="true" className="size-3" />

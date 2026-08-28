@@ -826,7 +826,7 @@ function useQuestionBankCatalogueState({
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
         <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.subjectCoverage.join(" · ")}>
-          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <MentorBadge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="xs" tone="category">{subject}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
+          {row.bank.subjectCoverage.length ? row.bank.subjectCoverage.map((subject) => <MentorBadge className="min-w-0 max-w-[8rem] shrink-0 truncate" key={subject} size="compact" tone="category">{subject}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
         </div>
       ),
       headerClassName: "min-w-[9rem]",
@@ -837,7 +837,7 @@ function useQuestionBankCatalogueState({
     {
       cell: (row) => row.kind === "folder" ? <span className="text-sm text-secondary-400">—</span> : (
         <div className="flex max-h-14 min-w-0 max-w-full flex-wrap content-start items-start gap-1.5 overflow-hidden" title={row.bank.categories.map((category) => category.name).join(" · ")}>
-          {row.bank.categories.length ? row.bank.categories.map((category) => <MentorBadge className="min-w-0 max-w-[10rem] shrink-0 truncate" key={category.id} size="xs" tone="category">{category.name}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
+          {row.bank.categories.length ? row.bank.categories.map((category) => <MentorBadge className="min-w-0 max-w-[10rem] shrink-0 truncate" key={category.id} size="compact" tone="category">{category.name}</MentorBadge>) : <span className="text-sm text-secondary-400">—</span>}
         </div>
       ),
       headerClassName: "min-w-[10rem]",

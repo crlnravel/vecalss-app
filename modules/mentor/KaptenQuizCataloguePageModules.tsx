@@ -200,7 +200,7 @@ function QuizRow({ onSelectedChange, quiz, selectionMode, selected }: { onSelect
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h2 className="truncate font-semibold text-secondary-900">{quiz.title}</h2>
-            <ReferenceStatusBadge size="xs" status={quiz.status} />
+            <ReferenceStatusBadge appearance="mentor" size="xs" status={quiz.status} />
           </div>
         </div>
         <ChevronRight aria-hidden className="size-5 shrink-0 text-secondary-400 transition-transform group-hover/link:translate-x-0.5" />

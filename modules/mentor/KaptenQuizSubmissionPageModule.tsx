@@ -35,7 +35,7 @@ function KaptenQuizSubmissionPageModule({ submission }: { submission: Submission
         className="min-w-0 flex-1"
         description={(
           <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <ReferenceStatusBadge label={isSubmitted ? "Terkirim" : "Sedang dikerjakan"} size="xs" status={isSubmitted ? "completed" : "in_progress"} />
+            <ReferenceStatusBadge appearance="mentor" label={isSubmitted ? "Terkirim" : "Sedang dikerjakan"} size="xs" status={isSubmitted ? "completed" : "in_progress"} />
             <span>{submission.quiz.title}</span>
           </span>
         )}

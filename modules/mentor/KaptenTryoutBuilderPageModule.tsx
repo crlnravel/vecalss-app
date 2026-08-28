@@ -1674,7 +1674,7 @@ function KaptenTryoutBuilderPageModule({
           description={(
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>{mode === "published" ? "Kelola akses, sesi, dan hasil untuk Tryout ini." : "Susun konfigurasi Tryout sebelum diterbitkan."}</span>
-              <ReferenceStatusBadge size="xs" status={mode === "published" ? "published" : "draft"} />
+              <ReferenceStatusBadge appearance="mentor" size="xs" status={mode === "published" ? "published" : "draft"} />
             </span>
           )}
           title={mode === "published" ? "Detail Tryout" : id ? "Edit Tryout" : "Buat Tryout"}

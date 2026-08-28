@@ -10,6 +10,7 @@ import {
   Zap,
 } from "@/lib/icons";
 import { MentorBadge } from "@/components/ui/mentor-badge";
+import { StudentBadge } from "@/components/ui/student-badge";
 import { cn } from "@/lib/utils";
 
 import {
@@ -306,12 +307,14 @@ function ReferenceStatCard({
 }
 
 function ReferenceStatusBadge({
+  appearance = "reference",
   className,
   label,
   size = "sm",
   status,
   tone,
 }: {
+  appearance?: "mentor" | "reference";
   className?: string;
   label?: ReactNode;
   size?: "sm" | "xs";
@@ -319,15 +322,16 @@ function ReferenceStatusBadge({
   tone?: ReferenceStatusTone;
 }) {
   const resolvedTone = tone ?? resolveStatusTone(status);
+  const Badge = appearance === "mentor" ? MentorBadge : StudentBadge;
 
   return (
-    <MentorBadge
+    <Badge
       className={className}
       size={size}
       tone={resolvedTone}
     >
       {label ?? formatStatusLabel(status)}
-    </MentorBadge>
+    </Badge>
   );
 }
 

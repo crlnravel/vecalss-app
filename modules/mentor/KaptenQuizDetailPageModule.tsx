@@ -77,7 +77,7 @@ function settingsFromQuiz(quiz: KaptenQuiz): SettingsForm {
 }
 
 function StatusPill({ status }: { status: KaptenQuiz["status"] }) {
-  return <ReferenceStatusBadge size="xs" status={status} />;
+  return <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />;
 }
 
 function QuizPreview({ quizId, questions, subjectCode }: { quizId: string; questions: QuizQuestionSnapshot[]; subjectCode: string }) {
