@@ -1,5 +1,22 @@
 # Session Progress Log
 
+## Mentor dashboard activity feed refinement (2026-08-28)
+
+- [x] Removed the decorative green marker before `Aktivitas terbaru` on the
+  mentor dashboard only.
+- [x] Reduced activity rows to a stacked title and resource type plus the
+  existing timestamp; subject labels and verbose resource descriptions are no
+  longer rendered there.
+- [x] Matched activity entry icon tiles to the student Materi mint gradient,
+  forest-green icon color, and inset edge shadow without changing shared
+  reference primitives.
+- [x] Focused ESLint, `test:mentor-dashboard-ia`, and `git diff --check` pass.
+  `pnpm build` reaches an unrelated concurrent syntax error in
+  `modules/mentor/KaptenQuizDetailPageModule.tsx:315`.
+- [x] Browser QA was skipped because the active harness requires explicit
+  permission and the coordinating agent requested no browser check.
+- [x] Commit: `f4e786d` (`fix: simplify mentor activity feed`).
+
 ## Mentor dashboard summary cleanup (2026-08-28)
 
 - [x] Removed the three top summary cards (`Materi terbaru`, `Kuis terbaru`,

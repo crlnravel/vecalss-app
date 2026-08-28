@@ -1,5 +1,27 @@
 # Session Handoff
 
+## Mentor dashboard activity feed refinement (2026-08-28)
+
+- Objective: make the mentor dashboard's `Aktivitas terbaru` feed quieter and
+  easier to scan while preserving its links and timestamps.
+- Implementation: `f4e786d` keeps the shared `ReferenceActivityFeed` intact but
+  scopes presentation changes to `MentorDashboardPageModule.tsx`: the header
+  marker is hidden, activity data contains only title/type/timestamp, and row
+  icon tiles use the student Materi mint gradient and inset shadow. Subject
+  labels and verbose descriptions are removed from activity rows only; task
+  cards retain their existing summaries.
+- Verification: focused ESLint, `test:mentor-dashboard-ia`, and
+  `git diff --check` pass. `pnpm build` is blocked by a concurrent syntax
+  error in `modules/mentor/KaptenQuizDetailPageModule.tsx:315`; that file was
+  not modified.
+- Browser QA: intentionally skipped because the active harness requires
+  explicit permission before ego-browser verification and the coordinating
+  agent requested no browser check.
+- Scope: only the mentor dashboard activity presentation changed; shared
+  reference primitives and the Bank Soal/Materi agent-owned page groups remain
+  untouched. Existing `.agents/skills/information-architecture/` remains
+  untracked and untouched.
+
 ## Mentor dashboard summary cleanup (2026-08-28)
 
 - Objective: remove the top summary-card section from the mentor dashboard.
