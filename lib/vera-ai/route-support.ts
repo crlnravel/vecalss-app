@@ -8,6 +8,9 @@ import { VeraPrismaAdmissionService } from "./admission-service";
 import { createPrismaVeraContextResolver } from "./prisma-context-resolver";
 import { VeraPrismaChatOrchestrator, readPrismaVeraRequestStatus } from "./prisma-chat-orchestrator";
 import { createDefaultProviderAdapter, MockProviderAdapter } from "./provider";
+import { createVeraOpenRouterFreePocProviderAdapter } from "./openrouter-free-poc-provider";
+import { evaluateVeraOpenRouterFreePocGate } from "./openrouter-free-poc";
+import type { VeraProviderAdapter } from "./provider";
 import { IORedisVeraLeaseStore } from "./redis-lease";
 import type { VeraRequestStatusDto } from "./admission";
 import { VeraLearnerService } from "./learner-service";
@@ -22,6 +25,24 @@ let cachedLearnerService: VeraLearnerService | null = null;
 let cachedArtifactCommandService: VeraArtifactCommandService | null = null;
 let cachedDrillService: VeraDrillService | null = null;
 let cachedLifecycleService: VeraLifecycleService | null = null;
+
+/**
+ * Select the only dev POC provider ahead of the normal mock/default chain.
+ * The POC adapter performs the complete explicit environment gate itself;
+ * this helper exists so route tests can verify selection without constructing
+ * a Prisma orchestrator or invoking any provider transport.
+ */
+export function selectVeraChatProvider(env: NodeJS.ProcessEnv = process.env): VeraProviderAdapter {
+  const poc = createVeraOpenRouterFreePocProviderAdapter({ env });
+  if (poc.enabled) return poc;
+  if (env.VERA_MOCK_PROVIDER_ENABLED === "true") return new MockProviderAdapter();
+  return createDefaultProviderAdapter(env);
+}
+
+export function veraProviderAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (evaluateVeraOpenRouterFreePocGate(env).enabled) return true;
+  return env.VERA_LIVE_PROVIDER_ENABLED === "true" && Boolean(env.VERA_PROVIDER_RELEASE_MANIFEST);
+}
 
 export function getVeraLifecycleService(): VeraLifecycleService {
   if (cachedLifecycleService) return cachedLifecycleService;
@@ -60,9 +81,7 @@ export function getVeraChatOrchestrator(): VeraPrismaChatOrchestrator {
   if (cachedOrchestrator) return cachedOrchestrator;
   const hmacSecret = process.env.VERA_IDEMPOTENCY_HMAC_SECRET;
   if (!hmacSecret?.trim()) throw new VeraAdmissionError({ code: "idempotency_config_missing", status: 503 });
-  const provider = process.env.VERA_MOCK_PROVIDER_ENABLED === "true"
-    ? new MockProviderAdapter()
-    : createDefaultProviderAdapter();
+  const provider = selectVeraChatProvider();
   const disposableRedisUrl = process.env.VERA_DISPOSABLE_REDIS_URL?.trim() || process.env.REDIS_URL?.trim();
   const disposableRouteLease = process.env.NODE_ENV !== "production"
     && process.env.VERA_DISPOSABLE_DB_ACK === "1"
@@ -111,7 +130,7 @@ export async function readVeraUsageDto(studentId: string, db: typeof prisma = pr
       quotaDebtUnits: ledger?.quotaDebtUnits ?? 0,
       quotaOverrunLockUntil: ledger?.quotaOverrunLockUntil ?? null,
       rawTokenUsageState: "unknown",
-      providerAvailable: process.env.VERA_LIVE_PROVIDER_ENABLED === "true" && Boolean(process.env.VERA_PROVIDER_RELEASE_MANIFEST),
+      providerAvailable: veraProviderAvailable(),
       redisAvailable: Boolean(process.env.REDIS_URL),
     };
   });

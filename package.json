@@ -52,6 +52,7 @@
     "test:vera-idempotency-conversation": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-idempotency-conversation.ts",
     "test:vera-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-provider.ts",
     "test:vera-openrouter-poc": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-openrouter-poc.ts",
+    "test:vera-openrouter-free-provider": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-openrouter-free-provider.ts",
     "test:vera-sprint2": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-sprint2.ts",
     "test:vera-redis-sprint2": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-redis-sprint2.ts",
     "test:vera-prisma-sprint2": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-vera-prisma-sprint2.ts",

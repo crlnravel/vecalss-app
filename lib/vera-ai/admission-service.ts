@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 
 import {
   AiConversationType,
+  AiAttemptResultKind,
+  AiAttemptState,
   AiContentLifecycleState,
   AiIdempotencyOperation,
   AiIdempotencyResultKind,
@@ -27,7 +29,7 @@ import { VERA_FINGERPRINT_KEY_VERSION, sha256Hex } from "./contracts";
 import { resolveVeraQuotaLimit, snapshotVeraPolicy, type BillingPlan, type VeraPolicyBundle, type VeraPolicySnapshot } from "./policy";
 import { quotaDateAndDayEnd } from "./quota";
 import type { NormalizedVeraResult } from "./output-validator";
-import type { PreparedProviderTask } from "./provider";
+import type { PreparedProviderTask, ProviderResult } from "./provider";
 import {
   VeraDurableResultError,
   createVeraDurableResultCallback,
@@ -618,6 +620,8 @@ export class VeraPrismaAdmissionService {
     requestId: string;
     result: NormalizedVeraResult;
     encryptedResult: AiEncryptedPayload;
+    preparedProviderTask?: PreparedProviderTask;
+    providerResult?: ProviderResult;
     outputSchemaId?: string;
     outputSchemaHash?: string;
     now?: Date;
@@ -675,11 +679,59 @@ export class VeraPrismaAdmissionService {
           quotaUnitsConsumed: input.result.usage.quotaUnitsConsumed,
           tokenUsageState: input.result.usage.tokenUsageState as AiTokenUsageState,
           settlementKind: input.result.usage.quotaUnitsConsumed === null ? AiSettlementKind.conservative_reservation : AiSettlementKind.result,
+          providerRequestRef: input.providerResult?.attempts[0]?.providerRequestRef ?? null,
+          gateway: input.preparedProviderTask?.gateway ?? null,
+          upstreamProvider: input.preparedProviderTask?.upstreamProvider ?? null,
+          upstreamProviderSlug: input.preparedProviderTask?.upstreamProviderSlug ?? null,
+          model: input.providerResult?.providerMetadata?.selectedModel ?? input.preparedProviderTask?.model ?? null,
           stagedAt: now,
           expiresAt: stageExpiresAt,
           retentionPolicyVersion: request.retentionPolicyVersion ?? "unknown",
         },
       });
+      if (input.preparedProviderTask && input.providerResult) {
+        const resolvedModel = input.providerResult.providerMetadata?.selectedModel ?? input.preparedProviderTask.model;
+        const resolvedProvider = input.providerResult.providerMetadata?.providerIdentity
+          ?? input.providerResult.attempts.find((attempt) => attempt.observedUpstreamProviderSlug)?.observedUpstreamProviderSlug
+          ?? null;
+        await tx.aiRequestAttempt.createMany({
+          data: input.providerResult.attempts.map((attempt) => ({
+            requestId: input.requestId,
+            attemptNo: attempt.attemptNo,
+            gateway: input.preparedProviderTask!.gateway,
+            upstreamProvider: input.preparedProviderTask!.upstreamProvider,
+            upstreamProviderSlug: input.preparedProviderTask!.upstreamProviderSlug,
+            model: resolvedModel,
+            providerIdempotencyKey: null,
+            observedUpstreamProviderSlug: attempt.observedUpstreamProviderSlug ?? resolvedProvider,
+            state: attempt.state as AiAttemptState,
+            resultKind: input.result.kind === "discarded" ? AiAttemptResultKind.discarded : AiAttemptResultKind.success,
+            providerRequestRef: attempt.providerRequestRef,
+            inputTokens: attempt.usage.inputTokens,
+            outputTokens: attempt.usage.outputTokens,
+            quotaUnitsConsumed: attempt.usage.quotaUnitsConsumed,
+            tokenUsageState: attempt.usage.tokenUsageState as AiTokenUsageState,
+            errorCode: attempt.errorCode,
+            releaseManifestDigest: null,
+            privacyEvidenceDigest: null,
+            startedAt: now,
+            completedAt: attempt.state === AiAttemptState.completed || attempt.state === AiAttemptState.failed || attempt.state === AiAttemptState.ambiguous ? now : null,
+          })),
+          skipDuplicates: true,
+        });
+        // The request's durable provider identity is updated only as provider
+        // metadata, while lifecycle/accounting ownership remains with the
+        // finalizer below. This records the free router's resolved model and
+        // observed upstream without pretending it is release-manifest data.
+        await tx.aiRequest.updateMany({
+          where: { id: input.requestId, status: { in: [AiRequestLifecycleState.pending, AiRequestLifecycleState.staged] } },
+          data: {
+            model: resolvedModel,
+            observedUpstreamProviderSlug: resolvedProvider,
+            providerRequestRef: input.providerResult.attempts[0]?.providerRequestRef ?? null,
+          },
+        });
+      }
       // Staging is deliberately side-effect free for request lifecycle and
       // quota accounting. Only the shared finalizer/overdue settlement owns
       // request, stage, idempotency, and daily-ledger CAS transitions.

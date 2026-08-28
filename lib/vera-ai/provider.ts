@@ -9,6 +9,10 @@ export const APPROVED_UPSTREAM_PROVIDER = "decart";
 export const APPROVED_MODEL = "z-ai/glm-5.2:free";
 export const APPROVED_ROUTING_POLICY_VERSION = "openrouter-routing-v1";
 export const VERA_CERTIFIED_ESTIMATOR_VERSION = "universal-byte-bound-v1";
+export const OPENROUTER_FREE_POC_UPSTREAM_PROVIDER = "openrouter-free-poc";
+export const OPENROUTER_FREE_POC_UPSTREAM_PROVIDER_SLUG = "openrouter-free";
+export const OPENROUTER_FREE_POC_ROUTING_POLICY_VERSION = "openrouter-free-poc-v1";
+export const OPENROUTER_FREE_POC_ENDPOINT_METADATA_DIGEST = "openrouter-free-poc-endpoint-v1";
 
 const VERA_ESTIMATOR_OVERHEAD = {
   inputProtocolOverheadUnits: 80,
@@ -18,7 +22,8 @@ const VERA_ESTIMATOR_OVERHEAD = {
   retryOverheadUnits: 60,
 } as const;
 
-export type ProviderRoutingOptions = {
+export type ProductionProviderRoutingOptions = {
+  kind?: "production";
   provider: {
     only: [string];
     order: [string];
@@ -29,6 +34,21 @@ export type ProviderRoutingOptions = {
   };
 };
 
+/**
+ * The free-router POC is deliberately a different routing contract. It is
+ * never valid as a release manifest: the absence of `zdr` is intentional and
+ * makes accidental production/privacy-tuple substitution type-visible.
+ */
+export type VeraOpenRouterFreePocRoutingOptions = {
+  kind: "openrouter_free_poc";
+  provider: {
+    allow_fallbacks: false;
+    data_collection: "allow";
+  };
+};
+
+export type ProviderRoutingOptions = ProductionProviderRoutingOptions | VeraOpenRouterFreePocRoutingOptions;
+
 export type ProviderReleaseManifest = {
   manifestVersion: string;
   gateway: "openrouter";
@@ -37,7 +57,7 @@ export type ProviderReleaseManifest = {
   model: string;
   endpointMetadataDigest: string;
   routingPolicyVersion: string;
-  routingOptions: ProviderRoutingOptions;
+  routingOptions: ProductionProviderRoutingOptions;
   termsEvidenceReference: string;
   termsEvidenceDigest: string;
   privacyEvidenceReference: string;
@@ -73,7 +93,7 @@ export type CertifiedQuotaEstimate = {
 
 export type PreparedProviderTask = {
   gateway: "openrouter";
-  upstreamProvider: "decart";
+  upstreamProvider: typeof APPROVED_UPSTREAM_PROVIDER | typeof OPENROUTER_FREE_POC_UPSTREAM_PROVIDER;
   upstreamProviderSlug: string;
   model: string;
   routingPolicyVersion: string;
@@ -113,6 +133,18 @@ export type ProviderResult = {
   usage: ProviderUsage;
   finishReason: string | null;
   attempts: ProviderAttemptEvidence[];
+  providerMetadata?: ProviderResultMetadata;
+};
+
+export type ProviderResultMetadata = {
+  kind: "openrouter_free_poc";
+  gateway: "openrouter";
+  upstreamProvider: typeof OPENROUTER_FREE_POC_UPSTREAM_PROVIDER;
+  requestedModel: "openrouter/free";
+  selectedModel: string;
+  providerIdentity: string;
+  dataCollection: "allow";
+  zdr: false;
 };
 
 export type ProviderDelta = { text: string; provisional: true };
@@ -256,6 +288,12 @@ function deriveCertifiedEstimate(task: ProviderTask): CertifiedQuotaEstimate {
     throw new ProviderSafetyError("Caller provider quota evidence does not match the certified adapter bound.");
   }
   return derived;
+}
+
+/** The certified estimator is shared by every provider adapter, including the
+ * explicitly non-production free-router POC bridge. */
+export function certifyVeraProviderTask(task: ProviderTask): CertifiedQuotaEstimate {
+  return deriveCertifiedEstimate(task);
 }
 
 export class OpenRouterDecartAdapter implements VeraProviderAdapter {

@@ -26,7 +26,7 @@ import {
   VeraRedisUnavailableError,
 } from "./redis-lease";
 import { VeraOutputValidationError, validateVeraResult, type NormalizedVeraResult } from "./output-validator";
-import { ProviderSafetyError, type PreparedProviderTask, type VeraProviderAdapter } from "./provider";
+import { ProviderExecutionError, ProviderSafetyError, type PreparedProviderTask, type VeraProviderAdapter } from "./provider";
 import { getVeraFeatureContract, validateStudioOutput } from "./studio-contracts";
 import { prepareStudioAuthority, type VeraStudioIdentityAuthority } from "./studio-authority";
 import type { VeraSseEvent, VeraSseEventName } from "./chat-orchestrator";
@@ -90,6 +90,7 @@ function statusForRejection(input: VeraAdmissionInput, code: string): VeraReques
 
 function errorCode(error: unknown): string {
   if (error instanceof VeraAdmissionError || error instanceof VeraContractError) return error.code;
+  if (error instanceof ProviderExecutionError) return error.code;
   if (error instanceof ProviderSafetyError) return "provider_prepare_unavailable";
   if (error instanceof VeraRedisUnavailableError) return "redis_unavailable";
   if (error instanceof Error && error.message === "drill_candidate_unavailable") return "drill_candidate_unavailable";
@@ -453,8 +454,23 @@ export class VeraPrismaChatOrchestrator {
           },
       );
     } catch (error) {
-      await settleCancelled(errorCode(error));
-      write("request.recovery_pending", { requestId: admission.requestId, code: errorCode(error), provisional: false });
+      const code = errorCode(error);
+      if (error instanceof ProviderExecutionError && !error.retryableBeforeAcceptance && !error.ambiguousPostSend) {
+        await this.admission.failAcceptedProviderResult({
+          requestId: admission.requestId,
+          errorCode: code,
+          usage: {
+            inputTokens: null,
+            outputTokens: null,
+            quotaUnitsConsumed: null,
+            tokenUsageState: "unknown",
+          },
+        });
+        write("request.failed", { requestId: admission.requestId, code, provisional: false });
+      } else {
+        await settleCancelled(code);
+        write("request.recovery_pending", { requestId: admission.requestId, code, provisional: false });
+      }
       return;
     }
     if (input.signal?.aborted) {
@@ -500,6 +516,8 @@ export class VeraPrismaChatOrchestrator {
       requestId: admission.requestId,
       result: normalized,
       encryptedResult: encrypted,
+      preparedProviderTask: admission.preparedProviderTask,
+      providerResult,
       outputSchemaId: admission.feature.schemaId,
       outputSchemaHash: admission.feature.schemaHash,
       now: finalizeNow,
