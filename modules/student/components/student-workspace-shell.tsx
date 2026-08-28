@@ -1,7 +1,5 @@
 "use client";
 
-import { Search } from "@/lib/icons";
-
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -10,7 +8,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Input } from "@/components/ui/input";
 import {
   SidebarInset,
   SidebarProvider,
@@ -19,7 +16,6 @@ import {
 import type { SessionContext } from "@/lib/auth/types";
 import type { StudentNotificationFeed, StudentNotificationItem } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { useStudentNotifications } from "@/modules/student/use-student-notifications";
 import {
   StudentAccountMenu,
@@ -49,8 +45,6 @@ function StudentWorkspaceShell({
   notificationFeed,
   notificationItems,
   notificationUnreadCount,
-  searchPlaceholder = "Cari materi, bacaan, atau topik...",
-  showSearch = true,
   session,
 }: {
   accountMenuExtraItem?: StudentAccountMenuItem;
@@ -109,20 +103,6 @@ function StudentWorkspaceShell({
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
-
-              {showSearch ? (
-                <div className="relative ml-auto hidden w-full max-w-sm md:block">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-secondary-400" />
-                  <Input
-                    aria-label={searchPlaceholder}
-                    className={cn(
-                      REFERENCE_CONTROL_CLASS_NAMES.input,
-                      "h-10 min-h-10 pl-10",
-                    )}
-                    placeholder={searchPlaceholder}
-                  />
-                </div>
-              ) : null}
 
               <StudentNotificationPopover items={liveNotificationItems.slice(0, 5)} unreadCount={unreadNotificationCount} />
 
