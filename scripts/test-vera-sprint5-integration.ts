@@ -713,10 +713,25 @@ await assertVisiblePage('/vera-ai?veraLifecycleOperation=' + alreadyPurgedOperat
 // the actual reconnect page before asserting its accessible lifecycle state.
 await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
 await js('document.querySelector("[data-vera-lifecycle-panel]")?.scrollIntoView({ block: "center", behavior: "auto" })')
-await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconnect already-purged learner lifecycle status' })
-await new Promise((resolve) => setTimeout(resolve, 900))
-const alreadyPurgedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
+let alreadyPurgedControl = null
+for (let attempt = 0; attempt < 16; attempt += 1) {
+  alreadyPurgedControl = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const button = panel?.querySelector("[data-vera-lifecycle-status]"); const rect = button?.getBoundingClientRect(); const operation = [...(panel?.querySelectorAll("p") || [])].map((node) => (node.textContent || "").trim()).find((text) => text.includes("operasi hapus")); return { enabled: Boolean(button && !button.disabled), operation: operation || "", status: (panel?.querySelector("[role=status]")?.textContent || "").trim(), x: rect?.x ?? -1, y: rect?.y ?? -1, width: rect?.width ?? 0, height: rect?.height ?? 0 }; })()')
+  if (alreadyPurgedControl.enabled && alreadyPurgedControl.operation.includes(alreadyPurgedOperationId)) break
+  await new Promise((resolve) => setTimeout(resolve, 500))
+}
+if (!alreadyPurgedControl?.enabled || !alreadyPurgedControl.operation.includes(alreadyPurgedOperationId) || alreadyPurgedControl.width <= 0 || alreadyPurgedControl.height <= 0) throw new Error('learner already-purged UI did not hydrate its owned operation control: ' + JSON.stringify(alreadyPurgedControl))
+await js('document.querySelector("[data-vera-lifecycle-status]")?.scrollIntoView({ block: "center", behavior: "auto" })')
+const alreadyPurgedPointer = await js('(() => { const node = document.querySelector("[data-vera-lifecycle-status]"); const rect = node?.getBoundingClientRect(); return { x: rect?.x ?? -1, y: rect?.y ?? -1, width: rect?.width ?? 0, height: rect?.height ?? 0, disabled: node?.disabled === true }; })()')
+if (alreadyPurgedPointer.disabled || alreadyPurgedPointer.width <= 0 || alreadyPurgedPointer.height <= 0) throw new Error('learner already-purged status control was not pointer-visible: ' + JSON.stringify(alreadyPurgedPointer))
+await click([alreadyPurgedPointer.x + alreadyPurgedPointer.width / 2, alreadyPurgedPointer.y + alreadyPurgedPointer.height / 2], { label: 'reconnect already-purged learner lifecycle status' })
+let alreadyPurgedUiState = ''
+for (let attempt = 0; attempt < 12; attempt += 1) {
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  alreadyPurgedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
+  if (alreadyPurgedUiState.includes('Hapus: purged')) break
+}
 if (!alreadyPurgedUiState.includes('Hapus: purged')) throw new Error('learner already-purged UI did not expose the persisted purged result: ' + alreadyPurgedUiState)
+if (alreadyPurgedUiState.includes('Ekspor belum dimulai')) throw new Error('learner already-purged UI regressed to the unrelated export-not-started state: ' + alreadyPurgedUiState)
 cliLog('BROWSER_LIFECYCLE_UI already-purged=owned operation=' + alreadyPurgedOperationId + ' visible=true targetState=purged')
 await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconcile learner delete status' })
 await new Promise((resolve) => setTimeout(resolve, 800))
@@ -734,6 +749,9 @@ if (!learnerMobileControls.some((control) => control.aria || control.text)) thro
 cliLog('BROWSER_MOBILE page=learner-studio width=390 interactive=true accessibility=focus+live-region overflow=false')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 await assertVisiblePage('/admin/ai-policy', adminToken, ['Vera AI policy console', 'Provider gate: open_blocked'])
+const policyGateBanner = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("*")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === "Provider gate: open_blocked"); return { visible: Boolean(node), tag: node?.tagName || null, text: (node?.textContent || "").trim() }; })()')
+if (!policyGateBanner.visible) throw new Error('T10 policy browser run did not expose a visible providerGateState=open_blocked banner: ' + JSON.stringify(policyGateBanner))
+cliLog('BROWSER_POLICY providerGateState=open_blocked visible=true interaction=authenticated')
 await fillInput('textarea#policy-reason', 'browser policy evidence')
 await click('xpath=//button[contains(normalize-space(.), "Buat complete draft")]', { label: 'create policy draft' })
 await new Promise((resolve) => setTimeout(resolve, 400))
@@ -846,6 +864,8 @@ cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+l
       throw new Error(`isolated browser evidence failed: ${detail.slice(-12_000)} server=${serverOutput}`);
     }
     assert.match(browserOutput, /PASS VERA_BROWSER_EVIDENCE/u, "browser evidence did not report a pass");
+    if (/\b(?:BROWSER_ERROR|VERA_BROWSER_ERROR|BROWSER_FAIL|VERA_BROWSER_FAIL)\b/iu.test(browserOutput)) throw new Error("ego-browser emitted a browser error/failure marker");
+    if (browserOutput.includes("Ekspor belum dimulai")) throw new Error("ego-browser lifecycle evidence exposed the unrelated export-not-started state");
     const browserEvidenceLines = browserOutput.split("\n").filter((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE") || line.includes("PASS VERA_BROWSER_EVIDENCE"));
     assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE_UI")), "browser learner lifecycle controls did not report a pass");
     assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE")), "browser lifecycle evidence did not report a pass");
@@ -1103,6 +1123,16 @@ async function main(): Promise<void> {
   assert.equal(callbackEvidenceLines.length, 7, "T11 callback fixture did not emit seven executable namespace results");
   const callbackNamespaces = callbackEvidenceLines.map((line) => line.match(/^T11_EVIDENCE callback_namespace=([^ ]+)/u)?.[1]).filter((value): value is string => Boolean(value));
   assert.deepEqual([...new Set(callbackNamespaces)].sort(), ["analysis", "chat", "drill", "ptn", "review", "route", "summary"]);
+  const cutoverRehearsalLines = callbackOutput.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("T11_EVIDENCE cutover_rehearsal day=") && line.includes("persisted=true") && line.includes("status=pass"));
+  assert.equal(cutoverRehearsalLines.length, 7, "T11 cutover evidence must contain seven persisted day-specific rehearsals");
+  const cutoverDays = cutoverRehearsalLines.map((line) => Number(line.match(/day=(\d+)/u)?.[1] ?? NaN));
+  assert.deepEqual([...new Set(cutoverDays)].sort((left, right) => left - right), [1, 2, 3, 4, 5, 6, 7], "T11 cutover evidence must cover distinct days 1 through 7");
+  for (const line of cutoverRehearsalLines) {
+    for (const marker of ["scheduled=true", "close_reconcile=true", "restore=true", "key_registry=destroyed"]) assert(line.includes(marker), `cutover rehearsal is missing ${marker}: ${line}`);
+    console.log(line);
+  }
   for (const namespace of ["chat", "analysis", "route", "review", "summary", "ptn", "drill"]) {
     assert(callbackOutput.includes(`T11_EVIDENCE callback_namespace=${namespace}`), `T11 callback evidence did not prove ${namespace}`);
   }

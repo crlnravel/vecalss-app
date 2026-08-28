@@ -88,9 +88,9 @@ type OwnedFixtureIds = {
 
 type LifecycleOperationEdge = {
   operation: "export_create" | "conversation_delete" | "artifact_delete";
-  malformed: boolean;
-  overlong: boolean;
-  empty: boolean;
+  keyMalformed: boolean;
+  keyOverlong: boolean;
+  keyEmpty: boolean;
   missingKey: boolean;
   payloadValidation: boolean;
   unauthorizedKey: boolean;
@@ -99,7 +99,10 @@ type LifecycleOperationEdge = {
   expiry: boolean;
   uniqueLoser: boolean;
   unauthorized: boolean;
-  workerCasRecovery: boolean;
+  recovery: {
+    kind: "export_takeover" | "delete_worker_cas";
+    exercised: boolean;
+  };
   crossOperationTargetIsolation: boolean;
   evidenceDigest: string;
 };
@@ -322,6 +325,11 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     studentId: malformedStudentId,
     conversationType: "vera_chat",
     title: "Malformed pre-ready materialization fixture",
+    // Pin fixture timestamps before the export's DB-clock snapshot. Prisma's
+    // client-side timestamp defaults can otherwise land a few milliseconds
+    // after exportAsOf even though the create calls are awaited, causing the
+    // malformed learner-visible envelope to be silently outside the package.
+    createdAt: new Date(Date.now() - 120_000),
   } });
   await db.aiMessage.create({ data: {
     id: randomUUID(),
@@ -332,6 +340,7 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
     contentDigest: sha256(`${namespace}:malformed-pre-ready-message`),
     contentState: "encrypted",
     metadataState: "legacy_plaintext",
+    createdAt: new Date(Date.now() - 60_000),
   } });
   const malformedMaterializationKey = `${namespace}:export-materialization-malformed`;
   idempotencyKeys.push(malformedMaterializationKey);
@@ -1290,9 +1299,9 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
   const publicOperationEdges = ([
     {
       operation: "export_create",
-      malformed: malformedCases.length === 3,
-      overlong: malformedCases.some(({ key }) => key.length === 121),
-      empty: malformedCases.some(({ key }) => key.length === 0),
+      keyMalformed: malformedCases.some(({ key }) => key.includes("\u0000")),
+      keyOverlong: malformedCases.some(({ key }) => key.length === 121),
+      keyEmpty: malformedCases.some(({ key }) => key.length === 0),
       missingKey: exportMissingKey,
       payloadValidation: exportPayloadValidation,
       unauthorizedKey: exportUnauthorizedKey,
@@ -1301,15 +1310,15 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       expiry: expiredStatus.state === "expired",
       uniqueLoser: exportRace.filter((result) => result.replayed).length === 1,
       unauthorized: exportUnauthorized,
-      workerCasRecovery: takeoverReady.state === "ready" && secondMaterialization.replayed === true,
+      recovery: { kind: "export_takeover" as const, exercised: takeoverReady.state === "ready" && secondMaterialization.replayed === true },
       crossOperationTargetIsolation: conversationCrossRows.some((row) => row.operation === "conversation_delete"),
       evidenceDigest: "",
     },
     {
       operation: "conversation_delete",
-      malformed: deleteMalformedCases.length === 3,
-      overlong: deleteMalformedCases.some((key) => key.length === 121),
-      empty: deleteMalformedCases.some((key) => key.length === 0),
+      keyMalformed: deleteMalformedCases.some((key) => key.includes("\u0000")),
+      keyOverlong: deleteMalformedCases.some((key) => key.length === 121),
+      keyEmpty: deleteMalformedCases.some((key) => key.length === 0),
       missingKey: deleteMissingKey,
       payloadValidation: deletePayloadValidation,
       unauthorizedKey: conversationUnauthorizedKey,
@@ -1318,15 +1327,15 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       expiry: conversationExpiryRow?.state === "completed",
       uniqueLoser: conversationDeleteRace.filter((result) => result.replayed).length === 1,
       unauthorized: conversationUnauthorized,
-      workerCasRecovery: conversationWorkers.every((result) => result.status === "fulfilled") && conversationExpiryRow?.state === "completed",
+      recovery: { kind: "delete_worker_cas" as const, exercised: conversationWorkers.every((result) => result.status === "fulfilled") && conversationExpiryRow?.state === "completed" },
       crossOperationTargetIsolation: conversationCrossRows.some((row) => row.operation === "export_create"),
       evidenceDigest: "",
     },
     {
       operation: "artifact_delete",
-      malformed: deleteMalformedCases.length === 3,
-      overlong: deleteMalformedCases.some((key) => key.length === 121),
-      empty: deleteMalformedCases.some((key) => key.length === 0),
+      keyMalformed: deleteMalformedCases.some((key) => key.includes("\u0000")),
+      keyOverlong: deleteMalformedCases.some((key) => key.length === 121),
+      keyEmpty: deleteMalformedCases.some((key) => key.length === 0),
       missingKey: deleteMissingKey,
       payloadValidation: deletePayloadValidation,
       unauthorizedKey: heldArtifactUnauthorizedKey,
@@ -1335,20 +1344,19 @@ async function testLifecycle(db: PrismaClient, lifecycle: ReturnType<typeof crea
       expiry: artifactExpiryLifecycle?.state === "purged",
       uniqueLoser: artifactDeleteRace.filter((result) => result.replayed).length === 1,
       unauthorized: artifactUnauthorized,
-      workerCasRecovery: heldArtifactWorkers.every((result) => result.status === "fulfilled") && artifactExpiryLifecycle?.state === "purged",
+      recovery: { kind: "delete_worker_cas" as const, exercised: heldArtifactWorkers.every((result) => result.status === "fulfilled") && artifactExpiryLifecycle?.state === "purged" },
       crossOperationTargetIsolation: artifactCrossRows.some((row) => row.operation === "export_create"),
       evidenceDigest: "",
     },
   ] as LifecycleOperationEdge[]).map((row) => ({ ...row, evidenceDigest: sha256(canonicalExportJson({ ...row, evidenceDigest: undefined })) }));
+  const edgeBooleanFields = ["keyMalformed", "keyOverlong", "keyEmpty", "missingKey", "payloadValidation", "unauthorizedKey", "replay", "conflict", "expiry", "uniqueLoser", "unauthorized", "crossOperationTargetIsolation"] as const;
   for (const row of publicOperationEdges) {
-    for (const [field, value] of Object.entries(row)) {
-      if (["operation", "evidenceDigest"].includes(field)) continue;
-      assert.equal(value, true, `${row.operation} edge ${field} must be exercised`);
-    }
+    for (const field of edgeBooleanFields) assert.equal(row[field], true, `${row.operation} edge ${field} must be exercised`);
+    assert.equal(row.recovery.exercised, true, `${row.operation} recovery edge must be exercised (${row.recovery.kind})`);
   }
   console.log(`T11_EXECUTABLE_LIFECYCLE_OPERATION_EDGE_MATRIX=${Buffer.from(JSON.stringify(publicOperationEdges)).toString("base64url")}`);
   for (const row of publicOperationEdges) {
-    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} missing_key=${row.missingKey} payload_validation=${row.payloadValidation} unauthorized_key=${row.unauthorizedKey} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true key_malformed=${row.keyMalformed} key_overlong=${row.keyOverlong} key_empty=${row.keyEmpty} missing_key=${row.missingKey} payload_validation=${row.payloadValidation} unauthorized_key=${row.unauthorizedKey} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} recovery=${row.recovery.kind} recovery_exercised=${row.recovery.exercised} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
   }
   console.log("T11_EVIDENCE hold_worker=conversation+artifact active-hold-blocked released-concurrent-workers=converged key-registry=object-scoped exactly-once");
   console.log("T11_EVIDENCE conversation_delete=artifact_lifecycle_tombstone append_only_ciphertext_unchanged hold_checked state_first=true");
@@ -1685,12 +1693,11 @@ async function testAllDurableCallbacks(db: PrismaClient, owned: OwnedFixtureIds)
     throw new Error("Sprint 3 operation-edge matrix was not valid base64url JSON");
   }
   assert.equal(studioOperationEdges.length, 4, "Sprint 3 operation-edge matrix must contain its four persisted Studio operations");
+  const edgeBooleanFields = ["keyMalformed", "keyOverlong", "keyEmpty", "missingKey", "payloadValidation", "unauthorizedKey", "replay", "conflict", "expiry", "uniqueLoser", "unauthorized", "crossOperationTargetIsolation"] as const;
   for (const row of studioOperationEdges) {
     assert.match(row.evidenceDigest, /^[a-f0-9]{64}$/u);
-    for (const [field, value] of Object.entries(row)) {
-      if (["operation", "evidenceDigest"].includes(field)) continue;
-      assert.equal(value, true, `${row.operation} matrix evidence was not executable`);
-    }
+    for (const field of edgeBooleanFields) assert((row as unknown as Record<string, unknown>)[field] === true, `${row.operation} matrix evidence field ${field} was not executable`);
+    assert(row.recovery && row.recovery.exercised === true && typeof row.recovery.kind === "string", `${row.operation} recovery matrix evidence was not executable`);
   }
   assert.equal(owned.operationEdges.length, 3, "T11 lifecycle fixture must return three persisted retention operation edges");
   const allOperationEdges = [...studioOperationEdges, ...owned.operationEdges];
@@ -1699,11 +1706,9 @@ async function testAllDurableCallbacks(db: PrismaClient, owned: OwnedFixtureIds)
   assert.equal(allOperationEdges.length, expectedOperationNamespaces.length, "the executable operation matrix must not duplicate or omit a namespace");
   for (const row of allOperationEdges) {
     assert.match(row.evidenceDigest, /^[a-f0-9]{64}$/u);
-    for (const [field, value] of Object.entries(row)) {
-      if (["operation", "evidenceDigest"].includes(field)) continue;
-      assert.equal(value, true, `${row.operation} edge ${field} was not proven by a persisted fixture`);
-    }
-    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true malformed=${row.malformed} overlong=${row.overlong} empty=${row.empty} missing_key=${row.missingKey} payload_validation=${row.payloadValidation} unauthorized_key=${row.unauthorizedKey} replay=${row.replay} conflict=${row.conflict} expiry=${row.expiry} unique_loser=${row.uniqueLoser} unauthorized=${row.unauthorized} worker_cas_recovery=${row.workerCasRecovery} cross_operation_target_isolation=${row.crossOperationTargetIsolation} evidenceDigest=${row.evidenceDigest} status=pass`);
+    for (const field of edgeBooleanFields) assert((row as unknown as Record<string, unknown>)[field] === true, `${row.operation} edge ${field} was not proven by a persisted fixture`);
+    assert(row.recovery && row.recovery.exercised === true && typeof row.recovery.kind === "string", `${row.operation} recovery edge was not proven by a persisted fixture`);
+    console.log(`T11_EVIDENCE operation_edge=${row.operation} actual=true key_malformed=${String((row as unknown as Record<string, unknown>).keyMalformed)} key_overlong=${String((row as unknown as Record<string, unknown>).keyOverlong)} key_empty=${String((row as unknown as Record<string, unknown>).keyEmpty)} missing_key=${String(row.missingKey)} payload_validation=${String(row.payloadValidation)} unauthorized_key=${String(row.unauthorizedKey)} replay=${String(row.replay)} conflict=${String(row.conflict)} expiry=${String(row.expiry)} unique_loser=${String(row.uniqueLoser)} unauthorized=${String(row.unauthorized)} recovery=${row.recovery.kind} recovery_exercised=${String(row.recovery.exercised)} cross_operation_target_isolation=${String(row.crossOperationTargetIsolation)} evidenceDigest=${row.evidenceDigest} status=pass`);
   }
   console.log(`T11_EVIDENCE operation_edge_matrix=seven-namespaces source=prisma-sprint3+prisma-lifecycle actual=true edge_cases=malformed+overlong+empty+replay+conflict+expiry+unique-loser+unauthorized+worker-CAS+cross-operation evidenceDigest=${sha256(canonicalExportJson(allOperationEdges))} status=pass`);
   const aiRequestEdge = studioOperationEdges.find((row) => row.operation === "ai_request");

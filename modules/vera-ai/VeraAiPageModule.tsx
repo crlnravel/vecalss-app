@@ -178,11 +178,22 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
   useEffect(() => {
     const operationId = new URLSearchParams(window.location.search).get("veraLifecycleOperation");
     if (!operationId) return;
+    let cancelled = false;
     const timer = window.setTimeout(() => {
       setLearnerDeleteOperationId(operationId);
       setLearnerDeleteState(null);
+      void requestJson<{ state: string; targetState?: string }>(`/api/vera-ai/lifecycle/${operationId}`)
+        .then((status) => {
+          if (!cancelled) setLearnerDeleteState(status.targetState ?? status.state);
+        })
+        .catch((caught) => {
+          if (!cancelled) setError(caught instanceof VeraRequestError ? caught.code : "lifecycle_unavailable");
+        });
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   const activeConversation = conversations.find((item) => item.id === activeConversationId) ?? null;
@@ -613,11 +624,11 @@ function VeraAiPageModule({ notificationFeed, session }: { notificationFeed: Stu
       <section aria-label="Data dan privasi" className="mx-auto mb-3 w-full max-w-[1680px] rounded-[1.5rem] border border-primary-100 bg-white p-3 shadow-sm md:mb-4 md:p-4" data-vera-lifecycle-panel>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary-700">Data &amp; privasi</p><p className="mt-1 max-w-2xl text-xs leading-5 text-secondary-500">Ekspor, penghapusan, dan akses pemulihan tetap tercatat sebagai operasi Vera yang bisa diperiksa ulang.</p></div>
-          <div aria-live="polite" className="min-w-0 text-right text-xs text-secondary-600" role="status">{learnerExportState ? `Ekspor: ${learnerExportState}` : "Ekspor belum dimulai"}{learnerExportDownloadState ? ` · Unduh: ${learnerExportDownloadState}` : ""}{learnerDeleteState ? ` · Hapus: ${learnerDeleteState}` : ""}{lifecycleGrantState ? ` · Grant: ${lifecycleGrantState}` : ""}</div>
+          <div aria-live="polite" className="min-w-0 text-right text-xs text-secondary-600" role="status">{learnerExportState ? `Ekspor: ${learnerExportState}` : learnerDeleteOperationId ? "" : "Ekspor belum dimulai"}{learnerExportDownloadState ? ` · Unduh: ${learnerExportDownloadState}` : ""}{learnerDeleteState ? ` · Hapus: ${learnerDeleteState}` : ""}{lifecycleGrantState ? ` · Grant: ${lifecycleGrantState}` : ""}</div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button disabled={lifecycleBusy || !activeConversation} onClick={() => void createLearnerExport()} size="sm" variant="outline">Buat ekspor data</Button>
-          <Button disabled={lifecycleBusy || !learnerExportOperationId && !learnerDeleteOperationId && !lifecycleExportReference.trim()} onClick={() => void refreshLearnerLifecycle()} size="sm" variant="outline">Periksa status tersimpan</Button>
+          <Button data-vera-lifecycle-status disabled={lifecycleBusy || !learnerExportOperationId && !learnerDeleteOperationId && !lifecycleExportReference.trim()} onClick={() => void refreshLearnerLifecycle()} size="sm" variant="outline">Periksa status tersimpan</Button>
           <Button data-vera-export-download disabled={lifecycleBusy || !learnerExportId || learnerExportState !== "ready"} onClick={() => void downloadLearnerExport()} size="sm" variant="outline">Unduh ekspor</Button>
           <Button disabled={lifecycleBusy || !activeConversation || Boolean(learnerDeleteOperationId)} onClick={() => void deleteActiveConversation()} size="sm" variant="outline">Hapus percakapan ini</Button>
         </div>
