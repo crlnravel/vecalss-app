@@ -9,7 +9,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   SidebarInset,
   SidebarProvider,
@@ -75,20 +74,20 @@ function PortalShell({
     const studentPreviewEnabled = isAdminStudentPreviewEnabled();
 
     return (
-      <SidebarProvider>
-        <div className="flex min-h-svh w-full bg-[#f7faf8] text-secondary-900">
+      <SidebarProvider className="!bg-voyage-canvas lg:gap-2 lg:p-6">
+        <div className="flex min-h-svh w-full bg-voyage-canvas text-secondary-900 lg:gap-2">
           <AdminPortalNav activeSection={activeSection} studentPreviewEnabled={studentPreviewEnabled} />
 
-          <SidebarInset className="bg-transparent">
-            <header className="sticky top-0 z-20 border-b border-primary-100/80 bg-[#f7faf8]/90 backdrop-blur-xl">
+          <SidebarInset className="min-h-svh min-w-0 bg-voyage-canvas lg:rounded-3xl">
+            <header className="sticky top-0 z-20 bg-voyage-canvas/90 backdrop-blur-xl lg:rounded-3xl lg:border">
               <div className="flex min-h-16 items-center gap-3 px-4 md:px-6 lg:px-8">
-                <SidebarTrigger className="shrink-0" />
+                <SidebarTrigger className="shrink-0 lg:hidden" />
 
                 <div className="hidden min-w-0 flex-1 md:block">
                   <Breadcrumb>
                     <BreadcrumbList>
                       <BreadcrumbItem>
-                        <BreadcrumbLink className="text-secondary-700" href={rootHref}>
+                        <BreadcrumbLink className="text-secondary-500" href={rootHref}>
                           {activeLabel}
                         </BreadcrumbLink>
                       </BreadcrumbItem>
@@ -109,16 +108,14 @@ function PortalShell({
               </div>
             </header>
 
-            <ScrollArea className="h-[calc(100svh-4rem)]">
-              <div
-                className={cn(
-                  "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
-                )}
-              >
-                <p className="sr-only">{description}</p>
-                {children}
-              </div>
-            </ScrollArea>
+            <div
+              className={cn(
+                "mx-auto flex w-full max-w-[1420px] flex-col gap-7 px-4 py-8 md:px-8 lg:px-10 lg:py-10",
+              )}
+            >
+              <p className="sr-only">{description}</p>
+              {children}
+            </div>
           </SidebarInset>
         </div>
       </SidebarProvider>
