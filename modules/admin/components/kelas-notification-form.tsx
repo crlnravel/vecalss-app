@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { CircleHelp } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
@@ -9,9 +11,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { FormNotice } from "@/modules/auth/components/form-notice";
 import { EMPTY_FORM_STATE } from "@/modules/auth/form-state";
 import { SubmitButton } from "@/modules/auth/components/submit-button";
+import { cn } from "@/lib/utils";
 
 import { sendKelasNotificationAction } from "../actions";
-import { ADMIN_CARD_CLASS_NAME } from "../admin-ui-contract";
 
 type KelasOption = {
   activeStudentCount: number;
@@ -21,12 +23,13 @@ type KelasOption = {
 
 function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
   const [state, formAction] = useActionState(sendKelasNotificationAction, EMPTY_FORM_STATE);
+  const [cohortId, setCohortId] = useState(() => state.fields?.cohortId ?? "");
   const formKey = state.status === "success" ? state.message ?? "success" : "form";
 
   return (
     <form
       action={formAction}
-      className={`${ADMIN_CARD_CLASS_NAME} space-y-6 p-5 sm:p-7`}
+      className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "min-w-0 space-y-6 p-5 sm:p-7")}
       id="send-kelas-notification"
       key={formKey}
     >
@@ -34,32 +37,32 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="kelas-notification-cohort">Kelas</FieldLabel>
-          <select
+          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-cohort">Kelas</FieldLabel>
+          <ReferenceSelect
             aria-label="Kelas penerima"
             aria-describedby={state.fieldErrors?.cohortId ? "kelas-notification-cohort-error" : undefined}
-            aria-invalid={Boolean(state.fieldErrors?.cohortId)}
-            className="h-12 rounded-2xl border border-secondary-900/14 bg-white px-4 text-base text-secondary-900 outline-none transition focus:border-primary-400 focus:ring-3 focus:ring-primary-700/12 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25"
-            defaultValue={state.fields?.cohortId ?? ""}
+            className={state.fieldErrors?.cohortId ? "border-student-status-danger-border ring-3 ring-student-status-danger-border/25" : undefined}
             id="kelas-notification-cohort"
             name="cohortId"
+            onValueChange={setCohortId}
+            options={cohorts.map((cohort) => ({
+              disabled: cohort.activeStudentCount === 0,
+              label: `${cohort.name} · ${cohort.activeStudentCount} siswa aktif`,
+              value: cohort.id,
+            }))}
+            placeholder="Pilih kelas"
             required
-          >
-            <option value="">Pilih kelas</option>
-            {cohorts.map((cohort) => (
-              <option disabled={cohort.activeStudentCount === 0} key={cohort.id} value={cohort.id}>
-                {cohort.name} · {cohort.activeStudentCount} siswa aktif
-              </option>
-            ))}
-          </select>
+            value={cohortId}
+          />
           <FieldError error={state.fieldErrors?.cohortId} id="kelas-notification-cohort-error" />
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="kelas-notification-title">Judul</FieldLabel>
+          <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-title">Judul</FieldLabel>
           <FieldInput
             aria-describedby={state.fieldErrors?.title ? "kelas-notification-title-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.title)}
+            className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25")}
             defaultValue={state.fields?.title ?? "Link kelas Zoom"}
             id="kelas-notification-title"
             maxLength={180}
@@ -72,7 +75,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
 
         <Field className="md:col-span-2">
           <div className="flex items-center gap-1.5">
-            <FieldLabel htmlFor="kelas-notification-body">Pesan</FieldLabel>
+            <FieldLabel className="text-sm font-semibold leading-6 text-secondary-900" htmlFor="kelas-notification-body">Pesan</FieldLabel>
             <Tooltip>
               <TooltipTrigger render={<Button aria-label="Bantuan format pesan" className="text-secondary-500 hover:text-primary-800" size="icon-xs" type="button" variant="ghost" />}>
                 <CircleHelp aria-hidden="true" />
@@ -83,7 +86,7 @@ function KelasNotificationForm({ cohorts }: { cohorts: KelasOption[] }) {
           <FieldTextarea
             aria-describedby={state.fieldErrors?.body ? "kelas-notification-body-error" : undefined}
             aria-invalid={Boolean(state.fieldErrors?.body)}
-            className="min-h-32 py-3"
+            className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "min-h-32 py-3 aria-invalid:border-student-status-danger-border aria-invalid:ring-3 aria-invalid:ring-student-status-danger-border/25")}
             defaultValue={state.fields?.body ?? ""}
             id="kelas-notification-body"
             maxLength={4000}

@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import {
+  ReferencePageHeader,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { EnrollmentHandoff, TutorProfile, User, UserStatus } from "@/generated/prisma/client";
@@ -122,19 +126,21 @@ function KaptenPageModule({
       session={session}
       title="Kapten"
     >
-      <div className="space-y-7">
+      <div className="space-y-8">
         <FocusRestorer announcementId="kapten-directory-announcement" fallbackId="kapten-heading" noticeId="kapten-directory-notice" targetId={focus ? `kapten-${focus}` : null} />
 
-        <header className="flex items-start justify-between gap-5">
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-secondary-950 sm:text-4xl" id="kapten-heading">Kapten</h1>
-          <AddKaptenDialog />
-        </header>
+        <ReferencePageHeader
+          actions={<AddKaptenDialog />}
+          description="Manage Kapten accounts and enrollment handoffs."
+          id="kapten-heading"
+          title="Kapten"
+        />
 
         <p aria-live="polite" className="sr-only" id="kapten-directory-announcement">{focus ? "Returned to the selected Kapten directory row." : ""}</p>
         {notice ? <div id="kapten-directory-notice" tabIndex={-1}><FormNotice tone="success">{noticeMessages[notice] ?? notice}</FormNotice></div> : null}
         {error ? <FormNotice tone="danger">{errorMessages[error] ?? error}</FormNotice> : null}
 
-        <section aria-label="Kapten directory" className="overflow-hidden rounded-2xl bg-white">
+        <ReferenceSurface as="section" aria-label="Kapten directory" className="min-w-0 overflow-hidden">
           <KaptenDirectoryTable
             direction={direction}
             focus={focus ?? null}
@@ -146,7 +152,7 @@ function KaptenPageModule({
             status={statusFilter}
           />
 
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex flex-col gap-3 border-t border-primary-100/80 bg-white/70 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="text-xs tabular-nums text-secondary-600"><span className="sr-only">Showing </span>{visibleStart}–{visibleEnd} of {total}</p>
               <StudentPageSizeSelect basePath="/admin/kapten" pageSize={pageSize} query={directoryQuery} />
@@ -155,20 +161,20 @@ function KaptenPageModule({
               <nav aria-label="Kapten directory pages" className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xs font-semibold tabular-nums text-secondary-600">{page} of {pageCount}</span>
                 <div className="flex min-w-0 items-center gap-0.5">
-                  {page > 1 ? <Link aria-label="Previous Kapten directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
+                  {page > 1 ? <Link aria-label="Previous Kapten directory page" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page - 1)}><ChevronLeft aria-hidden="true" size={16} /></Link> : null}
                   <ol className="flex items-center gap-0.5">
                     {paginationItems.map((item) => item === "ellipsis-before" || item === "ellipsis-after" ? (
-                      <li key={item}><span aria-hidden="true" className="grid size-9 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">More pages</span></li>
+                      <li key={item}><span aria-hidden="true" className="grid size-10 place-items-center text-secondary-400"><MoreHorizontal size={16} /></span><span className="sr-only">More pages</span></li>
                     ) : (
-                      <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Go to page ${item}`} className={buttonVariants({ className: item === page ? "size-9 rounded-lg bg-primary-700 p-0 text-white hover:bg-primary-800" : "size-9 rounded-lg p-0 text-secondary-700 hover:bg-primary-50 hover:text-primary-800", size: "icon-sm", variant: item === page ? "brand" : "ghost" })} href={pageHref(item)}>{item}</Link></li>
+                      <li key={item}><Link aria-current={item === page ? "page" : undefined} aria-label={`Go to page ${item}`} className={buttonVariants({ className: item === page ? "size-10 rounded-2xl p-0" : "size-10 rounded-2xl p-0 text-secondary-700", size: "icon-sm", variant: item === page ? "brand" : "reference" })} href={pageHref(item)}>{item}</Link></li>
                     ))}
                   </ol>
-                  {page < pageCount ? <Link aria-label="Next Kapten directory page" className={buttonVariants({ className: "size-9 rounded-lg p-0", size: "icon-sm", variant: "ghost" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
+                  {page < pageCount ? <Link aria-label="Next Kapten directory page" className={buttonVariants({ className: "size-10 rounded-2xl p-0", size: "icon-sm", variant: "reference" })} href={pageHref(page + 1)}><ChevronRight aria-hidden="true" size={16} /></Link> : null}
                 </div>
               </nav>
             ) : null}
           </div>
-        </section>
+        </ReferenceSurface>
       </div>
     </PortalShell>
   );

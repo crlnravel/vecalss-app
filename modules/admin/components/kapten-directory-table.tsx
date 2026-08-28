@@ -3,14 +3,21 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 
+import {
+  ReferenceEmptyState,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { DataTable, type DataTableColumn, type DataTableFilter } from "@/components/ui/data-table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { fieldControlClassName } from "@/components/ui/field-constants";
 import type { EnrollmentHandoffMethod, EnrollmentHandoffStatus, UserStatus } from "@/generated/prisma/client";
-import { ChevronRight, XIcon } from "@/lib/icons";
+import { ChevronRight, Users, XIcon } from "@/lib/icons";
 import { DEFAULT_DIRECTORY_PAGE_SIZE, type DirectoryPageSize } from "@/lib/admin/operations/directory-page-constants";
 import { buildDirectoryQuery, type DirectorySortDirection, type DirectorySortKey } from "@/lib/admin/operations/directory-query";
 import { cn } from "@/lib/utils";
@@ -183,23 +190,23 @@ function KaptenFilterPanel({
         render={
           <Button
             aria-haspopup="dialog"
-            className="group h-9 w-full justify-between rounded-lg px-2.5 text-left text-xs hover:bg-primary-50/60"
+            className="group min-h-11 w-full justify-between rounded-2xl px-3 text-left text-sm hover:bg-primary-50/60"
             type="button"
-            variant={status !== "all" ? "contextSelected" : "ghost"}
+            variant={status !== "all" ? "contextSelected" : "reference"}
           />
         }
       >
         <span className="font-medium text-secondary-900">Status</span>
         <ChevronRight aria-hidden="true" className="text-secondary-400 transition-transform group-aria-expanded:translate-x-0.5" size={16} />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(18rem,calc(100vw-2rem))] gap-2 rounded-lg p-2" side="left" sideOffset={6}>
+      <PopoverContent align="start" className={cn(REFERENCE_SURFACE_CLASS_NAMES.raised, "w-[min(18rem,calc(100vw-2rem))] gap-2 p-2")} side="left" sideOffset={6}>
         <form action="/admin/kapten" className="grid gap-2" method="get" onSubmit={handleSubmit}>
           <input name="q" type="hidden" value={search} />
           {sort ? <input name="sort" type="hidden" value={sort} /> : null}
           {sort && direction === "desc" ? <input name="direction" type="hidden" value={direction} /> : null}
           <div aria-label="Status" className="grid gap-0.5" role="group">
             {(["all", "active", "disabled", "locked"] as const).map((option) => (
-              <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium capitalize text-secondary-800 transition-colors hover:bg-primary-50/60" key={option}>
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-2xl px-3 text-sm font-medium capitalize text-secondary-800 transition-colors hover:bg-primary-50/60" key={option}>
                 <input
                   checked={draftStatus === option}
                   className="size-4 accent-primary-700"
@@ -212,11 +219,11 @@ function KaptenFilterPanel({
               </label>
             ))}
           </div>
-          <div className="flex w-full items-center gap-1.5 pt-1">
-            <a className={cn(buttonVariants({ size: "xs", variant: "ghost" }), "min-w-0 flex-1")} href={directoryHref({ direction, pageSize, search, sort, status: "all" })}>
+          <div className="flex w-full items-center gap-2 pt-1">
+            <a className={cn(buttonVariants({ size: "sm", variant: "reference" }), "min-w-0 flex-1")} href={directoryHref({ direction, pageSize, search, sort, status: "all" })}>
               Clear
             </a>
-            <Button className="min-w-0 flex-[2]" size="xs" type="submit" variant="brand">Apply</Button>
+            <Button className="min-w-0 flex-[2]" size="sm" type="submit" variant="brand">Apply</Button>
           </div>
         </form>
       </PopoverContent>
@@ -232,7 +239,7 @@ function KaptenDetailPanel({
   kapten: KaptenDirectoryItem;
 }) {
   return (
-    <SheetContent className="w-[min(100%,38rem)] max-w-full p-0 sm:max-w-xl" side="right" showCloseButton={false}>
+    <SheetContent className="w-[min(100%,38rem)] max-w-full bg-voyage-canvas p-0 sm:max-w-xl" side="right" showCloseButton={false}>
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="border-b border-primary-100 px-5 pb-6 pt-6 sm:px-6 sm:pb-7">
           <div className="flex min-w-0 items-start justify-between gap-4">
@@ -240,7 +247,7 @@ function KaptenDetailPanel({
               {getInitials(kapten.fullName)}
             </span>
             <SheetClose
-              render={<Button className="border-0 bg-transparent text-secondary-900 hover:border-0 hover:bg-transparent hover:text-primary-700 focus-visible:border-transparent focus-visible:ring-primary-300/40" size="icon" type="button" variant="brandOutline" />}
+              render={<Button className="text-secondary-900 hover:text-primary-700" size="icon" type="button" variant="reference" />}
             >
               <XIcon />
               <span className="sr-only">Close</span>
@@ -257,16 +264,16 @@ function KaptenDetailPanel({
             <input name="userId" type="hidden" value={kapten.id} />
             <input name="directoryQuery" type="hidden" value={directoryQuery} />
             <div className="grid gap-5 sm:grid-cols-2">
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Kapten name</span><input className={fieldControlClassName} defaultValue={kapten.fullName} name="fullName" required /></label>
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Kapten email</span><input className={fieldControlClassName} defaultValue={kapten.email} name="email" required type="email" /></label>
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Phone</span><input className={fieldControlClassName} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
-              <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Headline</span><input className={fieldControlClassName} defaultValue={kapten.headline ?? ""} name="headline" /></label>
+              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Kapten name</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.fullName} name="fullName" required /></label>
+              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Kapten email</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.email} name="email" required type="email" /></label>
+              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Phone</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.phone ?? ""} name="phone" type="tel" /></label>
+              <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Headline</span><input className={REFERENCE_CONTROL_CLASS_NAMES.input} defaultValue={kapten.headline ?? ""} name="headline" /></label>
             </div>
-            <label className="min-w-0 space-y-2 text-sm"><span className="font-medium text-secondary-900">Bio</span><textarea className={`${fieldControlClassName} min-h-28 py-3`} defaultValue={kapten.bio ?? ""} name="bio" /></label>
+            <label className="min-w-0 space-y-2 text-sm"><span className="font-semibold text-secondary-900">Bio</span><textarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-28 py-3`} defaultValue={kapten.bio ?? ""} name="bio" /></label>
             <div className="flex justify-end"><Button type="submit" variant="brand">Save changes</Button></div>
           </form>
 
-          <section aria-labelledby={`kapten-state-${kapten.id}`} className="mt-8 border-t border-primary-100 pt-6">
+          <ReferenceSurface as="section" aria-labelledby={`kapten-state-${kapten.id}`} className="mt-7 p-4 sm:p-5" variant="inset">
             <h2 className="text-sm font-semibold text-secondary-900" id={`kapten-state-${kapten.id}`}>Account state</h2>
             <p className="mt-1 text-sm capitalize text-secondary-600">{formatStatus(kapten.status)} · Active role: Kapten</p>
             <div className="mt-4">
@@ -294,10 +301,10 @@ function KaptenDetailPanel({
                 <p className="max-w-xs rounded-2xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-xs leading-5 text-secondary-600">This account needs manual recovery before enrollment status can be changed.</p>
               )}
             </div>
-          </section>
+          </ReferenceSurface>
 
           {kapten.latestHandoff ? (
-            <section aria-labelledby={`kapten-handoff-${kapten.id}`} className="mt-8 border-t border-primary-100 pt-6">
+            <ReferenceSurface as="section" aria-labelledby={`kapten-handoff-${kapten.id}`} className="mt-5 p-4 sm:p-5" variant="inset">
               <h2 className="mb-4 text-sm font-semibold text-secondary-900" id={`kapten-handoff-${kapten.id}`}>Enrollment handoff</h2>
               <HandoffControls
                 expiresAt={kapten.latestHandoff.expiresAt ? new Date(kapten.latestHandoff.expiresAt) : null}
@@ -306,10 +313,10 @@ function KaptenDetailPanel({
                 sourceImportRowId={kapten.latestHandoff.sourceImportRowId}
                 status={kapten.latestHandoff.status}
               />
-            </section>
+            </ReferenceSurface>
           ) : null}
 
-          <p className="mt-8 border-t border-primary-100 pt-4 text-xs leading-6 text-secondary-500">Created on {formatCreatedDate(kapten.createdAt)}</p>
+          <p className="mt-6 text-xs leading-6 text-secondary-500">Created on {formatCreatedDate(kapten.createdAt)}</p>
         </div>
       </div>
     </SheetContent>
@@ -400,7 +407,7 @@ function KaptenDirectoryTable({
         caption="Kapten directory"
         clearFiltersHref={clearFiltersHref}
         columns={columns}
-        emptyState={<div className="px-5 py-8 text-left sm:px-8 sm:py-10"><div className="max-w-xl"><h3 className="text-lg font-semibold leading-tight tracking-[-0.03em] text-secondary-900 sm:text-xl">{status === "all" && !search ? "No Kapten accounts yet." : "No Kapten match these filters."}</h3><p className="mt-2 max-w-[58ch] text-sm leading-6 text-secondary-600">{status === "all" && !search ? "Use the Add Kapten button above to create the first account and choose its handoff." : "Try another name, email, or status filter to find the account you need."}</p></div></div>}
+        emptyState={<ReferenceEmptyState className="min-h-56" description={status === "all" && !search ? "Use the Add Kapten button above to create the first account and choose its handoff." : "Try another name, email, or status filter to find the account you need."} icon={Users} title={status === "all" && !search ? "No Kapten accounts yet." : "No Kapten match these filters."} />}
         filterPanel={<KaptenFilterPanel direction={direction} pageSize={pageSize} search={search} sort={sort} status={status} />}
         filters={filters}
         getRowId={(person) => person.id}
