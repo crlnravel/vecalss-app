@@ -1,5 +1,21 @@
 # Session Progress Log
 
+## Tryout detail Results/sidebar follow-up (2026-08-28)
+
+- [x] Kept the reference sidebar collapse toggle inside the minimized rail by
+  removing only its collapsed horizontal footer padding; the 44px target stays
+  intact.
+- [x] Flattened the Results “Sesi yang ditampilkan” control onto the canvas
+  and stacked its label and selector vertically at all breakpoints.
+- [x] Removed the Results session release-status label (`Dirilis`) while
+  preserving result rows, session selection, and URL state behavior.
+- [x] Authenticated browser QA at 1440px and 390px confirms the collapsed
+  toggle, vertical selector, zero page overflow, and zero visible `Dirilis`
+  labels in Results.
+- [x] Focused ESLint, Impeccable layout detector, authoring/dashboard
+  contracts, and `git diff --check` pass.
+- [x] Commit: `fc0cbc8` (`fix: refine tryout results controls`).
+
 ## Tryout detail reference control treatment (2026-08-28)
 
 - [x] Added Vecalss-tokenized reference control contracts: recessed pale-mint

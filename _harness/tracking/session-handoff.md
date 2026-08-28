@@ -1,5 +1,23 @@
 # Session Handoff
 
+## Tryout detail Results/sidebar follow-up (2026-08-28)
+
+- Objective: address the last visual issues in the reference-styled Tryout
+  detail route.
+- Implementation: `fc0cbc8` removes collapsed horizontal padding from the
+  reference sidebar footer so its toggle fits the icon rail, makes the Results
+  session selector a direct canvas stack, and removes the Results release
+  status indicator/copy.
+- QA: authenticated browser checks at 1440px and 390px confirm the collapsed
+  rail toggle stays within the inner sidebar bounds (trigger right edge
+  64.75px vs inner right edge 69.5px), the Results label/selector stack
+  vertically, page/body scroll widths remain equal to the viewport, and no
+  visible Results `Dirilis` label remains.
+- Verification: focused ESLint, Impeccable layout detector `[]`, focused
+  authoring/dashboard contracts, and `git diff --check` pass.
+- Scope: no student/admin/unrelated pages changed; existing untracked
+  `.agents/skills/information-architecture/` remains untouched.
+
 ## Tryout detail reference control treatment (2026-08-28)
 
 - Objective: bring the remaining Tryout detail inputs, dropdowns, and actions
