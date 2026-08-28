@@ -250,7 +250,7 @@ assert.doesNotMatch(loading, /bg-primary-700/);
 assert.doesNotMatch(loading, /grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4/);
 assert.doesNotMatch(loading, /xl:grid-cols-4/);
 assert.doesNotMatch(loading, /size-5 rounded-full/);
-assert.match(loading, /bg-primary-50/);
+assert.match(loading, /bg-voyage-canvas/);
 assert.match(handoffControls, /sourceImportRowId/);
 assert.match(handoffControls, /Reissue is paused/);
 assert.match(handoffControls, /confirmation/);
