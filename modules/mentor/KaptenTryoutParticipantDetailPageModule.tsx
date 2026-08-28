@@ -167,7 +167,6 @@ function KaptenTryoutParticipantDetailPageModule({
           <div>
             <p className="text-xs font-medium text-secondary-500">Nilai &amp; rilis</p>
             <p className="mt-1 font-medium text-secondary-900">{participant.score.score === null ? "Belum dihitung" : Number(participant.score.score).toFixed(2)}</p>
-            <p className="mt-0.5 text-xs text-secondary-600">{participant.score.releaseState === "released" ? "Dirilis" : participant.score.scoringState === "not_started" ? "Belum dinilai" : "Menunggu rilis"}</p>
           </div>
         </CardContent>
       </Card>

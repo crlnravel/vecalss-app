@@ -202,7 +202,7 @@ function KaptenTryoutSessionDetailPageModule({
               />
             </Field>
           </div>
-          <div className="flex flex-col gap-3 border-t border-primary-100 pt-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="text-sm">
               <p className="text-secondary-500">Jadwal rilis hasil</p>
               <p className="mt-1 font-medium text-secondary-900">{policyLabels[effectivePolicy]}</p>

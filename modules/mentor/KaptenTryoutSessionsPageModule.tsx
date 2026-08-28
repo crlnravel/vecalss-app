@@ -71,12 +71,6 @@ function KaptenTryoutSessionsPageModule({
                         <p className="text-xs leading-5 text-secondary-600">
                           {formatTryoutDateTime(session.availableFrom)} WIB — {formatTryoutDateTime(session.availableUntil)} WIB
                         </p>
-                        {session.releasedAt ? (
-                          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-secondary-600">
-                            <span>Hasil dirilis</span>
-                            {session.assessmentRelease ? <span className="font-medium text-primary-800">Konten rilis {session.assessmentRelease.number}</span> : null}
-                          </div>
-                        ) : null}
                       </div>
                     </Link>
 
