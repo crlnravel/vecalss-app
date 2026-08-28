@@ -180,7 +180,7 @@ function DashboardPageModule({
     <StudentWorkspaceShell
       accountMenuExtraItem="notifications"
       activeLabel="Beranda"
-      breadcrumbLabel="Beranda Siswa"
+      breadcrumbLabel="Beranda"
       mainClassName="gap-8 lg:gap-9"
       notificationFeed={notificationFeed}
       searchPlaceholder="Cari materi, kuis, atau rekomendasi..."
