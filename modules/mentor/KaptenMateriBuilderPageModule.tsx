@@ -19,7 +19,10 @@ import {
   ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -332,7 +335,7 @@ function MateriBuilderEditor({
         </div>
         <div className="grid gap-5 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
           <Field>
-            <FieldLabel htmlFor="materi-subject">Subject</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-subject">Subject</FieldLabel>
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-describedby={errors.subjectSlug ? "materi-subject-error" : undefined}
@@ -360,7 +363,7 @@ function MateriBuilderEditor({
             <FieldError error={errors.subjectSlug} id="materi-subject-error" />
           </Field>
           <Field>
-            <FieldLabel htmlFor="materi-title">Judul materi</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-title">Judul materi</FieldLabel>
             <FieldInput
               aria-describedby={errors.title ? "materi-title-error" : undefined}
               aria-invalid={Boolean(errors.title)}
@@ -405,7 +408,7 @@ function MateriBuilderEditor({
         </div>
         <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_180px]">
           <Field>
-            <FieldLabel htmlFor="materi-video-url">URL video</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-url">URL video</FieldLabel>
             <FieldInput
               aria-describedby={errors.videoUrl ? "materi-video-url-error" : undefined}
               aria-invalid={Boolean(errors.videoUrl)}
@@ -420,7 +423,7 @@ function MateriBuilderEditor({
             <FieldError error={errors.videoUrl} id="materi-video-url-error" />
           </Field>
           <Field>
-            <FieldLabel htmlFor="materi-video-duration">Durasi video</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="materi-video-duration">Durasi video</FieldLabel>
             <FieldInput
               aria-describedby={errors.videoDuration ? "materi-video-duration-error" : undefined}
               aria-invalid={Boolean(errors.videoDuration)}

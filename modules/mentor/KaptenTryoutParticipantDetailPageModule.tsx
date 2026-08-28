@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ReferencePageHeader } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -187,11 +191,11 @@ function KaptenTryoutParticipantDetailPageModule({
                 >
                   {activeSessions.map((session) => (
                     <Field
-                      className="flex-row items-center rounded-2xl border border-secondary-900/14 p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50"
+                      className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "flex-row items-center p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50")}
                       key={`approve-${session.id}`}
                     >
                       <RadioGroupItem id={`approve-${session.id}`} value={session.id} />
-                      <FieldLabel className="flex-1 cursor-pointer text-sm font-medium" htmlFor={`approve-${session.id}`}>
+                      <FieldLabel className="flex-1 cursor-pointer text-sm font-medium leading-6 tracking-normal" htmlFor={`approve-${session.id}`}>
                         {session.name}
                       </FieldLabel>
                     </Field>
@@ -258,11 +262,11 @@ function KaptenTryoutParticipantDetailPageModule({
                 >
                   {activeSessions.map((session) => (
                     <Field
-                      className="flex-row items-center rounded-2xl border border-secondary-900/14 p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50"
+                      className={cn(REFERENCE_CONTROL_CLASS_NAMES.choice, "flex-row items-center p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50")}
                       key={session.id}
                     >
                       <RadioGroupItem id={`assign-${session.id}`} value={session.id} />
-                      <FieldLabel className="flex-1 cursor-pointer text-sm font-medium" htmlFor={`assign-${session.id}`}>
+                      <FieldLabel className="flex-1 cursor-pointer text-sm font-medium leading-6 tracking-normal" htmlFor={`assign-${session.id}`}>
                         {session.name}
                       </FieldLabel>
                     </Field>
@@ -280,7 +284,7 @@ function KaptenTryoutParticipantDetailPageModule({
             </CardHeader>
             <CardContent className="grid gap-4">
               <Field>
-                <FieldLabel htmlFor="participant-audit-reason">Alasan audit</FieldLabel>
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="participant-audit-reason">Alasan audit</FieldLabel>
                 <FieldInput
                   className={REFERENCE_CONTROL_CLASS_NAMES.input}
                   id="participant-audit-reason"

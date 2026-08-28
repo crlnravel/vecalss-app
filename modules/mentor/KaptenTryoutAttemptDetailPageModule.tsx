@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ReferencePageHeader, ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+  REFERENCE_SURFACE_CLASS_NAMES,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -207,7 +211,7 @@ function KaptenTryoutAttemptDetailPageModule({
             </CardHeader>
             <CardContent className="grid gap-4">
               <Field>
-                <FieldLabel htmlFor="attempt-audit-reason">Alasan audit</FieldLabel>
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="attempt-audit-reason">Alasan audit</FieldLabel>
                 <FieldInput
                   className={REFERENCE_CONTROL_CLASS_NAMES.input}
                   id="attempt-audit-reason"

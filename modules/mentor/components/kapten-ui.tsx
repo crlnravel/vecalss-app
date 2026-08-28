@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -411,7 +412,7 @@ function CatalogueSearchInput({
       <span className="sr-only">{placeholder}</span>
       <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
       <input
-        className="h-12 w-full rounded-2xl border border-primary-200 bg-white px-11 text-sm text-secondary-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-3 focus:ring-primary-300/35"
+        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 px-11 text-secondary-900")}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type="search"
@@ -430,7 +431,7 @@ function SearchPanel({
     <div className="relative">
       <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-secondary-400" />
       <input
-        className="h-12 w-full rounded-2xl border border-primary-100 bg-white px-11 text-sm shadow-sm outline-none transition focus:border-primary-300 focus:ring-3 focus:ring-primary-300/20"
+        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "h-12 px-11")}
         placeholder={placeholder}
         type="search"
       />
