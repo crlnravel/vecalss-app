@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Printer } from "@phosphor-icons/react";
 
 import {
@@ -25,6 +26,8 @@ import {
 import { AssessmentReviewAnswerOption } from "@/modules/assessment/AssessmentReviewAnswerOption";
 import { AssessmentResultStat } from "@/modules/assessment/AssessmentResultStat";
 import { cn } from "@/lib/utils";
+
+import { startQuizAction } from "./actions";
 
 type QuizResult = {
   aggregateScore: number | null;
@@ -56,15 +59,21 @@ type QuizResult = {
 
 function QuizResultPageModule({
   result,
+  quizSlug,
   subjectSlug,
   subjectTitle,
 }: {
   result: QuizResult;
+  quizSlug: string;
   subjectSlug: string;
   subjectTitle: string;
 }) {
+  const router = useRouter();
+  const restartRequestIdRef = useRef<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [reportedQuestions, setReportedQuestions] = useState<number[]>([]);
+  const [isRestarting, setIsRestarting] = useState(false);
+  const [restartMessage, setRestartMessage] = useState<string | null>(null);
   const readingTextClass = "text-lg leading-[1.85]";
   const explanationTextClass = "text-base leading-7";
 
@@ -72,6 +81,28 @@ function QuizResultPageModule({
     setReportedQuestions((current) => current.includes(currentQuestion)
       ? current.filter((number) => number !== currentQuestion)
       : [...current, currentQuestion]);
+  }
+
+  async function restartQuiz() {
+    if (isRestarting) return;
+    setIsRestarting(true);
+    setRestartMessage(null);
+
+    try {
+      const requestId = restartRequestIdRef.current ?? crypto.randomUUID();
+      restartRequestIdRef.current = requestId;
+      const response = await startQuizAction(subjectTitle, quizSlug, requestId);
+      if (!response.ok) {
+        setRestartMessage(response.message);
+        return;
+      }
+
+      router.replace(`/quiz/${subjectSlug}/${quizSlug}?attemptId=${encodeURIComponent(response.result.attemptId)}`);
+    } catch (error) {
+      setRestartMessage(error instanceof Error ? error.message : "Quiz belum dapat dimulai kembali.");
+    } finally {
+      setIsRestarting(false);
+    }
   }
 
   if (!result.isSubmitted) {
@@ -118,13 +149,14 @@ function QuizResultPageModule({
       headerActions={
         <>
           <Button
-            className="hidden sm:inline-flex"
-            nativeButton={false}
-            render={<Link href={`/quiz/${subjectSlug}`} />}
+            aria-label="Ulangi quiz"
+            className="inline-flex"
+            disabled={isRestarting}
+            onClick={() => { void restartQuiz(); }}
             variant="brandOutline"
           >
             <RefreshCw />
-            Ulangi
+            <span className="hidden sm:inline">{isRestarting ? "Memulai…" : "Ulangi"}</span>
           </Button>
           <Button
             aria-label="Kembali ke menu quiz"
@@ -141,11 +173,13 @@ function QuizResultPageModule({
       }
       navigation={
         <AssessmentResultNavigation
+          compact
           items={markers}
           label="Ringkasan soal"
           onSelect={setCurrentQuestion}
         />
       }
+      floatingPanels
       score={result.aggregateScore ?? result.score ?? 0}
       scoreLabel="Skor Akhir"
       summary={
@@ -158,6 +192,7 @@ function QuizResultPageModule({
       title={result.title}
     >
       <article className="rounded-[1.75rem] border border-primary-100 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(1,76,56,0.55)] sm:p-8">
+        {restartMessage ? <p className="mb-5 text-sm font-medium text-student-status-danger-fg" role="alert">{restartMessage}</p> : null}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-100 pb-5">
           <div className="min-w-0">
             <p className="text-lg font-semibold text-secondary-900">Soal #{currentQuestion}</p>
@@ -207,7 +242,7 @@ function QuizResultPageModule({
           </div>
         </section>
 
-        <div className="mt-7 flex items-center justify-between gap-3 border-t border-primary-100 pt-5 print:hidden">
+        <div className="mt-7 flex items-center justify-between gap-3 pt-5 print:hidden">
           <Button disabled={currentQuestion === 1} onClick={() => setCurrentQuestion((number) => number - 1)} variant="brandOutline">
             <ArrowLeft />
             <span className="hidden sm:inline">Sebelumnya</span>

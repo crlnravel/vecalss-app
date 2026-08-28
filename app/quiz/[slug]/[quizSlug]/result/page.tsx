@@ -19,5 +19,5 @@ export default async function QuizResultPage({
   if (!attemptId) notFound();
   const result = await getStandaloneQuizResult(attemptId, session.user.id, subject.title, quizSlug);
   if (!result) notFound();
-  return <QuizResultPageModule result={result} subjectSlug={slug} subjectTitle={subject.title} />;
+  return <QuizResultPageModule quizSlug={quizSlug} result={result} subjectSlug={slug} subjectTitle={subject.title} />;
 }

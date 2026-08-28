@@ -479,6 +479,7 @@ function AssessmentUtilityPill({
 
 function AssessmentResultWorkspace({
   children,
+  floatingPanels = false,
   headerActions,
   navigation,
   score,
@@ -487,6 +488,7 @@ function AssessmentResultWorkspace({
   title,
 }: {
   children: ReactNode;
+  floatingPanels?: boolean;
   headerActions?: ReactNode;
   navigation?: ReactNode;
   score: number;
@@ -498,7 +500,7 @@ function AssessmentResultWorkspace({
 
   return (
     <div className="min-h-svh bg-secondary-50 text-secondary-900">
-      <header className="relative grid min-h-20 grid-cols-[1fr_auto_1fr] items-center border-t-4 border-primary-700 border-b border-primary-100 bg-white px-4 py-3 sm:min-h-24 sm:px-8 print:min-h-0 print:border-0 print:px-0 print:py-3">
+      <header className="relative grid min-h-20 grid-cols-[1fr_auto_1fr] items-center border-t-2 border-primary-800 border-b border-primary-200/80 bg-white px-4 py-3 sm:min-h-24 sm:px-8 print:min-h-0 print:border-0 print:px-0 print:py-3">
         <div className="min-w-0">
           <BrandLockup />
         </div>
@@ -506,8 +508,16 @@ function AssessmentResultWorkspace({
         <div className="flex justify-end gap-2 print:hidden">{headerActions}</div>
       </header>
 
-      <div className="grid min-h-[calc(100svh-6rem)] lg:grid-cols-[minmax(280px,25vw)_minmax(0,1fr)_minmax(280px,25vw)] print:block">
-        <aside className="flex min-h-full flex-col border-b border-primary-100 bg-white px-5 py-6 sm:px-8 lg:border-r lg:border-b-0 lg:px-8 xl:px-10 print:border-0 print:px-0 print:py-3">
+      <div className={cn(
+        "grid min-h-[calc(100svh-6rem)] lg:grid-cols-[minmax(280px,25vw)_minmax(0,1fr)_minmax(280px,25vw)] print:block",
+        floatingPanels && "gap-6 lg:items-start lg:gap-8",
+      )}>
+        <aside className={cn(
+          "flex flex-col px-5 py-6 sm:px-8 lg:px-8 xl:px-10 print:border-0 print:px-0 print:py-3",
+          floatingPanels
+            ? "self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:overflow-y-auto"
+            : "min-h-full border-b border-primary-100 bg-white lg:border-r lg:border-b-0",
+        )}>
           <div className="flex items-center gap-4 lg:block">
             <div
               aria-label={`${Math.round(normalizedScore)} ${scoreLabel}`}
@@ -527,7 +537,10 @@ function AssessmentResultWorkspace({
           </div>
 
           {summary ? (
-            <div className="mt-8 border-t border-primary-100 pt-7 lg:mt-auto">
+            <div className={cn(
+              "mt-8 border-t border-primary-100 pt-7",
+              !floatingPanels && "lg:mt-auto",
+            )}>
               <p className="text-center text-base font-semibold text-secondary-800">Ringkasan</p>
               <div className="mt-5">{summary}</div>
             </div>
@@ -539,7 +552,12 @@ function AssessmentResultWorkspace({
         </main>
 
         {navigation ? (
-        <aside className="border-t border-primary-100 bg-white px-5 py-6 sm:px-8 lg:border-t-0 lg:border-l lg:px-8 xl:px-10 print:hidden">
+        <aside className={cn(
+          "px-5 py-6 sm:px-8 lg:px-8 xl:px-10 print:hidden",
+          floatingPanels
+            ? "self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:overflow-y-auto"
+            : "border-t border-primary-100 bg-white lg:border-t-0 lg:border-l",
+        )}>
             {navigation}
         </aside>
         ) : null}
@@ -549,10 +567,12 @@ function AssessmentResultWorkspace({
 }
 
 function AssessmentResultNavigation({
+  compact = false,
   items,
   label = "Navigasi Soal",
   onSelect,
 }: {
+  compact?: boolean;
   items: Array<{ id?: string; number: number; state: AssessmentResultMarkerState }>;
   label?: ReactNode;
   onSelect: (number: number) => void;
@@ -560,9 +580,13 @@ function AssessmentResultNavigation({
   return (
     <nav aria-label={typeof label === "string" ? label : "Navigasi hasil"}>
       <p className="sr-only">{label}</p>
-      <div className="mt-0 grid grid-cols-3 gap-4">
+      <div className={cn(
+        "mt-0 grid justify-items-center",
+        compact ? "grid-cols-5 gap-2" : "grid-cols-3 gap-4",
+      )}>
         {items.map((item) => (
           <AssessmentResultMarker
+            compact={compact}
             key={item.id ?? item.number}
             marker={item}
             onClick={() => onSelect(item.number)}
@@ -574,9 +598,11 @@ function AssessmentResultNavigation({
 }
 
 function AssessmentResultMarker({
+  compact = false,
   marker,
   onClick,
 }: {
+  compact?: boolean;
   marker: { id?: string; number: number; state: AssessmentResultMarkerState };
   onClick: () => void;
 }) {
@@ -584,7 +610,8 @@ function AssessmentResultMarker({
     <button
       aria-current={marker.state === "current" ? "step" : undefined}
       className={cn(
-        "flex aspect-square items-center justify-center rounded-xl border text-sm font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+        "flex items-center justify-center border font-semibold transition-all duration-200 focus-visible:ring-3 focus-visible:ring-primary-400/30 focus-visible:outline-none",
+        compact ? "size-11 rounded-xl text-xs" : "aspect-square rounded-xl text-sm",
         marker.state === "correct" && "border-student-status-success-border bg-student-status-success-bg text-student-status-success-fg",
         marker.state === "incorrect" && "border-student-status-danger-border bg-student-status-danger-bg text-student-status-danger-fg",
         marker.state === "unanswered" && "border-student-status-danger-border bg-student-status-danger-bg/80 text-student-status-danger-fg",
