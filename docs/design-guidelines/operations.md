@@ -18,6 +18,10 @@ platform-specific requirement is documented.
 
 - **Trigger:** Use a clearly labeled trigger with the shared button geometry,
   visible focus, and at least a 44px touch target.
+- **Field labels:** On settings-style forms, place the compact
+  `REFERENCE_FIELD_LABEL_CLASS_NAME` above the select/dropdown trigger. The
+  label describes the field; the trigger carries the current value and keeps
+  the normal readable body text.
 - **Menu:** Use the shared portal, surface, radius, shadow, spacing, and
   highlighted/selected states; do not restyle each screen with a competing
   dropdown language.

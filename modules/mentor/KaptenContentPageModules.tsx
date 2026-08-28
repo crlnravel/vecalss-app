@@ -13,7 +13,10 @@ import {
   FieldInput,
   FieldLabel,
 } from "@/components/ui/field";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
 import {
   DropdownField,
@@ -283,7 +286,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
             <div className="grid gap-6">
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-first-name">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-first-name">
                     Nama depan
                   </FieldLabel>
                   <FieldInput
@@ -294,7 +297,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
                 </Field>
 
                 <Field>
-                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-last-name">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-last-name">
                     Nama belakang
                   </FieldLabel>
                   <FieldInput
@@ -305,7 +308,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
                 </Field>
 
                 <Field className="sm:col-span-2">
-                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-email">
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-email">
                     Email
                   </FieldLabel>
                   <FieldInput
@@ -335,7 +338,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <Field>
-                <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-default-subject">
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-default-subject">
                   Subjek utama
                 </FieldLabel>
                 <DropdownField
@@ -349,7 +352,7 @@ function KaptenSettingsPageModule({ session }: { session: SessionContext }) {
               </Field>
 
               <Field>
-                <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="kapten-language">
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="kapten-language">
                   Bahasa konten
                 </FieldLabel>
                 <DropdownField

@@ -46,7 +46,10 @@ import {
   ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import type { SessionContext } from "@/lib/auth/types";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import type { TryoutWorkflowProjection as CanonicalTryoutWorkflowProjection } from "@/lib/tryout/workflow-projection";
@@ -567,7 +570,7 @@ function TryoutBannerField({
             <MediaAssetPreview alt="Preview banner Tryout" assetId={bannerMediaId} className="absolute inset-0 min-h-0 w-full" />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button disabled={disabled} id="tryout-banner-choose" onClick={() => setPickerOpen(true)} size="sm" variant="brandOutline">
+            <Button className={REFERENCE_CONTROL_CLASS_NAMES.file} disabled={disabled} id="tryout-banner-choose" onClick={() => setPickerOpen(true)} variant="reference">
               <ImagePlus />Ganti gambar
             </Button>
             <Button disabled={disabled} onClick={() => onChange(null)} size="sm" variant="ghost">
@@ -581,7 +584,7 @@ function TryoutBannerField({
             Belum ada banner — peserta melihat gambar bawaan.
           </div>
           <div>
-            <Button disabled={disabled} id="tryout-banner-choose" onClick={() => setPickerOpen(true)} size="sm" variant="brandOutline">
+            <Button className={REFERENCE_CONTROL_CLASS_NAMES.file} disabled={disabled} id="tryout-banner-choose" onClick={() => setPickerOpen(true)} variant="reference">
               <ImagePlus />Pilih gambar
             </Button>
           </div>
@@ -623,11 +626,11 @@ function TryoutBasicsTab({
         <h2 className="text-xl font-semibold text-secondary-900">Identitas Tryout</h2>
         <div className="grid gap-5">
           <Field>
-            <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="tryout-title">Judul Tryout <RequiredMark /></FieldLabel>
             <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 text-base font-semibold`} disabled={identityDisabled} id="tryout-title" onChange={(event) => onTitleChange(event.target.value)} required value={draft.title} />
           </Field>
           <Field>
-            <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor="tryout-description">Deskripsi</FieldLabel>
+            <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="tryout-description">Deskripsi</FieldLabel>
             <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32 text-sm leading-6`} disabled={identityDisabled} id="tryout-description" onChange={(event) => onDescriptionChange(event.target.value)} placeholder="Contoh: Simulasi UTBK dengan tujuh subtest." value={draft.description} />
           </Field>
           <TryoutBannerField bannerMediaId={draft.bannerMediaId} disabled={identityDisabled} onChange={onBannerChange} />
@@ -701,15 +704,15 @@ function TryoutSectionsTab({
             <h2 className="text-xl font-semibold text-secondary-900" id="tryout-basic-info-title">Informasi dasar</h2>
             <div className="grid gap-5">
               <Field>
-                <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor={`duration-${activeSection.subtest}`}>Durasi <RequiredMark /></FieldLabel>
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`duration-${activeSection.subtest}`}>Durasi <RequiredMark /></FieldLabel>
                 <div className="relative">
-                  <FieldInput className="pr-16" disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => onUpdateSection({ durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
+                  <FieldInput className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pr-16`} disabled={draft.locked} id={`duration-${activeSection.subtest}`} min="1" onChange={(event) => onUpdateSection({ durationMinutes: Number(event.target.value) })} required type="number" value={activeSection.durationMinutes} />
                   <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-secondary-500">menit</span>
                 </div>
               </Field>
               <Field>
-                <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600" htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
-                <FieldTextarea className="min-h-32 bg-white" disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
+                <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={`instruction-${activeSection.subtest}`}>Instruksi peserta</FieldLabel>
+                <FieldTextarea className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-32`} disabled={draft.locked} id={`instruction-${activeSection.subtest}`} onChange={(event) => onUpdateSection({ instructions: event.target.value })} placeholder="Instruksi yang dibaca peserta sebelum Test dimulai." value={activeSection.instructions} />
               </Field>
             </div>
           </ReferenceSurface>
@@ -726,7 +729,7 @@ function TryoutSectionsTab({
             <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.34fr)_minmax(0,0.66fr)] lg:items-start">
               <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
                 <Field>
-                  <FieldLabel className="text-xs font-semibold tracking-[0.04em] text-secondary-600">Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
+                  <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>Bank Soal untuk ditelusuri <RequiredMark /></FieldLabel>
                   <Popover>
                     <PopoverTrigger disabled={draft.locked} render={<Button aria-haspopup="listbox" className={`${REFERENCE_CONTROL_CLASS_NAMES.select} w-full`} variant="reference" />}>
                       <span className="min-w-0 truncate">{activeBrowseBank?.title ?? "Pilih Bank Soal"}</span>

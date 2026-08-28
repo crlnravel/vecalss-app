@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
-import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { Check, CircleAlert, LoaderCircle, Search, SendHorizontal, UserPlus } from "@/lib/icons";
 import type { InvitationPickerStudent } from "@/lib/tryout/invitation-picker";
 import type { TryoutOperationsView, TryoutParticipantsView } from "@/lib/tryout/operations-view";
@@ -149,7 +152,7 @@ function StudentSearchSection({
   return (
     <div className="grid min-w-0 content-start gap-3">
       <Field>
-        <FieldLabel htmlFor={searchInputId}>Cari akun student</FieldLabel>
+        <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={searchInputId}>Cari akun student</FieldLabel>
         <div className="relative min-w-0">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-secondary-500" />
           <FieldInput
@@ -271,7 +274,7 @@ function InvitationDetailCard({
         )}
 
         <Field>
-          <FieldLabel htmlFor={sessionInputId}>Sesi Tryout</FieldLabel>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={sessionInputId}>Sesi Tryout</FieldLabel>
           <ReferenceSelect
             aria-describedby={`${sessionInputId}-hint`}
             aria-label="Sesi Tryout"
@@ -292,7 +295,7 @@ function InvitationDetailCard({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor={reasonInputId}>Alasan audit <span aria-hidden="true" className="text-destructive">*</span><span className="sr-only"> (wajib)</span></FieldLabel>
+          <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={reasonInputId}>Alasan audit <span aria-hidden="true" className="text-destructive">*</span><span className="sr-only"> (wajib)</span></FieldLabel>
           <FieldTextarea
             aria-describedby={`${reasonInputId}-hint`}
             aria-required="true"

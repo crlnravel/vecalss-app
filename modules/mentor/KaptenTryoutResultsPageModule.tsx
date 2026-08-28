@@ -4,6 +4,7 @@ import { CircleAlert } from "@/lib/icons";
 import { useEffect, useMemo, useState } from "react";
 
 import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
+import { REFERENCE_FIELD_LABEL_CLASS_NAME } from "@/components/dashboard/reference-dashboard-tokens";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { TryoutOperationsView } from "@/lib/tryout/operations-view";
 import { formatTryoutDateTime } from "@/lib/tryout/time";
@@ -37,7 +38,7 @@ function KaptenTryoutResultsPageModule({ initial, selectedSessionId }: { initial
       </header>
 
       {initial.sessions.length ? <div className="grid min-w-0 w-full max-w-md gap-2">
-        <label className="text-sm font-semibold text-secondary-900" htmlFor="results-session">Sesi yang ditampilkan</label>
+        <label className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor="results-session">Sesi yang ditampilkan</label>
         <div className="min-w-0 w-full max-w-full">
           <ReferenceSelect
             aria-label="Sesi yang ditampilkan"

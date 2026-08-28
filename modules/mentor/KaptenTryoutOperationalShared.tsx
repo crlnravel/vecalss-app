@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  REFERENCE_CONTROL_CLASS_NAMES,
+  REFERENCE_FIELD_LABEL_CLASS_NAME,
+} from "@/components/dashboard/reference-dashboard-tokens";
 import { cn } from "@/lib/utils";
 
 function OperationalPageHeader({
@@ -138,7 +142,7 @@ function HelpTooltip({ content, label }: { content: string; label: string }) {
 function HelpFieldLabel({ htmlFor, label, required = false, tooltip }: { htmlFor?: string; label: string; required?: boolean; tooltip?: string }) {
   return (
     <div className="flex items-center gap-1">
-      <FieldLabel htmlFor={htmlFor}>
+      <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME} htmlFor={htmlFor}>
         {label}
         {required ? <><span aria-hidden="true" className="text-destructive"> *</span><span className="sr-only"> (wajib)</span></> : null}
       </FieldLabel>
@@ -164,7 +168,7 @@ function OptionSet<T extends string>({
 }) {
   return (
     <Field>
-      {labelTooltip ? <HelpFieldLabel label={label} required={required} tooltip={labelTooltip} /> : <FieldLabel>{label}{required ? <><span aria-hidden="true" className="text-destructive"> *</span><span className="sr-only"> (wajib)</span></> : null}</FieldLabel>}
+      {labelTooltip ? <HelpFieldLabel label={label} required={required} tooltip={labelTooltip} /> : <FieldLabel className={REFERENCE_FIELD_LABEL_CLASS_NAME}>{label}{required ? <><span aria-hidden="true" className="text-destructive"> *</span><span className="sr-only"> (wajib)</span></> : null}</FieldLabel>}
       <RadioGroup
         className="grid gap-2"
         onValueChange={(next) => onValueChange(next as T)}
@@ -175,13 +179,14 @@ function OptionSet<T extends string>({
           return (
             <Field
               className={cn(
-                "flex-row gap-3 rounded-2xl border border-secondary-900/14 bg-white p-3.5 has-[[data-checked]]:border-primary-700/35 has-[[data-checked]]:bg-primary-50",
+                REFERENCE_CONTROL_CLASS_NAMES.choice,
+                "flex-row",
                 option.description ? "items-start" : "items-center",
                 option.disabled && "cursor-not-allowed opacity-55",
               )}
               key={option.value}
             >
-              <RadioGroupItem disabled={option.disabled} id={id} value={option.value} />
+              <RadioGroupItem className="border-primary-200 bg-white data-checked:border-primary-700 data-checked:bg-primary-700" disabled={option.disabled} id={id} value={option.value} />
               <div className={cn(
                 "flex min-w-0 flex-1 justify-between gap-3",
                 option.description ? "items-start" : "items-center",

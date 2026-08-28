@@ -132,3 +132,26 @@ outer card contract should not.
   disabled controls, and use a clear message plus an additional state cue for
   errors.
 
+### Settings-style field labels and control families
+
+Mentor settings and the embedded Tryout detail workspace share one field
+contract. Use the exported `REFERENCE_FIELD_LABEL_CLASS_NAME` for the visible
+label above every settings-style control. Keep the label compact and muted;
+the value, option, or action text inside the control remains readable at the
+normal body size.
+
+Use the shared control token for the control family instead of recreating its
+geometry in a route module:
+
+| Control family | Shared implementation | Contract |
+| --- | --- | --- |
+| Text, number, date, search, and textarea | `REFERENCE_CONTROL_CLASS_NAMES.input` | Pale mint surface, 44px minimum height, 20px corners, inset depth, and a visible green focus ring. Add only field-specific sizing such as a textarea minimum height. |
+| Select and dropdown | `ReferenceSelect`, `DropdownField`, or a custom listbox trigger with `REFERENCE_CONTROL_CLASS_NAMES.select` | Keep the visible label above the trigger; preserve keyboard navigation, selected state, and the shared popup surface. |
+| Radio or checkbox choices | `RadioGroup` / `Checkbox` inside a `REFERENCE_CONTROL_CLASS_NAMES.choice` surface | Apply the reference surface to the choice row, use a visible focus-within ring, and keep option labels at `text-sm` or larger. The group label uses the compact settings label token. |
+| File and media | A keyboard-accessible visible trigger with `REFERENCE_CONTROL_CLASS_NAMES.file` plus a native `input[type="file"]` kept `sr-only` | The trigger names the action (`Pilih gambar`, `Ganti gambar`, or `Upload gambar`), remains at least 44px high, and exposes disabled/uploading state without hiding the input semantics. |
+
+For every family, pair the label with the control through `htmlFor`/`id` when
+the primitive supports it. Do not make a radio option or checkbox value look
+like the compact field label: the group label establishes the field, while
+the option text explains the choice. Selected, invalid, disabled, and
+uploading states must retain the same geometry and a non-color cue.
