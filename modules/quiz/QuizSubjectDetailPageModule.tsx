@@ -43,12 +43,6 @@ function QuizSubjectDetailPageModule({
       session={session}
     >
       <div className="mx-auto flex w-full max-w-[78rem] flex-col gap-8">
-        <BackButton
-          className="self-start"
-          href="/quiz"
-          label="Kembali ke subjek kuis"
-        />
-
         <section className="relative isolate overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-[0_28px_72px_-44px_rgba(1,76,56,0.75)]">
           <div
             aria-hidden="true"
@@ -61,13 +55,21 @@ function QuizSubjectDetailPageModule({
 
           <div className="relative z-10 grid gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center md:px-10 md:py-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="max-w-[42rem]">
-              <StudentBadge
-                className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]`}
-                size="sm"
-                tone="category"
-              >
-                {subject.code}
-              </StudentBadge>
+              <div className="flex items-center gap-2">
+                <BackButton
+                  className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40"
+                  href="/quiz"
+                  label="Kembali ke subjek kuis"
+                  variant="ghost"
+                />
+                <StudentBadge
+                  className={`${QUIZ_BADGE_CLASS_NAME} bg-[linear-gradient(135deg,#b7ddc3_0%,#eef8f1_100%)] !font-normal text-[#176b4d]`}
+                  size="sm"
+                  tone="category"
+                >
+                  {subject.code}
+                </StudentBadge>
+              </div>
               <h1 className="mt-6 text-5xl leading-[0.94] font-extrabold tracking-[-0.04em] md:text-7xl">
                 {subject.description}
               </h1>
