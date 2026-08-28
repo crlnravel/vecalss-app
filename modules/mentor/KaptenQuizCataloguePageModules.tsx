@@ -2,9 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, ListChecks, Plus, X } from "@/lib/icons";
+import { ChevronLeft, ChevronRight, ListChecks, Plus, Search, X } from "@/lib/icons";
 import { useReducer } from "react";
 
+import {
+  ReferenceEmptyState,
+  ReferencePageHeader,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { ReferenceSelect } from "@/components/dashboard/reference-dashboard-controls";
+import { REFERENCE_CONTROL_CLASS_NAMES, REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,10 +27,11 @@ import {
 } from "@/components/ui/dialog";
 import type { SessionContext } from "@/lib/auth/types";
 import { MentorWorkspaceShell } from "@/modules/mentor/components/mentor-workspace-shell";
-import { CatalogueFilter, CatalogueSearchInput, PageIntro, PaginationControls, StatusPill } from "@/modules/mentor/components/kapten-ui";
+import { PaginationControls } from "@/modules/mentor/components/kapten-ui";
 import type { KaptenQuiz, KaptenSubject } from "@/modules/mentor/mock-data";
 import { bulkPublishStandaloneQuizzesAction, bulkUnpublishStandaloneQuizzesAction } from "@/modules/mentor/quiz-actions";
 import { getSubjectCategory } from "@/modules/mentor/subject-category";
+import { cn } from "@/lib/utils";
 
 type QuizCatalogueState = {
   quizzes: KaptenQuiz[];
@@ -74,22 +83,65 @@ function SubjectCard({ subject }: { subject: KaptenSubject }) {
   const subjectCategory = getSubjectCategory(subject.code);
 
   return (
-    <Link className="group flex min-h-32 flex-col rounded-3xl border border-primary-200 bg-white p-5 shadow-sm transition-[transform,border-color,background-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-500 hover:bg-primary-50/40 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.42)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/35" href={`/mentor/quiz/subject/${subject.slug}`}>
+    <Link
+      className={cn(
+        REFERENCE_SURFACE_CLASS_NAMES.raised,
+        REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+        "group flex min-h-36 min-w-0 flex-col p-5",
+      )}
+      href={`/mentor/quiz/subject/${subject.slug}`}
+    >
       <div className="flex items-start justify-between gap-4">
         <span className="inline-flex rounded-xl bg-primary-100 px-3 py-1.5 text-sm font-bold text-primary-900">{subjectCategory}</span>
-        <ListChecks className="size-5 text-primary-800" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-800">
+          <ListChecks aria-hidden="true" className="size-5" />
+        </span>
       </div>
       <h2 className="mt-5 text-xl font-semibold text-secondary-900">{subject.name}</h2>
+      <p className="mt-1 line-clamp-2 text-sm leading-6 text-secondary-500">{subject.description}</p>
     </Link>
   );
 }
 
 function KaptenQuizPageModule({ session, subjects }: { session: SessionContext; subjects: KaptenSubject[] }) {
   return (
-    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel="Kuis" searchPlaceholder="Cari kuis atau subjek..." session={session}>
-      <PageIntro title="Kuis" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {subjects.map((subject) => <SubjectCard key={subject.slug} subject={subject} />)}
+    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel="Kuis" searchPlaceholder="Cari kuis atau subjek..." session={session} sidebarAppearance="reference">
+      <div className="space-y-8">
+        <ReferencePageHeader
+          actions={
+            <Button
+              aria-label="Buat Kuis"
+              nativeButton={false}
+              render={<Link href="/mentor/quiz/create" />}
+              size="sm"
+              variant="brand"
+            >
+              <Plus />
+              Buat Kuis
+            </Button>
+          }
+          description="Kelola latihan mandiri berdasarkan subjek dan kesiapan siswa."
+          title="Kuis"
+        />
+        {subjects.length ? (
+          <section aria-label="Daftar subjek Kuis" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {subjects.map((subject) => <SubjectCard key={subject.slug} subject={subject} />)}
+          </section>
+        ) : (
+          <ReferenceSurface className="min-h-56" variant="inset">
+            <ReferenceEmptyState
+              action={
+                <Button nativeButton={false} render={<Link href="/mentor/quiz/create" />} size="sm" variant="brand">
+                  <Plus />
+                  Buat Kuis pertama
+                </Button>
+              }
+              description="Buat latihan pertama untuk mulai menyusun pengalaman belajar siswa."
+              icon={ListChecks}
+              title="Belum ada subjek Kuis"
+            />
+          </ReferenceSurface>
+        )}
       </div>
     </MentorWorkspaceShell>
   );
@@ -97,13 +149,20 @@ function KaptenQuizPageModule({ session, subjects }: { session: SessionContext; 
 
 function QuizRow({ onSelectedChange, quiz, selectionMode, selected }: { onSelectedChange: (checked: boolean) => void; quiz: KaptenQuiz; selectionMode: boolean; selected: boolean }) {
   return (
-    <article className={`group grid gap-4 rounded-3xl border border-primary-100 bg-white p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 motion-safe:hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] focus-within:border-primary-200 focus-within:shadow-[0_18px_38px_-28px_rgba(1,76,56,0.38)] ${selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)]" : "sm:grid-cols-1"} sm:items-center`}>
+    <article className={cn(
+      // Keep the compact catalogue geometry while adding the reference depth contract.
+      "group grid gap-4 rounded-3xl border border-primary-100 bg-white p-4",
+      REFERENCE_SURFACE_CLASS_NAMES.raised,
+      REFERENCE_SURFACE_CLASS_NAMES.raisedInteractive,
+      selectionMode ? "sm:grid-cols-[auto_minmax(0,1fr)]" : "sm:grid-cols-1",
+      "sm:items-center",
+    )}>
       {selectionMode ? <Checkbox aria-label={`Pilih ${quiz.title}`} checked={selected} onCheckedChange={(checked) => onSelectedChange(checked === true)} /> : null}
       <Link aria-label={`Buka ${quiz.title}`} className="group/link flex min-w-0 items-center justify-between gap-4 rounded-2xl outline-none focus-visible:ring-4 focus-visible:ring-primary-700/20" href={quiz.href}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h2 className="truncate font-semibold text-secondary-900">{quiz.title}</h2>
-            <StatusPill status={quiz.status} />
+            <ReferenceStatusBadge size="xs" status={quiz.status} />
           </div>
         </div>
         <ChevronRight aria-hidden className="size-5 shrink-0 text-secondary-400 transition-transform group-hover/link:translate-x-0.5" />
@@ -152,6 +211,20 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
   const eligibilityReason = selectedQuizzes.length > 0 && !canPublish && !canUnpublish ? "Pilih hanya quiz draf yang memiliki soal atau quiz yang sudah diterbitkan." : null;
   const confirmation = intent === "publish" ? { confirm: "Terbitkan semua", description: `${selectedQuizzes.length} quiz akan tersedia untuk siswa.`, title: "Terbitkan quiz terpilih?" } : { confirm: "Batalkan terbit", description: `${selectedQuizzes.length} quiz kembali menjadi draf dan tidak tersedia untuk siswa.`, title: "Batalkan penerbitan quiz?" };
 
+  const searchInput = (
+    <label className="relative block w-full max-w-2xl">
+      <span className="sr-only">Cari judul, jumlah soal, atau status</span>
+      <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" />
+      <input
+        className={cn(REFERENCE_CONTROL_CLASS_NAMES.input, "pl-11")}
+        onChange={(event) => dispatch({ patch: { page: 1, query: event.target.value, selectedIds: new Set() }, type: "patch" })}
+        placeholder="Cari judul, jumlah soal, atau status..."
+        type="search"
+        value={query}
+      />
+    </label>
+  );
+
   const toggleSelected = (id: string, checked: boolean) => dispatch({ checked, id, type: "toggle-selected" });
   const toggleAllVisible = (checked: boolean) => dispatch({ checked, ids: visibleQuizzes.map((quiz) => quiz.id), type: "toggle-all-visible" });
   const confirmLifecycle = async () => {
@@ -168,60 +241,71 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
     finally { dispatch({ patch: { isPending: false }, type: "patch" }); }
   };
   return (
-    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`${subject.code} · Kuis`} searchPlaceholder="Cari kuis..." session={session}>
-      <div className="space-y-3">
-      <section className="space-y-3">
-        <Button aria-label="Kembali ke semua quiz" render={<Link href="/mentor/quiz" />} size="icon-sm" title="Kembali ke semua quiz" variant="ghost"><ChevronLeft /></Button>
-        <PageIntro
-          action={
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      aria-label="Buat quiz baru"
-                      render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />}
-                      size="icon"
-                      variant="brand"
-                    />
-                  }
-                >
-                  <Plus />
-                </TooltipTrigger>
-                <TooltipContent>Buat quiz baru</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          }
-          title={subject.name}
-        />
-        <CatalogueSearchInput onChange={(value) => dispatch({ patch: { page: 1, query: value, selectedIds: new Set() }, type: "patch" })} placeholder="Cari judul, jumlah soal, atau status..." value={query} />
-        <div className="flex flex-wrap items-center gap-2">
-          <CatalogueFilter
-            label="Filter status"
+    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`${subject.code} · Kuis`} searchPlaceholder="Cari kuis..." session={session} sidebarAppearance="reference">
+      <div className="space-y-8">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button aria-label="Kembali ke semua quiz" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/mentor/quiz" />} size="icon" title="Kembali ke semua quiz" variant="ghost"><ChevronLeft /></Button>
+          <ReferencePageHeader
+            className="min-w-0 flex-1"
+            actions={
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label="Buat quiz baru"
+                        nativeButton={false}
+                        render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />}
+                        size="sm"
+                        variant="brand"
+                      />
+                    }
+                  >
+                    <Plus />
+                    Buat Kuis
+                  </TooltipTrigger>
+                  <TooltipContent>Buat quiz baru</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            }
+            description={subject.description}
+            title={subject.name}
+          />
+        </div>
+        <section aria-label="Filter Kuis" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)] sm:items-center">
+          {searchInput}
+          <ReferenceSelect
+            aria-label="Filter status"
             onValueChange={(value) => dispatch({ patch: { page: 1, selectedIds: new Set(), statusFilter: value }, type: "patch" })}
             options={[
               { label: "Semua status", value: "" },
               { label: "Draf", value: "draft" },
               { label: "Diterbitkan", value: "published" },
             ]}
+            placeholder="Semua status"
             value={statusFilter}
           />
-          {!selectionMode ? <Button aria-label="Pilih beberapa quiz" className="ml-auto" onClick={() => dispatch({ patch: { selectionMode: true }, type: "patch" })} size="icon-sm" title="Pilih beberapa quiz" type="button" variant="brandOutline"><ListChecks /></Button> : null}
-        </div>
-      </section>
-      <section className="space-y-3">
-        {selectionMode ? <div className="flex flex-wrap items-center gap-5 rounded-3xl border border-primary-100 bg-primary-50/35 px-6 py-4"><Button aria-label="Keluar dari mode pilih" onClick={() => dispatch({ patch: { selectedIds: new Set(), selectionMode: false }, type: "patch" })} size="icon-xs" type="button" variant="ghost"><X /></Button><span className="text-sm font-semibold text-secondary-900">{selectedQuizzes.length} dipilih</span><Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => toggleAllVisible(checked === true)} /><span className="text-sm font-semibold text-secondary-700">Semua hasil</span><div className="ml-auto flex flex-wrap items-center gap-3"><Button disabled={!canPublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "publish" }, type: "patch" })} size="sm" type="button" variant="brand">Terbitkan</Button><Button disabled={!canUnpublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "unpublish" }, type: "patch" })} size="sm" type="button" variant="brandOutline">Batalkan terbit</Button><Button disabled={isPending} onClick={() => dispatch({ patch: { selectedIds: new Set() }, type: "patch" })} size="sm" type="button" variant="ghost">Hapus pilihan</Button></div>{eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}</div> : null}
-        {notice ? <p className="rounded-2xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-sm font-medium text-primary-900" role="status">{notice}</p> : null}
-        {pagedQuizzes.length ? pagedQuizzes.map((quiz) => <QuizRow key={quiz.id} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} quiz={quiz} selectionMode={selectionMode} selected={selectedIds.has(quiz.id)} />) : quizzes.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-12 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary-100 text-primary-800"><ListChecks className="size-6" /></div>
-            <h2 className="mt-4 text-lg font-semibold text-secondary-900">Belum ada quiz di subject ini</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-secondary-600">Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka.</p>
-            <Button className="mt-5" render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />} size="sm" variant="brand"><Plus />Buat quiz pertama</Button>
-          </div>
-        ) : <div className="rounded-3xl border border-dashed border-primary-300 bg-primary-50/40 px-5 py-10 text-center text-sm text-secondary-600">Tidak ada quiz yang cocok dengan pencarian ini.</div>}
-        <PaginationControls onPageChange={(nextPage) => dispatch({ patch: { page: nextPage }, type: "patch" })} page={page} pageCount={pageCount} />
-      </section>
+        </section>
+        <section className="space-y-3">
+          {selectionMode ? <ReferenceSurface as="div" className="flex flex-wrap items-center gap-5 px-5 py-4" variant="inset"><Button aria-label="Keluar dari mode pilih" onClick={() => dispatch({ patch: { selectedIds: new Set(), selectionMode: false }, type: "patch" })} size="icon-xs" type="button" variant="ghost"><X /></Button><span className="text-sm font-semibold text-secondary-900">{selectedQuizzes.length} dipilih</span><Checkbox aria-label="Pilih semua quiz yang terlihat" checked={areAllVisibleSelected} onCheckedChange={(checked) => toggleAllVisible(checked === true)} /><span className="text-sm font-semibold text-secondary-700">Semua hasil</span><div className="ml-auto flex flex-wrap items-center gap-3"><Button disabled={!canPublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "publish" }, type: "patch" })} size="sm" type="button" variant="reference">Terbitkan</Button><Button disabled={!canUnpublish || isPending} onClick={() => dispatch({ patch: { error: null, intent: "unpublish" }, type: "patch" })} size="sm" type="button" variant="brandOutline">Batalkan terbit</Button><Button disabled={isPending} onClick={() => dispatch({ patch: { selectedIds: new Set() }, type: "patch" })} size="sm" type="button" variant="ghost">Hapus pilihan</Button></div>{eligibilityReason ? <p className="basis-full text-sm text-secondary-600" role="status">{eligibilityReason}</p> : null}</ReferenceSurface> : null}
+          {!selectionMode ? <div className="flex justify-end"><Button aria-label="Pilih beberapa quiz" onClick={() => dispatch({ patch: { selectionMode: true }, type: "patch" })} size="sm" type="button" variant="reference"><ListChecks />Pilih beberapa</Button></div> : null}
+          {notice ? <ReferenceSurface className="px-4 py-3 text-sm font-medium text-primary-900" role="status" variant="inset">{notice}</ReferenceSurface> : null}
+          {pagedQuizzes.length ? pagedQuizzes.map((quiz) => <QuizRow key={quiz.id} onSelectedChange={(checked) => toggleSelected(quiz.id, checked)} quiz={quiz} selectionMode={selectionMode} selected={selectedIds.has(quiz.id)} />) : quizzes.length === 0 ? (
+            <ReferenceSurface className="min-h-56" variant="inset">
+              <ReferenceEmptyState
+                action={<Button nativeButton={false} render={<Link href={`/mentor/quiz/create?subject=${subject.code}`} />} size="sm" variant="brand"><Plus />Buat quiz pertama</Button>}
+                description="Mulai susun latihan pertama untuk membantu siswa menguatkan pemahaman mereka."
+                icon={ListChecks}
+                title="Belum ada quiz di subject ini"
+              />
+            </ReferenceSurface>
+          ) : (
+            <ReferenceSurface className="min-h-52" variant="inset">
+              <ReferenceEmptyState description="Coba kata kunci lain atau tampilkan semua status quiz." icon={ListChecks} title="Tidak ada quiz yang cocok" />
+            </ReferenceSurface>
+          )}
+          <PaginationControls onPageChange={(nextPage) => dispatch({ patch: { page: nextPage }, type: "patch" })} page={page} pageCount={pageCount} />
+        </section>
       </div>
       <Dialog onOpenChange={(open) => { if (!open && !isPending) dispatch({ patch: { error: null, intent: null }, type: "patch" }); }} open={Boolean(intent)}>
         <DialogContent pending={isPending} showCloseButton={!isPending} variant="info"><DialogHeader><DialogTitle>{confirmation.title}</DialogTitle><DialogDescription>{confirmation.description}</DialogDescription></DialogHeader>{error ? <div aria-live="assertive" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{error}</div> : null}<DialogFooter><DialogClose disabled={isPending} render={<Button type="button" variant="brandOutline" />}>Batal</DialogClose><Button disabled={isPending || (intent === "publish" ? !canPublish : !canUnpublish)} onClick={confirmLifecycle} type="button" variant="brand">{isPending ? "Memproses..." : confirmation.confirm}</Button></DialogFooter></DialogContent>

@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, FilePenLine, ListChecks, Pencil, SendHorizontal, X } from "@/lib/icons";
 import { useState } from "react";
 
+import {
+  ReferenceEmptyState,
+  ReferencePageHeader,
+  ReferenceStatusBadge,
+  ReferenceSurface,
+} from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,25 +74,32 @@ function settingsFromQuiz(quiz: KaptenQuiz): SettingsForm {
 }
 
 function StatusPill({ status }: { status: KaptenQuiz["status"] }) {
-  const copy = status === "published" ? "Terbit" : status === "archived" ? "Diarsipkan" : status === "scheduled" ? "Terjadwal" : "Draf";
-  const className = status === "published" ? "border-primary-200 bg-primary-50 text-primary-800" : status === "archived" ? "border-secondary-200 bg-secondary-50 text-secondary-700" : "border-student-status-attention-border bg-student-status-attention-bg text-student-status-attention-fg";
-  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}><span aria-hidden="true" className="size-1.5 rounded-full bg-current" />{copy}</span>;
+  return <ReferenceStatusBadge size="xs" status={status} />;
 }
 
 function QuizPreview({ quizId, questions, subjectCode }: { quizId: string; questions: QuizQuestionSnapshot[]; subjectCode: string }) {
-  return <section className="space-y-6">
-    {questions.length === 0 ? <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-primary-200 bg-white py-16 text-center"><ListChecks className="size-12 text-primary-300" /><h3 className="mt-4 font-semibold text-secondary-900">Belum ada soal dalam Kuis ini</h3><p className="mt-1 text-sm text-secondary-600">Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan pembahasan.</p><Button className="mt-6" nativeButton={false} render={<Link href={`/mentor/quiz/${quizId}/editor`} />} variant="brand"><FilePenLine /> Tulis Soal Pertama</Button></div> : <div className="grid gap-4">{questions.map((question, index) => <QuizQuestionCard index={index} key={question.id} question={question} subjectCode={subjectCode} />)}</div>}
+  return <section aria-label="Preview Soal" className="space-y-6">
+    {questions.length === 0 ? (
+      <ReferenceSurface className="min-h-56" variant="inset">
+        <ReferenceEmptyState
+          action={<Button nativeButton={false} render={<Link href={`/mentor/quiz/${quizId}/editor`} />} size="sm" variant="brand"><FilePenLine />Tulis soal pertama</Button>}
+          description="Mulai menulis soal pilihan ganda lengkap dengan kunci jawaban dan pembahasan."
+          icon={ListChecks}
+          title="Belum ada soal dalam Kuis ini"
+        />
+      </ReferenceSurface>
+    ) : <div className="grid gap-4">{questions.map((question, index) => <QuizQuestionCard index={index} key={question.id} question={question} subjectCode={subjectCode} />)}</div>}
   </section>;
 }
 
 function QuizQuestionCard({ index, question, subjectCode }: { index: number; question: QuizQuestionSnapshot; subjectCode: string }) {
-  return <article className="rounded-xl border border-primary-100 bg-white p-4 shadow-xs transition-shadow hover:border-primary-200 hover:shadow-sm sm:p-5">
+  return <ReferenceSurface as="article" className="p-5 sm:p-6">
     <div className="flex flex-col items-start gap-3 border-b border-primary-100/70 pb-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex flex-wrap items-center gap-2"><span className="grid size-8 place-items-center rounded-xl bg-primary-50 text-sm font-bold text-primary-800">{index + 1}</span><Badge size="ui" variant="mint">{subjectCode}</Badge><Badge size="ui" variant="mint">Sedang</Badge></div></div>
     <div className="mt-4 space-y-4"><div><p className="text-base font-medium leading-7 text-secondary-900">{question.prompt || <span className="italic text-secondary-400">Pertanyaan belum diisi…</span>}</p>{question.promptMediaAssetId ? <div className="mt-3 max-w-md overflow-hidden rounded-xl border border-primary-100"><MediaAssetPreview alt={`Gambar soal ${index + 1}`} assetId={question.promptMediaAssetId} className="max-h-48 bg-white" /></div> : null}</div>
       <div className="grid gap-2.5 sm:grid-cols-2">{question.choices.map((choice, choiceIndex) => { const isCorrect = choice.id === question.correctChoiceId; const choiceLabel = String.fromCharCode(65 + choiceIndex); return <div className={isCorrect ? "flex items-start gap-2.5 rounded-xl border border-primary-200 bg-primary-50/60 p-3 text-sm font-medium text-primary-950 transition-colors" : "flex items-start gap-2.5 rounded-xl border border-secondary-100 bg-secondary-50/40 p-3 text-sm text-secondary-700 transition-colors"} key={choice.id}><span className={isCorrect ? "flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold uppercase text-white" : "flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary-200 text-xs font-bold uppercase text-secondary-700"}>{choiceLabel}</span><div className="min-w-0 flex-1"><p className="leading-5">{choice.text || <span className="italic text-secondary-400">Opsi kosong</span>}</p>{choice.mediaAssetId ? <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100"><MediaAssetPreview alt={`Media opsi ${choiceLabel}`} assetId={choice.mediaAssetId} className="max-h-24 bg-white" /></div> : null}</div></div>; })}</div>
       {question.explanation || question.explanationMediaAssetId ? <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-3.5 text-sm leading-6 text-secondary-700"><span className="font-bold text-primary-900">Pembahasan: </span>{question.explanation}{question.explanationMediaAssetId ? <div className="mt-2 max-w-xs overflow-hidden rounded-lg border border-primary-100"><MediaAssetPreview alt="Media pembahasan" assetId={question.explanationMediaAssetId} className="max-h-28 bg-white" /></div> : null}</div> : null}
     </div>
-  </article>;
+  </ReferenceSurface>;
 }
 
 function QuizSettings({
@@ -170,14 +184,14 @@ function QuizSettings({
 
   return (
     <div className="grid gap-6">
-      <section className="max-w-6xl" data-quiz-settings-metadata="bank-style">
+      <ReferenceSurface as="section" className="max-w-6xl p-5 sm:p-7" data-quiz-settings-metadata="bank-style">
         <div className="space-y-6">
           <div>
             {isEditingTitle ? (
               <div className="flex max-w-3xl items-center gap-2">
                 <Input
                   autoFocus
-                  className="h-auto bg-transparent px-0 py-0 text-3xl font-semibold tracking-tight shadow-none focus-visible:border-primary-300 focus-visible:ring-0 md:text-4xl"
+                  className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 max-w-3xl text-2xl font-semibold tracking-tight md:text-3xl`}
                   disabled={disabled || isSaving}
                   id="quiz-settings-title"
                   onChange={(event) => setTitleInput(event.target.value)}
@@ -223,7 +237,7 @@ function QuizSettings({
             </div>
             {isEditingDescription ? (
               <div className="max-w-3xl space-y-2">
-                <FieldTextarea autoFocus className="min-h-[90px] text-sm" disabled={disabled || isSaving} id="quiz-settings-description" onChange={(event) => setDescriptionInput(event.target.value)} placeholder="Tuliskan deskripsi ringkas tentang Kuis ini…" value={descriptionInput} />
+                <FieldTextarea autoFocus className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[90px] text-sm`} disabled={disabled || isSaving} id="quiz-settings-description" onChange={(event) => setDescriptionInput(event.target.value)} placeholder="Tuliskan deskripsi ringkas tentang Kuis ini…" value={descriptionInput} />
                 <div className="flex gap-2">
                   <Button disabled={disabled || isSaving} onClick={saveDescriptionDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
                   <Button disabled={disabled || isSaving} onClick={cancelDescriptionEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
@@ -245,7 +259,7 @@ function QuizSettings({
             </div>
             {isEditingSubject ? (
               <div className="mt-2 max-w-md space-y-2">
-                <DropdownField disabled={disabled || isSaving} id="quiz-settings-subject" onValueChange={setSubjectInput} options={kaptenSubjects.map((item) => ({ label: `${item.code} · ${item.name}`, value: item.code }))} placeholder="Pilih subjek" value={subjectInput} />
+                <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled || isSaving} id="quiz-settings-subject" onValueChange={setSubjectInput} options={kaptenSubjects.map((item) => ({ label: `${item.code} · ${item.name}`, value: item.code }))} placeholder="Pilih subjek" value={subjectInput} />
                 <div className="flex gap-2">
                   <Button disabled={disabled || isSaving} onClick={saveSubjectDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
                   <Button disabled={disabled || isSaving} onClick={cancelSubjectEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
@@ -258,48 +272,48 @@ function QuizSettings({
             )}
           </div>
         </div>
-      </section>
-      <section className="max-w-6xl rounded-2xl border border-primary-100 bg-white p-5 shadow-sm md:p-6">
+      </ReferenceSurface>
+      <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7">
         <div>
           <h2 className="text-lg font-semibold text-secondary-900">Ketersediaan dan percobaan</h2>
         </div>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="quiz-settings-opens">Mulai dibuka</FieldLabel>
-            <FieldInput disabled={disabled} id="quiz-settings-opens" onChange={(event) => onChange({ opensAt: event.target.value })} type="datetime-local" value={form.opensAt} />
+          <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-opens" onChange={(event) => onChange({ opensAt: event.target.value })} type="datetime-local" value={form.opensAt} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-closes">Tutup akses</FieldLabel>
-            <FieldInput disabled={disabled} id="quiz-settings-closes" onChange={(event) => onChange({ closesAt: event.target.value })} type="datetime-local" value={form.closesAt} />
+          <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-closes" onChange={(event) => onChange({ closesAt: event.target.value })} type="datetime-local" value={form.closesAt} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-attempts">Jumlah percobaan</FieldLabel>
-            <DropdownField disabled={disabled} id="quiz-settings-attempts" onValueChange={(value) => onChange({ attemptsAllowed: value === "unlimited" ? null : Number(value) })} options={attemptsOptions} placeholder="Pilih batas" value={form.attemptsAllowed === null ? "unlimited" : String(form.attemptsAllowed)} />
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-attempts" onValueChange={(value) => onChange({ attemptsAllowed: value === "unlimited" ? null : Number(value) })} options={attemptsOptions} placeholder="Pilih batas" value={form.attemptsAllowed === null ? "unlimited" : String(form.attemptsAllowed)} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-score">Penilaian akhir</FieldLabel>
-            <DropdownField disabled={disabled} id="quiz-settings-score" onValueChange={(value) => onChange({ scorePolicy: value as SettingsForm["scorePolicy"] })} options={[{ label: "Skor tertinggi", value: "highest" }, { label: "Percobaan terbaru", value: "latest" }, { label: "Percobaan pertama", value: "first" }, { label: "Rata-rata", value: "average" }]} placeholder="Pilih penilaian" value={form.scorePolicy} />
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-score" onValueChange={(value) => onChange({ scorePolicy: value as SettingsForm["scorePolicy"] })} options={[{ label: "Skor tertinggi", value: "highest" }, { label: "Percobaan terbaru", value: "latest" }, { label: "Percobaan pertama", value: "first" }, { label: "Rata-rata", value: "average" }]} placeholder="Pilih penilaian" value={form.scorePolicy} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-retry">Jeda percobaan ulang (detik)</FieldLabel>
-            <FieldInput disabled={disabled} id="quiz-settings-retry" min={0} onChange={(event) => { const value = event.target.value.trim(); const parsed = Number(value); onChange({ retryDelaySeconds: value === "" || !Number.isFinite(parsed) ? null : Math.max(0, Math.floor(parsed)) }); }} type="number" value={form.retryDelaySeconds ?? ""} />
+          <FieldInput className={REFERENCE_CONTROL_CLASS_NAMES.input} disabled={disabled} id="quiz-settings-retry" min={0} onChange={(event) => { const value = event.target.value.trim(); const parsed = Number(value); onChange({ retryDelaySeconds: value === "" || !Number.isFinite(parsed) ? null : Math.max(0, Math.floor(parsed)) }); }} type="number" value={form.retryDelaySeconds ?? ""} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-behavior">Susunan soal di percobaan ulang</FieldLabel>
-            <DropdownField disabled={disabled} id="quiz-settings-behavior" onValueChange={(value) => onChange({ formBehavior: value as SettingsForm["formBehavior"] })} options={[{ label: "Pertahankan soal dan urutan", value: "same" }, { label: "Acak soal setiap percobaan", value: "fresh_randomized" }]} placeholder="Pilih susunan soal" value={form.formBehavior} />
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-behavior" onValueChange={(value) => onChange({ formBehavior: value as SettingsForm["formBehavior"] })} options={[{ label: "Pertahankan soal dan urutan", value: "same" }, { label: "Acak soal setiap percobaan", value: "fresh_randomized" }]} placeholder="Pilih susunan soal" value={form.formBehavior} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-review">Waktu review</FieldLabel>
-            <DropdownField disabled={disabled} id="quiz-settings-review" onValueChange={(value) => onChange({ reviewTiming: value as SettingsForm["reviewTiming"] })} options={[{ label: "Langsung setelah kirim", value: "immediate" }, { label: "Setelah Kuis ditutup", value: "after_close" }, { label: "Tidak tersedia", value: "never" }]} placeholder="Pilih waktu review" value={form.reviewTiming} />
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-review" onValueChange={(value) => onChange({ reviewTiming: value as SettingsForm["reviewTiming"] })} options={[{ label: "Langsung setelah kirim", value: "immediate" }, { label: "Setelah Kuis ditutup", value: "after_close" }, { label: "Tidak tersedia", value: "never" }]} placeholder="Pilih waktu review" value={form.reviewTiming} />
           </Field>
           <Field>
             <FieldLabel htmlFor="quiz-settings-visibility">Jawaban benar</FieldLabel>
-            <DropdownField disabled={disabled} id="quiz-settings-visibility" onValueChange={(value) => onChange({ correctAnswerVisibility: value as SettingsForm["correctAnswerVisibility"] })} options={[{ label: "Tampilkan", value: "show" }, { label: "Sembunyikan", value: "hide" }]} placeholder="Pilih visibilitas" value={form.correctAnswerVisibility} />
+          <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled} id="quiz-settings-visibility" onValueChange={(value) => onChange({ correctAnswerVisibility: value as SettingsForm["correctAnswerVisibility"] })} options={[{ label: "Tampilkan", value: "show" }, { label: "Sembunyikan", value: "hide" }]} placeholder="Pilih visibilitas" value={form.correctAnswerVisibility} />
           </Field>
         </div>
         {scheduleError ? <p className="mt-4 text-sm font-medium text-student-status-danger-fg" role="alert">{scheduleError}</p> : null}
-      </section>
-      <Button aria-busy={isSaving} className="w-full" disabled={disabled || isSaving || Boolean(scheduleError)} onClick={onSave} type="button" variant="brand">
+      </ReferenceSurface>
+      <Button aria-busy={isSaving} className="w-full" disabled={disabled || isSaving || Boolean(scheduleError)} onClick={onSave} type="button" variant="reference">
         {isSaving ? "Menyimpan…" : "Simpan perubahan"}
       </Button>
     </div>
@@ -376,12 +390,40 @@ function KaptenQuizDetailPageModule({
   const title = quiz.title || "Detail Kuis";
   const subject = kaptenSubjects.find((item) => item.code === quiz.subjectCode);
 
-  return <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={title} contentElement="div" mainClassName="max-w-[1500px] gap-7" session={session} showSearch={false}>
-    <div className="flex flex-wrap items-center justify-between gap-3"><Button aria-label="Kembali ke daftar Kuis" nativeButton={false} render={<Link href="/mentor/quiz" />} size="sm" type="button" variant="ghost"><ChevronLeft /> Kembali ke Kuis</Button><div className="flex flex-wrap items-center gap-2">{quiz.status === "draft" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("published")} type="button" variant="brandOutline"><SendHorizontal /> Terbitkan</Button> : quiz.status === "published" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("draft")} type="button" variant="outline"><FilePenLine /> Jadikan draf</Button> : null}<Button nativeButton={false} render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />} type="button" variant="brand"><FilePenLine /> Edit soal</Button></div></div>
-    {lifecycleError ? <Alert variant="destructive"><AlertTitle>Perubahan belum tersimpan</AlertTitle><AlertDescription>{lifecycleError}</AlertDescription></Alert> : null}
-    <section className="rounded-2xl border border-primary-100 bg-white p-5 shadow-xs sm:p-6"><div className="space-y-6"><div><div className="flex flex-wrap items-center gap-3"><StatusPill status={quiz.status} />{subject ? <Badge size="ui" variant="mint">{subject.code}</Badge> : null}<span className="text-sm text-secondary-500">{questions.length} soal</span></div><div className="group mt-3 flex items-start gap-3"><h1 className="text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">{title}</h1><Button aria-label="Ubah metadata Kuis" className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100" onClick={() => changeTab("pengaturan")} size="icon-sm" title="Ubah metadata Kuis" type="button" variant="ghost"><Pencil className="size-4" /></Button></div></div><div className="space-y-2 border-t border-primary-100/70 pt-4"><div className="flex items-center gap-1.5"><span className="text-xs font-semibold text-secondary-500">Deskripsi</span><Button aria-label="Ubah deskripsi Kuis" className="size-7 text-secondary-400 hover:text-secondary-900" onClick={() => changeTab("pengaturan")} size="icon-sm" title="Ubah deskripsi Kuis" type="button" variant="ghost"><Pencil className="size-3.5" /></Button></div><p className="max-w-3xl text-sm leading-6 text-secondary-700">{quiz.description || <span className="italic text-secondary-400">Belum ada deskripsi untuk Kuis ini. Klik ikon pensil untuk menambahkan.</span>}</p></div></div></section>
-    <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}><FullWidthLineTabsList aria-label="Bagian detail Kuis"><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="preview">Soal</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="hasil">Hasil</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger></FullWidthLineTabsList><TabsContent className="m-0" value="preview"><QuizPreview quizId={quiz.id} questions={questions} subjectCode={quiz.subjectCode ?? "PU"} /></TabsContent><TabsContent className="m-0" value="hasil"><KaptenQuizResultsContent result={initialResults} /></TabsContent><TabsContent className="m-0" value="pengaturan"><QuizSettings disabled={quiz.status === "archived"} form={settings} isSaving={isSaving} onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))} onSave={() => void saveSettings()} /></TabsContent></Tabs>
-  </MentorWorkspaceShell>;
+  return (
+    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={title} contentElement="div" mainClassName="max-w-[1500px] gap-7" session={session} showSearch={false} sidebarAppearance="reference">
+      <div className="space-y-8">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button aria-label="Kembali ke daftar Kuis" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/mentor/quiz" />} size="icon" title="Kembali ke daftar Kuis" type="button" variant="ghost"><ChevronLeft /></Button>
+          <ReferencePageHeader
+            className="min-w-0 flex-1"
+            actions={(
+              <>
+                {quiz.status === "draft" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("published")} type="button" variant="brandOutline"><SendHorizontal />Terbitkan</Button> : quiz.status === "published" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("draft")} type="button" variant="reference"><FilePenLine />Jadikan draf</Button> : null}
+                <Button nativeButton={false} render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />} type="button" variant="brand"><FilePenLine />Edit soal</Button>
+              </>
+            )}
+            description={(
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <StatusPill status={quiz.status} />
+                {subject ? <Badge size="ui" variant="mint">{subject.code}</Badge> : null}
+                <span>{questions.length} soal</span>
+                <span className="basis-full text-secondary-600">{quiz.description || "Belum ada deskripsi untuk Kuis ini."}</span>
+              </span>
+            )}
+            title={title}
+          />
+        </div>
+        {lifecycleError ? <Alert variant="destructive"><AlertTitle>Perubahan belum tersimpan</AlertTitle><AlertDescription>{lifecycleError}</AlertDescription></Alert> : null}
+        <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
+          <FullWidthLineTabsList aria-label="Bagian detail Kuis"><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="preview">Soal</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="hasil">Hasil</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger></FullWidthLineTabsList>
+          <TabsContent className="m-0" value="preview"><QuizPreview quizId={quiz.id} questions={questions} subjectCode={quiz.subjectCode ?? "PU"} /></TabsContent>
+          <TabsContent className="m-0" value="hasil"><KaptenQuizResultsContent result={initialResults} /></TabsContent>
+          <TabsContent className="m-0" value="pengaturan"><QuizSettings disabled={quiz.status === "archived"} form={settings} isSaving={isSaving} onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))} onSave={() => void saveSettings()} /></TabsContent>
+        </Tabs>
+      </div>
+    </MentorWorkspaceShell>
+  );
 }
 
 export { KaptenQuizDetailPageModule };

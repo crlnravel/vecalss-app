@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ExternalLink, Search } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
+import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
+import { REFERENCE_CONTROL_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,11 +45,12 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-secondary-900">Hasil Kuis</h2>
+        <h2 className="font-heading text-xl leading-tight font-semibold tracking-[-0.025em] text-secondary-900 md:text-2xl">Hasil Kuis</h2>
+        <p className="mt-1 text-sm leading-6 text-secondary-500">Tinjau hasil pengerjaan siswa dan buka detail submisi.</p>
       </div>
-      <section className="rounded-2xl border border-primary-100 bg-white p-4 shadow-sm md:p-5">
+      <ReferenceSurface as="section" className="p-4 md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative block min-w-0 flex-1 lg:max-w-md"><span className="sr-only">Cari nama siswa</span><Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" /><input className="h-11 w-full rounded-2xl border border-primary-200 bg-primary-50/30 px-10 text-sm text-secondary-900 outline-none transition focus:border-primary-500 focus:ring-3 focus:ring-primary-300/35" onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama siswa…" type="search" value={query} /></label>
+          <label className="relative block min-w-0 flex-1 lg:max-w-md"><span className="sr-only">Cari nama siswa</span><Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-primary-700" /><input className={`${REFERENCE_CONTROL_CLASS_NAMES.input} pl-11`} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama siswa…" type="search" value={query} /></label>
           <div aria-label="Filter hasil" className="flex flex-wrap gap-2" role="group">
             {([[
               "all",
@@ -58,7 +61,7 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
         <div className="mt-5 overflow-x-auto rounded-2xl border border-primary-100">
           <Table className="min-w-[720px]"><TableHeader className="bg-primary-50/75"><TableRow className="hover:bg-primary-50/75"><TableHead className="h-auto px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Nama</TableHead><TableHead className="h-auto w-28 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Skor</TableHead><TableHead className="h-auto w-36 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Status</TableHead><TableHead className="h-auto w-44 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Mulai</TableHead><TableHead className="h-auto w-24 px-5 py-3 text-right text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Aksi</TableHead></TableRow></TableHeader><TableBody>{visibleAttempts.length ? visibleAttempts.map((attempt) => <AttemptRow attempt={attempt} key={attempt.id} quizId={result.quiz.id} />) : <TableRow><TableCell className="h-32 text-center text-sm text-secondary-500" colSpan={5}>Belum ada hasil yang sesuai.</TableCell></TableRow>}</TableBody></Table>
         </div>
-      </section>
+      </ReferenceSurface>
     </div>
   );
 }
@@ -73,7 +76,7 @@ function initials(name: string) {
 }
 
 function KaptenQuizResultsPageModule({ result, session }: { result: Result; session: SessionContext }) {
-  return <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`${result.quiz.subject} · Hasil Kuis`} contentElement="div" session={session} showSearch={false}><KaptenQuizResultsContent result={result} /></MentorWorkspaceShell>;
+  return <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={`${result.quiz.subject} · Hasil Kuis`} contentElement="div" session={session} showSearch={false} sidebarAppearance="reference"><KaptenQuizResultsContent result={result} /></MentorWorkspaceShell>;
 }
 
 export { KaptenQuizResultsContent, KaptenQuizResultsPageModule };
