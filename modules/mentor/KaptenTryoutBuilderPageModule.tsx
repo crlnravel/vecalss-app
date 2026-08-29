@@ -337,10 +337,8 @@ type SectionReadiness = {
 };
 
 function directQuestionsReady(questions: DirectQuestionDraft[]) {
-  return Boolean(
-    questions.length
-      && questions.every((question) => Boolean(question.prompt?.trim()) && question.hasExplanation === true && question.hasReadyMedia !== false),
-  );
+  // The source chooser only exposes Ready questions; attaching one completes the Section.
+  return questions.length > 0;
 }
 
 function SourceBankList({
@@ -501,6 +499,7 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
         sourceBankSearch: "",
         sourceQuestionPage: 1,
         sourceQuestionSearch: "",
+        sourceQuestionTotal: 0,
         sourceQuestions: [],
       };
     case "setSourceBankSearch":
@@ -523,10 +522,11 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
         browseBankId: action.bankId,
         sourceQuestionPage: 1,
         sourceQuestionSearch: "",
+        sourceQuestionTotal: 0,
         sourceQuestions: [],
       };
     case "setSourceQuestionSearch":
-      return { ...state, sourceQuestionPage: 1, sourceQuestionSearch: action.search };
+      return { ...state, sourceQuestionPage: 1, sourceQuestionSearch: action.search, sourceQuestionTotal: 0 };
     case "setSourceQuestionPage":
       return { ...state, sourceQuestionPage: action.page };
     case "setSourceQuestionLoading":
@@ -793,7 +793,7 @@ function TryoutSectionsTab({
                                 <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
                                 <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
                               </div>
-                              <p className="mt-2 line-clamp-3 max-w-full break-words overflow-hidden text-ellipsis text-sm leading-6 text-secondary-900">{question.prompt}</p>
+                              <p className="mt-2 block min-w-0 max-w-full truncate text-sm leading-6 text-secondary-900" title={question.prompt}>{question.prompt}</p>
                             </label>
                             <Tooltip>
                               <TooltipTrigger render={<Button aria-label={`Lihat pratinjau soal ${question.subjectCode}`} disabled={saving} onClick={() => setPreviewQuestion(question)} size="icon" type="button" variant="ghost" />}><Eye /></TooltipTrigger>
@@ -806,7 +806,7 @@ function TryoutSectionsTab({
                     </article>
                   );
                 })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
-                {browseBankId && sourceQuestionTotal > SOURCE_QUESTION_PAGE_SIZE ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex flex-col gap-3 border-t border-primary-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-secondary-500">Menampilkan halaman {sourceQuestionPage} dari {sourceQuestionPageCount} · {sourceQuestionTotal} soal Ready.</p><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
+                {browseBankId && sourceQuestionTotal > 0 ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex flex-col gap-3 border-t border-primary-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-secondary-500">Menampilkan halaman {sourceQuestionPage} dari {sourceQuestionPageCount} · {sourceQuestionTotal} soal Ready.</p><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
               </ReferenceSurface>
             </div>
           </div>
