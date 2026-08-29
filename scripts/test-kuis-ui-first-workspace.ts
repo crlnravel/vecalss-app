@@ -79,7 +79,7 @@ assert.match(detail, /aria-label="Ubah judul Kuis"/u, "Kuis title metadata must 
 assert.match(detail, /aria-label="Ubah deskripsi Kuis"/u, "Kuis description metadata must use an inline edit affordance");
 assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata must use an inline edit affordance");
 assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untuk menambahkan\./u, "Kuis metadata must show the editable empty-description copy");
-assert.match(detail, /<MentorBadge size="md" tone="category">/u, "Kuis metadata must show the larger subject chip");
+assert.match(detail, /<MentorBadge size="xs" tone="category">\{subject \? `\$\{subject\.code\} · \$\{subject\.name\}` : form\.subjectCode\}<\/MentorBadge>/u, "Kuis metadata must use the Bank Soal subject chip sizing");
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.doesNotMatch(detail, /Arsipkan|updateStandaloneQuizLifecycleAction/u, "Kuis detail must not expose archive lifecycle controls");
 assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");
