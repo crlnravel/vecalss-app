@@ -46,7 +46,7 @@ type AdminNavigationItem = {
 const adminOperationNavigation: AdminNavigationItem[] = [
   { href: "/admin", icon: LayoutDashboard, id: "overview", label: "Dashboard" },
   { href: "/admin/ai", icon: Sparkles, id: "ai", label: "Vera AI" },
-  { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Notifikasi" },
+  { href: "/admin/notifications", icon: Bell, id: "notifications", label: "Kirim notifikasi" },
   { href: "/admin/audit-logs", icon: History, id: "audit-logs", label: "Log audit" },
 ];
 
