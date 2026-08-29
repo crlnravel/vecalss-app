@@ -412,7 +412,7 @@ function SectionRail({
               <Button
                 aria-current={active ? "page" : undefined}
                 aria-label={`${section.subtest}${incomplete ? " (belum lengkap)" : ""}`}
-                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-bold transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
+                className={`h-12 w-full justify-start rounded-xl px-3 text-left text-base font-normal transition-colors ${active ? "bg-primary-50 text-primary-800 shadow-[inset_0_-1px_0_rgba(1,76,56,0.08)] hover:bg-primary-50" : "text-secondary-800 hover:bg-primary-50/70"}`}
                 disabled={disabled}
                 onClick={() => onSelect(section.subtest)}
                 variant="ghost"
