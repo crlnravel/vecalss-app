@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { ExternalLink, Search } from "@/lib/icons";
+import { useRouter } from "next/navigation";
+import { Search } from "@/lib/icons";
 import { useMemo, useState } from "react";
 
 import { ReferenceSurface } from "@/components/dashboard/reference-dashboard-primitives";
@@ -59,7 +59,7 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
           </div>
         </div>
         <div className="mt-5 overflow-x-auto rounded-2xl border border-primary-100">
-          <Table className="min-w-[720px]"><TableHeader className="bg-primary-50/75"><TableRow className="hover:bg-primary-50/75"><TableHead className="h-auto px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Nama</TableHead><TableHead className="h-auto w-28 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Skor</TableHead><TableHead className="h-auto w-36 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Status</TableHead><TableHead className="h-auto w-44 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Mulai</TableHead><TableHead className="h-auto w-24 px-5 py-3 text-right text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Aksi</TableHead></TableRow></TableHeader><TableBody>{visibleAttempts.length ? visibleAttempts.map((attempt) => <AttemptRow attempt={attempt} key={attempt.id} quizId={result.quiz.id} />) : <TableRow><TableCell className="h-32 text-center text-sm text-secondary-500" colSpan={5}>Belum ada hasil yang sesuai.</TableCell></TableRow>}</TableBody></Table>
+          <Table className="min-w-[640px]"><TableHeader className="bg-primary-50/75"><TableRow className="hover:bg-primary-50/75"><TableHead className="h-auto px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Nama</TableHead><TableHead className="h-auto w-28 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Skor</TableHead><TableHead className="h-auto w-36 px-4 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Status</TableHead><TableHead className="h-auto w-44 px-5 py-3 text-xs font-bold tracking-[0.08em] text-secondary-500 uppercase">Mulai</TableHead></TableRow></TableHeader><TableBody>{visibleAttempts.length ? visibleAttempts.map((attempt) => <AttemptRow attempt={attempt} key={attempt.id} quizId={result.quiz.id} />) : <TableRow><TableCell className="h-32 text-center text-sm text-secondary-500" colSpan={4}>Belum ada hasil yang sesuai.</TableCell></TableRow>}</TableBody></Table>
         </div>
       </ReferenceSurface>
     </div>
@@ -68,7 +68,25 @@ function KaptenQuizResultsContent({ result }: { result: Result }) {
 
 function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
   const isSubmitted = attempt.status !== "in_progress";
-  return <TableRow className="border-primary-100 hover:bg-primary-50/40"><TableCell className="px-5 py-4"><div className="flex min-w-0 items-center gap-3"><Avatar className="size-9 border border-primary-100 bg-primary-50"><AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">{initials(attempt.student.name)}</AvatarFallback></Avatar><span className="truncate font-semibold text-secondary-900">{attempt.student.name}</span></div></TableCell><TableCell className="px-4 py-4"><span className="text-xl font-semibold tabular-nums text-secondary-900">{isSubmitted ? attempt.aggregateScore ?? attempt.finalScore ?? attempt.score ?? 0 : "—"}</span></TableCell><TableCell className="px-4 py-4"><Badge className="rounded-full px-2.5 py-1 text-xs" size="ui" variant={isSubmitted ? "mint" : "accent"}>{isSubmitted ? "Terkirim" : "Sedang dikerjakan"}</Badge></TableCell><TableCell className="px-4 py-4 text-sm text-secondary-600"><time dateTime={attempt.createdAt}>{dateTime.format(new Date(attempt.createdAt))}</time></TableCell><TableCell className="px-5 py-4 text-right"><Button aria-label="Lihat submisi" nativeButton={false} render={<Link href={`/mentor/quiz/${quizId}/results/${attempt.id}`} />} size="icon-sm" variant="brand"><ExternalLink /></Button></TableCell></TableRow>;
+  const router = useRouter();
+  const href = `/mentor/quiz/${quizId}/results/${attempt.id}`;
+
+  function navigateToAttempt() {
+    router.push(href);
+  }
+
+  return <TableRow
+    aria-label={`Buka hasil pengerjaan ${attempt.student.name}`}
+    className="cursor-pointer border-primary-100 hover:bg-primary-50/40 focus-visible:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25 focus-visible:ring-inset"
+    onClick={navigateToAttempt}
+    onKeyDown={(event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        navigateToAttempt();
+      }
+    }}
+    tabIndex={0}
+  ><TableCell className="px-5 py-4"><div className="flex min-w-0 items-center gap-3"><Avatar className="size-9 border border-primary-100 bg-primary-50"><AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">{initials(attempt.student.name)}</AvatarFallback></Avatar><span className="truncate font-semibold text-secondary-900">{attempt.student.name}</span></div></TableCell><TableCell className="px-4 py-4"><span className="text-xl font-semibold tabular-nums text-secondary-900">{isSubmitted ? attempt.aggregateScore ?? attempt.finalScore ?? attempt.score ?? 0 : "—"}</span></TableCell><TableCell className="px-4 py-4"><Badge className="rounded-full px-2.5 py-1 text-xs" size="ui" variant={isSubmitted ? "mint" : "accent"}>{isSubmitted ? "Terkirim" : "Sedang dikerjakan"}</Badge></TableCell><TableCell className="px-5 py-4 text-sm text-secondary-600"><time dateTime={attempt.createdAt}>{dateTime.format(new Date(attempt.createdAt))}</time></TableCell></TableRow>;
 }
 
 function initials(name: string) {
