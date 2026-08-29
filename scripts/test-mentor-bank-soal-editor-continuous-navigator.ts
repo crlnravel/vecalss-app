@@ -23,7 +23,7 @@ assert.match(builder, /key=\{question\.id\}/u);
 assert.match(builder, /onOpenQuestion\(question\.id\)/u);
 assert.match(builder, /questionRowRefs\.current\[questionId\]/u);
 assert.match(builder, /scrollIntoView/u);
-assert.match(builder, /xl:sticky/u);
+assert.match(builder, /flex h-full min-h-0 min-w-0 flex-col/u);
 assert.match(builder, /tabIndex=\{isActive \? 0 : -1\}/u);
 assert.match(builder, /questionFocusAfterDeleteRef/u);
 assert.match(builder, /const nextActiveQuestion = questions\[0\] \?\? null/u);

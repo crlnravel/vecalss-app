@@ -544,7 +544,7 @@ function QuestionBankInventory({
   return (
     <aside
       aria-labelledby="question-bank-inventory-title"
-      className="order-1 min-w-0 rounded-2xl border border-primary-100 bg-white p-3 md:p-4 xl:col-start-1 xl:row-start-1 xl:order-none xl:sticky xl:top-24 xl:self-start"
+      className="flex h-full min-h-0 min-w-0 flex-col rounded-2xl border border-primary-100 bg-white p-3 md:p-4"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -566,8 +566,8 @@ function QuestionBankInventory({
           <Plus />
         </Button>
       </div>
-      <nav aria-label="Navigasi soal" className="mt-3">
-        <div className="mt-3 max-h-56 overflow-y-auto pr-1 xl:max-h-[calc(100svh-20rem)]" id="question-bank-inventory-list">
+      <nav aria-label="Navigasi soal" className="mt-3 flex min-h-0 flex-1 flex-col">
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1" id="question-bank-inventory-list">
           <ul aria-label="Daftar soal" className="flex flex-col gap-1.5">
             {visibleQuestions.length > 0 ? visibleQuestions.map((question) => {
               const questionNumber = builderState.questions.findIndex((item) => item.id === question.id) + 1;
@@ -929,6 +929,7 @@ type QuestionBankBuilderActions = {
   onSelectMedia: (asset: MediaAssetDto) => void;
   onSubmitPreview: () => void;
   onUpdateDraft: (question: BankQuestion) => void;
+  requestExit: (route: string) => void;
   requestArchive: () => void;
   requestLifecycleChange: (operation: "publish" | "unpublish") => void;
   saveDraft: () => void;
@@ -1021,14 +1022,6 @@ function QuestionBankBuilderScreen({
   const targetBankId = bankId ?? builderState.title;
   const detailHref = `/mentor/quiz/question-bank/${targetBankId}`;
 
-  const publishDisabledReason = state.hasUnsavedChanges
-    ? "Simpan dulu untuk menerbitkan"
-    : builderState.questions.length === 0
-      ? "Tambahkan minimal satu soal sebelum menerbitkan"
-      : state.readiness.incompleteCount > 0
-        ? `${state.readiness.incompleteCount} soal belum lengkap`
-      : undefined;
-  const lifecycleDisabledReason = state.hasUnsavedChanges ? "Simpan dulu untuk mengubah status" : undefined;
   const questionIssues = state.readiness.issues.filter(
     (issue) => issue.questionId === state.activeQuestionId,
   );
@@ -1064,15 +1057,13 @@ function QuestionBankBuilderScreen({
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
           <Button
             aria-label="Kembali ke detail bank soal"
-            nativeButton={false}
-            render={<Link href={detailHref} />}
+            onClick={() => actions.requestExit(detailHref)}
             size="icon-sm"
             title="Kembali ke detail bank soal"
             variant="ghost"
           >
             <ChevronLeft />
           </Button>
-          <div className="h-5 w-px bg-primary-100" />
           <div className="flex min-w-0 items-center gap-2.5">
             <h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">
               {builderState.title || "Bank Soal"}
@@ -1109,53 +1100,6 @@ function QuestionBankBuilderScreen({
             {state.isSaving ? "Menyimpan…" : "Simpan"}
           </Button>
 
-          {state.isDraftLifecycle ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    aria-label="Aksi destruktif Bank Soal"
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <Ellipsis />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    disabled={state.isSaving || Boolean(lifecycleDisabledReason)}
-                    onClick={actions.requestArchive}
-                    variant="destructive"
-                  >
-                    <Archive />
-                    Arsipkan
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-
-          {state.isDraftLifecycle ? (
-            <>
-              <Button
-                aria-busy={state.isSaving}
-                data-question-bank-lifecycle-action="publish"
-                aria-describedby={publishDisabledReason ? "publish-disabled-reason" : undefined}
-                disabled={state.isSaving || state.hasUnsavedChanges || state.readiness.incompleteCount > 0 || builderState.questions.length === 0}
-                id="question-bank-lifecycle-publish"
-                onClick={() => actions.requestLifecycleChange("publish")}
-                size="sm"
-                type="button"
-                variant="reference"
-              >
-                {state.isSaving ? "Menerbitkan…" : "Terbitkan"}
-              </Button>
-              {publishDisabledReason ? <span className="sr-only" id="publish-disabled-reason">{publishDisabledReason}</span> : null}
-            </>
-          ) : null}
         </div>
       </header>
 
@@ -1180,7 +1124,7 @@ function QuestionBankBuilderScreen({
       {/* Main Full Page Workspace */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left Side: Soal Inventori replaces the dashboard sidebar */}
-        <div className="hidden md:flex w-72 lg:w-80 border-r border-primary-100 bg-white flex-col shrink-0 overflow-y-auto [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">
+        <div className="hidden w-72 shrink-0 overflow-hidden border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">
           <QuestionBankInventory
             activeQuestionId={state.activeQuestionId}
             builderState={builderState}
@@ -1634,6 +1578,20 @@ function useQuestionBankBuilderState({
     updateEditor({ confirmationRequest: null });
   }
 
+  function requestExit(route: string) {
+    if (!hasUnsavedChanges) {
+      router.push(route);
+      return;
+    }
+
+    updateEditor({ confirmationRequest: {
+      confirmLabel: "Keluar tanpa menyimpan",
+      description: "Perubahan Bank Soal yang belum disimpan akan hilang.",
+      onConfirm: () => router.push(route),
+      title: "Keluar tanpa menyimpan?",
+    } });
+  }
+
   function confirmPendingAction() {
     const pendingRequest = confirmationRequest;
 
@@ -1834,6 +1792,7 @@ function useQuestionBankBuilderState({
       onSelectMedia: selectMediaAsset,
       onSubmitPreview: () => updateEditor({ hasSubmittedPreview: true }),
       onUpdateDraft: updateQuestionDraft,
+      requestExit,
       requestArchive,
       requestLifecycleChange,
       saveDraft,

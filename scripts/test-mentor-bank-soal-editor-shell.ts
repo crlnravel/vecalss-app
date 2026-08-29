@@ -8,6 +8,8 @@ const createRoute = read("app/mentor/quiz/question-bank/create/page.tsx");
 const detailRoute = read("app/mentor/quiz/question-bank/[bankId]/page.tsx");
 const editorRoute = read("app/mentor/quiz/question-bank/[bankId]/editor/page.tsx");
 const metadataForm = builder.match(/function QuestionBankMetadataForm\([\s\S]*?\n\}\n\nfunction QuestionBankBuilderScreen/u)?.[0] ?? "";
+const editorScreen = builder.match(/function QuestionBankBuilderScreen\([\s\S]*?\n\}\n\nfunction useQuestionBankNavigationGuards/u)?.[0] ?? "";
+const inventory = builder.match(/function QuestionBankInventory\([\s\S]*?\n\}\n\nfunction QuestionBankMobileInventory/u)?.[0] ?? "";
 
 assert.match(builder, /function QuestionBankEditorHeader\(/u);
 assert.match(builder, /function QuestionBankMetadataForm\(/u);
@@ -34,6 +36,14 @@ assert.doesNotMatch(detailRoute, /initialFolderTree|listQuestionBankFolderTree/u
 assert.doesNotMatch(editorRoute, /initialFolderTree|listQuestionBankFolderTree/u);
 assert.match(builder, /<FieldLabel[^>]*>Subtest<\/FieldLabel>/u);
 assert.match(builder, /pendingRouteReplacement: `\/mentor\/quiz\/question-bank\/\$\{result\.result\.bank\.id\}`/u);
+assert.match(builder, /requestExit: \(route: string\) => void/u);
+assert.match(editorScreen, /onClick=\{\(\) => actions\.requestExit\(detailHref\)\}/u);
+assert.match(builder, /title: "Keluar tanpa menyimpan\?"/u);
+assert.match(builder, /description: "Perubahan Bank Soal yang belum disimpan akan hilang\."/u);
+assert.doesNotMatch(editorScreen, /<Ellipsis|>Terbitkan</u);
+assert.doesNotMatch(builder, /<div className="h-5 w-px bg-primary-100" \/>/u);
+assert.match(inventory, /className="flex h-full min-h-0 min-w-0 flex-col/u);
+assert.match(inventory, /className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1"/u);
 assert.match(createRoute, /mode="create"/u);
 assert.match(detailRoute, /if \(!initial\) notFound\(\)/u);
 assert.match(detailRoute, /KaptenQuestionBankDetailPageModule/u);
