@@ -22,6 +22,10 @@ assert.match(builder, /listQuestionBankSourceQuestionsAction/u, "direct selectio
 assert.match(builder, /directQuestions/u, "the draft must carry direct question selections");
 assert.match(builder, /subjectCoverage: \[activeSection\.subtest\]/u, "source Banks must be filtered by the active Section subject");
 assert.match(builder, /subjectCode: activeSection\.subtest/u, "source questions must be filtered by the active Section subject");
+assert.match(builder, /const updateDraft = \(change: \(current: TryoutDraft\) => TryoutDraft\) => \{[\s\S]*latestDraftRef\.current = nextDraft[\s\S]*dispatch\(\{ draft: nextDraft, type: "setDraft" \}\)/u, "draft edits must synchronously advance the snapshot used by save");
+assert.match(builder, /const draftToSave = latestDraftRef\.current;/u, "save must read the latest synchronous draft snapshot");
+assert.doesNotMatch(builder, /useEffect\(\(\) => \{\s*latestDraftRef\.current = draft/u, "save snapshots must not depend on a lagging draft effect");
+assert.match(builder, /const currentDraft = latestDraftRef\.current;[\s\S]*currentDirectQuestions[\s\S]*update\(activeCode/u, "question add/remove must derive from the synchronous draft snapshot");
 
 assert.match(repository, /type DirectQuestionInput/u, "the save boundary must define direct question inputs");
 assert.match(repository, /type DirectQuestionInput = \{ sourceContentDigest: string; sourceQuestionId: string; sourceQuestionRevisionId: string \}/u, "direct selections must carry required source identity");

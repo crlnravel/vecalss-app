@@ -121,7 +121,7 @@ assert.match(workspace, /updateTryoutMetadataAction/u, "published details must u
 assert.match(workspace, /Duplikat draf baru/u, "published structural changes must use an explicit change draft");
 assert.match(workspace, /const allowed: Workspace\[\] = \["basics", "schedule"\]/u, "published workspaces must allow Overview alongside Delivery");
 assert.match(workspace, /mode === "published" \? \([\s\S]*variant="brandOutline"[\s\S]*Duplikat draf baru/u, "published duplicate action must move to the top as an outline control");
-assert.match(workspace, /updateTryoutMetadataAction\(\{ (?:bannerMediaId: draft\.bannerMediaId \?\? null, )?description: draft\.description, id, title: draft\.title \}\)/u, "published Overview must save the inline title and description");
+assert.match(workspace, /updateTryoutMetadataAction\(\{ (?:bannerMediaId: (?:draft|draftToSave)\.bannerMediaId \?\? null, )?description: (?:draft|draftToSave)\.description, id, title: (?:draft|draftToSave)\.title \}\)/u, "published Overview must save the inline title and description");
 assert.match(workspace, /(?:disabled=\{mode === "draft" && draft\.locked\}|const identityDisabled = saving \|\| \(mode === "draft" && draft\.locked\);[\s\S]*disabled=\{identityDisabled\})/u, "published Overview metadata must remain editable when structure is locked");
 assert.match(workspace, /mode === "published"[\s\S]*Simpan perubahan/u, "published Overview must expose a metadata save action");
 assert.match(workspace, /unpublishTryoutAction/u, "published Tryout detail must expose the unpublish action");

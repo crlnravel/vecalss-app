@@ -1046,10 +1046,6 @@ function useTryoutBuilderState({
   const pendingWorkspaceRef = useRef<Workspace | null>(null);
   const pendingHrefRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    latestDraftRef.current = draft;
-  }, [draft]);
-
   const selectedSessionId = useMemo(() => {
     return initialSessionId
       ?? operationsInitial?.sessions.find((candidate) => candidate.status === "active")?.id
@@ -1130,8 +1126,18 @@ function useTryoutBuilderState({
     return null;
   }, [initialWorkspace, mode, requestedWorkspace, workspace]);
 
+  const updateDraft = (change: (current: TryoutDraft) => TryoutDraft) => {
+    const nextDraft = change(latestDraftRef.current);
+    latestDraftRef.current = nextDraft;
+    dispatch({ draft: nextDraft, type: "setDraft" });
+    dispatch({ dirty: true, type: "setDirty" });
+  };
+
   const update = (subtest: SubjectCode, change: Partial<TestDraft>) => {
-    dispatch({ change, subtest, type: "updateSection" });
+    updateDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => section.subtest === subtest ? { ...section, ...change } : section),
+    }));
   };
 
   const changeActiveCode = (nextCode: SubjectCode) => {
@@ -1139,20 +1145,24 @@ function useTryoutBuilderState({
   };
 
   const toggleDirectQuestion = (question: SourceQuestion) => {
-    const selectedInActiveSection = activeDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
+    const currentDraft = latestDraftRef.current;
+    const currentSection = currentDraft.sections.find((section) => section.subtest === activeCode) ?? currentDraft.sections[0]!;
+    const currentDirectQuestions = currentSection.directQuestions ?? [];
+    const selectedInActiveSection = currentDirectQuestions.some((candidate) => candidate.sourceQuestionId === question.id);
     if (selectedInActiveSection) {
-      update(activeCode, { directQuestions: activeDirectQuestions.filter((candidate) => candidate.sourceQuestionId !== question.id) });
+      update(activeCode, { directQuestions: currentDirectQuestions.filter((candidate) => candidate.sourceQuestionId !== question.id) });
       dispatch({ error: null, type: "setError" });
       return;
     }
-    if (selectedSourceQuestionIdsSet.has(question.id)) {
+    const selectedInAnySection = currentDraft.sections.some((section) => section.directQuestions?.some((candidate) => candidate.sourceQuestionId === question.id));
+    if (selectedInAnySection) {
       dispatch({ error: "Soal ini sudah dipilih di Section lain.", type: "setError" });
       return;
     }
     const bank = sourceBanks.find((candidate) => candidate.id === question.bankId);
     update(activeCode, {
       catItemCount: undefined,
-      directQuestions: [...activeDirectQuestions, {
+      directQuestions: [...currentDirectQuestions, {
         bankId: question.bankId,
         bankTitle: bank?.title,
         catReady: question.catReady,
@@ -1310,23 +1320,33 @@ function useTryoutBuilderState({
 
   const saveMetadata = async () => {
     if (!id) return;
+    const draftToSave = latestDraftRef.current;
     dispatch({ saving: true, type: "setMetadataSaving" });
     dispatch({ error: null, type: "setError" });
     try {
-      const result = await updateTryoutMetadataAction({ bannerMediaId: draft.bannerMediaId ?? null, description: draft.description, id, title: draft.title });
+      const result = await updateTryoutMetadataAction({ bannerMediaId: draftToSave.bannerMediaId ?? null, description: draftToSave.description, id, title: draftToSave.title });
       if (!result.ok) {
         dispatch({ error: result.message, type: "setError" });
         return;
       }
       const nextDraft = normalize(result.result);
-      dispatch({ draft: nextDraft, type: "setDraft" });
       savedDraftRef.current = nextDraft;
-      dispatch({ dirty: false, type: "setDirty" });
+      if (latestDraftRef.current === draftToSave) {
+        latestDraftRef.current = nextDraft;
+        dispatch({ draft: nextDraft, type: "setDraft" });
+        dispatch({ dirty: false, type: "setDirty" });
+      }
     } catch (metadataError) {
       dispatch({ error: metadataError instanceof Error ? metadataError.message : "Detail Tryout belum dapat disimpan.", type: "setError" });
     } finally {
       dispatch({ saving: false, type: "setMetadataSaving" });
     }
+  };
+
+  const discardDraft = () => {
+    latestDraftRef.current = savedDraftRef.current;
+    dispatch({ draft: savedDraftRef.current, type: "setDraft" });
+    dispatch({ dirty: false, type: "setDirty" });
   };
 
   useEffect(() => {
@@ -1444,6 +1464,7 @@ function useTryoutBuilderState({
     changeWorkspace,
     commitWorkspaceChange,
     configureReady,
+    discardDraft,
     deliveryArea,
     dirtyNavigationOpen,
     dispatch,
@@ -1479,6 +1500,7 @@ function useTryoutBuilderState({
     sourceQuestionTotal,
     toggleDirectQuestion,
     unpublish,
+    updateDraft,
     unpublishOpen,
     update,
     visiblePhaseDefinitions,
@@ -1697,6 +1719,7 @@ function KaptenTryoutBuilderPageModule({
     changeWorkspace,
     commitWorkspaceChange,
     configureReady,
+    discardDraft,
     deliveryArea,
     dirtyNavigationOpen,
     dispatch,
@@ -1733,6 +1756,7 @@ function KaptenTryoutBuilderPageModule({
     toggleDirectQuestion,
     unpublish,
     unpublishOpen,
+    updateDraft,
     update,
     visiblePhaseDefinitions,
     workspace,
@@ -1829,10 +1853,10 @@ function KaptenTryoutBuilderPageModule({
               draft={draft}
               metadataSaving={metadataSaving}
               mode={mode}
-              onBannerChange={(bannerMediaId) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, bannerMediaId }, type: "setDraft" }); }}
-              onDescriptionChange={(desc) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, description: desc }, type: "setDraft" }); }}
+              onBannerChange={(bannerMediaId) => updateDraft((current) => ({ ...current, bannerMediaId }))}
+              onDescriptionChange={(desc) => updateDraft((current) => ({ ...current, description: desc }))}
               onSaveMetadata={() => void saveMetadata()}
-              onTitleChange={(title) => { dispatch({ change: {}, subtest: activeCode, type: "updateSection" }); dispatch({ draft: { ...draft, title }, type: "setDraft" }); }}
+              onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))}
               saving={saving}
             />
 
@@ -1918,8 +1942,7 @@ function KaptenTryoutBuilderPageModule({
         onConfirmDiscard={() => {
           const target = pendingWorkspaceRef.current;
           const href = pendingHrefRef.current;
-          dispatch({ draft: savedDraftRef.current, type: "setDraft" });
-          dispatch({ dirty: false, type: "setDirty" });
+          discardDraft();
           pendingWorkspaceRef.current = null;
           pendingHrefRef.current = null;
           dispatch({ open: false, type: "setDirtyNavigationOpen" });
