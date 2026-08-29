@@ -15,7 +15,6 @@ import { PortalShell } from "@/modules/portal/components/portal-shell";
 import type { SessionContext } from "@/lib/auth/types";
 import type { VeraAiUsageBreakdownDto } from "@/lib/admin/ai/contracts";
 import { AiControlPlaneNav } from "./components/AiControlPlaneNav";
-import { AiPrivacyNotice } from "./components/AiPrivacyNotice";
 import { AiRefreshBar } from "./components/AiRefreshBar";
 import { formatAiCurrency, formatAiFeatureLabel } from "./components/AiDisplayLabels";
 import { cn } from "@/lib/utils";
@@ -25,8 +24,8 @@ type PeriodOption = "today" | "7days" | "30days";
 
 const METRIC_LABELS: Record<MetricOption, string> = {
   quota_units: "Kuota terpakai",
-  requests: "Permintaan",
-  tokens: "Teks diproses",
+  requests: "API Request",
+  tokens: "Token",
   cost: "Perkiraan biaya",
 };
 
@@ -67,8 +66,8 @@ function formatRange(from: string, to: string) {
 
 function formatSelectedMetric(data: VeraAiUsageBreakdownDto["items"][number], metric: MetricOption) {
   if (metric === "quota_units") return `${data.quotaUnits.toLocaleString("id-ID")} kuota`;
-  if (metric === "requests") return `${data.requests.toLocaleString("id-ID")} permintaan`;
-  if (metric === "tokens") return `${data.tokens.toLocaleString("id-ID")} bagian teks`;
+  if (metric === "requests") return `${data.requests.toLocaleString("id-ID")} API Request`;
+  if (metric === "tokens") return `${data.tokens.toLocaleString("id-ID")} Token`;
   return formatAiCurrency(data.costUsd * 16_000);
 }
 
@@ -192,7 +191,6 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                     Periode {formatRange(data.range.from, data.range.to)} · dikelompokkan berdasarkan fitur Vera
                   </p>
                 </div>
-                <p className="text-xs font-semibold text-secondary-600">Menampilkan: {METRIC_LABELS[metric]}</p>
               </div>
 
               {data.items.length === 0 ? (
@@ -232,10 +230,9 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                       <TableHeader>
                         <TableRow className="bg-primary-50/40">
                           <TableHead className="font-bold text-secondary-950">Fitur</TableHead>
-                          <TableHead className="font-bold text-secondary-950">Permintaan</TableHead>
+                          <TableHead className="font-bold text-secondary-950">API Request</TableHead>
                           <TableHead className="font-bold text-secondary-950">Kuota terpakai</TableHead>
                           <TableHead className="font-bold text-secondary-950">Perkiraan biaya</TableHead>
-                          <TableHead className="font-bold text-secondary-950">Bagian</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -243,7 +240,7 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                           <TableRow key={item.id}>
                             <TableCell className="font-medium text-secondary-900">{formatAiFeatureLabel(item.label)}</TableCell>
                             {item.privacyState === "suppressed" ? (
-                              <TableCell colSpan={4} className="text-xs italic text-secondary-500">
+                              <TableCell colSpan={3} className="text-xs italic text-secondary-500">
                                 Ringkasan disembunyikan untuk menjaga privasi siswa.
                               </TableCell>
                             ) : (
@@ -251,7 +248,6 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                                 <TableCell>{item.requests.toLocaleString("id-ID")}</TableCell>
                                 <TableCell>{item.quotaUnits.toLocaleString("id-ID")}</TableCell>
                                 <TableCell>{formatAiCurrency(item.costUsd * 16_000)}</TableCell>
-                                <TableCell className="font-bold text-secondary-950">{item.sharePercentage}%</TableCell>
                               </>
                             )}
                           </TableRow>
@@ -295,7 +291,6 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                       <TableHead className="font-bold text-secondary-950">Fitur</TableHead>
                       <TableHead className="font-bold text-secondary-950">Kuota terpakai</TableHead>
                       <TableHead className="font-bold text-secondary-950">Perkiraan biaya</TableHead>
-                      <TableHead className="font-bold text-secondary-950">Bagian</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -304,19 +299,12 @@ export function AiUsagePageModule({ session }: { session: SessionContext }) {
                         <TableCell className="font-medium text-secondary-900">{formatAiFeatureLabel(capability.capability)}</TableCell>
                         <TableCell>{capability.quotaUnits.toLocaleString("id-ID")}</TableCell>
                         <TableCell>{formatAiCurrency(capability.spendIdr)}</TableCell>
-                        <TableCell className="font-bold text-secondary-950">{capability.share}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-
-              <p className="mt-5 rounded-2xl bg-secondary-50 p-4 text-xs leading-relaxed text-secondary-600">
-                Perkiraan ini dihitung dari data transaksi yang tersedia. Cakupan data biaya saat ini <strong className="text-secondary-800">{data.cost.costCoverage.knownPercentage}%</strong>.
-              </p>
             </section>
-
-            <AiPrivacyNotice />
           </div>
         )}
       </div>

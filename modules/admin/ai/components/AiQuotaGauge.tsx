@@ -74,7 +74,7 @@ export function AiQuotaGauge({ quotaHealth }: { quotaHealth: QuotaHealthState })
       <div className="mt-6 rounded-2xl bg-secondary-50 p-4 text-xs text-secondary-600">
         <p className="font-bold text-secondary-800">Cara membaca angka ini</p>
         <p className="mt-1 leading-relaxed">
-          Kuota terpakai menunjukkan pemakaian saat ini. Kuota yang disiapkan sudah dialokasikan untuk permintaan yang sedang berjalan; sisanya masih bisa digunakan.
+          Kuota terpakai menunjukkan pemakaian saat ini. Kuota yang disiapkan sudah dialokasikan untuk API Request yang sedang berjalan; sisanya masih bisa digunakan.
         </p>
       </div>
     </div>

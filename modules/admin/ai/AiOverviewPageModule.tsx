@@ -113,7 +113,7 @@ export function AiOverviewPageModule({
           <div className="mt-8 space-y-10">
             {/* KPI band */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <AiMetricCard title="Permintaan Hari Ini" metric={data.kpis.requestsToday} />
+              <AiMetricCard title="API Request Hari Ini" metric={data.kpis.requestsToday} />
               <AiMetricCard title="Siswa Aktif Belajar" metric={data.kpis.activeLearnersToday} />
               <AiMetricCard title="Kuota Terpakai" metric={data.kpis.quotaConsumedToday} />
               <AiMetricCard title="Pengeluaran Bulan Ini" metric={data.kpis.spendMtdIdr} />
@@ -125,8 +125,8 @@ export function AiOverviewPageModule({
               <div className="rounded-3xl border border-primary-100 bg-white p-6 shadow-sm">
                 <div className="flex items-center justify-between gap-4 border-b border-primary-50 pb-4">
                   <div>
-                    <h3 className="text-base font-bold text-secondary-950">Permintaan Vera AI Hari Ini</h3>
-                    <p className="mt-1 text-xs text-secondary-500">Jumlah permintaan yang masuk sepanjang hari</p>
+                    <h3 className="text-base font-bold text-secondary-950">API Request Vera AI Hari Ini</h3>
+                    <p className="mt-1 text-xs text-secondary-500">Jumlah API Request yang masuk sepanjang hari</p>
                   </div>
                   <Link
                     href="/admin/ai/usage"
@@ -148,7 +148,7 @@ export function AiOverviewPageModule({
                           <div
                             style={{ height: `${heightPercent}%` }}
                             className="w-full rounded-t-lg bg-primary-700 transition-all"
-                            title={`${totalSlot.toLocaleString("id-ID")} permintaan pada ${slot.timeLabel}`}
+                            title={`${totalSlot.toLocaleString("id-ID")} API Request pada ${slot.timeLabel}`}
                           />
                         ) : (
                           <div className="h-0.5 w-full rounded-full bg-primary-100" />
@@ -162,7 +162,7 @@ export function AiOverviewPageModule({
                 </div>
 
                 <div className="mt-4 border-t border-primary-50 pt-3 text-xs text-secondary-500">
-                  Setiap batang menunjukkan jumlah permintaan dalam rentang empat jam.
+                  Setiap batang menunjukkan jumlah API Request dalam rentang empat jam.
                 </div>
               </div>
 
