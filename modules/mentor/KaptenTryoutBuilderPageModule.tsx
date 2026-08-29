@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  ArrowDown,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -34,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -65,10 +64,12 @@ import { KaptenTryoutLivePageModule } from "@/modules/mentor/KaptenTryoutLivePag
 import { KaptenTryoutPolicyPageModule } from "@/modules/mentor/KaptenTryoutPolicyPageModule";
 import { KaptenTryoutResultsPageModule } from "@/modules/mentor/KaptenTryoutResultsPageModule";
 import { KaptenTryoutSessionsPageModule } from "@/modules/mentor/KaptenTryoutSessionsPageModule";
+import { PaginationControls } from "@/modules/mentor/components/kapten-ui";
 import { listQuestionBankSourcePageAction, listQuestionBankSourceQuestionsAction } from "@/modules/mentor/question-bank-actions";
 import { duplicateTryoutAction, saveTryoutAction, unpublishTryoutAction, updateTryoutMetadataAction } from "@/modules/mentor/tryout-actions";
 
 const subjectCodes = kaptenSubjects.map((subject) => subject.code) as Array<"PU" | "PPU" | "PBM" | "PK" | "LBI" | "LBE" | "PM">;
+const SOURCE_QUESTION_PAGE_SIZE = 10;
 type SubjectCode = (typeof subjectCodes)[number];
 type DirectQuestionDraft = {
   bankId?: string;
@@ -151,7 +152,7 @@ const draftWorkspacePhases: WorkspacePhaseDefinition[] = [
     value: "overview",
   },
   {
-    items: [{ label: "Configure Sections", value: "sections" }],
+    items: [{ label: "Atur bagian", value: "sections" }],
     label: "Soal",
     value: "build",
   },
@@ -400,7 +401,7 @@ function SectionRail({
   return (
     <ReferenceSurface as="aside" aria-labelledby="section-rail-title" className="grid gap-3 p-4 lg:sticky lg:top-5 lg:self-start">
       <div>
-        <h2 className="font-semibold text-secondary-900" id="section-rail-title">Configure Sections</h2>
+        <h2 className="font-semibold text-secondary-900" id="section-rail-title">Atur bagian</h2>
       </div>
       <ul aria-label="Tujuh Section Tryout" className="m-0 grid gap-2 list-none p-0">
         {sections.map((section) => {
@@ -516,6 +517,7 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
       return { ...state, browseBankId: nextBrowseBankId, sourceBankTotal: action.total, sourceBanks: nextBanks };
     }
     case "setBrowseBankId":
+      if (state.browseBankId === action.bankId) return state;
       return {
         ...state,
         browseBankId: action.bankId,
@@ -529,12 +531,8 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
       return { ...state, sourceQuestionPage: action.page };
     case "setSourceQuestionLoading":
       return { ...state, sourceQuestionLoading: action.loading };
-    case "setSourceQuestionResults": {
-      const nextQuestions = state.sourceQuestionPage === 1
-        ? action.questions
-        : [...state.sourceQuestions, ...action.questions].filter((question, index, all) => all.findIndex((candidate) => candidate.id === question.id) === index);
-      return { ...state, sourceQuestionTotal: action.total, sourceQuestions: nextQuestions };
-    }
+    case "setSourceQuestionResults":
+      return { ...state, sourceQuestionTotal: action.total, sourceQuestions: action.questions };
     case "setRequestedWorkspace":
       return { ...state, requestedWorkspace: action.workspace };
     case "setDeliveryArea":
@@ -672,7 +670,7 @@ function TryoutSectionsTab({
   guardExternalNavigation,
   onBankPageNext,
   onBankSearchChange,
-  onQuestionPageNext,
+  onQuestionPageChange,
   onQuestionSearchChange,
   onSelectBank,
   onToggleQuestion,
@@ -683,9 +681,9 @@ function TryoutSectionsTab({
   sourceBankTotal,
   sourceBanks,
   sourceQuestionLoading,
+  sourceQuestionPage,
   sourceQuestionSearch,
   sourceQuestionTotal,
-  sourceQuestions,
   saving,
 }: {
   activeBrowseBank?: SourceBank;
@@ -697,7 +695,7 @@ function TryoutSectionsTab({
   guardExternalNavigation: (href: string, event: { preventDefault: () => void }) => void;
   onBankPageNext: () => void;
   onBankSearchChange: (search: string) => void;
-  onQuestionPageNext: () => void;
+  onQuestionPageChange: (page: number) => void;
   onQuestionSearchChange: (search: string) => void;
   onSelectBank: (bankId: string) => void;
   onToggleQuestion: (question: SourceQuestion) => void;
@@ -708,12 +706,13 @@ function TryoutSectionsTab({
   sourceBankTotal: number;
   sourceBanks: SourceBank[];
   sourceQuestionLoading: boolean;
+  sourceQuestionPage: number;
   sourceQuestionSearch: string;
   sourceQuestionTotal: number;
-  sourceQuestions: SourceQuestion[];
   saving: boolean;
 }) {
   const [previewQuestion, setPreviewQuestion] = useState<SourceQuestion | null>(null);
+  const sourceQuestionPageCount = Math.max(1, Math.ceil(sourceQuestionTotal / SOURCE_QUESTION_PAGE_SIZE));
 
   return (
     <TooltipProvider>
@@ -745,7 +744,7 @@ function TryoutSectionsTab({
             <h2 className="text-2xl font-bold tracking-tight text-secondary-900">Pilih bank soal</h2>
           </div>
 
-          <div className="grid gap-5">
+          <div className="grid grid-cols-1 gap-5">
             <div className="grid gap-5">
               <ReferenceSurface className="grid min-w-0 gap-4 p-4" variant="inset">
                 <Field>
@@ -794,7 +793,7 @@ function TryoutSectionsTab({
                                 <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
                                 <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
                               </div>
-                              <p className="mt-2 line-clamp-3 max-w-full break-words overflow-hidden text-sm leading-6 text-secondary-900">{question.prompt}</p>
+                              <p className="mt-2 line-clamp-3 max-w-full break-words overflow-hidden text-ellipsis text-sm leading-6 text-secondary-900">{question.prompt}</p>
                             </label>
                             <Tooltip>
                               <TooltipTrigger render={<Button aria-label={`Lihat pratinjau soal ${question.subjectCode}`} disabled={saving} onClick={() => setPreviewQuestion(question)} size="icon" type="button" variant="ghost" />}><Eye /></TooltipTrigger>
@@ -807,7 +806,7 @@ function TryoutSectionsTab({
                     </article>
                   );
                 })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
-                {browseBankId && sourceQuestionTotal > sourceQuestions.length ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-1"><p className="text-xs text-secondary-500">Menampilkan {sourceQuestions.length} dari {sourceQuestionTotal} soal Ready.</p><Button disabled={saving || sourceQuestionLoading} onClick={onQuestionPageNext} size="sm" variant="reference"><ArrowDown />{sourceQuestionLoading ? "Memuat…" : "Muat soal lain"}</Button></div> : null}
+                {browseBankId && sourceQuestionTotal > SOURCE_QUESTION_PAGE_SIZE ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex flex-col gap-3 border-t border-primary-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-secondary-500">Menampilkan halaman {sourceQuestionPage} dari {sourceQuestionPageCount} · {sourceQuestionTotal} soal Ready.</p><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
               </ReferenceSurface>
             </div>
           </div>
@@ -818,13 +817,8 @@ function TryoutSectionsTab({
         <DialogContent className="max-h-[calc(100svh-2rem)] sm:max-w-2xl" variant="default">
           <DialogHeader>
             <DialogTitle>Pratinjau soal</DialogTitle>
-            <DialogDescription>Lihat tampilan soal dan pilihan jawaban sebelum menambahkannya ke Section.</DialogDescription>
           </DialogHeader>
           {previewQuestion ? <div className="grid gap-5">
-            <div aria-label="Informasi soal" className="flex flex-wrap gap-2">
-              <MentorBadge size="compact" tone="category">{previewQuestion.subjectCode}</MentorBadge>
-              <MentorBadge size="compact" tone="neutral">{difficultyLabel(previewQuestion.difficulty)}</MentorBadge>
-            </div>
             <p className="break-words text-base leading-7 text-secondary-900">{previewQuestion.prompt || "Pertanyaan belum tersedia."}</p>
             <ol aria-label="Pilihan jawaban" className="m-0 grid list-none gap-3 p-0">
               {previewQuestion.choices.map((choice, index) => <li className="flex min-w-0 items-start gap-3 rounded-xl border border-primary-100 bg-primary-50/45 px-3 py-3" key={choice.id}>
@@ -1408,7 +1402,7 @@ function useTryoutBuilderState({
       try {
         const result = await listQuestionBankSourceQuestionsAction(browseBankId, {
           page: sourceQuestionPage,
-          pageSize: 50,
+          pageSize: SOURCE_QUESTION_PAGE_SIZE,
           search: sourceQuestionSearch,
           subjectCode: activeSection.subtest,
         });
@@ -1483,7 +1477,6 @@ function useTryoutBuilderState({
     sourceQuestionPage,
     sourceQuestionSearch,
     sourceQuestionTotal,
-    sourceQuestions,
     toggleDirectQuestion,
     unpublish,
     unpublishOpen,
@@ -1737,7 +1730,6 @@ function KaptenTryoutBuilderPageModule({
     sourceQuestionPage,
     sourceQuestionSearch,
     sourceQuestionTotal,
-    sourceQuestions,
     toggleDirectQuestion,
     unpublish,
     unpublishOpen,
@@ -1821,7 +1813,7 @@ function KaptenTryoutBuilderPageModule({
       />
 
       <Tabs className="mt-5 min-w-0" onValueChange={changeWorkspace} value={workspace}>
-        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start" : "mt-6 w-full"}>
+        <div className={activePhase === "build" ? "mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:items-start" : "mt-6 w-full"}>
           {activePhase === "build" ? (
             <SectionRail
               activeCode={activeCode}
@@ -1854,7 +1846,7 @@ function KaptenTryoutBuilderPageModule({
               guardExternalNavigation={guardExternalNavigation}
               onBankPageNext={() => dispatch({ page: sourceBankPage + 1, type: "setSourceBankPage" })}
               onBankSearchChange={(search) => dispatch({ search, type: "setSourceBankSearch" })}
-              onQuestionPageNext={() => dispatch({ page: sourceQuestionPage + 1, type: "setSourceQuestionPage" })}
+              onQuestionPageChange={(page) => dispatch({ page, type: "setSourceQuestionPage" })}
               onQuestionSearchChange={(search) => dispatch({ search, type: "setSourceQuestionSearch" })}
               onSelectBank={(bankId) => dispatch({ bankId, type: "setBrowseBankId" })}
               onToggleQuestion={toggleDirectQuestion}
@@ -1865,9 +1857,9 @@ function KaptenTryoutBuilderPageModule({
               sourceBankTotal={sourceBankTotal}
               sourceBanks={sourceBanks}
               sourceQuestionLoading={sourceQuestionLoading}
+              sourceQuestionPage={sourceQuestionPage}
               sourceQuestionSearch={sourceQuestionSearch}
               sourceQuestionTotal={sourceQuestionTotal}
-              sourceQuestions={sourceQuestions}
               saving={saving}
             />
 

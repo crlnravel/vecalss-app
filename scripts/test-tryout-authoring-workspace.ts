@@ -28,7 +28,7 @@ for (const label of [
   "Delivery",
   "Results",
   "Overview",
-  "Configure Sections",
+  "Atur bagian",
   "Sections",
   "Policy",
   "Sessions",
@@ -51,7 +51,7 @@ assert.match(workspace, /function lifecyclePhasesForMode\(mode: WorkflowMode\)/u
 assert.match(workspace, /lifecyclePhases\.map\(\(phase\)/u, "the roadmap must render only mode-relevant phases");
 assert.match(workspace, /type WorkspacePhase = "overview"[\s\S]*"build"/u, "draft navigation must model Overview separately from Soal");
 assert.match(workspace, /label: "Overview",\s*value: "overview"[\s\S]*label: "Soal",\s*value: "build"/u, "Overview must appear before Soal in the lifecycle roadmap");
-assert.match(workspace, /items: \[\{ label: "Configure Sections", value: "sections" \}\]/u, "Soal must contain Configure Sections as its only subarea");
+assert.match(workspace, /items: \[\{ label: "Atur bagian", value: "sections" \}\]/u, "Soal must contain Atur bagian as its only subarea");
 assert.match(workspace, /items: \[\{ label: "Review & Publish", value: "review" \}\]/u, "Review & Publish must be a single summary workspace without inner tabs");
 assert.doesNotMatch(workspace, /Readiness server|Content readiness|Delivery readiness|Published versions|contentReviewChecks|deliveryReviewChecks|readyToPublish|TabsContent className="mt-0" value="publish"/u, "Review & Publish must not expose readiness or version sub-tabs");
 assert.match(workspace, /<dt className="text-sm font-semibold text-secondary-600">Judul[\s\S]*draft\.title[\s\S]*<dt className="text-sm font-semibold text-secondary-600">Deskripsi[\s\S]*draft\.description/u, "Review & Publish must show the Tryout title and description in one column");
@@ -122,7 +122,7 @@ assert.match(workspace, /Duplikat draf baru/u, "published structural changes mus
 assert.match(workspace, /const allowed: Workspace\[\] = \["basics", "schedule"\]/u, "published workspaces must allow Overview alongside Delivery");
 assert.match(workspace, /mode === "published" \? \([\s\S]*variant="brandOutline"[\s\S]*Duplikat draf baru/u, "published duplicate action must move to the top as an outline control");
 assert.match(workspace, /updateTryoutMetadataAction\(\{ (?:bannerMediaId: draft\.bannerMediaId \?\? null, )?description: draft\.description, id, title: draft\.title \}\)/u, "published Overview must save the inline title and description");
-assert.match(workspace, /disabled=\{mode === "draft" && draft\.locked\}/u, "published Overview metadata must remain editable when structure is locked");
+assert.match(workspace, /(?:disabled=\{mode === "draft" && draft\.locked\}|const identityDisabled = saving \|\| \(mode === "draft" && draft\.locked\);[\s\S]*disabled=\{identityDisabled\})/u, "published Overview metadata must remain editable when structure is locked");
 assert.match(workspace, /mode === "published"[\s\S]*Simpan perubahan/u, "published Overview must expose a metadata save action");
 assert.match(workspace, /unpublishTryoutAction/u, "published Tryout detail must expose the unpublish action");
 assert.match(workspace, /Jadikan draf/u, "published Tryout detail must label the unpublish action plainly");
