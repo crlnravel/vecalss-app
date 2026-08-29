@@ -783,17 +783,17 @@ function TryoutSectionsTab({
                   const selectedInOtherSection = !selected && selectedSourceQuestionIdsSet.has(question.id);
                   const checkboxId = `source-question-${question.id}`;
                   return (
-                    <article className={`rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}>
+                    <article className={`min-w-0 overflow-hidden rounded-2xl border p-3 transition-colors ${selected ? "border-primary-200 bg-white shadow-[0_12px_24px_-20px_rgba(23,107,77,0.7)]" : "border-primary-100 bg-primary-50/45 hover:border-primary-200 hover:bg-primary-50/70"}`} key={question.id}>
                       <div className="flex min-w-0 items-start gap-3">
                         <Checkbox aria-label={selected ? `Hapus pilihan ${question.prompt}` : `Pilih ${question.prompt}`} checked={selected} disabled={saving || draft.locked || selectedInOtherSection} id={checkboxId} onCheckedChange={() => onToggleQuestion(question)} />
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-start justify-between gap-3">
-                            <label className="min-w-0 flex-1 cursor-pointer" htmlFor={checkboxId}>
+                            <label className="min-w-0 flex-1 cursor-pointer overflow-hidden" htmlFor={checkboxId}>
                               <div className="flex flex-wrap gap-2">
                                 <MentorBadge size="compact" tone="category">{question.subjectCode}</MentorBadge>
                                 <MentorBadge size="compact" tone="neutral">{difficultyLabel(question.difficulty)}</MentorBadge>
                               </div>
-                              <p className="mt-2 block min-w-0 max-w-full truncate text-sm leading-6 text-secondary-900" title={question.prompt}>{question.prompt}</p>
+                              <p className="mt-2 block w-full min-w-0 max-w-[60ch] truncate text-sm leading-6 text-secondary-900" title={question.prompt}>{question.prompt}</p>
                             </label>
                             <Tooltip>
                               <TooltipTrigger render={<Button aria-label={`Lihat pratinjau soal ${question.subjectCode}`} disabled={saving} onClick={() => setPreviewQuestion(question)} size="icon" type="button" variant="ghost" />}><Eye /></TooltipTrigger>
@@ -806,7 +806,7 @@ function TryoutSectionsTab({
                     </article>
                   );
                 })}</div> : <ReferenceSurface className="mt-5 px-4 py-10 text-center text-sm leading-6 text-secondary-500" variant="inset">{browseBankId ? `Tidak ada soal ${activeSection.subtest} yang cocok di Bank Soal ini.` : "Pilih Bank Soal untuk mulai memilih."}</ReferenceSurface>}
-                {browseBankId && sourceQuestionTotal > 0 ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex flex-col gap-3 border-t border-primary-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-secondary-500">Menampilkan halaman {sourceQuestionPage} dari {sourceQuestionPageCount} · {sourceQuestionTotal} soal Ready.</p><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
+                {browseBankId && sourceQuestionTotal > 0 ? <div aria-busy={sourceQuestionLoading} className="mt-4 flex justify-center border-t border-primary-100 pt-4 sm:justify-end"><PaginationControls onPageChange={onQuestionPageChange} page={sourceQuestionPage} pageCount={sourceQuestionPageCount} /></div> : null}
               </ReferenceSurface>
             </div>
           </div>
@@ -1782,7 +1782,7 @@ function KaptenTryoutBuilderPageModule({
           className="min-w-0 flex-1"
           description={(
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span>{mode === "published" ? "Kelola akses, sesi, dan hasil untuk Tryout ini." : "Susun konfigurasi Tryout sebelum diterbitkan."}</span>
+              {mode === "published" ? <span>Kelola akses, sesi, dan hasil untuk Tryout ini.</span> : null}
               <ReferenceStatusBadge appearance="mentor" size="xs" status={mode === "published" ? "published" : "draft"} />
             </span>
           )}

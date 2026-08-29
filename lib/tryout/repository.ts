@@ -151,9 +151,6 @@ function assertReadyDirectSources(sources: Prisma.QuestionGetPayload<{ include: 
       || !isReadyAsset(revision.explanationAsset);
   })) throw new TryoutValidationError("Pilih soal langsung hanya dari revisi Ready yang masih aktif, kompatibel dengan Subtest, dan memiliki media siap.");
 }
-function assertReadyDirectContent(sources: Prisma.QuestionGetPayload<{ include: typeof sourceInclude }>[], subtest: SubjectCode) {
-  if (sources.some((source) => !source.currentRevision?.explanation?.trim() && !source.currentRevision?.explanationAssetId)) throw new TryoutValidationError(`Sumber langsung Test ${subtest} harus memiliki penjelasan teks atau media sebelum Tryout diterbitkan.`);
-}
 async function readAndValidatePackageSources(tx: Prisma.TransactionClient, sourceQuestionIds: string[], subtest: SubjectCode, sourceBankId: string) {
   // Lock both source questions and their Banks before rereading lifecycle/media state.
   // Bank writes use the same aggregate row, so selection cannot race an unpublish/archive.
@@ -711,7 +708,6 @@ async function saveTryout(input: SaveTryoutInput, actorId: string) {
       const directSelections = sectionInput.directQuestions ?? [];
       const directSources = directSelections.length ? await readAndValidateDirectSources(tx, directSelections, sectionInput.subtest) : [];
       if (input.status === "published" && !directSources.length) throw new TryoutValidationError("Setiap Test harus memiliki minimal satu soal langsung sebelum Tryout diterbitkan.");
-      if (input.status === "published" && directSources.length) assertReadyDirectContent(directSources, sectionInput.subtest);
       if (input.status === "published" && sectionInput.testType === "cat") await assertCatDirectReadiness(tx, directSources, sectionInput.catItemCount);
       const section = await tx.tryoutSection.create({ data: { catItemCount: sectionInput.testType === "cat" ? sectionInput.catItemCount : null, catModelVersion: sectionInput.testType === "cat" ? CANONICAL_2PL_MODEL_VERSION : null, durationSeconds: sectionInput.durationMinutes * 60, instructions: sectionInput.instructions.trim() || null, packageVersionId: null, questionCount: directSources.length, scoringConfig: sectionInput.scoringConfig ? sectionInput.scoringConfig as Prisma.InputJsonValue : Prisma.JsonNull, sequenceNo: index + 1, shuffleItems: sectionInput.shuffleItems, subtestId: subtest.id, testType: sectionInput.testType === "cat" ? TryoutTestType.cat : TryoutTestType.cbt, title: `${sectionInput.subtest} · ${subtest.name}`, tryoutId: id! } });
       return { directSources, section };
