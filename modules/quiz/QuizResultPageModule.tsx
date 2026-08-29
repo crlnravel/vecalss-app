@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Printer } from "@phosphor-icons/react";
-
 import {
   ArrowLeft,
   ArrowRight,
@@ -271,12 +269,7 @@ function QuizResultPageModule({
               <span className="hidden sm:inline">Selanjutnya</span>
               <ArrowRight />
             </Button>
-          ) : (
-            <Button onClick={() => window.print()} variant="brandOutline">
-              <Printer />
-              <span className="hidden sm:inline">Cetak</span>
-            </Button>
-          )}
+          ) : null}
         </div>
       </article>
     </AssessmentResultWorkspace>
