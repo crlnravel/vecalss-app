@@ -8,12 +8,7 @@ import {
   ReferenceSectionHeading,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
-import { REFERENCE_SURFACE_CLASS_NAMES } from "@/components/dashboard/reference-dashboard-tokens";
-import {
-  Activity,
-  BarChart3,
-  ChevronRight,
-} from "@/lib/icons";
+import { Activity } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import type { AdminOperationsSnapshot } from "@/lib/admin/operations";
@@ -46,7 +41,7 @@ function ActivityPanel({
            title="Belum ada aktivitas terbaru"
         />
       ) : (
-        <ol className="mt-4 space-y-3">
+        <ol className="mt-4 space-y-3 px-5 sm:px-6">
           {audits.slice(0, 10).map((audit) => (
             <li className="flex gap-3" key={audit.id}>
               <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-primary-600" />
@@ -84,27 +79,6 @@ function OperationsConsoleModule({
         description="Kelola akses akun admin dan pantau aktivitas operasional terbaru."
         title="Dashboard"
       />
-
-      <ReferenceSurface as="section" className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-800">
-            <BarChart3 aria-hidden="true" size={19} />
-          </span>
-          <div>
-            <h2 className="text-base font-semibold text-secondary-900">Vera AI usage</h2>
-            <p className="mt-1 max-w-[60ch] text-sm leading-6 text-secondary-600">Lihat volume dan incident dalam bentuk agregat dengan suppression cohort. Tidak ada identitas atau isi percakapan di report.</p>
-          </div>
-        </div>
-        <Button
-          className="shrink-0"
-          nativeButton={false}
-          render={<Link href="/admin/ai-usage" />}
-          variant="outline"
-        >
-          Buka pemakaian AI
-          <ChevronRight aria-hidden="true" size={16} />
-        </Button>
-      </ReferenceSurface>
 
       <ActivityPanel audits={snapshot.audits} />
     </div>
