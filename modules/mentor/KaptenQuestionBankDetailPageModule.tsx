@@ -514,17 +514,16 @@ function QuestionBankQuestionCard({
           ) : null}
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-4 sm:w-auto sm:min-w-[13rem]">
-          <div className="min-w-0">
-            <span className="block text-xs font-semibold text-secondary-500">Subjek</span>
-            <MentorBadge className="mt-1.5" size="xs" tone="category">
+        <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-xs font-semibold text-secondary-500">Subjek</span>
+            <MentorBadge size="xs" tone="category">
               {question.subjectCode}
             </MentorBadge>
           </div>
-          <div className="min-w-0">
-            <span className="block text-xs font-semibold text-secondary-500">Kesulitan</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-xs font-semibold text-secondary-500">Kesulitan</span>
             <MentorBadge
-              className="mt-1.5"
               size="xs"
               tone={
                 question.difficulty === "easy"
