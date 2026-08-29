@@ -24,6 +24,10 @@ for (const [label, source] of [["detail route", detailRoute], ["editor route", e
 }
 
 assert.match(detailRoute, /searchParams: Promise/u, "detail route must accept a deep-linked tab");
+assert.match(detail, /const subjectHref = subject \? `\/mentor\/quiz\/subject\/\$\{subject\.slug\}` : "\/mentor\/quiz";/u, "detail back navigation must derive the subject route");
+assert.match(detail, /render=\{<Link href=\{subjectHref\} \/>\}/u, "detail back navigation must target the subject route");
+assert.match(detail, /breadcrumbLabel="Detail Kuis"/u, "detail breadcrumb must use the detail label");
+assert.match(detail, /breadcrumbParent=\{subject \? \{ href: subjectHref, label: subject\.code \} : undefined\}/u, "detail breadcrumb must include the subject parent");
 assert.match(detail, /value="preview"/u, "detail must expose Preview Soal");
 assert.match(detail, /value="preview">Soal<\/FullWidthLineTabsTrigger>/u, "detail must label the question tab Soal");
 assert.match(detail, /value="hasil"/u, "detail must expose Hasil");
@@ -74,6 +78,8 @@ assert.doesNotMatch(detail, />Informasi Kuis<\/h2>/u, "Kuis settings must not re
 assert.match(detail, /aria-label="Ubah judul Kuis"/u, "Kuis title metadata must use an inline edit affordance");
 assert.match(detail, /aria-label="Ubah deskripsi Kuis"/u, "Kuis description metadata must use an inline edit affordance");
 assert.match(detail, /aria-label="Ubah subjek Kuis"/u, "Kuis subject metadata must use an inline edit affordance");
+assert.match(detail, /Belum ada deskripsi untuk Kuis ini\. Klik ikon pensil untuk menambahkan\./u, "Kuis metadata must show the editable empty-description copy");
+assert.match(detail, /<MentorBadge size="md" tone="category">/u, "Kuis metadata must show the larger subject chip");
 assert.doesNotMatch(detail, /<Eye|value="preview"><ListChecks|value="hasil"><ListChecks/u, "Soal and Hasil tabs must not show their former icons");
 assert.doesNotMatch(detail, /Arsipkan|updateStandaloneQuizLifecycleAction/u, "Kuis detail must not expose archive lifecycle controls");
 assert.match(quizCatalogue, /function QuizRow/u, "subject catalogue must retain its quiz row component");

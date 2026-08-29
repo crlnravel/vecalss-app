@@ -7,8 +7,6 @@ import { useState } from "react";
 
 import {
   ReferenceEmptyState,
-  ReferencePageHeader,
-  ReferenceStatusBadge,
   ReferenceSurface,
 } from "@/components/dashboard/reference-dashboard-primitives";
 import {
@@ -76,10 +74,6 @@ function settingsFromQuiz(quiz: KaptenQuiz): SettingsForm {
   };
 }
 
-function StatusPill({ status }: { status: KaptenQuiz["status"] }) {
-  return <ReferenceStatusBadge appearance="mentor" size="xs" status={status} />;
-}
-
 function QuizPreview({ quizId, questions, subjectCode }: { quizId: string; questions: QuizQuestionSnapshot[]; subjectCode: string }) {
   return <section aria-label="Preview Soal" className="space-y-6">
     {questions.length === 0 ? (
@@ -105,27 +99,7 @@ function QuizQuestionCard({ index, question, subjectCode }: { index: number; que
   </ReferenceSurface>;
 }
 
-function QuizSettings({
-  disabled,
-  form,
-  isSaving,
-  onChange,
-  onSave,
-}: {
-  disabled: boolean;
-  form: SettingsForm;
-  isSaving: boolean;
-  onChange: (patch: Partial<SettingsForm>) => void;
-  onSave: () => void;
-}) {
-  const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt) ? "Waktu tutup harus setelah waktu buka." : null;
-  const attemptsOptions = [
-    ...(form.attemptsAllowed !== null && ![1, 3, 5].includes(form.attemptsAllowed) ? [{ label: `${form.attemptsAllowed} kali`, value: String(form.attemptsAllowed) }] : []),
-    { label: "1 kali", value: "1" },
-    { label: "3 kali", value: "3" },
-    { label: "5 kali", value: "5" },
-    { label: "Tanpa batas", value: "unlimited" },
-  ];
+function QuizMetadataCard({ disabled, form, isSaving, onChange }: { disabled: boolean; form: SettingsForm; isSaving: boolean; onChange: (patch: Partial<SettingsForm>) => void }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(form.title);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -186,96 +160,122 @@ function QuizSettings({
   }
 
   return (
-    <div className="grid gap-6">
-      <ReferenceSurface as="section" className="max-w-6xl p-5 sm:p-7" data-quiz-settings-metadata="bank-style">
-        <div className="space-y-6">
-          <div>
-            {isEditingTitle ? (
-              <div className="flex max-w-3xl items-center gap-2">
-                <Input
-                  autoFocus
-                  className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 max-w-3xl text-2xl font-semibold tracking-tight md:text-3xl`}
-                  disabled={disabled || isSaving}
-                  id="quiz-settings-title"
-                  onChange={(event) => setTitleInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      saveTitleDraft();
-                    } else if (event.key === "Escape") {
-                      cancelTitleEdit();
-                    }
-                  }}
-                  value={titleInput}
-                />
-                <Button disabled={disabled || isSaving || !titleInput.trim()} onClick={saveTitleDraft} size="sm" type="button" variant="brand">
-                  <Check />
-                  Simpan
-                </Button>
-                <Button disabled={disabled || isSaving} onClick={cancelTitleEdit} size="sm" type="button" variant="ghost">
-                  <X />
-                  Batal
-                </Button>
-              </div>
-            ) : (
-              <div className="group flex items-start gap-3">
-                <h2 className="text-3xl font-semibold tracking-tight text-secondary-900 md:text-4xl">{form.title || "Kuis tanpa judul"}</h2>
-                {!disabled ? (
-                  <Button aria-label="Ubah judul Kuis" className="mt-1 size-8 shrink-0 text-secondary-400 opacity-60 hover:text-secondary-900 group-hover:opacity-100" onClick={startTitleEdit} size="icon-sm" title="Ubah judul Kuis" type="button" variant="ghost">
-                    <Pencil className="size-4" />
-                  </Button>
-                ) : null}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2 border-t border-primary-100/70 pt-4">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-secondary-500">Deskripsi</span>
-              {!isEditingDescription && !disabled ? (
-                <Button aria-label="Ubah deskripsi Kuis" className="size-7 text-secondary-400 hover:text-secondary-900" onClick={startDescriptionEdit} size="icon-sm" title="Ubah deskripsi Kuis" type="button" variant="ghost">
-                  <Pencil className="size-3.5" />
+    <ReferenceSurface as="section" className="w-full max-w-none p-6 sm:p-8 lg:p-10" data-quiz-settings-metadata="bank-style">
+      <div className="space-y-7 sm:space-y-8">
+        <div>
+          {isEditingTitle ? (
+            <div className="flex max-w-3xl items-center gap-2">
+              <Input
+                autoFocus
+                className={`${REFERENCE_CONTROL_CLASS_NAMES.input} h-12 max-w-3xl text-2xl font-semibold tracking-tight md:text-3xl`}
+                disabled={disabled || isSaving}
+                id="quiz-settings-title"
+                onChange={(event) => setTitleInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    saveTitleDraft();
+                  } else if (event.key === "Escape") {
+                    cancelTitleEdit();
+                  }
+                }}
+                value={titleInput}
+              />
+              <Button disabled={disabled || isSaving || !titleInput.trim()} onClick={saveTitleDraft} size="sm" type="button" variant="brand">
+                <Check />
+                Simpan
+              </Button>
+              <Button disabled={disabled || isSaving} onClick={cancelTitleEdit} size="sm" type="button" variant="ghost">
+                <X />
+                Batal
+              </Button>
+            </div>
+          ) : (
+            <div className="group flex items-start gap-3">
+              <h1 className="font-heading text-4xl leading-none font-semibold tracking-[-0.04em] text-secondary-900 md:text-5xl lg:text-[3.5rem]">{form.title || "Kuis tanpa judul"}</h1>
+              {!disabled ? (
+                <Button aria-label="Ubah judul Kuis" className="mt-1 shrink-0 text-secondary-300 hover:text-secondary-900" onClick={startTitleEdit} size="icon" title="Ubah judul Kuis" type="button" variant="ghost">
+                  <Pencil className="size-5" />
                 </Button>
               ) : null}
             </div>
-            {isEditingDescription ? (
-              <div className="max-w-3xl space-y-2">
-                <FieldTextarea autoFocus className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[90px] text-sm`} disabled={disabled || isSaving} id="quiz-settings-description" onChange={(event) => setDescriptionInput(event.target.value)} placeholder="Tuliskan deskripsi ringkas tentang Kuis ini…" value={descriptionInput} />
-                <div className="flex gap-2">
-                  <Button disabled={disabled || isSaving} onClick={saveDescriptionDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
-                  <Button disabled={disabled || isSaving} onClick={cancelDescriptionEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
-                </div>
-              </div>
-            ) : (
-              <p className="max-w-3xl text-sm leading-6 text-secondary-700">{form.description || <span className="italic text-secondary-400">Belum ada deskripsi untuk Kuis ini. Klik ikon pensil untuk menambahkan.</span>}</p>
-            )}
-          </div>
-
-          <div className="border-t border-primary-100/70 pt-4">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-secondary-500">Subjek</span>
-              {!isEditingSubject && !disabled ? (
-                <Button aria-label="Ubah subjek Kuis" className="size-7 text-secondary-400 hover:text-secondary-900" onClick={startSubjectEdit} size="icon-sm" title="Ubah subjek Kuis" type="button" variant="ghost">
-                  <Pencil className="size-3.5" />
-                </Button>
-              ) : null}
-            </div>
-            {isEditingSubject ? (
-              <div className="mt-2 max-w-md space-y-2">
-                <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled || isSaving} id="quiz-settings-subject" onValueChange={setSubjectInput} options={kaptenSubjects.map((item) => ({ label: `${item.code} · ${item.name}`, value: item.code }))} placeholder="Pilih subjek" value={subjectInput} />
-                <div className="flex gap-2">
-                  <Button disabled={disabled || isSaving} onClick={saveSubjectDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
-                  <Button disabled={disabled || isSaving} onClick={cancelSubjectEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <MentorBadge size="sm" tone="category">{subject ? `${subject.code} · ${subject.name}` : form.subjectCode}</MentorBadge>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      </ReferenceSurface>
+
+        <div className="space-y-3 border-t border-primary-100/70 pt-6 sm:pt-7">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold tracking-tight text-secondary-600 sm:text-xl">Deskripsi</span>
+            {!isEditingDescription && !disabled ? (
+              <Button aria-label="Ubah deskripsi Kuis" className="text-secondary-300 hover:text-secondary-900" onClick={startDescriptionEdit} size="icon" title="Ubah deskripsi Kuis" type="button" variant="ghost">
+                <Pencil className="size-5" />
+              </Button>
+            ) : null}
+          </div>
+          {isEditingDescription ? (
+            <div className="max-w-3xl space-y-2">
+              <FieldTextarea autoFocus className={`${REFERENCE_CONTROL_CLASS_NAMES.input} min-h-[90px] text-sm`} disabled={disabled || isSaving} id="quiz-settings-description" onChange={(event) => setDescriptionInput(event.target.value)} placeholder="Tuliskan deskripsi ringkas tentang Kuis ini…" value={descriptionInput} />
+              <div className="flex gap-2">
+                <Button disabled={disabled || isSaving} onClick={saveDescriptionDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
+                <Button disabled={disabled || isSaving} onClick={cancelDescriptionEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
+              </div>
+            </div>
+          ) : (
+            <p className="max-w-4xl text-lg leading-8 text-secondary-500 sm:text-xl">{form.description || <span className="italic text-secondary-400">Belum ada deskripsi untuk Kuis ini. Klik ikon pensil untuk menambahkan.</span>}</p>
+          )}
+        </div>
+
+        <div className="space-y-3 border-t border-primary-100/70 pt-6 sm:pt-7">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold tracking-tight text-secondary-600 sm:text-xl">Subjek</span>
+            {!isEditingSubject && !disabled ? (
+              <Button aria-label="Ubah subjek Kuis" className="text-secondary-300 hover:text-secondary-900" onClick={startSubjectEdit} size="icon" title="Ubah subjek Kuis" type="button" variant="ghost">
+                <Pencil className="size-5" />
+              </Button>
+            ) : null}
+          </div>
+          {isEditingSubject ? (
+            <div className="max-w-md space-y-2">
+              <DropdownField className={REFERENCE_CONTROL_CLASS_NAMES.select} disabled={disabled || isSaving} id="quiz-settings-subject" onValueChange={setSubjectInput} options={kaptenSubjects.map((item) => ({ label: `${item.code} · ${item.name}`, value: item.code }))} placeholder="Pilih subjek" value={subjectInput} />
+              <div className="flex gap-2">
+                <Button disabled={disabled || isSaving} onClick={saveSubjectDraft} size="sm" type="button" variant="brand"><Check /> Simpan</Button>
+                <Button disabled={disabled || isSaving} onClick={cancelSubjectEdit} size="sm" type="button" variant="ghost"><X /> Batal</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <MentorBadge size="md" tone="category">{subject ? `${subject.code} · ${subject.name}` : form.subjectCode}</MentorBadge>
+            </div>
+          )}
+        </div>
+      </div>
+    </ReferenceSurface>
+  );
+}
+
+function QuizSettings({
+  disabled,
+  form,
+  isSaving,
+  onChange,
+  onSave,
+}: {
+  disabled: boolean;
+  form: SettingsForm;
+  isSaving: boolean;
+  onChange: (patch: Partial<SettingsForm>) => void;
+  onSave: () => void;
+}) {
+  const scheduleError = form.opensAt && form.closesAt && new Date(form.closesAt) <= new Date(form.opensAt) ? "Waktu tutup harus setelah waktu buka." : null;
+  const attemptsOptions = [
+    ...(form.attemptsAllowed !== null && ![1, 3, 5].includes(form.attemptsAllowed) ? [{ label: `${form.attemptsAllowed} kali`, value: String(form.attemptsAllowed) }] : []),
+    { label: "1 kali", value: "1" },
+    { label: "3 kali", value: "3" },
+    { label: "5 kali", value: "5" },
+    { label: "Tanpa batas", value: "unlimited" },
+  ];
+
+  return (
+    <div className="grid gap-6">
       <ReferenceSurface as="section" className="max-w-6xl p-5 md:p-7">
         <div>
           <h2 className="text-lg font-semibold text-secondary-900">Ketersediaan dan percobaan</h2>
@@ -390,33 +390,21 @@ function KaptenQuizDetailPageModule({
     }
   }
 
-  const title = quiz.title || "Detail Kuis";
   const subject = kaptenSubjects.find((item) => item.code === quiz.subjectCode);
+  const subjectHref = subject ? `/mentor/quiz/subject/${subject.slug}` : "/mentor/quiz";
+  const backLabel = subject ? `Kembali ke Kuis ${subject.code}` : "Kembali ke daftar Kuis";
 
   return (
-    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel={title} contentElement="div" mainClassName="max-w-[1500px] gap-7" session={session} showSearch={false} sidebarAppearance="reference">
+    <MentorWorkspaceShell activeLabel="Kuis" breadcrumbLabel="Detail Kuis" breadcrumbParent={subject ? { href: subjectHref, label: subject.code } : undefined} contentElement="div" mainClassName="max-w-[1500px] gap-7" session={session} showSearch={false} sidebarAppearance="reference">
       <div className="space-y-8">
-        <div className="flex min-w-0 items-start gap-3">
-          <Button aria-label="Kembali ke daftar Kuis" className="mt-1 shrink-0" nativeButton={false} render={<Link href="/mentor/quiz" />} size="icon" title="Kembali ke daftar Kuis" type="button" variant="ghost"><ChevronLeft /></Button>
-          <ReferencePageHeader
-            className="min-w-0 flex-1"
-            actions={(
-              <>
-                {quiz.status === "draft" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("published")} type="button" variant="brandOutline"><SendHorizontal />Terbitkan</Button> : quiz.status === "published" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("draft")} type="button" variant="reference"><FilePenLine />Jadikan draf</Button> : null}
-                <Button nativeButton={false} render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />} type="button" variant="brand"><FilePenLine />Edit soal</Button>
-              </>
-            )}
-            description={(
-              <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <StatusPill status={quiz.status} />
-                {subject ? <MentorBadge size="xs" tone="category">{subject.code}</MentorBadge> : null}
-                <span>{questions.length} soal</span>
-                <span className="basis-full text-secondary-600">{quiz.description || "Belum ada deskripsi untuk Kuis ini."}</span>
-              </span>
-            )}
-            title={title}
-          />
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <Button aria-label={backLabel} className="mt-1 shrink-0" nativeButton={false} render={<Link href={subjectHref} />} size="icon" title={backLabel} type="button" variant="ghost"><ChevronLeft /></Button>
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            {quiz.status === "draft" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("published")} type="button" variant="brandOutline"><SendHorizontal />Terbitkan</Button> : quiz.status === "published" ? <Button aria-busy={isSaving} disabled={isSaving} onClick={() => void saveSettings("draft")} type="button" variant="reference"><FilePenLine />Jadikan draf</Button> : null}
+            <Button nativeButton={false} render={<Link href={`/mentor/quiz/${quiz.id}/editor`} />} type="button" variant="brand"><FilePenLine />Edit soal</Button>
+          </div>
         </div>
+        <QuizMetadataCard disabled={quiz.status === "archived"} form={settings} isSaving={isSaving} onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))} />
         {lifecycleError ? <Alert variant="destructive"><AlertTitle>Perubahan belum tersimpan</AlertTitle><AlertDescription>{lifecycleError}</AlertDescription></Alert> : null}
         <Tabs className="w-full min-w-0 gap-7" onValueChange={changeTab} value={activeTab}>
           <FullWidthLineTabsList aria-label="Bagian detail Kuis"><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="preview">Soal</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="hasil">Hasil</FullWidthLineTabsTrigger><FullWidthLineTabsTrigger className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm" value="pengaturan">Pengaturan</FullWidthLineTabsTrigger></FullWidthLineTabsList>
