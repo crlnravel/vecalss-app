@@ -44,7 +44,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SessionContext } from "@/lib/auth/types";
@@ -222,7 +221,6 @@ function StudentAccountMenu({
             </span>
             <span className="block truncate text-xs">{session.user.email}</span>
           </DropdownMenuLabel>
-          {!isTutor ? <DropdownMenuSeparator /> : null}
           <DropdownMenuGroup>
             {isAdmin ? (
               <DropdownMenuItem
@@ -263,7 +261,6 @@ function StudentAccountMenu({
           </DropdownMenuGroup>
           {debugAccountSwitcherEnabled ? (
             <>
-              {!isTutor ? <DropdownMenuSeparator /> : null}
               <DropdownMenuItem
                 className={studentAccountMenuItemClassName}
                 onClick={openDebugSwitcher}

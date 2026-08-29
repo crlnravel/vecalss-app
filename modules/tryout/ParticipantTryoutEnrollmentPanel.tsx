@@ -13,7 +13,7 @@ import Image from "next/image";
 import { unstable_rethrow } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -63,12 +63,15 @@ function UniversityPicker({
           </span>
           <CaretDown className="text-secondary-500" />
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3">
+        <PopoverContent
+          align="start"
+          className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3"
+          initialFocus={false}
+        >
           <div className="relative">
             <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari universitas target"
-              autoFocus
               className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Cari universitas..."
@@ -147,12 +150,15 @@ function MajorPicker({
           </span>
           <CaretDown className="text-secondary-500" />
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3">
+        <PopoverContent
+          align="start"
+          className="w-[min(28rem,calc(100vw-2rem))] gap-3 p-3"
+          initialFocus={false}
+        >
           <div className="relative">
             <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary-500" />
             <Input
               aria-label="Cari jurusan target"
-              autoFocus
               className="h-10 rounded-xl border-primary-100 bg-primary-50 pl-9"
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Cari jurusan..."
@@ -192,7 +198,6 @@ function EnrollmentConfirmationDialog({
   onConfirm,
   onOpenChange,
   open,
-  tryoutTitle,
   university,
 }: {
   busy: boolean;
@@ -201,7 +206,6 @@ function EnrollmentConfirmationDialog({
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  tryoutTitle: string;
   university?: UniversityOption;
 }) {
   return (
@@ -209,17 +213,14 @@ function EnrollmentConfirmationDialog({
       <AlertDialogContent pending={busy}>
         <AlertDialogHeader>
           <AlertDialogTitle>Konfirmasi pendaftaran</AlertDialogTitle>
-          <AlertDialogDescription>
-            Periksa targetmu sebelum mendaftar ke {tryoutTitle}. Pendaftaran tidak langsung menjalankan timer; kamu tetap akan masuk ke ruang tunggu dan membaca aturan ujian.
-          </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <dl className="grid gap-0 divide-y divide-primary-100 rounded-2xl border border-primary-100 px-4">
-          <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr]">
+        <dl className="grid gap-4 rounded-2xl border border-primary-100 p-4">
+          <div className="grid gap-1">
             <dt className="text-sm text-secondary-500">Universitas target</dt>
             <dd className="font-semibold text-secondary-900">{university?.name}</dd>
           </div>
-          <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr]">
+          <div className="grid gap-1 border-t border-primary-100 pt-4">
             <dt className="text-sm text-secondary-500">Jurusan target</dt>
             <dd className="font-semibold text-secondary-900">{major?.name}</dd>
           </div>
@@ -257,18 +258,22 @@ function ParticipantTryoutEnrollmentPanel({
   initialUniversityId,
   majors,
   tryoutId,
-  tryoutTitle,
   universities,
 }: {
   initialMajorId: string | null;
   initialUniversityId: string | null;
   majors: MajorOption[];
   tryoutId: string;
-  tryoutTitle: string;
   universities: UniversityOption[];
 }) {
-  const [universityId, setUniversityId] = useState(initialUniversityId ?? "");
-  const [majorId, setMajorId] = useState(initialMajorId ?? "");
+  const profileMajor = initialMajorId
+    ? majors.find((item) => item.id === initialMajorId)
+    : undefined;
+  const profileUniversityId = initialUniversityId ?? profileMajor?.universityId ?? "";
+  const profileMajorId =
+    profileMajor?.universityId === profileUniversityId ? profileMajor.id : "";
+  const [universityId, setUniversityId] = useState(profileUniversityId);
+  const [majorId, setMajorId] = useState(profileMajorId);
   const [universityOpen, setUniversityOpen] = useState(false);
   const [majorOpen, setMajorOpen] = useState(false);
   const [universityQuery, setUniversityQuery] = useState("");
@@ -409,9 +414,6 @@ function ParticipantTryoutEnrollmentPanel({
               selectedMajorId={majorId}
               selectedUniversityId={universityId}
             />
-            <p className="text-sm leading-6 text-secondary-600">
-              Target jurusan akan tersimpan di profilmu saat kamu menyelesaikan pendaftaran.
-            </p>
           </div>
         </div>
       </section>
@@ -452,7 +454,6 @@ function ParticipantTryoutEnrollmentPanel({
           if (!busy) setConfirmOpen(nextOpen);
         }}
         open={confirmOpen}
-        tryoutTitle={tryoutTitle}
         university={university}
       />
     </div>

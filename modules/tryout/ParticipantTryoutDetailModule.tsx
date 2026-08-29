@@ -380,82 +380,84 @@ function ParticipantTryoutDetailModule({
       showSearch={false}
     >
       <div className="min-h-full bg-[#f7faf8] font-sans text-[#173c2d]">
-        <div className="relative isolate overflow-hidden bg-[#014c38]">
-          <Image
-            alt=""
-            className="absolute inset-0 size-full object-cover object-center opacity-45 saturate-[0.72]"
-            fill
-            priority
-            sizes="100vw"
-            src={tryout.bannerUrl ?? "/brand/tryout-placeholder-banner.jpg"}
-            unoptimized={Boolean(tryout.bannerUrl)}
-          />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.88)_0%,rgba(1,76,56,0.68)_52%,rgba(1,76,56,0.74)_100%)]"
-          />
-          <div className="relative mx-auto w-full max-w-[64rem] px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
-            <BackButton
-              className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40"
-              href="/tryout"
-              label="Kembali ke katalog"
-              variant="ghost"
-            >
-              <ChevronLeft aria-hidden="true" className="size-6" />
-            </BackButton>
-          </div>
-        </div>
-
-        <div className="relative z-10 mx-auto -mt-16 flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 sm:-mt-16 sm:px-6">
+        <div className="relative z-10 mx-auto flex w-full max-w-[64rem] flex-col gap-5 px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
           <section
             aria-labelledby="tryout-information"
-            className="rounded-xl bg-white px-5 py-5 shadow-[0_18px_42px_-30px_rgba(1,76,56,0.24)] sm:px-6 sm:py-6"
+            className="overflow-hidden rounded-3xl bg-white shadow-[0_18px_42px_-30px_rgba(1,76,56,0.24)]"
           >
-            <h1
-              id="tryout-information"
-              className="text-center font-heading text-xl leading-tight font-extrabold tracking-[-0.035em] text-secondary-900 sm:text-2xl"
-            >
-              {tryout.title}
-            </h1>
-            <p className="mt-2 text-center text-sm leading-6 font-medium text-secondary-700 sm:text-base">
-              {formatSessionWindow(summarySession) ??
-                "Jadwal akan muncul setelah pendaftaran disetujui."}
-            </p>
-
-            <p
-              className={
-                "mt-4 rounded-xl px-4 py-2.5 text-center text-sm leading-6 font-bold " +
-                (availability.tone === "success"
-                  ? "bg-student-status-success-bg text-student-status-success-fg"
-                  : availability.tone === "danger"
-                    ? "bg-student-status-danger-bg text-student-status-danger-fg"
-                    : availability.tone === "attention"
-                      ? "bg-student-status-attention-bg text-student-status-attention-fg"
-                      : "bg-primary-50 text-primary-700")
-              }
-            >
-              {statusMessage}
-            </p>
-
-            <dl className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-secondary-700">
-              <div className="flex items-center gap-2">
-                <Clock className="size-5 text-primary-700" />
-                <dt>Total Waktu</dt>
-                <dd className="font-extrabold text-primary-700">
-                  {formatTotalMinutes(totalDuration)}
-                </dd>
+            <div className="relative isolate overflow-hidden bg-[#014c38]">
+              <Image
+                alt=""
+                className="absolute inset-0 size-full object-cover object-center opacity-45 saturate-[0.72]"
+                fill
+                priority
+                sizes="(min-width: 1024px) 64rem, calc(100vw - 2rem)"
+                src={tryout.bannerUrl ?? "/brand/tryout-placeholder-banner.jpg"}
+                unoptimized={Boolean(tryout.bannerUrl)}
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-[linear-gradient(110deg,rgba(1,76,56,0.88)_0%,rgba(1,76,56,0.68)_52%,rgba(1,76,56,0.74)_100%)]"
+              />
+              <div className="relative mx-auto w-full px-5 pb-24 pt-8 sm:px-6 sm:pt-10">
+                <BackButton
+                  className="text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/40"
+                  href="/tryout"
+                  label="Kembali ke katalog"
+                  variant="ghost"
+                >
+                  <ChevronLeft aria-hidden="true" className="size-6" />
+                </BackButton>
               </div>
-              <span aria-hidden="true" className="text-secondary-300">
-                |
-              </span>
-              <div className="flex items-center gap-2">
-                <ListChecks className="size-5 text-primary-700" />
-                <dt>Total Soal</dt>
-                <dd className="font-extrabold text-primary-700">
-                  {totalQuestions} soal
-                </dd>
-              </div>
-            </dl>
+            </div>
+
+            <div className="px-5 py-5 sm:px-6 sm:py-6">
+              <h1
+                id="tryout-information"
+                className="text-center font-heading text-xl leading-tight font-extrabold tracking-[-0.035em] text-secondary-900 sm:text-2xl"
+              >
+                {tryout.title}
+              </h1>
+              <p className="mt-2 text-center text-sm leading-6 font-medium text-secondary-700 sm:text-base">
+                {formatSessionWindow(summarySession) ??
+                  "Jadwal akan muncul setelah pendaftaran disetujui."}
+              </p>
+
+              <p
+                className={
+                  "mt-4 rounded-xl px-4 py-2.5 text-center text-sm leading-6 font-bold " +
+                  (availability.tone === "success"
+                    ? "bg-student-status-success-bg text-student-status-success-fg"
+                    : availability.tone === "danger"
+                      ? "bg-student-status-danger-bg text-student-status-danger-fg"
+                      : availability.tone === "attention"
+                        ? "bg-student-status-attention-bg text-student-status-attention-fg"
+                        : "bg-primary-50 text-primary-700")
+                }
+              >
+                {statusMessage}
+              </p>
+
+              <dl className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-secondary-700">
+                <div className="flex items-center gap-2">
+                  <Clock className="size-5 text-primary-700" />
+                  <dt>Total Waktu</dt>
+                  <dd className="font-extrabold text-primary-700">
+                    {formatTotalMinutes(totalDuration)}
+                  </dd>
+                </div>
+                <span aria-hidden="true" className="text-secondary-300">
+                  |
+                </span>
+                <div className="flex items-center gap-2">
+                  <ListChecks className="size-5 text-primary-700" />
+                  <dt>Total Soal</dt>
+                  <dd className="font-extrabold text-primary-700">
+                    {totalQuestions} soal
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </section>
 
           {admissionNotice ? (
@@ -494,7 +496,6 @@ function ParticipantTryoutDetailModule({
                 initialUniversityId={initialUniversityId}
                 majors={majors}
                 tryoutId={tryout.id}
-                tryoutTitle={tryout.title}
                 universities={universities}
               />
             ) : (
