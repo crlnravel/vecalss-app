@@ -300,7 +300,6 @@ function KaptenQuizSubjectPageModule({ catalogue, session, subject }: { catalogu
                 </Tooltip>
               </TooltipProvider>
             }
-            description={subject.description}
             title={subject.name}
           />
         </div>

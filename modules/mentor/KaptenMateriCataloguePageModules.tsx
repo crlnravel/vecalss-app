@@ -627,7 +627,6 @@ function MateriSubjectCatalogueScreen({
               </Button>
             }
             className="min-w-0 flex-1"
-            description="Kelola bacaan dan video pendamping siswa di subject ini."
             title={subject.name}
           />
         </div>
