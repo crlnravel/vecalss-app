@@ -32,6 +32,7 @@ import { startQuizAction } from "./actions";
 type QuizResult = {
   aggregateScore: number | null;
   answeredCount: number;
+  canRestart: boolean;
   correctCount: number | null;
   correctnessAvailable: boolean;
   isSubmitted: boolean;
@@ -150,7 +151,7 @@ function QuizResultPageModule({
     <AssessmentResultWorkspace
       headerActions={
         <>
-          {!isAttemptLimitReached ? (
+          {result.canRestart && !isAttemptLimitReached ? (
             <Button
               aria-label="Ulangi quiz"
               aria-busy={isRestarting}

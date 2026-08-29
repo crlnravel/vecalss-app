@@ -1134,7 +1134,19 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
       answers: true,
       participation: {
       include: {
-          attempts: { orderBy: { attemptNo: "asc" }, select: { attemptNo: true, releaseState: true, score: true, scoringState: true, status: true } },
+          attempts: {
+            orderBy: { attemptNo: "asc" },
+            select: {
+              attemptNo: true,
+              createdAt: true,
+              releaseState: true,
+              score: true,
+              scoringState: true,
+              status: true,
+              submittedAt: true,
+              updatedAt: true,
+            },
+          },
           quiz: { include: quizInclude },
         },
       },
@@ -1153,9 +1165,22 @@ async function getStandaloneQuizResult(attemptId: string, studentId: string, sub
   const reviewAvailable = released && (policy.reviewTiming === "immediate"
     || (policy.reviewTiming === "after_close" && quiz.closesAt !== null && quiz.closesAt <= now));
   const correctnessAvailable = reviewAvailable && policy.correctAnswerVisibility === "show";
+  const activeAttempt = attempt.participation.attempts.some((candidate) => candidate.status === "in_progress");
+  const terminalAttempts = attempt.participation.attempts.filter((candidate) => isTerminalStandaloneQuizAttemptStatus(candidate.status));
+  const latestTerminalAttempt = terminalAttempts.at(-1);
+  const latestTerminalAt = latestTerminalAttempt?.submittedAt ?? latestTerminalAttempt?.updatedAt ?? latestTerminalAttempt?.createdAt;
+  const attemptsRemain = policy.attemptsAllowed === null || terminalAttempts.length < policy.attemptsAllowed;
+  const retryDelayPassed = latestTerminalAt === undefined
+    || policy.retryDelaySeconds === null
+    || latestTerminalAt.getTime() + policy.retryDelaySeconds * 1000 <= now.getTime();
+  const quizAvailable = attempt.participation.quiz.status === ContentStatus.published
+    && (attempt.participation.quiz.opensAt === null || attempt.participation.quiz.opensAt <= now)
+    && (attempt.participation.quiz.closesAt === null || attempt.participation.quiz.closesAt > now);
+  const canRestart = quizAvailable && (activeAttempt || (attemptsRemain && retryDelayPassed));
   const releasedAttempts = attempt.participation.attempts.filter((candidate) => candidate.releaseState === AssessmentResultReleaseState.released);
   return {
     answeredCount: attempt.answers.length,
+    canRestart,
     correctCount: released ? attempt.correctCount : null,
     attemptId: attempt.id,
     attemptNo: attempt.attemptNo,

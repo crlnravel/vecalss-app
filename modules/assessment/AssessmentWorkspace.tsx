@@ -514,14 +514,16 @@ function AssessmentResultWorkspace({
       </header>
 
       <div className={cn(
-        "grid min-h-[calc(100svh-6rem)] lg:grid-cols-[minmax(280px,25vw)_minmax(0,1fr)_minmax(280px,25vw)] print:block",
-        floatingPanels && "gap-6 lg:items-start lg:gap-8",
+        "grid min-h-[calc(100svh-6rem)] print:block",
+        floatingPanels
+          ? "gap-6 px-4 print:px-0 lg:grid-cols-[minmax(260px,1fr)_minmax(0,3fr)_minmax(260px,1fr)] lg:items-start lg:gap-8 lg:px-4"
+          : "lg:grid-cols-[minmax(280px,25vw)_minmax(0,1fr)_minmax(280px,25vw)]",
       )}>
         <aside className={cn(
-          "flex flex-col px-5 py-6 sm:px-8 lg:px-8 xl:px-10 print:border-0 print:px-0 print:py-3",
+          "flex flex-col py-6 print:border-0 print:py-3",
           floatingPanels
-            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:overflow-y-auto"
-            : "min-h-full border-b border-primary-100 bg-white lg:border-r lg:border-b-0",
+            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] print:px-0 lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
+            : "min-h-full border-b border-primary-100 bg-white px-5 sm:px-8 lg:border-r lg:border-b-0 lg:px-8 xl:px-10 print:px-0",
         )}>
           <div className="flex justify-center">
             <div
@@ -554,10 +556,10 @@ function AssessmentResultWorkspace({
 
         {navigation ? (
         <aside className={cn(
-          "px-5 py-6 sm:px-8 lg:px-8 xl:px-10 print:hidden",
+          "py-6 print:hidden",
           floatingPanels
-            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:overflow-y-auto"
-            : "border-t border-primary-100 bg-white lg:border-t-0 lg:border-l",
+            ? "mt-4 self-start rounded-[2rem] border border-primary-100 bg-white px-4 shadow-[0_18px_42px_-34px_rgba(23,107,77,0.48)] lg:sticky lg:top-32 lg:mt-8 lg:max-h-[calc(100svh-10rem)] lg:px-3 lg:overflow-y-auto xl:px-3"
+            : "border-t border-primary-100 bg-white px-5 sm:px-8 lg:border-t-0 lg:border-l lg:px-8 xl:px-10",
         )}>
             {navigation}
         </aside>
@@ -583,7 +585,7 @@ function AssessmentResultNavigation({
       <p className="sr-only">{label}</p>
       <div className={cn(
         "mt-0 grid justify-items-center",
-        compact ? "grid-cols-5 gap-2" : "grid-cols-3 gap-4",
+        compact ? "grid-cols-5 gap-1" : "grid-cols-3 gap-4",
       )}>
         {items.map((item) => (
           <AssessmentResultMarker
