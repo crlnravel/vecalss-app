@@ -159,7 +159,7 @@ function QuestionBankDetailHeaderBar({
             variant="brandOutline"
           >
             <Upload />
-            {isSavingLifecycle ? "Memulihkan…" : "Pulihkan bank"}
+            {isSavingLifecycle ? "Membatalkan arsip…" : "Batalkan arsip"}
           </Button>
         ) : bank.status === "published" ? (
           <Button
@@ -634,6 +634,26 @@ function QuestionBankQuestionsSection({
   questions: BankQuestion[];
   readiness: QuestionBankReadiness;
 }) {
+  const editorLocked = bank.status !== "draft";
+  const editorLockReason = bank.status === "archived"
+    ? "Untuk mengedit kembali, batalkan arsip Bank Soal terlebih dahulu."
+    : "Untuk mengedit kembali, jadikan Bank Soal draf terlebih dahulu.";
+  const editorButton = (
+    <Button
+      aria-label="Buka Editor"
+      className="w-full shadow-sm sm:w-auto"
+      disabled={editorLocked}
+      nativeButton={editorLocked}
+      render={editorLocked ? undefined : <Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
+      size="default"
+      type="button"
+      variant="brand"
+    >
+      <Pencil data-icon="inline-start" />
+      Buka Editor
+    </Button>
+  );
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -647,19 +667,16 @@ function QuestionBankQuestionsSection({
             </MentorBadge>
           </div>
         </div>
-        {bank.status === "draft" ? (
-          <Button
-            aria-label="Buka Editor Soal"
-            className="w-full shadow-sm sm:w-auto"
-            nativeButton={false}
-            render={<Link href={`/mentor/quiz/question-bank/${bankId}/editor`} />}
-            size="default"
-            variant="brand"
-          >
-            <Pencil data-icon="inline-start" />
-            Buka Editor Soal
-          </Button>
-        ) : null}
+        {editorLocked ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex w-full sm:w-auto" tabIndex={0} />}>
+                {editorButton}
+              </TooltipTrigger>
+              <TooltipContent>{editorLockReason}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : editorButton}
       </div>
 
       {questions.length === 0 ? (
@@ -939,7 +956,7 @@ function KaptenQuestionBankDetailPageModule({
       confirmLabel: isPublishing ? "Terbitkan" : "Jadikan draf",
       description: isPublishing
         ? "Bank Soal akan tersedia sebagai sumber untuk Kuis dan Tryout baru."
-        : "Bank Soal ini dapat dikembalikan menjadi draf meski sudah dipakai Tryout. Tryout yang sudah dibuat tetap menggunakan snapshot soal; Bank Soal tidak akan tersedia sebagai sumber baru sampai diterbitkan kembali.",
+        : "Bank Soal ini dapat dikembalikan menjadi draf meskipun sudah digunakan dalam Tryout. Tryout yang sudah dibuat tidak akan terpengaruh. Selama berstatus draf, Bank Soal tidak dapat digunakan untuk membuat Tryout baru hingga diterbitkan kembali.",
       dialogVariant: "warning",
       onConfirm: () => {
         setConfirmationRequest(null);

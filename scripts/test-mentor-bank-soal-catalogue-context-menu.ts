@@ -11,6 +11,7 @@ assert.match(catalogue, /id: "category"[\s\S]*label: "Kategori"/u, "the catalogu
 assert.doesNotMatch(catalogue, /id: "coverage"/u, "the catalogue must not merge Subject and Kategori into coverage");
 assert.match(catalogue, /<p className="mt-0\.5 block truncate text-xs text-secondary-500">\{row\.bank\.questionCount\} soal<\/p>/u, "bank rows must show only their question count in the secondary line");
 assert.doesNotMatch(catalogue, /row\.bank\.questionCount\} soal\{row\.bank\.folderPath/u, "bank rows must not expose their folder path");
+assert.match(catalogue, /showColumnVisibility=\{false\}/u, "Bank Soal must hide the column-visibility widget");
 assert.doesNotMatch(catalogue, /label: "Aksi"/u, "the catalogue must not render an Aksi column");
 assert.match(catalogue, /ContextMenuContent[\s\S]*Edit bank soal/u, "bank actions must remain available in the row context menu");
 assert.match(catalogue, /ContextMenuContent[\s\S]*Ubah nama/u, "folder actions must remain available in the row context menu");
