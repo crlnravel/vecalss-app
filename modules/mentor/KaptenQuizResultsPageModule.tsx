@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search } from "@/lib/icons";
 import { useMemo, useState } from "react";
@@ -76,17 +77,9 @@ function AttemptRow({ attempt, quizId }: { attempt: Attempt; quizId: string }) {
   }
 
   return <TableRow
-    aria-label={`Buka hasil pengerjaan ${attempt.student.name}`}
-    className="cursor-pointer border-primary-100 hover:bg-primary-50/40 focus-visible:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25 focus-visible:ring-inset"
+    className="cursor-pointer border-primary-100 hover:bg-primary-50/40"
     onClick={navigateToAttempt}
-    onKeyDown={(event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        navigateToAttempt();
-      }
-    }}
-    tabIndex={0}
-  ><TableCell className="px-5 py-4"><div className="flex min-w-0 items-center gap-3"><Avatar className="size-9 border border-primary-100 bg-primary-50"><AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">{initials(attempt.student.name)}</AvatarFallback></Avatar><span className="truncate font-semibold text-secondary-900">{attempt.student.name}</span></div></TableCell><TableCell className="px-4 py-4"><span className="text-xl font-semibold tabular-nums text-secondary-900">{isSubmitted ? attempt.aggregateScore ?? attempt.finalScore ?? attempt.score ?? 0 : "—"}</span></TableCell><TableCell className="px-4 py-4"><Badge className="rounded-full px-2.5 py-1 text-xs" size="ui" variant={isSubmitted ? "mint" : "accent"}>{isSubmitted ? "Terkirim" : "Sedang dikerjakan"}</Badge></TableCell><TableCell className="px-5 py-4 text-sm text-secondary-600"><time dateTime={attempt.createdAt}>{dateTime.format(new Date(attempt.createdAt))}</time></TableCell></TableRow>;
+  ><TableCell className="px-5 py-4"><Link aria-label={`Buka hasil pengerjaan ${attempt.student.name}`} className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-primary-700/25" href={href} onClick={(event) => event.stopPropagation()}><Avatar className="size-9 border border-primary-100 bg-primary-50"><AvatarFallback className="bg-primary-50 text-xs font-bold text-primary-800">{initials(attempt.student.name)}</AvatarFallback></Avatar><span className="truncate font-semibold text-secondary-900 hover:text-primary-800">{attempt.student.name}</span></Link></TableCell><TableCell className="px-4 py-4"><span className="text-xl font-semibold tabular-nums text-secondary-900">{isSubmitted ? attempt.aggregateScore ?? attempt.finalScore ?? attempt.score ?? 0 : "—"}</span></TableCell><TableCell className="px-4 py-4"><Badge className="rounded-full px-2.5 py-1 text-xs" size="ui" variant={isSubmitted ? "mint" : "accent"}>{isSubmitted ? "Terkirim" : "Sedang dikerjakan"}</Badge></TableCell><TableCell className="px-5 py-4 text-sm text-secondary-600"><time dateTime={attempt.createdAt}>{dateTime.format(new Date(attempt.createdAt))}</time></TableCell></TableRow>;
 }
 
 function initials(name: string) {
