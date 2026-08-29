@@ -53,6 +53,11 @@ assert.match(editor, /<ChevronLeft \/>\{mode === "create" \? null : "Kembali ke 
 assert.match(editor, /data-quiz-editor-shell="full-page"/u, "quiz editing must use a full-page shell");
 assert.match(editor, /min-h-14 shrink-0 flex-wrap items-center/u, "full-page editor must expose the Bank Soal-style top header");
 assert.doesNotMatch(editor, /const metadata =|>\{metadata\}/u, "full-page editor must not render the removed quiz metadata card");
+assert.match(editor, /function QuizMobileInventory\(/u, "quiz editor must use the Bank Soal-style mobile inventory");
+assert.match(editor, /id="quiz-inventory-title">\s*Inventori soal/u, "quiz inventory must use the Bank Soal inventory heading");
+assert.match(editor, /id="quiz-preview-toggle"/u, "quiz editor must expose the Bank Soal-style preview switch");
+assert.doesNotMatch(editor, /<div className="h-5 w-px bg-primary-100" \/>/u, "quiz header must not render a divider beside the title");
+assert.match(editor, /aria-label="Simpan"[\s\S]*?variant="brand"/u, "quiz save must remain a primary action");
 assert.match(editor, /Tampilan penulis · belum dikirim/u, "editor preview must be a neutral author preview");
 assert.match(editor, /Perubahan Kuis tersimpan/u, "editor must provide save feedback");
 assert.match(createRoute, /mode="create"/u, "create flow must use the standalone editor");

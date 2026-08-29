@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
+  AlertTriangle,
   ChevronLeft,
+  ChevronDown,
   CircleHelp,
-  Eye,
   ImagePlus,
-  ListChecks,
   Plus,
   Save,
   Trash2,
@@ -39,12 +39,22 @@ import {
   REFERENCE_FIELD_LABEL_CLASS_NAME,
 } from "@/components/dashboard/reference-dashboard-tokens";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldInput, FieldLabel, FieldTextarea } from "@/components/ui/field";
 import { MentorBadge } from "@/components/ui/mentor-badge";
 import { showToast } from "@/components/ui/toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { MediaAssetDto } from "@/lib/media/types";
 import type { SessionContext } from "@/lib/auth/types";
+import { cn } from "@/lib/utils";
 import type { QuizChoice, QuizQuestionSnapshot } from "@/modules/mentor/quiz-builder-types";
 import { saveStandaloneQuizAction } from "@/modules/mentor/quiz-actions";
 import { kaptenSubjects, type KaptenQuiz } from "@/modules/mentor/mock-data";
@@ -218,59 +228,208 @@ function QuestionInventory({
   onSelect: (id: string) => void;
   questions: QuizQuestionSnapshot[];
 }) {
+  const incompleteCount = questions.reduce(
+    (count, question) => count + (questionIssues(question).length > 0 ? 1 : 0),
+    0,
+  );
+
   return (
-    <ReferenceSurface as="section" className="p-4 md:p-5">
+    <aside
+      aria-labelledby="quiz-inventory-title"
+      className="flex h-full min-h-0 min-w-0 flex-col rounded-2xl border border-primary-100 bg-white p-3 md:p-4"
+    >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-secondary-900">Daftar soal</h2>
-          <p className="mt-1 text-xs leading-5 text-secondary-500">Susun urutan yang akan dilihat siswa.</p>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-secondary-900" id="quiz-inventory-title">
+            Inventori soal
+          </h2>
+          <p className="mt-1 text-xs text-secondary-500">
+            {questions.length} soal{incompleteCount > 0 ? ` · ${incompleteCount} perlu diperbaiki` : ""}
+          </p>
         </div>
-        <MentorBadge aria-label={`${questions.length} soal`} className="min-w-8" size="xs" tone="category">
-          {questions.length}
-        </MentorBadge>
+        <Button
+          aria-label="Tambah soal"
+          disabled={disabled}
+          onClick={onAdd}
+          size="icon-sm"
+          type="button"
+          variant="brandOutline"
+        >
+          <Plus />
+        </Button>
       </div>
-      <Button className="mt-4 w-full" disabled={disabled} onClick={onAdd} type="button" variant="reference">
-        <Plus /> Tambah soal
-      </Button>
-      {questions.length ? (
-        <ol className="mt-4 grid gap-2 border-t border-primary-100 pt-4">
-          {questions.map((question, index) => {
-            const issues = questionIssues(question);
-            const selected = question.id === activeQuestionId;
-            return (
-              <li className="min-w-0" key={question.id}>
-                <div className={selected ? "rounded-2xl border border-primary-300 bg-primary-50/70 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" : "rounded-2xl border border-transparent p-2 hover:border-primary-100 hover:bg-primary-50/40"}>
+      <nav aria-label="Navigasi soal" className="mt-3 flex min-h-0 flex-1 flex-col">
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1" id="quiz-inventory-list">
+          <ul aria-label="Daftar soal" className="flex flex-col gap-1.5">
+            {questions.length > 0 ? questions.map((question, index) => {
+              const issueCount = questionIssues(question).length;
+              const isActive = activeQuestionId === question.id;
+              return (
+                <li
+                  className={cn(
+                    "group flex min-w-0 items-center gap-1 rounded-xl border border-transparent px-2 py-1.5 transition-colors",
+                    isActive
+                      ? "border-primary-200 bg-primary-50"
+                      : issueCount > 0
+                        ? "border-amber-300 bg-amber-50/70 hover:border-amber-400 hover:bg-amber-50"
+                        : "hover:border-primary-100 hover:bg-primary-50/60",
+                  )}
+                  key={question.id}
+                >
                   <button
-                    aria-current={selected ? "step" : undefined}
-                    aria-label={`Edit soal ${index + 1}`}
-                    className="flex min-w-0 w-full items-start gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-300/50"
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={`Soal ${index + 1}${issueCount ? `, ${issueCount} masalah` : ""}${isActive ? ", dipilih" : ""}`}
+                    className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
                     onClick={() => onSelect(question.id)}
                     type="button"
                   >
-                    <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-lg bg-white text-xs font-bold text-primary-800 shadow-sm">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-secondary-900">{question.prompt || "Soal tanpa pertanyaan"}</span>
-                      <span className={issues.length ? "mt-1 block text-xs font-medium text-student-status-danger-fg" : "mt-1 block text-xs text-secondary-500"}>{issues.length ? `${issues.length} bagian perlu dilengkapi` : "Siap ditinjau"}</span>
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-normal leading-4 text-secondary-900">
+                      <span className="min-w-0 flex-1 truncate">
+                        {index + 1}. {question.prompt || "Soal tanpa pertanyaan"}
+                      </span>
                     </span>
+                    {issueCount > 0 ? (
+                      <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                        <MentorBadge
+                          aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`}
+                          className="size-7 justify-center !px-0 !py-0"
+                          role="img"
+                          size="xs"
+                          title={`Soal ${index + 1} memiliki ${issueCount} masalah`}
+                          tone="attention"
+                        >
+                          <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+                        </MentorBadge>
+                      </span>
+                    ) : null}
                   </button>
-                  <div className="mt-2 flex justify-end gap-1">
-                    <Button aria-label={`Pindah soal ${index + 1} ke atas`} disabled={disabled || index === 0} onClick={() => onMove(question.id, "up")} size="icon-sm" type="button" variant="ghost"><ArrowUp /></Button>
-                    <Button aria-label={`Pindah soal ${index + 1} ke bawah`} disabled={disabled || index === questions.length - 1} onClick={() => onMove(question.id, "down")} size="icon-sm" type="button" variant="ghost"><ArrowDown /></Button>
-                    <Button aria-label={`Hapus soal ${index + 1}`} disabled={disabled} onClick={() => onDelete(question.id)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <Button
+                      aria-label={`Pindah soal ${index + 1} ke atas`}
+                      disabled={disabled || index === 0}
+                      onClick={() => onMove(question.id, "up")}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </Button>
+                    <Button
+                      aria-label={`Pindah soal ${index + 1} ke bawah`}
+                      disabled={disabled || index === questions.length - 1}
+                      onClick={() => onMove(question.id, "down")}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </Button>
+                    <Button
+                      aria-label={`Hapus soal ${index + 1}`}
+                      disabled={disabled}
+                      onClick={() => onDelete(question.id)}
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
-                </div>
+                </li>
+              );
+            }) : (
+              <li className="px-2 py-4 text-sm leading-6 text-secondary-500">
+                Belum ada soal. Tambahkan soal pertama.
               </li>
-            );
-          })}
-        </ol>
-      ) : (
-        <div className="mt-4 rounded-2xl border border-dashed border-primary-200 px-4 py-8 text-center">
-          <ListChecks aria-hidden="true" className="mx-auto size-7 text-primary-300" />
-          <p className="mt-3 text-sm font-semibold text-secondary-900">Belum ada soal</p>
-          <p className="mt-1 text-sm leading-6 text-secondary-500">Tambahkan soal pertama untuk mulai menyusun Kuis.</p>
+            )}
+          </ul>
         </div>
-      )}
-    </ReferenceSurface>
+      </nav>
+    </aside>
+  );
+}
+
+function QuizMobileInventory({
+  activeQuestionId,
+  disabled,
+  onAdd,
+  onSelect,
+  questions,
+}: {
+  activeQuestionId: string | null;
+  disabled: boolean;
+  onAdd: () => void;
+  onSelect: (id: string) => void;
+  questions: QuizQuestionSnapshot[];
+}) {
+  const activeIndex = questions.findIndex((question) => question.id === activeQuestionId);
+  const activeQuestion = questions[activeIndex] ?? questions[0];
+  const incompleteCount = questions.reduce(
+    (count, question) => count + (questionIssues(question).length > 0 ? 1 : 0),
+    0,
+  );
+
+  return (
+    <div className="border-b border-primary-100 bg-voyage-canvas px-3 py-3 shadow-xs md:hidden">
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Pilih soal yang sedang diedit"
+            render={
+              <Button
+                className={cn(REFERENCE_CONTROL_CLASS_NAMES.select, "min-w-0 flex-1")}
+                disabled={questions.length === 0}
+                type="button"
+                variant="reference"
+              />
+            }
+          >
+            <span className="min-w-0 truncate">
+              {activeQuestion
+                ? `${activeIndex + 1}. ${activeQuestion.prompt || "Soal tanpa pertanyaan"}`
+                : "Belum ada soal"}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-secondary-400" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="max-h-[60vh] w-[calc(100vw-4.5rem)] max-w-sm overflow-y-auto"
+          >
+            <DropdownMenuLabel>Pilih soal</DropdownMenuLabel>
+            <DropdownMenuRadioGroup onValueChange={onSelect} value={activeQuestionId ?? undefined}>
+              {questions.map((question, index) => {
+                const issueCount = questionIssues(question).length;
+                return (
+                  <DropdownMenuRadioItem key={question.id} value={question.id}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="w-5 shrink-0 text-xs font-semibold text-secondary-500">{index + 1}.</span>
+                      <span className="min-w-0 truncate">{question.prompt || "Soal tanpa pertanyaan"}</span>
+                      {issueCount > 0 ? (
+                        <span
+                          aria-label={`Soal ${index + 1} memiliki ${issueCount} masalah`}
+                          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-student-status-attention-bg text-student-status-attention-fg"
+                          role="img"
+                          title={`Soal ${index + 1} memiliki ${issueCount} masalah`}
+                        >
+                          <AlertTriangle aria-hidden="true" className="size-3.5" />
+                        </span>
+                      ) : null}
+                    </span>
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button aria-label="Tambah soal" disabled={disabled} onClick={onAdd} size="icon-sm" type="button" variant="reference">
+          <Plus />
+        </Button>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-secondary-500">
+        <span>{questions.length} soal di Kuis</span>
+        {incompleteCount > 0 ? <span className="font-semibold text-amber-900">{incompleteCount} perlu diperbaiki</span> : null}
+      </div>
+    </div>
   );
 }
 
@@ -533,12 +692,20 @@ function KaptenQuizEditorPageModule({
       setQuestionEditorTab("edit");
     };
     const inventory = <QuestionInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onDelete={setPendingDeleteId} onMove={moveQuestion} onSelect={selectQuestion} questions={form.questions} />;
+    const mobileInventory = <QuizMobileInventory activeQuestionId={activeQuestionId} disabled={editorDisabled} onAdd={addQuestion} onSelect={selectQuestion} questions={form.questions} />;
     const questionEditor = activeQuestion ? (
       <Tabs className="min-w-0 gap-4" onValueChange={setQuestionEditorTab} value={questionEditorTab}>
-        <TabsList aria-label="Mode soal" className="w-fit max-w-full overflow-x-auto">
-          <TabsTrigger className="min-h-11" value="edit"><Save /> Edit soal</TabsTrigger>
-          <TabsTrigger className="min-h-11" value="preview"><Eye /> Preview</TabsTrigger>
-        </TabsList>
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-secondary-900">Edit soal</h2>
+          <label className="ml-auto inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-secondary-700" htmlFor="quiz-preview-toggle">
+            Toggle preview
+            <Switch
+              checked={questionEditorTab === "preview"}
+              id="quiz-preview-toggle"
+              onCheckedChange={(checked) => setQuestionEditorTab(checked ? "preview" : "edit")}
+            />
+          </label>
+        </div>
         <TabsContent className="m-0 min-w-0" value="edit"><QuestionForm disabled={editorDisabled} onAddChoice={addChoice} onChange={updateActiveQuestion} onOpenMedia={setMediaPickerTarget} onRemoveChoice={removeChoice} onRemoveMedia={removeMedia} question={activeQuestion} /></TabsContent>
         <TabsContent className="m-0 min-w-0" value="preview"><QuestionPreview question={activeQuestion} /></TabsContent>
       </Tabs>
@@ -547,11 +714,11 @@ function KaptenQuizEditorPageModule({
     );
 
     return <div className="flex h-screen flex-col overflow-hidden bg-voyage-canvas" data-quiz-editor-shell="full-page">
-      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_rgba(23,107,77,0.42)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0"><div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3"><Button aria-label="Kembali ke detail Kuis" onClick={() => requestExit(detailHref)} size="sm" type="button" variant="ghost"><ChevronLeft /><span className="hidden font-medium sm:inline">Kembali ke Detail</span></Button><div className="h-5 w-px bg-primary-100" /><div className="flex min-w-0 items-center gap-2.5"><h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{form.title || "Kuis"}</h1>{hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}{subject ? <MentorBadge className="hidden sm:inline-flex" size="xs" tone="category">{subject.code}</MentorBadge> : null}</div></div><div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto"><Button aria-busy={isSaving} aria-label="Simpan" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} size="sm" title="Simpan perubahan" type="button" variant={hasUnsavedChanges ? "brand" : "reference"}><Save />{isSaving ? "Menyimpan…" : "Simpan"}</Button></div></header>
+      <header className="z-10 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-primary-100 bg-voyage-canvas/95 px-3 py-2 shadow-[0_10px_24px_-24px_rgba(23,107,77,0.42)] backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0"><div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3"><Button aria-label="Kembali ke detail Kuis" onClick={() => requestExit(detailHref)} size="sm" type="button" variant="ghost"><ChevronLeft /><span className="hidden font-medium sm:inline">Kembali ke Detail</span></Button><div className="flex min-w-0 items-center gap-2.5"><h1 className="max-w-[150px] truncate text-base font-bold text-secondary-900 sm:max-w-xs md:max-w-md">{form.title || "Kuis"}</h1>{hasUnsavedChanges ? <ReferenceStatusBadge appearance="mentor" label="Belum disimpan" size="xs" status="need_help" /> : null}{subject ? <MentorBadge className="hidden sm:inline-flex" size="xs" tone="category">{subject.code}</MentorBadge> : null}</div></div><div className="flex w-full shrink-0 items-center justify-end gap-2 md:w-auto"><Button aria-busy={isSaving} aria-label="Simpan" disabled={isSaving || editorDisabled} onClick={() => void saveQuiz()} size="sm" title="Simpan perubahan" type="button" variant="brand"><Save />{isSaving ? "Menyimpan…" : "Simpan"}</Button></div></header>
       {saveError ? <div className="border-b border-student-status-danger-border bg-student-status-danger-bg px-4 py-2.5 md:px-6"><p aria-live="assertive" className="text-xs font-semibold text-student-status-danger-fg" role="alert">{saveError}</p></div> : null}
       {scheduleError ? <div className="border-b border-student-status-danger-border bg-student-status-danger-bg px-4 py-2.5 md:px-6"><p className="text-xs font-semibold text-student-status-danger-fg" role="alert">{scheduleError}</p></div> : null}
-      <div className="border-b border-primary-100 bg-voyage-canvas px-3 py-3 md:hidden">{inventory}</div>
-      <div className="flex min-h-0 flex-1 overflow-hidden"><div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex lg:w-80 [&>div]:rounded-none [&>div]:border-0 [&>div]:shadow-none">{inventory}</div><main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"><div className="mx-auto max-w-4xl space-y-6"><div className="flex min-h-11 flex-wrap items-center gap-3"><h2 className="font-heading text-2xl font-semibold tracking-[-0.025em] text-secondary-900">Edit soal</h2></div>{questionEditor}</div></main></div>
+      {mobileInventory}
+      <div className="flex min-h-0 flex-1 overflow-hidden"><div className="hidden w-72 shrink-0 overflow-y-auto border-r border-primary-100 bg-white md:flex md:flex-col lg:w-80 [&_aside]:rounded-none [&_aside]:border-0 [&_aside]:shadow-none">{inventory}</div><main className="flex-1 overflow-y-auto bg-voyage-canvas p-4 sm:p-6 md:p-8"><div className="mx-auto max-w-4xl space-y-6">{questionEditor}</div></main></div>
       <MediaPickerDialog onOpenChange={(open) => { if (!open) setMediaPickerTarget(null); }} onSelect={selectMediaAsset} open={Boolean(mediaPickerTarget)} selectedAssetId={mediaPickerTarget?.kind === "prompt" ? activeQuestion?.promptMediaAssetId : mediaPickerTarget?.kind === "explanation" ? activeQuestion?.explanationMediaAssetId : activeQuestion?.choices.find((choice) => choice.id === mediaPickerTarget?.choiceId)?.mediaAssetId} title={mediaPickerTarget?.label ?? "Pilih gambar"} />
       <AlertDialog onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }} open={Boolean(pendingDeleteId)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><Trash2 /></AlertDialogMedia><AlertDialogTitle>Hapus soal ini?</AlertDialogTitle><AlertDialogDescription>Soal akan dihapus dari Kuis ini. Bank atau sumber lain tidak akan berubah.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setPendingDeleteId(null)}>Batal</AlertDialogCancel><AlertDialogAction onClick={() => { if (pendingDeleteId) removeQuestion(pendingDeleteId); }} variant="destructive">Hapus soal</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog onOpenChange={(open) => { if (!open) setPendingExitRoute(null); }} open={Boolean(pendingExitRoute)}><AlertDialogContent size="sm" variant="danger"><AlertDialogHeader><AlertDialogMedia variant="danger"><CircleHelp /></AlertDialogMedia><AlertDialogTitle>Keluar tanpa menyimpan?</AlertDialogTitle><AlertDialogDescription>Perubahan Kuis yang belum disimpan akan hilang.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setPendingExitRoute(null)}>Tetap di editor</AlertDialogCancel><AlertDialogAction onClick={() => { const route = pendingExitRoute; setPendingExitRoute(null); if (route) router.push(route); }} variant="destructive">Keluar tanpa menyimpan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
