@@ -2605,8 +2605,11 @@ function ChatWorkspace({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex w-full flex-col gap-7 px-4 py-7 md:px-5 md:py-8">
-          {activeSession.messages.map((message, index) => (
-            <MessageCard index={index} key={message.id} message={message} />
+          {activeSession.messages.map((message) => (
+            <MessageCard
+              key={message.id}
+              message={message}
+            />
           ))}
           {provisionalText !== null ? (
             <ProvisionalMessageCard body={provisionalText} />
@@ -3073,10 +3076,8 @@ function EditableSessionTitle({
 }
 
 function MessageCard({
-  index,
   message,
 }: {
-  index: number;
   message: VeraMessage;
 }) {
   const isStudent = message.role === "student";
@@ -3085,8 +3086,7 @@ function MessageCard({
     return (
       <Bubble
         align="end"
-        className="vera-message-in vera-message-in--student max-w-[84%]"
-        style={{ animationDelay: `${Math.min(index, 4) * 70}ms` }}
+        className="max-w-[84%]"
       >
         <BubbleContent className="rounded-[1.35rem] rounded-br-md px-4 py-3 leading-6 shadow-[0_12px_28px_-22px_rgba(1,76,56,0.7)]">
           <p>{message.body}</p>
@@ -3100,10 +3100,9 @@ function MessageCard({
 
   return (
     <article
-      className="vera-message-in flex items-start gap-3.5"
-      style={{ animationDelay: `${Math.min(index, 4) * 70}ms` }}
+      className="flex items-start gap-3.5"
     >
-      <span className="vera-avatar-arrive flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
+      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-100 bg-white shadow-sm">
         <Image
           alt=""
           aria-hidden="true"
