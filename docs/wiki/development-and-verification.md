@@ -62,6 +62,7 @@ access.
 | Prisma status | `pnpm exec prisma migrate status` | Configured database only; read the output before mutation |
 | Kuis versioning | `pnpm test:kuis-versioning` | Digest, lifecycle, projections, and schedule contracts |
 | Kuis UI/assembly | `pnpm test:kuis-ui-first-workspace`, `pnpm test:kuis-assembly-binding` | Current Kuis workspace and durable assembly contracts |
+| Operational primitives | `pnpm test:media-domain`, `pnpm test:mentor-bank-package-ui`, `pnpm test:mentor-bank-soal-catalogue-context-menu`, `pnpm test:tryout-authoring-workspace` | Select, field-wrapper, table, badge, mode-card, and tab composition contracts |
 | Test manifest | `pnpm test:suite-manifest` | Every `scripts/test-*` file is exposed by a package test command |
 | Mentor IA | `pnpm test:mentor-dashboard-ia` | Mentor dashboard/reference surface contracts |
 | Vera AI control plane | `pnpm test:admin-ai-control-plane` | Admin AI metric/privacy/governance contracts |
@@ -77,15 +78,16 @@ some reset or mutate fixture data.
 Browser verification uses the in-app `ego-browser` workflow only after explicit
 user permission. A request must name the exact route(s), role/session, and
 checklist. Do not infer browser approval from a passing static or contract
-test. The current P1 operational-primitive migration has guarded TypeScript,
-targeted ESLint, mentor static tests, and diff-check evidence; browser QA was
-not run for it.
+test. The completed operational-primitive migration (P1 selects/tables, P2
+onboarding/wrappers/tabs, and the badge/mode-card batch) has guarded
+TypeScript, targeted ESLint, focused contract, static-sweep, and diff-check
+evidence; browser QA was not run for it.
 
 ## Current verification caveats
 
 - The broader admin-import contract currently stops on a pre-existing English
   copy assertion; this is recorded as a baseline and is not evidence that the
-  P1 select/table migration failed.
+  operational-primitive migration failed.
 - The shared worktree contains unrelated concurrent product edits. A full
   repository check must be interpreted against the current diff and the
   owning agent's scope, not against this documentation commit alone.

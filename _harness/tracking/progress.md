@@ -9,10 +9,10 @@
   Prisma migration history, Kuis versioning contracts, recent Vera AI/admin
   work, mentor reference rollout, and the shared working-tree ownership.
 - [x] Added the navigable `docs/wiki/` set: index, architecture,
-  users/journeys/routes, domains/data, development/verification,
-  operations/security, and current-state handoff.
+  users/journeys/routes, domains/data, assessment lifecycle,
+  development/verification, operations/security, and current-state handoff.
 - [x] Refreshed `_harness/memory/project.md` with the current settled baseline,
-  Kuis contract boundary, P1 primitive migration evidence, test-manifest rule,
+  Kuis contract boundary, full operational-primitive migration evidence, test-manifest rule,
   migration-history caveat, and browser/resource-guard conventions.
 - [x] Added `feat-029` through `feat-033` to the feature tracker for the Kuis
   contract foundation, operational primitive migration, Kuis editor parity,
@@ -35,9 +35,28 @@
   pretending to replace them.
 - The latest Kuis versioning work is recorded as a contract foundation; its
   persistence/runtime delivery follow-up is intentionally not marked complete.
-- P1 select/table migration verification is recorded as complete after user
-  confirmation, while the pre-existing admin-import English-copy assertion and
-  browser-permission boundary remain explicit caveats.
+- The complete operational-primitive sequence is recorded as complete after
+  user confirmation: P1 selects/tables, P2 onboarding/wrappers/tabs, and the
+  remaining semantic badges/mode-card controls. Rich searchable selectors and
+  custom chips remain deferred, while the pre-existing admin-import
+  English-copy assertion and browser-permission boundary remain explicit
+  caveats.
+
+## Operational primitive migration closeout (2026-08-30)
+
+- [x] Closed the P1/P2 migration after the Design Consistency Review agent
+  reported guarded verification complete and the user explicitly authorized
+  the documentation refresh.
+- [x] Recorded the shared `ReferenceSelect`, `ReferenceSelectField`, `Table`,
+  `CompactFilterTabs`, `FullWidthLineTabs`, semantic badge, and `ModeCardTabs`
+  boundaries in the wiki and project memory.
+- [x] Recorded the important review fixes: empty-value and disabled-option
+  select behavior, onboarding palette adapter, valid Student Detail field
+  structure, semantic Tryout Delivery navigation, and neutral empty table row.
+- [x] Preserved the known admin-import English-copy baseline and the explicit
+  browser permission gate; no browser verification was claimed.
+- [x] Left rich searchable selectors, custom chips, and the parallel
+  banner-maker work outside this closeout.
 
 ## Vera AI Admin Operational Control Plane V1 Rollout (2026-08-28)
 

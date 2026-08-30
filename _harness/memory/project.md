@@ -16,10 +16,11 @@ and then verify the source tree before making an implementation decision.
 ## Current repository baseline (2026-08-30)
 
 - The project wiki is now under `docs/wiki/`. Its pages cover architecture,
-  role/route boundaries, domain data, guarded development commands,
-  operations/security, and the dated current-state handoff. `README.md`,
-  `PRODUCT.md`, `DESIGN.md`, `prisma/schema.prisma`, and the source tree remain
-  authoritative over the wiki snapshot.
+  role/route boundaries, domain data, the Kuis/Tryout assessment lifecycle,
+  guarded development commands, operations/security, and the dated
+  current-state handoff. `README.md`, `PRODUCT.md`, `DESIGN.md`,
+  `prisma/schema.prisma`, and the source tree remain authoritative over the
+  wiki snapshot.
 - Vecalss remains a Next.js App Router LMS with Voyager (student), Kapten
   (tutor/content author), and Administrator role boundaries. The current page
   tree includes learner Materi/Kuis/Tryout/Vera AI flows, Kapten authoring and
@@ -41,13 +42,15 @@ and then verify the source tree before making an implementation decision.
   normal page content remains in document flow, while navigation/inventory/
   picker/editor panes retain only intentional bounded scrolling. Dense table
   and list internals remain stable. Expanded rollout browser QA was deferred.
-- The current design-consistency P1 migration is complete after explicit user
-  confirmation: seven native operational selects use the shared
-  `ReferenceSelect`, and two raw operational tables use shared table
-  primitives. Guarded TypeScript, targeted ESLint, mentor static contracts,
-  and `git diff --check` passed. The broader admin-import contract still stops
-  at a pre-existing English-copy assertion; this is a baseline distinction,
-  not evidence that the primitive migration failed. Browser QA was not run.
+- The current design-consistency operational-primitive migration is complete
+  after explicit user confirmation: P1 selects/tables, P2 onboarding and field
+  wrappers, compact/full-width tab compositions, semantic operational badges,
+  and the shared `ModeCardTabs` contract are implemented. Rich searchable
+  selectors and other custom chips remain separate follow-up work. Guarded
+  TypeScript, targeted ESLint, focused contracts/static sweeps, and
+  `git diff --check` passed. The broader admin-import contract still stops at
+  a pre-existing English-copy assertion; this is a baseline distinction, not
+  evidence that the primitive migration failed. Browser QA was not run.
 - Test-suite coverage is intentionally contract-oriented. `c47d620` and
   `5f18555` register the `scripts/test-*` files through package test commands
   and add the suite-manifest check. New tests must be exposed by a package
@@ -68,8 +71,32 @@ and then verify the source tree before making an implementation decision.
   impersonate the fixture session.
 - Preview Beranda/Materi data is exposed through dedicated read wrappers and an
   explicit forbidden-effects contract. Stored learning text is rendered as
-  sanitized text, known video providers require HTTPS, and managed documents
-  are delivered through a private no-store preview route.
+  sanitized text; the admin preview embedded-video sanitizer permits only
+  HTTPS YouTube/Vimeo URLs, while ordinary Materi hosted-video validation
+  accepts HTTP or HTTPS. Managed documents are delivered through a private
+  no-store preview route.
+
+## Design-consistency operational primitive closeout (2026-08-30)
+
+- P1 migrated the seven operational native selects to `ReferenceSelect` and
+  the two raw operational tables to shared `Table` primitives. Empty values,
+  disabled options, form names, reset/dirty tracking, and neutral empty-row
+  treatment are preserved.
+- P2 migrated onboarding selectors through a local palette adapter, aligned
+  the student/admin/mentor field wrappers, and repaired compact/full-width
+  tab composition. Dashboard content tabs keep a valid root; the Tryout
+  delivery rail is semantic `nav`; the Kuis editor preview remains an explicit
+  switch rather than a detached tab root.
+- The remaining badge batch uses `ReferenceStatusBadge` for mentor result
+  state and `StudentBadge` for compact account status. `ModeCardTabs` owns the
+  two admin import-mode card selectors with Base UI keyboard and selection
+  semantics while preserving each dialog's panel IDs and hidden form state.
+- Verification passed through guarded TypeScript, focused ESLint, media/mentor/
+  authoring and form smoke contracts, static select/table/badge sweeps, and
+  `git diff --check`. The admin-import UI contract still reaches its known
+  unrelated English-copy assertion. Browser QA remains permission-gated and
+  was not run. Rich searchable selectors and other custom chips remain
+  intentionally deferred.
 
 ## Lessons
 

@@ -235,10 +235,10 @@
     {
       "id": "feat-030",
       "name": "Operational UI Primitive Migration",
-      "description": "Replace the identified operational native selects and raw tables with the shared reference select and table primitives while preserving dense data behavior",
+      "description": "Consolidate operational selects, tables, field wrappers, tabs, badges, and mode-card controls around shared primitives while preserving dense data and form behavior",
       "dependencies": ["feat-021"],
       "status": "complete",
-      "evidence": "Design Consistency Review P1 completion confirmed by the user; seven native selects now use ReferenceSelect and two raw operational tables use shared Table primitives. Guarded TypeScript, targeted ESLint, mentor static contracts, and git diff --check pass. Broader admin-import verification stops at a pre-existing English-copy assertion; browser QA was not run."
+      "evidence": "Design Consistency Review P1/P2 completion confirmed by the user; seven P1 selects, two raw tables, onboarding selectors, shared field wrappers, compact/full-width tab compositions, semantic operational badges, and ModeCardTabs are implemented. Guarded TypeScript, targeted ESLint, focused media/mentor/authoring/form contracts, static sweeps, and git diff --check pass. Broader admin-import verification stops at a pre-existing English-copy assertion; browser QA was not run. Rich searchable selectors and other custom chips remain deferred."
     },
     {
       "id": "feat-031",
@@ -262,7 +262,7 @@
       "description": "Publish a navigable project wiki and refresh durable harness memory, feature tracking, progress, and session handoff with the current repository baseline",
       "dependencies": ["feat-029", "feat-030", "feat-031", "feat-032"],
       "status": "complete",
-      "evidence": "docs/wiki/* plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, ownership boundaries, verification caveats, and follow-up queue recorded without staging unrelated product changes."
+      "evidence": "docs/wiki/* (including assessment-lifecycle.md) plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, assessment boundaries, operational-primitive closeout, ownership boundaries, verification caveats, and follow-up queue recorded without staging unrelated product changes."
     }
   ]
 }

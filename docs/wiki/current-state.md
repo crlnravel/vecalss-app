@@ -15,18 +15,20 @@
 | Kuis editor parity | Commit `4eaae2a`, `pnpm test:kuis-ui-first-workspace` evidence | Complete focused parity slice: Bank Soal-like inventory, issue markers, add control, preview switch, and editor action treatment. |
 | Vera regression alignment | Commit `3746e8d` | Complete focused Sprint 5 test alignment and revision-FK fixture restoration. |
 | Test-suite manifest | Commits `c47d620` and `5f18555` | Complete: package scripts expose `scripts/test-*` files and the manifest test checks registration and scope. |
-| Operational primitive migration | Current working-tree P1 change confirmed complete by the Design Consistency Review agent after explicit user confirmation | Seven native selects use the shared `ReferenceSelect`; two raw operational tables use shared table primitives. Guarded tsc, targeted ESLint, mentor static tests, and diff-check pass. Browser QA was skipped. |
+| Operational primitive migration | P1/P2 implementation confirmed complete by the Design Consistency Review agent after explicit user confirmation | P1 selects/tables, P2 onboarding and field wrappers, compact/full-width tab semantics, semantic operational badges, and shared `ModeCardTabs` are implemented. Rich searchable selectors and other custom chips remain deferred. Guarded TypeScript, targeted ESLint, focused media/mentor/authoring checks, static sweeps, and diff-check pass; browser QA was skipped. |
 
 ## Verification ledger
 
-The most recent confirmed P1 evidence is:
+The most recent confirmed operational-primitive closeout evidence is:
 
 - guarded TypeScript check: pass;
 - targeted ESLint: pass;
-- mentor static contracts: pass;
+- focused media-domain, mentor package/catalogue, Tryout authoring, and empty
+  value/form smoke contracts: pass;
+- static native-select, raw-table, and migrated operational-badge sweeps: pass;
 - `git diff --check`: pass;
-- broader admin-import contract: stops at its pre-existing English-copy
-  assertion;
+- broader admin-import UI contract: reaches its pre-existing English-copy
+  assertion (`No accounts were changed`), unrelated to the migration;
 - browser verification: not run because the required explicit permission was
   not granted for this slice.
 
@@ -54,14 +56,17 @@ slice.
 1. If Kuis versioning is promoted beyond its contract foundation, add the
    persistence, server mutation, runtime participation, and historical-results
    cutover behind the existing digest/lifecycle contracts.
-2. Obtain explicit browser permission before validating the P1 primitive
-   migration or any deferred mentor rollout route. Record routes, role, and
-   checklist in the handoff.
+2. Obtain explicit browser permission before validating the completed
+   operational-primitive migration (onboarding, admin mode-card dialogs, and
+   Tryout Delivery) or any deferred mentor rollout route. Record routes, role,
+   and checklist in the handoff.
 3. Re-run the broader admin-import contract after its independent English-copy
    baseline is addressed; keep the baseline distinction in the evidence.
 4. Re-check configured-database migration status before any schema mutation;
    the wiki records migration history, not an assertion that every local
    database is current.
+5. Continue the deferred rich-searchable-selector and custom operational-chip
+   audit only as a separate behavior-preserving migration batch.
 
 ## Restart checklist
 

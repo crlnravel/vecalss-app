@@ -1,5 +1,32 @@
 # Session Handoff
 
+## Wiki and harness refresh after operational primitive closeout (2026-08-30)
+
+- Objective: refresh the wiki and durable harness context after the confirmed
+  P1/P2 operational-primitive migration, including the final badge and
+  mode-card batch.
+- Coordination gate: the Design Consistency Review agent reported its latest
+  badge/mode-card migration and guarded checks complete; the user then said
+  `please update`, which is the explicit confirmation to proceed. The parallel
+  banner-maker work was not treated as complete and is excluded.
+- Wiki state: `docs/wiki/current-state.md` now records P1 selects/tables, P2
+  onboarding/field wrappers/tabs, semantic badges, `ModeCardTabs`, deferred
+  rich selectors/custom chips, and the verification caveats. The existing
+  `docs/wiki/assessment-lifecycle.md` remains the canonical Kuis/Tryout/
+  delivery/preview map.
+- Harness state: `_harness/memory/project.md`, `feature_list.json`, this
+  progress log, and this handoff now carry the same operational-primitive
+  closeout and review-fix contracts.
+- Verification ledger: guarded TypeScript, focused ESLint, media/mentor/
+  authoring/form contracts, static select/table/badge sweeps, and
+  `git diff --check` pass. The broader admin-import UI contract still reaches
+  its pre-existing English-copy assertion. Browser QA was not run because
+  route/role/checklist permission was not granted.
+- Ownership boundary: only `docs/wiki/*`, `_harness/memory/project.md`, and
+  the three `_harness/tracking` files are in this refresh. Preserve all
+  unrelated product, harness-core, skill, untracked banner-maker, and other
+  agent-owned changes; do not stage them.
+
 ## Project wiki and harness context refresh (2026-08-30)
 
 - Objective: publish a navigable project wiki and make durable harness memory,
