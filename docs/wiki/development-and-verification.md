@@ -34,9 +34,11 @@ servers before handing work to another agent.
 
 ## Local setup
 
-1. Copy `.env.example` to `.env` and supply local PostgreSQL credentials. The
-   README lists the complete variable set, including optional Redis, preview,
-   encryption, R2, Materi, and Vera disposable settings.
+1. Copy `.env.example` to `.env` and supply local PostgreSQL credentials.
+   [`.env.example`](../../.env.example) is the canonical variable inventory,
+   including optional Redis, preview, encryption, R2, Materi, and Vera
+   disposable settings. `README.md` documents the core setup and seed
+   workflow.
 2. Install with the repository lockfile through the guard:
    `./_harness/resource-guard.sh run -- pnpm install --frozen-lockfile`.
 3. Generate the client and run the development server with the guarded

@@ -14,6 +14,7 @@ content author), and Administrator.
 - [Architecture](architecture.md) — runtime layers, request flow, and deployment shape.
 - [Users, journeys, and routes](user-journeys.md) — role boundaries and the implemented route map.
 - [Domains and data](domains-and-data.md) — Prisma aggregates, assessment state, Kuis versioning, and Vera AI boundaries.
+- [Assessment lifecycle](assessment-lifecycle.md) — Kuis contracts, Tryout releases, delivery, attempts, results, and preview safety.
 - [Development and verification](development-and-verification.md) — setup, guarded commands, test suites, and known verification limits.
 - [Operations and security](operations-and-security.md) — authentication, preview safety, assessment releases, media, and AI privacy.
 - [Current state](current-state.md) — recent completed slices, evidence, caveats, and follow-up work.
@@ -47,7 +48,8 @@ Use the narrowest authoritative source for the question at hand:
 | Product purpose, vocabulary, and promises | [`PRODUCT.md`](../../PRODUCT.md) |
 | Visual tokens and interaction invariants | [`DESIGN.md`](../../DESIGN.md) and [`docs/design-guidelines/`](../design-guidelines/README.md) |
 | Local setup, seed accounts, and environment variables | [`README.md`](../../README.md) |
-| Kapten workspace intent | [`GUIDE_KAPTEN_PAGE.md`](../../GUIDE_KAPTEN_PAGE.md) |
+| Kapten workspace intent and implemented surfaces | [`PRODUCT.md`](../../PRODUCT.md), [`app/mentor/`](../../app/mentor/), and [`modules/mentor/`](../../modules/mentor/) |
+| Environment variable names and comments | [`.env.example`](../../.env.example); use [`README.md`](../../README.md) for core setup and seed workflow |
 | Persisted entities and constraints | [`prisma/schema.prisma`](../../prisma/schema.prisma) |
 | Agent startup, routing, and verification rules | [`_harness/readme.md`](../../_harness/readme.md), [`_harness/routing.md`](../../_harness/routing.md), [`_harness/rules.md`](../../_harness/rules.md), [`_harness/workflow.md`](../../_harness/workflow.md) |
 | Durable development decisions and handoff | [`_harness/memory/project.md`](../../_harness/memory/project.md), [`_harness/tracking/`](../../_harness/tracking/) |

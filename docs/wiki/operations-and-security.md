@@ -18,14 +18,19 @@
 
 Preview and learner DTOs should expose only the fields needed by their surface.
 Do not pass raw Prisma rows to client components. Managed text is sanitized,
-known video providers require HTTPS, and private documents/media are delivered
-through signed/no-store paths where applicable.
+admin preview's embedded-video sanitizer allows only HTTPS YouTube/Vimeo URLs,
+and private documents/media are delivered through signed/no-store paths where
+applicable. Ordinary Materi hosted-video validation accepts HTTP or HTTPS; do
+not apply the stricter preview rule to all content authoring.
 
 The preview read boundary rejects persistence writes, queues/events, analytics,
 notifications, webhooks, external writes, delayed jobs, and learner-state
-mutations. A preview restart can create a safe retake assignment only through
-its transaction-scoped lock and idempotency contract; it must not create an
-attempt or session as a side effect of reading the preview.
+mutations. An explicit Tryout preview restart is the only separate mutation
+path: its transaction-scoped lock and idempotency contract may create or reuse
+the fixed preview admission, a scoped delivery session/assignment, and audit
+records, while reusing an existing published `AssessmentRelease`. Reading the
+preview itself must never create a session, attempt, answer, progress mutation,
+notification, analytics event, or release.
 
 ## Assessment integrity
 
@@ -49,8 +54,12 @@ The admin control plane reports operational aggregates, not student
 conversation text, and suppresses small cohorts and complementary groups when
 privacy thresholds are not met.
 
-Policy bundles are immutable/versioned and use validation, preview, dual
-approval, scheduled activation, rollback, and audit paths. Provider screens
+The backend/API policy boundary supports immutable/versioned bundles,
+validation, preview, dual approval, scheduled activation, rollback, and audit
+paths. The currently routed `/admin/ai/policies` page loads policy metadata,
+but its approve/activate affordances are local simulation; do not describe
+policy lifecycle operations as reachable UI until that page uses the mutation
+endpoints exposed by `modules/admin/AiPolicyPageModule.tsx`. Provider screens
 mask credential fingerprints. Any new AI metric or admin endpoint must preserve
 the admitted/rejected taxonomy and privacy-safe projection boundary.
 

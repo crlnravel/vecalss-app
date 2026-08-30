@@ -11,10 +11,12 @@
 Role names are product vocabulary, not a second authorization system. The
 server uses Prisma roles and `lib/auth/access.ts` to enforce access.
 
-## Implemented page routes
+## Canonical page route families
 
-The following is the page-level sitemap generated from the current `app/`
-tree. API route handlers are listed separately below.
+The following is a maintainer-facing map of canonical page route families from
+the current `app/` tree. Compatibility, archived, and redirect-only routes
+are called out below rather than treated as active destinations. API route
+handlers are listed separately.
 
 ### Public and account lifecycle
 
@@ -53,6 +55,14 @@ Kapten pages use `requireTutorSession`. Legacy Tryout package aliases and the
 older operations URLs remain as redirects or compatibility surfaces where the
 current workspace owns the canonical route.
 
+### Route status notes
+
+| Status | Examples | Meaning |
+| --- | --- | --- |
+| Canonical | `/mentor/tryout/[tryoutId]`, `/mentor/quiz/[quizId]`, `/admin/ai/policies` | Active page destinations and current workspace entry points. |
+| Redirect or compatibility | `/tryout/[tryoutId]/register`, `/admin/ai-policy`, `/admin/ai-usage`, `/admin/media` | Kept for existing links or migration compatibility; follow the redirect to the canonical surface. |
+| Archived / not found | `/mentor/packages/*`, `/mentor/tryout/packages/*` | The route remains in the tree for compatibility, but its layout authenticates and returns `notFound()`; it is not an active authoring destination. |
+
 ### Administrator operations
 
 | Area | Routes |
@@ -71,8 +81,9 @@ read-only session boundary.
 
 The current API tree includes:
 
-- Admin AI projections and governance under `/api/admin/ai/*` and the legacy
-  `/api/admin/ai-policy/*` and `/api/admin/ai-usage` routes.
+- Admin AI projections under `/api/admin/ai/*`; the active policy metadata and
+  lifecycle contract is under `/api/admin/ai-policy/*`. `/api/admin/ai-usage`
+  is the legacy compatibility route.
 - Enrollment/import/handoff commands under `/api/admin/*`.
 - Materi document/progress, notifications, media preview/thumbnail, invite,
   health, and scalability endpoints.
