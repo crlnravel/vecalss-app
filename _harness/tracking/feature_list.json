@@ -213,8 +213,8 @@
       "name": "Vera AI Admin Policy Governance & Impact Preview",
       "description": "Implement Screen 5 (Immutable Policy Bundle lifecycle, diff editor, 7-day impact preview, dual approval UX, and deployment-style activation)",
       "dependencies": ["feat-023", "feat-024"],
-      "status": "complete",
-      "evidence": "app/admin/ai/policies/page.tsx, modules/admin/ai/AiPoliciesPageModule.tsx; immutable versioned policy bundle viewer, visual before/after diff editor, deterministic 7-day impact preview modeling (hard-locks, cost, consumption, concurrency), dual approval governance enforcement (creator cannot self-approve), and deployment-style activation modal"
+      "status": "in-progress",
+      "evidence": "Backend/API policy lifecycle is implemented under lib/admin/ai-policy/ and /api/admin/ai-policy/*, including immutable bundles, validation, preview, dual approval, scheduling, activation, rollback, and audit paths. The canonical app/admin/ai/policies/page.tsx still imports modules/admin/ai/AiPoliciesPageModule.tsx, whose approve/activate affordances are local simulation; backend-wired modules/admin/AiPolicyPageModule.tsx is not yet routed. Complete after the canonical mutation UI cutover and verification."
     },
     {
       "id": "feat-028",
@@ -222,7 +222,7 @@
       "description": "Add legacy route redirects, automated contract test suite in scripts/, and full verification across TypeScript, lint, and build",
       "dependencies": ["feat-025", "feat-026", "feat-027"],
       "status": "complete",
-      "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts test script (30 checks passing); TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh"
+      "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts contract test script (30 checks passing); TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh. This scoped suite does not prove the pending canonical policy mutation UI cutover tracked by feat-027."
     },
     {
       "id": "feat-029",
@@ -262,7 +262,7 @@
       "description": "Publish a navigable project wiki and refresh durable harness memory, feature tracking, progress, and session handoff with the current repository baseline",
       "dependencies": ["feat-029", "feat-030", "feat-031", "feat-032"],
       "status": "complete",
-      "evidence": "docs/wiki/* (including assessment-lifecycle.md) plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, assessment boundaries, operational-primitive closeout, ownership boundaries, verification caveats, and follow-up queue recorded without staging unrelated product changes."
+      "evidence": "docs/wiki/* (including assessment-lifecycle.md) plus _harness/memory/project.md and _harness/tracking/* updated on 2026-08-30; current route/domain/tooling map, assessment boundaries, operational-primitive closeout, ownership boundaries, verification caveats, follow-up queue, stale-handoff labeling, and Vera tracker boundary recorded without staging unrelated product changes."
     }
   ]
 }

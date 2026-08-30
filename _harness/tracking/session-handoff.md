@@ -1,6 +1,6 @@
 # Session Handoff
 
-## Wiki and harness refresh after operational primitive closeout (2026-08-30)
+## Current handoff — wiki and harness refresh after operational primitive closeout (2026-08-30)
 
 - Objective: refresh the wiki and durable harness context after the confirmed
   P1/P2 operational-primitive migration, including the final badge and
@@ -17,6 +17,11 @@
 - Harness state: `_harness/memory/project.md`, `feature_list.json`, this
   progress log, and this handoff now carry the same operational-primitive
   closeout and review-fix contracts.
+- Tracker correction: Vera policy governance remains complete at the backend/API
+  boundary, but `feat-027` is in progress until the canonical
+  `/admin/ai/policies` page uses the backend-wired mutation module. Its current
+  approve/activate affordances are local simulation; see the wiki's Vera
+  governance caveat before treating policy changes as persisted.
 - Verification ledger: guarded TypeScript, focused ESLint, media/mentor/
   authoring/form contracts, static select/table/badge sweeps, and
   `git diff --check` pass. The broader admin-import UI contract still reaches
@@ -27,7 +32,7 @@
   unrelated product, harness-core, skill, untracked banner-maker, and other
   agent-owned changes; do not stage them.
 
-## Project wiki and harness context refresh (2026-08-30)
+## Historical project wiki and harness context refresh (2026-08-30)
 
 - Objective: publish a navigable project wiki and make durable harness memory,
   feature tracking, progress, and handoff reflect the current repository after
@@ -37,7 +42,7 @@
   confirmed it may be marked complete. Documentation work began only after
   that confirmation. Other active agents confirmed no ownership of the wiki,
   memory, or tracking paths.
-- Current source baseline: Next.js App Router/React/strict TypeScript,
+- Source baseline recorded at that refresh: Next.js App Router/React/strict TypeScript,
   Prisma/PostgreSQL, Redis/BullMQ, role-specific Voyager/Kapten/Admin routes,
   Vera AI learner and admin-control-plane surfaces, durable Tryout release
   boundaries, Kuis assembly binding, and the new Kuis versioning contract
@@ -474,7 +479,7 @@
   changed. Next action is a route-specific preview and explicit selection of
   one bounded non-student adoption.
 
-## Current Tryout direct-only question authoring (2026-08-25)
+## Historical Tryout direct-only question authoring (2026-08-25)
 
 - `f21d058` simplifies the Tryout Build surface to one source path:
   `Pilih langsung`, Bank Soal selection, and a question checklist.
@@ -506,7 +511,7 @@
   `pnpm verify`, and authenticated desktop browser QA pass. Preserve the
   SectionRail and Identitas Tryout header regions.
 
-## Current Tryout gated lifecycle closeout (2026-08-24)
+## Historical Tryout gated lifecycle closeout (2026-08-24)
 
 - Lifecycle refactor is implemented in `1001677` plus workflow projection
   commits `697d360` and `9b6f37a`. Draft mode exposes only Build/Review &
@@ -551,7 +556,7 @@
   unlocks. A future server edit/readiness DTO should feed the same stable issue
   codes and field targets into the canonical projection.
 
-## Current AS-04 invitation-picker closeout (2026-08-23)
+## Historical AS-04 invitation-picker closeout (2026-08-23)
 
 - Dedicated Kapten invitation picker is complete at `a72d5fd` plus `5c422ac`.
   It adds owner-scoped safe student search, selected-session threading,
@@ -572,7 +577,7 @@
   `ProcessEnv.NODE_ENV`; no invitation-picker file is implicated. Preserve
   all six concurrent dirty files and do not stage them.
 
-## Current AS-07 realtime closeout / AS-06 Kuis handoff (2026-08-23)
+## Historical AS-07 realtime closeout / AS-06 Kuis handoff (2026-08-23)
 
 - AS-06 durable Kuis assembly binding is complete at `047d5d7`, `331b7c7`,
   `4791020`, `a892ec4`, and `394e240`. The final independent review is PASS:
@@ -642,7 +647,7 @@
   hardening closeouts recorded above; AS-08 remains closed unless a new defect
   appears.
 
-## Current AS-06 closeout / AS-07 pickup (2026-08-23)
+## Historical AS-06 closeout / AS-07 pickup (2026-08-23)
 
 - AS-06 Ticket 6 is complete for the intentionally narrowed Tryout-only
   boundary. Commits `4c85278`, `617735f`, and `01e4078` implement Ready
@@ -672,7 +677,7 @@
   QuestionRevision/Ready lifecycle is already implemented under AS-02 and
   should not be reopened without a new defect.
 
-## Current AS-07 kickoff (2026-08-23)
+## Historical AS-07 kickoff (2026-08-23)
 
 - Ticket artifact: `artifacts/tickets/as07-live-delivery-result-workspaces`.
 - Implementation agent `6af221fe-77a2-46fa-927b-2234b52a0201` is dispatched
@@ -684,7 +689,7 @@
 - Protected dirty files remain untouched and unstaged; use ego-browser for
   authenticated desktop/mobile QA when implementation is ready.
 
-## Current AS-06 Ticket 5 Handoff (2026-08-22)
+## Historical AS-06 Ticket 5 Handoff (2026-08-22)
 
 - Objective: pin explicit CAT Pool candidates and canonical 2PL calibration
   parameters inside immutable Tryout AssessmentReleases.
@@ -716,7 +721,7 @@
   followed by Ticket 7 verification/QA. Do not deploy migration 31 or reset/
   reseed without explicit approval.
 
-## Current AS-06 Ticket 4 Handoff (2026-08-22)
+## Historical AS-06 Ticket 4 Handoff (2026-08-22)
 
 - Objective: resolve seeded Pool and Blueprint forms inside the immutable
   AssessmentRelease publish transaction.
@@ -745,7 +750,7 @@
   Ticket 6 attachment and Review wiring. Do not deploy migration 31 or
   reset/reseed without approval.
 
-## Current AS-06 Schema Handoff (2026-08-22)
+## Historical AS-06 Schema Handoff (2026-08-22)
 
 - Objective: continue the approved Pool-first flow into the random
   Pool/Blueprint/CAT assembly schema and immutable Ready revision boundary.
@@ -773,7 +778,7 @@
   Ready revision creation, and read-only Pool/Blueprint preview. Resolver
   algorithms and release integration remain later tickets.
 
-## Current AS-06 Ticket 3 Handoff (2026-08-22)
+## Historical AS-06 Ticket 3 Handoff (2026-08-22)
 
 - Objective: implement the server-only assembly draft/Ready revision boundary,
   creator/shared-read access, source readiness validation, and illustrative
@@ -851,7 +856,7 @@
 - The planning gate was satisfied; the next pickup is Ticket 3 repository and
   preview work.
 
-## Current AS-06 Handoff (2026-08-22)
+## Historical AS-06 Handoff (2026-08-22)
 
 - Objective: add direct question picks and an optional inline fixed Set path to
   the AS-05 Tryout authoring workspace.
@@ -887,10 +892,10 @@
   hardening), and `c8a6d05` (required revision identity). Independent
   finish-review recheck is PASS against `c8a6d05`.
 - Durable ticket: `artifacts/as06-direct-question-picks`.
-- Recommended pickup: see the Current AS-06 Random Assembly Planning Handoff
+- Recommended pickup: see the AS-06 Random Assembly Planning Handoff
   above; the direct/fixed-Set slice remains complete.
 
-## Current AS-05 Handoff (2026-08-22)
+## Historical AS-05 Handoff (2026-08-22)
 
 - Objective: turn `/mentor/tryout` into one mentor-facing Tryout authoring
   workspace with Basics, Sections, Questions, Rules, Schedule & akses, Results,
@@ -936,7 +941,7 @@
   `/tmp/vecalss-as09-pre-migration-20260822.dump` available for rollback
   investigation and do not reset/reseed without explicit approval.
 
-## Current AS-04 Handoff (2026-08-22)
+## Historical AS-04 Handoff (2026-08-22)
 
 - Objective: expose one mentor-facing ParticipantView while keeping admission
   and assignment audit rows intact, and make registration/approval/invitation/
@@ -970,7 +975,7 @@
 - Recommended pickup: review the changeset, then start AS-05 (one Tryout
   authoring workspace) unless the invite-picker is prioritized first.
 
-## Current AS-09 Deployment Handoff (2026-08-22)
+## Historical AS-09 Deployment Handoff (2026-08-22)
 
 - Objective: deploy and verify the durable AssessmentRelease boundary for Tryout deliveries, then preserve the UI/runtime handoff for the next session.
 - Workspace: `main` at `43dec31` (`feat: pin tryout deliveries to assessment releases`) plus the seed compatibility fix recorded below. The configured database was backed up before deployment at `/tmp/vecalss-as09-pre-migration-20260822.dump` (861 KB, pg_dump custom format).
@@ -1055,13 +1060,13 @@
 - Next actions: continue normal assessment QA, then implement AS-09's durable
   AssessmentRelease pin when the release-boundary smoke remains satisfactory.
 
-## Current Objective
+## Historical admin student-preview handoff (2026-08-22)
 
 - Goal: Implement the approved admin student-preview route family.
-- Current status: Feature implementation and repository verification complete.
+- Status at that time: Feature implementation and repository verification complete.
 - Branch / commit: `main` / `c46fb98` (`feat: complete admin student preview surfaces`)
 
-## Completed This Session
+### Completed in that session
 
 - [x] Fixed managed preview fixture, server-side actor/subject separation, and system-wide isolation guards.
 - [x] Added read-only Beranda/Materi/Kuis/Tryout routes with explicit safe DTOs and no-store boundaries.
@@ -1069,7 +1074,7 @@
 - [x] Added CodeMirror banner editing scoped to preview with draft/published cache separation.
 - [x] Added focused contract tests and production verification.
 
-## Verification Evidence
+### Verification evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
@@ -1079,7 +1084,7 @@
 | Lint/build | `pnpm verify` | PASS | 0 errors; 459 known baseline warnings; production build passed. |
 | Runtime fixture | Seeded browser/DB E2E | PENDING | No local authenticated fixture harness available. |
 
-## Files Changed
+### Files changed
 
 - `app/admin/student-preview/[[...slug]]/page.tsx`
 - `lib/admin/student-preview-quiz-reads.ts`
@@ -1088,26 +1093,26 @@
 - `modules/admin/student-banners-actions.ts`
 - `modules/student/components/admin-student-preview-surfaces.tsx`
 
-## Decisions Made
+### Decisions made
 
 - Keep the admin session as actor and resolve one fixed managed student fixture as subject.
 - Use dedicated preview read entry points and explicit DTO allowlists; never pass an `adminPreview` bypass flag through learner services.
 - Treat preview restarts as an explicit mutation with a transaction-scoped student/Tryout lock plus a request-ID lock and unique idempotency record.
 - Keep preview draft/banner cache entries isolated from ordinary published student rendering.
 
-## Blockers / Risks
+### Historical blockers / risks
 
 - Browser and allowlisted DB/event diff checks need a seeded authenticated runtime fixture.
 - Unrelated assessment-scoring changes and documentation deletions remain outside the preview commit.
 
-## Next Session Startup
+### Historical next-session startup
 
 1. Read `AGENTS.md` → follow harness routing.
 2. Read `_harness/tracking/feature_list.json` and `_harness/tracking/progress.md`.
 3. Review this handoff.
 4. Run `./init.sh` or follow `_harness/workflow.md` § Session start.
 
-## Recommended Next Step
+### Historical recommended next step
 
 - Start the deferred durable Kuis assembly binding implementation and keep
   the protected admin-preview files untouched.
