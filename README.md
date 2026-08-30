@@ -82,10 +82,12 @@ pnpm exec prisma migrate status
 pnpm db:seed
 ```
 
-Focused contract and integration checks live in `scripts/test-*` and are
-exposed through the matching `pnpm test:*` commands. Run
-`pnpm test:suite-manifest` to verify that every test script is registered in
-`package.json` and that no package command points at a missing test file.
+Focused contract and integration checks live in top-level
+`scripts/test-*.ts` and `scripts/test-*.mjs` files. They are exposed through
+the matching `pnpm test:*` commands, with database-backed checks also using
+`pnpm db:test-*`. Run `pnpm test:suite-manifest` to verify that each matching
+test file is registered in `package.json` and that those references point at
+existing files.
 
 ### Manual Materi cutover initialization
 
