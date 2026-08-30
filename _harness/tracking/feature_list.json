@@ -213,8 +213,8 @@
       "name": "Vera AI Admin Policy Governance & Impact Preview",
       "description": "Implement Screen 5 (Immutable Policy Bundle lifecycle, diff editor, 7-day impact preview, dual approval UX, and deployment-style activation)",
       "dependencies": ["feat-023", "feat-024"],
-      "status": "in-progress",
-      "evidence": "Backend/API policy lifecycle is implemented under lib/admin/ai-policy/ and /api/admin/ai-policy/*, including immutable bundles, validation, preview, dual approval, scheduling, activation, rollback, and audit paths. The canonical app/admin/ai/policies/page.tsx still imports modules/admin/ai/AiPoliciesPageModule.tsx, whose approve/activate affordances are local simulation; backend-wired modules/admin/AiPolicyPageModule.tsx is not yet routed. Complete after the canonical mutation UI cutover and verification."
+      "status": "complete",
+      "evidence": "Backend/API policy lifecycle is implemented under lib/admin/ai-policy/ and /api/admin/ai-policy/*, including immutable bundles, validation, preview, dual approval, scheduling, activation, rollback, and audit paths. The canonical app/admin/ai/policies/page.tsx now loads actor-scoped metadata server-side and renders modules/admin/AiPolicyPageModule.tsx inside PortalShell; its lifecycle controls call the backend policy endpoints. Verified with pnpm test:vera-http-sprint4 and guarded TypeScript. Browser verification remains permission-gated."
     },
     {
       "id": "feat-028",
@@ -222,7 +222,7 @@
       "description": "Add legacy route redirects, automated contract test suite in scripts/, and full verification across TypeScript, lint, and build",
       "dependencies": ["feat-025", "feat-026", "feat-027"],
       "status": "complete",
-      "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts contract test script (30 checks passing); TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh. This scoped suite does not prove the pending canonical policy mutation UI cutover tracked by feat-027."
+      "evidence": "app/admin/ai-usage/page.tsx and app/admin/ai-policy/page.tsx backwards compatibility redirects; scripts/test-admin-ai-control-plane.ts and scripts/test-vera-http-sprint4.ts contract coverage; TypeScript clean (tsc --noEmit pass); ESLint clean on all AI modules; verified under _harness/resource-guard.sh. The Vera HTTP contract now asserts that the canonical policy route renders the backend mutation module and calls its lifecycle endpoints."
     },
     {
       "id": "feat-029",

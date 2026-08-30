@@ -64,6 +64,22 @@ and then verify the source tree before making an implementation decision.
   explicit-permission workflow with route, role/session, and checklist stated
   before using `ego-browser`.
 
+## Current Vera policy route wiring (2026-08-31)
+
+- The canonical `/admin/ai/policies` page is admin-gated, resolves actor-scoped
+  policy metadata through `createAiPolicyCommandService()` and
+  `actorFromSession()`, and renders `modules/admin/AiPolicyPageModule.tsx`
+  inside `PortalShell`. The legacy `/admin/ai-policy` route redirects to it.
+- The canonical client module owns backend policy lifecycle commands for draft
+  creation/update, validation, impact preview, dual approval, scheduling,
+  activation, rollback, and retention-extension requests under
+  `/api/admin/ai-policy/*`. Mutation affordances remain capability-gated by
+  backend metadata; the older local simulation module is not the canonical
+  route implementation.
+- Static Vera route/module contract coverage and guarded TypeScript are the
+  required non-browser evidence for this wiring. Browser verification is still
+  permission-gated and must name its route, role/session, and checklist first.
+
 ## Conventions
 
 - Admin student preview reads use a server-resolved fixed fixture subject and a

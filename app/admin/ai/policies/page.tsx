@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+
+import { actorFromSession } from "@/lib/admin/ai-policy/http";
+import { createAiPolicyCommandService } from "@/lib/admin/ai-policy/service";
 import { requireAdminSession } from "@/lib/auth/access";
-import { AiPoliciesPageModule } from "@/modules/admin/ai/AiPoliciesPageModule";
+import { AiPolicyPageModule } from "@/modules/admin/AiPolicyPageModule";
+import { PortalShell } from "@/modules/portal/components/portal-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +14,17 @@ export const metadata: Metadata = {
 
 export default async function AdminAiPoliciesPage() {
   const session = await requireAdminSession();
-  return <AiPoliciesPageModule session={session} />;
+  const policyMetadata = await createAiPolicyCommandService().getMetadata(actorFromSession(session));
+
+  return (
+    <PortalShell
+      activeAdminSection="ai"
+      audience="admin"
+      description="Tata kelola kebijakan versi terbitan, preview dampak, persetujuan, penjadwalan, dan audit Vera AI."
+      session={session}
+      title="Kebijakan & Tata Kelola"
+    >
+      <AiPolicyPageModule metadata={policyMetadata} />
+    </PortalShell>
+  );
 }

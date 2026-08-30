@@ -56,10 +56,12 @@ privacy thresholds are not met.
 
 The backend/API policy boundary supports immutable/versioned bundles,
 validation, preview, dual approval, scheduled activation, rollback, and audit
-paths. The currently routed `/admin/ai/policies` page loads policy metadata,
-but its approve/activate affordances are local simulation; do not describe
-policy lifecycle operations as reachable UI until that page uses the mutation
-endpoints exposed by `modules/admin/AiPolicyPageModule.tsx`. Provider screens
+paths. The canonical `/admin/ai/policies` page now loads actor-scoped policy
+metadata server-side and renders `modules/admin/AiPolicyPageModule.tsx` inside
+the admin shell. Its draft, validation, preview, approval, scheduling,
+activation, rollback, and retention-extension controls call the corresponding
+`/api/admin/ai-policy/*` endpoints and honor the returned mutation capability.
+Browser verification remains a separate permission-gated step. Provider screens
 mask credential fingerprints. Any new AI metric or admin endpoint must preserve
 the admitted/rejected taxonomy and privacy-safe projection boundary.
 

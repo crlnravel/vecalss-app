@@ -1,18 +1,18 @@
 # Session Progress Log
 
-## Current tracker correction (2026-08-31)
+## Current Vera policy route wiring (2026-08-31)
 
-- [x] Relabeled dated handoff entries before the active 30 August refresh as
-  historical, including the older admin student-preview objective, so a
-  restarting agent has one unambiguous current handoff.
-- [x] Reconciled Vera policy governance status: backend/API lifecycle support
-  remains complete, while `feat-027` stays in progress until the canonical
-  `/admin/ai/policies` route uses the backend-wired mutation module. Its current
-  approve/activate affordances are local simulation and are not persistence
-  evidence.
-- [x] Kept `feat-028` complete for its scoped redirects and contract-test
-  work, while recording that those checks do not prove the pending canonical
-  policy mutation UI cutover.
+- [x] Wired `/admin/ai/policies` to load actor-scoped metadata through
+  `createAiPolicyCommandService()` and `actorFromSession()`, then render
+  `modules/admin/AiPolicyPageModule.tsx` inside the existing `PortalShell`.
+- [x] Updated `scripts/test-vera-http-sprint4.ts` to assert the canonical route
+  and backend policy lifecycle endpoint calls rather than the retired local
+  simulation module.
+- [x] Marked `feat-027` complete now that the canonical draft, validation,
+  preview, approval, scheduling, activation, rollback, and retention controls
+  are backend-wired. Browser verification remains permission-gated.
+- [x] Preserved the earlier handoff-label correction as historical context and
+  kept `feat-028` complete for redirects and contract coverage.
 
 ## Historical project wiki and harness context refresh (2026-08-30)
 
@@ -88,8 +88,8 @@
 - [x] **Ticket 3 (`feat-024`) Completed**: Updated admin portal navigation in `modules/portal/components/admin-portal-nav.tsx` and `portal-shell.tsx`; created design primitives in `modules/admin/ai/components/` (`AiControlPlaneNav`, `AiMetricCard`, `AiQuotaGauge`, `AiCapacityMeter`, `AiRoutingChainVisualizer`, `AiHourlyLockChart`, `AiFreshnessBanner`, `AiPrivacyNotice`).
 - [x] **Ticket 4 (`feat-025`) Completed**: Implemented Screen 1 (AI Overview command center) in `app/admin/ai/page.tsx` & `modules/admin/ai/AiOverviewPageModule.tsx` and Screen 2 (Usage & Capacity, Quota Health, Cost dashboard) in `app/admin/ai/usage/page.tsx` & `modules/admin/ai/AiUsagePageModule.tsx`.
 - [x] **Ticket 5 (`feat-026`) Completed**: Implemented Screen 3 (Reliability & Incidents with request classification and domain taxonomy) in `app/admin/ai/reliability/page.tsx` & `modules/admin/ai/AiReliabilityPageModule.tsx` and Screen 4 (Providers & Routing with capability chains and capacity metrics) in `app/admin/ai/providers/page.tsx` & `modules/admin/ai/AiProvidersPageModule.tsx`.
-- [ ] **Ticket 6 (`feat-027`) Backend/API complete; canonical UI cutover pending**: Immutable policy bundles, validation, preview, approval, scheduling, activation, rollback, and audit capabilities are implemented under `lib/admin/ai-policy/` and `/api/admin/ai-policy/*`. The canonical `/admin/ai/policies` route still imports `modules/admin/ai/AiPoliciesPageModule.tsx`, whose approve/activate controls are local simulation. Route the backend-wired `modules/admin/AiPolicyPageModule.tsx` and verify the mutation UI before marking this ticket complete.
-- [x] **Ticket 7 (`feat-028`) Completed for redirects and contract coverage**: Added backwards compatibility redirects for legacy routes (`/admin/ai-usage` -> `/admin/ai/usage`, `/admin/ai-policy` -> `/admin/ai/policies`); created contract test suite in `scripts/test-admin-ai-control-plane.ts` (30 checks passing); verified TypeScript clean (`tsc --noEmit` exit 0) and ESLint clean. The suite does not prove the pending canonical policy mutation UI cutover.
+- [x] **Ticket 6 (`feat-027`) Completed**: Immutable policy bundles, validation, preview, approval, scheduling, activation, rollback, and audit capabilities are implemented under `lib/admin/ai-policy/` and `/api/admin/ai-policy/*`; the canonical `/admin/ai/policies` route now loads actor-scoped metadata and renders the backend-wired `modules/admin/AiPolicyPageModule.tsx` mutation UI.
+- [x] **Ticket 7 (`feat-028`) Completed for redirects and contract coverage**: Added backwards compatibility redirects for legacy routes (`/admin/ai-usage` -> `/admin/ai/usage`, `/admin/ai-policy` -> `/admin/ai/policies`); the Vera contract suite now asserts canonical backend policy-module wiring alongside the existing control-plane checks; verified TypeScript and focused contracts through the resource guard. Browser verification remains a separate permission-gated step.
 
 ## Mentor-wide reference rollout and document scrolling (2026-08-28)
 

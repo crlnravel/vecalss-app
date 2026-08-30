@@ -1,36 +1,35 @@
 # Session Handoff
 
-## Current handoff — wiki and harness refresh after operational primitive closeout (2026-08-30)
+## Current handoff — Vera policy route wiring (2026-08-31)
 
-- Objective: refresh the wiki and durable harness context after the confirmed
-  P1/P2 operational-primitive migration, including the final badge and
-  mode-card batch.
-- Coordination gate: the Design Consistency Review agent reported its latest
-  badge/mode-card migration and guarded checks complete; the user then said
-  `please update`, which is the explicit confirmation to proceed. The parallel
-  banner-maker work was not treated as complete and is excluded.
-- Wiki state: `docs/wiki/current-state.md` now records P1 selects/tables, P2
-  onboarding/field wrappers/tabs, semantic badges, `ModeCardTabs`, deferred
-  rich selectors/custom chips, and the verification caveats. The existing
-  `docs/wiki/assessment-lifecycle.md` remains the canonical Kuis/Tryout/
-  delivery/preview map.
-- Harness state: `_harness/memory/project.md`, `feature_list.json`, this
-  progress log, and this handoff now carry the same operational-primitive
-  closeout and review-fix contracts.
-- Tracker correction: Vera policy governance remains complete at the backend/API
-  boundary, but `feat-027` is in progress until the canonical
-  `/admin/ai/policies` page uses the backend-wired mutation module. Its current
-  approve/activate affordances are local simulation; see the wiki's Vera
-  governance caveat before treating policy changes as persisted.
-- Verification ledger: guarded TypeScript, focused ESLint, media/mentor/
-  authoring/form contracts, static select/table/badge sweeps, and
-  `git diff --check` pass. The broader admin-import UI contract still reaches
-  its pre-existing English-copy assertion. Browser QA was not run because
-  route/role/checklist permission was not granted.
-- Ownership boundary: only `docs/wiki/*`, `_harness/memory/project.md`, and
-  the three `_harness/tracking` files are in this refresh. Preserve all
-  unrelated product, harness-core, skill, untracked banner-maker, and other
-  agent-owned changes; do not stage them.
+- Objective: connect the canonical `/admin/ai/policies` page to the backend
+  policy lifecycle module and keep the wiki, harness memory, and tracker
+  aligned with the resulting source boundary.
+- Coordination gate: the prior Vera implementation and review agents reported
+  their source work complete, and the user explicitly requested the route
+  wiring. No browser verification is claimed because the required route,
+  role/session, and checklist permission was not granted for this slice.
+- Wiki state: `docs/wiki/current-state.md` and
+  `docs/wiki/operations-and-security.md` now describe the canonical route as
+  backend-wired. `docs/wiki/assessment-lifecycle.md` remains the canonical
+  Kuis/Tryout/delivery/preview map.
+- Harness state: `_harness/memory/project.md` records the actor-scoped metadata
+  loader, `PortalShell` boundary, backend mutation module, and browser gate.
+  `feat-027` is complete; `feat-028` remains complete for redirects and
+  contract coverage.
+- Source state: `app/admin/ai/policies/page.tsx` authenticates the admin,
+  loads metadata through `createAiPolicyCommandService()` and
+  `actorFromSession()`, and renders `modules/admin/AiPolicyPageModule.tsx`.
+  `scripts/test-vera-http-sprint4.ts` asserts that route/module wiring and the
+  backend lifecycle endpoint calls.
+- Verification ledger: guarded `pnpm test:vera-http-sprint4` passes all 57
+  checks, strict TypeScript passes, and `git diff --check` passes. The commit
+  hook remains required before handoff is closed. Browser QA stays explicitly
+  permission-gated.
+- Ownership boundary: preserve unrelated product, harness-core, skill,
+  untracked banner-maker, and other agent-owned changes. Only the canonical
+  policy route, its focused contract, and the matching wiki/memory/tracking
+  statements belong to this slice.
 
 ## Historical project wiki and harness context refresh (2026-08-30)
 

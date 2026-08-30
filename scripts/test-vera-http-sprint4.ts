@@ -25,12 +25,38 @@ for (const file of routeFiles) {
 }
 const page = readFileSync("app/admin/ai-policy/page.tsx", "utf8");
 const canonicalPage = readFileSync("app/admin/ai/policies/page.tsx", "utf8");
-const uiModule = readFileSync("modules/admin/ai/AiPoliciesPageModule.tsx", "utf8");
+const uiModule = readFileSync("modules/admin/AiPolicyPageModule.tsx", "utf8");
 const usageUi = readFileSync("modules/admin/ai/AiUsagePageModule.tsx", "utf8");
 check(page.includes("redirect(\"/admin/ai/policies\")"), "legacy policy route redirects to the canonical page");
 check(canonicalPage.includes("requireAdminSession"), "canonical policy page is admin guarded");
-for (const marker of ["Kebijakan & Tata Kelola", "Kebijakan Aktif", "Buat Draf Revisi", "Alur Siklus Hidup Kebijakan", "Persetujuan Ganda (Dual Approval)", "Simulasi Dampak (Berdasarkan Data 7 Hari Terakhir)", "Riwayat Versi Kebijakan & Korelasi Metrik"]) {
-  check(uiModule.includes(marker), `policy UI exposes ${marker}`);
+check(canonicalPage.includes("createAiPolicyCommandService"), "canonical policy page loads backend policy metadata");
+check(canonicalPage.includes("actorFromSession"), "canonical policy page scopes metadata to the admin actor");
+check(canonicalPage.includes("AiPolicyPageModule"), "canonical policy page renders the backend policy module");
+for (const marker of [
+  "Control plane policy Vera AI",
+  "Ruang lingkup policy yang dapat diedit",
+  "Buat complete draft",
+  "Validasi draft",
+  "Preview dampak",
+  "Approve (operator kedua)",
+  "Jadwalkan",
+  "Aktifkan yang jatuh tempo",
+  "policy-lifecycle-controls",
+  "typed-policy-controls",
+]) {
+  check(uiModule.includes(marker), `backend policy UI exposes ${marker}`);
+}
+for (const marker of [
+  "/api/admin/ai-policy/drafts",
+  "/validate",
+  "/preview",
+  "/approve",
+  "/schedule",
+  "/api/admin/ai-policy/activate-due",
+  "/api/admin/ai-policy/bundles/",
+  "/api/admin/ai-policy/retention-extension-requests",
+]) {
+  check(uiModule.includes(marker), `backend policy UI calls ${marker}`);
 }
 check(!uiModule.includes("providerUrl") && !uiModule.includes("apiKey") && !uiModule.includes("liveProvider"), "UI exposes no provider control");
 for (const marker of ["Pemakaian menurut fitur", "Perkiraan biaya", "Ukuran penggunaan", "Periode", "API Request", "Kuota terpakai", "disembunyikan", "sm:grid-cols"] as const) {

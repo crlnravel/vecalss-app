@@ -1,6 +1,6 @@
 # Current state and handoff
 
-> Snapshot recorded 30 August 2026. This page is a dated handoff; re-check
+> Snapshot recorded 31 August 2026. This page is a dated handoff; re-check
 > `git status`, the source tree, and the harness tracking files before starting
 > another implementation slice.
 
@@ -8,7 +8,7 @@
 
 | Slice | Current evidence | Status and boundary |
 | --- | --- | --- |
-| Vera AI admin control plane | `feat-022`–`feat-028`; admin AI route family and focused control-plane contracts | Backend/API capabilities and focused contracts are present. The canonical `/admin/ai/policies` page currently loads metadata, but its approve/activate affordances are local simulation; policy lifecycle UI is not fully wired until it uses the backend mutation module. |
+| Vera AI admin control plane | `feat-022`–`feat-028`; admin AI route family and focused control-plane contracts | Backend/API capabilities and focused contracts are present. The canonical `/admin/ai/policies` page now loads actor-scoped metadata server-side and renders `modules/admin/AiPolicyPageModule.tsx`, whose draft, validation, preview, approval, scheduling, activation, rollback, and retention controls call the backend policy endpoints. Browser verification remains a separate permission-gated step. |
 | Mentor reference rollout | `feat-021`; mentor dashboard, Tryout, Quiz, Materi, Media, Settings, Packages, and Bank Soal adapters | Complete: document-flow scrolling and bounded pane exceptions are intentional; dense table/list internals were preserved. Browser QA for the expanded rollout was deferred. |
 | Kuis assembly binding | Existing `feat-017` evidence and migrations `20260823100000_*` / `20260823110000_*` | Complete: durable Set/Pool/Blueprint identity and server-owned Ready validation; CAT Pool remains rejected for Kuis. |
 | Kuis versioning contracts | Commit `13497c9` and `scripts/test-kuis-versioning.ts` | Complete contract foundation: semantic digest, lifecycle, editor/catalogue/student/results projections, and schedule transitions. Persistence/runtime delivery/UI cutover remains a separate follow-up. |
