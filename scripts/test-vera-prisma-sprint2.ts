@@ -219,6 +219,8 @@ try {
       VERA_IDEMPOTENCY_HMAC_SECRET: "vera-http-route-fixture-secret",
       VERA_MOCK_PROVIDER_ENABLED: "true",
       VERA_LIVE_PROVIDER_ENABLED: "false",
+      VERA_POC_OPENROUTER: "false",
+      VERA_POC_ZDR: "false",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

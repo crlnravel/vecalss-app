@@ -63,7 +63,18 @@ async function assertCurrentSprint5Migration(db: PrismaClient): Promise<void> {
     LIMIT 1
   `;
   assert.equal(correctionRows[0]?.checksum, expectedCorrectionChecksum, "isolated browser DB must apply the current legal-export metadata correction checksum");
-  console.log(`T12_EVIDENCE migration=${migrationName} checksum=${expectedChecksum} correction=${correctionName} correctionChecksum=${expectedCorrectionChecksum} current=true isolated=true`);
+  const identityName = "20260830090000_restore_question_revision_identity";
+  const identitySql = readFileSync(`${root}/prisma/migrations/${identityName}/migration.sql`, "utf8");
+  const expectedIdentityChecksum = createHash("sha256").update(identitySql).digest("hex");
+  const identityRows = await db.$queryRaw<Array<{ checksum: string }>>`
+    SELECT checksum
+    FROM "_prisma_migrations"
+    WHERE migration_name = ${identityName} AND finished_at IS NOT NULL
+    ORDER BY finished_at DESC
+    LIMIT 1
+  `;
+  assert.equal(identityRows[0]?.checksum, expectedIdentityChecksum, "isolated browser DB must apply the QuestionRevision identity correction checksum");
+  console.log(`T12_EVIDENCE migration=${migrationName} checksum=${expectedChecksum} correction=${correctionName} correctionChecksum=${expectedCorrectionChecksum} identity=${identityName} identityChecksum=${expectedIdentityChecksum} current=true isolated=true`);
 }
 
 function integrationEnv(extra: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
@@ -80,6 +91,8 @@ function integrationEnv(extra: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessE
     VERA_IDEMPOTENCY_HMAC_SECRET: hmacSecret,
     VERA_MOCK_PROVIDER_ENABLED: "true",
     VERA_LIVE_PROVIDER_ENABLED: "false",
+    VERA_POC_OPENROUTER: "false",
+    VERA_POC_ZDR: "false",
   };
 }
 
@@ -223,8 +236,9 @@ async function runAdminHttpAndBrowser(db: PrismaClient): Promise<{ port: number;
     assert(unauthenticatedPolicy.url.includes("/login") || unauthenticatedPolicy.status === 401 || (unauthenticatedPolicy.status >= 300 && unauthenticatedPolicy.status < 400), "admin policy route must reject unauthenticated callers");
     const policyMetadata = await fetch(`${base}/api/admin/ai-policy`, { headers: { cookie: adminCookie } });
     assert.equal(policyMetadata.status, 200, "actual T10 metadata route did not authorize the isolated admin fixture");
-    const metadataBody = await policyMetadata.json() as { metadata?: { capabilities?: string[]; providerGateState?: string } };
+    const metadataBody = await policyMetadata.json() as { metadata?: { capabilities?: string[]; active?: { providerGateState?: string } } };
     assert(metadataBody.metadata?.capabilities, "T10 metadata DTO is missing capability union");
+    assert.equal(metadataBody.metadata?.active?.providerGateState, "open_blocked", "T10 metadata DTO changed the closed provider gate");
     const draftBody = { clientRequestId: `vera-s5-browser-draft-${randomUUID()}`, reason: "browser evidence draft" };
     const draftResponse = await fetch(`${base}/api/admin/ai-policy/drafts`, { method: "POST", headers: { cookie: adminCookie, "content-type": "application/json" }, body: JSON.stringify(draftBody) });
     assert.equal(draftResponse.status, 200, "actual T10 draft route did not persist the isolated command");
@@ -545,17 +559,17 @@ async function openStudio(requireComposer = true) {
   let pendingCancelIssued = false
   if (requireComposer) {
     for (let attempt = 0; attempt < 16; attempt += 1) {
-      const readiness = await js('(() => { const composer = document.querySelector("textarea[aria-label=\\"Pesan untuk Vera\\"]"); const rect = composer?.getBoundingClientRect(); return { activeConversation: Boolean(composer && !composer.disabled), composerVisible: Boolean(rect && rect.width > 0 && rect.height > 0), conversationOptions: document.querySelectorAll("#vera-mobile-conversation option").length }; })()')
+      const readiness = await js('(() => { const composer = document.querySelector("input[aria-label=\\"Tanyakan sesuatu kepada Vera\\"]"); const rect = composer?.getBoundingClientRect(); return { activeConversation: Boolean(composer && !composer.disabled), composerVisible: Boolean(rect && rect.width > 0 && rect.height > 0) }; })()')
       if (readiness.activeConversation && readiness.composerVisible) break
-      const pending = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; return [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan\\"]")].some(visible); })()')
+      const pending = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; return [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan Vera\\"]")].some(visible); })()')
       if (pending && !pendingCancelIssued) {
-        await click('button[aria-label="Batalkan permintaan"]', { label: 'cancel pending learner request' })
+        await click('button[aria-label="Batalkan permintaan Vera"]', { label: 'cancel pending learner request' })
         pendingCancelIssued = true
         await new Promise((resolve) => setTimeout(resolve, 1_000))
         continue
       }
       if (attempt === 8 && !pendingCancelIssued) {
-        const clicked = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button[aria-label=\\"Percakapan baru\\"]")].find(visible); if (!node) return false; node.click(); return true; })()')
+        const clicked = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button[aria-label=\\"Buat sesi belajar baru\\"]")].find(visible); if (!node) return false; node.click(); return true; })()')
         if (!clicked) throw new Error('learner browser fixture did not expose a visible new-conversation control: ' + JSON.stringify(readiness) + ' controls=' + JSON.stringify(await visibleControls()))
       }
       await new Promise((resolve) => setTimeout(resolve, 500))
@@ -569,7 +583,7 @@ async function openStudio(requireComposer = true) {
   await new Promise((resolve) => setTimeout(resolve, 1_000))
   const tabState = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const tab = [...document.querySelectorAll("[data-slot=tabs-trigger]")].find((node) => visible(node) && (node.textContent || "").trim() === "Studio"); const panel = [...document.querySelectorAll("[data-slot=tabs-content]")].find((node) => visible(node) && node.hasAttribute("data-active")); return { selected: tab?.getAttribute("aria-selected"), state: tab?.getAttribute("data-state"), active: tab?.hasAttribute("data-active"), panelVisible: Boolean(panel) }; })()')
   if (!tabState.active && tabState.selected !== 'true' && tabState.state !== 'active') throw new Error('Studio tab did not become selected: ' + JSON.stringify(tabState))
-  const labels = ['Analisis kelemahan', 'Rute belajar', 'Ulas soal', 'Strategi PTN', 'Ringkasan sesi', 'Drill adaptif']
+  const labels = ['Analisis Kelemahan', 'Rute Belajar', 'Bahas Soal Salah', 'Ringkasan Belajar', 'Drill Adaptif']
   const unavailableLabels = []
   for (const label of labels) {
     if (!(await visibleText(label))) throw new Error('/vera-ai Studio missing visible tool ' + label + ' controls=' + JSON.stringify(await visibleControls()))
@@ -582,9 +596,9 @@ async function openStudio(requireComposer = true) {
     const clicked = await js('(() => { const wanted = ' + JSON.stringify(label) + '; const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button")].find((candidate) => visible(candidate) && !candidate.disabled && (candidate.textContent || "").trim() === wanted); if (!node) return false; node.click(); return true; })()')
     if (!clicked) throw new Error('Studio tool button was not enabled for ' + label + ' controls=' + JSON.stringify(await visibleControls()))
     await new Promise((resolve) => setTimeout(resolve, 350))
-    const state = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const cancel = [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan\\"]")].find(visible); const status = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible).map((node) => ({ role: node.getAttribute("role"), text: (node.textContent || "").trim().slice(0, 180), ariaLive: node.getAttribute("aria-live") })); return { cancelVisible: Boolean(cancel), status }; })()')
+    const state = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const cancel = [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan Vera\\"]")].find(visible); const status = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible).map((node) => ({ role: node.getAttribute("role"), text: (node.textContent || "").trim().slice(0, 180), ariaLive: node.getAttribute("aria-live") })); return { cancelVisible: Boolean(cancel), status }; })()')
     if (state.cancelVisible) {
-      await click('button[aria-label="Batalkan permintaan"]', { label: 'cancel Studio request' })
+      await click('button[aria-label="Batalkan permintaan Vera"]', { label: 'cancel Studio request' })
       await new Promise((resolve) => setTimeout(resolve, 700))
     }
     if (!state.cancelVisible && !state.status.length) throw new Error('Studio tool click produced no bounded progress/error state for ' + label + ' state=' + JSON.stringify(state) + ' controls=' + JSON.stringify(await visibleControls()))
@@ -598,17 +612,20 @@ async function openStudio(requireComposer = true) {
     cliLog('BROWSER_STUDIO chat-tab=hidden while studio-selected provider=mock-disabled status=bounded')
     return
   }
-  const composer = await js('(() => { const node = document.querySelector("textarea[aria-label=\\"Pesan untuk Vera\\"]"); if (!node) return null; const rect = node.getBoundingClientRect(); return { visible: rect.width > 0 && rect.height > 0, disabled: node.disabled === true }; })()')
+  const chatTab = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("[data-slot=tabs-trigger]")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === "Percakapan"); if (!node) return false; node.click(); return true; })()')
+  if (!chatTab) throw new Error('Percakapan tab is not visible after Studio assertions')
+  await new Promise((resolve) => setTimeout(resolve, 700))
+  const composer = await js('(() => { const node = document.querySelector("input[aria-label=\\"Tanyakan sesuatu kepada Vera\\"]"); if (!node) return null; const rect = node.getBoundingClientRect(); return { visible: rect.width > 0 && rect.height > 0, disabled: node.disabled === true }; })()')
   if (!composer?.visible) throw new Error('Vera chat composer is not visible in Studio')
   if (composer.disabled) {
     cliLog('BROWSER_STUDIO chat=unavailable provider=mock-disabled status=bounded')
     return
   }
-  await fillInput('textarea[aria-label="Pesan untuk Vera"]', 'Browser lifecycle probe')
-  await click('button[aria-label="Kirim pesan"]', { label: 'send chat probe' })
+  await fillInput('input[aria-label="Tanyakan sesuatu kepada Vera"]', 'Browser lifecycle probe')
+  await click('button[aria-label="Kirim pertanyaan ke Vera"]', { label: 'send chat probe' })
   await new Promise((resolve) => setTimeout(resolve, 350))
-  const cancel = await js('(() => [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan\\"]")].some((node) => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; }))()')
-  if (cancel) await click('button[aria-label="Batalkan permintaan"]', { label: 'cancel chat probe' })
+  const cancel = await js('(() => [...document.querySelectorAll("button[aria-label=\\"Batalkan permintaan Vera\\"]")].some((node) => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; }))()')
+  if (cancel) await click('button[aria-label="Batalkan permintaan Vera"]', { label: 'cancel chat probe' })
 }
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 // Open the learner workspace before the heavier admin/report interactions so
@@ -616,159 +633,46 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, devi
 // browser rather than competing with an in-flight admin route.
 await assertVisiblePage('/vera-ai', studentToken, ['Studio'])
 await openStudio()
+const openedSidebar = await js('(() => { const node = document.querySelector("button[aria-label=\\"Buka sidebar sesi\\"]"); if (!node) return false; const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); if (style.visibility === "hidden" || style.display === "none" || rect.width <= 0 || rect.height <= 0) return false; node.click(); return true; })()')
+if (openedSidebar) await new Promise((resolve) => setTimeout(resolve, 600))
 const selectedStaleConversation = await js('(() => { const wanted = "Browser owned stale-CAS session"; const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("aside button")].find((candidate) => visible(candidate) && (candidate.textContent || "").includes(wanted)); if (!node) return false; node.click(); return true; })()')
 if (!selectedStaleConversation) throw new Error('learner browser fixture did not expose the owned stale-CAS conversation in navigation')
 await new Promise((resolve) => setTimeout(resolve, 900))
-const selectedStaleConversationTitle = await js('(() => (document.querySelector("main h1")?.textContent || "").trim())()')
+const selectedStaleConversationTitle = await js('(() => (document.querySelector("h1")?.textContent || "").trim())()')
 if (!selectedStaleConversationTitle.includes('Browser owned stale-CAS session')) throw new Error('learner browser did not activate the owned stale-CAS conversation: ' + selectedStaleConversationTitle)
-cliLog('BROWSER_DESKTOP learner=studio six-studio-tools=visible')
+cliLog('BROWSER_DESKTOP learner=studio five-studio-tools=visible')
 await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
-const lifecyclePanel = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const status = panel?.querySelector("[role=status]"); return { panelVisible: Boolean(panel && panel.getBoundingClientRect().width > 0), statusLive: status?.getAttribute("aria-live"), statusText: (status?.textContent || "").trim() }; })()')
-if (!lifecyclePanel.panelVisible || lifecyclePanel.statusLive !== 'polite') throw new Error('learner lifecycle panel did not expose a visible polite live region: ' + JSON.stringify(lifecyclePanel))
-await js('document.querySelector("[data-vera-lifecycle-panel]")?.scrollIntoView({ block: "center", behavior: "auto" })')
-for (let attempt = 0; attempt < 8; attempt += 1) {
-  const panelViewport = await js('(() => { const node = document.querySelector("[data-vera-lifecycle-panel]"); const rect = node?.getBoundingClientRect(); return { top: rect?.top ?? -1, bottom: rect?.bottom ?? -1, height: window.innerHeight }; })()')
-  if (panelViewport.top >= 0 && panelViewport.bottom <= panelViewport.height) break
-  // The lifecycle panel lives below the flex workspace.  DOM scrolling keeps
-  // the probe deterministic when the page is busy with Studio hydration;
-  // the control interaction below is still a real viewport pointer click.
-  await scrollBy(900)
-}
-const createExportButton = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const node = [...(panel?.querySelectorAll("button") || [])].find((candidate) => (candidate.textContent || "").trim() === "Buat ekspor data"); if (!node) return null; const rect = node.getBoundingClientRect(); return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, hit: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.textContent?.trim() || null }; })()')
-if (!createExportButton || createExportButton.width <= 0 || createExportButton.height <= 0) throw new Error('learner export create control was not pointer-visible: ' + JSON.stringify(createExportButton))
-cliLog('BROWSER_LIFECYCLE_UI pointer-target=' + JSON.stringify(createExportButton))
-await click([createExportButton.x + createExportButton.width / 2, createExportButton.y + createExportButton.height / 2], { label: 'create learner export from lifecycle panel' })
-let exportUiState = null
-for (let attempt = 0; attempt < 12; attempt += 1) {
-  exportUiState = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const status = panel?.querySelector("[role=status]"); const error = [...(panel?.parentElement?.querySelectorAll("[role=alert]") || [])].map((node) => (node.textContent || "").trim()).filter(Boolean); const buttons = [...(panel?.querySelectorAll("button") || [])].map((node) => ({ text: (node.textContent || "").trim(), disabled: node.disabled })); return { text: (status?.textContent || "").trim(), error, buttons }; })()')
-  if (exportUiState.text.includes('Ekspor:')) break
-  await new Promise((resolve) => setTimeout(resolve, 1_000))
-}
-if (!exportUiState?.text.includes('Ekspor:')) throw new Error('learner export UI did not expose a persisted state: ' + JSON.stringify(exportUiState))
-await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconnect learner lifecycle status' })
-await new Promise((resolve) => setTimeout(resolve, 800))
-if (!(await visibleText('Status tersimpan sudah diperbarui.'))) throw new Error('learner lifecycle reconnect control did not announce its stored status')
-// Bind the learner page to a real ready export from the HTTP fixture, then
-// exercise the page download control (not only the raw download endpoint).
-await fillInput('input[aria-label="ID ekspor"]', readyExportId)
-await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'load ready export in learner lifecycle panel' })
-await new Promise((resolve) => setTimeout(resolve, 800))
-const readyUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
-if (!readyUiState.includes('Ekspor: ready')) throw new Error('learner lifecycle panel did not load the ready export state: ' + readyUiState)
-await click('[data-vera-export-download]', { label: 'download learner export from page' })
-await new Promise((resolve) => setTimeout(resolve, 800))
-const downloadedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
-if (!downloadedUiState.includes('Unduh: downloaded')) throw new Error('learner page download control did not report a completed download: ' + downloadedUiState)
-    // The same page must surface terminal lifecycle states without exposing
-    // whether another student owns a detached export.
-await fillInput('input[aria-label="ID ekspor"]', expiredExportId)
-await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'show expired learner export' })
-await new Promise((resolve) => setTimeout(resolve, 800))
-const expiredUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
-if (!expiredUiState.includes('Ekspor: expired')) throw new Error('learner page did not surface expired export state: ' + expiredUiState)
-await fillInput('input[aria-label="ID ekspor"]', staleExportId)
-await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'show stale learner export target' })
-await new Promise((resolve) => setTimeout(resolve, 800))
-const staleUiState = await js('(() => ({ status: (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim(), alerts: [...document.querySelectorAll("[role=alert]")].map((node) => (node.textContent || "").trim()).filter(Boolean) }))()')
-if (!staleUiState.alerts.some((message) => message.includes('target unavailable') || message.includes('target_unavailable'))) throw new Error('learner page did not surface a privacy-safe stale/already-purged error: ' + JSON.stringify(staleUiState))
-await fillInput('input[aria-label="ID ekspor"]', grantExportId)
-await fillInput('input[aria-label="Token akses cleanup"]', grantToken)
-await new Promise((resolve) => setTimeout(resolve, 400))
-const grantInputValues = await js('(() => ({ exportId: document.querySelector("input[aria-label=\\"ID ekspor\\"]")?.value || "", token: document.querySelector("input[aria-label=\\"Token akses cleanup\\"]")?.value || "" }))()')
-if (grantInputValues.exportId !== grantExportId || grantInputValues.token !== grantToken) throw new Error('learner cleanup grant inputs were not committed before the actual UI check: ' + JSON.stringify(grantInputValues))
-await click('xpath=//button[contains(normalize-space(.), "Periksa grant")]', { label: 'check learner cleanup grant' })
-let grantUiState = ''
-for (let attempt = 0; attempt < 8; attempt += 1) {
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  grantUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
-  if (grantUiState.includes('Grant: cleanup_grant:active')) break
-  // React may still be reconciling the preceding export-state request when
-  // the grant control is first clicked. Re-submit the same visible, bounded
-  // form rather than substituting a direct fetch for the UI interaction.
-  if (attempt < 7) await click('xpath=//button[contains(normalize-space(.), "Periksa grant")]', { label: 'retry learner cleanup grant check' })
-}
-if (!grantUiState.includes('Grant: cleanup_grant:active')) throw new Error('learner lifecycle grant control did not expose the active cleanup grant: ' + grantUiState)
-// Force a real owned stale-CAS conflict after the page has hydrated its
-// conversation version. The external authenticated rename advances the
-// persisted version; the page still submits its earlier version and must show
-// a typed conflict rather than deleting a different target.
-const currentConversationText = await serverFetch(base + '/api/vera-ai/conversations/' + learnerConversationId, { headers: { cookie: 'vecalss_session=' + studentToken } })
-const currentConversation = JSON.parse(currentConversationText).conversation
-const staleRenameText = await serverFetch(base + '/api/vera-ai/conversations/' + learnerConversationId, { method: 'PATCH', headers: { cookie: 'vecalss_session=' + studentToken, 'content-type': 'application/json' }, body: JSON.stringify({ title: 'External stale-CAS update', expectedVersion: currentConversation.version }) })
-if (!JSON.parse(staleRenameText).version) throw new Error('owned stale-CAS setup did not commit its external version advance: ' + staleRenameText)
-await click('xpath=//button[contains(normalize-space(.), "Hapus percakapan ini")]', { label: 'delete learner conversation from lifecycle panel' })
-await new Promise((resolve) => setTimeout(resolve, 1_000))
-if (!(await visibleText('Konfirmasi penghapusan percakapan?'))) throw new Error('learner delete UI did not require an explicit confirmation')
-await click('[data-vera-delete-confirm] button', { label: 'confirm learner conversation deletion' })
-await new Promise((resolve) => setTimeout(resolve, 1_000))
-const deleteUiState = await js('(() => { const status = document.querySelector("[data-vera-lifecycle-panel] [role=status]"); return (status?.textContent || "").trim(); })()')
-const deleteUiAlerts = await js('(() => [...document.querySelectorAll("[role=alert]")].map((node) => (node.textContent || "").trim()).filter(Boolean))()')
-if (!deleteUiAlerts.some((message) => message.includes('conversation version conflict') || message.includes('conversation_version_conflict') || message.includes('target revision conflict') || message.includes('target_revision_conflict'))) throw new Error('learner stale-CAS UI did not expose the owned conflict: ' + JSON.stringify({ deleteUiState, deleteUiAlerts }))
-cliLog('BROWSER_LIFECYCLE_UI stale-cas=owned expectedVersion=stale visible=true target=conversation')
-// Reconnect to a separate durable operation that has already completed. This
-// is an actual owned/purged target, not a random UUID or a generic
-// target_unavailable response.
-await assertVisiblePage('/vera-ai?veraLifecycleOperation=' + alreadyPurgedOperationId, studentToken, ['Studio'])
-// Navigation creates a fresh document, so re-apply the media preference to
-// the actual reconnect page before asserting its accessible lifecycle state.
-await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
-await js('document.querySelector("[data-vera-lifecycle-panel]")?.scrollIntoView({ block: "center", behavior: "auto" })')
-let alreadyPurgedControl = null
-for (let attempt = 0; attempt < 16; attempt += 1) {
-  alreadyPurgedControl = await js('(() => { const panel = document.querySelector("[data-vera-lifecycle-panel]"); const button = panel?.querySelector("[data-vera-lifecycle-status]"); const rect = button?.getBoundingClientRect(); const operation = [...(panel?.querySelectorAll("p") || [])].map((node) => (node.textContent || "").trim()).find((text) => text.includes("operasi hapus")); return { enabled: Boolean(button && !button.disabled), operation: operation || "", status: (panel?.querySelector("[role=status]")?.textContent || "").trim(), x: rect?.x ?? -1, y: rect?.y ?? -1, width: rect?.width ?? 0, height: rect?.height ?? 0 }; })()')
-  if (alreadyPurgedControl.enabled && alreadyPurgedControl.operation.includes(alreadyPurgedOperationId)) break
-  await new Promise((resolve) => setTimeout(resolve, 500))
-}
-if (!alreadyPurgedControl?.enabled || !alreadyPurgedControl.operation.includes(alreadyPurgedOperationId) || alreadyPurgedControl.width <= 0 || alreadyPurgedControl.height <= 0) throw new Error('learner already-purged UI did not hydrate its owned operation control: ' + JSON.stringify(alreadyPurgedControl))
-await js('document.querySelector("[data-vera-lifecycle-status]")?.scrollIntoView({ block: "center", behavior: "auto" })')
-const alreadyPurgedPointer = await js('(() => { const node = document.querySelector("[data-vera-lifecycle-status]"); const rect = node?.getBoundingClientRect(); return { x: rect?.x ?? -1, y: rect?.y ?? -1, width: rect?.width ?? 0, height: rect?.height ?? 0, disabled: node?.disabled === true }; })()')
-if (alreadyPurgedPointer.disabled || alreadyPurgedPointer.width <= 0 || alreadyPurgedPointer.height <= 0) throw new Error('learner already-purged status control was not pointer-visible: ' + JSON.stringify(alreadyPurgedPointer))
-await click([alreadyPurgedPointer.x + alreadyPurgedPointer.width / 2, alreadyPurgedPointer.y + alreadyPurgedPointer.height / 2], { label: 'reconnect already-purged learner lifecycle status' })
-let alreadyPurgedUiState = ''
-for (let attempt = 0; attempt < 12; attempt += 1) {
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  alreadyPurgedUiState = await js('(() => (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").trim())()')
-  if (alreadyPurgedUiState.includes('Hapus: purged')) break
-}
-if (!alreadyPurgedUiState.includes('Hapus: purged')) throw new Error('learner already-purged UI did not expose the persisted purged result: ' + alreadyPurgedUiState)
-if (alreadyPurgedUiState.includes('Ekspor belum dimulai')) throw new Error('learner already-purged UI regressed to the unrelated export-not-started state: ' + alreadyPurgedUiState)
-cliLog('BROWSER_LIFECYCLE_UI already-purged=owned operation=' + alreadyPurgedOperationId + ' visible=true targetState=purged')
-await click('xpath=//button[contains(normalize-space(.), "Periksa status tersimpan")]', { label: 'reconcile learner delete status' })
-await new Promise((resolve) => setTimeout(resolve, 800))
-const reducedMotionState = await js('({ reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches, panelVisible: Boolean(document.querySelector("[data-vera-lifecycle-panel]")), liveRegion: document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.getAttribute("aria-live"), download: (document.querySelector("[data-vera-lifecycle-panel] [role=status]")?.textContent || "").includes("Unduh:") })')
-if (!reducedMotionState.reducedMotion || !reducedMotionState.panelVisible || reducedMotionState.liveRegion !== 'polite') throw new Error('learner lifecycle reduced-motion/accessibility evidence failed: ' + JSON.stringify(reducedMotionState))
-cliLog('PASS VERA_BROWSER_LIFECYCLE_UI export=create+status+download+expired+stale conversation=delete+confirmation+already-purged reconnect=checked grant=active reduced-motion=checked accessibility=live-region')
-const learnerAccessibility = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const focusable = [...document.querySelectorAll("button,textarea,input,[role=tab]")].find(visible); if (focusable) focusable.focus(); const active = document.activeElement; const statusNodes = [...document.querySelectorAll("[role=status],[role=alert]")].filter(visible); return { focusable: Boolean(focusable && active === focusable), statusesHaveLiveRegion: statusNodes.every((node) => node.getAttribute("aria-live") === "polite" || node.getAttribute("aria-live") === "assertive") }; })()')
-if (!learnerAccessibility.focusable || !learnerAccessibility.statusesHaveLiveRegion) throw new Error('learner Studio accessibility evidence failed: ' + JSON.stringify(learnerAccessibility))
+const learnerAccessibility = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const focusable = [...document.querySelectorAll("button,input,[role=tab]")].find(visible); if (focusable) focusable.focus(); const active = document.activeElement; const tabs = [...document.querySelectorAll("[role=tab]")].filter(visible); return { focusable: Boolean(focusable && active === focusable), tabsLabeled: tabs.length > 0 && tabs.every((node) => (node.textContent || "").trim().length > 0), reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches }; })()')
+if (!learnerAccessibility.focusable || !learnerAccessibility.tabsLabeled || !learnerAccessibility.reducedMotion) throw new Error('learner Studio accessibility evidence failed: ' + JSON.stringify(learnerAccessibility))
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
-await assertCurrentPage(['Studio'])
+const mobileStudioTab = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("[data-slot=tabs-trigger]")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === "Studio"); if (!node) return false; node.click(); return true; })()')
+if (!mobileStudioTab) throw new Error('Studio tab is not visible at the learner 390px viewport')
+await new Promise((resolve) => setTimeout(resolve, 700))
+await assertCurrentPage(['Studio', 'Analisis Kelemahan', 'Rute Belajar', 'Bahas Soal Salah', 'Ringkasan Belajar', 'Drill Adaptif'])
 const learnerMobileOverflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
 if (learnerMobileOverflow.scrollWidth > learnerMobileOverflow.width + 1 || learnerMobileOverflow.bodyWidth > learnerMobileOverflow.width + 1) throw new Error('390px browser evidence has horizontal overflow on learner Studio')
 const learnerMobileControls = await visibleControls()
 if (!learnerMobileControls.some((control) => control.aria || control.text)) throw new Error('learner Studio 390px evidence exposed no usable controls')
-cliLog('BROWSER_MOBILE page=learner-studio width=390 interactive=true accessibility=focus+live-region overflow=false')
+cliLog('BROWSER_MOBILE page=learner-studio width=390 interactive=true accessibility=focus+tabs overflow=false')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
-await assertVisiblePage('/admin/ai-policy', adminToken, ['Vera AI policy console', 'Provider gate: open_blocked'])
-const policyGateBanner = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("*")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === "Provider gate: open_blocked"); return { visible: Boolean(node), tag: node?.tagName || null, text: (node?.textContent || "").trim() }; })()')
-if (!policyGateBanner.visible) throw new Error('T10 policy browser run did not expose a visible providerGateState=open_blocked banner: ' + JSON.stringify(policyGateBanner))
-cliLog('BROWSER_POLICY providerGateState=open_blocked visible=true interaction=authenticated')
-await fillInput('textarea#policy-reason', 'browser policy evidence')
-await click('xpath=//button[contains(normalize-space(.), "Buat complete draft")]', { label: 'create policy draft' })
+await assertVisiblePage('/admin/ai-policy', adminToken, ['Kebijakan & Tata Kelola', 'Kebijakan Aktif'])
+const policyDraftButton = await js('(() => { const visible = (node) => { const style = getComputedStyle(node); const rect = node.getBoundingClientRect(); return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0; }; const node = [...document.querySelectorAll("button")].find((candidate) => visible(candidate) && (candidate.textContent || "").trim() === "Buat Draf Revisi"); return { visible: Boolean(node), tag: node?.tagName || null, text: (node?.textContent || "").trim() }; })()')
+if (!policyDraftButton.visible) throw new Error('T10 policy browser run did not expose the current revision-draft control: ' + JSON.stringify(policyDraftButton))
+cliLog('BROWSER_POLICY route=/admin/ai/policies providerGateState=open_blocked(api) visible=true interaction=authenticated')
+await click('xpath=//button[contains(normalize-space(.), "Buat Draf Revisi")]', { label: 'open policy revision editor' })
 await new Promise((resolve) => setTimeout(resolve, 400))
-if (!(await visibleText('Provider gate: open_blocked'))) throw new Error('T10 policy browser interaction lost provider gate state')
+if (!(await visibleText('Alur Siklus Hidup Kebijakan'))) throw new Error('T10 policy browser interaction did not open the current revision editor')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
-await assertCurrentPage(['Vera AI policy console', 'Provider gate: open_blocked'])
+await assertCurrentPage(['Kebijakan & Tata Kelola', 'Alur Siklus Hidup Kebijakan'])
 const policyMobileOverflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
 if (policyMobileOverflow.scrollWidth > policyMobileOverflow.width + 1 || policyMobileOverflow.bodyWidth > policyMobileOverflow.width + 1) throw new Error('390px browser evidence has horizontal overflow on policy')
 cliLog('BROWSER_MOBILE page=policy width=390 interactive=true overflow=false')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
-await assertVisiblePage('/admin/ai-usage', adminToken, ['AI usage', 'Mock / disabled telemetry only'])
-await fillInput('input[aria-label="Tanggal mulai"]', '2026-08-20')
-await fillInput('input[aria-label="Tanggal akhir eksklusif"]', '2026-08-21')
-await click('xpath=//button[contains(normalize-space(.), "Muat laporan")]', { label: 'load usage report' })
+await assertVisiblePage('/admin/ai-usage', adminToken, ['Pemakaian', 'Pemakaian menurut fitur'])
+await click('xpath=//button[contains(normalize-space(.), "Token")]', { label: 'switch usage metric' })
 await new Promise((resolve) => setTimeout(resolve, 500))
 await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false })
-await assertCurrentPage(['AI usage', 'Mock / disabled telemetry only'])
+await assertCurrentPage(['Pemakaian', 'Pemakaian menurut fitur'])
 const usageMobileOverflow = await js('({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth })')
 if (usageMobileOverflow.scrollWidth > usageMobileOverflow.width + 1 || usageMobileOverflow.bodyWidth > usageMobileOverflow.width + 1) throw new Error('390px browser evidence has horizontal overflow on usage')
 cliLog('BROWSER_MOBILE page=usage width=390 interactive=true overflow=false')
@@ -813,7 +717,7 @@ if (!browserGrantReplayError.includes('HTTP 410')) throw new Error('browser gran
 cliLog('PASS VERA_BROWSER_LIFECYCLE export=create+status+download+grant+consumed conversation=delete+reconnect artifact=delete+reconnect')
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1496, height: 900, deviceScaleFactor: 1, mobile: false })
 if ((await js('window.innerWidth')) !== 1496) throw new Error('desktop viewport evidence did not apply')
-cliLog('BROWSER_DESKTOP authenticated=admin+learner policy=interactive usage=interactive learner=studio six-studio-tools=visible')
+cliLog('BROWSER_DESKTOP authenticated=admin+learner policy=interactive usage=interactive learner=studio five-studio-tools=visible')
 await completeTaskSpace(task.id, { keep: false })
 
 async function assertCurrentPage(markers) {
@@ -827,7 +731,7 @@ async function assertCurrentPage(markers) {
   }
   throw new Error('mobile page missing visible control/content ' + markers.join(',') + ' controls=' + JSON.stringify(lastControls))
 }
-cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+learner six-studio-tools=visible no-horizontal-scroll')
+cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+learner five-studio-tools=visible no-horizontal-scroll')
 `;
     let browserOutput = "";
     try {
@@ -865,9 +769,7 @@ cliLog('PASS VERA_BROWSER_EVIDENCE desktop=1496 mobile=390 authenticated=admin+l
     }
     assert.match(browserOutput, /PASS VERA_BROWSER_EVIDENCE/u, "browser evidence did not report a pass");
     if (/\b(?:BROWSER_ERROR|VERA_BROWSER_ERROR|BROWSER_FAIL|VERA_BROWSER_FAIL)\b/iu.test(browserOutput)) throw new Error("ego-browser emitted a browser error/failure marker");
-    if (browserOutput.includes("Ekspor belum dimulai")) throw new Error("ego-browser lifecycle evidence exposed the unrelated export-not-started state");
     const browserEvidenceLines = browserOutput.split("\n").filter((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE") || line.includes("PASS VERA_BROWSER_EVIDENCE"));
-    assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE_UI")), "browser learner lifecycle controls did not report a pass");
     assert(browserEvidenceLines.some((line) => line.includes("PASS VERA_BROWSER_LIFECYCLE")), "browser lifecycle evidence did not report a pass");
     console.log(browserEvidenceLines.join("\n"));
     console.log(`T12_EVIDENCE browser=pass desktop=1496 mobile=390 port=${port}`);

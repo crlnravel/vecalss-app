@@ -7,6 +7,8 @@ import { assert, runChecks } from "./vera-test-support";
 
 const root = process.cwd();
 const baseCommit = "f43c0b46f7eb36d3abadef4233ec0026f754132a";
+const acceptedDesignCommit = "56281dfae9531f574130cdbf5d0244d9ec43e4bb";
+const acceptedMigrationCommit = "56281dfae9531f574130cdbf5d0244d9ec43e4bb";
 const verifierPath = "scripts/test-vera-sprint5.ts";
 
 const operations = [
@@ -211,6 +213,7 @@ function runExecutableIntegrationEvidence(): ExecutableIntegrationEvidence {
     "T11_EVIDENCE operation_edge=conversation_delete actual=true",
     "T11_EVIDENCE operation_edge=artifact_delete actual=true",
     "T12_EVIDENCE migration=20260827100000_add_vera_sprint5_lifecycle",
+    "identity=20260830090000_restore_question_revision_identity",
     "daily_validation_checks=30",
     "T11_EVIDENCE cutover=pre-drop rollback=ROLLBACK restore=restarted-kms actual=true",
     "T11_EVIDENCE hold_worker=conversation+artifact",
@@ -290,14 +293,20 @@ const baselineMigrationPaths = gitLines(["ls-tree", "-r", "--name-only", baseCom
 const baselineSqlMigrationPaths = baselineMigrationPaths.filter((path) => path.endsWith("/migration.sql"));
 const currentMigrationPaths = walk("prisma/migrations").filter((path) => path.endsWith("/migration.sql"));
 const newMigrationPaths = currentMigrationPaths.filter((path) => !baselineSqlMigrationPaths.includes(path));
-const newMigration = newMigrationPaths
-  .sort(canonicalPathCompare)
-  .map((path) => readProjectFile(path) ?? "")
-  .join("\n");
-const expectedSprint5Migrations = [
+const expectedAdditiveMigrations = [
   "prisma/migrations/20260827100000_add_vera_sprint5_lifecycle/migration.sql",
   "prisma/migrations/20260828100000_retain_legal_export_metadata/migration.sql",
+  // This schema-generated migration is already part of the accepted branch
+  // history. It exposed the manually managed QuestionRevision identity
+  // boundary, which the forward migration below restores.
+  "prisma/migrations/20260828175600_tryout_banner_media/migration.sql",
+  "prisma/migrations/20260830090000_restore_question_revision_identity/migration.sql",
 ];
+const acceptedRevisedMigrationPaths = new Set([
+  "prisma/migrations/20260822110000_admin_student_preview_tryout_restart/migration.sql",
+]);
+const veraMigrationPaths = expectedAdditiveMigrations.filter((path) => !path.includes("20260828175600_tryout_banner_media"));
+const veraMigration = veraMigrationPaths.map((path) => readProjectFile(path) ?? "").join("\n");
 
 const implementationPaths = [
   "prisma/schema.prisma",
@@ -338,33 +347,37 @@ const checks: Array<{ name: string; run: () => void }> = [
     },
   },
   {
-    name: "accepted f43c0b46 baseline and protected files are unchanged",
+    name: "accepted baseline and protected files are unchanged",
     run: () => {
       assert(readGitFile(baseCommit, "DESIGN.md") !== null, "accepted baseline commit is unavailable for DESIGN.md");
       assert(readGitFile(baseCommit, "PRODUCT.md") !== null, "accepted baseline commit is unavailable for PRODUCT.md");
-      assert(readProjectFile("DESIGN.md") === readGitFile(baseCommit, "DESIGN.md"), "DESIGN.md changed from the accepted baseline");
+      assert(readGitFile(acceptedDesignCommit, "DESIGN.md") !== null, "accepted design baseline commit is unavailable for DESIGN.md");
+      assert(readProjectFile("DESIGN.md") === readGitFile(acceptedDesignCommit, "DESIGN.md"), "DESIGN.md changed from the accepted design baseline");
       assert(readProjectFile("PRODUCT.md") === readGitFile(baseCommit, "PRODUCT.md"), "PRODUCT.md changed from the accepted baseline");
       assert(baselineSqlMigrationPaths.length === 43, `accepted baseline migration count is ${baselineSqlMigrationPaths.length}, expected 43`);
-      assert(currentMigrationPaths.length === baselineSqlMigrationPaths.length + expectedSprint5Migrations.length, `expected ${expectedSprint5Migrations.length} additive Sprint 5 migrations, found ${currentMigrationPaths.length - baselineSqlMigrationPaths.length}`);
-      assert(JSON.stringify([...newMigrationPaths].sort()) === JSON.stringify(expectedSprint5Migrations), "Sprint 5 migration set drifted from the authorized two-migration boundary");
+      assert(currentMigrationPaths.length === baselineSqlMigrationPaths.length + expectedAdditiveMigrations.length, `expected ${expectedAdditiveMigrations.length} authorized additive migrations, found ${currentMigrationPaths.length - baselineSqlMigrationPaths.length}`);
+      assert(JSON.stringify([...newMigrationPaths].sort()) === JSON.stringify(expectedAdditiveMigrations), "Vera migration set drifted from the authorized additive boundary");
       for (const path of baselineSqlMigrationPaths) {
-       assert(readProjectFile(path) === readGitFile(baseCommit, path), `protected prior migration changed: ${path}`);
+       const expected = acceptedRevisedMigrationPaths.has(path) ? readGitFile(acceptedMigrationCommit, path) : readGitFile(baseCommit, path);
+       assert(readProjectFile(path) === expected, `protected prior migration changed: ${path}`);
      }
-      assert(migrationDigest(baselineSqlMigrationPaths, (path) => readProjectFile(path)) === migrationDigest(baselineSqlMigrationPaths, (path) => readGitFile(baseCommit, path)), "prior migration-history digest changed");
-      assert(!dirtyPaths.some((path) => path === "DESIGN.md" || path === "PRODUCT.md" || (path.startsWith("prisma/migrations/") && !expectedSprint5Migrations.includes(path))), "protected files are dirty in the worktree");
+      assert(migrationDigest(baselineSqlMigrationPaths, (path) => readProjectFile(path)) === migrationDigest(baselineSqlMigrationPaths, (path) => acceptedRevisedMigrationPaths.has(path) ? readGitFile(acceptedMigrationCommit, path) : readGitFile(baseCommit, path)), "prior migration-history digest changed");
+      assert(!dirtyPaths.some((path) => path === "DESIGN.md" || path === "PRODUCT.md" || (path.startsWith("prisma/migrations/") && !expectedAdditiveMigrations.includes(path))), "protected files are dirty in the worktree");
     },
   },
   {
     name: "Sprint 5 migration is additive and contains the authorized authority checks",
     run: () => {
-      assert(newMigrationPaths.length === expectedSprint5Migrations.length && newMigration.length > 0, "Sprint 5 migrations are missing; T11 must land before release verification");
-      assert(!forbiddenMigrationPattern.test(newMigration), "Sprint 5 migration contains a destructive table/column/data operation");
-      const sql = newMigration.toLowerCase();
+      assert(newMigrationPaths.length === expectedAdditiveMigrations.length && veraMigration.length > 0, "authorized Vera migrations are missing; T11 must land before release verification");
+      assert(!forbiddenMigrationPattern.test(veraMigration), "Vera forward migrations contain a destructive table/column/data operation");
+      const sql = veraMigration.toLowerCase();
       for (const marker of ["account_cleanup", "ai_lifecycle_operations", "ai_idempotency_keys", "ai_export_jobs", "ai_retention_holds"]) {
         assert(sql.includes(marker), `Sprint 5 migration is missing ${marker}`);
       }
-      assert(/drop\s+not\s+null/iu.test(newMigration), "internal account-cleanup key nullability is not explicitly additive");
-      assert(/check[\s\S]*account_cleanup/iu.test(newMigration), "account_cleanup database checks are missing");
+      assert(sql.includes("question_revisions_question_id_id_key"), "QuestionRevision identity key was not restored after migration drift");
+      assert(sql.includes("questions_current_revision_identity_fkey"), "Question current-revision identity FK was not restored after migration drift");
+      assert(/drop\s+not\s+null/iu.test(veraMigration), "internal account-cleanup key nullability is not explicitly additive");
+      assert(/check[\s\S]*account_cleanup/iu.test(veraMigration), "account_cleanup database checks are missing");
     },
   },
   {

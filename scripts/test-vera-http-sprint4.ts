@@ -24,23 +24,21 @@ for (const file of routeFiles) {
   check(source.includes("responseForPolicyError"), `${file} returns typed policy errors`);
 }
 const page = readFileSync("app/admin/ai-policy/page.tsx", "utf8");
-const uiModule = readFileSync("modules/admin/AiPolicyPageModule.tsx", "utf8");
-const usageUi = readFileSync("modules/admin/AiUsagePageModule.tsx", "utf8");
-check(page.includes("requireAdminSession"), "policy page is admin guarded");
-check(uiModule.includes("open_blocked"), "UI exposes the closed provider gate");
-check(uiModule.includes("pending") && uiModule.includes("T11"), "UI explains pending retention handoff");
-check(!uiModule.includes("textarea") || uiModule.includes("Alasan perubahan"), "UI textarea is bounded reason input, not a JSON editor");
-check(!uiModule.includes("providerUrl") && !uiModule.includes("apiKey") && !uiModule.includes("liveProvider"), "UI exposes no provider control");
-for (const marker of ["validateDraft", "previewDraft", "approveDraft", "scheduleDraft", "activateDraft", "rollbackBundle", "datetime-local", "policy-lifecycle-controls", "typed-policy-controls", "Grouped quota / plan mapping", "Per-mode input / output / reservation", "Report budget / burst", "Forward evidence / content TTL"]) {
+const canonicalPage = readFileSync("app/admin/ai/policies/page.tsx", "utf8");
+const uiModule = readFileSync("modules/admin/ai/AiPoliciesPageModule.tsx", "utf8");
+const usageUi = readFileSync("modules/admin/ai/AiUsagePageModule.tsx", "utf8");
+check(page.includes("redirect(\"/admin/ai/policies\")"), "legacy policy route redirects to the canonical page");
+check(canonicalPage.includes("requireAdminSession"), "canonical policy page is admin guarded");
+for (const marker of ["Kebijakan & Tata Kelola", "Kebijakan Aktif", "Buat Draf Revisi", "Alur Siklus Hidup Kebijakan", "Persetujuan Ganda (Dual Approval)", "Simulasi Dampak (Berdasarkan Data 7 Hari Terakhir)", "Riwayat Versi Kebijakan & Korelasi Metrik"]) {
   check(uiModule.includes(marker), `policy UI exposes ${marker}`);
 }
-for (const marker of ["comparison", "gateway", "upstream", "model", "Tanggal akhir eksklusif", "sm:grid-cols", "disembunyikan", "Mock / disabled"] as const) {
+check(!uiModule.includes("providerUrl") && !uiModule.includes("apiKey") && !uiModule.includes("liveProvider"), "UI exposes no provider control");
+for (const marker of ["Pemakaian menurut fitur", "Perkiraan biaya", "Ukuran penggunaan", "Periode", "API Request", "Kuota terpakai", "disembunyikan", "sm:grid-cols"] as const) {
   check(usageUi.toLowerCase().includes(marker.toLowerCase()), `usage UI includes ${marker}`);
 }
-for (const marker of ["gateway !== \"all\"", "upstreamProvider !== \"all\"", "model !== \"all\""] as const) {
-  check(usageUi.includes(marker), `usage query wires ${marker}`);
-}
-check(!usageUi.includes("min-w-[680px]") && !usageUi.includes("overflow-x-auto"), "usage populated/mobile tables do not require horizontal scrolling");
-check(!uiModule.includes("min-w-[700px]") && !uiModule.includes("overflow-x-auto"), "policy history does not require horizontal scrolling");
+check(usageUi.includes("metric") && usageUi.includes("period") && usageUi.includes("/api/admin/ai/usage?"), "usage query wires the current metric/period controls");
+check(!usageUi.includes("min-w-[680px]"), "usage tables do not require a fixed desktop width");
+check(usageUi.includes("overflow-x-auto"), "usage tables keep overflow inside bounded containers");
+check(!uiModule.includes("min-w-[700px]"), "policy views do not require a fixed desktop width");
 check(!routeFiles.some((file) => readFileSync(file, "utf8").includes("AiReportReservation")), "routes do not duplicate T9 reservation ownership");
 console.log(`PASS vera-http-sprint4: ${checks} checks`);
